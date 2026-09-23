@@ -38,10 +38,10 @@ test.describe('CRM player classification persistence', () => {
     const sheet = page.getByTestId('crm-player-access-sheet');
     await expect(sheet).toBeVisible();
     const selects = sheet.getByRole('combobox');
-    await expect(selects).toHaveCount(3);
+    await expect(selects).toHaveCount(4);
     await selects.nth(0).selectOption('club');
-    await selects.nth(1).selectOption('team');
-    await selects.nth(2).selectOption('host');
+    await selects.nth(2).selectOption('team');
+    await selects.nth(3).selectOption('host');
     await noOverflow(page);
     await shot(page, testInfo, 'crm-player-access-editor-360x800.png');
 
@@ -59,8 +59,9 @@ test.describe('CRM player classification persistence', () => {
     const reopened = page.getByTestId('crm-player-access-sheet');
     const persisted = reopened.getByRole('combobox');
     await expect(persisted.nth(0)).toHaveValue('club');
-    await expect(persisted.nth(1)).toHaveValue('team');
-    await expect(persisted.nth(2)).toHaveValue('host');
+    await expect(persisted.nth(1)).toHaveValue('member');
+    await expect(persisted.nth(2)).toHaveValue('team');
+    await expect(persisted.nth(3)).toHaveValue('host');
   });
 
   test('keeps the editor open with selected values after a server error and shows CRM confirmation', async ({ page }, testInfo) => {

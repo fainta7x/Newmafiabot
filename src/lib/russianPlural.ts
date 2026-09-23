@@ -19,3 +19,4 @@ const count = (one: string, few: string, many: string) => (value: number | null 
 export const countGames = count('игра', 'игры', 'игр');
 export const countPlayers = count('игрок', 'игрока', 'игроков');
 export const countWins = count('победа', 'победы', 'побед');
+export const countVisits = count('визит', 'визита', 'визитов');

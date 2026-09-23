@@ -84,10 +84,10 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     const players = await db.all(`
       SELECT p.*,
         (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
-        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as attendance_count,
+        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as attendance_count,
         (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'no_show' AND e.status = 'completed') as no_show_count,
-        (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as last_visit,
-        (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as first_visit,
+        (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as last_visit,
+        (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as first_visit,
         (SELECT COUNT(*) FROM organizer_tasks t WHERE t.player_id = p.id AND t.status != 'done' AND t.status != 'cancelled') as open_tasks_count,
         (SELECT COALESCE(SUM(ep.amount_due - ep.amount_paid), 0)
            FROM evening_participants ep
@@ -232,8 +232,9 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const futureBookings = eveningHistory.filter(
       (h: any) => h.evening_status !== 'completed' && h.evening_status !== 'cancelled'
     );
+    // A marked visit counts as soon as attendance is taken, including the running evening.
     const attendedEvenings = eveningHistory.filter(
-      (h: any) => h.attendance_status === 'attended' && h.evening_status === 'completed'
+      (h: any) => h.attendance_status === 'attended' && (h.evening_status === 'completed' || h.evening_status === 'active')
     );
     const cancelledEvenings = eveningHistory.filter(
       (h: any) => h.response_status === 'declined'

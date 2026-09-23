@@ -572,7 +572,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
               <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Контактный статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
-              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Вовлечённость</span><strong className="text-right text-[11px] text-text-primary">{engagementLabel}</strong></div>
               <div className="flex items-start justify-between gap-3"><span className="text-[11px] text-text-secondary">Контакт</span><strong className="text-right text-[11px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
               {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[10px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
               {playerDetails.do_not_invite_until ? <div className="rounded-[11px] bg-warning-soft p-2.5 text-[11px] text-warning">Не приглашать до {fmtDate(playerDetails.do_not_invite_until)}{playerDetails.pause_reason ? ` · ${playerDetails.pause_reason}` : ''}</div> : null}
@@ -580,7 +579,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <section className="grid grid-cols-4 gap-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5 text-center">
               {[
-                ['Визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
+                ['Визиты', playerDetails.stats?.attendanceCount || 0],
                 ['Игры', playerDetails.gameStats?.completedGames || 0],
                 ['Победы', playerDetails.gameStats?.wins || 0],
                 ['Задачи', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],

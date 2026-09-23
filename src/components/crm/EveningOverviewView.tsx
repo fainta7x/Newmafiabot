@@ -7,7 +7,6 @@ import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 interface EveningOverviewViewProps {
   eveningId: string;
   onBack: () => void;
-  onOpenSection: (section: 'participants' | 'management' | 'games') => void;
 }
 
 type EveningData = GameEvening & {
@@ -23,7 +22,7 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
-export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack, onOpenSection }) => {
+export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -73,7 +72,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="break-words text-[20px] font-black leading-tight text-text-primary">{evening.title}</h2>
-            <p className="mt-1 text-[12px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
+            <p className="mt-1 text-[12px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
           </div>
           <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold ${evening.status === 'active' ? 'bg-success-soft text-success' : evening.status === 'completed' ? 'bg-surface-2 text-text-secondary' : evening.status === 'cancelled' ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-primary'}`}>{statusLabel[evening.status] || evening.status}</span>
         </div>
@@ -86,17 +85,6 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
       </section>
 
-      <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3.5">
-        <div className="mb-3">
-          <h3 className="text-[13px] font-black text-text-primary">Следующие шаги</h3>
-          <p className="mt-1 text-[11px] leading-4 text-text-muted">Переходи к нужному разделу прямо из карточки вечера.</p>
-        </div>
-        <div className="grid gap-2">
-          <button type="button" onClick={() => onOpenSection('participants')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Ответы участников</button>
-          <button type="button" onClick={() => onOpenSection('management')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Сам вечер</button>
-          <button type="button" onClick={() => onOpenSection('games')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Игры</button>
-        </div>
-      </section>
 
       <EveningPersonalInvites eveningId={eveningId} />
 

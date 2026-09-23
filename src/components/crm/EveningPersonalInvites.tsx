@@ -179,7 +179,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
       {loading ? <div className="py-7 text-center text-[11px] text-text-muted">Загружаю игроков…</div> : null}
 
       {!loading ? <div className="mt-3">
-        {visibleRows.length ? renderRows(visibleRows) : <div className="rounded-[12px] bg-success-soft px-3 py-5 text-center text-[11px] text-success">Все уже ответили.</div>}
+        {visibleRows.length ? renderRows(visibleRows) : rows.length ? <div className="rounded-[12px] bg-success-soft px-3 py-5 text-center text-[11px] text-success">Все уже ответили.</div> : <div className="rounded-[12px] bg-surface-2 px-3 py-5 text-center text-[11px] text-text-muted">Приглашений пока нет. Они отправляются после публикации тем, у кого привязан Telegram или VK.</div>}
 
         {filter === 'unanswered' && answeredRows.length ? <>
           <button type="button" onClick={() => setShowAnswered((value) => !value)} className="mt-3 flex min-h-[48px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">

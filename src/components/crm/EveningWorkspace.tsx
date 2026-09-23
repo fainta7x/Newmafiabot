@@ -40,7 +40,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   const tabs: Array<{ id: EveningSection; label: string; mobileLabel: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Вечер', mobileLabel: 'Анонс', icon: <Megaphone className="h-4 w-4" /> },
     { id: 'participants', label: 'Кого пригласил', mobileLabel: 'Ответы', icon: <Users className="h-4 w-4" /> },
-    { id: 'management', label: 'Сам вечер', mobileLabel: 'Вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
+    { id: 'management', label: 'Вечер', mobileLabel: 'Вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
     { id: 'games', label: 'Игры', mobileLabel: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
   ];
 
@@ -66,7 +66,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         </div>
       </div>
 
-      {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onBack={onBack} onOpenSection={openSection} /> : null}
+      {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onBack={onBack} /> : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
       {section === 'management' || section === 'tables' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' ? 'tables' : undefined} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} onBack={onBack} /> : null}

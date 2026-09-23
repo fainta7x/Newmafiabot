@@ -23,7 +23,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Users className="h-5 w-5" /></span>
           <div>
             <h2 className="text-[17px] font-black text-text-primary">Кого пригласил</h2>
-            <p className="mt-1 text-[11px] leading-5 text-text-secondary">Проверяй ответы и запись на игры до вечера. Явка, оплата, гости и ручные правки — в разделе «Сам вечер».</p>
+            <p className="mt-1 text-[11px] leading-5 text-text-secondary">Проверяй ответы и запись на игры до вечера. Явка, оплата, гости и ручные правки — на вкладке «Вечер».</p>
           </div>
         </div>
       </section>

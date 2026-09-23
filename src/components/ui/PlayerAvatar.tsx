@@ -28,6 +28,8 @@ interface PlayerAvatarProps {
 
 const avatarCache = new Map<string, string>();
 const storedAvatarCache = new Map<string, string>();
+// Players without a stored avatar: remembered per version so lists do not refetch 404s on every render.
+const missingAvatarCache = new Set<string>();
 
 export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
   nickname,
@@ -52,6 +54,12 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
         return;
       }
 
+      if (missingAvatarCache.has(cacheKey)) {
+        setDataUrl(null);
+        setFailed(true);
+        return;
+      }
+
       let cancelled = false;
       setFailed(false);
       api.getPlayerAvatar(playerId)
@@ -62,11 +70,13 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
             setDataUrl(res.data_url);
             setFailed(false);
           } else {
+            missingAvatarCache.add(cacheKey);
             setDataUrl(null);
             setFailed(true);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          if (Number((error as { status?: number })?.status) === 404) missingAvatarCache.add(cacheKey);
           if (!cancelled) {
             setDataUrl(null);
             setFailed(true);

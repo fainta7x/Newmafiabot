@@ -1,3 +1,4 @@
+import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Gamepad2, Users } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
@@ -66,13 +67,13 @@ export default function EveningJourneyBar({ eveningId, onOpenSection }: { evenin
       } else if (unfinished) {
         next = { title: 'Завершить текущие игры', detail: `${unfinished} созданных игр ещё без финального результата.`, label: 'Перейти к играм', target: 'games', tone: 'warning' };
       } else if (games.length) {
-        next = { title: 'Можно закрывать вечер', detail: `${completed} игр завершено, явка заполнена.`, label: 'Финальная проверка', target: 'overview', tone: 'success' };
+        next = { title: 'Можно закрывать вечер', detail: `${countGames(completed)} завершено, явка заполнена.`, label: 'Финальная проверка', target: 'overview', tone: 'success' };
       } else {
-        next = { title: 'Запустить первую игру', detail: `${attended.length} игроков отмечены в клубе.`, label: 'Перейти к играм', target: 'games', tone: 'accent' };
+        next = { title: 'Запустить первую игру', detail: `${countPlayers(attended.length)} отмечены в клубе.`, label: 'Перейти к играм', target: 'games', tone: 'accent' };
       }
     } else if (readonly) {
       index = 3;
-      next = { title: 'Вечер зафиксирован', detail: `${completed} игр сохранено в истории клуба.`, label: 'Посмотреть итог', target: 'overview', tone: 'success' };
+      next = { title: 'Вечер зафиксирован', detail: `${countGames(completed)} сохранено в истории клуба.`, label: 'Посмотреть итог', target: 'overview', tone: 'success' };
     }
 
     return { index, next, expected: expected.length, attended: attended.length, games: completed };

@@ -1,3 +1,4 @@
+import { countGames, countWins } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 
 type ProgressTab = 'goals' | 'achievements' | 'titles';
@@ -184,7 +185,7 @@ const drawCard = async (data: ProgressionData): Promise<Blob> => {
 
   ctx.fillStyle = 'rgba(255,255,255,0.46)';
   ctx.font = '500 23px system-ui, sans-serif';
-  ctx.fillText(`${data.summary.wins} побед · ${data.summary.games} игр`, 105, 1150);
+  ctx.fillText(`${countWins(data.summary.wins)} · ${countGames(data.summary.games)}`, 105, 1150);
   ctx.fillStyle = 'rgba(255,255,255,0.28)';
   ctx.font = '500 20px system-ui, sans-serif';
   ctx.fillText('2LA noire · Тула', 105, 1215);

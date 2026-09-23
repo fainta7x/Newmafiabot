@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Megaphone, RefreshCw, Send, TriangleAlert } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -161,7 +162,7 @@ export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ evenin
           className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-warning px-3 text-[11px] font-bold text-black disabled:opacity-50"
         >
           <Megaphone className="h-4 w-4" />
-          {busy === 'recruit' ? 'Публикуем…' : `Позвать в общий чат · ${shortages.length} игр с недобором`}
+          {busy === 'recruit' ? 'Публикуем…' : `Позвать в общий чат · ${countGames(shortages.length)} с недобором`}
         </button> : null}
       </div> : null}
 

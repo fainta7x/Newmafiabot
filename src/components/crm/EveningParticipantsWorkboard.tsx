@@ -1,3 +1,4 @@
+import { countPlayers } from '../../lib/russianPlural';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, RefreshCw, Search, UserPlus } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
@@ -251,7 +252,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
       {actionViews.length ? <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-warning">Нужно сделать</div><div className="mt-0.5 text-[13px] font-semibold text-text-primary">{actionViews.length} {actionWord(actionViews.length)}</div><div className="mt-0.5 truncate text-[9px] text-text-muted">Сверху вниз: явка → оплата</div></div>
         <div className="shrink-0 rounded-[11px] bg-surface-1/60 px-2.5 py-1.5 text-[9px] text-text-muted"><strong className="text-text-primary">Явка {attendanceActions}</strong><span className="mx-1 text-border-strong">·</span><strong className="text-text-primary">Оплата {paymentActions}</strong></div>
-      </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено минимум {MIN_READY_PLAYERS} игроков.</div></div></div>}
+      </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено минимум {countPlayers(MIN_READY_PLAYERS)}.</div></div></div>}
     </div>
 
     <div className="flex gap-2">

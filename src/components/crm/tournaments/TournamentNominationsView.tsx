@@ -1,3 +1,4 @@
+import { countGames } from '../../../lib/russianPlural';
 import React, { useEffect, useState } from 'react';
 import { Award, ChevronDown, ChevronUp, Crown, RefreshCw, Shield, Trophy, UserCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../../lib/api.ts';
@@ -76,7 +77,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
 
               {winner ? (
                 <div className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{winner.games_in_role} игр в выборке</span></div></div>
+                  <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{countGames(winner.games_in_role)} в выборке</span></div></div>
                   <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Оценка судей </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Бонусы и штрафы </span><strong>{signed(winner.additional_points)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
                 </div>
               ) : terminalTie ? (

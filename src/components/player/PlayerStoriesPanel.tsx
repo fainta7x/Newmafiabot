@@ -1,3 +1,4 @@
+import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import type { PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import EveningVotingPanel from './EveningVotingPanel.tsx';
@@ -63,7 +64,7 @@ const timeText = (value: string | null) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const winnerText = (winner: 'red' | 'black' | null) => winner === 'red' ? 'Красные' : winner === 'black' ? 'Чёрные' : '—';
@@ -172,7 +173,7 @@ export default function PlayerStoriesPanel() {
 
   return <>
     {selectedEvening && <div className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] p-4">
-      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Итоги вечера · {dateText(selectedEvening.starts_at)}</div><div className="mt-1 truncate text-base font-semibold">{selectedEvening.title}</div><div className="mt-1 text-[10px] text-white/30">{[selectedEvening.venue, `${selectedEvening.games} игр`, `${selectedEvening.attended || selectedEvening.players} игроков`].filter(Boolean).join(' · ')}</div></div>
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Итоги вечера · {dateText(selectedEvening.starts_at)}</div><div className="mt-1 truncate text-base font-semibold">{selectedEvening.title}</div><div className="mt-1 text-[10px] text-white/30">{[selectedEvening.venue, `${countGames(selectedEvening.games)}`, `${countPlayers(selectedEvening.attended || selectedEvening.players)}`].filter(Boolean).join(' · ')}</div></div>
         {data.evenings.length > 1 && <select value={selectedEvening.id} onChange={(event) => setSelectedEveningId(event.target.value)} className="max-w-[110px] rounded-xl border border-white/10 bg-[#18191f] px-2 py-2 text-[10px] text-white/60 outline-none">{data.evenings.map((evening) => <option key={evening.id} value={evening.id}>{dateText(evening.starts_at)}</option>)}</select>}
       </div>
 
@@ -185,7 +186,7 @@ export default function PlayerStoriesPanel() {
       <div className="mt-4"><div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Как шёл вечер</div><div className="mt-2 space-y-1.5">{selectedEvening.timeline.map((item) => <button key={item.game_key} type="button" onClick={() => setSelectedGameKey(item.game_key)} className="flex w-full items-center gap-3 rounded-xl bg-black/20 px-3 py-2 text-left"><div className={`h-2 w-2 shrink-0 rounded-full ${item.winner_team === 'red' ? 'bg-rose-400' : 'bg-white/70'}`} /><div className="min-w-0 flex-1"><div className="text-[11px] font-medium">Игра {item.local_number} · победа {winnerText(item.winner_team).toLocaleLowerCase('ru-RU')}</div><div className="text-[9px] text-white/25">{timeText(item.played_at)}</div></div><div className="shrink-0 text-xs font-black tabular-nums"><span className="text-rose-300">{item.score_after.red}</span><span className="mx-1 text-white/20">:</span><span>{item.score_after.black}</span></div></button>)}</div></div>
     </div>}
 
-    <div className="mt-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние матчи</div><div className="mt-2 space-y-1.5">{data.recent_games.slice(0, 8).map((game) => <button key={game.game_key} type="button" onClick={() => setSelectedGameKey(game.game_key)} className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.04] bg-white/[0.03] p-3 text-left"><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg ${game.winner_team === 'red' ? 'bg-rose-400/10' : 'bg-white/[0.06]'}`}>{game.winner_team === 'red' ? '🔴' : '⚫'}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{game.title}</div><div className="mt-0.5 text-[10px] text-white/30">{dateText(game.played_at)} · {winnerText(game.winner_team)} · {game.players.length} игроков</div></div><span className="text-sm text-white/25">›</span></button>)}</div></div>
+    <div className="mt-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние матчи</div><div className="mt-2 space-y-1.5">{data.recent_games.slice(0, 8).map((game) => <button key={game.game_key} type="button" onClick={() => setSelectedGameKey(game.game_key)} className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.04] bg-white/[0.03] p-3 text-left"><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg ${game.winner_team === 'red' ? 'bg-rose-400/10' : 'bg-white/[0.06]'}`}>{game.winner_team === 'red' ? '🔴' : '⚫'}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{game.title}</div><div className="mt-0.5 text-[10px] text-white/30">{dateText(game.played_at)} · {winnerText(game.winner_team)} · {countPlayers(game.players.length)}</div></div><span className="text-sm text-white/25">›</span></button>)}</div></div>
 
     {selectedGameKey && <MatchSpotlight gameKey={selectedGameKey} onClose={() => setSelectedGameKey(null)} />}
   </>;

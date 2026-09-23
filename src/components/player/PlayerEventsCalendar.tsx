@@ -1,3 +1,4 @@
+import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
 
@@ -112,7 +113,7 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
         </div>
         <div className="shrink-0 text-right">
           <span className={`rounded-full px-2 py-1 text-[12px] ${kindTone(event)}`}>{kindLabel(event)}</span>
-          <div className="mt-1 text-[12px] text-white/45">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${event.required_slots || 4} игр`) : `${event.participant_count || 0} игроков`}</div>
+          <div className="mt-1 text-[12px] text-white/45">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${countGames(event.required_slots || 4)}`) : `${countPlayers(event.participant_count || 0)}`}</div>
         </div>
       </div>
       <SlotLoadGrid event={event} compact />
@@ -383,7 +384,7 @@ export default function PlayerEventsCalendar({
                 </div>
                 <SlotLoadGrid event={nearest} />
                 <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3">
-                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${nearest.required_slots || 4} игр собрано · ${nearest.price_per_game || 100} ₽/игра` : `${nearest.participant_count || 0} участников`}</div>
+                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${countGames(nearest.required_slots || 4)} собрано · ${nearest.price_per_game || 100} ₽/игра` : `${nearest.participant_count || 0} участников`}</div>
                   <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black">{nearest.event_type === 'evening' ? 'Выбрать игры' : 'Открыть'} →</span>
                 </div>
               </button>

@@ -58,18 +58,20 @@ export default function PlayerQuickAccessBar({
             aria-label={`Открыть профиль ${player.nickname}`}
             title="Профиль"
             aria-pressed={active === 'profile'}
-            className={`ds-focus-ring relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border transition ${
+            className={`ds-focus-ring inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border pl-1.5 pr-3 transition ${
               active === 'profile'
                 ? 'border-white/30 bg-white/[0.12] ring-1 ring-white/20'
                 : 'border-white/10 bg-white/[0.045]'
             }`}
           >
-            {player.avatar_url ? (
-              <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-sm font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</span>
-            )}
-            <span className="pointer-events-none absolute bottom-0 inset-x-0 bg-black/55 py-0.5 text-center text-[8px] font-semibold leading-none tracking-[-0.02em] text-white/80" aria-hidden="true">Профиль</span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/[0.06]">
+              {player.avatar_url ? (
+                <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-sm font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</span>
+              )}
+            </span>
+            <span className="text-[12px] font-semibold text-white/80" aria-hidden="true">Профиль</span>
           </button>
         </div>
       </div>

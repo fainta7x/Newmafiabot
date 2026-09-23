@@ -1,3 +1,4 @@
+import { countPlayers } from '../../lib/russianPlural';
 import { ChevronRight, Search, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import AsyncState from '../ui/AsyncState.tsx';
@@ -43,7 +44,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   return <Card data-testid="club-directory" className="overflow-hidden">
     <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-3">
       <div className="min-w-0"><CardTitle>Игроки клуба</CardTitle><CardDescription className="mt-1">Откройте единый профиль: игры, роли, Elo и достижения.</CardDescription></div>
-      {players ? <Badge variant="neutral" aria-label={`${players.length} игроков`} className="shrink-0 tabular-nums">{players.length}</Badge> : null}
+      {players ? <Badge variant="neutral" aria-label={`${countPlayers(players.length)}`} className="shrink-0 tabular-nums">{players.length}</Badge> : null}
     </CardHeader>
     <CardContent className="px-3 pb-3">
       <div className="relative"><label htmlFor="club-search" className="sr-only">Найти игрока</label><Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="pl-10" /></div>

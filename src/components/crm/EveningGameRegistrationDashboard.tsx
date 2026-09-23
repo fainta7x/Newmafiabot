@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
@@ -310,7 +311,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             {editing ? <div className="mt-3 border-t border-border-soft pt-3">
               <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
                 <span>Точные игры</span>
-                <span>{editingSlotIds.length} игр · {editTotal} ₽</span>
+                <span>{countGames(editingSlotIds.length)} · {editTotal} ₽</span>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {allSlots.map((slot) => {

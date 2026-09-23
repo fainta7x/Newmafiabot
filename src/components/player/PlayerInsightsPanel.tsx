@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 
 type Summary = { games: number; wins: number; win_rate: number };
@@ -93,7 +94,7 @@ function SocialGraph({ center, nodes }: InsightsData['social_graph']) {
         <div className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center" style={{ left: x, top: y }}>
           <div className={`mx-auto rounded-xl border border-white/10 bg-[#17181d] p-0.5 ${node.closeness > 0.66 ? 'scale-110' : node.closeness < 0.34 ? 'scale-90 opacity-75' : ''}`}><Avatar src={node.avatar_url} size={34} /></div>
           <div className="mt-1 max-w-[66px] truncate text-[8px] font-semibold text-white/65">{node.nickname}</div>
-          <div className="text-[7px] text-white/20">{node.total_games} игр</div>
+          <div className="text-[7px] text-white/20">{countGames(node.total_games)}</div>
         </div>
       </React.Fragment>;
     })}

@@ -1,3 +1,4 @@
+import { countGames } from '../../../lib/russianPlural';
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
@@ -605,7 +606,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Прогресс турнира:</span>
                       <span className="font-mono text-accent text-sm font-black">
-                        {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
+                        {games.filter((g) => g.status === 'completed').length} из {countGames(games.length)} завершено
                       </span>
                     </div>
 
@@ -663,7 +664,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                         <span>Прогресс турнира:</span>
                         <span className="font-mono text-accent text-sm font-black">
-                          {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
+                          {games.filter((g) => g.status === 'completed').length} из {countGames(games.length)} завершено
                         </span>
                       </div>
 

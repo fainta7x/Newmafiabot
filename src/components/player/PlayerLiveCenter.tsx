@@ -99,7 +99,7 @@ const dateTime = (value: string | null | undefined) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const winnerText = (winner: 'red' | 'black' | null) => winner === 'red' ? '🔴 Красные' : winner === 'black' ? '⚫ Чёрные' : 'Результат';

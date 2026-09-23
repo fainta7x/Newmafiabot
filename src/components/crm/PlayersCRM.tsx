@@ -620,7 +620,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                   ['Предпочтительный формат', playerDetails.preferred_format || '—'],
                   ['Кто пригласил', playerDetails.referred_by || '—'],
                   ['Посещений', playerDetails.attendance_count ?? playerDetails.stats?.attendanceCount ?? 0],
-                  ['No-show', playerDetails.no_show_count || 0],
+                  ['Не пришли', playerDetails.no_show_count || 0],
                   ['Открытых задач', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
                 ].map(([label, value]) => <div key={String(label)} className="flex items-start justify-between gap-3"><span className="text-text-muted">{label}</span><strong className="max-w-[62%] break-words text-right text-text-primary">{value}</strong></div>)}
               </div>

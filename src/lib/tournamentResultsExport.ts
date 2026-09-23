@@ -1,4 +1,5 @@
 import { Tournament, TournamentStandingItem, PlayerResultData, TournamentGame } from './api';
+import { russianPlural } from './russianPlural';
 import {
   NOIR_EXPORT_COLORS,
   NOIR_EXPORT_SCORE_COLORS,
@@ -438,17 +439,7 @@ export function wrapExportText(value: string | null | undefined, maxChars: numbe
 
 const roundOfficial = (value: number): number => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
-export const russianPlural = (value: number, one: string, few: string, many: string): string => {
-  const absoluteValue = Math.abs(Number(value || 0));
-  if (!Number.isInteger(absoluteValue)) return few;
-  const absolute = Math.trunc(absoluteValue);
-  const mod100 = absolute % 100;
-  const mod10 = absolute % 10;
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
-  return many;
-};
+export { russianPlural };
 
 const formatPosterNumber = (
   value: number | null | undefined,

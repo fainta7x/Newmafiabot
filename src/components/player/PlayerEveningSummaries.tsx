@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 
 type Award = {
@@ -92,7 +93,7 @@ export default function PlayerEveningSummaries({
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">{onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}<div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-100/40">История вечеров</div><h1 className="mt-1 text-2xl font-semibold">После финального стола</h1><p className="mt-1 text-xs leading-5 text-white/40">Счёт вечера, твоя форма, Elo и клубные номинации — в одном финальном экране.</p></div></div>}
 
         {!summaries?.length ? <div className="rounded-3xl border border-white/[0.06] bg-white/[0.03] p-8 text-center"><div className="text-3xl">🎭</div><div className="mt-2 text-sm font-semibold">Итогов пока нет</div><p className="mt-1 text-xs text-white/30">После завершённого вечера, на котором ты был или играл, он появится здесь.</p></div> : <>
-          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => setSelectedId(summary.id)} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-white/20 bg-white text-black' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[10px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[9px] opacity-60">{summary.games} игр · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
+          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => setSelectedId(summary.id)} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-white/20 bg-white text-black' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[10px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[9px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
 
           {selected && <>
             <section className="overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-violet-300/[0.08] via-white/[0.035] to-rose-300/[0.04] p-5 text-center">

@@ -1,3 +1,4 @@
+import { countGames, countWins } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
@@ -48,7 +49,7 @@ function PersonRow({ item, kind }: { item: PersonRelationship; kind: 'rival' | '
       <Avatar src={item.avatar_url} name={item.nickname} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold">{item.nickname}</div>
-        <div className="mt-0.5 text-[10px] text-white/30">{kind === 'rival' ? 'встречались' : 'вместе'} {item.games} игр · {item.wins} побед</div>
+        <div className="mt-0.5 text-[10px] text-white/30">{kind === 'rival' ? 'встречались' : 'вместе'} {countGames(item.games)} · {countWins(item.wins)}</div>
       </div>
       <div className={`shrink-0 text-sm font-semibold ${valueTone}`}>{item.win_rate}%</div>
     </button>

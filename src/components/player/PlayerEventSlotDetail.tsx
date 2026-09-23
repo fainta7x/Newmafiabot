@@ -33,10 +33,9 @@ const eventDate = (value: string) => new Date(value).toLocaleString('ru-RU', {
   day: 'numeric',
   month: 'short',
   hour: '2-digit',
-  minute: '2-digit',
-});
+  minute: '2-digit', timeZone: 'Europe/Moscow' });
 
-const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 export default function PlayerEventSlotDetail({
   event,

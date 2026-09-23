@@ -19,7 +19,7 @@ const json = async (url:string, signal?:AbortSignal) => {
   return b;
 };
 const roleLabel = (role:any) => ROLE_LABELS[String(role||'') as TournamentRole] || null;
-const fmt = (v:any) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleDateString('ru-RU') : '—';
+const fmt = (v:any) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—';
 const deltaText = (value: unknown) => {
   const delta=Number(value);
   if(!Number.isFinite(delta)) return '—';

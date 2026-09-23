@@ -130,8 +130,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                         <span>
                           {new Date(t.date).toLocaleString('ru-RU', {
                             dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
+                            timeStyle: 'short', timeZone: 'Europe/Moscow' })}
                         </span>
                       </p>
                       {t.venue && (

@@ -31,7 +31,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const dateLabel = (value?: string | null) => value
-  ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
   : 'Без выбранного вечера';
 
 export function NoviceDevelopmentCRM() {

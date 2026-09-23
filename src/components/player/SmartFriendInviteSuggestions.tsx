@@ -18,7 +18,7 @@ type Suggestion = {
 };
 
 const fmtDate = (value: string | null) => value && Number.isFinite(new Date(value).getTime())
-  ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
   : 'Дата не указана';
 
 function openPlayerProfile(playerId: string) {

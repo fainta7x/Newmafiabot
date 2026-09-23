@@ -34,7 +34,7 @@ const fmtDue = (value?: string | null) => {
   if (!value) return 'Без срока';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Без срока';
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
 };
 
 const priorityLabel = (priority: OrganizerTask['priority']) =>

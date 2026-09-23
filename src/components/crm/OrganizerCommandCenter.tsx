@@ -82,12 +82,12 @@ interface Props {
 const formatDateTime = (value: string | null) => {
   if (!value) return 'Дата не указана';
   const date = new Date(value);
-  return date.toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 };
 
 const formatPaymentDate = (value: string | null) => {
   if (!value) return 'дата не указана';
-  return new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  return new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
 };
 
 const formatMoney = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;

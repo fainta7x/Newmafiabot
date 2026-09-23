@@ -272,7 +272,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         <button type="button" aria-label="Назад" onClick={onBack} className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary"><ArrowLeft className="h-4 w-4" /></button>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[16px] font-black leading-5 text-text-primary">{evening.title}</h2>
-          <p className="mt-0.5 truncate text-[11px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
+          <p className="mt-0.5 truncate text-[11px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
           <p className="mt-0.5 text-[10px] text-text-muted">{formatLabel(evening.format)}</p>
         </div>
         {!isReadonly ? <button type="button" aria-label="Ещё действия" onClick={() => setShowEventMenu(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary"><MoreHorizontal className="h-4 w-4" /></button> : null}

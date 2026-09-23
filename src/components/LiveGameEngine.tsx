@@ -350,7 +350,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       sheriffCheckSlot,
       sheriffCheckResult,
       historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),
-      savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }),
     };
     writeLiveSession(data);
   }, [

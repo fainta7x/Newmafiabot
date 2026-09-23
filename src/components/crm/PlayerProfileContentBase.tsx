@@ -47,7 +47,7 @@ const fmtDate = (value: string | null | undefined) => {
   if (!value) return 'Дата не указана';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
 };
 
 const emptyAwardStats: PlayerAwardStats = {

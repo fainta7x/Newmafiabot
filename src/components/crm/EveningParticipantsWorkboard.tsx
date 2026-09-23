@@ -52,7 +52,7 @@ const eveningMeta = (evening: GameEvening) => {
   const date = new Date(evening.starts_at);
   const when = Number.isNaN(date.getTime())
     ? ''
-    : `${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} · ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    : `${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' })} · ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`;
   return [when, evening.venue].filter(Boolean).join(' · ');
 };
 

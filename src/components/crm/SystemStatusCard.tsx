@@ -63,7 +63,7 @@ const label = (ok: boolean) => ok ? 'Работает' : 'Проблема';
 const queueDetail = (queue: StatusData['sync_queue']) => {
   if (queue.retrying > 0) {
     const retryAt = queue.next_attempt_at
-      ? ` · повтор ${new Date(queue.next_attempt_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+      ? ` · повтор ${new Date(queue.next_attempt_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
       : '';
     return `${queue.retrying} на повторе${retryAt}${queue.last_error ? ` · ${queue.last_error}` : ''}`;
   }
@@ -185,7 +185,7 @@ export const SystemStatusCard: React.FC = () => {
         {vkError ? <div className="mt-2 text-[9px] leading-4 text-danger">{vkError}</div> : null}
       </div>
 
-      {data ? <p className="mt-3 text-[9px] text-text-muted">Проверено {new Date(data.checked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</p> : null}
+      {data ? <p className="mt-3 text-[9px] text-text-muted">Проверено {new Date(data.checked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}</p> : null}
     </section>
   );
 };

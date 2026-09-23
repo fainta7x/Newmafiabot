@@ -2,15 +2,16 @@
  * Anonymous usage tracking: which screens are opened and which buttons are
  * pressed. Screens come from the URL (ids replaced by `:id`); actions come only
  * from `data-track` or `data-testid` on the pressed control, never from its
- * text, so no names or personal data leave the device.
+ * text, so no names or personal data leave the device. Entity ids inside
+ * paths or test ids are replaced by `:id` (see uiUsageNames.ts).
  */
+import { sanitizeUiActionName, sanitizeUiScreenName } from './uiUsageNames.ts';
 type UiEvent = { kind: 'screen' | 'action'; name: string; at: string };
 type Surface = 'player' | 'crm' | 'public';
 
 const ENDPOINT = '/api/ui-events';
 const FLUSH_MS = 5000;
 const MAX_QUEUE = 20;
-const ID_SEGMENT = /^(?=.*\d)[0-9a-z_-]{6,}$/i;
 
 let queue: UiEvent[] = [];
 let queueSurface: Surface | null = null;
@@ -40,13 +41,7 @@ export const surfaceForPath = (path: string): Surface =>
   path.startsWith('/admin') ? 'crm' : path.startsWith('/player') ? 'player' : 'public';
 
 /** `/admin/evenings/385404e7-…/games` → `/admin/evenings/:id/games`. */
-export const normalizeScreenPath = (path: string) => {
-  const clean = (path.split(/[?#]/)[0] || '/').toLowerCase();
-  const segments = clean.split('/').filter(Boolean).slice(0, 5).map((segment) => (ID_SEGMENT.test(segment) ? ':id' : segment));
-  return `/${segments.join('/')}`.replace(/[^a-z0-9/:_.-]/g, '').slice(0, 80) || '/';
-};
-
-const actionName = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9/:_.-]+/g, '-').slice(0, 80);
+export const normalizeScreenPath = sanitizeUiScreenName;
 
 const flush = (useBeacon = false) => {
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
@@ -83,7 +78,7 @@ export const trackScreen = (path = window.location.pathname) => {
 };
 
 export const trackAction = (name: string) => {
-  const safe = actionName(name);
+  const safe = sanitizeUiActionName(name);
   if (safe) push({ kind: 'action', name: safe }, surfaceForPath(window.location.pathname));
 };
 

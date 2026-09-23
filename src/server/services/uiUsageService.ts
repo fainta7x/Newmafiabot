@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { sanitizeUiActionName, sanitizeUiScreenName } from '../../lib/uiUsageNames.ts';
 
 /**
  * Anonymous UI usage events: which screens are opened and which buttons are
@@ -32,10 +33,19 @@ export async function ensureUiUsageSchema(db: DatabaseWrapper) {
   ensured.add(db);
 }
 
-export const normalizeUiEventName = (value: unknown): string | null => {
-  const name = String(value || '').trim().toLowerCase();
-  return NAME_PATTERN.test(name) ? name : null;
+/** Re-sanitizes on the server so an old or tampered client cannot store entity ids. */
+export const normalizeUiEventName = (kind: UiEventKind, value: unknown): string | null => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!NAME_PATTERN.test(raw)) return null;
+  return kind === 'screen' ? sanitizeUiScreenName(raw) : sanitizeUiActionName(raw);
 };
+
+let lastPurgeDay = '';
+
+/** Deterministic retention: expired rows are removed at least once per day of use and on every summary. */
+async function purgeExpired(db: DatabaseWrapper, now: Date) {
+  await db.run('DELETE FROM ui_usage_events WHERE created_at < ?', [new Date(now.getTime() - RETENTION_DAYS * 86_400_000).toISOString()]);
+}
 
 export async function recordUiEvents(
   db: DatabaseWrapper,
@@ -50,7 +60,7 @@ export async function recordUiEvents(
   let stored = 0;
   for (const raw of input.events.slice(0, MAX_EVENTS_PER_BATCH)) {
     const kind = raw?.kind === 'screen' || raw?.kind === 'action' ? raw.kind : null;
-    const name = normalizeUiEventName(raw?.name);
+    const name = kind ? normalizeUiEventName(kind, raw?.name) : null;
     if (!kind || !name) continue;
     const atMs = Date.parse(String(raw?.at || ''));
     // Client clocks are only trusted within the last day; otherwise use server time.
@@ -61,8 +71,10 @@ export async function recordUiEvents(
     );
     stored += 1;
   }
-  if (stored && Math.random() < 0.02) {
-    await db.run('DELETE FROM ui_usage_events WHERE created_at < ?', [new Date(nowMs - RETENTION_DAYS * 86_400_000).toISOString()]);
+  const today = now.toISOString().slice(0, 10);
+  if (stored && lastPurgeDay !== today) {
+    lastPurgeDay = today;
+    await purgeExpired(db, now);
   }
   return stored;
 }
@@ -77,18 +89,26 @@ export type UiUsageSummary = {
 
 export async function getUiUsageSummary(db: DatabaseWrapper, days: number, now = new Date()): Promise<UiUsageSummary> {
   await ensureUiUsageSchema(db);
+  await purgeExpired(db, now);
   const safeDays = Math.min(Math.max(Math.round(days) || 30, 1), RETENTION_DAYS);
   const since = new Date(now.getTime() - safeDays * 86_400_000).toISOString();
   const sessionRows = await db.all<{ surface: string; sessions: number }>(
     'SELECT surface, COUNT(DISTINCT session_key) AS sessions FROM ui_usage_events WHERE created_at >= ? GROUP BY surface',
     [since],
   );
-  const top = (kind: UiEventKind) => db.all<UiUsageRow>(
-    `SELECT surface, name, COUNT(*) AS events, COUNT(DISTINCT session_key) AS sessions
-     FROM ui_usage_events WHERE created_at >= ? AND kind = ?
-     GROUP BY surface, name ORDER BY sessions DESC, events DESC LIMIT 60`,
-    [since, kind],
-  );
+  // Ranked per surface so one surface can never crowd the other out of the result.
+  const top = async (kind: UiEventKind) => {
+    const rows: UiUsageRow[] = [];
+    for (const surface of ['player', 'crm', 'public'] as const) {
+      rows.push(...await db.all<UiUsageRow>(
+        `SELECT surface, name, COUNT(*) AS events, COUNT(DISTINCT session_key) AS sessions
+         FROM ui_usage_events WHERE created_at >= ? AND kind = ? AND surface = ?
+         GROUP BY name ORDER BY sessions DESC, events DESC LIMIT 30`,
+        [since, kind, surface],
+      ));
+    }
+    return rows;
+  };
   const sessions = { player: 0, crm: 0, public: 0 };
   for (const row of sessionRows) if (row.surface in sessions) sessions[row.surface as keyof typeof sessions] = Number(row.sessions) || 0;
   const cast = (rows: UiUsageRow[]) => rows.map((row) => ({ ...row, events: Number(row.events) || 0, sessions: Number(row.sessions) || 0 }));

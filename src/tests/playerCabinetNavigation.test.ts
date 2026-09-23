@@ -21,7 +21,7 @@ describe('player cabinet navigation model', () => {
       expect(isPlayerRatingSection(section)).toBe(false);
     }
 
-    for (const section of ['rating', 'elo', 'ratingperiods', 'clubworld'] as const) {
+    for (const section of ['rating', 'elo', 'ratingperiods', 'ratingtournaments'] as const) {
       expect(isPlayerRatingSection(section)).toBe(true);
       expect(isPlayerGameSection(section)).toBe(false);
     }
@@ -32,7 +32,9 @@ describe('player cabinet navigation model', () => {
     expect(isPlayerCabinetNavActive('games', 'stats')).toBe(true);
     expect(isPlayerCabinetNavActive('games', 'career')).toBe(true);
     expect(isPlayerCabinetNavActive('rating', 'elo')).toBe(true);
-    expect(isPlayerCabinetNavActive('rating', 'clubworld')).toBe(true);
+    expect(isPlayerCabinetNavActive('rating', 'clubworld')).toBe(false);
+    expect(isPlayerCabinetNavActive('club', 'clubworld')).toBe(true);
+    expect(isPlayerCabinetNavActive('rating', 'ratingtournaments')).toBe(true);
     expect(isPlayerCabinetNavActive('club', 'more')).toBe(true);
     expect(isPlayerCabinetNavActive('rating', 'games')).toBe(false);
     expect(isPlayerCabinetNavActive('club', 'profile')).toBe(false);

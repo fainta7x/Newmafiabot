@@ -347,6 +347,19 @@ Historical UI/visual requirements may evolve, so inspect current publication com
 - `online_payment_available: false` is a product state, not automatically a bug.
 - Do not fabricate or enable a payment provider without an explicit provider/setup decision.
 
+## Game formats and ratings (user-approved 2026-09-23)
+
+The club runs four evening formats, and each has its own competition:
+
+- **NOVICE** — school of mafia. No Elo. A novice leaderboard, when used, is an organizer-created `NOVICE` rating period (to promote the best novices to casual play).
+- **CASUAL** — play for fun, no extra points. Counts toward Elo.
+- **RATING** — season play with extra points. Counts toward Elo and toward organizer-created `RATING` periods (the rating season).
+- **TOURNAMENT** — a fixed distance of games (for example 10) with extra points and its own standings. Counts toward Elo.
+
+Elo is one shared player-strength measure across CASUAL, RATING and TOURNAMENT games; seasons and tournaments keep their own points separately.
+
+The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). Calendar seasons (winter/spring/summer/autumn wins) are club statistics shown under «Клуб → Активность» as «Итоги сезона», not a rating.
+
 ## Elo / rating principles
 
 The rating model is intended to account for table/team strength rather than act as a naive win/loss counter.

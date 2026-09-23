@@ -184,22 +184,22 @@ export default function PlayerRatingPeriods({
   );
 
   if (listError) {
-    return <Section title="Рейтинговые периоды"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{listError}</p></Section>;
+    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{listError}</p></Section>;
   }
 
   if (!periods) {
-    return <Section title="Рейтинговые периоды"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка периодов…</p></Section>;
+    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загружаем сезоны…</p></Section>;
   }
 
   const hasPeriods = periods.active_periods.length > 0 || periods.completed_periods.length > 0;
   if (!hasPeriods) {
-    return <Section title="Рейтинговые периоды"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Рейтинговых периодов пока нет.</p></Section>;
+    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сезон ещё не открыт. Когда организатор запустит сезон с доп. баллами, таблица появится здесь.</p></Section>;
   }
 
   return (
     <>
       {periods.active_periods.length > 0 && (
-        <Section title="Текущий период">
+        <Section title="Текущий сезон">
           {periods.active_periods.length > 1 && (
             <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
               {periods.active_periods.map((period) => (
@@ -227,13 +227,13 @@ export default function PlayerRatingPeriods({
             </div>
           ) : null)}
           {selectedPeriodId && !periods.active_periods.some((period) => period.id === selectedPeriodId) && (
-            <button type="button" onClick={() => setSelectedPeriodId(periods.active_periods[0].id)} className="text-sm text-white/55">← Вернуться к текущему периоду</button>
+            <button type="button" onClick={() => setSelectedPeriodId(periods.active_periods[0].id)} className="text-sm text-white/55">← Вернуться к текущему сезону</button>
           )}
         </Section>
       )}
 
-      {detailLoading && <Section title="Таблица периода"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Считаем таблицу…</p></Section>}
-      {detailError && <Section title="Таблица периода"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{detailError}</p></Section>}
+      {detailLoading && <Section title="Таблица сезона"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Считаем таблицу…</p></Section>}
+      {detailError && <Section title="Таблица сезона"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{detailError}</p></Section>}
 
       {detail && !detailLoading && (
         <>
@@ -301,7 +301,7 @@ export default function PlayerRatingPeriods({
                 {detail.warnings.length > 0 && <div className="mt-2 text-[10px] text-white/25">{detail.warnings.length} игр не вошли в расчёт из-за неполного протокола.</div>}
               </Section>
 
-              <Section title="Таблица периода">
+              <Section title="Таблица сезона">
                 {detail.standings.length ? (
                   <div className="space-y-2">{detail.standings.map((item) => {
                     const isSelf = item.player_id === playerId;

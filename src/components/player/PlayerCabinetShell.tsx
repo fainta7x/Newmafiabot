@@ -79,8 +79,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, onOpenA
         <PlayerGamesHub data={currentData} canOpenAdmin={canOpenAdmin} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} />
       ) : isPlayerRatingSection(section) ? (
         <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} />
-      ) : section === 'club' ? (
-        <PlayerClubHub data={currentData} />
+      ) : section === 'club' || section === 'clubworld' ? (
+        <PlayerClubHub data={currentData} initialView={section === 'clubworld' ? 'activity' : 'players'} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (

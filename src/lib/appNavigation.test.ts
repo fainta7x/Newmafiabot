@@ -7,6 +7,7 @@ describe('player route parsing', () => {
     expect(parsePlayerRoute('/player/games')).toMatchObject({ section: 'games', canonicalPath: '/player/games' });
     expect(parsePlayerRoute('/player/seasons')).toMatchObject({ section: 'clubworld', canonicalPath: '/player/seasons' });
     expect(parsePlayerRoute('/player/rating/periods')).toMatchObject({ section: 'ratingperiods', canonicalPath: '/player/rating/periods' });
+    expect(parsePlayerRoute('/player/rating/tournaments')).toMatchObject({ section: 'ratingtournaments', canonicalPath: '/player/rating/tournaments' });
     expect(parsePlayerRoute('/player/wallet')).toMatchObject({ section: 'wallet', canonicalPath: '/player/wallet' });
   });
 
@@ -52,7 +53,8 @@ describe('path builders and back targets', () => {
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');
     expect(appBackTarget('/player/elo')).toBe('/player/rating');
     expect(appBackTarget('/player/rating/periods')).toBe('/player/rating');
-    expect(appBackTarget('/player/seasons')).toBe('/player/rating');
+    expect(appBackTarget('/player/seasons')).toBe('/player/club');
+    expect(appBackTarget('/player/rating/tournaments')).toBe('/player/rating');
     expect(appBackTarget('/player/wallet')).toBe('/player');
     expect(appBackTarget('/player/profile')).toBe('/player');
     expect(appBackTarget('/admin')).toBeNull();

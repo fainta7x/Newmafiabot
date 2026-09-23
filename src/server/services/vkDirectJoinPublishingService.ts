@@ -66,34 +66,11 @@ const formatDate = (evening: EveningRow) => {
   }
 };
 
-const formatSlotTime = (value: string, timezone: string | null | undefined) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  try {
-    return new Intl.DateTimeFormat('ru-RU', {
-      timeZone: timezone || 'Europe/Moscow',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  } catch {
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  }
-};
-
-const buildSlotLines = (plan: Awaited<ReturnType<typeof loadEveningSlotPlan>>) => {
-  const lines = ['🎮 Запись по играм:'];
-  for (const slot of plan.slots) {
-    const ready = slot.registered_count >= plan.event.required_players_per_slot;
-    lines.push(`${ready ? '✅' : '▫️'} Игра ${slot.slot_number} · ${formatSlotTime(slot.starts_at, plan.event.timezone)}–${formatSlotTime(slot.ends_at, plan.event.timezone)} · ${slot.registered_count}/${plan.event.required_players_per_slot}`);
-    if (slot.participants.length) lines.push(`   ${slot.participants.map((person: { nickname: string }) => person.nickname).join(', ')}`);
-  }
-  lines.push('', `💳 ${Number(plan.event.price_per_game || 0).toLocaleString('ru-RU')} ₽ за игру`);
-  lines.push(plan.event.assembled
-    ? `✅ Стол собран: ${plan.event.assembled_slots} игр набрали по ${plan.event.required_players_per_slot}+ игроков`
-    : `⏳ Собрано ${plan.event.assembled_slots}/${plan.event.required_slots} необходимых игр`);
-  return lines;
-};
-
+/**
+ * The VK post is deliberately static: VK lets the community key publish but not
+ * edit wall posts, so live registration (who and how many) lives on the public
+ * evening page the post links to, which never goes stale.
+ */
 export const buildDirectVkEveningAnnouncement = async (
   db: DatabaseWrapper,
   evening: EveningRow,
@@ -103,10 +80,9 @@ export const buildDirectVkEveningAnnouncement = async (
   const lines = [`🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) lines.push(`📍 ${evening.venue}`);
   lines.push(
+    `💳 ${Number(plan.event.price_per_game || 0).toLocaleString('ru-RU')} ₽ за игру`,
     '',
-    ...buildSlotLines(plan),
-    '',
-    'Выбрать игры или изменить запись:',
+    '👥 Кто уже записан, свободные места и запись по играм:',
     joinUrlFor(baseUrl, evening.id),
     '',
     '👤 Открыть личный кабинет:',
@@ -210,8 +186,18 @@ const syncDestination = async (
   let postId = Number(existing?.post_id || 0);
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
+  // Fingerprint of the text actually on VK; it advances only when a write succeeds.
+  let deliveredHash: string | null = hash;
   if (postId > 0) {
-    await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
+    try {
+      await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
+    } catch (error: any) {
+      // Without an organizer API token the published post simply stays as is;
+      // the live state is on the linked public page, so this is not a failure.
+      // Keep the old fingerprint so a later-connected token still applies the edit.
+      if (error?.code !== 'vk_wall_edit_unavailable') throw error;
+      deliveredHash = existing?.last_message_hash ?? null;
+    }
     if (destination.key === 'public') {
       postOwnerId = -Math.abs(Number(destination.groupId));
       externalUrl = `https://vk.com/wall${postOwnerId}_${postId}`;
@@ -242,7 +228,7 @@ const syncDestination = async (
       updated_at=excluded.updated_at,
       last_error=NULL,
       last_message_hash=excluded.last_message_hash
-  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now, hash]);
+  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now, deliveredHash]);
 
   return { publication: await getPublication(db, evening.id, destination.key), skipped: false };
 };
@@ -303,11 +289,15 @@ export async function finalizeExistingVkEveningPublications(
       continue;
     }
     try {
-      await editVkWallPostWithPublisher({
-        groupId: destination.groupId,
-        postId: Number(existing.post_id),
-        message,
-      });
+      try {
+        await editVkWallPostWithPublisher({
+          groupId: destination.groupId,
+          postId: Number(existing.post_id),
+          message,
+        });
+      } catch (error: any) {
+        if (error?.code !== 'vk_wall_edit_unavailable') throw error;
+      }
       const now = nowIso();
       await db.run(
         `UPDATE vk_evening_publications

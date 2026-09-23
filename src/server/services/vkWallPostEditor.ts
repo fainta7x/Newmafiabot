@@ -1,12 +1,11 @@
 import { callVkApi, editVkWallPost, getVkWallEditCredentials } from './vkPublishingService.ts';
 
-const CREDENTIAL_LABELS = { user: 'API-токен организатора', community: 'ключ сообщества' } as const;
+const CREDENTIAL_LABELS = { user: 'API-токен организатора' } as const;
 
 /**
- * Refresh an existing public wall post. Every available credential is tried in
- * preference order (API-compatible organizer token, then community key) so one
- * rejected credential does not block the refresh; when all fail the error names
- * each credential's VK answer so the CRM shows the real cause.
+ * Refresh an existing public wall post with the API-compatible organizer token.
+ * VK rejects wall.edit for community keys (error 27), so without that token the
+ * edit is reported as unavailable instead of being attempted.
  */
 export async function editVkWallPostWithPublisher(input: {
   groupId: string;
@@ -26,7 +25,10 @@ export async function editVkWallPostWithPublisher(input: {
 
   const credentials = getVkWallEditCredentials();
   if (!credentials.length) {
-    throw Object.assign(new Error('Нет ключа VK для обновления поста'), { code: 'vk_wall_edit_token_missing' });
+    throw Object.assign(
+      new Error('Пост VK не обновляется: VK разрешает редактировать стену только API-токеном администратора'),
+      { code: 'vk_wall_edit_unavailable' },
+    );
   }
 
   const failures: string[] = [];
@@ -44,11 +46,8 @@ export async function editVkWallPostWithPublisher(input: {
     }
   }
 
-  const hint = credentials.some((item) => item.source === 'user')
-    ? ''
-    : ' Для автообновления подключите «API VK» в CRM: VK не даёт ключу сообщества редактировать посты.';
   throw Object.assign(
-    new Error(`Пост VK не обновлён (${failures.join('; ')}).${hint}`),
+    new Error(`Пост VK не обновлён (${failures.join('; ')}).`),
     { code: 'vk_wall_edit_failed' },
   );
 }

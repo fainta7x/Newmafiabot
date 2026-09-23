@@ -232,6 +232,41 @@ describe('VK publishing adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('keeps a published post as is without an error when only the community key exists', async () => {
+    delete process.env.VK_ACCESS_TOKEN;
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`
+      INSERT INTO game_evenings (id, title, starts_at, format, status, default_price, created_at, updated_at)
+      VALUES ('evening-static', 'Игровой вечер', ?, 'CASUAL', 'published', 100, ?, ?)
+    `, [now, now, now]);
+    await db.run(`
+      INSERT INTO vk_evening_publications (
+        evening_id, destination_key, group_id, post_owner_id, post_id,
+        answer_map_json, status, external_url, published_at, updated_at, last_error
+      ) VALUES ('evening-static', 'public', '212761164', -212761164, 55, '{}', 'error',
+        'https://vk.com/wall-212761164_55', ?, ?, 'VK API 27: Group authorization failed')
+    `, [now, now]);
+
+    const result = await syncDirectVkEveningPublications(db, 'evening-static', 'https://example.test');
+    expect(result.results).toEqual([expect.objectContaining({ destination: 'public', success: true })]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await db.get<any>(`SELECT status, post_id, last_error, last_message_hash FROM vk_evening_publications WHERE evening_id='evening-static'`))
+      .toEqual({ status: 'published', post_id: 55, last_error: null, last_message_hash: null });
+
+    // Once an organizer API token appears, the skipped text is still delivered.
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ response: 1 }), { status: 200 }));
+    await syncDirectVkEveningPublications(db, 'evening-static', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.vk.com/method/wall.edit');
+  });
+
   it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn().mockResolvedValue(

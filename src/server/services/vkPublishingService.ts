@@ -82,20 +82,15 @@ const getChannelPeerId = () => {
 export const hasVkPublisherToken = () => Boolean(getVkPublisherToken());
 export const canEditVkWallPosts = () => Boolean(getVkLegacyUserToken());
 
-export type VkWallEditCredential = { source: 'user' | 'community'; token: string };
+export type VkWallEditCredential = { source: 'user'; token: string };
 
 /**
- * Credentials that may edit a community wall post, in preference order. VK
- * documents wall.edit for user tokens; the community key is still tried last
- * so installations where VK accepts it keep working.
+ * Credentials that may edit a community wall post. wall.edit is a user-token
+ * method: VK answers error 27 for community keys (verified against production).
  */
 export const getVkWallEditCredentials = (): VkWallEditCredential[] => {
-  const credentials: VkWallEditCredential[] = [];
   const userToken = getVkLegacyUserToken();
-  const communityToken = getVkGroupToken();
-  if (userToken) credentials.push({ source: 'user', token: userToken });
-  if (communityToken && communityToken !== userToken) credentials.push({ source: 'community', token: communityToken });
-  return credentials;
+  return userToken ? [{ source: 'user', token: userToken }] : [];
 };
 
 export const getVkDestinations = (): VkDestination[] => {

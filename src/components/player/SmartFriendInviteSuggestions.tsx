@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 
 type Suggestion = {
@@ -90,7 +91,7 @@ export default function SmartFriendInviteSuggestions() {
               </button>
               <div className="min-w-0 flex-1">
                 <button type="button" onClick={() => openPlayerProfile(item.player_id)} className="block max-w-full truncate text-left text-sm font-semibold">{item.nickname}</button>
-                <div className="mt-0.5 text-xs text-white/40">{item.relationship} · {item.shared_games} игр вместе</div>
+                <div className="mt-0.5 text-xs text-white/40">{item.relationship} · {countGames(item.shared_games)} вместе</div>
                 <div className="mt-1 text-[11px] leading-4 text-white/30">Не записан на «{item.evening.title}» · {fmtDate(item.evening.starts_at)}</div>
               </div>
             </div>

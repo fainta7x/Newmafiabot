@@ -13,13 +13,13 @@ const STATUS: Record<string, { label: string; className: string }> = {
 };
 
 /** The one evening header shared by every evening tab: back, when/where and status. */
-export const EveningHeaderBar: React.FC<{ eveningId: string; refreshKey?: number; onBack: () => void }> = ({ eveningId, refreshKey = 0, onBack }) => {
+export const EveningHeaderBar: React.FC<{ eveningId: string; refreshKey?: number; onBack: () => void; onLoaded?: (evening: HeaderEvening) => void }> = ({ eveningId, refreshKey = 0, onBack, onLoaded }) => {
   const [evening, setEvening] = useState<HeaderEvening | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     api.getEvening(eveningId)
-      .then((data) => { if (!cancelled) setEvening(data as HeaderEvening); })
+      .then((data) => { if (cancelled) return; setEvening(data as HeaderEvening); onLoaded?.(data as HeaderEvening); })
       .catch(() => { if (!cancelled) setEvening(null); });
     return () => { cancelled = true; };
   }, [eveningId, refreshKey]);

@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -186,7 +187,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     ? `Нельзя закрыть: не отмечена явка у ${state.pending_expected.length} ожидаемых игроков.`
     : state.games.needs_override && !allowMissingStats
       ? state.games.unfinished.length
-        ? `Нельзя закрыть: ${state.games.unfinished.length} игр не завершены. Подтверди закрытие без полной статистики.`
+        ? `Нельзя закрыть: ${countGames(state.games.unfinished.length)} не завершены. Подтверди закрытие без полной статистики.`
         : 'Нельзя закрыть: игровые данные неполные. Подтверди закрытие без полной статистики.'
       : null;
 

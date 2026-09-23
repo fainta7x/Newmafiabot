@@ -1,3 +1,4 @@
+import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -36,13 +37,6 @@ const eventDate = (value: string) => new Date(value).toLocaleString('ru-RU', {
   minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
-
-const gamesWord = (count: number) => {
-  const mod10 = count % 10, mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'игра';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'игры';
-  return 'игр';
-};
 
 export default function PlayerEventSlotDetail({
   event,
@@ -183,7 +177,7 @@ export default function PlayerEventSlotDetail({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
-                        <div className={`mt-1 text-xs ${ready ? 'text-emerald-200/60' : 'text-white/35'}`}>{slot.registered_count} игроков{ready ? ' · собрано' : ''}</div>
+                        <div className={`mt-1 text-xs ${ready ? 'text-emerald-200/60' : 'text-white/35'}`}>{countPlayers(slot.registered_count)}{ready ? ' · собрано' : ''}</div>
                       </div>
                       <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${selected ? 'bg-white text-black' : 'bg-white/[0.05] text-white/20'}`}>{selected ? <Check className="h-4 w-4" /> : ''}</span>
                     </div>
@@ -199,7 +193,7 @@ export default function PlayerEventSlotDetail({
 
             <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{draft.length} {gamesWord(draft.length)}</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
                 <div className="text-right"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
               </div>
               {maxEveningPrice > 0 && draft.length > 4 && (

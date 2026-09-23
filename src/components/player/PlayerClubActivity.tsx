@@ -125,13 +125,7 @@ export default function PlayerClubActivity() {
         )}
       </section>
 
-      <section>
-        <div className="mb-2 px-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Жизнь клуба</div>
-          <div className="mt-1 text-sm font-semibold text-white/75">Последние вечера и матчи</div>
-        </div>
-        <PlayerStoriesPanel />
-      </section>
+      <PlayerStoriesPanel />
     </div>
   );
 }

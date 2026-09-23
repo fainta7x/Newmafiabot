@@ -1,3 +1,4 @@
+import { countGames, countWins } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import PlayerProgressionPanel from './PlayerProgressionPanel.tsx';
 import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
@@ -218,7 +219,7 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
               <PlayerProgressionPanel />
 
               <div className="mt-4 rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние {form.length} игр</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние {countGames(form.length)}</div>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <div><div className="text-3xl font-black">{wins}<span className="text-white/25">/{form.length}</span></div><div className="mt-1 text-[11px] text-white/35">{streakText}</div></div>
                   <div className="text-right"><div className="text-2xl font-semibold">{Math.round((wins / form.length) * 100)}%</div><div className="mt-1 text-[10px] text-white/30">текущая форма</div></div>
@@ -230,10 +231,10 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Карьера по ролям</div>
                 <div className="mt-2 grid grid-cols-2 gap-2">{roleCareer.map((career) => (
                   <div key={career.role} className="rounded-2xl border border-white/[0.06] bg-white/[0.035] p-3">
-                    <div className="flex items-center justify-between"><span className="text-lg">{roleIcon(career.role)}</span><span className="text-[10px] text-white/25">{career.games} игр</span></div>
+                    <div className="flex items-center justify-between"><span className="text-lg">{roleIcon(career.role)}</span><span className="text-[10px] text-white/25">{countGames(career.games)}</span></div>
                     <div className="mt-2 text-xs font-semibold">{roleLabel(career.role)}</div>
                     <div className="mt-1 text-lg font-black">{career.games ? `${career.winRate}%` : '—'}</div>
-                    <div className="text-[9px] text-white/30">{career.games ? `${career.wins} побед${career.streak >= 2 ? ` · серия ${career.streak}` : ''}` : 'ещё не играл'}</div>
+                    <div className="text-[9px] text-white/30">{career.games ? `${countWins(career.wins)}${career.streak >= 2 ? ` · серия ${career.streak}` : ''}` : 'ещё не играл'}</div>
                   </div>
                 ))}</div>
               </div>
@@ -301,7 +302,7 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
               ))}</div> : <p className="mt-2 text-xs text-white/30">Пока недостаточно очных игр.</p>}</div>
 
               <div className="mt-5"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">🤝 Мои частые напарники</div>{relationships.teammates.length ? <div className="mt-2 space-y-1.5">{relationships.teammates.slice(0, 5).map((item) => (
-                <div key={item.player_id} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-2.5"><Avatar src={item.avatar_url} /><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{item.nickname}</div><div className="mt-0.5 text-[10px] text-white/30">вместе {item.games} игр · {item.wins} побед</div></div><div className="text-sm font-black">{item.win_rate}%</div></div>
+                <div key={item.player_id} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-2.5"><Avatar src={item.avatar_url} /><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{item.nickname}</div><div className="mt-0.5 text-[10px] text-white/30">вместе {countGames(item.games)} · {countWins(item.wins)}</div></div><div className="text-sm font-black">{item.win_rate}%</div></div>
               ))}</div> : <p className="mt-2 text-xs text-white/30">Совместные игры появятся здесь.</p>}</div>
 
               <div className="mt-5 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">🏆 Лучшие связки клуба</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div><div className="mb-1.5 text-[10px] font-semibold text-rose-300/70">За красных</div><div className="space-y-1.5">{relationships.club_duos.red.slice(0, 3).map(renderDuo)}{!relationships.club_duos.red.length && <div className="text-[10px] text-white/25">Нужно больше совместных игр.</div>}</div></div><div><div className="mb-1.5 text-[10px] font-semibold text-white/55">За чёрных</div><div className="space-y-1.5">{relationships.club_duos.black.slice(0, 3).map(renderDuo)}{!relationships.club_duos.black.length && <div className="text-[10px] text-white/25">Нужно больше совместных игр.</div>}</div></div></div></div>

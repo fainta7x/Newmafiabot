@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening, type Player } from '../../lib/api.ts';
@@ -221,7 +222,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
             )}
 
             <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-text-muted"><span className="font-bold uppercase tracking-[.1em]">Выбранные игры</span><span>{slotIds.length} игр · {total} ₽</span></div>
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-text-muted"><span className="font-bold uppercase tracking-[.1em]">Выбранные игры</span><span>{countGames(slotIds.length)} · {total} ₽</span></div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {plan.slots.map((slot) => {
                   const selected = slotIds.includes(slot.id);

@@ -80,7 +80,7 @@ const dateLabel = (value: string | null) => {
   if (!value) return 'Дата не указана';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 };
 const statusLabel = (status: string) => {
   if (status === 'paid') return 'Оплачено';

@@ -1,3 +1,4 @@
+import { countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 
 type LivePayload =
@@ -9,7 +10,7 @@ const dateTime = (value: string | null | undefined) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 export default function BigScreenLive() {
@@ -45,7 +46,7 @@ export default function BigScreenLive() {
         <section className="mt-[5vh] grid grid-cols-[1fr_auto_1fr] items-center gap-[3vw] text-center"><div><div className="text-[clamp(18px,1.7vw,30px)] uppercase tracking-[0.2em] text-rose-300/55">Красные</div><div className="mt-2 text-[clamp(96px,13vw,230px)] font-black leading-none text-rose-300">{evening.score.red}</div></div><div className="text-[clamp(50px,5vw,100px)] font-light text-white/15">:</div><div><div className="text-[clamp(18px,1.7vw,30px)] uppercase tracking-[0.2em] text-white/45">Чёрные</div><div className="mt-2 text-[clamp(96px,13vw,230px)] font-black leading-none">{evening.score.black}</div></div></section>
 
         <div className="mt-auto grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-          <section className="rounded-[32px] border border-white/[0.07] bg-white/[0.035] p-[clamp(20px,2.2vw,38px)]"><div className="flex items-center justify-between gap-4"><div><div className="text-[clamp(12px,1vw,18px)] font-semibold uppercase tracking-[0.18em] text-white/30">Текущая игра</div><div className="mt-1 text-[clamp(26px,2.3vw,44px)] font-black">{evening.current_game ? `Игра №${evening.current_game.game_number}` : 'Между играми'}</div></div><div className="text-right text-[clamp(12px,1vw,18px)] text-white/30">{evening.completed_games} завершено<br />{evening.attended} игроков сегодня</div></div>
+          <section className="rounded-[32px] border border-white/[0.07] bg-white/[0.035] p-[clamp(20px,2.2vw,38px)]"><div className="flex items-center justify-between gap-4"><div><div className="text-[clamp(12px,1vw,18px)] font-semibold uppercase tracking-[0.18em] text-white/30">Текущая игра</div><div className="mt-1 text-[clamp(26px,2.3vw,44px)] font-black">{evening.current_game ? `Игра №${evening.current_game.game_number}` : 'Между играми'}</div></div><div className="text-right text-[clamp(12px,1vw,18px)] text-white/30">{evening.completed_games} завершено<br />{countPlayers(evening.attended)} сегодня</div></div>
             {evening.current_game?.players?.length ? <div className="mt-5 grid grid-cols-5 gap-2">{evening.current_game.players.map((player: any) => <div key={`${player.seat_number}:${player.nickname}`} className="rounded-2xl bg-black/20 px-2 py-3 text-center"><div className="text-[clamp(10px,.8vw,14px)] text-white/25">#{player.seat_number}</div><div className="mt-1 truncate text-[clamp(13px,1vw,18px)] font-bold">{player.nickname}</div></div>)}</div> : <div className="mt-5 rounded-2xl bg-black/15 px-4 py-7 text-center text-[clamp(14px,1vw,18px)] text-white/30">Следующая десятка появится здесь после создания игры.</div>}
           </section>
 

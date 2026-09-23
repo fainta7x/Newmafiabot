@@ -1,3 +1,4 @@
+import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
@@ -113,7 +114,7 @@ export default function PlayerSeasonsPanel() {
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100/45">Итоги сезона</div>
             <div className="mt-1 text-xl font-black">{data.season.label}</div>
-            <div className="mt-1 text-[10px] text-white/30">{data.season.games} игр · {data.season.players} игроков</div>
+            <div className="mt-1 text-[10px] text-white/30">{countGames(data.season.games)} · {countPlayers(data.season.players)}</div>
           </div>
           {viewerRank && <div className="rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-black">#{viewerRank.place}</div><div className="text-[8px] text-white/25">ваше место</div></div>}
         </div>
@@ -140,13 +141,13 @@ export default function PlayerSeasonsPanel() {
           <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
             {data.season_history.map((season) => (
               <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
-                <div className="text-[9px] font-semibold">{season.label}</div><div className="mt-0.5 text-[8px] opacity-60">{season.games} игр</div>
+                <div className="text-[9px] font-semibold">{season.label}</div><div className="mt-0.5 text-[8px] opacity-60">{countGames(season.games)}</div>
               </button>
             ))}
           </div>
           {selectedSeason && (
             <div className="mt-3">
-              <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[9px] text-white/25">{selectedSeason.players} игроков · {selectedSeason.games} игр</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[8px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[10px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
+              <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[9px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[8px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[10px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
               <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
             </div>
           )}

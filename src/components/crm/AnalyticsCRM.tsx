@@ -64,7 +64,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
           <p className="mt-1 text-[12px] text-text-secondary">Где теряются игроки, как работают приглашения и возвращаются ли новички.</p>
         </div>
         <div className="flex items-center gap-1 rounded-[12px] border border-border-soft bg-surface-2 p-1 text-xs">
-          {['7d', '30d', '90d', 'all'].map((value) => <button key={value} onClick={() => setPeriod(value)} className={`min-h-9 rounded-[9px] px-3 font-bold transition-colors ${period === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>{value === 'all' ? 'Всё' : value}</button>)}
+          {['7d', '30d', '90d', 'all'].map((value) => <button key={value} onClick={() => setPeriod(value)} className={`min-h-9 rounded-[9px] px-3 font-bold transition-colors ${period === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>{value === 'all' ? 'Всё' : `${parseInt(value, 10)} дн.`}</button>)}
         </div>
       </section>
 
@@ -121,7 +121,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Записей</span><strong>{data.totalRegistrations}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-success-soft p-3"><span className="text-text-secondary">Пришли</span><strong className="text-success">{data.totalAttended}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Отменили</span><strong>{data.totalCancelled} · {data.cancellationRate}%</strong></div>
-            <div className="flex justify-between rounded-[11px] bg-danger-soft p-3"><span className="text-text-secondary">No-show</span><strong className="text-danger">{data.totalNoShow} · {data.noShowRate}%</strong></div>
+            <div className={`flex justify-between rounded-[11px] p-3 ${data.totalNoShow ? 'bg-danger-soft' : 'bg-surface-2'}`}><span className="text-text-secondary">Не пришли</span><strong className={data.totalNoShow ? 'text-danger' : ''}>{data.totalNoShow} · {data.noShowRate}%</strong></div>
           </div>
         </section>
 
@@ -130,7 +130,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
           <div className="mt-3 space-y-2 text-[11px]">
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Начислено</span><strong>{formatMoney(data.financials.accrued)}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-success-soft p-3"><span className="text-text-secondary">Оплачено</span><strong className="text-success">{formatMoney(data.financials.incomePaid)}</strong></div>
-            <div className="flex justify-between rounded-[11px] bg-danger-soft p-3"><span className="text-text-secondary">Открытые долги</span><strong className="text-danger">{formatMoney(data.financials.outstandingDebt)}</strong></div>
+            <div className={`flex justify-between rounded-[11px] p-3 ${data.financials.outstandingDebt ? 'bg-danger-soft' : 'bg-surface-2'}`}><span className="text-text-secondary">Открытые долги</span><strong className={data.financials.outstandingDebt ? 'text-danger' : ''}>{formatMoney(data.financials.outstandingDebt)}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Средний доход / вечер</span><strong>{formatMoney(data.financials.avgRevenuePerEvening)}</strong></div>
           </div>
         </section>

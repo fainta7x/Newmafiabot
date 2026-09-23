@@ -16,7 +16,7 @@ type PoolEntry = {
 const formatWhen = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const contributorText = (entry: PoolEntry) => {
@@ -65,8 +65,7 @@ export function MusicLibraryCRM({ evenings, onOpenLibrary }: { evenings: GameEve
   return (
     <div className="mx-auto w-full max-w-3xl space-y-3">
       <section className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-white/[0.025] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">CRM · Музыка</div>
-        <h2 className="mt-2 text-xl font-semibold text-white">Музыкальная база</h2>
+        <h2 className="text-base font-semibold text-white">База ведущего</h2>
         <p className="mt-1 text-xs leading-5 text-white/40">Постоянная база редактируется в едином разделе «Ведение». Здесь CRM показывает только контекст выбранного вечера.</p>
         <button type="button" onClick={onOpenLibrary} className="mt-4 min-h-11 w-full rounded-xl bg-violet-100 px-3 text-xs font-semibold text-[#15121b]">Открыть базу ведущего</button>
       </section>

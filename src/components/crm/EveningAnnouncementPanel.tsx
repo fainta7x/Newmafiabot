@@ -1,3 +1,4 @@
+import { countPlayers } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, ChevronDown, ChevronUp, MessageCircle, RefreshCw, Send } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -236,7 +237,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
           </div> : null}
 
           <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-4 flex min-h-[42px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">
-            <span><strong className="block text-[11px] text-text-primary">Требуют внимания</strong><span className="text-[10px] text-text-muted">{attentionPlayers.length ? `${attentionPlayers.length} игроков` : 'Никого'}</span></span>
+            <span><strong className="block text-[11px] text-text-primary">Требуют внимания</strong><span className="text-[10px] text-text-muted">{attentionPlayers.length ? `${countPlayers(attentionPlayers.length)}` : 'Никого'}</span></span>
             {expanded ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
           </button>
 
@@ -269,7 +270,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
         open={Boolean(detailKind)}
         onClose={() => setDetailKind(null)}
         title={detailKind ? detailTitle[detailKind] : 'Детализация'}
-        subtitle={detailKind ? `${detailPlayers.length} игроков · ${eveningTitle}` : eveningTitle}
+        subtitle={detailKind ? `${countPlayers(detailPlayers.length)} · ${eveningTitle}` : eveningTitle}
         widthClass="sm:max-w-md"
       >
         <div className="space-y-2">

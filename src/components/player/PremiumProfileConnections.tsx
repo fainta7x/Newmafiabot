@@ -1,3 +1,4 @@
+import { countWins } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 
 type SharedGame = {
@@ -292,7 +293,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
       {mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
         <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Успешная связка</div>
-        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">{mostSuccessful.same_team_wins || 0} побед в {mostSuccessful.same_team_games} совместных играх · {Number(mostSuccessful.same_team_win_rate || 0).toFixed(1)}%</div><div className="mt-1 text-[11px] text-white/28">Показывается только при достаточной выборке, без влияния на рейтинг.</div></div><span className="text-white/25">→</span></div>
+        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">{countWins(mostSuccessful.same_team_wins || 0)} в {mostSuccessful.same_team_games} совместных играх · {Number(mostSuccessful.same_team_win_rate || 0).toFixed(1)}%</div><div className="mt-1 text-[11px] text-white/28">Показывается только при достаточной выборке, без влияния на рейтинг.</div></div><span className="text-white/25">→</span></div>
       </button> : null}
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">

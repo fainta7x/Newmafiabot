@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, Gamepad2, Megaphone, Users } from 'lucide-react';
 import { EveningHeaderBar } from './EveningHeaderBar.tsx';
 import { EveningOverviewView } from './EveningOverviewView.tsx';
@@ -29,14 +29,23 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 }) => {
   const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'management' : initialSection);
   const [headerKey, setHeaderKey] = useState(0);
+  // A running evening opens on its games, not on the announcement.
+  const autoSectionFor = useRef<string | null>(null);
 
   useEffect(() => {
     setSection(initialAddOpen ? 'management' : initialSection);
   }, [eveningId, initialAddOpen, initialSection]);
 
   const openSection = (next: EveningSection) => {
+    autoSectionFor.current = eveningId;
     setSection(next);
     onSectionChange?.(next);
+  };
+
+  const handleHeaderLoaded = (evening: { status: string }) => {
+    if (autoSectionFor.current === eveningId) return;
+    autoSectionFor.current = eveningId;
+    if (evening.status === 'active' && section === 'overview' && initialSection === 'overview' && !initialAddOpen) openSection('games');
   };
 
   const tabs: Array<{ id: EveningSection; label: string; mobileLabel: string; icon: React.ReactNode }> = [
@@ -48,7 +57,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 
   return (
     <div className="space-y-3">
-      <EveningHeaderBar eveningId={eveningId} refreshKey={headerKey} onBack={onBack} />
+      <EveningHeaderBar eveningId={eveningId} refreshKey={headerKey} onBack={onBack} onLoaded={handleHeaderLoaded} />
       <div className="sticky top-0 z-30 -mx-1 bg-app-bg/92 px-1 py-1 backdrop-blur-xl sm:top-[60px]">
         <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
           {tabs.map((tab) => {

@@ -138,7 +138,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
           : draft?.join_url
             ? <a href={draft.join_url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[11px] font-black text-text-primary"><ExternalLink className="h-3.5 w-3.5" />Страница вечера</a>
             : <span />}
-        {draft?.channel_url
+        {draft?.channel_url && canPublish
           ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={copyForChannel} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[11px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
           : null}
       </div>

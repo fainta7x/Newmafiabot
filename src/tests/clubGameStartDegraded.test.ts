@@ -33,6 +33,20 @@ describe('club game betting degraded states', () => {
     delete process.env.LIVE_BETTING_ENABLED;
   });
 
+  it('starts a game hosted by an external judge without betting instead of failing', async () => {
+    const externalJudgeDb = {
+      get: vi.fn(async () => ({ id: 43, evening_id: 'evening', judge_player_id: null, archived_at: null })),
+    } as unknown as DatabaseWrapper;
+
+    await expect(startClubGameLifecycle(externalJudgeDb, { gameId: 43, roles: [] })).resolves.toMatchObject({
+      pool: null,
+      disabled: true,
+      betting_status: 'disabled',
+      notification: { reason: 'external_judge' },
+    });
+    expect(mocks.openBetPoolForGame).not.toHaveBeenCalled();
+  });
+
   it('reports a pool failure without failing the canonical game start request', async () => {
     mocks.getBetPoolByGame.mockRejectedValueOnce(new Error('Turso unavailable'));
 

@@ -5,6 +5,7 @@ import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
+import { getEveningAttendanceFact } from '../../lib/eveningResponse';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
 import TableScoutingCard from './TableScoutingCard.tsx';
@@ -141,6 +142,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const selectedCount = selectedParticipantIds.length;
   const eveningCanStart = ['published', 'active'].includes(String(evening.status || '')) && !evening.settled_at;
   const missingPresent = Math.max(0, 10 - eligible.length);
+  // Registered or answered «going» but attendance not marked yet: the usual reason for a short list.
+  const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -301,7 +304,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
         {error ? <div className="flex items-start gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
-        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Для игры пока не хватает {missingPresent} {missingPresent === 1 ? 'доступного участника' : 'доступных участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из 10 нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
 
         <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
 

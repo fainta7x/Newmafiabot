@@ -48,6 +48,27 @@ const clearManualState = () => { try { sessionStorage.removeItem(MANUAL_STATE_KE
 export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
   new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
 );
+// Whether the current evening is known to have no music. Live Game hides its
+// «включить/выключить музыку» steps then, instead of making the judge click
+// through music actions that do nothing.
+const AVAILABILITY_EVENT = 'judge-music-availability';
+let musicKnownEmpty = false;
+export const setMusicKnownEmpty = (value: boolean) => {
+  if (musicKnownEmpty === value) return;
+  musicKnownEmpty = value;
+  window.dispatchEvent(new CustomEvent(AVAILABILITY_EVENT));
+};
+export const useJudgeMusicKnownEmpty = () => {
+  const [value, setValue] = useState(musicKnownEmpty);
+  useEffect(() => {
+    const sync = () => setValue(musicKnownEmpty);
+    window.addEventListener(AVAILABILITY_EVENT, sync);
+    sync();
+    return () => window.removeEventListener(AVAILABILITY_EVENT, sync);
+  }, []);
+  return value;
+};
+
 export const requestJudgeNightMusicStart = () => {
   window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }));
   return true;
@@ -81,6 +102,8 @@ const resolveEveningId = (): string => {
 };
 
 export default function JudgeGameMusicController() {
+  // The empty-playlist flag belongs to the game this controller serves; forget it when the game closes.
+  useEffect(() => () => setMusicKnownEmpty(false), []);
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);
@@ -89,6 +112,13 @@ export default function JudgeGameMusicController() {
   const [picker, setPicker] = useState<{ kind: MusicStartKind; entries: PoolEntry[]; eveningId: string } | null>(null);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
+  // Non-blocking note when there is nothing to play: the judge keeps hosting without a modal on top.
+  const [emptyNotice, setEmptyNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!emptyNotice) return undefined;
+    const timer = window.setTimeout(() => setEmptyNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [emptyNotice]);
   const [active, setActive] = useState<{ entry: PoolEntry; kind: MusicStartKind } | null>(null);
   const [playerCollapsed, setPlayerCollapsed] = useState(true);
 
@@ -111,6 +141,7 @@ export default function JudgeGameMusicController() {
   };
 
   const startLocal = (entryOrTrackId: PoolEntry | string, kind: MusicStartKind) => {
+    setMusicKnownEmpty(false);
     const entry = typeof entryOrTrackId === 'string' ? findLocalEntry(entryOrTrackId) : entryOrTrackId;
     if (!entry) return;
     setActive({ entry, kind });
@@ -125,6 +156,7 @@ export default function JudgeGameMusicController() {
   };
 
   const startExternal = (entry: PoolEntry, kind: MusicStartKind) => {
+    setMusicKnownEmpty(false);
     music.stop();
     setPicker(null);
     setActive({ entry, kind });
@@ -163,7 +195,12 @@ export default function JudgeGameMusicController() {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось собрать музыку вечера.');
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
-      if (!entries.length) setPickerError('Плейлист вечера пуст. Добавьте музыку в базу ведущего или в профили присутствующих игроков.');
+      setMusicKnownEmpty(entries.length === 0);
+      if (!entries.length) {
+        setPicker(null);
+        setEmptyNotice('Музыки для вечера нет — продолжаем без неё. Добавить: база ведущего или профили игроков.');
+        return;
+      }
       if (autoStartLocal) {
         const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
         if (localEntry) {
@@ -253,6 +290,7 @@ export default function JudgeGameMusicController() {
 
   return (
     <>
+      {emptyNotice && !picker ? <div role="status" className="pointer-events-none fixed left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-[196] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#111218]/95 px-3 py-2 text-center text-[11px] leading-4 text-white/70 shadow-lg">{emptyNotice}</div> : null}
       {(picker || pickerLoading) && (
         <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">

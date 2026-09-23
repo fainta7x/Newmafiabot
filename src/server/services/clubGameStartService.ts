@@ -34,9 +34,20 @@ export async function startClubGameLifecycle(
   `, [input.gameId]);
   if (!game) throw new Error('Игра не найдена');
   if (!game.evening_id || game.archived_at) throw new Error('Ставки открываются только для активной клубной игры вечера');
-  // New canonical games always have judge_player_id. Refuse to guess by nickname in the
-  // start lifecycle because referee eligibility is a safety rule, not a display concern.
-  if (!game.judge_player_id) throw new Error('У игры не указан canonical judge_player_id');
+  // Betting needs a canonical judge_player_id. Never guess by nickname: referee
+  // eligibility is a safety rule. A game hosted by an external/text judge is a
+  // supported setup, so it simply runs without betting instead of failing start.
+  if (!game.judge_player_id) {
+    return {
+      pool: null,
+      created: false,
+      idempotent: true,
+      disabled: true,
+      degraded: false,
+      betting_status: 'disabled' as const,
+      notification: { eligible: 0, sent: 0, disabled: true, reason: 'external_judge' },
+    };
+  }
 
   if (!isLiveBettingEnabled()) {
     return {

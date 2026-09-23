@@ -101,8 +101,10 @@ export default function PlayerHomeDashboard({
 
   const nextEvening = useMemo(() => {
     const now = Date.now() - 60 * 60 * 1000;
+    // An evening that is already running is shown in the LIVE bar above; «Следующий
+    // вечер» is the next one the player can still plan for.
     return (evenings || [])
-      .filter((item) => new Date(item.starts_at).getTime() >= now)
+      .filter((item) => new Date(item.starts_at).getTime() >= now && !['active', 'completed', 'cancelled'].includes(String((item as { status?: string }).status || '')))
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0] || null;
   }, [evenings]);
 

@@ -85,7 +85,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
             aria-current={secondaryActive ? 'page' : undefined}
             className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[14px] font-semibold ${secondaryActive ? 'bg-white text-black' : 'text-text-secondary'}`}
           >
-            {moreOpen ? <X className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
+            {moreOpen ? <X className="h-4 w-4 shrink-0" /> : secondaryActive ? null : <MoreHorizontal className="h-4 w-4 shrink-0" />}
             <span className="truncate">{secondaryActive ? paneLabel(pane) : 'Ещё'}</span>
           </button>
         </div>

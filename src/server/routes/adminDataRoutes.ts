@@ -23,7 +23,7 @@ const EXPERT_TABLES: Record<string, { label: string; blockedColumns?: string[] }
   tournament_game_seats: { label: 'Рассадка турниров' },
   tournament_game_player_results: { label: 'Результаты игроков турнира' },
   tournament_game_protocols: { label: 'Протоколы турниров' },
-  rating_periods: { label: 'Рейтинговые периоды' },
+  rating_periods: { label: 'Сезоны рейтинга' },
   shop_items: { label: 'Товары магазина' },
   shop_purchases: { label: 'Покупки' },
   player_achievements: { label: 'Полученные достижения' },

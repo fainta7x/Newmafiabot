@@ -464,7 +464,7 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'rating' && (
           <>
-            {!embedded && <PageHeading title="Рейтинг" subtitle="Рейтинговые периоды и общий Elo клуба" />}
+            {!embedded && <PageHeading title="Рейтинг" subtitle="Сезоны и общий Elo клуба" />}
             <PlayerRatingPeriods
               playerId={player.id}
               onOpenGame={(gameKey) => {

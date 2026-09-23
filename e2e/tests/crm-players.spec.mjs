@@ -114,7 +114,7 @@ test.describe('Organizer players mobile workflow', () => {
     await page.getByRole('button', { name: 'Закрыть', exact: true }).last().click();
     await hub.getByRole('button', { name: 'Рейтинг', exact: true }).click();
     await expect(hub.getByRole('button', { name: 'Рейтинг', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByText('Рейтинговые периоды', { exact: true })).toBeVisible();
+    await expect(page.getByText('Сезоны рейтинга', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'players rating');
     await attachViewport(page, testInfo, 'crm-players-rating.png');
   });

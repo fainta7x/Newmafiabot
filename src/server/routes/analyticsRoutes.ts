@@ -23,16 +23,16 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
     const players = await db.all<any>(`
       SELECT p.*,
-        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status='completed') AS total_attended,
-        (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status='completed') AS first_visit,
-        (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status='completed') AS last_visit
+        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status IN ('completed','active')) AS total_attended,
+        (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status IN ('completed','active')) AS first_visit,
+        (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND e.status IN ('completed','active')) AS last_visit
       FROM players p
     `);
     const totalPlayers = players.length; let inactive30=0,inactive60=0,inactive90=0;
     players.forEach((p:any)=>{if(!p.last_visit)return;const days=(nowMs-new Date(p.last_visit).getTime())/(1000*60*60*24);if(days>=30)inactive30++;if(days>=60)inactive60++;if(days>=90)inactive90++;});
 
     let cohortFirstVisits=0,cohortReturnedIn30Days=0;
-    for(const p of players){if(p.first_visit&&p.first_visit>=rangeStartIso&&p.first_visit<=rangeEndIso){cohortFirstVisits++;const firstMs=new Date(p.first_visit).getTime();const secondVisit=await db.get<any>(`SELECT MIN(e.starts_at) AS second_visit FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=? AND ep.attendance_status='attended' AND e.status='completed' AND e.starts_at>?`,[p.id,p.first_visit]);if(secondVisit?.second_visit&&new Date(secondVisit.second_visit).getTime()-firstMs<=30*24*60*60*1000)cohortReturnedIn30Days++;}}
+    for(const p of players){if(p.first_visit&&p.first_visit>=rangeStartIso&&p.first_visit<=rangeEndIso){cohortFirstVisits++;const firstMs=new Date(p.first_visit).getTime();const secondVisit=await db.get<any>(`SELECT MIN(e.starts_at) AS second_visit FROM evening_participants ep JOIN game_evenings e ON ep.evening_id=e.id WHERE ep.player_id=? AND ep.attendance_status='attended' AND e.status IN ('completed','active') AND e.starts_at>?`,[p.id,p.first_visit]);if(secondVisit?.second_visit&&new Date(secondVisit.second_visit).getTime()-firstMs<=30*24*60*60*1000)cohortReturnedIn30Days++;}}
     const cohortRetention30dRate=pct(cohortReturnedIn30Days,cohortFirstVisits);
 
     const participantStats=await db.get<any>(`

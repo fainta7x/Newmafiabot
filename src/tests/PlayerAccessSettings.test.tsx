@@ -52,8 +52,9 @@ describe('PlayerAccessSettings', () => {
     fireEvent.click(screen.getByTestId('crm-player-access-edit'));
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'club' } });
-    fireEvent.change(selects[1], { target: { value: 'team' } });
-    fireEvent.change(selects[2], { target: { value: 'host' } });
+    // Selects: Игра · В клубе · Организация (роль) · Ведение игр.
+    fireEvent.change(selects[2], { target: { value: 'team' } });
+    fireEvent.change(selects[3], { target: { value: 'host' } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
@@ -98,6 +99,6 @@ describe('PlayerAccessSettings', () => {
     rerender(<PlayerAccessSettings player={{ ...player, organizer_player_access: true }} onSaved={onSaved} />);
 
     expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
-    expect(within(screen.getByTestId('crm-player-access-summary')).getByText('Есть доступ')).toBeDefined();
+    expect(within(screen.getByTestId('crm-player-access-summary')).getByText('CRM организатора')).toBeDefined();
   });
 });

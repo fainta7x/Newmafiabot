@@ -359,6 +359,11 @@ The club runs four evening formats, and each has its own competition:
 
 Elo is one shared player-strength measure across CASUAL, RATING and TOURNAMENT games; seasons and tournaments keep their own points separately.
 
+Registration eligibility (user-approved 2026-09-23):
+
+- Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
+- Tournament places follow «кто первый, того и место»: the first ten eligible registrations are confirmed, later ones form the FIFO reserve (see «Tournament evening registration, reserve and entry fee»).
+
 The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). Calendar seasons (winter/spring/summer/autumn wins) are club statistics shown under «Клуб → Активность» as «Итоги сезона», not a rating.
 
 ## Elo / rating principles
@@ -397,6 +402,8 @@ See `AGENTS.md` and `docs/RUNBOOK.md` for the operational safeguards.
 - Historical games must never be rewritten automatically from a date or nickname guess. Every correction is an explicit, confirmed action.
 
 ## Organizer player profile roles and CRM entitlement
+
+Visit counts (user-approved 2026-09-23): a visit counts as soon as the organizer marks the player as attended, including on the evening that is still running; no-shows count only once the evening is completed. The CRM shows the player's four statuses as plain blocks — «Игра» (`game_level`), «В клубе» (membership from `club_role` guest/member plus the automatic visit count and novice-path stage), «Организация» (`club_role` team/organizer plus `judge_level`) and «Доступы» (`organizer_player_access`) — without changing the stored fields.
 
 Organizer CRM player profiles keep four independent concepts separate:
 

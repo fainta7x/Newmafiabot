@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CircleDollarSign, ListTodo, MoreHorizontal, Table2, UsersRound, WalletCards, X } from 'lucide-react';
+import { ListTodo, MoreHorizontal, Table2, X } from 'lucide-react';
 import EveningActiveRosterView from './EveningActiveRosterView.tsx';
 import EveningStaffCard from './EveningStaffCard.tsx';
 import EveningPaymentsPanel from './EveningPaymentsPanel.tsx';
@@ -18,16 +18,23 @@ interface EveningManagementViewProps {
 
 type OperationsPane = 'work' | 'roster' | 'payments' | 'tasks' | 'tables' | 'closeout';
 type VisiblePane = Exclude<OperationsPane, 'work'>;
-type SecondaryPane = Extract<VisiblePane, 'tasks' | 'tables' | 'closeout'>;
+type PrimaryPane = Extract<VisiblePane, 'roster' | 'payments' | 'closeout'>;
+type SecondaryPane = Extract<VisiblePane, 'tasks' | 'tables'>;
+
+// Closing the evening is part of the main flow (roster → payments → closeout);
+// tasks and tables are occasional tools behind «Ещё».
+const primaryPanes: Array<{ id: PrimaryPane; label: string }> = [
+  { id: 'roster', label: 'Состав' },
+  { id: 'payments', label: 'Оплата' },
+  { id: 'closeout', label: 'Закрытие' },
+];
 
 const secondaryPanes: Array<{ id: SecondaryPane; label: string; icon: React.ReactNode }> = [
   { id: 'tasks', label: 'Задачи', icon: <ListTodo className="h-4 w-4" /> },
   { id: 'tables', label: 'Столы', icon: <Table2 className="h-4 w-4" /> },
-  { id: 'closeout', label: 'Закрытие', icon: <WalletCards className="h-4 w-4" /> },
 ];
 
 const normalizePane = (pane?: OperationsPane): VisiblePane => pane && pane !== 'work' ? pane : 'roster';
-const paneLabel = (pane: VisiblePane) => ({ roster: 'Состав', payments: 'Оплата', tasks: 'Задачи', tables: 'Столы', closeout: 'Закрытие' }[pane]);
 
 export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
   eveningId,
@@ -56,41 +63,36 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
     setMoreOpen(false);
   };
 
-  const secondaryActive = pane === 'tasks' || pane === 'tables' || pane === 'closeout';
+  const secondaryActive = pane === 'tasks' || pane === 'tables';
 
   return (
     <div className="space-y-3">
       <nav aria-label="Рабочие разделы вечера" className="rounded-[14px] border border-border-soft bg-surface-1 p-1">
-        <div className="grid grid-cols-3 gap-1">
-          <button
-            type="button"
-            onClick={() => openPane('roster')}
-            aria-current={pane === 'roster' ? 'page' : undefined}
-            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[14px] font-semibold ${pane === 'roster' ? 'bg-white text-black' : 'text-text-secondary'}`}
-          >
-            <UsersRound className="h-4 w-4" /> Состав
-          </button>
-          <button
-            type="button"
-            onClick={() => openPane('payments')}
-            aria-current={pane === 'payments' ? 'page' : undefined}
-            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[14px] font-semibold ${pane === 'payments' ? 'bg-white text-black' : 'text-text-secondary'}`}
-          >
-            <CircleDollarSign className="h-4 w-4" /> Оплата
-          </button>
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1">
+          {primaryPanes.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => openPane(item.id)}
+              aria-current={pane === item.id ? 'page' : undefined}
+              className={`flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[14px] font-semibold ${pane === item.id ? 'bg-white text-black' : 'text-text-secondary'}`}
+            >
+              <span className="truncate">{item.label}</span>
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => setMoreOpen((value) => !value)}
             aria-expanded={moreOpen}
+            aria-label="Ещё"
             aria-current={secondaryActive ? 'page' : undefined}
-            className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[14px] font-semibold ${secondaryActive ? 'bg-white text-black' : 'text-text-secondary'}`}
+            className={`grid min-h-11 w-11 place-items-center rounded-[10px] ${secondaryActive ? 'bg-white text-black' : 'text-text-secondary'}`}
           >
-            {moreOpen ? <X className="h-4 w-4 shrink-0" /> : secondaryActive ? null : <MoreHorizontal className="h-4 w-4 shrink-0" />}
-            <span className="truncate">{secondaryActive ? paneLabel(pane) : 'Ещё'}</span>
+            {moreOpen ? <X className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
           </button>
         </div>
         {moreOpen ? (
-          <div className="mt-1 grid grid-cols-3 gap-1 border-t border-border-soft pt-1" data-testid="evening-secondary-panes">
+          <div className="mt-1 grid grid-cols-2 gap-1 border-t border-border-soft pt-1" data-testid="evening-secondary-panes">
             {secondaryPanes.map((item) => (
               <button
                 key={item.id}

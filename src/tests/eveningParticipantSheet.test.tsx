@@ -26,7 +26,8 @@ describe('EveningParticipantsView invitation flow', () => {
   it('keeps invitations focused on answers and game choices', () => {
     render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} />);
 
-    expect(screen.getByText('Кого пригласил')).toBeTruthy();
+    // The evening header lives in EveningWorkspace; the tab opens straight on the answers dashboard.
+    expect(screen.queryByText('Кого пригласил')).toBeNull();
     expect(screen.getByTestId('game-registration-dashboard')).toBeTruthy();
     expect(screen.queryByText('База рассылки')).toBeNull();
     expect(screen.queryByText('Явка не отмечена')).toBeNull();

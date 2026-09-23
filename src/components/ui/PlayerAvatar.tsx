@@ -28,8 +28,18 @@ interface PlayerAvatarProps {
 
 const avatarCache = new Map<string, string>();
 const storedAvatarCache = new Map<string, string>();
-// Players without a stored avatar: remembered per version so lists do not refetch 404s on every render.
-const missingAvatarCache = new Set<string>();
+// Players without a stored avatar: remembered briefly so lists do not refetch 404s on every
+// render, while an avatar uploaded during the session still appears after the TTL.
+const MISSING_AVATAR_TTL_MS = 2 * 60 * 1000;
+const missingAvatarCache = new Map<string, number>();
+const isKnownMissing = (key: string) => {
+  const expiresAt = missingAvatarCache.get(key);
+  if (expiresAt === undefined) return false;
+  if (expiresAt > Date.now()) return true;
+  missingAvatarCache.delete(key);
+  return false;
+};
+const rememberMissing = (key: string) => { missingAvatarCache.set(key, Date.now() + MISSING_AVATAR_TTL_MS); };
 
 export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
   nickname,
@@ -54,7 +64,7 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
         return;
       }
 
-      if (missingAvatarCache.has(cacheKey)) {
+      if (isKnownMissing(cacheKey)) {
         setDataUrl(null);
         setFailed(true);
         return;
@@ -70,13 +80,13 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
             setDataUrl(res.data_url);
             setFailed(false);
           } else {
-            missingAvatarCache.add(cacheKey);
+            rememberMissing(cacheKey);
             setDataUrl(null);
             setFailed(true);
           }
         })
         .catch((error) => {
-          if (Number((error as { status?: number })?.status) === 404) missingAvatarCache.add(cacheKey);
+          if (Number((error as { status?: number })?.status) === 404) rememberMissing(cacheKey);
           if (!cancelled) {
             setDataUrl(null);
             setFailed(true);

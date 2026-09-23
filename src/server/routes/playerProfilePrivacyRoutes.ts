@@ -44,7 +44,7 @@ router.get('/profiles/:playerId/birthday', async (req,res) => {
   if(!viewer&&!organizer) return res.status(401).json({error:'Player authentication required.'});
   await ensurePlayerProfileVisibilitySchema(req.db);
   const id=String(req.params.playerId);
-  const row=await req.db.get<any>('SELECT birth_day,birth_month,birth_year,birthday_visibility,profile_visibility_json FROM players WHERE id=? LIMIT 1',[id]);
+  const row=await req.db.get<any>("SELECT birth_day,birth_month,birth_year,birthday_visibility,profile_visibility_json FROM players WHERE id=? AND COALESCE(source,'')<>'legacy_guest_migrated' LIMIT 1",[id]);
   if(!row) return res.status(404).json({error:'Игрок не найден'});
   const own=viewer===id; const visibility=parsePlayerProfileVisibility(row.profile_visibility_json,row.birthday_visibility); const privateAccess=own||organizer;
   return res.json({

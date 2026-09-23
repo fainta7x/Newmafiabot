@@ -78,6 +78,7 @@ describe('Public runtime readiness endpoint', () => {
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body.status).toBe('ok');
     expect(response.body.checks).toEqual({ database: 'ok', bot: 'ok', telegram: 'ok' });
+    expect(response.body.build).toHaveProperty('source');
     expect(get).toHaveBeenCalledOnce();
     expect(get).toHaveBeenCalledWith('SELECT 1 AS ok');
     expect(fetcher).toHaveBeenCalledTimes(3);

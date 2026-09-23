@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { checkRuntimeReadiness, type RuntimeReadiness } from '../services/runtimeReadinessService.ts';
 import type { RuntimeFetch } from '../services/telegramRuntimeHealthService.ts';
+import { getBuildInfo } from '../services/buildInfoService.ts';
 
 export const createRuntimeHealthRoutes = (fetcher?: RuntimeFetch, cacheTtlMs = 30_000) => {
   const router = Router();
@@ -25,12 +26,13 @@ export const createRuntimeHealthRoutes = (fetcher?: RuntimeFetch, cacheTtlMs = 3
           .finally(() => { inFlight = null; });
       }
       const health = cached && cached.expiresAt > now ? cached.health : await inFlight!;
-      return res.status(health.status === 'ok' ? 200 : 503).json(health);
+      return res.status(health.status === 'ok' ? 200 : 503).json({ ...health, build: getBuildInfo() });
     } catch {
       return res.status(503).json({
         status: 'degraded',
         checked_at: new Date().toISOString(),
         checks: { database: 'fail', bot: 'fail', telegram: 'fail' },
+        build: getBuildInfo(),
       });
     }
   });

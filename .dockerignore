@@ -1,4 +1,8 @@
-.git
+# Keep only HEAD and refs so /api/health/runtime can report the build SHA.
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/packed-refs
 .github
 .env
 .env.*

@@ -385,7 +385,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
             <span className="flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-text-muted" />
-              {new Date(tournament.date).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
+              {new Date(tournament.date).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })}
             </span>
             {tournament.venue && (
               <span className="flex items-center gap-1">

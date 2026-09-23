@@ -4,7 +4,7 @@ type Award = { id:string; kind:string; title:string; tournament_name?:string|nul
 type Achievement = { id:string; name:string; description:string; icon:string; rarity_name:string; earned_at:string|null; category_name?:string };
 type TimelineItem = { id:string; type:string; date:string|null; icon:string; title:string; description:string|null };
 type Showcase = { awards:Award[]; pinned_awards:Award[]; earned_achievements:Achievement[]; timeline:TimelineItem[]; achievements:{earned:number;total:number;percentage:number}; stats:{verified_awards:number;achievements_earned:number;achievements_total:number;completed_games:number;manual_milestones:number} };
-const formatDate=(value:string|null|undefined)=>value&&!Number.isNaN(new Date(value).getTime())?new Date(value).toLocaleDateString('ru-RU'):null;
+const formatDate=(value:string|null|undefined)=>value&&!Number.isNaN(new Date(value).getTime())?new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }):null;
 
 export default function PremiumProfileShowcase({playerId,isSelf,section='all'}:{playerId:string;isSelf:boolean;section?:'all'|'awards'|'history'}){
  const [data,setData]=useState<Showcase|null>(null); const [error,setError]=useState<string|null>(null); const [busy,setBusy]=useState(false); const [nonce,setNonce]=useState(0);

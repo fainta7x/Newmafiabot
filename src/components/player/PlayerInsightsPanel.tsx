@@ -67,7 +67,7 @@ function EloChart({ points }: { points: Array<{ value: number; date: string }> }
       <text x="14" y="16" fill="rgba(255,255,255,.28)" fontSize="9">{Math.round(max)}</text>
       <text x="14" y={height - 3} fill="rgba(255,255,255,.25)" fontSize="9">{Math.round(min)}</text>
     </svg>
-    <div className="mt-1 flex items-center justify-between text-[9px] text-white/25"><span>{new Date(points[0].date).toLocaleDateString('ru-RU')}</span><span>{points.length} точек</span><span>{new Date(points[points.length - 1].date).toLocaleDateString('ru-RU')}</span></div>
+    <div className="mt-1 flex items-center justify-between text-[9px] text-white/25"><span>{new Date(points[0].date).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</span><span>{points.length} точек</span><span>{new Date(points[points.length - 1].date).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</span></div>
   </div>;
 }
 

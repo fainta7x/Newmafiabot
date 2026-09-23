@@ -115,8 +115,7 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
       return d.toLocaleDateString('ru-RU', {
         day: 'numeric',
         month: 'long',
-        year: 'numeric',
-      });
+        year: 'numeric', timeZone: 'Europe/Moscow' });
     } catch {
       return dateStr;
     }

@@ -14,7 +14,7 @@ const request = async (url: string, options?: RequestInit) => {
   if (!response.ok) throw Object.assign(new Error(body?.error || `HTTP ${response.status}`), { status: response.status });
   return body;
 };
-const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => {
   const [evening, setEvening] = useState<any>(null);
@@ -129,8 +129,8 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   if (error && !evening) return <main className="flex min-h-screen items-center justify-center bg-[#090a0d] p-4 text-white"><div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.045] p-6 text-center"><h1 className="text-xl font-semibold">Ссылка недействительна</h1><p className="mt-2 text-sm text-white/45">{error}</p></div></main>;
 
   const date = new Date(evening.starts_at);
-  const formattedDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-  const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const formattedDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
+  const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
   const price = Number(slotPlan?.event.price_per_game ?? evening.default_price ?? 0);
   const displayNickname = confirmedNickname || sessionStorage.getItem('2la_vk_nickname') || nickname || 'Игрок';
 

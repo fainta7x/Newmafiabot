@@ -48,7 +48,7 @@ const TABS: Array<{ id: ProfileTab; label: string }> = [
 ];
 const ROLE_LABELS: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
 const LEVEL_LABELS: Record<string, string> = { novice: 'Новичок', tournament: 'Турнирный игрок', club: 'Игрок клуба' };
-const fmtDate = (value: string | null) => value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleDateString('ru-RU') : 'Дата не указана';
+const fmtDate = (value: string | null) => value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : 'Дата не указана';
 const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
 
 function LoadingCard({ text = 'Загружаем…' }: { text?: string }) {

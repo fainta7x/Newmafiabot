@@ -13,7 +13,7 @@ type TournamentDetail = {
   player_capacity: number; confirmed_count: number; remaining_places: number; entry_fee_rub: number; prize_fund_rub: number;
   prize_allocations: Array<{ place: string; amount_rub: number }>; notes?: string | null; me?: TournamentRegistration | null;
 };
-const eventDate=(value:string)=>new Date(value).toLocaleString('ru-RU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const eventDate=(value:string)=>new Date(value).toLocaleString('ru-RU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit', timeZone: 'Europe/Moscow' });
 const paymentLabel=(state?:TournamentRegistration['payment_state'])=>({unpaid:'Не подтверждён',pending:'Ждёт проверки организатора',confirmed:'Оплата подтверждена',rejected:'Нужно уточнить оплату',waived:'Взнос не требуется',refunded:'Возвращено'}[state||'unpaid']);
 const lifecycleLabel=(lifecycle:string)=>({registration_open:'Регистрация открыта',registration_closed:'Регистрация закрыта',active:'Турнир идёт',completed:'Турнир завершён',draft:'Черновик'}[lifecycle]||lifecycle);
 const registrationLabel=(r?:TournamentRegistration|null)=>!r?'Вы ещё не записаны':r.status==='confirmed'?'Вы в основном составе':r.status==='reserve'?`Резерв · №${Number(r.queue_order||0)}`:r.status==='declined'?'Регистрация отклонена':'Регистрация отменена';

@@ -264,7 +264,7 @@ export default function PlayerLiveCenter({ compact = false }: { compact?: boolea
         </>}
 
         {error && <div className="mt-3 rounded-xl bg-rose-400/10 px-3 py-2 text-[10px] text-rose-200/70">{error}</div>}
-        <div className="mt-4 flex items-center justify-between text-[9px] text-white/22"><span>{updatedAt ? `Обновлено ${updatedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : 'Состояние вечера'}</span><button type="button" disabled={loading} onClick={() => void refresh()} className="min-h-9 rounded-xl bg-white/[0.05] px-3 font-semibold text-white/40 disabled:opacity-40">{loading ? 'Обновляем…' : 'Обновить'}</button></div>
+        <div className="mt-4 flex items-center justify-between text-[9px] text-white/22"><span>{updatedAt ? `Обновлено ${updatedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}` : 'Состояние вечера'}</span><button type="button" disabled={loading} onClick={() => void refresh()} className="min-h-9 rounded-xl bg-white/[0.05] px-3 font-semibold text-white/40 disabled:opacity-40">{loading ? 'Обновляем…' : 'Обновить'}</button></div>
       </section>
     </div>}
   </>;

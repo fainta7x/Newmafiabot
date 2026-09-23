@@ -12,7 +12,7 @@ type TournamentResult = {
 
 const formatDate = (value: string | null) => {
   const time = value ? new Date(value).getTime() : NaN;
-  return Number.isFinite(time) ? new Date(time).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  return Number.isFinite(time) ? new Date(time).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }) : null;
 };
 
 export default function PlayerTournamentResults() {

@@ -8,7 +8,7 @@ type IntegrityData = {
   suggestions: any[];
 };
 
-const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('ru-RU') : '—';
+const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—';
 
 export default function PlayerProfileIntegrityPanel({ player }: { player: PlayerDetails }) {
   const [data, setData] = useState<IntegrityData | null>(null);

@@ -62,7 +62,7 @@ const dateTime = (value: string | null) => {
   if (!value) return null;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return parsed.toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 };
 
 const responseLabel: Record<string, string> = {
@@ -84,7 +84,7 @@ const buildPersonalMessage = (title: string, startsAt: string) => {
   const date = new Date(startsAt);
   const when = Number.isNaN(date.getTime())
     ? ''
-    : ` ${date.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`;
+    : ` ${date.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`;
   return `Привет! Ты ещё не отметил, получится ли прийти на «${title}»${when}. Дай знать, пожалуйста 🙂`;
 };
 

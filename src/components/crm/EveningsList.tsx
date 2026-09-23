@@ -129,9 +129,9 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   };
 
   const suggestedTitle = (() => {
-    const time = startsAt ? new Date(startsAt).getTime() : NaN;
-    const date = Number.isFinite(time) ? new Date(time) : new Date();
-    return `Игровой вечер — ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`;
+    // startsAt is the «Москва» wall-clock value from the input; read its calendar date directly.
+    const day = /^\d{4}-\d{2}-\d{2}/.test(startsAt) ? startsAt.slice(0, 10) : new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
+    return `Игровой вечер — ${new Date(`${day}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`;
   })();
 
   const create = async (event: React.FormEvent) => {

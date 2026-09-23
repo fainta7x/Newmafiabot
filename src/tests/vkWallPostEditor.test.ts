@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { editVkWallPostWithPublisher } from '../server/services/vkWallPostEditor.ts';
+import { setVkRuntimeUserToken } from '../server/services/vkPublishingService.ts';
 
 const restoreEnv = (name: string, value: string | undefined) => {
   if (value === undefined) delete process.env[name];
@@ -71,4 +72,59 @@ it('publisher wall edit surfaces VK API errors instead of reporting false succes
     restoreEnv('VK_GROUP_ACCESS_TOKEN', originalGroupToken);
     restoreEnv('VK_ACCESS_TOKEN', originalUserToken);
   }
+});
+
+describe('wall edit credential fallback', () => {
+  const originalFetch = globalThis.fetch;
+  const originalGroupToken = process.env.VK_GROUP_ACCESS_TOKEN;
+  const originalUserToken = process.env.VK_ACCESS_TOKEN;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    restoreEnv('VK_GROUP_ACCESS_TOKEN', originalGroupToken);
+    restoreEnv('VK_ACCESS_TOKEN', originalUserToken);
+    setVkRuntimeUserToken('');
+  });
+
+  const mockVk = (answers: Record<string, unknown>) => {
+    const tokens: string[] = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const token = new URLSearchParams(String(init?.body || '')).get('access_token') || '';
+      tokens.push(token);
+      return { ok: true, status: 200, json: async () => answers[token] } as Response;
+    }) as typeof fetch;
+    return tokens;
+  };
+
+  it('never edits with a VK ID login token that the API rejects', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    delete process.env.VK_ACCESS_TOKEN;
+    setVkRuntimeUserToken('vkid-login-token', { apiCompatible: false });
+    const tokens = mockVk({ 'community-token': { response: 1 } });
+
+    await editVkWallPostWithPublisher({ groupId: '212761164', postId: 456, message: 'обновление' });
+    expect(tokens).toEqual(['community-token']);
+  });
+
+  it('falls back to the community key when the organizer token is rejected', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    const tokens = mockVk({
+      'user-token': { error: { error_code: 15, error_msg: 'Access denied' } },
+      'community-token': { response: 1 },
+    });
+
+    await editVkWallPostWithPublisher({ groupId: '212761164', postId: 456, message: 'обновление' });
+    expect(tokens).toEqual(['user-token', 'community-token']);
+  });
+
+  it('reports every credential failure and how to fix a community-only setup', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    delete process.env.VK_ACCESS_TOKEN;
+    mockVk({ 'community-token': { error: { error_code: 27, error_msg: 'Group authorization failed' } } });
+
+    const failure = editVkWallPostWithPublisher({ groupId: '212761164', postId: 456, message: 'обновление' });
+    await expect(failure).rejects.toThrow('ключ сообщества: VK API 27: Group authorization failed');
+    await expect(failure).rejects.toThrow('подключите «API VK» в CRM');
+  });
 });

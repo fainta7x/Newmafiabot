@@ -95,4 +95,11 @@ export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<vo
     CREATE INDEX IF NOT EXISTS idx_vk_oauth_states_expiry
       ON vk_oauth_states(expires_at);
   `);
+
+  // Additive: fingerprint of the last text delivered to VK, so the periodic
+  // refresh only edits a post when its announcement actually changed.
+  const publicationColumns = await db.all<{ name: string }>('PRAGMA table_info(vk_evening_publications)');
+  if (!publicationColumns.some((column) => column.name === 'last_message_hash')) {
+    await db.run('ALTER TABLE vk_evening_publications ADD COLUMN last_message_hash TEXT');
+  }
 }

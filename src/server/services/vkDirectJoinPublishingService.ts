@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
   createVkWallPost,
@@ -26,6 +27,8 @@ type PublicationRow = {
   post_id: number | null;
   external_url: string | null;
   published_at: string | null;
+  status: string | null;
+  last_message_hash: string | null;
 };
 
 type DestinationSyncResult = {
@@ -35,6 +38,7 @@ type DestinationSyncResult = {
 };
 
 const nowIso = () => new Date().toISOString();
+const messageHash = (message: string) => crypto.createHash('sha256').update(message).digest('hex');
 const normalizeBaseUrl = (value: string) => String(value || '').trim().replace(/\/$/, '');
 const joinUrlFor = (baseUrl: string, eveningId: string) => `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(eveningId)}?source=vk_entry`;
 export const playerCabinetUrlForVk = (baseUrl: string, destination = '/player') => {
@@ -152,7 +156,8 @@ export async function getDirectVkEveningAnnouncementDraft(
 }
 
 const getPublication = (db: DatabaseWrapper, eveningId: string, destinationKey: string) => db.get<PublicationRow>(`
-  SELECT evening_id, destination_key, group_id, post_owner_id, post_id, external_url, published_at
+  SELECT evening_id, destination_key, group_id, post_owner_id, post_id, external_url, published_at,
+         status, last_message_hash
     FROM vk_evening_publications
    WHERE evening_id = ? AND destination_key = ?
    LIMIT 1
@@ -191,6 +196,11 @@ const syncDestination = async (
     return { publication: null, skipped: true, reason: 'no_existing_post' };
   }
 
+  const hash = messageHash(message);
+  if (Number(existing?.post_id || 0) > 0 && existing?.status === 'published' && existing.last_message_hash === hash) {
+    return { publication: existing, skipped: false };
+  }
+
   let postOwnerId = Number(existing?.post_owner_id || 0);
   let postId = Number(existing?.post_id || 0);
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
@@ -212,8 +222,8 @@ const syncDestination = async (
   await db.run(`
     INSERT INTO vk_evening_publications (
       evening_id, destination_key, group_id, poll_owner_id, poll_id, post_owner_id, post_id,
-      answer_map_json, status, external_url, published_at, updated_at, last_error
-    ) VALUES (?, ?, ?, NULL, NULL, ?, ?, '{}', 'published', ?, ?, ?, NULL)
+      answer_map_json, status, external_url, published_at, updated_at, last_error, last_message_hash
+    ) VALUES (?, ?, ?, NULL, NULL, ?, ?, '{}', 'published', ?, ?, ?, NULL, ?)
     ON CONFLICT(evening_id, destination_key) DO UPDATE SET
       group_id=excluded.group_id,
       poll_owner_id=NULL,
@@ -225,8 +235,9 @@ const syncDestination = async (
       external_url=excluded.external_url,
       published_at=COALESCE(vk_evening_publications.published_at, excluded.published_at),
       updated_at=excluded.updated_at,
-      last_error=NULL
-  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now]);
+      last_error=NULL,
+      last_message_hash=excluded.last_message_hash
+  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now, hash]);
 
   return { publication: await getPublication(db, evening.id, destination.key), skipped: false };
 };

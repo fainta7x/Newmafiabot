@@ -74,6 +74,24 @@ describe('NOVICE-001 funnel', () => {
     expect(again.status).toBe(409);
   });
 
+  it('does not resurface rejected applicants or admit over a player application', async () => {
+    const db = makeDb();
+    const app = await createApp(db);
+    const rejected = (await registerNewPlayer(db, { telegramUserId: '781', nickname: 'Отклонённый' })).player;
+    const applied = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(rejected.id)).send({ entry_route: 'EXPERIENCED' });
+    await request(app).patch(`/api/novice/applications/${applied.body.id}`).set('Cookie', organizerCookie()).send({ status: 'CANCELLED' });
+
+    const racing = (await registerNewPlayer(db, { telegramUserId: '782', nickname: 'Подал сам' })).player;
+    const queue = await request(app).get('/api/novice/applications').set('Cookie', organizerCookie());
+    expect(queue.body.awaiting_players.map((row: any) => row.id)).toEqual([racing.id]);
+
+    // The player files a novice application after the organizer loaded the card.
+    await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(racing.id)).send({ entry_route: 'NOVICE' });
+    const admit = await request(app).post(`/api/novice/players/${racing.id}/admit`).set('Cookie', organizerCookie()).send({ entry_route: 'EXPERIENCED' });
+    expect(admit.status).toBe(409);
+    expect(await db.get<any>('SELECT club_stage FROM players WHERE id = ?', [racing.id])).toMatchObject({ club_stage: 'NEW' });
+  });
+
   it('temporarily reserves an evening place for a pending novice application', async () => {
     const db = makeDb();
     const app = await createApp(db);

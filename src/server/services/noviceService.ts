@@ -244,8 +244,8 @@ export async function listPlayersAwaitingFirstDecision(db: DatabaseWrapper) {
       WHERE COALESCE(p.club_stage, 'NEW') = 'NEW'
         AND (p.telegram_user_id IS NOT NULL
              OR EXISTS(SELECT 1 FROM player_external_identities i WHERE i.player_id = p.id AND i.platform = 'vk'))
-        AND NOT EXISTS(SELECT 1 FROM novice_applications na
-                        WHERE na.player_id = p.id AND na.status NOT IN ('CANCELLED'))
+        -- Any application, including a rejected one, means the organizer already has it in the queue below.
+        AND NOT EXISTS(SELECT 1 FROM novice_applications na WHERE na.player_id = p.id)
       ORDER BY datetime(p.created_at) DESC
       LIMIT 50`,
   );
@@ -253,8 +253,17 @@ export async function listPlayersAwaitingFirstDecision(db: DatabaseWrapper) {
 
 /** Organizer decision for a registered player who has not applied themselves. */
 export async function admitPlayerWithoutApplication(db: DatabaseWrapper, playerId: string, entryRoute: NoviceEntryRoute) {
+  const applicationConflict = () => Object.assign(
+    new Error('Игрок уже подал заявку — решение принимается в списке заявок'),
+    { statusCode: 409, code: 'application_exists' },
+  );
+  const existing = await db.get<any>('SELECT id FROM novice_applications WHERE player_id = ? LIMIT 1', [playerId]);
+  if (existing) throw applicationConflict();
   const application = await createNoviceApplication(db, {
     playerId, source: 'ORGANIZER', entryRoute, notifyOrganizer: false,
   });
+  // createNoviceApplication returns a concurrent player application instead of
+  // inserting; never confirm that one with the organizer's route.
+  if (!application.created) throw applicationConflict();
   return updateNoviceApplicationStatus(db, application.id, 'CONFIRMED');
 }

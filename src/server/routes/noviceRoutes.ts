@@ -162,8 +162,13 @@ organizerRouter.post('/players/:playerId/admit', async (req, res) => {
   const player = await req.db.get<any>(`SELECT id, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1`, [String(req.params.playerId)]);
   if (!player) return res.status(404).json({ error: 'Игрок не найден' });
   if (player.club_stage !== 'NEW') return res.status(409).json({ error: 'Уровень этого игрока уже определён' });
-  const state = await admitPlayerWithoutApplication(req.db, String(player.id), entryRoute as 'NOVICE' | 'EXPERIENCED');
-  return res.json({ success: true, state });
+  try {
+    const state = await admitPlayerWithoutApplication(req.db, String(player.id), entryRoute as 'NOVICE' | 'EXPERIENCED');
+    return res.json({ success: true, state });
+  } catch (error: any) {
+    if (error?.code === 'application_exists') return res.status(409).json({ error: error.message, code: error.code });
+    throw error;
+  }
 });
 
 organizerRouter.patch('/players/:playerId/stage', async (req, res) => {

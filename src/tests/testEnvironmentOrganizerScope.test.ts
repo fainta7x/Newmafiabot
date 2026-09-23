@@ -1,5 +1,17 @@
 import jwt from 'jsonwebtoken';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Per-run random signing secret, set before auth.ts reads JWT_SECRET at import time.
+const { signingSecret, previousSecret } = vi.hoisted(() => {
+  const previous = process.env.JWT_SECRET;
+  const secret = `test-${Math.random().toString(36).slice(2)}${Date.now()}`;
+  process.env.JWT_SECRET = secret;
+  return { signingSecret: secret, previousSecret: previous };
+});
+afterAll(() => {
+  if (previousSecret === undefined) delete process.env.JWT_SECRET;
+  else process.env.JWT_SECRET = previousSecret;
+});
 import {
   generateOrganizerToken,
   generatePlayerSessionToken,
@@ -30,11 +42,10 @@ describe('sandbox organizer session scope', () => {
   });
 
   it('revokes organizer sessions minted before the sandbox scope fix', async () => {
-    const secret = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
     const decoded = jwt.decode(generateOrganizerToken()) as { organizerSessionVersion: number };
     const legacy = jwt.sign(
       { role: 'ORGANIZER', organizerSessionType: 'root_password', organizerSessionVersion: decoded.organizerSessionVersion - 1 },
-      secret,
+      signingSecret,
     );
     expect(await resolveRole({ organizer_token: legacy })).toBe('PLAYER');
   });

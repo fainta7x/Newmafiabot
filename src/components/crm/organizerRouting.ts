@@ -19,7 +19,7 @@ export type OrganizerPlayerReturnContext = {
   scrollY: number;
 } | null;
 
-const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'management', 'tables', 'games']);
+const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'management', 'tables', 'closeout', 'games']);
 const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music', 'tournaments', 'development']);
 
 const rootRoute = (tab: OrganizerMainTab = 'overview'): OrganizerRouteState => ({ tab, eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });

@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, Gamepad2, Megaphone, Users } from 'lucide-react';
+import EveningNextStepBanner from './EveningNextStepBanner.tsx';
 import { EveningHeaderBar } from './EveningHeaderBar.tsx';
 import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
 import { EveningManagementView } from './EveningManagementView.tsx';
 
-export type EveningSection = 'overview' | 'participants' | 'games' | 'management' | 'tables';
+export type EveningSection = 'overview' | 'participants' | 'games' | 'management' | 'tables' | 'closeout';
 
 interface EveningWorkspaceProps {
   eveningId: string;
@@ -29,6 +30,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 }) => {
   const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'management' : initialSection);
   const [headerKey, setHeaderKey] = useState(0);
+  const [eveningStatus, setEveningStatus] = useState<string | null>(null);
   // A running evening opens on its games, not on the announcement.
   const autoSectionFor = useRef<string | null>(null);
 
@@ -43,6 +45,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   };
 
   const handleHeaderLoaded = (evening: { status: string }) => {
+    setEveningStatus(evening.status);
     if (autoSectionFor.current === eveningId) return;
     autoSectionFor.current = eveningId;
     if (evening.status === 'active' && section === 'overview' && initialSection === 'overview' && !initialAddOpen) openSection('games');
@@ -61,7 +64,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       <div className="sticky top-0 z-30 -mx-1 bg-app-bg/92 px-1 py-1 backdrop-blur-xl sm:top-[60px]">
         <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
           {tabs.map((tab) => {
-            const active = section === tab.id || (tab.id === 'management' && section === 'tables');
+            const active = section === tab.id || (tab.id === 'management' && (section === 'tables' || section === 'closeout'));
             return (
               <button
                 key={tab.id}
@@ -78,9 +81,10 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         </div>
       </div>
 
+      {section !== 'closeout' ? <EveningNextStepBanner eveningId={eveningId} status={eveningStatus} refreshKey={headerKey} onOpenCloseout={() => openSection('closeout')} /> : null}
       {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onStatusChange={() => setHeaderKey((key) => key + 1)} /> : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
-      {section === 'management' || section === 'tables' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' ? 'tables' : undefined} /> : null}
+      {section === 'management' || section === 'tables' || section === 'closeout' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' || section === 'closeout' ? section : undefined} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} /> : null}
     </div>
   );

@@ -13,7 +13,10 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
+// Production refuses to start without JWT_SECRET (above). Elsewhere use a
+// per-process random key instead of a shared hard-coded one, so no well-known
+// secret can ever sign a session that another environment would accept.
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'adminpass';
 // v3: sandbox organizer logins were previously issued as production root
 // sessions; bumping the version revokes every token minted before the fix.

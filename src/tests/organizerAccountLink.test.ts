@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../app.ts';
@@ -8,8 +8,19 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { createVkJoinSession } from '../server/services/vkJoinAuthService.ts';
 
+// Per-run secret set before auth.ts reads JWT_SECRET, so the legacy token below can be forged.
+const { TEST_JWT_SECRET, previousJwtSecret } = vi.hoisted(() => {
+  const previous = process.env.JWT_SECRET;
+  const secret = `test-${Math.random().toString(36).slice(2)}${Date.now()}`;
+  process.env.JWT_SECRET = secret;
+  return { TEST_JWT_SECRET: secret, previousJwtSecret: previous };
+});
+afterAll(() => {
+  if (previousJwtSecret === undefined) delete process.env.JWT_SECRET;
+  else process.env.JWT_SECRET = previousJwtSecret;
+});
+
 const openDatabases: DatabaseWrapper[] = [];
-const TEST_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 
 const createTestDatabase = () => {
   const db = createDatabaseConnection(':memory:');

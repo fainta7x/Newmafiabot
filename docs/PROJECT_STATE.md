@@ -258,7 +258,7 @@ Connected:
 - durable direct-message outbox with stable message keys, retry/backoff state, partial-failure recovery and deduplication of already-sent events;
 - personal reconciliation that queues invitations/status reminders, completed game/Elo changes and betting results without requiring Player Cabinet to be opened;
 - betting-open notifications to linked eligible spectators, excluding the ten seated players and canonical judge;
-- organizer notification recipients are explicit (`ORGANIZER_NOTIFICATION_IDS` / `ORGANIZER_CHAT_ID`); `ADMIN_IDS` and `BACKUP_ADMIN_ID` are not silently reused unless the dedicated backup opt-in is enabled;
+- organizer notification recipients: explicit `ORGANIZER_NOTIFICATION_IDS` / `ORGANIZER_CHAT_ID` win; when neither is set, alerts go to the linked Telegram accounts of players holding CRM access (`organizer_player_access`, the canonical owner by default); `ADMIN_IDS` and `BACKUP_ADMIN_ID` are not silently reused unless the dedicated backup opt-in is enabled;
 - organizer Telegram settings expose recipient configuration/runtime diagnostics and an explicit test-notification action;
 - synchronization/outbox paths;
 - organizer runtime diagnostics;

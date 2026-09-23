@@ -28,11 +28,12 @@ Personal notification reconciliation runs server-side and does not depend on Pla
 
 ## Organizer recipients
 
-Organizer direct notifications are opt-in. Recipient selection order is:
+Recipient selection order is:
 
 1. `ORGANIZER_NOTIFICATION_IDS` (preferred, comma-separated private chat IDs);
 2. `ORGANIZER_CHAT_ID` (legacy explicit recipient setting);
-3. `BACKUP_ADMIN_ID` only when `ORGANIZER_NOTIFICATION_USE_BACKUP=true`.
+3. `BACKUP_ADMIN_ID` only when `ORGANIZER_NOTIFICATION_USE_BACKUP=true`;
+4. otherwise the linked Telegram accounts of players holding CRM access (`organizer_player_access`; the canonical owner is seeded there). Set `ORGANIZER_NOTIFICATION_IDS` to narrow or redirect the audience; diagnostics report this source as `ORGANIZER_ACCESS`.
 
 `ADMIN_IDS` grants bot administration and is never automatically reused as the digest audience.
 

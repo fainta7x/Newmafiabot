@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureOrganizerPlayerAccessSchema } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { enqueueTelegramMessage, getTelegramMessageDiagnostics, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
 
 const parseIds = (value: unknown): string[] => Array.from(new Set(
@@ -31,6 +32,8 @@ export async function resolveOrganizerNotificationRecipientsWithAccess(db: Datab
   const configured = resolveOrganizerNotificationRecipients(env);
   if (configured.recipients.length) return configured;
   try {
+    // The table may not exist yet before the first organizer login; create and seed it.
+    await ensureOrganizerPlayerAccessSchema(db);
     const rows = await db.all<{ telegram_user_id: string | null }>(`
       SELECT p.telegram_user_id
         FROM organizer_player_access a

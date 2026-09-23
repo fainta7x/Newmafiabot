@@ -6,7 +6,7 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { ensureSlotsForEvening, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
-import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
 const opened: DatabaseWrapper[] = [];
 const makeDb = () => { const db = createDatabaseConnection(':memory:'); opened.push(db); return db; };
@@ -104,7 +104,7 @@ describe('NOVICE-001 funnel', () => {
        VALUES (?, '5550009', 'Владелец', 'test', ?, ?, 'CLUB_PLAYER')`,
       [PRIMARY_ORGANIZER_PLAYER_ID, now, now],
     );
-    await ensureOrganizerPlayerAccessSchema(db);
+    // No explicit organizer-access setup: the recipient fallback must initialize it.
 
     const { player } = await registerNewPlayer(db, { telegramUserId: '791', nickname: 'Без заявки', source: 'telegram_bot_registration' });
     expect(await db.get<any>('SELECT chat_id FROM telegram_message_outbox WHERE message_key = ?', [`new-player-registered:${player.id}:5550009`]))

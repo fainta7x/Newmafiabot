@@ -198,6 +198,9 @@ Forbidden at the table, with the usual penalty:
 - bets («спорим на тысячу, что я мирный») — depends on the context, usually PPK;
 - threats and personal (not in-game) insults — usually PPK, sometimes removal;
 - remarks about intelligence, one's own included («я же не тупой так играть») — depends on severity, usually a technical foul.
+- interfering with the first-killed player's protocol or best move (naming three black players) — technical foul;
+- excessive emotion and aggression — technical foul;
+- any action during the night that the player's role does not call for — removal.
 
 The novice guide (`/guide`) shows this list first in its «Правила» tab.
 

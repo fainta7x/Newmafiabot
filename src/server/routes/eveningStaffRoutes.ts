@@ -70,7 +70,7 @@ async function loadStaff(db: DatabaseWrapper, eveningId: string) {
 
 async function loadPayments(db: DatabaseWrapper, eveningId: string) {
   const evening = await db.get<any>(
-    'SELECT id, title, status, settled_at, default_price FROM game_evenings WHERE id = ? LIMIT 1',
+    'SELECT id, title, status, settled_at, default_price, format FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
   );
   if (!evening) return null;
@@ -112,6 +112,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
       status: evening.status,
       settled_at: evening.settled_at || null,
       closed: evening.status === 'completed' || Boolean(evening.settled_at),
+      format: normalizeEveningFormat(evening.format),
     },
     participants: participants.map((participant: any) => ({
       ...participant,

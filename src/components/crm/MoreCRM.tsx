@@ -88,7 +88,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'system' ? <SystemStatusCard /> : null}
       {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
-      {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: запись, резерв, взносы и публикация — в карточке турнира.</p> : null}
+      {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: ответы игроков, очередь на место, взносы и публикация — в карточке турнира.</p> : null}
       {subscreen === 'development' ? <NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} /> : null}
     </div>;
   }

@@ -135,7 +135,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
 
   return <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5 sm:p-4">
     <div className="flex items-start justify-between gap-3">
-      <div><h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Турнирный вечер</h3><p className="mt-1 text-[11px] text-text-muted">10 мест · запись и резерв до запуска турнира</p></div>
+      <div><h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Турнирный вечер</h3><p className="mt-1 text-[11px] text-text-muted">10 мест · ответы игроков и очередь до запуска турнира</p></div>
       <span className="rounded-full border border-border-soft bg-surface-2 px-2.5 py-1 text-[10px] font-bold text-text-secondary">{lifecycleLabel}</span>
     </div>
 

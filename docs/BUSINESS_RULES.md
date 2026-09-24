@@ -330,14 +330,13 @@ Approved high-level publication format for tournament summary graphics is three 
 
 Historical UI/visual requirements may evolve, so inspect current publication components before changing visuals. The three-part information model should not be collapsed without an explicit redesign decision.
 
-## Tournament evening registration, reserve and entry fee
+## Tournament evening registration and entry fee
 
 - `TOURNAMENT` is a distinct event format. Regular `CASUAL` price-per-game, 400 ₽ cap, historical debt reconciliation, wallet-token logic and betting must not rewrite tournament entry-fee truth.
 - A tournament evening is only a registration/preparation front door into the canonical `tournaments` domain. Confirmed registrations synchronize into `tournament_participants` before seating; conducting, protocols, standings, compensation scoring, awards, three-part result publication, Elo and token settlement remain owned by the existing tournament engine.
 - Player capacity is **exactly 10**, excluding the assigned canonical judge. The assigned judge cannot register as a player in the same tournament.
-- The first ten eligible server-accepted registrations receive confirmed slots 1–10. Further eligible registrations enter deterministic FIFO reserve order unless an organizer performs an explicit audited reorder.
-- If a confirmed player cancels before the tournament starts, exactly the first reserve player is promoted atomically into the freed slot. Retries must not create an eleventh confirmed player or promote multiple reserves for one vacancy.
-- Organizer add/remove/manual-promotion/reserve-reorder actions require an explicit reason and must remain auditable.
+- Places, waiting and payment deadlines follow «Tournament registration» (answers «Играю» / «Готов подменить» / «Пока думаю» / «Не смогу»). A freed place is filled atomically by exactly one waiting player; retries must not create an eleventh confirmed player.
+- Organizer add/remove/manual-promotion/queue-reorder actions require an explicit reason and must remain auditable.
 - Draft creation is not publication. A stable player link uses `/player/events/<tournamentId>` only after explicit publication. Tournament publication uses the canonical personal notification router and sends at most one external personal notification channel per eligible canonical player; the assigned judge is excluded from the player audience.
 - Tournament money is stored in rubles. Prize-allocation total must equal the configured prize fund before publication.
 - Online acquiring is not part of this workflow. Player action **«Я оплатил взнос»** records only a `pending` payment claim. Only organizer `confirmed` status counts as received money. `rejected`, `waived`, `refunded` and return-to-`unpaid` remain explicit, correctable audit states; `waived` removes the unpaid obligation but is not revenue.
@@ -406,7 +405,26 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
     - 10 % to the season prize fund.
 
     A rating game always has a full table of 10 players, so the evening collects 5000 ₽: 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
-  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. A registered player's place is confirmed only after the payment is marked; unpaid players give their place to the reserve before the tournament.
+  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. Registration works as below.
+- **Tournament registration (user-approved 2026-09-24).** There is no separate reserve queue. Each player answers the tournament like an evening:
+
+  | Answer | Meaning | Payment |
+  |---|---|---|
+  | «Играю» | wants to play and claims a place | pays the entry fee |
+  | «Готов подменить» | not keen, but will play if needed | pays only after being called in |
+  | «Пока думаю» | undecided | nothing yet |
+  | «Не смогу» | will not come | nothing |
+
+  «Пока думаю» gets the «Что решил?» follow-up, as on evenings.
+
+  How the table of 10 is filled:
+  1. Places go to «Играю» answers in the order they were given. The 11th and later «Играю» wait for a place first, and they do not pay until they get one.
+  2. Every «Играю» holding a place must pay by **3 days before** the tournament. They get a reminder at 4 days.
+  3. At the 3-day deadline, an unpaid player loses the place and their answer becomes «Готов подменить». Each free place goes first to waiting «Играю», then to «Готов подменить», in answer order. The called player gets a message: «место ваше, оплатите до …».
+  4. A player called in must pay by **24 hours before** the tournament, otherwise the place goes to the next one.
+  5. A player called in after that pays on site before the first game (prepayment at the table).
+
+  The organizer can always mark a payment or move a player by hand.
 - **Does the evening's organizer pay? (user-approved 2026-09-24)** On club (CASUAL) and novice evenings the organizer never pays. On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
 - **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). With fewer registered it is a shortfall, and the evening is cancelled. Exception: novice evenings and games may run from 8 players and a judge.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
@@ -426,7 +444,7 @@ Elo is one shared player-strength measure across CASUAL, RATING and TOURNAMENT g
 Registration eligibility (user-approved 2026-09-23):
 
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
-- Tournament places follow «кто первый, того и место»: the first ten eligible registrations are confirmed, later ones form the FIFO reserve (see «Tournament evening registration, reserve and entry fee»).
+- Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
 The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). Calendar seasons (winter/spring/summer/autumn wins) are club statistics shown under «Клуб → Активность» as «Итоги сезона», not a rating.
 

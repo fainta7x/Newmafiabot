@@ -59,6 +59,12 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       UNIQUE(tournament_id, player_id)
     )
   `);
+  // Tournament answers (user-approved 2026-09-24): play / substitute / thinking / declined.
+  // NULL on older rows means «Играю» (the old overflow reserve was made of would-be players).
+  await ensureColumn(db, 'tournament_registrations', 'response', 'TEXT');
+  await ensureColumn(db, 'tournament_registrations', 'called_at', 'TEXT');
+  await ensureColumn(db, 'tournaments', 'payment_deadline_72_done_at', 'TEXT');
+  await ensureColumn(db, 'tournaments', 'payment_deadline_24_done_at', 'TEXT');
   await ensureColumn(db, 'tournament_payment_claims', 'reported_amount_rub', 'INTEGER');
   await ensureColumn(db, 'tournament_payment_claims', 'confirmed_amount_rub', 'INTEGER');
 

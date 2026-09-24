@@ -84,7 +84,7 @@ export function CreateTournamentEveningModal({ isOpen, onClose, onCreated }: {
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4">
     <div className="max-h-[96dvh] w-full max-w-xl overflow-hidden rounded-t-[24px] border border-border-soft bg-surface-1 text-text-primary sm:rounded-[24px]">
       <div className="flex items-center justify-between border-b border-border-soft p-4">
-        <div><h3 className="text-lg font-bold">Новый турнирный вечер</h3><p className="mt-0.5 text-xs text-text-secondary">Ровно 10 мест · резерв формируется автоматически</p></div>
+        <div><h3 className="text-lg font-bold">Новый турнирный вечер</h3><p className="mt-0.5 text-xs text-text-secondary">Ровно 10 мест · места получают ответившие «Играю»</p></div>
         <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl bg-surface-2"><X className="h-4 w-4" /></button>
       </div>
       <form onSubmit={submit} className="max-h-[calc(96dvh-72px)] space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

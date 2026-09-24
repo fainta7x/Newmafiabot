@@ -9,6 +9,7 @@ type Registration = {
   player_id: string;
   nickname: string;
   status: 'confirmed' | 'reserve' | 'cancelled' | 'declined';
+  response?: 'play' | 'substitute' | 'thinking' | 'declined' | null;
   slot_number: number | null;
   queue_order: number | null;
   payment_state: PaymentState;
@@ -139,14 +140,14 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
 
   const promote = async (playerId: string) => {
     if (!requireReason()) return;
-    await mutate(`promote:${playerId}`, `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}/promote`, 'POST', { reason: reason.trim() }, 'Игрок переведён из резерва в основной состав.');
+    await mutate(`promote:${playerId}`, `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}/promote`, 'POST', { reason: reason.trim() }, 'Игрок получил место в составе.');
   };
 
   const saveReserveOrder = async () => {
     if (!requireReason()) return;
     await mutate('reserve-order', `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/reserve-order`, 'PUT', {
       registration_ids: reserveOrder.map((row) => row.id), reason: reason.trim(),
-    }, 'Порядок резерва сохранён.');
+    }, 'Порядок очереди сохранён.');
   };
 
   const updatePayment = async (row: Registration, state: PaymentState) => {
@@ -200,15 +201,15 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Users className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Участники · 10 мест + резерв</h3>
-          <p className="mt-1 text-[11px] leading-4 text-text-muted">Основной состав синхронизируется с турнирным движком. При снятии игрока свободное место автоматически получает первый в резерве.</p>
+          <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Участники · 10 мест</h3>
+          <p className="mt-1 text-[11px] leading-4 text-text-muted">Место получают ответившие «Играю» по очереди. Взнос — до срока за 3 дня; кто не оплатил, становится «Готов подменить», место уходит следующему. Освободившееся место сначала получают ждущие «Играю», потом «Готов подменить».</p>
         </div>
       </div>
 
       {detail ? (
         <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
           <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Основной состав</div><div className="mt-0.5 font-black text-text-primary">{detail.confirmed_count}/10</div></div>
-          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Резерв</div><div className="mt-0.5 font-black text-text-primary">{detail.reserves.length}</div></div>
+          <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Ждут места · подменят</div><div className="mt-0.5 font-black text-text-primary">{detail.reserves.filter((row) => (row.response || 'play') === 'play').length} · {detail.reserves.filter((row) => row.response === 'substitute').length}</div></div>
           <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Подтверждено оплат</div><div className="mt-0.5 font-black text-text-primary">{payment?.confirmed_rub || 0} ₽</div></div>
           <div className="rounded-xl bg-surface-2 px-3 py-2"><div className="text-text-muted">Ожидается</div><div className="mt-0.5 font-black text-text-primary">{payment?.expected_rub || 0} ₽</div></div>
         </div>
@@ -259,26 +260,26 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
 
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-[11px] font-black uppercase tracking-wide text-text-muted">Резерв</h4>
+          <h4 className="text-[11px] font-black uppercase tracking-wide text-text-muted">Ждут места и готовы подменить</h4>
           {!locked && reserveOrder.length > 1 ? <button type="button" disabled={!!busyKey} onClick={() => void saveReserveOrder()} className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-[10px] font-black text-accent disabled:opacity-40">Сохранить порядок</button> : null}
         </div>
         {reserveOrder.length ? reserveOrder.map((row, index) => (
           <div key={row.id} className="flex min-h-[50px] items-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-3 py-2">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">R{index + 1}</span>
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">{index + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
-              <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}{row.reported_amount_rub != null ? ` · ${row.reported_amount_rub} ₽ заявлено` : ''}</div>
+              <div className="text-[10px] text-text-muted">{row.response === 'substitute' ? 'Готов подменить' : 'Играю · ждёт места'}{row.reported_amount_rub != null ? ` · ${row.reported_amount_rub} ₽ заявлено` : ''}</div>
             </div>
             {!locked ? (
               <div className="flex shrink-0 items-center gap-1">
-                <button type="button" disabled={index === 0 || !!busyKey} onClick={() => moveReserve(index, -1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Поднять в резерве"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button type="button" disabled={index === reserveOrder.length - 1 || !!busyKey} onClick={() => moveReserve(index, 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Опустить в резерве"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={index === 0 || !!busyKey} onClick={() => moveReserve(index, -1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Поднять в очереди"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={index === reserveOrder.length - 1 || !!busyKey} onClick={() => moveReserve(index, 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Опустить в очереди"><ArrowDown className="h-3.5 w-3.5" /></button>
                 <button type="button" disabled={(detail?.remaining_places || 0) < 1 || !!busyKey} onClick={() => void promote(row.player_id)} className="grid h-8 w-8 place-items-center rounded-lg bg-success-soft text-success disabled:opacity-30" aria-label="Перевести в основной состав"><CheckCircle2 className="h-3.5 w-3.5" /></button>
                 <button type="button" disabled={!!busyKey} onClick={() => void removePlayer(row.player_id)} className="grid h-8 w-8 place-items-center rounded-lg text-danger hover:bg-danger-soft" aria-label={`Снять ${row.nickname}`}><X className="h-3.5 w-3.5" /></button>
               </div>
             ) : null}
           </div>
-        )) : <div className="rounded-xl border border-dashed border-border-soft px-3 py-4 text-center text-[11px] text-text-muted">Резерв пока пуст.</div>}
+        )) : <div className="rounded-xl border border-dashed border-border-soft px-3 py-4 text-center text-[11px] text-text-muted">Никто не ждёт места и не вызвался подменить.</div>}
       </div>
 
       {detail && detail.confirmed.length ? (

@@ -5,6 +5,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { NOVICE_PAID_GAME_PRICE, ensureSlotsForEvening, novicePriceForPlayer, reconcileNoviceEveningCharges, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { getNovicePlayerState } from '../server/services/noviceService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
@@ -246,6 +247,10 @@ describe('NOVICE-001 funnel', () => {
     await db.run(`INSERT INTO players (id,nickname,game_level,created_at,updated_at) VALUES ('fresh','Новичок','novice',?,?), ('guest','Гость из Казани','club',?,?)`, [now, now, now, now]);
     expect(await novicePriceForPlayer(db, 'fresh', 'ng1')).toBe(0);
     expect(await novicePriceForPlayer(db, 'guest', 'ng1')).toBe(NOVICE_PAID_GAME_PRICE);
+    // The «free evenings left» banner follows the same rule as the price.
+    await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE' WHERE id IN ('fresh', 'guest')");
+    expect((await getNovicePlayerState(db, 'fresh'))?.free_visits_remaining).toBe(2);
+    expect((await getNovicePlayerState(db, 'guest'))?.free_visits_remaining).toBe(0);
   });
 
   it('charges a whole-evening «иду» without an exact plan and keeps a prepayment as paid', async () => {

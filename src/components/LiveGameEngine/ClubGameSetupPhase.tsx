@@ -149,7 +149,7 @@ export default function ClubGameSetupPhase({
             return (
               <div key={seat.seat_number} className={`min-w-0 rounded-[10px] border px-1 py-1.5 text-center ${selected ? 'border-white/[0.055] bg-black/15' : 'border-rose-300/10 bg-rose-300/[0.035]'}`}>
                 <div className="text-[10px] font-semibold text-white/78">{seat.seat_number}</div>
-                <div className={`mt-0.5 truncate text-[7.5px] ${selected ? 'text-white/28' : 'text-rose-100/45'}`}>{seat.nickname}</div>
+                <div className={`mt-0.5 truncate text-[10px] ${selected ? 'text-white/28' : 'text-rose-100/45'}`}>{seat.nickname}</div>
               </div>
             );
           })}

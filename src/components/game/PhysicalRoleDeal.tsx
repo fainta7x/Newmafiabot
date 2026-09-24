@@ -192,7 +192,7 @@ export default function PhysicalRoleDeal({
             <div className="flex shrink-0 items-center gap-2">
               <div className="rounded-[12px] bg-black/20 px-2.5 py-2 text-center">
                 <div className="text-[14px] font-semibold text-white/82">{assignedCount}/10</div>
-                <div className="text-[7.5px] text-white/26">готово</div>
+                <div className="text-[10px] text-white/26">готово</div>
               </div>
               <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
             </div>

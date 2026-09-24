@@ -83,6 +83,12 @@ const unavailableReasonLabel = (context: InvitationContext) => {
   return 'Сейчас нет доступного вечера для приглашения';
 };
 
+// What the inviter can do next: most often sign up for an evening first.
+const unavailableReasonHint = (context: InvitationContext) => {
+  if (context.reason === 'no_active_evening') return 'Сначала запишитесь на вечер сами — пригласить можно только на вечер, куда идёте вы. Приглашение само по себе не записывает на вечер.';
+  return 'Приглашение само по себе не записывает на вечер.';
+};
+
 function openPlayerProfile(playerId: string) {
   const path = `/player/players/${encodeURIComponent(playerId)}`;
   const current = window.location.pathname;
@@ -275,7 +281,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div data-testid="invitation-unavailable-state" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Приглашение</div>
           <h2 className="mt-1 text-base font-semibold">{unavailableReasonLabel(context)}</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">Кнопка отправки недоступна, пока сервер не вернёт состояние «Можно пригласить». Приглашение само по себе никогда не создаёт запись на вечер.</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">{unavailableReasonHint(context)}</p>
         </div>
       ) : null}
 

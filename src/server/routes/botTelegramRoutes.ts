@@ -51,7 +51,8 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
     const canonicalFormat = normalizeEveningFormat(evening.format);
     const participants = await db.all(
       `SELECT ep.player_id, ep.response_status, ep.registration_status,
-              ep.attendance_status, ep.arrival_status, p.nickname
+              ep.attendance_status, ep.arrival_status, p.nickname,
+              (SELECT COUNT(*) FROM evening_slot_registrations r WHERE r.participant_id = ep.id) AS selected_games
          FROM evening_participants ep
          JOIN players p ON p.id = ep.player_id
         WHERE ep.evening_id = ?

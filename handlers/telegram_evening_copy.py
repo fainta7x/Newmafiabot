@@ -145,14 +145,20 @@ def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZON
     return lines
 
 
-def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
+def _arrival_lines(
+    slots: list[dict],
+    timezone_name: object = _DEFAULT_TIMEZONE,
+    skip_ids: set[str] | None = None,
+    max_players: int = 45,
+) -> list[str]:
     players: dict[str, dict] = {}
+    skip = skip_ids or set()
     for slot in slots:
         slot_number = int(slot.get("slot_number") or 0)
         starts_at = slot.get("starts_at")
         for participant in slot.get("participants") or []:
             player_id = str(participant.get("id") or participant.get("player_id") or participant.get("nickname") or "")
-            if not player_id:
+            if not player_id or player_id in skip:
                 continue
             item = players.setdefault(player_id, {
                 "nickname": str(participant.get("nickname") or "Игрок"),
@@ -173,7 +179,6 @@ def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE)
         key=lambda item: (int(item.get("first_number") or 999), str(item.get("nickname") or "").casefold()),
     )
     lines = [f"👥 <b>Записались на игры: {len(ordered)}</b>", "<b>Кто и к какому времени</b>"]
-    max_players = 45
     for item in ordered[:max_players]:
         nickname = escape(str(item.get("nickname") or "Игрок"))
         games = _format_game_numbers(item.get("games") or [])
@@ -183,13 +188,22 @@ def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE)
     return lines
 
 
-def _response_lines(participants: list[dict], slots: list[dict]) -> list[str]:
-    """Players who answered but are not in any game yet: «иду» without games, «позже», «думаю»."""
-    in_games = {
-        str(person.get("id") or person.get("player_id") or "")
-        for slot in slots
-        for person in (slot.get("participants") or [])
+_RESPONSE_NAME_BUDGET = 1200
+_TELEGRAM_TEXT_LIMIT = 4000
+
+
+def _without_games(participants: list[dict]) -> set[str]:
+    """«Иду»/«Позже» without an exact plan. The slot plan counts them for every game,
+    so they are listed separately instead of in the per-game arrival list."""
+    return {
+        str(item.get("player_id") or "")
+        for item in participants
+        if str(item.get("response_status") or "") in {"going", "late"} and not int(item.get("selected_games") or 0)
     }
+
+
+def _response_lines(participants: list[dict], *, names: bool = True) -> list[str]:
+    """Players who answered but picked no games: «иду» / «позже» without a plan and «думаю»."""
     groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": []}
     declined = 0
     for participant in participants:
@@ -197,19 +211,31 @@ def _response_lines(participants: list[dict], slots: list[dict]) -> list[str]:
         if status == "declined":
             declined += 1
             continue
-        if status not in groups or str(participant.get("player_id") or "") in in_games:
+        if status not in groups:
+            continue
+        if status in {"going", "late"} and int(participant.get("selected_games") or 0):
             continue
         groups[status].append(escape(str(participant.get("nickname") or "Игрок")))
     lines: list[str] = []
+    budget = _RESPONSE_NAME_BUDGET
     for status, title in (
-        ("going", "✅ Идут, игры ещё не выбрали"),
-        ("late", "⏳ Придут позже"),
+        ("going", "✅ Идут на весь вечер, игры не выбрали"),
+        ("late", "⏳ Придут позже, игры не выбрали"),
         ("thinking", "🤔 Пока думают"),
     ):
-        names = sorted(groups[status], key=str.casefold)
+        people = sorted(groups[status], key=str.casefold)
+        if not people:
+            continue
+        shown: list[str] = []
         if names:
-            shown = ", ".join(names[:30]) + (f" и ещё {len(names) - 30}" if len(names) > 30 else "")
-            lines.append(f"<b>{title} ({len(names)}):</b> {shown}")
+            for name in people:
+                if budget - len(name) - 2 < 0:
+                    break
+                shown.append(name)
+                budget -= len(name) + 2
+        rest = len(people) - len(shown)
+        body = (", ".join(shown) + (f" и ещё {rest}" if rest else "")) if shown else ""
+        lines.append(f"<b>{title} ({len(people)})</b>" + (f": {body}" if body else ""))
     if declined:
         lines.append(f"❌ Не смогут: {declined}")
     return lines
@@ -292,15 +318,26 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
-    sections = [
-        f"{label} · <b>2LA Noire</b>",
-        event_base_text(evening, slot_rows),
-        "\n".join(_slot_load_lines(slot_rows, timezone_name)),
-        "\n".join(_arrival_lines(slot_rows, timezone_name)),
-        "\n".join(_response_lines(participants or [], slot_rows)),
-        "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
-    ]
-    return "\n\n".join(section for section in sections if section)
+    people = participants or []
+    skip = _without_games(people)
+
+    def compose(max_players: int, names: bool) -> str:
+        sections = [
+            f"{label} · <b>2LA Noire</b>",
+            event_base_text(evening, slot_rows),
+            "\n".join(_slot_load_lines(slot_rows, timezone_name)),
+            "\n".join(_arrival_lines(slot_rows, timezone_name, skip, max_players)),
+            "\n".join(_response_lines(people, names=names)),
+            "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
+        ]
+        return "\n\n".join(section for section in sections if section)
+
+    # Telegram rejects messages over 4096 characters; shrink the lists until the whole post fits.
+    for max_players, names in ((45, True), (25, True), (25, False), (10, False), (0, False)):
+        text = compose(max_players, names)
+        if len(text) <= _TELEGRAM_TEXT_LIMIT:
+            return text
+    return text[:_TELEGRAM_TEXT_LIMIT]
 
 
 def closed_event_text(evening: dict, *, cancelled: bool = False, obsolete: bool = False) -> str:

@@ -54,9 +54,10 @@ export function rsvpFollowupAt(startsAt: string, option: RsvpFollowupOption, now
   if (!Number.isFinite(start)) return null;
   const threeHours = start - 3 * HOUR_MS;
   const morning = moscowHourStart(start, 10);
-  let at = option === 'morning' && morning > now && morning < threeHours ? morning : threeHours;
-  if (at <= now) at = Math.max(now, start - HOUR_MS);
-  return at < start ? new Date(at).toISOString() : null;
+  // «Утром» falls back to 3 h before once the morning has passed; a choice whose time is gone is rejected
+  // (the bot then asks for an answer now) instead of firing an immediate «you asked me to remind you».
+  const at = option === 'morning' && morning > now && morning < threeHours ? morning : threeHours;
+  return at > now ? new Date(at).toISOString() : null;
 }
 
 export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now()) {

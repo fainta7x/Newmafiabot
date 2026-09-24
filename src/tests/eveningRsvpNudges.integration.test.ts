@@ -71,5 +71,7 @@ describe('evening RSVP nudges', () => {
     expect(rsvpFollowupAt(start, 'morning', Date.parse('2026-10-01T12:00:00Z'))).toBe('2026-10-02T07:00:00.000Z');
     expect(rsvpFollowupAt(start, '3h', Date.parse('2026-10-01T12:00:00Z'))).toBe('2026-10-02T13:00:00.000Z');
     expect(rsvpFollowupAt(start, 'morning', Date.parse('2026-10-02T09:00:00Z'))).toBe('2026-10-02T13:00:00.000Z');
+    // Less than 3 h before the start the choice is rejected instead of firing at once.
+    expect(rsvpFollowupAt(start, '3h', Date.parse('2026-10-02T14:00:00Z'))).toBeNull();
   });
 });

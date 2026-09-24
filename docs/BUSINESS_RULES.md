@@ -194,6 +194,8 @@ Wording for how a player leaves the game (user-approved 2026-09-24): texts for p
 - At night everyone wears a mask. The mafia shoots blind, masks on, each showing the number of the target; one number from all — the player is killed, different numbers — a miss.
 - The agreement («договорка») happens in the first night: the mafia quietly takes masks off, no talking, only gestures; the Don identifies himself and sets how the mafia will kill and, optionally, a game plan. Two ways: «статика» — the Don shows three numbers for the next nights in order; «динамика» — the Don points to targets during the day by words or gestures. They may be combined freely.
 - Roles are shown once by the judge; players get no cards.
+- Night order: the mafia shoots, then the Don checks, then the Sheriff. Each checker takes the mask off only in their own turn, shows a number and gets the judge's answer (Don: Sheriff or not; Sheriff: red or black).
+- The Sheriff may reveal («вскрытие») at any allowed moment: in their speech or by gesture, even at the cost of a foul. If the Sheriff is not killed quickly, the Don usually either kills the Sheriff as soon as possible or claims to be the Sheriff and convinces the town that the real Sheriff is mafia.
 - «Попил»: on the first day, while all 10 (or 8) are at the table, the town often splits the votes evenly between two players and then leaves both, so nobody is voted out on day one. It applies to tables of 10 or 8; nine votes cannot split evenly between two players. Mafia wins at parity, so a blind first-day vote almost always removes a red; keeping everyone gives the town an extra day and one mistake to spare.
 
 ## Table conduct (user-approved 2026-09-24)

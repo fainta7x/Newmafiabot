@@ -40,6 +40,7 @@ import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
+import StaffWorkStats from '../player/StaffWorkStats.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -586,14 +587,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}
             </section>
 
-            {playerDetails.achievements?.staff && (playerDetails.achievements.staff.organized_evenings > 0 || playerDetails.achievements.staff.judged_games > 0 || ['organizer', 'team'].includes(String(playerDetails.club_role || '')) || !['none', ''].includes(String(playerDetails.judge_level || 'none'))) ? (
-              <section className="grid grid-cols-2 gap-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5 text-center" data-testid="crm-player-staff-stats">
-                {[
-                  ['Провёл вечеров', playerDetails.achievements.staff.organized_evenings],
-                  ['Отсудил игр', playerDetails.achievements.staff.judged_games],
-                ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[11px] font-medium text-text-muted">{label}</span><strong className="mt-1 block text-[13px] font-semibold text-text-primary">{value}</strong></div>)}
-              </section>
-            ) : null}
+            <StaffWorkStats stats={(playerDetails as any).staff_stats} variant="crm" testId="crm-player-staff-stats" />
 
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">
               <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><History className="h-4 w-4 text-accent" /> История <span className="ml-auto text-[11px] font-medium text-text-muted">{unifiedTimeline.length}</span><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>

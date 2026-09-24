@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { collectPlayerAchievementStats } from '../services/playerAchievementsService.ts';
+import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import {
   loadPremiumProfileElo,
@@ -72,9 +72,9 @@ router.get('/profiles/:playerId/summary', async (req, res) => {
       summary.player.rating_position = null as any;
       summary.player.rating_movement_30d = null as any;
     }
-    // Staff work: closed evenings run as organizer and completed games judged (same counts as the achievements).
-    const staffStats = await collectPlayerAchievementStats(req.db, playerId).catch(() => null);
-    return res.json({ ...summary, staff: { organized_evenings: Number(staffStats?.organizedEvenings || 0), judged_games: Number(staffStats?.judgedGames || 0) } });
+    // Staff work: judging only for those who judged, organizing only on organizers' profiles.
+    const staff = await loadPlayerStaffStats(req.db, playerId).catch(() => null);
+    return res.json({ ...summary, staff });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль' });
   }

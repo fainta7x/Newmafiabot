@@ -74,6 +74,15 @@ describe('evening organizer and game judge', () => {
     expect(report.body.staff).toEqual([{ player_id: 'org', nickname: 'Хозяин', evenings: 1, games: 0 }]);
     const card = await request(app).get('/api/players/org').set('Cookie', cookie());
     expect(card.body.achievements.staff).toEqual({ judged_games: 0, organized_evenings: 1 });
+    // Organizing is shown only for organizers, judging only for those who judged; split by evening kind.
+    expect(card.body.staff_stats).toEqual({
+      judged: null,
+      organized: { total: 1, by_format: [{ format: 'CASUAL', label: 'клубных', count: 1 }] },
+    });
+    await db.run("INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('plain','Игрок',0,?,?)", [now, now]);
+    expect((await request(app).get('/api/players/plain').set('Cookie', cookie())).body.staff_stats).toEqual({ judged: null, organized: null });
+    await db.run("UPDATE players SET club_role = 'member' WHERE id = 'org'");
+    expect((await request(app).get('/api/players/org').set('Cookie', cookie())).body.staff_stats.organized).toBeNull();
   });
 
   it('reports by calendar month and by the active rating season', async () => {

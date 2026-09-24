@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
+import StaffWorkStats, { type StaffWorkStatsData } from './StaffWorkStats.tsx';
 
 type CareerData = {
   viewer_id: string;
@@ -20,8 +21,7 @@ type CareerData = {
     current_streak: number;
     best_streak: number;
     achievements: number;
-    organized_evenings?: number;
-    judged_games?: number;
+    staff?: StaffWorkStatsData;
     red: { games: number; wins: number; win_rate: number };
     black: { games: number; wins: number; win_rate: number };
     roles: Array<{ role: string; label: string; games: number; wins: number; win_rate: number }>;
@@ -90,10 +90,7 @@ export default function PlayerCareerProfile({ playerId, onBack, embedded = false
 
       <section className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-[22px] border border-rose-200/10 bg-rose-200/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.12em] text-rose-100/35">🔴 За красных</div><div className="mt-1 text-2xl font-black">{data.career.red.win_rate}%</div><div className="text-[11px] text-white/25">{data.career.red.wins}/{data.career.red.games} побед</div></div><div className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-4"><div className="text-[11px] uppercase tracking-[0.12em] text-white/30">⚫ За чёрных</div><div className="mt-1 text-2xl font-black">{data.career.black.win_rate}%</div><div className="text-[11px] text-white/25">{data.career.black.wins}/{data.career.black.games} побед</div></div></section>
 
-      {(data.career.organized_evenings || data.career.judged_games) ? <section className="mt-3 grid grid-cols-2 gap-2" data-testid="career-staff">
-        <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.12em] text-white/40">🎩 Провёл вечеров</div><div className="mt-1 text-2xl font-black">{data.career.organized_evenings || 0}</div></div>
-        <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.12em] text-white/40">⚖️ Отсудил игр</div><div className="mt-1 text-2xl font-black">{data.career.judged_games || 0}</div></div>
-      </section> : null}
+      {data.career.staff?.judged || data.career.staff?.organized ? <div className="mt-3"><StaffWorkStats stats={data.career.staff} testId="career-staff" /></div> : null}
       {data.career.achievements > 0 && <section className="mt-3 rounded-[22px] border border-amber-200/10 bg-amber-200/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.12em] text-amber-100/35">🏅 Достижения</div><div className="mt-1 text-2xl font-black">{data.career.achievements}</div><div className="text-[11px] text-white/25">открыто в клубной истории</div></section>}
 
       {data.is_self && <PlayerInsightsPanel />}

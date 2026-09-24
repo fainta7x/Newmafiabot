@@ -12,6 +12,7 @@ import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
+import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
 import {
   getHistoricalAwardDefaultTitle,
   isHistoricalAwardKey,
@@ -261,9 +262,11 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
     const gameProfile = await loadPlayerGameProfile(db, String(req.params.id));
     const achievements = await loadPlayerAchievementProfile(db, String(req.params.id));
+    const staffStats = await loadPlayerStaffStats(db, String(req.params.id));
 
     res.json({
       ...player,
+      staff_stats: staffStats,
       contact_status,
       engagement_stage,
       calculated_stage: engagement_stage,

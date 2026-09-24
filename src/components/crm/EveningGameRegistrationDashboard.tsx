@@ -37,12 +37,13 @@ const STATE_LABELS: Record<RegistrationState, string> = {
   unknown: 'Нет ответа',
 };
 
+// The answer decides the bucket; chosen games only split «идут» in two. A player
+// switched to «Думает» keeps their games but must not be counted as coming.
 const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
   if (responseStatus === 'declined') return 'declined';
+  if (responseStatus === 'thinking') return 'thinking';
   if (slots.length) return 'games';
   if (responseStatus === 'going' || responseStatus === 'late') return 'coming';
-  if (responseStatus === 'thinking') return 'thinking';
-  if (responseStatus === 'declined') return 'declined';
   return 'unknown';
 };
 

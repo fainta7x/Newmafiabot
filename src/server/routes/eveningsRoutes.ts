@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { notifyEveningCancelled } from '../services/eveningShortfallService.ts';
 import crypto from 'crypto';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
@@ -240,6 +241,14 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     });
 
     const updated = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
+    // Cancelling tells everyone who was coming or still deciding (user-approved 2026-09-24).
+    if (String(updated?.status || '') === 'cancelled' && String(evening.status || '') !== 'cancelled') {
+      try {
+        await notifyEveningCancelled(db, eveningId, typeof req.body?.cancel_reason === 'string' ? req.body.cancel_reason : null);
+      } catch (error) {
+        console.warn('[EVENING UPDATE] cancellation notices failed:', error instanceof Error ? error.message : String(error));
+      }
+    }
     if (String(updated?.status || '') === 'cancelled') {
       try {
         await finalizeExistingVkEveningPublications(db, eveningId);

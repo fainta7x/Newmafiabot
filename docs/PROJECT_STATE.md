@@ -321,10 +321,14 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - Prepayment at the table: `POST /api/games/evening/:id` returns `prepayment_required` with the seated players who still owe on NOVICE and RATING evenings. The game create sheet shows them with an «Оплатил» button.
      - Tournament registration by answers («Играю» / «Готов подменить» / «Пока думаю» / «Не смогу», `POST /api/tournaments/evenings/:id/answer`). It replaces the overflow reserve. The payment deadlines at 3 days and 24 hours are enforced by the personal notification worker (`enforceTournamentPaymentDeadlines`), with a reminder at 4 days.
      - Tournament organizer: `tournaments.organizer_player_id` (club role «Организатор»), chosen in the tournament settings. Completed tournaments count in «Провёл вечеров», the staff report and the organizer achievements.
+     - Shortfall (`eveningShortfallService.ts`, run by the personal notification worker):
+       - 3 h before, an automatic group call through the existing Telegram recruitment post;
+       - 1 h before, when fewer than 10 (novice 8) have said they come, an organizer notice and a «Недобор — отменить вечер?» item with a cancel button in «Порядок в клубе»;
+       - every cancellation notifies players who were coming or thinking.
      - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; only players pay; the organizer and judges pay only when they play. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
    - Left:
      - recording the rating winner's and judge's payouts (club finance module);
-     - the table-size rule (10 players, or 8–9 on novice evenings with the roles in `BUSINESS_RULES`) and the shortfall call at 3 h / cancel prompt at 1 h.
+     - the table-size rule (10 players, or 8–9 on novice evenings with the roles in `BUSINESS_RULES`): club games, protocol, Live Game roles, Elo and token settlement still assume exactly 10 seats.
 5. Plain wording across the CRM.
 6. Online checkout (after self-employment registration).
 7. Club finance: evening revenue, expenses, organizer and judge payouts, fund allocations (for example a % of each evening for club needs, the season prize fund).

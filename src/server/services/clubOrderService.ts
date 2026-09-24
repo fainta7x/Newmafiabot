@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
+import { loadEveningShortfall } from './eveningShortfallService.ts';
 
 /**
  * «Порядок в клубе» (user-approved 2026-09-24): an automatic list of things that need the organizer.
@@ -11,7 +12,8 @@ export type ClubOrderCategory = 'evenings' | 'statuses' | 'profiles' | 'money';
 export type ClubOrderAction =
   | { type: 'evening'; evening_id: string; section: 'overview' | 'participants' | 'games' | 'management' | 'closeout' }
   | { type: 'player'; player_id: string }
-  | { type: 'create_evening' };
+  | { type: 'create_evening' }
+  | { type: 'cancel_evening'; evening_id: string };
 export type ClubOrderPerson = { player_id: string; nickname: string; detail?: string };
 export type ClubOrderItem = {
   id: string;
@@ -123,6 +125,23 @@ async function eveningItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
         });
       }
     }
+  }
+
+  // Shortfall: within an hour of the start the evening still lacks a table (user-approved 2026-09-24).
+  const soon = await db.all<any>(
+    `SELECT id, title, starts_at FROM game_evenings
+      WHERE status = 'published' AND settled_at IS NULL AND UPPER(COALESCE(format, '')) <> 'TOURNAMENT'
+        AND datetime(starts_at) > datetime(?) AND datetime(starts_at) <= datetime(?)`,
+    [iso(now - 2 * HOUR), iso(now + HOUR)],
+  );
+  for (const row of soon) {
+    const shortfall = await loadEveningShortfall(db, String(row.id));
+    if (!shortfall?.short) continue;
+    items.push({
+      id: `shortfall:${row.id}`, category: 'evenings', title: 'Недобор — отменить вечер?',
+      detail: `${eveningName(row)} — записались ${shortfall.confirmed} из ${shortfall.minimum}. При отмене всем записавшимся придёт сообщение`,
+      action: { type: 'cancel_evening', evening_id: String(row.id) }, action_label: 'Отменить вечер',
+    });
   }
 
   const planned = await db.get<any>(`

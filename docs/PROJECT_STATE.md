@@ -350,6 +350,14 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - one evening with tables of different formats, or separate evenings at the same time;
      - how the player registers and pays when formats differ;
      - which tables and games the organizer and the OBS overlay see at once.
+11. Achievement overhaul (user request 2026-09-24, for later).
+   - Today: 44 achievements in `src/lib/achievementCatalog.ts`, earned by counters (games, wins, Elo, judged, organized, role wins, ПУ, a game without fouls).
+   - The user finds the names and the difficulty poor. Examples:
+     - generic names repeat across categories («Мастер», «Легенда», «Мастер побед», «Легенда побед»);
+     - Elo steps start at 1400 («Начало пути»), although everyone starts at 1000;
+     - the role section has one win per role;
+     - «Идеальная игра» is just a game without fouls.
+   - To agree before building: the list of achievements, their names in the club's noir style, the thresholds and rarity, and what happens to achievements players already have.
 
 ## Intentionally incomplete / deferred
 

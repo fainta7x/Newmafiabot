@@ -126,4 +126,14 @@ describe('tournament answers', () => {
     const card = await request(app).get(`/api/players/${players[2]}`).set('Cookie', cookie);
     expect(card.body.staff_stats.organized).toEqual({ total: 1, by_format: [{ format: 'TOURNAMENT', label: 'турнирных', count: 1 }] });
   });
+
+  it('does not start a tournament evening without its organizer', async () => {
+    const { app } = await setup(1);
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const detail = await request(app).get('/api/tournaments/t1').set('Cookie', cookie);
+    expect(detail.body.start_readiness.errors).toContain('Не выбран организатор турнира');
+    const started = await request(app).post('/api/tournaments/t1/start').set('Cookie', cookie);
+    expect(started.status).toBe(400);
+    expect(started.body.error).toContain('Не выбран организатор турнира');
+  });
 });

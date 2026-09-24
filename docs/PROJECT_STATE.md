@@ -322,7 +322,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; only players pay; the organizer and judges pay only when they play. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
    - Left:
      - recording the rating winner's and judge's payouts (club finance module);
-     - tournament payment before a confirmed place;
+     - tournament registration by answers («Играю» / «Готов подменить» / «Пока думаю» / «Не смогу») with 3-day and 24-hour payment deadlines (`BUSINESS_RULES` → «Tournament registration»); it replaces the old overflow reserve;
      - the table-size rule (10 players, or 8 for novices);
      - organizer attribution for tournaments.
    - Tournaments have no organizer attribution yet (only `tournaments.judge_player_id`), so organizer profile totals miss tournaments. Add an organizer to tournaments together with tournament prepayment.

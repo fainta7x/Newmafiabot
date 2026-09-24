@@ -406,7 +406,26 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
     - 10 % to the season prize fund.
 
     A rating game always has a full table of 10 players, so the evening collects 5000 ₽: 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
-  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. A registered player's place is confirmed only after the payment is marked; unpaid players give their place to the reserve before the tournament.
+  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. Registration works as below.
+- **Tournament registration (user-approved 2026-09-24).** There is no separate reserve queue. Each player answers the tournament like an evening:
+
+  | Answer | Meaning | Payment |
+  |---|---|---|
+  | «Играю» | wants to play and claims a place | pays the entry fee |
+  | «Готов подменить» | not keen, but will play if needed | pays only after being called in |
+  | «Пока думаю» | undecided | nothing yet |
+  | «Не смогу» | will not come | nothing |
+
+  «Пока думаю» gets the «Что решил?» follow-up, as on evenings.
+
+  How the table of 10 is filled:
+  1. Places go to «Играю» answers in the order they were given. The 11th and later «Играю» wait for a place first, and they do not pay until they get one.
+  2. Every «Играю» holding a place must pay by **3 days before** the tournament. They get a reminder at 4 days.
+  3. At the 3-day deadline, an unpaid player loses the place and their answer becomes «Готов подменить». Each free place goes first to waiting «Играю», then to «Готов подменить», in answer order. The called player gets a message: «место ваше, оплатите до …».
+  4. A player called in must pay by **24 hours before** the tournament, otherwise the place goes to the next one.
+  5. A player called in after that pays on site before the first game (prepayment at the table).
+
+  The organizer can always mark a payment or move a player by hand.
 - **Does the evening's organizer pay? (user-approved 2026-09-24)** On club (CASUAL) and novice evenings the organizer never pays. On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
 - **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). With fewer registered it is a shortfall, and the evening is cancelled. Exception: novice evenings and games may run from 8 players and a judge.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.

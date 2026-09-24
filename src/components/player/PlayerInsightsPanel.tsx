@@ -65,8 +65,8 @@ function EloChart({ points }: { points: Array<{ value: number; date: string }> }
       <line x1="12" y1="14" x2={width - 12} y2="14" stroke="rgba(255,255,255,.04)" />
       <path d={path} fill="none" stroke="rgba(255,255,255,.72)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={last.x} cy={last.y} r="5" fill="#ffffff" />
-      <text x="14" y="16" fill="rgba(255,255,255,.28)" fontSize="9">{Math.round(max)}</text>
-      <text x="14" y={height - 3} fill="rgba(255,255,255,.25)" fontSize="9">{Math.round(min)}</text>
+      <text x="14" y="16" fill="rgba(255,255,255,.28)" fontSize="11">{Math.round(max)}</text>
+      <text x="14" y={height - 3} fill="rgba(255,255,255,.25)" fontSize="11">{Math.round(min)}</text>
     </svg>
     <div className="mt-1 flex items-center justify-between text-[11px] text-white/25"><span>{new Date(points[0].date).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</span><span>{points.length} точек</span><span>{new Date(points[points.length - 1].date).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</span></div>
   </div>;
@@ -75,7 +75,7 @@ function EloChart({ points }: { points: Array<{ value: number; date: string }> }
 function SocialGraph({ center, nodes }: InsightsData['social_graph']) {
   const visible = nodes.slice(0, 8);
   if (!visible.length) return <div className="rounded-xl bg-black/15 px-3 py-5 text-center text-[11px] text-white/25">Нужно больше совместных игр для графа связей.</div>;
-  const radius = 104;
+  const radius = 96;
   return <div className="relative mx-auto h-[270px] w-[270px] overflow-hidden rounded-full border border-white/[0.04] bg-black/10">
     <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 text-center">
       <Avatar src={center.avatar_url} size={52} />
@@ -93,8 +93,7 @@ function SocialGraph({ center, nodes }: InsightsData['social_graph']) {
         <div className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-white/[0.08]" style={{ width: lineLength, transform: `rotate(${lineAngle}deg)` }} />
         <div className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center" style={{ left: x, top: y }}>
           <div className={`mx-auto rounded-xl border border-white/10 bg-[#17181d] p-0.5 ${node.closeness > 0.66 ? 'scale-110' : node.closeness < 0.34 ? 'scale-90 opacity-75' : ''}`}><Avatar src={node.avatar_url} size={34} /></div>
-          <div className="mt-1 max-w-[66px] truncate text-[11px] font-semibold text-white/65">{node.nickname}</div>
-          <div className="text-[11px] text-white/20">{countGames(node.total_games)}</div>
+          <div className="mt-1 max-w-[66px] truncate text-[11px] font-semibold text-white/65" title={countGames(node.total_games)}>{node.nickname}</div>
         </div>
       </React.Fragment>;
     })}

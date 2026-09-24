@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { judgeRewardFor } from './staffRewards.ts';
 import { calculateClubGamePlayerTokens } from './clubGameTokenSettlementService.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 
@@ -120,11 +121,12 @@ const buildDesiredTargets = async (db: DatabaseWrapper, gameId: string): Promise
   if (game.judge_player_id) {
     const judge = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', [String(game.judge_player_id)]);
     if (judge) {
+      const reward = judgeRewardFor(game.created_at || game.completed_at || game.started_at);
       desired.set(`judge:${judge.id}`, {
         subjectType: 'judge',
         playerId: judge.id,
-        amount: 100,
-        breakdown: { judge_reward: 100 },
+        amount: reward,
+        breakdown: { judge_reward: reward },
       });
     }
   }

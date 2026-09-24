@@ -54,7 +54,7 @@ const makeDb = () => {
 };
 
 const baseStats = (patch: Partial<AchievementStats> = {}): AchievementStats => ({
-  completedGames: 0, wins: 0, elo: 1000, judgedGames: 0, puCount: 0, perfectGames: 0,
+  completedGames: 0, wins: 0, elo: 1000, judgedGames: 0, organizedEvenings: 0, puCount: 0, perfectGames: 0,
   roleWins: { sheriff: 0, mafia: 0, don: 0 }, ...patch,
 });
 const byId = (id: string) => ACHIEVEMENTS.find((item) => item.id === id)!;
@@ -75,17 +75,20 @@ const addCompletedClubGame = async (db: any, playerId: string, options: { role?:
 };
 
 describe('legacy achievement catalog', () => {
-  it('keeps all 40 achievements and the legacy display order', () => {
-    expect(ACHIEVEMENTS).toHaveLength(40);
-    expect(ACHIEVEMENT_CATEGORIES.map((item) => item.id)).toEqual(['games','wins','rating','roles','judge','special']);
+  it('keeps the legacy 40 achievements in display order plus the 5 organizer milestones', () => {
+    expect(ACHIEVEMENTS).toHaveLength(45);
+    expect(ACHIEVEMENT_CATEGORIES.map((item) => item.id)).toEqual(['games','wins','rating','roles','judge','organizer','special']);
     expect(ACHIEVEMENT_ORDER).toEqual([
       'first_game','ten_games','twenty_games','thirty_games','fifty_games','seventy_games','hundred_games','one_fifty_games','two_hundred_games',
       'first_win','five_wins','ten_wins','twenty_wins','thirty_wins','forty_wins','fifty_wins','seventy_wins','hundred_wins',
       'elo_1400','elo_1500','elo_1550','elo_1600','elo_1650','elo_1700','elo_1750','elo_1800','elo_1900',
-      'first_judge','five_judged','ten_judged','twenty_judged','fifty_judged','sheriff_win','mafia_win','don_win','pu_once','pu_three','pu_master','pu_ten','perfect_game'
+      'first_judge','five_judged','ten_judged','twenty_judged','fifty_judged',
+      'first_organized','five_organized','ten_organized','twentyfive_organized','fifty_organized','sheriff_win','mafia_win','don_win','pu_once','pu_three','pu_master','pu_ten','perfect_game'
     ]);
   });
   it('honours exact milestone boundaries, role wins, PU and perfect game', () => {
+    expect(qualifiesForAchievement(byId('first_organized'), baseStats({ organizedEvenings: 1 }))).toBe(true);
+    expect(qualifiesForAchievement(byId('five_organized'), baseStats({ organizedEvenings: 4 }))).toBe(false);
     expect(qualifiesForAchievement(byId('ten_games'), baseStats({ completedGames: 9 }))).toBe(false);
     expect(qualifiesForAchievement(byId('ten_games'), baseStats({ completedGames: 10 }))).toBe(true);
     expect(qualifiesForAchievement(byId('five_wins'), baseStats({ wins: 5 }))).toBe(true);

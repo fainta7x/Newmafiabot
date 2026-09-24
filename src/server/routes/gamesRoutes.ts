@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
+import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
+import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
@@ -122,6 +124,24 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     if (evening.settled_at || evening.status === 'completed') return res.status(409).json({ error: 'Завершённый вечер доступен только для чтения' });
     if (!['published', 'active'].includes(String(evening.status || ''))) return res.status(409).json({ error: 'Перед созданием игры опубликуйте вечер' });
+    // Creating the first game starts a published evening, so it needs the evening's organizer too.
+    if (String(evening.status) === 'published'
+      && !(await eveningOrganizerAssigned(db, eveningId))
+      && !(await autoAssignEveningOrganizer(db, eveningId, req.organizerPlayerId || null))) {
+      return res.status(409).json({ error: 'Назначьте организатора вечера — без него вечер не начать.', code: 'organizer_required' });
+    }
+    // The first game waits for the «Мы собрались» post (or an explicit «Пропустить»); a published evening
+    // started by its first game is held to the same rule, so the post cannot be bypassed.
+    if (['active', 'published'].includes(String(evening.status))
+      && !(await db.get('SELECT id FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]))
+      && !(await gatheredPostSatisfied(db, eveningId))) {
+      return res.status(409).json({
+        error: String(evening.status) === 'published'
+          ? 'Сначала начните вечер во вкладке «Маршрут» и опубликуйте пост «Мы собрались» (или нажмите «Пропустить»).'
+          : 'Сначала опубликуйте пост «Мы собрались» во вкладке «Маршрут» или нажмите «Пропустить».',
+        code: 'gathered_post_required',
+      });
+    }
     const tableId = req.body?.evening_table_id ? String(req.body.evening_table_id) : null;
     if (tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [tableId, eveningId])) return res.status(400).json({ error: 'Выбранный стол не относится к этому вечеру' });
     const delegatedJudgeId = req.delegatedPlayerId ? String(req.delegatedPlayerId) : null;
@@ -131,6 +151,10 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       judge_name: delegatedJudgeId ? null : (req.body?.judge_name ?? null),
       required_level: requestedJudgeId ? requiredJudgeLevelForEveningFormat(evening.format) : undefined,
     });
+    // Every game has a judge (user-approved 2026-09-24): a club player, or a named guest marked as such.
+    if (!judge.judge_player_id && !(req.body?.judge_guest === true && judge.judge_name)) {
+      return res.status(400).json({ error: 'Выберите судью игры из клуба (или укажите судью-гостя).', code: 'judge_required' });
+    }
 
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);

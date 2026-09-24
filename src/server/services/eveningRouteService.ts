@@ -3,6 +3,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
+import { loadGatheredPost } from './eveningGatheredPostService.ts';
 
 /**
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
@@ -17,7 +18,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'create_next';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -148,7 +149,19 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
       : { id: 'start', title: 'Начать вечер', detail: 'Нажимают, когда игроки собираются', status: stageNow === 'day' ? 'todo' : 'info', action: published ? 'start' : undefined },
   );
 
+  const gathered = await loadGatheredPost(db, eveningId);
+  const legs = [
+    (gathered as any).telegram_status === 'published' ? 'Telegram ✓' : (gathered as any).telegram_status === 'failed' ? 'Telegram ✗' : 'Telegram —',
+    (gathered as any).vk_status === 'published' ? 'ВК ✓' : (gathered as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
+  ].join(' · ');
   steps.live.push(
+    gathered.state === 'published'
+      ? { id: 'gathered', title: 'Пост «Мы собрались»', detail: legs, status: 'done' }
+      : gathered.state === 'partial'
+        ? { id: 'gathered', title: 'Пост «Мы собрались» дошёл не везде', detail: `${legs} — можно повторить`, status: 'attention', action: 'gathered_post' }
+        : gathered.state === 'skipped'
+          ? { id: 'gathered', title: 'Пост «Мы собрались» пропущен', detail: 'Можно выложить позже', status: 'attention', action: 'gathered_post' }
+          : { id: 'gathered', title: 'Пост «Мы собрались»', detail: 'Фото в Telegram и ВК — после него открываются игры', status: evening.status === 'active' ? 'todo' : 'info', action: evening.status === 'active' ? 'gathered_post' : undefined },
     { id: 'attendance', title: 'Отметить пришедших', detail: `Пришли: ${attended}${pendingExpected ? ` · ждём ещё ${players(pendingExpected)}` : ''}`, status: attended && !pendingExpected ? 'done' : attended ? 'attention' : 'todo', target: 'management' },
     { id: 'play', title: 'Игры вечера', detail: games.length ? `Сыграно: ${games.length - unfinishedGames}${unfinishedGames ? ` · идут/не завершены: ${unfinishedGames}` : ''}` : 'Ещё не начаты', status: games.length && !unfinishedGames ? 'done' : games.length ? 'attention' : 'todo', target: 'games' },
   );

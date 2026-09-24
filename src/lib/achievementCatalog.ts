@@ -1,6 +1,6 @@
-export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'special';
+export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'organizer' | 'special';
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'role' | 'pu' | 'perfect_game';
+export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game';
 
 export interface AchievementCategoryDefinition {
   id: AchievementCategoryId;
@@ -28,7 +28,8 @@ export const ACHIEVEMENT_CATEGORIES: AchievementCategoryDefinition[] = [
   { id: 'rating', name: '📊 Рейтинговые', icon: '📊', order: 3 },
   { id: 'roles', name: '🎭 Ролевые', icon: '🎭', order: 4 },
   { id: 'judge', name: '⚖️ Судейские', icon: '⚖️', order: 5 },
-  { id: 'special', name: '✨ Особые', icon: '✨', order: 6 },
+  { id: 'organizer', name: '🎩 Организаторские', icon: '🎩', order: 6 },
+  { id: 'special', name: '✨ Особые', icon: '✨', order: 7 },
 ];
 
 export const ACHIEVEMENT_RARITIES = {
@@ -71,6 +72,12 @@ const raw: Array<Omit<AchievementDefinition, 'order'>> = [
   { id: 'ten_judged', name: 'Судья', description: 'Отсудить 10 игр', icon: '👨‍⚖️', category: 'judge', metric: 'judged', threshold: 10, rarity: 'rare' },
   { id: 'twenty_judged', name: 'Мировой судья', description: 'Отсудить 20 игр', icon: '🏛️', category: 'judge', metric: 'judged', threshold: 20, rarity: 'epic' },
   { id: 'fifty_judged', name: 'Верховный судья', description: 'Отсудить 50 игр', icon: '⚖️👑', category: 'judge', metric: 'judged', threshold: 50, rarity: 'legendary' },
+  // Evenings run as the assigned organizer and closed (user-approved 2026-09-24).
+  { id: 'first_organized', name: 'Первый свой вечер', description: 'Провести первый вечер организатором', icon: '🎩', category: 'organizer', metric: 'organized', threshold: 1, rarity: 'common' },
+  { id: 'five_organized', name: 'Распорядитель', description: 'Провести 5 вечеров организатором', icon: '📅', category: 'organizer', metric: 'organized', threshold: 5, rarity: 'common' },
+  { id: 'ten_organized', name: 'Хозяин вечера', description: 'Провести 10 вечеров организатором', icon: '🗝️', category: 'organizer', metric: 'organized', threshold: 10, rarity: 'rare' },
+  { id: 'twentyfive_organized', name: 'Душа клуба', description: 'Провести 25 вечеров организатором', icon: '🏠', category: 'organizer', metric: 'organized', threshold: 25, rarity: 'epic' },
+  { id: 'fifty_organized', name: 'Хранитель клуба', description: 'Провести 50 вечеров организатором', icon: '👑', category: 'organizer', metric: 'organized', threshold: 50, rarity: 'legendary' },
   { id: 'sheriff_win', name: 'Защитник города', description: 'Выиграть в роли Шерифа', icon: '🕵️', category: 'roles', metric: 'role', role: 'sheriff', threshold: 1, rarity: 'rare' },
   { id: 'mafia_win', name: 'Тень', description: 'Выиграть в роли Мафии', icon: '🔪', category: 'roles', metric: 'role', role: 'mafia', threshold: 1, rarity: 'rare' },
   { id: 'don_win', name: 'Крёстный отец', description: 'Выиграть в роли Дона', icon: '👑', category: 'roles', metric: 'role', role: 'don', threshold: 1, rarity: 'epic' },

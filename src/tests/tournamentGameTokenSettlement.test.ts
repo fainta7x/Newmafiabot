@@ -79,7 +79,7 @@ describe('tournament game token settlement', () => {
     expect(first.mutations).toBe(11);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-1'")).tokens)).toBe(215);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-8'")).tokens)).toBe(115);
-    expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-11'")).tokens)).toBe(100);
+    expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-11'")).tokens)).toBe(200); // judge: 2 × the player participation reward for games after the 2026-09-24 cutover
     expect(Number((await db.get<any>('SELECT COUNT(*) AS n FROM token_ledger')).n)).toBe(11);
 
     const replay = await reconcileTournamentGameTokenSettlement(db, 'g-1', { activateIfUntracked: true, context: 'completion' });

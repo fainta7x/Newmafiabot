@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { awardEveningOrganizer } from './staffRewards.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -273,6 +274,11 @@ export async function settleEveningFromCloseout(
   });
 
   await runCrmAutomations(db);
+  try {
+    await awardEveningOrganizer(db, eveningId);
+  } catch (error) {
+    console.error('[EVENING CLOSEOUT] organizer reward failed:', error instanceof Error ? error.message : String(error));
+  }
   // Publication finalization is best-effort and must never roll back a settled
   // evening. Telegram is finalized by its durable outbox trigger; VK is edited
   // directly here using the existing post identity only.

@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
+import { skipGatheredPost } from '../server/services/eveningGatheredPostService.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { resolveJudgeAssignment } from '../server/services/judgeAssignmentService.ts';
@@ -26,6 +27,8 @@ const seedEvening = async () => {
      VALUES ('ev-judge', 'Judge test', ?, 'Europe/Moscow', 'STANDARD', 'active', 20, 0, ?, ?)`,
     [stamp, stamp, stamp],
   );
+  // These tests are about judge identity, not the «Мы собрались» gate of a running evening.
+  await skipGatheredPost(db, 'ev-judge', 'test');
   const roles = ['don', 'mafia', 'mafia', 'sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen'];
   for (let index = 1; index <= 10; index += 1) {
     const playerId = `p-${index}`;
@@ -67,7 +70,7 @@ describe('stable judge identity', () => {
 
   it('keeps external club judge unlinked and awards no judge achievement', async () => {
     const seats = await seedEvening();
-    const created = await request(app).post('/api/games/evening/ev-judge').set(auth()).send({ judge_player_id: null, judge_name: 'External Judge', seats });
+    const created = await request(app).post('/api/games/evening/ev-judge').set(auth()).send({ judge_player_id: null, judge_name: 'External Judge', judge_guest: true, seats });
     expect(created.status).toBe(201);
     expect(created.body.judge_player_id).toBeNull();
     expect(created.body.judge_name).toBe('External Judge');

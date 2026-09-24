@@ -157,11 +157,17 @@ export async function createNoviceApplication(
 
   if (input.notifyOrganizer === false) return result!;
   const player = await db.get<any>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [input.playerId]);
+  const evening = input.eveningId
+    ? await db.get<any>('SELECT title, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [input.eveningId])
+    : null;
+  const eveningPart = evening
+    ? ` · на «${String(evening.title)}» ${new Date(evening.starts_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
+    : '';
   await enqueueOrganizerNotification(db, {
     messageKey: `novice-application:${applicationId}`,
     eventType: 'novice_application_created',
     entityId: applicationId,
-    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}.`,
+    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: CRM → «Сегодня».`,
   });
   return result!;
 }
@@ -202,7 +208,9 @@ export async function updateNoviceApplicationStatus(
   }
   if (application.player_id && ['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(status)) {
     const text = status === 'CONFIRMED'
-      ? 'Ваша первая заявка в 2LA Noire подтверждена. Теперь можно самостоятельно записываться на доступные вечера.'
+      ? (normalizeRoute(application.entry_route) === 'NOVICE'
+        ? 'Ваша заявка в 2LA Noire подтверждена — добро пожаловать в Школу мафии! Записывайтесь на ближайший новичковый вечер в «Событиях»: первые два вечера бесплатно.'
+        : 'Ваша первая заявка в 2LA Noire подтверждена. Теперь можно самостоятельно записываться на клубные вечера в «Событиях».')
       : status === 'COMPLETED'
         ? 'Новичковый этап завершён. Организатор свяжется с вами по следующему шагу.'
         : 'Заявка отменена. Если планы изменятся, можно подать новую заявку в календаре.';

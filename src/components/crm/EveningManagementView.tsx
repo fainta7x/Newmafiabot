@@ -14,6 +14,7 @@ interface EveningManagementViewProps {
   initialAddOpen?: boolean;
   onInitialAddHandled?: () => void;
   initialPane?: OperationsPane;
+  onEveningChanged?: () => void;
 }
 
 type OperationsPane = 'work' | 'roster' | 'payments' | 'tasks' | 'tables' | 'closeout';
@@ -42,6 +43,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
   initialAddOpen = false,
   onInitialAddHandled,
   initialPane,
+  onEveningChanged,
 }) => {
   const [pane, setPane] = useState<VisiblePane>(initialAddOpen ? 'roster' : normalizePane(initialPane));
   const [openRosterAdd, setOpenRosterAdd] = useState(initialAddOpen);
@@ -123,7 +125,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
       {pane === 'payments' ? <EveningPaymentsPanel eveningId={eveningId} /> : null}
       {pane === 'tasks' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
       {pane === 'tables' ? <EveningTablesView eveningId={eveningId} onBack={() => setPane('roster')} /> : null}
-      {pane === 'closeout' ? <EveningCloseoutPanel eveningId={eveningId} /> : null}
+      {pane === 'closeout' ? <EveningCloseoutPanel eveningId={eveningId} onSettled={onEveningChanged} /> : null}
     </div>
   );
 };

@@ -64,7 +64,7 @@ export const reconcileCloseoutParticipants = (current: CloseoutState, participan
   };
 };
 
-export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningId }) => {
+export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () => void }> = ({ eveningId, onSettled }) => {
   const [state, setState] = useState<CloseoutState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState('');
@@ -169,7 +169,8 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     try {
       const result = await request<any>(`/api/evenings/${encodeURIComponent(eveningId)}/closeout/settle`, { method: 'POST', body: JSON.stringify({ allow_missing_game_stats: state.games.needs_override && allowMissingStats }) });
       await load(true);
-      setMessage(result?.archived_unfinished_games ? `Вечер закрыт. Черновиков игр без статистики: ${result.archived_unfinished_games}.` : 'Вечер закрыт. Явка, оплаты и долги зафиксированы.');
+      onSettled?.();
+      setMessage(result?.archived_unfinished_games ? `Незавершённые игры (${result.archived_unfinished_games}) не вошли в статистику.` : null);
     } catch (err: any) { setError(err?.message || 'Не удалось закрыть вечер'); }
     finally { setBusyAction(null); }
   };
@@ -177,7 +178,19 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
   if (busyAction === 'load' && !state) return null;
   if (!state || isFuture) return null;
 
-  if (readonly) return <section className="rounded-[18px] border border-success/20 bg-success-soft p-4"><div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-success" /><div><div className="text-[14px] font-bold text-text-primary">Вечер закрыт</div><div className="mt-0.5 text-[12px] text-text-secondary">Явка и расчёты зафиксированы.</div></div></div>{message ? <p className="mt-3 text-[12px] text-success">{message}</p> : null}</section>;
+  if (readonly) {
+    const collected = state.attended.reduce((sum, item) => sum + Math.max(0, Number(item.amount_paid || 0)), 0);
+    const debt = state.outstanding.reduce((sum, item: any) => sum + Math.max(0, Number(item.balance ?? (Number(item.amount_due || 0) - Number(item.amount_paid || 0)))), 0);
+    return <section className="rounded-[18px] border border-success/20 bg-success-soft p-4">
+      <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-success" /><div><div className="text-[14px] font-bold text-text-primary">Вечер закрыт</div><div className="mt-0.5 text-[12px] text-text-secondary">Явка, оплаты и долги зафиксированы.</div></div></div>
+      <dl className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Пришли</dt><dd className="mt-0.5 text-[15px] font-bold text-text-primary">{state.attended.length}</dd></div>
+        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Собрано</dt><dd className="mt-0.5 text-[15px] font-bold text-text-primary">{money(collected)}</dd></div>
+        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Долги</dt><dd className={`mt-0.5 text-[15px] font-bold ${debt > 0 ? 'text-warning' : 'text-text-primary'}`}>{money(debt)}</dd></div>
+      </dl>
+      {message ? <p className="mt-3 text-[12px] text-text-secondary">{message}</p> : null}
+    </section>;
+  }
 
   const attendanceReady = state.pending_expected.length === 0;
   const gamesReady = !state.games.needs_override || allowMissingStats;

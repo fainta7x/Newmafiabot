@@ -34,7 +34,7 @@ const STATE_LABELS: Record<RegistrationState, string> = {
   coming: 'Будет, игры не выбраны',
   thinking: 'Думает',
   declined: 'Не будет',
-  unknown: 'Нет информации',
+  unknown: 'Нет ответа',
 };
 
 const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
@@ -255,10 +255,10 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const editTotal = maxEveningPrice > 0 ? Math.min(editRawTotal, maxEveningPrice) : editRawTotal;
 
   const filterItems: Array<{ id: Filter; label: string; count: number }> = [
-    { id: 'unknown', label: 'Нет информации', count: counts.unknown },
-    { id: 'coming', label: 'Будут', count: counts.coming },
+    { id: 'unknown', label: 'Нет ответа', count: counts.unknown },
+    { id: 'games', label: 'Идут, игры выбраны', count: counts.games },
+    { id: 'coming', label: 'Идут, без игр', count: counts.coming },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
-    { id: 'games', label: 'Игры выбраны', count: counts.games },
     { id: 'declined', label: 'Не будут', count: counts.declined },
     { id: 'all', label: 'Все', count: rows.length },
   ];

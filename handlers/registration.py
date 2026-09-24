@@ -286,7 +286,10 @@ async def finish_registration(message: Message, state: FSMContext):
         registered_nickname = str(player.get("nickname") or nickname)
         await state.clear()
         await message.answer(
-            f"✅ Готово! Профиль «{registered_nickname}» создан и привязан к твоему Telegram."
+            f"✅ Готово! Профиль «{registered_nickname}» создан и привязан к твоему Telegram.\n\n"
+            "Следующий шаг — первая заявка: открой приложение → «События» и выбери "
+            "«Я новичок» или «Я уже умею играть». Организатор подтвердит её, и ты сможешь "
+            "сам записываться на вечера. Новичкам первые два вечера бесплатно."
         )
         await _send_normal_start(message, args_override=pending_start_arg)
         return

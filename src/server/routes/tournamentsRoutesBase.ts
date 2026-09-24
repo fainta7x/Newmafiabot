@@ -189,8 +189,13 @@ export async function computeCompleteReadiness(db: DatabaseWrapper, tournamentId
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
+    // Registration-flow tournaments also report their FIFO reserve for the list card.
+    const hasRegistrations = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'tournament_registrations'");
+    const reserveSelect = hasRegistrations
+      ? "(SELECT COUNT(*) FROM tournament_registrations tr WHERE tr.tournament_id = t.id AND tr.status = 'reserve') as reserve_count,"
+      : '0 as reserve_count,';
     const tournamentsList = await db.all<any>(`
-      SELECT t.*,
+      SELECT t.*, ${reserveSelect}
         (SELECT COUNT(*) FROM tournament_participants tp WHERE tp.tournament_id = t.id) as participants_count,
         (SELECT COUNT(*) FROM tournament_games tg WHERE tg.tournament_id = t.id) as total_games_count,
         (SELECT COUNT(*) FROM tournament_games tg WHERE tg.tournament_id = t.id AND tg.status = 'completed') as completed_games_count

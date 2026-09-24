@@ -43,6 +43,22 @@ describe('NOVICE-001 funnel', () => {
     expect(confirmed.body.state.can_self_register).toBe(true);
   });
 
+  it('raises a novice to club level on transfer but keeps a higher organizer-set level', async () => {
+    const db = makeDb();
+    const app = await createApp(db);
+    const novice = (await registerNewPlayer(db, { telegramUserId: '781', nickname: 'Выпускник' })).player.id;
+    const strong = (await registerNewPlayer(db, { telegramUserId: '782', nickname: 'Сильный выпускник' })).player.id;
+    await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = 'novice' WHERE id = ?", [novice]);
+    await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = 'tournament' WHERE id = ?", [strong]);
+
+    for (const id of [novice, strong]) {
+      const converted = await request(app).post(`/api/novice/players/${id}/convert`).set('Cookie', organizerCookie());
+      expect(converted.status).toBe(200);
+    }
+    expect(await db.get<any>('SELECT club_stage, game_level FROM players WHERE id = ?', [novice])).toMatchObject({ club_stage: 'CLUB_PLAYER', game_level: 'club' });
+    expect(await db.get<any>('SELECT game_level FROM players WHERE id = ?', [strong])).toMatchObject({ game_level: 'tournament' });
+  });
+
   it('surfaces a bot-registered player without an application and lets the organizer admit them', async () => {
     vi.stubEnv('ORGANIZER_NOTIFICATION_IDS', '5550001');
     const db = makeDb();

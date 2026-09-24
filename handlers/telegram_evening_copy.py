@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import escape
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -67,6 +67,9 @@ def _format_game_numbers(numbers: list[int]) -> str:
 def _price_text(evening: dict, slots: list[dict] | None = None) -> str | None:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     is_club = canonical_format in {"CASUAL", "STANDARD"}
+    if canonical_format == "NOVICE":
+        # Same wording as the VK post (announcementPriceLine): the first two attended evenings are free.
+        return "Первые 2 вечера — бесплатно, дальше 200 ₽ за игру"
     raw = evening.get("price_per_game")
     if raw is None and slots:
         raw = slots[0].get("price") if slots[0].get("price") is not None else slots[0].get("price_rub")
@@ -83,6 +86,21 @@ def _price_text(evening: dict, slots: list[dict] | None = None) -> str | None:
     return f"{amount} ₽ за игру"
 
 
+# Mirrors src/lib/eveningFormat.ts noviceScheduleLine: the briefing is 30 minutes before the first game.
+NOVICE_BRIEFING_LEAD_MINUTES = 30
+
+
+def _novice_briefing_line(canonical_format: str, starts_at: object, timezone_name: object = _DEFAULT_TIMEZONE) -> str | None:
+    if canonical_format != "NOVICE":
+        return None
+    try:
+        first_game = _local_datetime(starts_at, timezone_name)
+    except (TypeError, ValueError):
+        return None
+    briefing = first_game - timedelta(minutes=NOVICE_BRIEFING_LEAD_MINUTES)
+    return f"Брифинг для новичков — {briefing:%H:%M}, первая игра — {first_game:%H:%M}"
+
+
 def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     title = escape(str(evening.get("title") or _FORMAT_LABELS.get(canonical_format, "Игровой вечер")))
@@ -96,6 +114,9 @@ def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
         f"📅 {format_start(evening.get('starts_at'), timezone_name)}",
         f"📍 {venue}",
     ]
+    briefing = _novice_briefing_line(canonical_format, evening.get("starts_at"), timezone_name)
+    if briefing:
+        lines.append(f"🎓 {briefing}")
     if price:
         lines.append(f"💳 {price}")
     if notes:

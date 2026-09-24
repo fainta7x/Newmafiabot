@@ -6,7 +6,8 @@ type Category = 'evenings' | 'statuses' | 'profiles' | 'money';
 type Action =
   | { type: 'evening'; evening_id: string; section: EveningSection }
   | { type: 'player'; player_id: string }
-  | { type: 'create_evening' };
+  | { type: 'create_evening' }
+  | { type: 'cancel_evening'; evening_id: string };
 type Item = {
   id: string;
   category: Category;
@@ -74,7 +75,26 @@ export default function ClubOrderPanel({ refreshKey = 0, onOpenEveningSection, o
     }
   };
 
-  const run = (action: Action) => {
+  const cancelEvening = async (item: Item, eveningId: string) => {
+    if (busy || !window.confirm('Отменить вечер? Всем записавшимся придёт сообщение об отмене.')) return;
+    setBusy(item.id);
+    try {
+      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}`, {
+        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', cancel_reason: 'shortfall' }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось отменить вечер');
+      await load();
+    } catch (cancelError: any) {
+      setError(cancelError?.message || 'Не удалось отменить вечер');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const run = (action: Action, item?: Item) => {
+    if (action.type === 'cancel_evening') { if (item) void cancelEvening(item, action.evening_id); return; }
     if (action.type === 'evening') onOpenEveningSection(action.evening_id, action.section);
     else if (action.type === 'player') onOpenPlayer(action.player_id);
     else onCreateEvening();
@@ -109,7 +129,7 @@ export default function ClubOrderPanel({ refreshKey = 0, onOpenEveningSection, o
                       </div>
                       {/* A list of players is fixed player by player, so the names are the buttons. */}
                       {item.action.type === 'player' && item.people?.length ? null : (
-                        <button type="button" onClick={() => run(item.action)} className="flex min-h-10 shrink-0 items-center gap-1 rounded-[10px] bg-accent px-3 text-[12px] font-bold text-white">
+                        <button type="button" onClick={() => run(item.action, item)} className="flex min-h-10 shrink-0 items-center gap-1 rounded-[10px] bg-accent px-3 text-[12px] font-bold text-white">
                           {item.action_label}<ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       )}

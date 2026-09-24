@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { collectPlayerAchievementStats } from '../services/playerAchievementsService.ts';
+import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
 import { getPlayerTitleMeta } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
@@ -121,7 +121,7 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
     }
 
     // Staff work shown in the career profile (same counts as the organizer/judge achievements).
-    const staffStats = await collectPlayerAchievementStats(db, playerId).catch(() => null);
+    const staffStats = await loadPlayerStaffStats(db, playerId).catch(() => null);
 
     const recent = personal.slice(0, 20).map(({ game, result }) => ({
       game_key: game.id,
@@ -155,8 +155,8 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
         current_streak: currentStreak,
         best_streak: bestStreak,
         achievements: achievementCount,
-        organized_evenings: Number(staffStats?.organizedEvenings || 0),
-        judged_games: Number(staffStats?.judgedGames || 0),
+        // Judging only for those who judged; organizing only on organizers' profiles.
+        staff: staffStats,
         red: { games: redGames.length, wins: redWins, win_rate: rate(redWins, redGames.length) },
         black: { games: blackGames.length, wins: blackWins, win_rate: rate(blackWins, blackGames.length) },
         roles: roleStats,

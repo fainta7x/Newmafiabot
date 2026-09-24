@@ -386,6 +386,13 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   - The evening's organizer gets 1000 tokens once per closed evening, for evenings from 2026-09-24.
   - Organizer achievements count closed evenings run as the assigned organizer: 1, 5, 10, 25 and 50 evenings.
   - Money payouts (salary) to organizers and judges belong to the planned club finance module.
+  - On profiles, «Отсудил игр» is shown openly but only for players who judged at least one game. «Провёл вечеров» is shown only on profiles of players with the «Организатор» club role. Both are split by kind: club, novice, rating and tournament.
+- **Club bookkeeping is internal (user-approved 2026-09-24).** Only the club owner and people with organizer rights see:
+  - money payouts to organizers and judges (including the judge's share of a rating evening);
+  - club expenses;
+  - the club-needs fund set aside from evenings.
+
+  The season prize fund (and prizes) may be shown to players.
 - **«Мы собрались» publication rules.** The first game may start once the post reached at least one channel or was skipped. A channel that failed can be retried with the stored photo; a channel that already has the photo is never posted to again.
 - **One person — one profile.** Sign-in goes through the linked Telegram or VK account, so a person should never have two profiles. There is no profile-merge tool (user decision 2026-09-24); «Порядок в клубе» only flags namesakes so the organizer can check them.
 - **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.

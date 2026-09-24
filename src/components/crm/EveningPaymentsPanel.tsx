@@ -14,6 +14,8 @@ type PaymentParticipant = {
   judge_level?: string | null;
   fee_waived?: boolean;
   novice_free?: boolean;
+  staff_exempt?: boolean;
+  fee_review_required?: boolean;
 };
 
 type PaymentPayload = {
@@ -122,6 +124,8 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
   const waivedLabel = (participant: PaymentParticipant) => {
     if (participant.novice_free) return 'Бесплатно · вечер новичка';
     if (participant.fee_waived) return 'Освобождён от оплаты';
+    if (participant.staff_exempt) return 'Организатор вечера · без оплаты';
+    if (participant.fee_review_required) return 'Освобождение на проверке';
     if (data?.evening.format === 'CASUAL' && !data.evening.closed) return 'Пока 0 ₽ · считается по сыгранным играм';
     return 'Без оплаты';
   };

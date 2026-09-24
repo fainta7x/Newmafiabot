@@ -104,6 +104,12 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
        AND ep.attendance_status = 'attended'
      ORDER BY p.nickname COLLATE NOCASE
   `, [eveningId]);
+  // Same source as reconcileRegularEveningPayments: the evening's organizer is not charged.
+  const staffTable = await db.get<any>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments' LIMIT 1");
+  const staff = staffTable
+    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    : null;
+  const staffPlayerId = staff?.organizer_player_id ? String(staff.organizer_player_id) : null;
 
   return {
     evening: {
@@ -124,6 +130,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
         && ['novice', 'unrated'].includes(String(participant.game_level || ''))
         && await novicePriceForPlayer(db, String(participant.player_id), eveningId) === 0,
       fee_waived: Boolean(participant.fee_waived),
+      staff_exempt: Boolean(staffPlayerId && String(participant.player_id) === staffPlayerId),
       fee_review_required: Boolean(participant.fee_review_required),
       fee_review_status: participant.fee_review_status || null,
       fee_review_reason: participant.fee_review_reason || null,

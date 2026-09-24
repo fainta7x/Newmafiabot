@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
-import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
+import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
 
 export type GuideTab = 'evening' | 'roles' | 'rules' | 'glossary';
 
@@ -89,6 +89,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const [tab, setTab] = useState<GuideTab>(initialTab);
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [detailedRules, setDetailedRules] = useState(false);
   const terms = useMemo(() => searchGlossary(query), [query]);
 
   const selectTab = (next: GuideTab) => {
@@ -137,7 +138,19 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
         {tab === 'evening' ? <Scenario /> : null}
         {tab === 'roles' ? <Roles /> : null}
-        {tab === 'rules' ? <Blocks blocks={TABLE_RULES} /> : null}
+        {tab === 'rules' ? (
+          <div className="space-y-3">
+            {/* Plain words first for a novice; the full club terms (фол, техфол, ППК) for experienced players. */}
+            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
+              <button type="button" data-testid="guide-rules-simple" aria-pressed={!detailedRules} onClick={() => setDetailedRules(false)} className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${!detailedRules ? 'bg-white text-black' : 'text-white/60'}`}>Простыми словами</button>
+              <button type="button" data-testid="guide-rules-detailed" aria-pressed={detailedRules} onClick={() => setDetailedRules(true)} className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${detailedRules ? 'bg-white text-black' : 'text-white/60'}`}>Подробно</button>
+            </div>
+            {detailedRules
+              ? <p className="px-1 text-[13px] leading-5 text-white/50">Полный свод с терминами клуба — для тех, кто уже играл. Незнакомое слово ищите во вкладке «Словарь».</p>
+              : null}
+            <Blocks blocks={detailedRules ? TABLE_RULES : SIMPLE_RULES} />
+          </div>
+        ) : null}
         {tab === 'glossary' ? (
           <div className="space-y-3">
             <label className="relative block">

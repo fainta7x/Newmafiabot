@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PublicGuide, guideTabFromSearch } from '../components/public/PublicGuide.tsx';
-import { GLOSSARY, ROLES, SCENARIO, TABLE_RULES, searchGlossary } from '../lib/clubGuide.ts';
+import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary } from '../lib/clubGuide.ts';
 
 afterEach(cleanup);
 
@@ -28,12 +28,23 @@ describe('public guide for novices', () => {
     expect(roles).toContain('Дон, 1 мафия, Шериф, 5 мирных');
   });
 
+  it('keeps club terms out of the plain rules', () => {
+    const plain = SIMPLE_RULES.flatMap((block) => [block.title, block.lead || '', ...block.points]).join(' ');
+    for (const term of ['ППК', 'техфол', 'Техфол', 'фол ', 'доп. балл', 'Elo']) expect(plain).not.toContain(term);
+  });
+
   it('switches sections and searches the glossary', () => {
     render(<PublicGuide />);
     expect(screen.getAllByTestId('guide-step')).toHaveLength(SCENARIO.length);
     fireEvent.click(screen.getByTestId('guide-tab-roles'));
     expect(screen.getAllByTestId('guide-role')).toHaveLength(ROLES.length);
     expect(screen.getAllByText('Задача:').length).toBe(ROLES.length);
+    fireEvent.click(screen.getByTestId('guide-tab-rules'));
+    // A novice sees plain words first; the club terms are one tap away.
+    expect(screen.getByText('Как тут наказывают')).toBeTruthy();
+    expect(screen.queryByText(/ППК/)).toBeNull();
+    fireEvent.click(screen.getByTestId('guide-rules-detailed'));
+    expect(screen.getAllByText(/ППК/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId('guide-tab-glossary'));
     fireEvent.change(screen.getByTestId('guide-search'), { target: { value: 'техфол' } });
     expect(screen.getAllByTestId('guide-term').map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Техфол')]));

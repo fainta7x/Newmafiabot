@@ -79,6 +79,10 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
             const selectedDistance = Number((t as Tournament & { game_count?: number }).game_count || 10);
             const totalGames = Number(t.total_games_count || selectedDistance);
             const participantsCount = Number(t.participants_count ?? 0);
+            const extra = t as Tournament & { reserve_count?: number; published_at?: string | null; registration_closed_at?: string | null };
+            const reserveCount = Number(extra.reserve_count || 0);
+            // A draft with a published registration is already visible to players.
+            const draftLabel = extra.published_at ? (extra.registration_closed_at ? 'Регистрация закрыта' : 'Регистрация открыта') : 'Черновик';
 
             return (
               <div
@@ -112,10 +116,10 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                         ? 'Корректировка'
                         : isCompleted
                         ? 'Турнир завершён'
-                        : 'Черновик'}
+                        : draftLabel}
                     </span>
 
-                    {t.stage && (
+                    {t.stage && t.stage !== 'TOURNAMENT' && (
                       <span className="text-[11px] font-medium text-text-secondary truncate">
                         {t.stage}
                       </span>
@@ -154,6 +158,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                       <span className="text-sm font-bold text-text-primary">
                         {participantsCount} / 10
                       </span>
+                      {reserveCount ? <span className="mt-0.5 block text-[11px] text-text-muted">+{reserveCount} в резерве</span> : null}
                     </div>
                     <div>
                       <span className="text-[9px] text-text-muted uppercase font-bold block">Прогресс игр</span>

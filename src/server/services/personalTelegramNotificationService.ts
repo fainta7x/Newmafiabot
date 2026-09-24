@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { queueEveningRsvpNudges } from './eveningRsvpNudgeService.ts';
+import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -20,7 +21,8 @@ const teamForRole = (role: unknown): 'red' | 'black' | null => {
 };
 
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
-const queueEveningNotifications = (db: DatabaseWrapper) => queueEveningRsvpNudges(db);
+// Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.
+const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db));
 
 async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   let queued = 0;

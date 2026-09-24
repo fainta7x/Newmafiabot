@@ -37,7 +37,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           </div>
           <div>
             <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Турниры клуба</h2>
-            <p className="text-xs text-text-secondary mt-0.5">10 мест · резерв · взнос · призовой фонд</p>
+            <p className="text-xs text-text-secondary mt-0.5">10 мест · очередь · взнос · призовой фонд</p>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           <div className="space-y-1">
             <h3 className="text-base font-bold text-text-primary">Турниры ещё не созданы</h3>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
-              Создайте турнирный вечер. После публикации игроки смогут занять 10 основных мест, остальные автоматически попадут в резерв.
+              Создайте турнирный вечер. После публикации игроки ответят «Играю», «Готов подменить», «Пока думаю» или «Не смогу». 10 мест получают «Играю» по очереди.
             </p>
           </div>
           <button
@@ -158,7 +158,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                       <span className="text-sm font-bold text-text-primary">
                         {participantsCount} / 10
                       </span>
-                      {reserveCount ? <span className="mt-0.5 block text-[11px] text-text-muted">+{reserveCount} в резерве</span> : null}
+                      {reserveCount ? <span className="mt-0.5 block text-[11px] text-text-muted">+{reserveCount} ждут места или подменят</span> : null}
                     </div>
                     <div>
                       <span className="text-[10px] text-text-muted uppercase font-bold block">Прогресс игр</span>

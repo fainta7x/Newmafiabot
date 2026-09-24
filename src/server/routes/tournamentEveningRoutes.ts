@@ -6,6 +6,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { resolveJudgeAssignment, JudgeAssignmentError } from '../services/judgeAssignmentService.ts';
 import {
   TOURNAMENT_PLAYER_CAPACITY,
+  answerTournament,
   cancelTournamentRegistration,
   loadTournamentEvening,
   notifyTournamentAudience,
@@ -17,22 +18,24 @@ import {
   reviewTournamentPayment,
   validatePrizeConfiguration,
   type TournamentPaymentState,
+  type TournamentResponse,
 } from '../services/tournamentEveningService.ts';
 
 const router = Router();
 const intRub = (value: unknown) => Number.isInteger(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 const playerIdOr401 = (req: AuthenticatedRequest, res: Response) => { const id = getPlayerSessionId(req); if (!id) res.status(401).json({ error: 'Требуется авторизация игрока' }); return id; };
 const organizerActorId = (req: AuthenticatedRequest) => getAuthenticatedOrganizerActorId(req);
-const errorStatus = (code: string) => ({ TOURNAMENT_NOT_FOUND:404,NOT_TOURNAMENT_EVENING:409,REGISTRATION_CLOSED:409,JUDGE_CANNOT_REGISTER:409,NOT_ELIGIBLE:403,NOT_REGISTERED:409,NOT_IN_RESERVE:409,TOURNAMENT_FULL:409,ROSTER_LOCKED:409,ROSTER_ALREADY_SEATED:409,ROSTER_NOT_READY:409,ROSTER_MISMATCH:409,PAYMENT_REVIEW_REQUIRED:409,INVALID_PAYMENT_STATE:400,INVALID_PAYMENT_AMOUNT:400,INVALID_RESERVE_ORDER:400,REASON_REQUIRED:400,ACTOR_REQUIRED:400 }[code] || 400);
+const errorStatus = (code: string) => ({ TOURNAMENT_NOT_FOUND:404,NOT_TOURNAMENT_EVENING:409,REGISTRATION_CLOSED:409,JUDGE_CANNOT_REGISTER:409,NOT_ELIGIBLE:403,NOT_REGISTERED:409,NOT_IN_RESERVE:409,TOURNAMENT_FULL:409,ROSTER_LOCKED:409,ROSTER_ALREADY_SEATED:409,ROSTER_NOT_READY:409,ROSTER_MISMATCH:409,PAYMENT_REVIEW_REQUIRED:409,INVALID_PAYMENT_STATE:400,INVALID_PAYMENT_AMOUNT:400,INVALID_RESERVE_ORDER:400,REASON_REQUIRED:400,ACTOR_REQUIRED:400,INVALID_RESPONSE:400 }[code] || 400);
 // Players and organizers read these in the app, so every service error code gets a plain Russian sentence.
 const ERROR_TEXT: Record<string, string> = {
   TOURNAMENT_NOT_FOUND: 'Турнир не найден',
   NOT_TOURNAMENT_EVENING: 'Это не турнир с регистрацией',
   REGISTRATION_CLOSED: 'Регистрация на турнир закрыта',
   JUDGE_CANNOT_REGISTER: 'Судья турнира не может записаться игроком',
+  INVALID_RESPONSE: 'Выберите ответ: играю, готов подменить, пока думаю или не смогу',
   NOT_ELIGIBLE: 'На турнир могут записаться только игроки с турнирным уровнем',
   NOT_REGISTERED: 'Вы не записаны на этот турнир',
-  NOT_IN_RESERVE: 'Игрок не в резерве',
+  NOT_IN_RESERVE: 'Игрок не ждёт места и не вызывался подменить',
   TOURNAMENT_FULL: 'В основном составе нет свободных мест',
   ROSTER_LOCKED: 'Состав уже нельзя менять: турнир начался',
   ROSTER_ALREADY_SEATED: 'Рассадка уже подготовлена — состав менять нельзя',
@@ -41,7 +44,7 @@ const ERROR_TEXT: Record<string, string> = {
   PAYMENT_REVIEW_REQUIRED: 'Сначала проверьте оплату',
   INVALID_PAYMENT_STATE: 'Неизвестный статус оплаты',
   INVALID_PAYMENT_AMOUNT: 'Сумма должна быть целым числом рублей',
-  INVALID_RESERVE_ORDER: 'Неверный порядок резерва',
+  INVALID_RESERVE_ORDER: 'Неверный порядок очереди',
   REASON_REQUIRED: 'Укажите причину',
   ACTOR_REQUIRED: 'Нужен вход организатора',
 };
@@ -62,9 +65,10 @@ router.post('/evenings/:id/registration/open',requireOrganizerAuth,async(req:Aut
 
 // Tells the player up front why the register button is missing instead of failing after the tap.
 const ineligibleReason=async(db:DatabaseWrapper,tournament:any,playerId:string|null)=>{if(!playerId)return null;if(String(tournament.judge_player_id||'')===playerId)return 'judge';const player=await db.get<any>('SELECT game_level FROM players WHERE id=? LIMIT 1',[playerId]);return player&&!playerLevelAllowsEveningFormat(player.game_level,'TOURNAMENT')?'level':null;};
-const playerMeDto=(me:any)=>me?{status:me.status,slot_number:me.slot_number,queue_order:me.queue_order,cancelled_at:me.cancelled_at||null,payment_state:me.payment_state||'unpaid',payment_note:me.payment_note||null,reported_amount_rub:me.reported_amount_rub==null?null:Number(me.reported_amount_rub),confirmed_amount_rub:me.confirmed_amount_rub==null?null:Number(me.confirmed_amount_rub),reported_at:me.reported_at||null,reviewed_at:me.reviewed_at||null}:null;
+const playerMeDto=(me:any)=>me?{status:me.status,response:me.response||(['confirmed','reserve'].includes(me.status)?'play':me.status==='cancelled'?'declined':null),slot_number:me.slot_number,queue_order:me.queue_order,cancelled_at:me.cancelled_at||null,payment_state:me.payment_state||'unpaid',payment_note:me.payment_note||null,reported_amount_rub:me.reported_amount_rub==null?null:Number(me.reported_amount_rub),confirmed_amount_rub:me.confirmed_amount_rub==null?null:Number(me.confirmed_amount_rub),reported_at:me.reported_at||null,reviewed_at:me.reviewed_at||null}:null;
 router.get('/evenings/:id',async(req:AuthenticatedRequest,res:Response)=>{const db=req.db as DatabaseWrapper,id=String(req.params.id),playerId=getPlayerSessionId(req),d=await loadTournamentEvening(db,id,playerId);if(!d)return res.status(404).json({error:'Турнир не найден'});if(!d.published_at&&req.userRole!=='ORGANIZER')return res.status(404).json({error:'Турнир не найден'});if(req.userRole!=='ORGANIZER')return res.json({id:d.id,title:d.title,date:d.date,venue:d.venue,status:d.status,lifecycle:d.lifecycle,format:'TOURNAMENT',judge:d.judge_nickname||d.chief_judge_name,player_capacity:d.player_capacity,confirmed_count:d.confirmed_count,remaining_places:d.remaining_places,entry_fee_rub:d.entry_fee_rub,prize_fund_rub:d.prize_fund_rub,prize_allocations:d.prize_allocations,notes:d.notes,me:playerMeDto(d.me),ineligible_reason:await ineligibleReason(db,d,playerId)});return res.json(d);});
 router.get('/registration/:token',async(req:AuthenticatedRequest,res:Response)=>{const db=req.db as DatabaseWrapper,t=await db.get<any>('SELECT id FROM tournaments WHERE registration_token=? AND tournament_evening_flow=1 AND published_at IS NOT NULL LIMIT 1',[String(req.params.token)]);if(!t)return res.status(404).json({error:'Ссылка регистрации недействительна'});const d=await loadTournamentEvening(db,String(t.id));if(!d)return res.status(404).json({error:'Ссылка регистрации недействительна'});return res.json({id:d.id,title:d.title,date:d.date,venue:d.venue,status:d.status,lifecycle:d.lifecycle,format:'TOURNAMENT',judge:d.judge_nickname||d.chief_judge_name,player_capacity:d.player_capacity,confirmed_count:d.confirmed_count,remaining_places:d.remaining_places,entry_fee_rub:d.entry_fee_rub,prize_fund_rub:d.prize_fund_rub,prize_allocations:d.prize_allocations,notes:d.notes,player_path:`/player/events/${encodeURIComponent(d.id)}`});});
+router.post('/evenings/:id/answer',async(req:AuthenticatedRequest,res:Response)=>{const p=playerIdOr401(req,res);if(!p)return;try{const d=await answerTournament(req.db as DatabaseWrapper,String(req.params.id),p,String(req.body?.response||'') as TournamentResponse);return res.json({ok:true,me:playerMeDto(d?.me)});}catch(e:any){return res.status(errorStatus(e?.message)).json({error:errorText(e?.message),code:e?.message});}});
 router.post('/evenings/:id/register',async(req:AuthenticatedRequest,res:Response)=>{const p=playerIdOr401(req,res);if(!p)return;try{return res.json(await registerTournamentPlayer(req.db as DatabaseWrapper,String(req.params.id),p));}catch(e:any){return res.status(errorStatus(e?.message)).json({error:errorText(e?.message),code:e?.message});}});
 router.post('/evenings/:id/cancel-registration',async(req:AuthenticatedRequest,res:Response)=>{const p=playerIdOr401(req,res);if(!p)return;try{return res.json(await cancelTournamentRegistration(req.db as DatabaseWrapper,String(req.params.id),p));}catch(e:any){return res.status(errorStatus(e?.message)).json({error:errorText(e?.message),code:e?.message});}});
 router.post('/evenings/:id/payment/report',async(req:AuthenticatedRequest,res:Response)=>{const p=playerIdOr401(req,res);if(!p)return;try{return res.json(await reportTournamentPayment(req.db as DatabaseWrapper,String(req.params.id),p,req.body?.amount_rub,req.body?.note));}catch(e:any){return res.status(errorStatus(e?.message)).json({error:errorText(e?.message),code:e?.message});}});

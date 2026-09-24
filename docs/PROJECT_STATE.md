@@ -319,10 +319,10 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Built:
      - Free novice visits go only to players with the «Новичок» level.
      - Prepayment at the table: `POST /api/games/evening/:id` returns `prepayment_required` with the seated players who still owe on NOVICE and RATING evenings. The game create sheet shows them with an «Оплатил» button.
+     - Tournament registration by answers («Играю» / «Готов подменить» / «Пока думаю» / «Не смогу», `POST /api/tournaments/evenings/:id/answer`). It replaces the overflow reserve. The payment deadlines at 3 days and 24 hours are enforced by the personal notification worker (`enforceTournamentPaymentDeadlines`), with a reminder at 4 days.
      - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; only players pay; the organizer and judges pay only when they play. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
    - Left:
      - recording the rating winner's and judge's payouts (club finance module);
-     - tournament registration by answers («Играю» / «Готов подменить» / «Пока думаю» / «Не смогу») with 3-day and 24-hour payment deadlines (`BUSINESS_RULES` → «Tournament registration»); it replaces the old overflow reserve;
      - the table-size rule (10 players, or 8 for novices);
      - organizer attribution for tournaments.
    - Tournaments have no organizer attribution yet (only `tournaments.judge_player_id`), so organizer profile totals miss tournaments. Add an organizer to tournaments together with tournament prepayment.

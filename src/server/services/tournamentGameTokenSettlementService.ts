@@ -1,5 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { judgeRewardFor } from './staffRewards.ts';
+import { JUDGE_REWARD, judgeRewardFor } from './staffRewards.ts';
 import { calculateClubGamePlayerTokens } from './clubGameTokenSettlementService.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 
@@ -51,8 +51,9 @@ const calculateBestMovePoints = (seatNumbers: unknown, seats: any[]): number => 
 
 const buildDesiredTargets = async (db: DatabaseWrapper, gameId: string): Promise<Map<string, DesiredTarget>> => {
   const desired = new Map<string, DesiredTarget>();
+  const hasTournamentJudge = (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id');
   const game = await db.get<any>(`
-    SELECT tg.*, t.title AS tournament_title
+    SELECT tg.*, t.title AS tournament_title, ${hasTournamentJudge ? 't.judge_player_id' : 'NULL'} AS tournament_judge_player_id
       FROM tournament_games tg
       JOIN tournaments t ON t.id = tg.tournament_id
      WHERE tg.id = ?
@@ -118,8 +119,12 @@ const buildDesiredTargets = async (db: DatabaseWrapper, gameId: string): Promise
     });
   }
 
-  if (game.judge_player_id) {
-    const judge = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', [String(game.judge_player_id)]);
+  // Managed tournament evenings keep the judge on the tournament. That fallback pays only games completed
+  // after the staff-reward cutover, so re-settlement never back-pays older tournaments.
+  const judgePlayerId = game.judge_player_id
+    || (judgeRewardFor(game.completed_at || game.started_at) === JUDGE_REWARD ? game.tournament_judge_player_id : null);
+  if (judgePlayerId) {
+    const judge = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', [String(judgePlayerId)]);
     if (judge) {
       const reward = judgeRewardFor(game.created_at || game.completed_at || game.started_at);
       desired.set(`judge:${judge.id}`, {

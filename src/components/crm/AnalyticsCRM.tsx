@@ -145,7 +145,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
         </div>
       </section>
 
-      <StaffReportPanel period={period} />
+      <StaffReportPanel />
       <AppUsagePanel period={period} />
     </div>
   );

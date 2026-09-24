@@ -8,6 +8,7 @@ import { settleEveningFromCloseout } from '../server/services/eveningCloseoutSer
 import { skipGatheredPost } from '../server/services/eveningGatheredPostService.ts';
 import { evaluatePlayerAchievements } from '../server/services/playerAchievementsService.ts';
 import { ORGANIZER_EVENING_REWARD } from '../server/services/staffRewards.ts';
+import { staffReportRange } from '../server/routes/analyticsRoutes.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -73,5 +74,30 @@ describe('evening organizer and game judge', () => {
     expect(report.body.staff).toEqual([{ player_id: 'org', nickname: 'Хозяин', evenings: 1, games: 0 }]);
     const card = await request(app).get('/api/players/org').set('Cookie', cookie());
     expect(card.body.achievements.staff).toEqual({ judged_games: 0, organized_evenings: 1 });
+  });
+
+  it('reports by calendar month and by the active rating season', async () => {
+    const { db } = await setup('active');
+    const tables = new Set(['rating_periods']);
+    const now = Date.parse('2026-09-24T12:00:00+03:00');
+    expect(await staffReportRange(db, 'month', tables, now)).toMatchObject({
+      since: new Date('2026-09-01T00:00:00+03:00').toISOString(), until: new Date('2026-10-01T00:00:00+03:00').toISOString(),
+    });
+    expect(await staffReportRange(db, 'prev_month', tables, Date.parse('2026-01-10T12:00:00+03:00'))).toMatchObject({
+      since: new Date('2025-12-01T00:00:00+03:00').toISOString(), until: new Date('2026-01-01T00:00:00+03:00').toISOString(),
+    });
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO rating_periods (id,title,type,starts_at,ends_at,status,auto_include,created_at,updated_at)
+      VALUES ('rs','Осень 2026','RATING','2026-09-01T00:00:00.000Z','2026-11-30T20:59:59.000Z','active',1,?,?)`, [stamp, stamp]);
+    expect(await staffReportRange(db, 'season', tables, now)).toMatchObject({ label: 'Осень 2026', since: '2026-09-01T00:00:00.000Z' });
+  });
+
+  it('credits tournament games to the tournament judge when the game has no own judge', async () => {
+    const { db, app, now } = await setup('active');
+    await db.run("INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('judge','Судья',0,?,?)", [now, now]);
+    await db.run("INSERT INTO tournaments (id,title,date,status,judge_player_id,created_at,updated_at) VALUES ('t1','Кубок',?,'active','judge',?,?)", [now, now, now]);
+    await db.run("INSERT INTO tournament_games (id,tournament_id,game_number,status,completed_at) VALUES ('tg1','t1',1,'completed',?)", [now]);
+    const report = await request(app).get('/api/analytics/staff?period=month').set('Cookie', cookie());
+    expect(report.body.staff).toEqual([{ player_id: 'judge', nickname: 'Судья', evenings: 0, games: 1 }]);
   });
 });

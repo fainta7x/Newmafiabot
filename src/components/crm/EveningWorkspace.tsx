@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ClipboardCheck, Gamepad2, Megaphone, Users } from 'lucide-react';
+import { ClipboardCheck, Gamepad2, Route, Users } from 'lucide-react';
 import EveningNextStepBanner from './EveningNextStepBanner.tsx';
 import { EveningHeaderBar } from './EveningHeaderBar.tsx';
 import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
 import { EveningManagementView } from './EveningManagementView.tsx';
+import EveningRouteView from './EveningRouteView.tsx';
 
 export type EveningSection = 'overview' | 'participants' | 'games' | 'management' | 'tables' | 'closeout';
 
@@ -31,7 +32,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'management' : initialSection);
   const [headerKey, setHeaderKey] = useState(0);
   const [eveningStatus, setEveningStatus] = useState<string | null>(null);
-  // A running evening opens on its games, not on the announcement.
+  // The route (first tab) is the evening's home in every state; it shows what to do next.
   const autoSectionFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -48,11 +49,10 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
     setEveningStatus(evening.status);
     if (autoSectionFor.current === eveningId) return;
     autoSectionFor.current = eveningId;
-    if (evening.status === 'active' && section === 'overview' && initialSection === 'overview' && !initialAddOpen) openSection('games');
   };
 
   const tabs: Array<{ id: EveningSection; label: string; mobileLabel: string; icon: React.ReactNode }> = [
-    { id: 'overview', label: 'Анонс', mobileLabel: 'Анонс', icon: <Megaphone className="h-4 w-4" /> },
+    { id: 'overview', label: 'Маршрут', mobileLabel: 'Маршрут', icon: <Route className="h-4 w-4" /> },
     { id: 'participants', label: 'Ответы', mobileLabel: 'Ответы', icon: <Users className="h-4 w-4" /> },
     { id: 'management', label: 'Вечер', mobileLabel: 'Вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
     { id: 'games', label: 'Игры', mobileLabel: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
@@ -81,8 +81,12 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         </div>
       </div>
 
-      {section !== 'closeout' ? <EveningNextStepBanner eveningId={eveningId} status={eveningStatus} refreshKey={headerKey} onOpenCloseout={() => openSection('closeout')} /> : null}
-      {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onStatusChange={() => setHeaderKey((key) => key + 1)} /> : null}
+      {section !== 'closeout' && section !== 'overview' ? <EveningNextStepBanner eveningId={eveningId} status={eveningStatus} refreshKey={headerKey} onOpenCloseout={() => openSection('closeout')} /> : null}
+      {section === 'overview' ? <>
+        <EveningRouteView eveningId={eveningId} refreshKey={headerKey} onOpenSection={openSection} onChanged={() => setHeaderKey((key) => key + 1)} />
+        <h3 className="px-1 pt-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-text-muted">Анонс и приглашения</h3>
+        <EveningOverviewView eveningId={eveningId} hideStatusActions onStatusChange={() => setHeaderKey((key) => key + 1)} />
+      </> : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
       {section === 'management' || section === 'tables' || section === 'closeout' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' || section === 'closeout' ? section : undefined} onEveningChanged={() => setHeaderKey((key) => key + 1)} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} /> : null}

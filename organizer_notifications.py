@@ -133,7 +133,7 @@ def build_organizer_digest(
                     labels.append(_safe(slot.get("title") or slot.get("name") or slot.get("label") or slot.get("slot_number") or "игра"))
                 else:
                     labels.append(_safe(slot))
-            lines.append(f"🎯 Не заполнены игровые слоты: {', '.join(labels)}")
+            lines.append(f"🎯 Не набраны игры: {', '.join(labels)}")
         if hours_to_start <= 6 and unpaid:
             payment_text = ", ".join(
                 f"{_safe(p.get('nickname') or 'Игрок')} — {_money(p.get('remaining'))} ₽" for p in unpaid[:8]
@@ -160,7 +160,7 @@ def build_organizer_digest(
         sections.append("<b>Вечера</b>\n" + "\n\n".join(evening_blocks))
     if not sections:
         return None
-    return "🚨 <b>CRM · важно</b>\n\n" + "\n\n".join(sections)
+    return "🚨 <b>Клуб · важно</b>\n\n" + "\n\n".join(sections)
 
 
 async def collect_organizer_digest() -> str | None:

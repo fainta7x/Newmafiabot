@@ -38,7 +38,7 @@ export const ConfirmCompleteTournamentModal: React.FC<ConfirmCompleteTournamentM
       setTop3((standingsRes.standings || []).slice(0, 3));
       setNominations(nominationsRes.nominations || []);
     } catch (err: any) {
-      setError(err.message || 'Не удалось загрузить данные для сверки');
+      setError(err.message || 'Не удалось загрузить итоги турнира');
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ export const ConfirmCompleteTournamentModal: React.FC<ConfirmCompleteTournamentM
           {loading ? (
             <div className="py-12 text-center text-text-muted space-y-2">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto text-accent" />
-              <p className="font-sans">Сборка финальных итогов для сверки...</p>
+              <p className="font-sans">Собираем итоги турнира…</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -132,7 +132,7 @@ export const ConfirmCompleteTournamentModal: React.FC<ConfirmCompleteTournamentM
                 </h4>
                 <div className="bg-surface-2/40 border border-border-soft rounded-2xl p-3 space-y-2.5">
                   {top3.length === 0 ? (
-                    <p className="italic text-text-muted">Нет данных для сверки</p>
+                    <p className="italic text-text-muted">Итогов пока нет</p>
                   ) : (
                     top3.map((player: any) => (
                       <div key={player.participant_id} className="flex items-center justify-between">

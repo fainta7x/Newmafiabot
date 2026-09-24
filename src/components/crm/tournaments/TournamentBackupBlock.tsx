@@ -87,7 +87,7 @@ export const TournamentBackupBlock: React.FC<TournamentBackupBlockProps> = ({
         const parsed = JSON.parse(text);
         startValidateAndModal(parsed);
       } catch (err) {
-        alert('Некорректный JSON-файл: не удалось распарсить структуру');
+        alert('Файл не подходит: это не резервная копия турнира');
       }
     };
     reader.readAsText(file);
@@ -238,15 +238,15 @@ export const TournamentBackupBlock: React.FC<TournamentBackupBlockProps> = ({
           <button
             onClick={handleDownloadJSON}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-2 hover:bg-surface-hover border border-border-soft rounded-xl text-xs font-semibold text-text-primary transition cursor-pointer"
-            title="Скачать JSON backup турнира"
+            title="Скачать резервную копию турнира"
           >
             <Download className="w-3.5 h-3.5 text-accent" />
-            <span>Скачать JSON</span>
+            <span>Скачать копию</span>
           </button>
 
           <label className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-2 hover:bg-surface-hover border border-border-soft rounded-xl text-xs font-semibold text-text-primary transition cursor-pointer">
             <Upload className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Загрузить JSON</span>
+            <span>Загрузить копию</span>
             <input
               type="file"
               accept=".json"

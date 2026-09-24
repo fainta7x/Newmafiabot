@@ -90,7 +90,7 @@ def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / и
 
 def start_text(first_name: str | None = None, *, is_organizer: bool = False) -> str:
     greeting = f"Привет, <b>{escape(first_name)}</b>.\n\n" if first_name else ""
-    commands = "/cabinet — личный кабинет\n" + ("/crm — CRM организатора\n" if is_organizer else "")
+    commands = "/cabinet — личный кабинет\n" + ("/crm — кабинет организатора\n" if is_organizer else "")
     return (
         "🎭 <b>2LA Noire</b>\n\n"
         f"{greeting}"

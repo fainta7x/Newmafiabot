@@ -163,7 +163,7 @@ export default function EventsPanel({
               data-testid="live-copy-protocol"
               onClick={handleCopyTelegramProtocol}
               className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[10px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
-              title="Скопировать протокол в формате Telegram Markdown"
+              title="Скопировать протокол для Telegram"
             >
               {copied ? (
                 <>

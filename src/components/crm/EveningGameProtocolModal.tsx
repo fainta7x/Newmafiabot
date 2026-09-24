@@ -353,7 +353,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-black text-white">Игра #{game.global_game_number}</h2>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${protocol.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}`}>
-                  {protocol.status === 'completed' ? 'Завершена' : 'Черновик'}
+                  {protocol.status === 'completed' ? 'Завершена' : 'Не завершена'}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">{saveState === 'saving' ? 'сохранение…' : saveState === 'unsaved' ? 'есть изменения' : saveState === 'error' ? 'ошибка сохранения' : 'сохранено'}</span>
               </div>

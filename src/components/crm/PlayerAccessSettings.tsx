@@ -163,13 +163,13 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       });
       const body = await readJson(response);
       if (Boolean(body.organizer_player_access) !== enabled) {
-        throw new Error('Сервер не подтвердил новое состояние доступа к CRM организатора.');
+        throw new Error('Сервер не подтвердил изменение доступа к кабинету организатора.');
       }
       setOrganizerAccess(enabled);
-      setSuccess(enabled ? 'Доступ к CRM организатора выдан.' : 'Доступ к CRM организатора отозван.');
+      setSuccess(enabled ? 'Доступ к кабинету организатора выдан.' : 'Доступ к кабинету организатора отозван.');
       if (!dirty) await onSaved?.();
     } catch (accessError: any) {
-      setError(accessError?.message || 'Не удалось изменить доступ к CRM организатора');
+      setError(accessError?.message || 'Не удалось изменить доступ к кабинету организатора');
       setOpen(true);
     } finally {
       setAccessSaving(false);
@@ -193,7 +193,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     ['Игра', accessLabel(GAME_LEVELS, draft.game_level), null],
     ['В клубе', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
     ['Организация', organizationSummary(draft.club_role, draft.judge_level), null],
-    ['Доступы', organizerAccess ? 'CRM организатора' : 'Только кабинет игрока', null],
+    ['Доступы', organizerAccess ? 'Кабинет организатора' : 'Только кабинет игрока', null],
   ];
 
   return (
@@ -227,7 +227,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
           <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">В клубе</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={membershipOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
-            <div><div className="text-[12px] font-semibold text-text-primary">Организация</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и право вести игры. Не открывает CRM.</div></div>
+            <div><div className="text-[12px] font-semibold text-text-primary">Организация</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и право вести игры. Кабинет организатора не открывает.</div></div>
             <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
             <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Ведение игр</span><select value={draft.judge_level} onChange={(event) => setDraft((value) => ({ ...value, judge_level: event.target.value as JudgeLevel }))} className="mobile-field w-full max-w-full">{JUDGE_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
           </div>
@@ -235,12 +235,12 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
           <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-text-primary">Доступы · CRM организатора</div>
+                <div className="text-[12px] font-semibold text-text-primary">Доступы · кабинет организатора</div>
                 <div className="mt-1 text-[10px] leading-4 text-text-muted">Отдельное административное право. Оно не меняется вместе со статусом в клубе, игровым уровнем или полномочиями ведущего.</div>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${organizerAccess ? 'bg-success-soft text-success' : 'bg-black/20 text-text-muted'}`}>{organizerAccess ? 'Есть доступ' : 'Нет доступа'}</span>
             </div>
-            <button type="button" disabled={accessSaving} onClick={() => setConfirmation({ kind: 'crm-access', enabled: !organizerAccess })} className={`mt-3 min-h-[44px] w-full rounded-[11px] border px-3 text-[11px] font-semibold disabled:opacity-40 ${organizerAccess ? 'border-danger/30 bg-danger-soft text-danger' : 'border-accent/25 bg-accent-soft text-accent'}`}>{accessSaving ? 'Сохраняем…' : organizerAccess ? 'Отозвать доступ к CRM' : 'Выдать доступ к CRM'}</button>
+            <button type="button" disabled={accessSaving} onClick={() => setConfirmation({ kind: 'crm-access', enabled: !organizerAccess })} className={`mt-3 min-h-[44px] w-full rounded-[11px] border px-3 text-[11px] font-semibold disabled:opacity-40 ${organizerAccess ? 'border-danger/30 bg-danger-soft text-danger' : 'border-accent/25 bg-accent-soft text-accent'}`}>{accessSaving ? 'Сохраняем…' : organizerAccess ? 'Закрыть доступ к кабинету организатора' : 'Дать доступ к кабинету организатора'}</button>
           </div>
 
           <div className="rounded-[13px] bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">Контактный статус, пауза приглашений, контакты и заметки редактируются отдельно в настройках профиля. Изменение этих полей не меняет игровые или административные права.</div>
@@ -259,10 +259,10 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
 
       <ConfirmDialog
         open={confirmation?.kind === 'crm-access'}
-        title={confirmation?.kind === 'crm-access' && confirmation.enabled ? 'Выдать доступ к CRM организатора?' : 'Отозвать доступ к CRM организатора?'}
+        title={confirmation?.kind === 'crm-access' && confirmation.enabled ? 'Дать доступ к кабинету организатора?' : 'Закрыть доступ к кабинету организатора?'}
         description={confirmation?.kind === 'crm-access' && confirmation.enabled
-          ? 'Игрок сможет открывать Organizer CRM после подтверждённой авторизации своего канонического аккаунта. Это не меняет его статус в клубе.'
-          : 'Игрок потеряет административный доступ к Organizer CRM. Игровой уровень, статус в клубе и полномочия ведущего не изменятся.'}
+          ? 'Игрок сможет открывать кабинет организатора после входа в свой профиль через Telegram или VK. Его статус в клубе не изменится.'
+          : 'Игрок больше не сможет открывать кабинет организатора. Игровой уровень, статус в клубе и право вести игры не изменятся.'}
         confirmLabel={confirmation?.kind === 'crm-access' && confirmation.enabled ? 'Выдать доступ' : 'Отозвать доступ'}
         tone={confirmation?.kind === 'crm-access' && confirmation.enabled ? 'warning' : 'danger'}
         busy={accessSaving}

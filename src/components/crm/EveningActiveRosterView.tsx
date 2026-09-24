@@ -233,7 +233,7 @@ export default function EveningActiveRosterView({
       open={showAdd}
       onClose={() => setShowAdd(false)}
       title="Добавить на вечер"
-      subtitle="Добавление в состав не создаёт ответ «Иду». RSVP останется «Нет ответа», пока игрок сам не ответит."
+      subtitle="Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит."
       widthClass="sm:max-w-lg"
       footer={addMode === 'players'
         ? <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : `Добавить${selectedPlayerIds.length ? ` · ${selectedPlayerIds.length}` : ''}`}</button>

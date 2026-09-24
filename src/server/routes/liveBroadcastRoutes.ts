@@ -81,7 +81,7 @@ const publicOrigin = (req: Request): string => {
 gameRouter.get('/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const game = await loadCanonicalBroadcastGame(req, gameId);
     if (!game) return res.status(404).json({ error: 'Активная клубная игра для трансляции не найдена' });
 
@@ -102,7 +102,7 @@ gameRouter.get('/:gameId/broadcast-config', requireOrganizerAuth, async (req: Au
 gameRouter.put('/:gameId/broadcast-state', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const game = await loadCanonicalBroadcastGame(req, gameId);
     if (!game) return res.status(404).json({ error: 'Активная клубная игра для трансляции не найдена' });
 

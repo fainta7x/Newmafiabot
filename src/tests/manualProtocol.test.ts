@@ -420,7 +420,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(editRes.status).toBe(400);
-    expect(editRes.text).toContain('без возврата в черновик');
+    expect(editRes.text).toContain('открыв её протокол для правки');
   });
 
   // Test 15: Planned game cannot be saved or completed
@@ -503,7 +503,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       .set('Cookie', organizerCookie);
 
     expect(revertRes.status).toBe(400);
-    expect(revertRes.body.error).toContain('уже есть другая активная игра');
+    expect(revertRes.body.error).toContain('уже идёт другая игра');
   });
 
   // Test 18: Rejects invalid player results count or exit_type
@@ -595,7 +595,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(putRes.status).toBe(400);
-    expect(putRes.body.error).toContain('player_results');
+    expect(putRes.body.error).toContain('нет результатов игроков');
 
     const completeRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
@@ -605,7 +605,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(completeRes.status).toBe(400);
-    expect(completeRes.body.error).toContain('player_results');
+    expect(completeRes.body.error).toContain('нет результатов игроков');
   });
 
   // Test 21: Rejects first killed player with exit_type != 'killed' even without Best Move

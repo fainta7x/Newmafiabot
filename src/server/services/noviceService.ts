@@ -169,7 +169,7 @@ export async function createNoviceApplication(
     messageKey: `novice-application:${applicationId}`,
     eventType: 'novice_application_created',
     entityId: applicationId,
-    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: CRM → «Сегодня».`,
+    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
   });
   return result!;
 }

@@ -89,7 +89,7 @@ describe('PlayerAccessSettings', () => {
 
     fireEvent.click(screen.getByTestId('crm-player-access-edit'));
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'tournament' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Выдать доступ к CRM' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Дать доступ к кабинету организатора' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Выдать доступ' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -99,6 +99,6 @@ describe('PlayerAccessSettings', () => {
     rerender(<PlayerAccessSettings player={{ ...player, organizer_player_access: true }} onSaved={onSaved} />);
 
     expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
-    expect(within(screen.getByTestId('crm-player-access-summary')).getByText('CRM организатора')).toBeDefined();
+    expect(within(screen.getByTestId('crm-player-access-summary')).getByText('Кабинет организатора')).toBeDefined();
   });
 });

@@ -87,7 +87,7 @@ export const DeveloperTestModeCRM: React.FC = () => {
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/75">[TEST] Организатор</div>
             <h3 className="mt-1 text-[16px] font-semibold text-white">Защищённый тестовый режим</h3>
-            <p className="mt-1 text-[11px] leading-5 text-white/55">Сессия живёт только в памяти процесса. Она не создаёт игроков или вечера, не пишет статистику и не меняет production-базу.</p>
+            <p className="mt-1 text-[11px] leading-5 text-white/55">Тестовая игра живёт, пока открыта. Она не создаёт игроков и вечера, не пишет статистику и не трогает настоящую базу.</p>
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-[13px] border border-emerald-300/10 bg-emerald-300/[0.06] px-3 py-2 text-[10px] leading-4 text-emerald-100/70">
@@ -126,7 +126,7 @@ export const DeveloperTestModeCRM: React.FC = () => {
         <div className="mt-3 space-y-2">
           {(state?.scenarios || []).map((item) => <div key={item.id} className="rounded-[13px] border border-white/[0.07] bg-black/20 px-3 py-2"><div className="text-[11px] font-semibold text-white/75">{item.label} · {item.phase}</div><div className="mt-0.5 text-[10px] leading-4 text-white/35">{item.detail}</div></div>)}
         </div>
-        <div className="mt-3 flex gap-2 rounded-[13px] border border-white/[0.07] bg-black/20 px-3 py-2 text-[10px] leading-4 text-white/40"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-100/60" /> Для проверки реального интерфейса открывай нужный экран CRM отдельно; тестовая сессия не переключает production-состояние игры.</div>
+        <div className="mt-3 flex gap-2 rounded-[13px] border border-white/[0.07] bg-black/20 px-3 py-2 text-[10px] leading-4 text-white/40"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-100/60" /> Тестовый режим не меняет настоящие игры. Чтобы посмотреть настоящий экран, открой его в кабинете отдельно.</div>
       </section>
 
       <section>

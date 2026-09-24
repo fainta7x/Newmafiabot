@@ -125,7 +125,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   const configureSlots = async (eveningId: string, start: string, count: number, slotDuration: number, pricePerGame: number) => {
     const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/slots`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planned_slots: count, slot_duration_minutes: slotDuration, price_per_game: pricePerGame, starts_at: start }) });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Не удалось настроить игровые слоты');
+    if (!response.ok) throw new Error(body?.error || 'Не удалось настроить игры вечера');
   };
 
   const suggestedTitle = (() => {

@@ -78,7 +78,7 @@ router.put('/music-library/player-slots/:slot', async (req, res) => {
     const actor = await getActor(req, res);
     if (!actor) return;
     const slot = Number(req.params.slot);
-    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'Доступны только два музыкальных слота.' });
+    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'У игрока может быть только два трека.' });
     const source = normalizeYandexMusicUrl(String(req.body?.url || ''));
     const title = safeTitle(req.body?.title, source.kind === 'yandex_playlist' ? 'Мой плейлист' : 'Мой трек');
     const now = new Date().toISOString();
@@ -114,7 +114,7 @@ router.delete('/music-library/player-slots/:slot', async (req, res) => {
     const actor = await getActor(req, res);
     if (!actor) return;
     const slot = Number(req.params.slot);
-    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'Доступны только два музыкальных слота.' });
+    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'У игрока может быть только два трека.' });
     await req.db.run(
       `DELETE FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`,
       [actor.id, slot],

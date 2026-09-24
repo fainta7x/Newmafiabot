@@ -102,9 +102,9 @@ describe('ProtocolCompletionDialogs', () => {
       />,
     );
 
-    expect(screen.getByText('Вернуть протокол в черновик?')).toBeTruthy();
+    expect(screen.getByText('Открыть протокол для правки?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Да, вернуть в черновик' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Да, открыть для правки' }));
 
     expect(onCancelRevert).toHaveBeenCalledTimes(1);
     expect(onConfirmRevert).toHaveBeenCalledTimes(1);

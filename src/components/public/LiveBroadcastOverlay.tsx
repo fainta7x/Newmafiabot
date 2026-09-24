@@ -108,7 +108,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
             <div className="live-broadcast-eyebrow">2LA Noire · OBS</div>
             <div className="live-broadcast-waiting-title">Ожидание игры</div>
             <div className="live-broadcast-waiting-copy">
-              {requestFailed ? 'Ссылка недоступна или соединение потеряно' : 'Экран включится после запуска Live Game'}
+              {requestFailed ? 'Ссылка недоступна или соединение потеряно' : 'Экран включится, когда судья начнёт игру'}
             </div>
           </div>
         </div>

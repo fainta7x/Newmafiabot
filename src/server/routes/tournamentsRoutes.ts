@@ -61,7 +61,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
   }
   for (const playerId of playerIds) {
     if (!await db.get<any>('SELECT id FROM players WHERE id = ?', [playerId])) {
-      return res.status(400).json({ error: `Игрок с ID ${playerId} не найден в CRM` });
+      return res.status(400).json({ error: `Игрок не найден в клубе` });
     }
   }
 
@@ -174,7 +174,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
     }
     for (const playerId of playerIds) {
       if (!await db.get<any>('SELECT id FROM players WHERE id = ?', [playerId])) {
-        return res.status(400).json({ error: `Игрок с ID ${playerId} не найден в CRM` });
+        return res.status(400).json({ error: `Игрок не найден в клубе` });
       }
     }
 
@@ -294,7 +294,7 @@ const checkJudgeEditingPermission = async (db: DatabaseWrapper, tournament: any,
 
   if (tournament.status === 'correction' && game.status === 'active') {
     const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
-    if (!protocol || protocol.status !== 'draft') return { allowed: false, error: 'Сначала необходимо вернуть протокол игры в черновик' };
+    if (!protocol || protocol.status !== 'draft') return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
     const otherActive = await db.get<any>(
       "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
       [tournament.id, game.id],

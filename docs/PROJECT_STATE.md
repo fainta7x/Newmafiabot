@@ -330,6 +330,9 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Left:
      - recording the rating winner's and judge's payouts (club finance module).
 5. Plain wording across the CRM.
+   - First pass done: screens, server error messages and bot texts no longer show technical words (ID, JSON, ledger, RSVP, slots, «канонический», webhook).
+   - The organizer area is called «кабинет организатора» on screens, and an unfinished game protocol reads «Не завершена» / «Открыть для правки».
+   - Continue as found. The user delegated wording choices (2026-09-24): fix them without asking, and ask only about game, mechanics or club-specific meaning.
 6. Online checkout (after self-employment registration).
 7. Club finance: evening revenue, expenses, organizer and judge payouts, fund allocations (for example a % of each evening for club needs, the season prize fund).
 8. One announcement system for every format: an event created in the in-app calendar automatically gets an information post with registration in the right Telegram and VK groups (and later the website), respecting which player statuses may join which evenings.

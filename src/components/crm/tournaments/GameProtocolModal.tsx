@@ -1027,12 +1027,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setShowRevertConfirm(false);
 
       if (res.checkpoint_warning) {
-        alert('Протокол возвращён в черновик, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
+        alert('Протокол открыт для правки, но резервная копия базы не сохранилась:\n\n' + res.checkpoint_warning);
       }
 
       if (onProtocolUpdated) onProtocolUpdated();
     } catch (err: any) {
-      setError(err.message || 'Не удалось вернуть в черновик');
+      setError(err.message || 'Не удалось открыть протокол для правки');
     } finally {
       setSubmitting(false);
     }
@@ -1067,7 +1067,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
-                    Черновик
+                    Не завершён
                   </span>
                 )}
               </div>
@@ -1724,7 +1724,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 <span className="truncate">Протокол завершён</span>
               </span>
             ) : (
-              <span className="truncate">Черновик сохраняется автоматически</span>
+              <span className="truncate">Протокол сохраняется сам</span>
             )}
           </div>
 
@@ -1764,7 +1764,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap"
                 >
                   <RotateCcw className="w-4 h-4 shrink-0" />
-                  <span>Вернуть в черновик</span>
+                  <span>Открыть для правки</span>
                 </button>
               </>
             )}

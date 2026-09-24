@@ -759,14 +759,14 @@ describe('Tournament Module API Tests', () => {
       .set('Cookie', organizerCookie)
       .send({ judge_name: 'Новый Судья' });
     expect(judgeChangeFail.status).toBe(400);
-    expect(judgeChangeFail.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+    expect(judgeChangeFail.body.error).toContain('Сначала откройте протокол игры для правки');
 
     const roleChangeFail = await request(app)
       .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
       .set('Cookie', organizerCookie)
       .send({ roles });
     expect(roleChangeFail.status).toBe(400);
-    expect(roleChangeFail.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+    expect(roleChangeFail.body.error).toContain('Сначала откройте протокол игры для правки');
 
     // 5. Revert game 1 protocol to draft
     const revertRes = await request(app)
@@ -967,14 +967,14 @@ describe('Tournament Module API Tests', () => {
       .set('Cookie', organizerCookie)
       .send({ judge_name: 'Судья Завершённой игры' });
     expect(judgeCompletedInCorrection.status).toBe(400);
-    expect(judgeCompletedInCorrection.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+    expect(judgeCompletedInCorrection.body.error).toContain('Сначала откройте протокол игры для правки');
 
     const rolesCompletedInCorrection = await request(app)
       .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
       .set('Cookie', organizerCookie)
       .send({ roles: rolesSample });
     expect(rolesCompletedInCorrection.status).toBe(400);
-    expect(rolesCompletedInCorrection.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+    expect(rolesCompletedInCorrection.body.error).toContain('Сначала откройте протокол игры для правки');
   });
 
   // 18. Data persistence check on reopen-for-correction
@@ -1124,7 +1124,7 @@ describe('Tournament Module API Tests', () => {
       .send({ player_id: newPlayerId });
 
     expect(dupRes.status).toBe(400);
-    expect(dupRes.body.error).toContain('уже задействован');
+    expect(dupRes.body.error).toContain('уже участвует в турнире');
 
     // 3. Mark tournament completed and verify correction is prohibited
     await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);

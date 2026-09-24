@@ -81,7 +81,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
   const readinessBlockers = useMemo(() => {
     if (!detail) return [] as string[];
     const blockers: string[] = [];
-    if (!detail.judge_player_id) blockers.push('не выбран канонический судья');
+    if (!detail.judge_player_id) blockers.push('не выбран судья');
     if (!detail.organizer_player_id) blockers.push('не выбран организатор турнира');
     if (!detail.venue?.trim()) blockers.push('не указано место');
     if (Number.isNaN(new Date(detail.date).getTime())) blockers.push('не указаны корректные дата и время');
@@ -127,7 +127,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
     try {
       await navigator.clipboard.writeText(link);
       setError('');
-      setMessage('Ссылка на запись скопирована. Она открывает этот же турнир для Telegram и VK игрока через канонический профиль.');
+      setMessage('Ссылка на запись скопирована. Она открывает турнир и в Telegram, и в VK.');
     } catch {
       setError(`Не удалось скопировать автоматически. Ссылка: ${link}`);
     }
@@ -153,7 +153,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
 
     <div className={`mt-3 rounded-2xl border p-3 ${readinessBlockers.length ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`} data-testid="tournament-readiness-summary">
       <div className={`text-[11px] font-black ${readinessBlockers.length ? 'text-warning' : 'text-success'}`}>{readinessBlockers.length ? 'До запуска есть блокеры' : 'Готовность к запуску: OK'}</div>
-      {readinessBlockers.length ? <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[10px] leading-4 text-text-secondary">{readinessBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="mt-1 text-[10px] leading-4 text-text-secondary">10 канонических участников, судья, место и призовой фонд согласованы. Дальше используется существующий турнирный модуль.</p>}
+      {readinessBlockers.length ? <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[10px] leading-4 text-text-secondary">{readinessBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="mt-1 text-[10px] leading-4 text-text-secondary">10 участников, судья, место и призовой фонд согласованы. Дальше турнир ведётся как обычно.</p>}
     </div>
 
     {error ? <div className="mt-3 rounded-xl border border-danger/25 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</div> : null}

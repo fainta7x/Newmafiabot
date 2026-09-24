@@ -74,7 +74,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, gameId: string): Promise
   if (seats.length !== 10) throw new Error('Для начисления жетонов турнирная игра должна содержать ровно 10 мест');
   const playerIds = seats.map((seat: any) => String(seat.player_id || '').trim());
   if (playerIds.some((id: string) => !id) || new Set(playerIds).size !== 10) {
-    throw new Error('Для начисления жетонов турнирной игры нужны 10 уникальных UUID игроков');
+    throw new Error('Для начисления жетонов в турнирной игре нужны 10 разных игроков');
   }
 
   const resultRows = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ?', [gameId]);

@@ -50,7 +50,7 @@ class OrganizerNotificationDigestTests(unittest.TestCase):
         self.assertIn("Запись: 8/10", digest)
         self.assertIn("Думают (1): Думающий", digest)
         self.assertIn("Без ответа (1): Без &lt;ответа&gt;", digest)
-        self.assertIn("Не заполнены игровые слоты: Игра 2", digest)
+        self.assertIn("Не набраны игры: Игра 2", digest)
         self.assertIn("Оплата под контролем (8)", digest)
 
     def test_reports_ready_roster_close_to_start(self):

@@ -441,7 +441,10 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   - **3 hours before:** if the evening is short of players, the app itself posts a call to come in the group of the main announcement.
   - **1 hour before:** if it is still short, the organizer sees «Недобор — отменить вечер?» with a cancel button. On cancellation every registered player is told.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
-- CRM wording should use plain club words, not technical terms.
+- CRM wording should use plain club words, not technical terms (user-approved 2026-09-24).
+  - On screens the organizer area is «кабинет организатора», never «CRM» or «Organizer CRM».
+  - An unfinished game protocol is «Не завершена», and reopening one is «Открыть для правки». A tournament or an evening that is not yet published stays «Черновик».
+  - Mafia and broadcast terms (Elo, ПУ, ЛХ, Ci, ППК, OBS) stay as they are and get explanations in the glossary.
 
 ## Game formats and ratings (user-approved 2026-09-23)
 

@@ -35,7 +35,7 @@ export default function BigScreenLive() {
   }, []);
 
   if (!data && !error) return <main className="grid min-h-screen place-items-center bg-[#07080b] text-white"><div className="text-center"><div className="text-5xl">🎭</div><div className="mt-4 text-sm uppercase tracking-[0.3em] text-white/30">2LA Noire</div></div></main>;
-  if (error && !data) return <main className="grid min-h-screen place-items-center bg-[#07080b] px-6 text-white"><div className="text-center"><div className="text-5xl">🎭</div><h1 className="mt-5 text-3xl font-black">2LA Noire</h1><p className="mt-2 text-white/35">Live-экран временно не получил данные. Обновление продолжится автоматически.</p></div></main>;
+  if (error && !data) return <main className="grid min-h-screen place-items-center bg-[#07080b] px-6 text-white"><div className="text-center"><div className="text-5xl">🎭</div><h1 className="mt-5 text-3xl font-black">2LA Noire</h1><p className="mt-2 text-white/35">Экран на секунду потерял связь. Сейчас обновится сам.</p></div></main>;
 
   if (data?.mode === 'live') {
     const evening = data.evening;

@@ -24,7 +24,7 @@ router.get('/evenings/:id/slots', async (req, res) => {
     const playerId = vkSession?.player_id || getPlayerSessionId(req);
     return res.json(await loadEveningSlotPlan(db, req.params.id, playerId));
   } catch (error: any) {
-    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить игровые слоты' });
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить игры вечера' });
   }
 });
 

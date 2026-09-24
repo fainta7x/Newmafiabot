@@ -111,7 +111,7 @@ export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewPr
         <div className="mt-4">
           <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold text-text-muted">
             <span>Прогресс игр</span>
-            <span>{progress}%{draftProtocols ? ` · черновиков протокола: ${draftProtocols}` : ''}</span>
+            <span>{progress}%{draftProtocols ? ` · незавершённых протоколов: ${draftProtocols}` : ''}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">
             <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />

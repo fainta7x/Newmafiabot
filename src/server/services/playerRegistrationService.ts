@@ -169,7 +169,7 @@ export async function registerVerifiedPlayerIdentity(
         messageKey: `new-player-registered:${result.player.id}`,
         eventType: 'new_player_registered',
         entityId: String(result.player.id),
-        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nПодтвердите уровень: CRM → Ещё → Развитие.`,
+        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nПодтвердите уровень: кабинет организатора → Ещё → Развитие.`,
       });
     } catch (error) {
       // Registration must not fail because the organizer alert could not be queued.

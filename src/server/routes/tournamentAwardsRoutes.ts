@@ -59,7 +59,7 @@ router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: Authentica
   }
   const awardDefinition = getTournamentAwardDefinition(awardKey);
   if (awardDefinition?.kind === 'nomination') {
-    return res.status(400).json({ error: 'Победители номинаций определяются автоматически по каноническим критериям.' });
+    return res.status(400).json({ error: 'Победители номинаций определяются автоматически по итогам турнира.' });
   }
 
   try {

@@ -97,7 +97,7 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 });
 
 const canvasBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => {
-  canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось собрать PNG')), 'image/png');
+  canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось собрать картинку')), 'image/png');
 });
 
 const drawCard = async (data: ProgressionData): Promise<Blob> => {
@@ -105,7 +105,7 @@ const drawCard = async (data: ProgressionData): Promise<Blob> => {
   canvas.width = 1080;
   canvas.height = 1350;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas недоступен');
+  if (!ctx) throw new Error('Этот телефон не может собрать картинку');
 
   const gradient = ctx.createLinearGradient(0, 0, 1080, 1350);
   gradient.addColorStop(0, '#19151d');
@@ -278,7 +278,7 @@ export default function PlayerProgressionPanel() {
         anchor.click();
         anchor.remove();
         URL.revokeObjectURL(url);
-        setMessage('PNG сохранён на устройство');
+        setMessage('Картинка сохранена на телефон');
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') setMessage(err?.message || 'Не удалось собрать карточку');

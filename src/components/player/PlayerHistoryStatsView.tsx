@@ -261,10 +261,10 @@ export default function PlayerCabinetV2({
       try {
         const response = await fetch('/api/rating', { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить ELO');
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить Elo');
         if (!cancelled) setRating(Array.isArray(body?.players) ? body.players : []);
       } catch (error: any) {
-        if (!cancelled) setRatingError(error?.message || 'Не удалось загрузить ELO');
+        if (!cancelled) setRatingError(error?.message || 'Не удалось загрузить Elo');
       }
     })();
     return () => { cancelled = true; };
@@ -410,7 +410,7 @@ export default function PlayerCabinetV2({
                   const format = normalizeEveningFormat(evening.format);
                   return <article key={evening.id} className="rounded-2xl bg-black/20 p-3">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{evening.title}</div><div className="mt-1 text-xs text-white/45">{formatEveningDate(evening.starts_at)}</div>{evening.venue && <div className="mt-1 truncate text-xs text-white/35">📍 {evening.venue}</div>}</div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] font-medium text-white/60">{EVENING_FORMAT_LABELS[format]}</span></div>
-                    <div className="mt-3 text-xs leading-5 text-white/40">Запись теперь идёт по конкретным игровым слотам. Выбери игры, на которые приедешь — сумма посчитается автоматически.</div>
+                    <div className="mt-3 text-xs leading-5 text-white/40">Записывайся на конкретные игры вечера. Выбери игры, на которые приедешь, — сумма посчитается сама.</div>
                     <a href={`/player/events?event=${encodeURIComponent(evening.id)}`} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-white px-3 text-xs font-semibold text-black"><span>Выбрать игры</span><span>→</span></a>
                   </article>;
                 })}</div>
@@ -474,8 +474,8 @@ export default function PlayerCabinetV2({
                 void openGameDetail(gameKey);
               }}
             />
-            <Section title="ELO клуба">
-              {ratingError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p> : rating === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка ELO…</p> : ratingTop.length ? <div className="space-y-2">{ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}{selfOutsideTop && selfRating && <><div className="py-0.5 text-center text-xs text-white/25">•••</div><RatingRow item={selfRating} isSelf /></>}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">ELO пока пуст.</p>}
+            <Section title="Elo клуба">
+              {ratingError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p> : rating === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загружаем Elo…</p> : ratingTop.length ? <div className="space-y-2">{ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}{selfOutsideTop && selfRating && <><div className="py-0.5 text-center text-xs text-white/25">•••</div><RatingRow item={selfRating} isSelf /></>}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Elo пока нет.</p>}
             </Section>
           </>
         )}

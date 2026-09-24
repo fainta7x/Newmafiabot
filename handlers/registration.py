@@ -90,7 +90,7 @@ async def _handle_club_access(message: Message, kb) -> None:
                 f"Telegram: {username}\n"
                 f"ID: <code>{message.from_user.id}</code>\n"
                 f"Текущий уровень: <code>{level}</code>\n\n"
-                "Если игрок подходит для основного клуба — измени ему игровой уровень в CRM. "
+                "Если игрок подходит для основного клуба — измени ему игровой уровень в кабинете организатора. "
                 "До этого ссылка на основной клуб ему не выдаётся.",
                 parse_mode="HTML",
             )

@@ -44,7 +44,7 @@ export async function resolveJudgeAssignment(
     [judgePlayerId],
   );
   if (!player) {
-    throw new JudgeAssignmentError('Игрок-судья не найден в CRM');
+    throw new JudgeAssignmentError('Судья не найден среди игроков клуба');
   }
 
   if (input.required_level && !judgeLevelAtLeast(player.judge_level, input.required_level)) {

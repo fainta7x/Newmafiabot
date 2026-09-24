@@ -76,7 +76,7 @@ export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ evenin
       setData(telegram);
       setRecruitment(recruiting);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить Telegram-статус');
+      setError(err?.message || 'Не удалось узнать, что опубликовано в Telegram');
     }
   };
 
@@ -93,11 +93,11 @@ export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ evenin
       setMessage(createdOrEdited
         ? `Telegram синхронизирован: ${createdOrEdited} публикац.`
         : skipped
-          ? 'Нужные Telegram-направления пока не включены в «Ещё → Telegram».'
-          : 'Telegram-публикации актуальны.');
+          ? 'Нужные группы Telegram пока не включены в «Ещё → Telegram».'
+          : 'Публикации в Telegram в порядке.');
       await load();
     } catch (err: any) {
-      setError(err?.message || 'Не удалось синхронизировать Telegram');
+      setError(err?.message || 'Не удалось обновить публикации в Telegram');
     } finally { setBusy(null); }
   };
 
@@ -127,7 +127,7 @@ export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ evenin
         <span className={`grid shrink-0 place-items-center rounded-xl bg-accent-soft text-accent ${embedded ? 'h-9 w-9' : 'h-10 w-10'}`}><Send className="h-4.5 w-4.5" /></span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[13px] font-black text-text-primary">Публикация в канал</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Основной анонс и быстрый добор используют те же Telegram-направления.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Основной анонс и быстрый добор уходят в те же группы Telegram.</p>
         </div>
       </div>
 

@@ -126,13 +126,13 @@ router.patch('/:destinationId', async (req, res) => {
       if (raw === null || raw === '' || raw === undefined) topicId = null;
       else {
         const parsed = Number(raw);
-        if (!Number.isInteger(parsed) || parsed <= 0) return res.status(400).json({ error: 'Topic ID должен быть положительным целым числом' });
+        if (!Number.isInteger(parsed) || parsed <= 0) return res.status(400).json({ error: 'Номер темы — это целое положительное число' });
         topicId = parsed;
       }
     }
     const active = Object.prototype.hasOwnProperty.call(req.body || {}, 'active') ? (req.body.active ? 1 : 0) : Number(existing.active || 0);
-    if (active && !chatId) return res.status(400).json({ error: 'Чтобы включить направление, сначала укажи Chat ID' });
-    if ((destinationId === 'public' || destinationId === 'rating') && topicId) return res.status(400).json({ error: 'Для канала Topic ID не используется' });
+    if (active && !chatId) return res.status(400).json({ error: 'Чтобы включить эту группу, сначала укажи её номер (Chat ID)' });
+    if ((destinationId === 'public' || destinationId === 'rating') && topicId) return res.status(400).json({ error: 'У канала нет тем — номер темы не нужен' });
     const now = new Date().toISOString();
     await db.run(`UPDATE telegram_destinations SET chat_id = ?, topic_id = ?, invite_url = ?, active = ?, updated_at = ? WHERE id = ?`, [chatId, topicId, inviteUrl, active, now, destinationId]);
     const updated = await db.get(`SELECT id, name, description, chat_id, topic_id, invite_url, active, router_message_id, created_at, updated_at FROM telegram_destinations WHERE id = ?`, [destinationId]);

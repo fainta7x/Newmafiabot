@@ -90,7 +90,7 @@ function validateFirstKilled(
     if (night1) {
       if (night1.result === 'killed') {
         if (Number(night1.target_seat) !== Number(fkSeat.seat_number)) {
-          return `Выбранный первоубиенный игрок (слот ${fkSeat.seat_number}) не совпадает с целью убийства в первую ночь (слот ${night1.target_seat})`;
+          return `Выбранный первоубиенный игрок (место ${fkSeat.seat_number}) не совпадает с целью убийства в первую ночь (слот ${night1.target_seat})`;
         }
       } else if (night1.result === 'miss' || night1.result === 'agreement_failed') {
         return `В первую ночь был промах или нестрел, первоубиенного быть не должно`;
@@ -877,7 +877,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     if ((existingProtocol && existingProtocol.status === 'completed') || game.status === 'completed') {
-      return res.status(400).json({ error: 'Завершённую игру нельзя редактировать без возврата в черновик' });
+      return res.status(400).json({ error: 'Завершённую игру можно править, только открыв её протокол для правки' });
     }
 
     // Validations
@@ -922,7 +922,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     }
 
     if (!player_results || !Array.isArray(player_results)) {
-      return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
+      return res.status(400).json({ error: 'В протоколе нет результатов игроков' });
     }
     const playerErr = validatePlayerResults(player_results, seats, protocol?.first_killed_participant_id);
     if (playerErr) {
@@ -1228,7 +1228,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     }
 
     if (!player_results || !Array.isArray(player_results)) {
-      return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
+      return res.status(400).json({ error: 'В протоколе нет результатов игроков' });
     }
     const playerErr = validatePlayerResults(player_results, seats, protocol?.first_killed_participant_id);
     if (playerErr) {
@@ -1440,7 +1440,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
     }
 
     if (tournament.status !== 'active' && tournament.status !== 'correction') {
-      return res.status(400).json({ error: 'Вернуть игру в черновик можно только в активном турнире или режиме корректировки' });
+      return res.status(400).json({ error: 'Открыть игру для правки можно только в идущем турнире или в режиме корректировки' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
@@ -1453,7 +1453,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       [tournamentId, gameId]
     );
     if (activeGame) {
-      return res.status(400).json({ error: 'Нельзя вернуть игру в черновик, так как в турнире уже есть другая активная игра' });
+      return res.status(400).json({ error: 'Нельзя открыть игру для правки: в турнире уже идёт другая игра' });
     }
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
@@ -1522,7 +1522,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       checkpoint_warning: cpResult.success ? undefined : cpResult.message
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Ошибка возврата в черновик' });
+    res.status(500).json({ error: err.message || 'Не удалось открыть протокол для правки' });
   }
 });
 

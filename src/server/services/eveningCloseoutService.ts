@@ -219,7 +219,7 @@ export async function settleEveningFromCloseout(
     throw Object.assign(new Error(
       state.games.total === 0
         ? 'Игровая статистика не внесена. Подтверди закрытие без неё.'
-        : 'Есть незавершённые игровые черновики. Подтверди закрытие без этой статистики.',
+        : 'Есть незавершённые игры. Подтверди закрытие вечера без их статистики.',
     ), { statusCode: 409, code: 'game_stats_confirmation_required', details: state.games });
   }
 

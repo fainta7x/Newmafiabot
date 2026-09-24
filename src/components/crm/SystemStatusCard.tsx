@@ -73,7 +73,7 @@ const queueDetail = (queue: StatusData['sync_queue']) => {
 
 
 const backupDetail = (backup: StatusData['backup']) => {
-  if (backup.state === 'warming_up') return 'Backup-worker запускается';
+  if (backup.state === 'warming_up') return 'Резервное копирование запускается';
   if (!backup.ok) return backup.error || 'Бэкап недоступен';
   const age = backup.age_minutes ?? 0;
   return age < 60 ? `последний ${age} мин назад` : `последний ${Math.round(age / 60)} ч назад`;
@@ -83,8 +83,8 @@ const vkDetail = (data: VkRuntimeHealth) => {
   const parts: string[] = [];
   if (data.vk.group_name) parts.push(data.vk.group_name);
   else if (data.vk.group_id) parts.push(`сообщество ${data.vk.group_id}`);
-  if (!data.vk.configured) parts.push('нет токена');
-  else if (!data.vk.reachable) parts.push(data.vk.error || 'VK API недоступен');
+  if (!data.vk.configured) parts.push('бот не подключён');
+  else if (!data.vk.reachable) parts.push(data.vk.error || 'VK не отвечает');
   if (!data.callback.configured) parts.push(data.callback.last_error || `Callback: ${data.callback.status}`);
   return parts.join(' · ') || 'VK проверен';
 };
@@ -134,7 +134,7 @@ export const SystemStatusCard: React.FC = () => {
   useEffect(() => { void load(); }, []);
 
   const rows = data ? [
-    { key: 'web', name: 'Приложение', ok: data.web.ok, icon: Server, detail: 'Web-сервис отвечает' },
+    { key: 'web', name: 'Приложение', ok: data.web.ok, icon: Server, detail: 'Приложение отвечает' },
     { key: 'db', name: 'База', ok: data.database.ok, icon: Database, detail: data.database.ok ? `${data.database.latency_ms ?? 0} мс` : data.database.error || 'Нет ответа' },
     { key: 'bot', name: 'MafiaBot', ok: data.bot.ok, icon: Bot, detail: data.bot.ok ? `${data.bot.latency_ms ?? 0} мс` : data.bot.error || 'Нет ответа' },
     { key: 'telegram', name: 'Telegram', ok: data.telegram.ok, icon: Send, detail: `${data.telegram.active}/${data.telegram.total} направлений включено` },
@@ -150,7 +150,7 @@ export const SystemStatusCard: React.FC = () => {
             {data?.overall_ok ? <CheckCircle2 className="h-5 w-5 text-success" /> : <AlertTriangle className="h-5 w-5 text-warning" />}
             <h3 className="text-[14px] font-black text-text-primary">Состояние системы</h3>
           </div>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Приложение, база, бот, Telegram, синхронизация и резервные копии.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Приложение, база, бот, Telegram, отправка сообщений и резервные копии.</p>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={loading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить статус"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>

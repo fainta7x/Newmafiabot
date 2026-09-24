@@ -152,7 +152,7 @@ export default function JudgeGameMusicController() {
     const eveningId = resolveEveningId();
     if (!eveningId) {
       const entries = localFallbackEntries;
-      if (!entries.length) setPickerError('Музыкальная база пока пуста. Добавьте трек в CRM или в слот профиля.');
+      if (!entries.length) setPickerError('Музыки пока нет. Добавьте трек в кабинете организатора или в своём профиле.');
       if (autoStartLocal) {
         const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
         if (localEntry) {

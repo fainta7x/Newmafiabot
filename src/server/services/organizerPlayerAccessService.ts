@@ -18,7 +18,7 @@ export class LastOrganizerAccessError extends Error {
   code = 'last_organizer_access';
 
   constructor() {
-    super('Нельзя отозвать последний оставшийся доступ к CRM организатора');
+    super('Нельзя закрыть доступ последнему, у кого есть кабинет организатора');
   }
 }
 
@@ -27,7 +27,7 @@ export class PrimaryOrganizerAccessError extends Error {
   code = 'primary_organizer_access_required';
 
   constructor() {
-    super('Нельзя отозвать доступ к CRM у основного владельца клуба');
+    super('Нельзя закрыть доступ к кабинету организатора владельцу клуба');
   }
 }
 

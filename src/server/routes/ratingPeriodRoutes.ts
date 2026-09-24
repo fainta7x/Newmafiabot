@@ -229,7 +229,7 @@ router.put('/:periodId/games/:gameId', async (req: AuthenticatedRequest, res: Re
   try {
     const db = req.db;
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     if (!await db.get('SELECT id FROM rating_periods WHERE id = ?', [req.params.periodId])) return res.status(404).json({ error: 'Рейтинговый период не найден' });
     if (!await db.get('SELECT id FROM games WHERE id = ?', [gameId])) return res.status(404).json({ error: 'Игра не найдена' });
     if (req.body?.included === null || req.body?.included === undefined) {

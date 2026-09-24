@@ -43,7 +43,7 @@ async def _send_crm_entry(message: Message) -> None:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🗂 Открыть CRM",
+                    text="🗂 Открыть кабинет организатора",
                     web_app=WebAppInfo(url=_crm_url()),
                 )
             ]

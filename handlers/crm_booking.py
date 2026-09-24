@@ -99,7 +99,7 @@ async def crm_book(message: Message):
     """Compatibility entry point for old persistent Telegram keyboards."""
     evenings = await _load_open_evenings()
     if evenings is None:
-        await message.answer("Не удалось загрузить вечера из CRM. Попробуй чуть позже.")
+        await message.answer("Не удалось загрузить вечера. Попробуй чуть позже.")
         return
     if not evenings:
         await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")
@@ -150,7 +150,7 @@ async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
 
     evenings = await _load_open_evenings()
     if evenings is None:
-        await callback.answer("CRM временно недоступна", show_alert=True)
+        await callback.answer("Кабинет организатора временно недоступен", show_alert=True)
         return
     if not evenings:
         await callback.answer("Сейчас нет открытого вечера", show_alert=True)
@@ -199,7 +199,7 @@ async def crm_players_list(message: Message):
     """Compatibility entry point for old keyboards; new player navigation lives in the app."""
     evenings = await _load_open_evenings()
     if evenings is None:
-        await message.answer("Не удалось загрузить список из CRM. Попробуй чуть позже.")
+        await message.answer("Не удалось загрузить список. Попробуй чуть позже.")
         return
     if not evenings:
         await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")
@@ -216,4 +216,4 @@ async def crm_players_list(message: Message):
             sent = True
 
     if not sent:
-        await message.answer("Не удалось загрузить состав вечера из CRM.")
+        await message.answer("Не удалось загрузить состав вечера.")

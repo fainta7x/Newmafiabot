@@ -63,6 +63,8 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
   // NULL on older rows means «Играю» (the old overflow reserve was made of would-be players).
   await ensureColumn(db, 'tournament_registrations', 'response', 'TEXT');
   await ensureColumn(db, 'tournament_registrations', 'called_at', 'TEXT');
+  // The tournament's organizer (club role «Организатор»), counted in «Провёл вечеров».
+  await ensureColumn(db, 'tournaments', 'organizer_player_id', 'TEXT');
   await ensureColumn(db, 'tournaments', 'payment_deadline_72_done_at', 'TEXT');
   await ensureColumn(db, 'tournaments', 'payment_deadline_24_done_at', 'TEXT');
   await ensureColumn(db, 'tournament_payment_claims', 'reported_amount_rub', 'INTEGER');

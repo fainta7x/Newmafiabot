@@ -4,7 +4,8 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
-import { ensureSlotsForEvening, reconcileNoviceEveningCharges, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { NOVICE_PAID_GAME_PRICE, ensureSlotsForEvening, novicePriceForPlayer, reconcileNoviceEveningCharges, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { getNovicePlayerState } from '../server/services/noviceService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
@@ -238,10 +239,25 @@ describe('NOVICE-001 funnel', () => {
     expect(await due('nb3')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
   });
 
+  it('gives free novice visits only to real novices; an experienced guest pays from the first game', async () => {
+    const db = makeDb();
+    await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES ('ng1','Новички',?,'NOVICE','published',200,?,?)`, [new Date(Date.now() + 86400000).toISOString(), now, now]);
+    await db.run(`INSERT INTO players (id,nickname,game_level,created_at,updated_at) VALUES ('fresh','Новичок','novice',?,?), ('guest','Гость из Казани','club',?,?)`, [now, now, now, now]);
+    expect(await novicePriceForPlayer(db, 'fresh', 'ng1')).toBe(0);
+    expect(await novicePriceForPlayer(db, 'guest', 'ng1')).toBe(NOVICE_PAID_GAME_PRICE);
+    // The «free evenings left» banner follows the same rule as the price.
+    await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE' WHERE id IN ('fresh', 'guest')");
+    expect((await getNovicePlayerState(db, 'fresh'))?.free_visits_remaining).toBe(2);
+    expect((await getNovicePlayerState(db, 'guest'))?.free_visits_remaining).toBe(0);
+  });
+
   it('charges a whole-evening «иду» without an exact plan and keeps a prepayment as paid', async () => {
     const db = makeDb();
     await createApp(db);
     const { player } = await registerNewPlayer(db, { telegramUserId: '775', nickname: 'Весь вечер' });
+    await db.run("UPDATE players SET club_stage='NOVICE_ACTIVE', game_level='novice' WHERE id=?", [player.id]);
     const now = new Date().toISOString();
     for (let index = 1; index <= 3; index += 1) {
       await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES (?,?,?,'NOVICE',?,200,?,?)`, [`nw${index}`, `Новички ${index}`, new Date(Date.now() + (index - 3) * 86400000).toISOString(), index < 3 ? 'completed' : 'published', now, now]);

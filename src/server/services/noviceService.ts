@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import type { NoviceApplicationStatus, NoviceEntryRoute } from '../../shared/novice.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
+import { NOVICE_FREE_VISITS } from './eveningSlotPlanningService.ts';
 
 export const NOVICE_APPLICATION_STATUSES = {
   NEW: 'NEW',
@@ -89,7 +90,8 @@ export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string
     },
     applications,
     novice_visits: noviceVisits,
-    free_visits_remaining: Math.max(0, 2 - noviceVisits),
+    // Same eligibility as the charged price (novicePriceForPlayer): only the «Новичок» level gets free visits.
+    free_visits_remaining: String(player.game_level || '') === 'novice' ? Math.max(0, NOVICE_FREE_VISITS - noviceVisits) : 0,
     next_novice_price_per_game: noviceVisits < 2 ? 0 : 200,
     can_self_register: ['NOVICE_ACTIVE', 'NOVICE_COMPLETED', 'CLUB_PLAYER'].includes(String(player.club_stage || 'NEW')),
   };

@@ -387,11 +387,17 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   - Organizer achievements count closed evenings run as the assigned organizer: 1, 5, 10, 25 and 50 evenings.
   - Money payouts (salary) to organizers and judges belong to the planned club finance module.
 - **«Мы собрались» publication rules.** The first game may start once the post reached at least one channel or was skipped. A channel that failed can be retried with the stored photo; a channel that already has the photo is never posted to again.
+- **One person — one profile.** Sign-in goes through the linked Telegram or VK account, so a person should never have two profiles. There is no profile-merge tool (user decision 2026-09-24); «Порядок в клубе» only flags namesakes so the organizer can check them.
 - **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.
 - **Payment by evening type (target):**
   - **NOVICE:** a mandatory prepayment step before the first game for players who owe (the first two attended evenings stay free).
   - **CASUAL:** postpayment by played games (current rule above).
-  - **RATING:** a 500 ₽ entry fee before the games. The evening's winner takes the prize and a part goes to the season prize fund; the shares are to be decided.
+  - **RATING:** a 500 ₽ entry fee before the games. The collected money is split (user-approved 2026-09-24):
+    - 50 % to the evening's winner;
+    - 40 % to the judge for the work;
+    - 10 % to the season prize fund.
+
+    For a full table of 10 players that is 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
   - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽).
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
 - CRM wording should use plain club words, not technical terms.

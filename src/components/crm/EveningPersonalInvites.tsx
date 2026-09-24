@@ -46,6 +46,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
   const [filter, setFilter] = useState<Filter>('unanswered');
   const [showAnswered, setShowAnswered] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [readonly, setReadonly] = useState(false);
   const [error, setError] = useState('');
@@ -126,19 +127,23 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
     }
   };
 
-  const renderRows = (items: Row[]) => <div className="space-y-2">
+  // Compact rows: name, answer and a message button. The five answer buttons open
+  // for one player at a time, so a long list stays scannable on a phone.
+  const renderRows = (items: Row[]) => <div className="space-y-1.5">
     {items.map((row) => {
       const busy = savingId === row.playerId;
       const chatUrl = chatUrlFor(row);
-      return <div key={row.playerId} className="rounded-[14px] bg-surface-2 p-3">
-        <div className="flex items-center gap-2.5">
-          <div className="min-w-0 flex-1">
-            <strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong>
-            <span className="mt-0.5 block text-[10px] text-text-muted">{STATUS_LABELS[row.responseStatus]}</span>
-          </div>
+      const open = expandedId === row.playerId;
+      return <div key={row.playerId} className="rounded-[14px] bg-surface-2">
+        <div className="flex min-h-[52px] items-center gap-2 pl-3 pr-1.5">
+          <button type="button" onClick={() => setExpandedId(open ? null : row.playerId)} aria-expanded={open} disabled={readonly} className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 text-left">
+            <strong className="min-w-0 flex-1 truncate text-[13px] text-text-primary">{row.nickname}</strong>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${row.responseStatus === 'going' || row.responseStatus === 'late' ? 'bg-success-soft text-success' : row.responseStatus === 'declined' ? 'bg-danger-soft text-danger' : 'bg-surface-1 text-text-secondary'}`}>{busy ? '…' : STATUS_LABELS[row.responseStatus]}</span>
+            {readonly ? null : open ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
+          </button>
           {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-1 text-accent"><MessageCircle className="h-4 w-4" /></a> : null}
         </div>
-        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {open ? <div className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-5">
           {STATUS_ORDER.map((status, index) => {
             const active = row.responseStatus === status;
             const lastOnMobile = index === STATUS_ORDER.length - 1;
@@ -146,13 +151,13 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
               key={status}
               type="button"
               disabled={busy || readonly}
-              onClick={() => void setStatus(row, status)}
-              className={`${lastOnMobile ? 'col-span-2 sm:col-span-1' : ''} min-h-[44px] rounded-[11px] px-2 text-[10px] font-bold transition-colors disabled:opacity-40 ${active ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}
+              onClick={() => { void setStatus(row, status); setExpandedId(null); }}
+              className={`${lastOnMobile ? 'col-span-2 sm:col-span-1' : ''} min-h-[44px] rounded-[11px] px-2 text-[12px] font-bold transition-colors disabled:opacity-40 ${active ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}
             >
-              {busy && !active ? '…' : STATUS_LABELS[status]}
+              {STATUS_LABELS[status]}
             </button>;
           })}
-        </div>
+        </div> : null}
       </div>;
     })}
   </div>;

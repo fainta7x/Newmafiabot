@@ -291,7 +291,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       ORDER BY p.nickname COLLATE NOCASE`,
     [eveningId, eveningId],
   );
-  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string }>>();
+  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string; whole_evening?: boolean }>>();
   for (const person of peopleRows) {
     const slotId = String(person.slot_id);
     const group = peopleBySlot.get(slotId) || [];
@@ -303,7 +303,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       const slotId = String(slot.id);
       const group = peopleBySlot.get(slotId) || [];
       for (const person of legacyWholeEveningRows) {
-        group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок') });
+        // Counted for every game, but flagged so screens can tell «whole evening, no exact plan» from a real choice.
+        group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок'), whole_evening: true });
       }
       peopleBySlot.set(slotId, group);
       slot.registered_count = Number(slot.registered_count || 0) + legacyWholeEveningRows.length;

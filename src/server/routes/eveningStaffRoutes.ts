@@ -112,6 +112,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
       status: evening.status,
       settled_at: evening.settled_at || null,
       closed: evening.status === 'completed' || Boolean(evening.settled_at),
+      format: normalizeEveningFormat(evening.format),
     },
     participants: await Promise.all(participants.map(async (participant: any) => ({
       ...participant,

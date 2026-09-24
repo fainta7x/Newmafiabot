@@ -76,9 +76,12 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
             // Days ahead, starting is not the next step: keep the button available but quiet.
             const hoursToStart = (new Date(evening.starts_at).getTime() - clock) / 3_600_000;
             const early = hoursToStart > 3;
-            const days = Math.ceil(hoursToStart / 24);
+            // Calendar days in Moscow: an evening tomorrow at 19:00 is «завтра», not «через 2 дня».
+            const moscowDay = (value: number) => Date.parse(`${new Date(value).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' })}T00:00:00Z`);
+            const days = Math.round((moscowDay(new Date(evening.starts_at).getTime()) - moscowDay(clock)) / 86_400_000);
+            const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'день' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'дня' : 'дней');
             return <>
-              {early ? <p className="mb-2 text-[12px] leading-4 text-text-secondary">{hoursToStart >= 24 ? `Вечер через ${days} ${days === 1 ? 'день' : days < 5 ? 'дня' : 'дней'}` : `Вечер через ${Math.round(hoursToStart)} ч`} — «Начать вечер» нажимают в день вечера, когда игроки собираются.</p> : null}
+              {early ? <p className="mb-2 text-[12px] leading-4 text-text-secondary">{days === 1 ? 'Вечер завтра' : days > 1 ? `Вечер через ${days} ${plural(days)}` : `Вечер через ${Math.round(hoursToStart)} ч`} — «Начать вечер» нажимают в день вечера, когда игроки собираются.</p> : null}
               <button disabled={busy} onClick={() => void updateStatus('active')} className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] text-[13px] font-bold disabled:opacity-50 ${early ? 'border border-border-soft bg-surface-2 text-text-secondary' : 'bg-success text-white'}`}><Play className="h-4 w-4" /> Начать вечер</button>
             </>;
           })() : null}

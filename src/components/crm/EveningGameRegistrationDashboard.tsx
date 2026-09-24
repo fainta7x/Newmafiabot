@@ -18,7 +18,7 @@ type Slot = {
   slot_number: number;
   starts_at: string;
   price?: number;
-  participants?: Array<{ id: string; nickname: string }>;
+  participants?: Array<{ id: string; nickname: string; whole_evening?: boolean }>;
 };
 type Row = {
   playerId: string;
@@ -91,6 +91,8 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const slotByPlayer = new Map<string, Slot[]>();
       for (const slot of slots) {
         for (const person of slot.participants || []) {
+          // «Иду» without an exact plan is counted in every game by the server; it is not a game choice.
+          if (person.whole_evening) continue;
           const current = slotByPlayer.get(String(person.id)) || [];
           current.push(slot);
           slotByPlayer.set(String(person.id), current);

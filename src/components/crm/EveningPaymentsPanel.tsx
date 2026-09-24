@@ -23,6 +23,7 @@ type PaymentPayload = {
     status: string;
     settled_at?: string | null;
     closed: boolean;
+    format?: string;
   };
   participants: PaymentParticipant[];
 };
@@ -116,6 +117,15 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
     return payable && (filter === 'paid' ? paid : !paid);
   });
 
+  // 0 ₽ means different things: an explicit exemption, a newcomer's free visit, or (CASUAL) no played games yet —
+  // the regular price is 100 ₽ per completed game, so before games the amount is simply not accrued.
+  const waivedLabel = (participant: PaymentParticipant) => {
+    if (participant.novice_free) return 'Бесплатно · вечер новичка';
+    if (participant.fee_waived) return 'Освобождён от оплаты';
+    if (data?.evening.format === 'CASUAL' && !data.evening.closed) return 'Пока 0 ₽ · считается по сыгранным играм';
+    return 'Без оплаты';
+  };
+
   if (loading && !data) return null;
 
   return (
@@ -155,7 +165,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
                     <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
-                      {waived ? (participant.novice_free ? 'Бесплатно · вечер новичка' : 'Без оплаты') : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
+                      {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
                     </div>
                   </div>
 

@@ -320,6 +320,13 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 6. Online checkout (after self-employment registration).
 7. Club finance: evening revenue, expenses, organizer and judge payouts, fund allocations (for example a % of each evening for club needs, the season prize fund).
 8. One announcement system for every format: an event created in the in-app calendar automatically gets an information post with registration in the right Telegram and VK groups (and later the website), respecting which player statuses may join which evenings.
+9. Automatic «добор» call (user request 2026-09-24).
+   - Today the evening's Telegram card has a manual «Позвать в общий чат» button (`EveningTelegramCard.tsx`, `eveningAnnouncementRoutes.ts` / `botAnnouncementRoutes.ts`), Telegram only.
+   - Target: when games are short of players, the app itself posts a friendly call in the same Telegram/VK group as the main announcement, for example «Всем привет! Нас пока не хватает — записывайтесь активнее».
+   - To agree before building:
+     - when and how often it is sent (for example the day before and on the day);
+     - whether VK gets it too;
+     - whether the organizer confirms it or it goes fully automatically.
 
 ## Intentionally incomplete / deferred
 

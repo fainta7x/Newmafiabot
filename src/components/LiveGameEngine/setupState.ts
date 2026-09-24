@@ -1,11 +1,18 @@
 import type { Player } from '../../types.js';
 import type { ActivePlayerState } from './types.js';
 import { roleDistributionIsValid, type LiveRole } from './setupRoles.js';
+import { isSupportedTableSize, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
 
-const FSM_ROLES: LiveRole[] = [
-  'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный',
-  'Шериф', 'Мафия', 'Мафия', 'Дон',
-];
+/** The deck for a table of this size: 10 classic, 9 and 8 at a novice table. */
+const rolesForTable = (size: number): LiveRole[] => {
+  const counts = tableRoleCounts(isSupportedTableSize(size) ? size : 10);
+  return [
+    ...Array<LiveRole>(counts.citizen).fill('Мирный'),
+    ...Array<LiveRole>(counts.sheriff).fill('Шериф'),
+    ...Array<LiveRole>(counts.mafia).fill('Мафия'),
+    ...Array<LiveRole>(counts.don).fill('Дон'),
+  ];
+};
 
 const teamForRole = (role: LiveRole): ActivePlayerState['team'] => (
   role === 'Мафия' || role === 'Дон' ? 'Чёрные' : 'Красные'
@@ -22,7 +29,7 @@ export const shuffleSetupRoles = (
   seats: ActivePlayerState[],
   random: () => number = Math.random,
 ): ActivePlayerState[] => {
-  const roles = [...FSM_ROLES];
+  const roles = rolesForTable(seats.length);
   for (let index = roles.length - 1; index > 0; index--) {
     const target = Math.floor(random() * (index + 1));
     [roles[index], roles[target]] = [roles[target], roles[index]];
@@ -58,9 +65,10 @@ export const getSetupStartValidationError = (
   seats: ActivePlayerState[],
 ): string | null => {
   if (!judgeId) return 'Выберите ведущего';
-  if (seats.some((seat) => !seat.user_id)) return 'Заполните все 10 мест';
+  if (seats.some((seat) => !seat.user_id)) return `Заполните все ${seats.length} мест`;
   const assigned = seats.map((seat) => seat.user_id);
-  if (new Set(assigned).size !== 10) return 'Один игрок не может сидеть на двух местах';
-  if (!roleDistributionIsValid(seats)) return 'Нужны роли ФСМ: 6 мирных, Шериф, 2 мафии и Дон';
+  if (new Set(assigned).size !== seats.length) return 'Один игрок не может сидеть на двух местах';
+  if (!isSupportedTableSize(seats.length)) return 'За столом должно быть от 8 до 10 игроков';
+  if (!roleDistributionIsValid(seats)) return `Нужны роли${seats.length === 10 ? ' ФСМ' : ''}: ${tableRolesLabel(seats.length)}`;
   return null;
 };

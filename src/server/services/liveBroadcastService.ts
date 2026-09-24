@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import type { LiveBroadcastEnvelope, LiveBroadcastState } from '../../lib/liveBroadcast.ts';
 
 export type CanonicalBroadcastGame = {
@@ -94,7 +95,8 @@ export const normalizeLiveBroadcastState = (
     const seat = toSeat(player.seat);
     if (seat && !submittedPlayers.has(seat)) submittedPlayers.set(seat, player);
   }
-  if (submittedPlayers.size !== 10 || game.players.length !== 10) return null;
+  // 10 seats, or 8–9 at a novice table.
+  if (!isSupportedTableSize(game.players.length) || submittedPlayers.size !== game.players.length) return null;
 
   const allowedStatusKinds = new Set(['alive', 'killed', 'voted', 'removed', 'ppk', 'out']);
   const players = game.players

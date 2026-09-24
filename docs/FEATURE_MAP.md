@@ -177,6 +177,7 @@ Closed evenings must not have their old useful Telegram announcement replaced wh
 
 - Main UI/state: `src/components/LiveGameEngine.tsx` plus `src/components/LiveGameEngine/`.
 - Setup: `setupMode.ts`, `setupRoles.ts`, `setupState.ts`.
+- Table size and role deck (10, or 8–9 at a novice table): `src/lib/tableComposition.ts`; the club game size comes from `getLiveGameTableSize` in `setupMode.ts`.
 - Day speech ordering: `daySpeechModel.ts`.
 - Night targeting/checks: `nightTargetModel.ts`.
 - Two-fouls-for-+30 rule: `speechExtensionModel.ts`.

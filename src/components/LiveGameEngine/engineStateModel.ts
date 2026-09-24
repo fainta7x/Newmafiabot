@@ -94,8 +94,14 @@ export const createEmptyActivePlayer = (slot: number): ActivePlayerState => ({
   exit_reason: 'alive',
 });
 
-export const createInitialLiveDiscipline = (): GameDiscipline => createInitialGameDiscipline(
-  Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), team: 'red' as const })),
+// 10 seats, or 8–9 at a novice table; anything else falls back to the classic 10.
+const snapshotTableSize = (snapshot: LiveSnapshot) => {
+  const size = snapshot.activePlayers?.length || 0;
+  return size >= 8 && size <= 10 ? size : 10;
+};
+
+export const createInitialLiveDiscipline = (tableSize = 10): GameDiscipline => createInitialGameDiscipline(
+  Array.from({ length: tableSize }, (_, index) => ({ id: String(index + 1), team: 'red' as const })),
 );
 
 const getSnapshotTableDecisionSelection = (snapshot: LiveSnapshot) => {
@@ -173,7 +179,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
 
   return {
     ...snapshot,
-    dayStarterSlot: snapshot.dayStarterSlot ?? (((snapshot.roundNumber - 1) % 10) + 1),
+    dayStarterSlot: snapshot.dayStarterSlot ?? (((snapshot.roundNumber - 1) % snapshotTableSize(snapshot)) + 1),
     nominationsMap: snapshot.nominationsMap || {},
     postNightStage: nightFinalActionActive ? (snapshot.postNightStage || 'none') : 'none',
     protocolMarkers,
@@ -206,6 +212,6 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     nightLogs: snapshot.nightLogs || [],
     votingFarewellQueue: votingFinalActionActive ? (snapshot.votingFarewellQueue || []) : [],
     votingFarewellIndex: votingFinalActionActive ? (snapshot.votingFarewellIndex || 0) : 0,
-    discipline: snapshot.discipline || createInitialLiveDiscipline(),
+    discipline: snapshot.discipline || createInitialLiveDiscipline(snapshotTableSize(snapshot)),
   };
 };

@@ -20,9 +20,11 @@ interface EveningDeathProtocolOverlayProps {
   error?: string | null;
   finishGame?: boolean;
   submitting?: boolean;
+  tableSize?: number;
 }
 
-const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
+// 10 seats, or 8–9 at a novice table.
+const seatNumbersFor = (tableSize: number) => Array.from({ length: tableSize >= 8 && tableSize <= 10 ? tableSize : 10 }, (_, index) => index + 1);
 const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
 
 export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayProps> = ({
@@ -36,7 +38,9 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   error,
   finishGame = false,
   submitting = false,
+  tableSize = 10,
 }) => {
+  const seatNumbers = seatNumbersFor(tableSize);
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
     if (submitting) return;
     const other = mark === 'red' ? 'black' : 'red';
@@ -126,6 +130,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
 
 type LiveSessionView = {
   postNightStage: string;
+  tableSize: number;
   shotPlayerSlot: number | null;
   timeLeft: number;
   killedName: string;
@@ -134,6 +139,7 @@ type LiveSessionView = {
 
 const emptyLiveSession = (): LiveSessionView => ({
   postNightStage: 'none',
+  tableSize: 10,
   shotPlayerSlot: null,
   timeLeft: 0,
   killedName: '',
@@ -187,6 +193,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
         const winner = flowPlayers.length ? determineLiveWinner(flowPlayers) : null;
         const next: LiveSessionView = {
           postNightStage: String(parsed?.postNightStage || 'none'),
+          tableSize: activePlayers.length || 10,
           shotPlayerSlot,
           timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
           killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
@@ -287,6 +294,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       error={error}
       finishGame={session.winner !== null}
       submitting={submitting}
+      tableSize={session.tableSize}
     />
   );
 };

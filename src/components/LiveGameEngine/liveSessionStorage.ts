@@ -1,4 +1,5 @@
 import type { LiveSnapshot } from './engineStateModel.js';
+import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 
 export const LIVE_GAME_SESSION_STORAGE_KEY = 'mafia_live_session';
 
@@ -19,7 +20,7 @@ export function readRestorableLiveSession(
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as PersistedLiveSession;
-    if (parsed?.phase && parsed.phase !== 'setup' && parsed.activePlayers?.length === 10) {
+    if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(Number(parsed.activePlayers?.length))) {
       return parsed;
     }
   } catch {

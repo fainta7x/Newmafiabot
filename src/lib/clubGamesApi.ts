@@ -1,6 +1,7 @@
 import type { PlayerResultData, TournamentGameProtocolData } from './api';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from './liveDeathProtocol';
 import type { LiveBroadcastState } from './liveBroadcast';
+import { isSupportedTableSize } from './tableComposition.ts';
 
 export interface ClubGameProtocolEnvelope {
   version: 1;
@@ -146,18 +147,20 @@ export const rebasePendingClubGameProtocol = (
 ): ProtocolSavePayload => {
   const canonicalResults = game.club_protocol?.player_results;
   const pendingResults = payload?.player_results;
-  if (!Array.isArray(canonicalResults) || canonicalResults.length !== 10) {
-    throw new Error('Серверный состав игры повреждён: ожидается 10 игроков');
+  // 10 seats, or 8–9 at a novice table; the server copy sets the size.
+  if (!Array.isArray(canonicalResults) || !isSupportedTableSize(canonicalResults.length)) {
+    throw new Error('Серверный состав игры повреждён: ожидается от 8 до 10 игроков');
   }
-  if (!Array.isArray(pendingResults) || pendingResults.length !== 10) {
-    throw new Error('Локальная копия игры повреждена: ожидается 10 игроков');
+  const tableSize = canonicalResults.length;
+  if (!Array.isArray(pendingResults) || pendingResults.length !== tableSize) {
+    throw new Error(`Локальная копия игры повреждена: ожидается ${tableSize} игроков`);
   }
 
   const canonicalBySeat = new Map(canonicalResults.map((result) => [Number(result.seat_number), result]));
   const pendingBySeat = new Map(pendingResults.map((result) => [Number(result.seat_number), result]));
-  const expectedSeats = Array.from({ length: 10 }, (_, index) => index + 1);
-  if (canonicalBySeat.size !== 10 || pendingBySeat.size !== 10 || expectedSeats.some((seat) => !canonicalBySeat.has(seat) || !pendingBySeat.has(seat))) {
-    throw new Error('Нельзя восстановить игру: места 1–10 в локальной и серверной копии не совпадают');
+  const expectedSeats = Array.from({ length: tableSize }, (_, index) => index + 1);
+  if (canonicalBySeat.size !== tableSize || pendingBySeat.size !== tableSize || expectedSeats.some((seat) => !canonicalBySeat.has(seat) || !pendingBySeat.has(seat))) {
+    throw new Error(`Нельзя восстановить игру: места 1–${tableSize} в локальной и серверной копии не совпадают`);
   }
 
   const participantReplacements = new Map<string, string>();

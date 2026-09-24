@@ -85,7 +85,8 @@ describe('Live Game session storage', () => {
     expect(readRestorableLiveSession(storage)).toBeNull();
 
     const incomplete = makeSnapshot();
-    incomplete.activePlayers = incomplete.activePlayers.slice(0, 9);
+    // 8–9 seats are a valid novice table; fewer is an incomplete roster.
+    incomplete.activePlayers = incomplete.activePlayers.slice(0, 7);
     writeLiveSession(incomplete, storage);
     expect(readRestorableLiveSession(storage)).toBeNull();
   });

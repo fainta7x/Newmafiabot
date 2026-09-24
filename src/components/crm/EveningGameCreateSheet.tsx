@@ -3,6 +3,7 @@ import { AlertCircle, Search, Shuffle, UserPlus, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { allowedTableSizes, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
 import { getEveningAttendanceFact } from '../../lib/eveningResponse';
@@ -143,8 +144,15 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   }, [eligible, query]);
   const selectedParticipantIds = seats.filter(Boolean);
   const selectedCount = selectedParticipantIds.length;
+  // Table size (user-approved 2026-09-24): 10 players; a novice evening may seat 8 or 9.
+  const tableSizes = allowedTableSizes(evening.format);
+  const minTable = tableSizes[0];
+  const smallTablesAllowed = tableSizes.length > 1;
+  // Seats are numbered from #1 without gaps, so a smaller table takes the first seats.
+  const seatsContiguous = seats.slice(0, selectedCount).every(Boolean);
+  const sizeReady = tableSizes.includes(selectedCount) && seatsContiguous;
   const eveningCanStart = ['published', 'active'].includes(String(evening.status || '')) && !evening.settled_at;
-  const missingPresent = Math.max(0, 10 - eligible.length);
+  const missingPresent = Math.max(0, minTable - eligible.length);
   // Registered or answered «going» but attendance not marked yet: the usual reason for a short list.
   const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;
 
@@ -264,15 +272,16 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
       start = end;
     }
     const selected = randomized.slice(0, 10).map((participant) => participant.id);
+    if (!tableSizes.includes(selected.length)) return;
     setSeats([...selected, ...Array(Math.max(0, 10 - selected.length)).fill('')].slice(0, 10));
   };
   const reuseLastLineup = () => {
-    if (lastCompletedLineup.length !== 10) return;
-    setSeats(lastCompletedLineup.slice(0, 10));
+    if (!tableSizes.includes(lastCompletedLineup.length)) return;
+    setSeats([...lastCompletedLineup, ...Array(10 - lastCompletedLineup.length).fill('')].slice(0, 10));
   };
 
   const create = async () => {
-    if (!eveningCanStart || creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())) return;
+    if (!eveningCanStart || creating || !sizeReady || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())) return;
     if (linkedJudgePlayerId && seats.some((participantId) => String(byId.get(participantId)?.player_id || '') === linkedJudgePlayerId)) {
       setError('Судья этой игры не может одновременно быть игроком.');
       return;
@@ -288,7 +297,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         judge_player_id: judgeMode === 'linked' ? judgePlayerId : null,
         judge_name: judgeMode === 'linked' ? (linkedJudge?.nickname || null) : (judgeName.trim() || null),
         judge_guest: judgeMode === 'external',
-        seats: seats.map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
+        seats: seats.slice(0, selectedCount).map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
       });
       setUnpaid([]);
       onCreated(created);
@@ -324,7 +333,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[24px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и 10 участников. Добавленного здесь участника считаем фактически пришедшим при создании игры.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и {smallTablesAllowed ? 'от 8 до 10 участников' : '10 участников'}. Добавленного здесь участника считаем фактически пришедшим при создании игры.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-text-muted hover:text-text-primary"><X className="h-4 w-4" /></button>
         </div>
 
@@ -349,7 +358,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           </section>
         ) : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
-        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из 10 нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из ${minTable} нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
 
         <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
 
@@ -389,7 +398,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </details>
 
         <div className="space-y-2 rounded-[16px] border border-border-soft bg-surface-2 p-2.5">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Состав игры · {selectedCount}/10</div><button type="button" onClick={shuffleSelected} disabled={selectedCount < 2} className="flex items-center gap-1 text-[10px] font-black text-text-muted disabled:opacity-30"><Shuffle className="h-3 w-3" />Перемешать</button></div>
+          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Состав игры · {smallTablesAllowed ? `${selectedCount} из 8–10` : `${selectedCount}/10`}</div><button type="button" onClick={shuffleSelected} disabled={selectedCount < 2} className="flex items-center gap-1 text-[10px] font-black text-text-muted disabled:opacity-30"><Shuffle className="h-3 w-3" />Перемешать</button></div>
           <div className="grid grid-cols-5 gap-1.5">
             {seats.map((participantId, index) => {
               const participant = participantId ? byId.get(participantId) : null;
@@ -398,9 +407,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             })}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={autoSelect} disabled={eligible.length < 10} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать 10</button>
-            <button type="button" onClick={reuseLastLineup} disabled={lastCompletedLineup.length !== 10} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">Прошлая десятка</button>
+            <button type="button" onClick={autoSelect} disabled={eligible.length < minTable} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать {Math.max(minTable, Math.min(10, eligible.length))}</button>
+            <button type="button" onClick={reuseLastLineup} disabled={!tableSizes.includes(lastCompletedLineup.length)} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">{smallTablesAllowed ? 'Прошлый состав' : 'Прошлая десятка'}</button>
           </div>
+          {smallTablesAllowed && tableSizes.includes(selectedCount) ? (
+            <p data-testid="table-roles" className="rounded-[10px] bg-surface-1 px-2.5 py-2 text-[11px] font-semibold leading-4 text-text-secondary">Стол на {selectedCount}: {tableRolesLabel(selectedCount)}.</p>
+          ) : null}
           <p className="text-[10px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. При равном приоритете выбор перемешивается, чтобы состав не повторялся из-за алфавитного порядка.</p>
         </div>
 
@@ -417,7 +429,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>
-        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
+        <button type="button" disabled={!eveningCanStart || !sizeReady || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount < minTable ? `Выбери ещё ${minTable - selectedCount}` : !seatsContiguous ? 'Заполни места подряд с #1' : selectedCount === 10 || !smallTablesAllowed ? 'Создать игру' : `Создать игру на ${selectedCount}`}</button>
       </div>
     </div>
   );

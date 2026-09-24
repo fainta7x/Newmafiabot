@@ -1,5 +1,6 @@
 import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import type { ActivePlayerState } from './types.js';
+import { isSupportedTableSize, roleCountsMatchTable } from '../../lib/tableComposition.ts';
 
 export type LiveRole = ActivePlayerState['role'];
 
@@ -26,16 +27,17 @@ export const physicalRoleToLive = (role: PhysicalRole): LiveRole => {
   return 'Мирный';
 };
 
+/** Roles must match the table size: 10 classic, 9 and 8 at a novice table (see tableComposition). */
 export const roleDistributionIsValid = (players: ActivePlayerState[]): boolean => {
   const counts = players.reduce<Record<string, number>>((acc, player) => {
     acc[player.role] = (acc[player.role] || 0) + 1;
     return acc;
   }, {});
-  return counts['Мирный'] === 6 && counts['Шериф'] === 1 && counts['Мафия'] === 2 && counts['Дон'] === 1;
+  return roleCountsMatchTable({ citizen: counts['Мирный'], sheriff: counts['Шериф'], mafia: counts['Мафия'], don: counts['Дон'] }, players.length);
 };
 
 export const roleSetupIsValid = (players: ActivePlayerState[]): boolean => {
-  if (players.length !== 10 || players.some((player) => !player.user_id)) return false;
+  if (!isSupportedTableSize(players.length) || players.some((player) => !player.user_id)) return false;
   return roleDistributionIsValid(players);
 };
 

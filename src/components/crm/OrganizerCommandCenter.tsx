@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  Gamepad2, Link2, ListTodo, MessageCircle, RefreshCw, UserCheck, Sprout
+  Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
+import ClubOrderPanel from './ClubOrderPanel.tsx';
 
 type OpsPlayer = {
   participant_id: string;
@@ -103,7 +104,6 @@ export default function OrganizerCommandCenter({
   onOpenEvening,
   onOpenEveningSection,
   onOpenPlayer,
-  onNavigateTab,
   onCreateEvening,
   onRefresh,
   showTitle = true,
@@ -116,6 +116,7 @@ export default function OrganizerCommandCenter({
   const [paymentsFresh, setPaymentsFresh] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [orderRefresh, setOrderRefresh] = useState(0);
 
   const load = useCallback(async (options: { silent?: boolean; invalidatePayments?: boolean } = {}) => {
     const silent = Boolean(options.silent);
@@ -184,12 +185,12 @@ export default function OrganizerCommandCenter({
   const deliveryProblems = communicationAttention.filter((item) => item.status !== 'unanswered');
   const attendanceAttention = snapshot?.mode === 'active' ? snapshot.stats.pending_attendance : 0;
   const unfinishedGames = snapshot?.mode === 'active' ? Math.max(0, snapshot.stats.games - snapshot.stats.completed_games) : 0;
-  const taskCount = snapshot?.stats.open_tasks || snapshot?.attention.tasks.length || 0;
   const pendingOnboardingLinks = (((overview as any)?.actionLists?.pendingOnboardingLinks || []) as PendingOnboardingLink[]);
   const levelDecisions = (((overview as any)?.actionLists?.levelDecisions || []) as LevelDecision[]);
 
   const refreshAll = async () => {
     setPaymentsFresh(false);
+    setOrderRefresh((value) => value + 1);
     await Promise.all([load({ silent: true, invalidatePayments: true }), onRefresh?.()]);
   };
 
@@ -269,12 +270,8 @@ export default function OrganizerCommandCenter({
       id: 'unfinished', label: 'Игры', value: String(unfinishedGames), detail: 'ещё не завершено', tone: 'text-warning', icon: <Gamepad2 className="h-4 w-4" />,
       action: () => onOpenEveningSection(snapshot.evening.id, 'games'),
     });
-    if (taskCount > 0) rows.push({
-      id: 'tasks', label: 'Задачи', value: String(taskCount), detail: 'требуют внимания', tone: 'text-warning', icon: <ListTodo className="h-4 w-4" />,
-      action: () => onNavigateTab('tasks'),
-    });
     return rows;
-  }, [snapshot, paymentsFresh, unansweredCount, unfinishedGames, taskCount, onNavigateTab, onOpenEveningSection]);
+  }, [snapshot, paymentsFresh, unansweredCount, unfinishedGames, onOpenEveningSection]);
 
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
@@ -376,6 +373,8 @@ export default function OrganizerCommandCenter({
         </div>
       </section> : null}
     </>}
+
+    <ClubOrderPanel refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} />
 
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>

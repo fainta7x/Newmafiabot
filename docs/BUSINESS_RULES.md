@@ -397,15 +397,17 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
 - **One person — one profile.** Sign-in goes through the linked Telegram or VK account, so a person should never have two profiles. There is no profile-merge tool (user decision 2026-09-24); «Порядок в клубе» only flags namesakes so the organizer can check them.
 - **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.
 - **Payment by evening type (target):**
-  - **NOVICE:** a mandatory prepayment step before the first game for players who owe (the first two attended evenings stay free).
+  - **Prepayment at the table (NOVICE and RATING, user-approved 2026-09-24).** A game cannot start while a player seated at its table owes a prepayment for the evening. The organizer sees who owes right at the table and marks the payment with one tap. Players who owe nothing (paid, exempt or free) never block the game.
+  - **NOVICE:** prepayment before the player's first game for players who owe. The first two attended novice evenings stay free, but only for real novices: people who have never played mafia (game level «Новичок»). An experienced player at a novice evening, for example a guest from another city, pays.
   - **CASUAL:** postpayment by played games (current rule above).
   - **RATING:** a 500 ₽ entry fee before the games. The collected money is split (user-approved 2026-09-24):
     - 50 % to the evening's winner;
     - 40 % to the judge for the work;
     - 10 % to the season prize fund.
 
-    For a full table of 10 players that is 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
-  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽).
+    A rating game always has a full table of 10 players, so the evening collects 5000 ₽: 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
+  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. A registered player's place is confirmed only after the payment is marked; unpaid players give their place to the reserve before the tournament.
+- **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). With fewer registered it is a shortfall, and the evening is cancelled. Exception: novice evenings and games may run from 8 players and a judge.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
 - CRM wording should use plain club words, not technical terms.
 

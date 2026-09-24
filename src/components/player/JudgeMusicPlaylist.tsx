@@ -149,7 +149,7 @@ export default function JudgeMusicPlaylist() {
 
       <input ref={fileRef} type="file" multiple accept="audio/*,.mp3,.m4a,.ogg,.wav,.webm" className="hidden" onChange={uploadFiles} />
       <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="mt-2 min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-xs font-semibold text-white disabled:opacity-35">＋ Загрузить аудиофайл</button>
-      <p className="mt-2 text-[10px] leading-4 text-white/25">Файл до 15 МБ. Для Яндекса приложение хранит только ссылку — музыка не скачивается на сервер.</p>
+      <p className="mt-2 text-[11px] leading-4 text-white/25">Файл до 15 МБ. Для Яндекса приложение хранит только ссылку — музыка не скачивается на сервер.</p>
 
       {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-xs text-rose-100/75">{error}</div>}
       {message && <div className="mt-3 rounded-2xl bg-emerald-400/[0.08] px-3 py-3 text-xs text-emerald-100/75">{message}</div>}
@@ -157,14 +157,14 @@ export default function JudgeMusicPlaylist() {
       {playerSlots.some((item) => item.entry) && (
         <div className="mt-4 rounded-2xl border border-sky-200/[0.08] bg-sky-300/[0.04] p-3">
           <div className="text-xs font-semibold text-sky-100/75">Мои слоты игрока</div>
-          <p className="mt-1 text-[10px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и вечера, где вы ведёте.</p>
+          <p className="mt-1 text-[11px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и вечера, где вы ведёте.</p>
           <div className="mt-2 space-y-1.5">
             {playerSlots.map((item) => item.entry ? (
               <div key={item.slot} className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-300/[0.08] text-[10px] text-sky-100/75">{item.slot}</span>
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-300/[0.08] text-[11px] text-sky-100/75">{item.slot}</span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-white">{item.entry.title}</div>
-                  <div className="text-[9px] text-white/30">Яндекс · слот игрока</div>
+                  <div className="text-[11px] text-white/30">Яндекс · слот игрока</div>
                 </div>
               </div>
             ) : null)}
@@ -176,7 +176,7 @@ export default function JudgeMusicPlaylist() {
           <div key={`upload:${track.id}`} className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setPreview((current) => current === `upload:${track.id}` ? null : `upload:${track.id}`)} className="h-10 w-10 shrink-0 rounded-xl bg-white/[0.08] text-xs text-white">{preview === `upload:${track.id}` ? '■' : '▶'}</button>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{track.title}</div><div className="mt-0.5 text-[10px] text-white/30">Файл · {formatBytes(track.byte_size)}</div></div>
+              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{track.title}</div><div className="mt-0.5 text-[11px] text-white/30">Файл · {formatBytes(track.byte_size)}</div></div>
               <button type="button" onClick={() => void removeUpload(track)} className="h-9 w-9 rounded-xl border border-rose-300/10 bg-rose-400/[0.04] text-rose-200/55">×</button>
             </div>
             {preview === `upload:${track.id}` && <audio className="mt-3 w-full" src={track.audio_url} controls autoPlay preload="metadata" />}
@@ -187,10 +187,10 @@ export default function JudgeMusicPlaylist() {
           <div key={`yandex:${track.id}`} className="rounded-2xl border border-amber-200/[0.08] bg-black/20 p-3">
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => openExternalMusicUrl(track.source_url)} aria-label={`Открыть ${track.title} в Яндекс Музыке`} className="h-10 w-10 shrink-0 rounded-xl bg-amber-200/[0.08] text-xs text-amber-100">Я</button>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{track.title}</div><div className="mt-0.5 text-[10px] text-white/30">Яндекс · {track.source_kind === 'yandex_playlist' ? 'плейлист' : 'трек'}</div></div>
+              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{track.title}</div><div className="mt-0.5 text-[11px] text-white/30">Яндекс · {track.source_kind === 'yandex_playlist' ? 'плейлист' : 'трек'}</div></div>
               <button type="button" onClick={() => void removeLink(track)} className="h-9 w-9 rounded-xl border border-rose-300/10 bg-rose-400/[0.04] text-rose-200/55">×</button>
             </div>
-            <button type="button" onClick={() => openExternalMusicUrl(track.source_url)} className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200/[0.12] px-3 text-[10px] font-semibold text-amber-100">Открыть полный трек в Яндекс Музыке ↗</button>
+            <button type="button" onClick={() => openExternalMusicUrl(track.source_url)} className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200/[0.12] px-3 text-[11px] font-semibold text-amber-100">Открыть полный трек в Яндекс Музыке ↗</button>
           </div>
         ))}
 

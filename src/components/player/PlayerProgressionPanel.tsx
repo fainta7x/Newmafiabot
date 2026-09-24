@@ -298,13 +298,13 @@ export default function PlayerProgressionPanel() {
     <section className="space-y-3">
       <div className="rounded-[26px] border border-white/10 bg-gradient-to-br from-white/[0.075] to-white/[0.025] p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Карьерная система</div><h2 className="mt-1 text-xl font-black">Прогресс</h2><p className="mt-1 text-[11px] leading-4 text-white/35">Долгие цели, достижения и звания, которые нужно действительно заслужить.</p></div>
-          {data.player.selected_title && <div className="max-w-[42%] rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] px-3 py-2 text-right"><div className="text-lg">{data.player.selected_title.icon}</div><div className="mt-0.5 text-[9px] font-semibold text-amber-100/60">{data.player.selected_title.label}</div></div>}
+          <div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">Карьерная система</div><h2 className="mt-1 text-xl font-black">Прогресс</h2><p className="mt-1 text-[11px] leading-4 text-white/35">Долгие цели, достижения и звания, которые нужно действительно заслужить.</p></div>
+          {data.player.selected_title && <div className="max-w-[42%] rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] px-3 py-2 text-right"><div className="text-lg">{data.player.selected_title.icon}</div><div className="mt-0.5 text-[11px] font-semibold text-amber-100/60">{data.player.selected_title.label}</div></div>}
         </div>
         <div className="mt-4 grid grid-cols-3 gap-1.5 text-center">
-          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{completedGoals}<span className="text-white/20">/{data.challenges.length}</span></div><div className="text-[8px] text-white/25">целей</div></div>
-          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{completedAchievements}<span className="text-white/20">/{data.achievements.length}</span></div><div className="text-[8px] text-white/25">достижений</div></div>
-          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{unlockedTitles}<span className="text-white/20">/{data.titles.length}</span></div><div className="text-[8px] text-white/25">званий</div></div>
+          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{completedGoals}<span className="text-white/20">/{data.challenges.length}</span></div><div className="text-[11px] text-white/25">целей</div></div>
+          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{completedAchievements}<span className="text-white/20">/{data.achievements.length}</span></div><div className="text-[11px] text-white/25">достижений</div></div>
+          <div className="rounded-2xl bg-black/20 p-2.5"><div className="text-lg font-black">{unlockedTitles}<span className="text-white/20">/{data.titles.length}</span></div><div className="text-[11px] text-white/25">званий</div></div>
         </div>
       </div>
 
@@ -314,48 +314,48 @@ export default function PlayerProgressionPanel() {
           ['achievements', 'Достижения'],
           ['titles', 'Звания'],
         ] as Array<[ProgressTab, string]>).map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setTab(id)} className={`min-h-10 rounded-xl px-2 text-[10px] font-semibold ${tab === id ? 'bg-white text-black' : 'text-white/45'}`}>{label}</button>
+          <button key={id} type="button" onClick={() => setTab(id)} className={`min-h-10 rounded-xl px-2 text-[11px] font-semibold ${tab === id ? 'bg-white text-black' : 'text-white/45'}`}>{label}</button>
         ))}
       </div>
 
       {tab === 'goals' && <div className="space-y-2">
-        <div className="flex items-end justify-between gap-3 px-1"><div><div className="text-xs font-semibold">Ближайшие испытания</div><div className="mt-0.5 text-[9px] text-white/25">Сложные ориентиры, а не награды за пару игр.</div></div>{data.challenges.length > 6 && <button type="button" onClick={() => setShowAllGoals((value) => !value)} className="text-[9px] font-semibold text-white/35">{showAllGoals ? 'Свернуть' : 'Все цели'}</button>}</div>
+        <div className="flex items-end justify-between gap-3 px-1"><div><div className="text-xs font-semibold">Ближайшие испытания</div><div className="mt-0.5 text-[11px] text-white/25">Сложные ориентиры, а не награды за пару игр.</div></div>{data.challenges.length > 6 && <button type="button" onClick={() => setShowAllGoals((value) => !value)} className="text-[11px] font-semibold text-white/35">{showAllGoals ? 'Свернуть' : 'Все цели'}</button>}</div>
         {goals.map((item) => {
           const value = percent(item.progress, item.target);
           return <div key={item.id} className={`rounded-2xl border p-3 ${item.completed ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.05] bg-white/[0.025]'}`}>
-            <div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-lg">{item.icon}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><div className="text-[11px] font-semibold">{item.title}</div><div className={`shrink-0 text-[9px] ${item.completed ? 'text-emerald-300' : 'text-white/30'}`}>{item.completed ? 'выполнено' : `${item.progress}/${item.target}`}</div></div><div className="mt-1 text-[9px] leading-3.5 text-white/30">{item.description}</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${item.completed ? 'bg-emerald-400' : 'bg-white/45'}`} style={{ width: `${value}%` }} /></div></div></div>
+            <div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-lg">{item.icon}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><div className="text-[11px] font-semibold">{item.title}</div><div className={`shrink-0 text-[11px] ${item.completed ? 'text-emerald-300' : 'text-white/30'}`}>{item.completed ? 'выполнено' : `${item.progress}/${item.target}`}</div></div><div className="mt-1 text-[11px] leading-3.5 text-white/30">{item.description}</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${item.completed ? 'bg-emerald-400' : 'bg-white/45'}`} style={{ width: `${value}%` }} /></div></div></div>
           </div>;
         })}
       </div>}
 
       {tab === 'achievements' && <div>
-        <div className="flex gap-1.5 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{CATEGORY_LABELS.map((item) => <button key={item.id} type="button" onClick={() => setCategory(item.id)} className={`shrink-0 rounded-xl px-3 py-2 text-[9px] font-semibold ${category === item.id ? 'bg-white text-black' : 'bg-white/[0.04] text-white/40'}`}>{item.label}</button>)}</div>
+        <div className="flex gap-1.5 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{CATEGORY_LABELS.map((item) => <button key={item.id} type="button" onClick={() => setCategory(item.id)} className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-semibold ${category === item.id ? 'bg-white text-black' : 'bg-white/[0.04] text-white/40'}`}>{item.label}</button>)}</div>
         <div className="mt-1 grid grid-cols-2 gap-2">{achievements.map((item) => {
           const rarity = RARITY_META[item.rarity];
           const value = percent(item.progress, item.target);
           return <div key={item.id} className={`rounded-2xl border p-3 ${item.completed ? 'border-white/10 bg-white/[0.045]' : 'border-white/[0.04] bg-white/[0.018] opacity-70'}`}>
-            <div className="flex items-start justify-between gap-2"><span className={`text-xl ${item.completed ? '' : 'grayscale'}`}>{item.icon}</span><span className={`text-[8px] font-semibold ${rarity.className}`}>{rarity.label}</span></div>
-            <div className="mt-2 text-[10px] font-semibold leading-4">{item.name}</div><div className="mt-1 text-[8px] leading-3 text-white/25">{item.description}</div>
-            <div className="mt-2 flex items-center justify-between text-[8px]"><span className={item.completed ? 'text-emerald-300' : 'text-white/25'}>{item.completed ? '✓ получено' : `${item.progress}/${item.target}`}</span><span className="text-white/20">{value}%</span></div>
+            <div className="flex items-start justify-between gap-2"><span className={`text-xl ${item.completed ? '' : 'grayscale'}`}>{item.icon}</span><span className={`text-[11px] font-semibold ${rarity.className}`}>{rarity.label}</span></div>
+            <div className="mt-2 text-[11px] font-semibold leading-4">{item.name}</div><div className="mt-1 text-[11px] leading-3 text-white/25">{item.description}</div>
+            <div className="mt-2 flex items-center justify-between text-[11px]"><span className={item.completed ? 'text-emerald-300' : 'text-white/25'}>{item.completed ? '✓ получено' : `${item.progress}/${item.target}`}</span><span className="text-white/20">{value}%</span></div>
             <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.05]"><div className={`h-full rounded-full ${item.completed ? 'bg-emerald-400' : 'bg-white/35'}`} style={{ width: `${value}%` }} /></div>
           </div>;
         })}</div>
       </div>}
 
       {tab === 'titles' && <div className="space-y-2">
-        <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.025] p-3"><div className="text-[10px] font-semibold text-amber-100/55">Звание — верхушка карьерной ветки</div><div className="mt-1 text-[9px] leading-4 text-white/30">Большинство званий требуют одновременно дистанцию, победы и серию. Открытое звание можно поставить рядом с ником.</div></div>
+        <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.025] p-3"><div className="text-[11px] font-semibold text-amber-100/55">Звание — верхушка карьерной ветки</div><div className="mt-1 text-[11px] leading-4 text-white/30">Большинство званий требуют одновременно дистанцию, победы и серию. Открытое звание можно поставить рядом с ником.</div></div>
         {data.titles.map((title) => {
           const selected = data.player.selected_title?.id === title.id;
           return <div key={title.id} className={`rounded-[22px] border p-3.5 ${selected ? 'border-amber-200/25 bg-amber-200/[0.065]' : title.unlocked ? 'border-white/10 bg-white/[0.04]' : 'border-white/[0.04] bg-white/[0.018]'}`}>
-            <div className="flex items-start gap-3"><div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-black/20 text-xl ${title.unlocked ? '' : 'grayscale opacity-50'}`}>{title.icon}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><div className="text-xs font-black">{title.label}</div><span className={`shrink-0 text-[8px] font-semibold ${title.unlocked ? 'text-amber-200/70' : 'text-white/20'}`}>{selected ? 'выбрано' : title.unlocked ? 'открыто' : 'закрыто'}</span></div><div className="mt-0.5 text-[9px] text-white/25">{title.hint}</div></div></div>
-            <div className="mt-3 space-y-1.5">{title.requirements.map((req) => <div key={req.label} className="flex items-center justify-between gap-3 rounded-xl bg-black/15 px-2.5 py-2"><div className={`min-w-0 truncate text-[9px] ${req.completed ? 'text-white/55' : 'text-white/30'}`}>{req.completed ? '✓' : '○'} {req.label}</div><div className={`shrink-0 text-[9px] font-semibold ${req.completed ? 'text-emerald-300' : 'text-white/30'}`}>{req.current}/{req.target}</div></div>)}</div>
-            {title.unlocked && <button type="button" disabled={savingTitle} onClick={() => void selectTitle(selected ? null : title.id)} className={`mt-3 min-h-10 w-full rounded-xl text-[10px] font-semibold ${selected ? 'border border-white/10 bg-white/[0.04] text-white/45' : 'bg-white text-black'} disabled:opacity-40`}>{selected ? 'Снять звание' : 'Выбрать звание'}</button>}
+            <div className="flex items-start gap-3"><div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-black/20 text-xl ${title.unlocked ? '' : 'grayscale opacity-50'}`}>{title.icon}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><div className="text-xs font-black">{title.label}</div><span className={`shrink-0 text-[11px] font-semibold ${title.unlocked ? 'text-amber-200/70' : 'text-white/20'}`}>{selected ? 'выбрано' : title.unlocked ? 'открыто' : 'закрыто'}</span></div><div className="mt-0.5 text-[11px] text-white/25">{title.hint}</div></div></div>
+            <div className="mt-3 space-y-1.5">{title.requirements.map((req) => <div key={req.label} className="flex items-center justify-between gap-3 rounded-xl bg-black/15 px-2.5 py-2"><div className={`min-w-0 truncate text-[11px] ${req.completed ? 'text-white/55' : 'text-white/30'}`}>{req.completed ? '✓' : '○'} {req.label}</div><div className={`shrink-0 text-[11px] font-semibold ${req.completed ? 'text-emerald-300' : 'text-white/30'}`}>{req.current}/{req.target}</div></div>)}</div>
+            {title.unlocked && <button type="button" disabled={savingTitle} onClick={() => void selectTitle(selected ? null : title.id)} className={`mt-3 min-h-10 w-full rounded-xl text-[11px] font-semibold ${selected ? 'border border-white/10 bg-white/[0.04] text-white/45' : 'bg-white text-black'} disabled:opacity-40`}>{selected ? 'Снять звание' : 'Выбрать звание'}</button>}
           </div>;
         })}
         <button type="button" disabled={sharing} onClick={() => void shareCard()} className="min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-white/55 disabled:opacity-40">{sharing ? 'Собираем карточку…' : 'Поделиться карточкой игрока'}</button>
       </div>}
 
-      {message && <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-center text-[9px] text-white/40">{message}</div>}
+      {message && <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-center text-[11px] text-white/40">{message}</div>}
     </section>
   );
 }

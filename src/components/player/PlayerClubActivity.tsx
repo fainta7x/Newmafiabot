@@ -76,10 +76,10 @@ export default function PlayerClubActivity() {
       <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Сейчас в клубе</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Сейчас в клубе</div>
             <h2 className="mt-1 text-lg font-semibold">Форма и серии игроков</h2>
           </div>
-          {data && <div className="shrink-0 text-[10px] text-white/25">{data.players_with_form} в форме</div>}
+          {data && <div className="shrink-0 text-[11px] text-white/25">{data.players_with_form} в форме</div>}
         </div>
 
         {loading && <div className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">Считаем активность…</div>}
@@ -94,7 +94,7 @@ export default function PlayerClubActivity() {
                     <Avatar src={item.avatar_url} name={item.nickname} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold">{item.nickname}</div>
-                      <div className="mt-0.5 text-[10px] text-amber-50/45">{item.text}</div>
+                      <div className="mt-0.5 text-[11px] text-amber-50/45">{item.text}</div>
                     </div>
                     <span className="text-base">{item.type === 'win_streak' ? '🔥' : '⚡'}</span>
                   </div>
@@ -109,18 +109,18 @@ export default function PlayerClubActivity() {
                   <Avatar src={item.avatar_url} name={item.nickname} size={32} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-semibold">{item.nickname}{item.player_id === data.viewer_id ? ' · вы' : ''}</div>
-                    <div className="mt-0.5 text-[10px] text-white/30">{item.wins}/{item.games} побед · {item.win_rate}%{item.streak >= 2 ? ` · серия ${item.streak}` : ''}</div>
+                    <div className="mt-0.5 text-[11px] text-white/30">{item.wins}/{item.games} побед · {item.win_rate}%{item.streak >= 2 ? ` · серия ${item.streak}` : ''}</div>
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="text-xs font-black">{item.score}</div>
-                    <div className={`text-[9px] font-semibold ${item.movement != null && item.movement > 0 ? 'text-emerald-300' : item.movement != null && item.movement < 0 ? 'text-rose-300' : 'text-white/25'}`}>{movementLabel(item.movement)}</div>
+                    <div className={`text-[11px] font-semibold ${item.movement != null && item.movement > 0 ? 'text-emerald-300' : item.movement != null && item.movement < 0 ? 'text-rose-300' : 'text-white/25'}`}>{movementLabel(item.movement)}</div>
                   </div>
                 </div>
               ))}
             </div>
 
             {!data.power_ranking.length && <p className="mt-4 text-xs text-white/35">Пока недостаточно завершённых игр для формы клуба.</p>}
-            {data.meta?.formula && <p className="mt-3 text-[9px] leading-4 text-white/20">{data.meta.formula}</p>}
+            {data.meta?.formula && <p className="mt-3 text-[11px] leading-4 text-white/20">{data.meta.formula}</p>}
           </>
         )}
       </section>

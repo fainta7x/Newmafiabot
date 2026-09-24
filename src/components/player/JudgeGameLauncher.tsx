@@ -222,7 +222,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
           <div className="mt-3 grid grid-cols-5 gap-1.5">
             {Array.from({ length: 10 }, (_, index) => {
               const participant = selected[index];
-              return <button key={index} type="button" disabled={!participant} onClick={() => participant && toggle(participant.id)} className={`min-h-16 min-w-0 rounded-xl border p-1.5 text-center ${participant ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.07] bg-black/20'}`}><div className="text-[9px] text-white/30">#{index + 1}</div><div className="mt-2 truncate text-[9px] font-semibold text-white/70">{participant?.nickname || '—'}</div></button>;
+              return <button key={index} type="button" disabled={!participant} onClick={() => participant && toggle(participant.id)} className={`min-h-16 min-w-0 rounded-xl border p-1.5 text-center ${participant ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.07] bg-black/20'}`}><div className="text-[11px] text-white/30">#{index + 1}</div><div className="mt-2 truncate text-[11px] font-semibold text-white/70">{participant?.nickname || '—'}</div></button>;
             })}
           </div>
           <p className="mt-3 text-[11px] leading-4 text-white/30">Порядок выбора — места 1–10. Нажмите на место, чтобы убрать игрока.</p>
@@ -237,8 +237,8 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
               return (
                 <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-2xl border p-2.5 text-left ${chosen ? 'border-emerald-300/25 bg-emerald-300/[0.08]' : 'border-white/10 bg-black/20'}`}>
                   <PlayerAvatar playerId={participant.player_id} avatarVersion={participant.avatar_updated_at} nickname={participant.nickname} size="sm" />
-                  <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white">{participant.nickname}</strong><span className="mt-0.5 block truncate text-[9px] text-white/30">{attendanceLabel(participant)}</span></span>
-                  {chosen && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-black text-black">{seat + 1}</span>}
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white">{participant.nickname}</strong><span className="mt-0.5 block truncate text-[11px] text-white/30">{attendanceLabel(participant)}</span></span>
+                  {chosen && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[11px] font-black text-black">{seat + 1}</span>}
                 </button>
               );
             })}

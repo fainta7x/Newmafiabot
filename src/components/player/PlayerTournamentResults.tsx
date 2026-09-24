@@ -36,7 +36,7 @@ export default function PlayerTournamentResults() {
       <div className="mx-auto w-full max-w-[430px] space-y-3">
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
           <div className="mb-3 px-1">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Турниры</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">Турниры</div>
             <p className="mt-1 text-xs leading-5 text-white/45">Итоговые таблицы турниров с доп. баллами. Появляются после публикации организатором.</p>
           </div>
           {error ? <div className="rounded-2xl bg-white/[0.03] p-4 text-sm text-red-300">{error}</div>
@@ -49,7 +49,7 @@ export default function PlayerTournamentResults() {
                   <span className="block truncate text-sm font-semibold">{item.title}</span>
                   <span className="block text-[11px] text-white/45">{[formatDate(item.date), item.venue].filter(Boolean).join(' · ') || 'Дата не указана'}</span>
                 </span>
-                {item.participated ? <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/70">ты играл</span> : null}
+                {item.participated ? <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-white/70">ты играл</span> : null}
                 <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
               </a>
             ))}</div>}

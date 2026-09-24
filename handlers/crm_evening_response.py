@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 import bot_menu
 import config
 import database
-from bot_api import submit_evening_response
+from bot_api import schedule_evening_followup, submit_evening_response
 from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
@@ -204,3 +204,32 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
         await callback.answer(message, show_alert=True)
     except Exception:
         pass
+
+_FOLLOWUP_LABELS = {"morning": "утром в день игры", "3h": "за 3 часа до начала"}
+
+
+@router.callback_query(F.data.startswith("evq:"))
+async def handle_evening_followup(callback: CallbackQuery):
+    """«Спроси утром / за 3 часа» under the «Что решил?» message for «Пока думаю» players."""
+    try:
+        _, evening_id, when = callback.data.split(":", 2)
+    except (AttributeError, ValueError):
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    if when not in _FOLLOWUP_LABELS or not evening_id:
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    result = await schedule_evening_followup(evening_id, callback.from_user.id, when)
+    if result.get("success"):
+        await callback.answer(f"⏰ Хорошо, спросим {_FOLLOWUP_LABELS[when]}", show_alert=False)
+        return
+    error = result.get("error")
+    if error == "not_thinking":
+        text = "Ты уже ответил — напоминание не нужно."
+    elif error in {"closed", "too_late"}:
+        text = "Вечер уже начинается — ответь, пожалуйста, сейчас."
+    elif error == "not_found":
+        text = "Профиль клуба не найден. Нажми /start."
+    else:
+        text = "Не удалось сохранить. Попробуй позже."
+    await callback.answer(text, show_alert=True)

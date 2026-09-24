@@ -165,6 +165,7 @@ async def sync_evening_telegram(
     plan = plan_result.get("data") or {}
     evening = plan.get("evening") or {}
     slots = plan.get("slots") or []
+    participants = plan.get("participants") or []
     destinations = {str(item.get("id")): item for item in (plan.get("destinations") or [])}
     publications = {str(item.get("destination_id")): item for item in (plan.get("publications") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
@@ -205,7 +206,7 @@ async def sync_evening_telegram(
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
         publication = publications.get(destination_id)
-        text = thematic_event_text(evening, slots)
+        text = thematic_event_text(evening, slots, participants)
 
         if publication:
             edit_status = await _edit_message_status(

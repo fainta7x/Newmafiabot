@@ -1,8 +1,8 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { queueEveningRsvpNudges } from './eveningRsvpNudgeService.ts';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let scanInFlight = false;
@@ -19,79 +19,8 @@ const teamForRole = (role: unknown): 'red' | 'black' | null => {
   return null;
 };
 
-async function queueEveningNotifications(db: DatabaseWrapper) {
-  const rows = await db.all<any>(`
-    SELECT ep.id AS participant_id, ep.player_id, ep.response_status, ep.attendance_status,
-           e.id AS evening_id, e.title, e.starts_at, e.venue, e.status
-      FROM evening_participants ep
-      JOIN players p ON p.id = ep.player_id
-      JOIN game_evenings e ON e.id = ep.evening_id
-     WHERE e.status IN ('published', 'active') AND e.settled_at IS NULL
-       AND COALESCE(p.contact_status, p.lifecycle_status, 'normal') NOT IN ('blocked', 'archived', 'inactive')
-       AND datetime(e.starts_at) >= datetime('now', '-6 hours')
-       AND datetime(e.starts_at) <= datetime('now', '+7 days')
-  `);
-  const now = Date.now();
-  let queued = 0;
-  for (const row of rows) {
-    const playerId = String(row.player_id);
-    const eveningId = String(row.evening_id);
-    const response = String(row.response_status || 'unanswered');
-    const attendance = String(row.attendance_status || 'unknown');
-    const startsAt = new Date(String(row.starts_at)).getTime();
-    const title = String(row.title || 'Игровой вечер');
-    const place = row.venue ? ` · ${String(row.venue)}` : '';
-    const diff = startsAt - now;
-
-    if (response === 'unanswered') {
-      await queuePersonalNotification(db, {
-        notificationKey: `invite:${eveningId}:${playerId}`,
-        playerId, eventType: 'invitation', entityId: eveningId,
-        text: `💬 Нужно подтвердить участие\n${title}${place}\nОткрой личный кабинет и ответь на приглашение.`,
-        actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
-      });
-      queued++;
-    }
-    if (Number.isFinite(diff) && diff >= 0 && diff <= 7 * DAY_MS && ['going', 'late'].includes(response)) {
-      await queuePersonalNotification(db, {
-        notificationKey: `upcoming:${eveningId}:${playerId}:${response}`,
-        playerId, eventType: 'upcoming_evening', entityId: eveningId,
-        text: `📅 Ты записан на игровой вечер\n${title}${place}\nСтатус: ${response === 'late' ? 'буду позже' : 'иду'}.`,
-        actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
-      });
-      queued++;
-    }
-    if (response !== 'unanswered' || attendance !== 'unknown') {
-      await queuePersonalNotification(db, {
-        notificationKey: `booking-state:${eveningId}:${playerId}:${response}:${attendance}`,
-        playerId, eventType: 'booking_attendance_status', entityId: eveningId,
-        text: `✅ Статус игрового вечера обновлён\n${title}\nОтвет: ${response} · присутствие: ${attendance}.`,
-        actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
-      });
-      queued++;
-    }
-    if (Number.isFinite(diff) && diff >= 0 && diff <= DAY_MS && ['going', 'late'].includes(response)) {
-      await queuePersonalNotification(db, {
-        notificationKey: `reminder:24h:${eveningId}:${playerId}`,
-        playerId, eventType: 'evening_reminder', entityId: eveningId,
-        text: `⏰ Напоминание об игровом вечере\n${title}${place}\nНачало уже в ближайшие 24 часа.`,
-        actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
-      });
-      queued++;
-    }
-    if (Number.isFinite(diff) && diff >= -2 * 60 * 60 * 1000 && diff <= 2 * 60 * 60 * 1000
-      && ['going', 'late'].includes(response) && attendance !== 'attended') {
-      await queuePersonalNotification(db, {
-        notificationKey: `attendance-confirm:${eveningId}:${playerId}`,
-        playerId, eventType: 'attendance_confirmation', entityId: eveningId,
-        text: `📍 Ты уже на месте?\n${title}\nПроверь свой статус посещения в личном кабинете.`,
-        actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
-      });
-      queued++;
-    }
-  }
-  return queued;
-}
+// Evening messages depend on the player's answer; see eveningRsvpNudgeService.
+const queueEveningNotifications = (db: DatabaseWrapper) => queueEveningRsvpNudges(db);
 
 async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   let queued = 0;

@@ -154,7 +154,7 @@ async def _send_normal_start(
         return
 
     await message.answer(
-        bot_menu.start_text(message.from_user.first_name if message.from_user else None),
+        bot_menu.start_text(message.from_user.first_name if message.from_user else None, is_organizer=message.from_user.id in config.ADMIN_IDS),
         parse_mode="HTML",
         reply_markup=kb,
     )
@@ -202,7 +202,7 @@ async def regulations_from_compact_menu(message: Message):
 @router.message(F.text == "🏠 В главное меню", F.chat.type == "private")
 async def back_to_compact_main_menu(message: Message):
     await message.answer(
-        bot_menu.start_text(message.from_user.first_name if message.from_user else None),
+        bot_menu.start_text(message.from_user.first_name if message.from_user else None, is_organizer=message.from_user.id in config.ADMIN_IDS),
         parse_mode="HTML",
         reply_markup=await _main_menu(message.from_user.id),
     )

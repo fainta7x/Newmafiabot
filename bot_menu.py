@@ -81,15 +81,15 @@ def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / и
     return app_inline_keyboard(event_app_path(evening_id), text)
 
 
-def start_text(first_name: str | None = None) -> str:
+def start_text(first_name: str | None = None, *, is_organizer: bool = False) -> str:
     greeting = f"Привет, <b>{escape(first_name)}</b>.\n\n" if first_name else ""
+    commands = "/cabinet — личный кабинет\n" + ("/crm — CRM организатора\n" if is_organizer else "")
     return (
         "🎭 <b>2LA Noire</b>\n\n"
         f"{greeting}"
-        "Бот теперь работает как спутник клуба: сюда приходят анонсы, напоминания, результаты и важные сообщения.\n\n"
-        "В приложении собраны запись на конкретные игры, профиль, рейтинг, история, кошелёк, магазин и ставки.\n\n"
-        "Команды:\n"
-        "/cabinet — Личный кабинет\n"
-        "/crm — CRM организатора\n\n"
-        "Открывай клуб кнопкой ниже — бот и приложение используют одну логику и одну клубную базу."
+        "Сюда приходят анонсы вечеров, напоминания и результаты игр. На анонс можно ответить прямо кнопками: "
+        "«Буду», «Приду позже», «Пока думаю», «Не буду».\n\n"
+        "В приложении — запись на конкретные игры, профиль, рейтинг, история, кошелёк и ставки.\n\n"
+        f"Команды:\n{commands}\n"
+        "Открой клуб кнопкой ниже."
     )

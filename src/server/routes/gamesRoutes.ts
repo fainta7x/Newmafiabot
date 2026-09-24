@@ -164,8 +164,8 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     if (['NOVICE', 'RATING'].includes(normalizeEveningFormat(evening.format))) {
       // Novice dues are estimates made at booking time; bring them to the canonical price
       // (free visits, level, selected games) before judging who still owes.
-      await reconcileNoviceEveningCharges(db, eveningId);
-      const seatIds = (Array.isArray(req.body?.seats) ? req.body.seats : []).map((seat: any) => String(seat?.participant_id || '')).filter(Boolean);
+      const seatIds: string[] = (Array.isArray(req.body?.seats) ? req.body.seats : []).map((seat: any) => String(seat?.participant_id || '')).filter(Boolean);
+      await reconcileNoviceEveningCharges(db, eveningId, seatIds);
       const unpaid = seatIds.length ? await db.all<any>(
         `SELECT ep.id AS participant_id, p.nickname, ep.amount_due, ep.amount_paid
            FROM evening_participants ep JOIN players p ON p.id = ep.player_id

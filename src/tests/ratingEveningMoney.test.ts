@@ -41,9 +41,13 @@ describe('rating evening money', () => {
       { id: 'e2', amount_due: 0, payment_status: 'waived' },
       { id: 'e3', amount_due: 500, payment_status: 'unpaid' },
     ]);
-    // The evening's organizer is not charged, as on club evenings.
+    // Every player at a rating table pays, the organizer included (a full table is 5000 ₽).
     await db.run("INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES ('r', 'p0', ?, ?)", [now, now]);
     await reconcileNoviceEveningCharges(db, 'r');
-    expect(await db.get<any>("SELECT amount_due, payment_status FROM evening_participants WHERE id = 'e0'")).toEqual({ amount_due: 0, payment_status: 'waived' });
+    expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e0'")).toEqual({ amount_due: 500 });
+    // A player seated at a new game without ever answering owes the fee before the prepayment check.
+    expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e2'")).toEqual({ amount_due: 0 });
+    await reconcileNoviceEveningCharges(db, 'r', ['e2']);
+    expect(await db.get<any>("SELECT amount_due, payment_status FROM evening_participants WHERE id = 'e2'")).toEqual({ amount_due: 500, payment_status: 'unpaid' });
   });
 });

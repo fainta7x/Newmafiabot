@@ -150,7 +150,9 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
             return <button
               key={status}
               type="button"
-              disabled={busy || readonly}
+              // Any save in flight blocks every answer button: setStatus ignores clicks
+              // while saving, so the row must not look as if the click was accepted.
+              disabled={Boolean(savingId) || readonly}
               onClick={() => { void setStatus(row, status); setExpandedId(null); }}
               className={`${lastOnMobile ? 'col-span-2 sm:col-span-1' : ''} min-h-[44px] rounded-[11px] px-2 text-[12px] font-bold transition-colors disabled:opacity-40 ${active ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}
             >

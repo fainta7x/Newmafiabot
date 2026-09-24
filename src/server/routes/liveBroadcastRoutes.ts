@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
@@ -49,7 +50,8 @@ const loadCanonicalBroadcastGame = async (
   if (
     protocol?.kind !== 'club_evening_protocol'
     || protocol?.protocol?.status === 'completed'
-    || results.length !== 10
+    // 10 seats, or 8–9 at a novice table.
+    || !isSupportedTableSize(results.length)
   ) return null;
 
   const players = results

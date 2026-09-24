@@ -46,6 +46,9 @@ describe('live game at a novice table', () => {
     const storage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); }, removeItem: (key: string) => { store.delete(key); } };
     storage.setItem('mafia_live_session', JSON.stringify({ phase: 'day_speeches', activePlayers: table(9) }));
     expect(readRestorableLiveSession(storage)?.activePlayers).toHaveLength(9);
+    // A 10-seat game opened later is not offered the stored table of 9.
+    expect(readRestorableLiveSession(storage, 10)).toBeNull();
+    expect(readRestorableLiveSession(storage, 9)?.activePlayers).toHaveLength(9);
     storage.setItem('mafia_live_session', JSON.stringify({ phase: 'day_speeches', activePlayers: table(7) }));
     expect(readRestorableLiveSession(storage)).toBeNull();
   });

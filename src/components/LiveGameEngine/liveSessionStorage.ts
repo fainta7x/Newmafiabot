@@ -14,13 +14,16 @@ const browserStorage = (): StorageLike => localStorage;
 
 export function readRestorableLiveSession(
   storage: StorageLike = browserStorage(),
+  /** Seats of the game being opened: a stored game of another table size is never offered. */
+  expectedTableSize?: number,
 ): PersistedLiveSession | null {
   try {
     const raw = storage.getItem(LIVE_GAME_SESSION_STORAGE_KEY);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as PersistedLiveSession;
-    if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(Number(parsed.activePlayers?.length))) {
+    const size = Number(parsed?.activePlayers?.length);
+    if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(size) && (expectedTableSize === undefined || size === expectedTableSize)) {
       return parsed;
     }
   } catch {

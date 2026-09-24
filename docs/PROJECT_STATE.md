@@ -358,6 +358,20 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - the role section has one win per role;
      - «Идеальная игра» is just a game without fouls.
    - To agree before building: the list of achievements, their names in the club's noir style, the thresholds and rarity, and what happens to achievements players already have.
+12. Shop, donations and micro-purchases (user request 2026-09-24).
+   - Today:
+     - the token shop (`ensurePlayerShopSchema.ts`, `PlayerWalletHub.tsx`) sells three items: «Купить роль на игру», «Заказ музыки», «Бесплатный вечер»;
+     - purchases are redeemed by hand by the organizer;
+     - tokens are earned only in the club (games, judging, organizing).
+   - Target:
+     - finish the shop and add interesting goods and services;
+     - design donations and purchases for real money.
+   - Real-money purchases depend on the online checkout (item 6, after self-employment registration).
+   - To agree before building:
+     - the new items and their prices;
+     - which items are for tokens and which are for money, and whether tokens can be bought;
+     - what donations give the player (a thank-you, a badge, nothing that affects the game);
+     - how purchases are redeemed at the evening.
 
 ## Intentionally incomplete / deferred
 

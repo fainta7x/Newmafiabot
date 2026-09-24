@@ -24,10 +24,10 @@ async function setup(format: 'NOVICE' | 'CASUAL') {
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
       VALUES (?,?,?,'going','going','attended','on_time','waived',0,0,?,?)`, [`ep${seat}`, 'ev', `p${seat}`, now, now]);
   }
-  const create = (count: number) => request(app).post('/api/games/evening/ev').set('Cookie', cookie()).send({
+  const create = async (count: number) => Object.assign(await request(app).post('/api/games/evening/ev').set('Cookie', cookie()).send({
     judge_player_id: 'org', judge_name: 'Судья',
     seats: Array.from({ length: count }, (_, index) => ({ participant_id: `ep${index + 1}`, seat_number: index + 1 })),
-  });
+  }), { app });
   const complete = (game: any, roles: string[]) => request(app).put(`/api/games/${game.id}/evening-protocol`).set('Cookie', cookie()).send({
     protocol: { ...game.club_protocol.protocol, status: 'completed', winner_team: 'red' },
     player_results: game.club_protocol.player_results.map((result: any, index: number) => ({ ...result, role: roles[index] })),
@@ -72,6 +72,13 @@ describe('table size', () => {
     expect(done.body.status).toBe('completed');
     const settled = await db.get<any>("SELECT COUNT(*) AS count FROM club_game_token_settlements WHERE game_id = ? AND subject_type = 'player'", [created.body.id]);
     expect(Number(settled.count)).toBe(8);
+  });
+
+  it('gives a novice table of 8 its OBS broadcast link', async () => {
+    const { create } = await setup('NOVICE');
+    const created = await create(8);
+    const config = await request(created.app).get(`/api/games/${created.body.id}/broadcast-config`).set('Cookie', cookie());
+    expect(config.status, JSON.stringify(config.body)).toBe(200);
   });
 
   it('runs a novice game of 9 with two mafia', async () => {

@@ -338,9 +338,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   useEffect(() => {
-    const storedSession = readRestorableLiveSession();
+    const storedSession = readRestorableLiveSession(undefined, tableSize);
     if (storedSession) setRestorableSession(storedSession);
-  }, []);
+    // The table size is fixed for the lifetime of this engine instance.
+  }, [tableSize]);
 
   useEffect(() => {
     if (phase === 'setup') return;

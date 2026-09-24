@@ -73,4 +73,24 @@ describe('evening shortfall', () => {
     expect(notices.map((row) => row.player_id)).toEqual(['p0', 'p1', 'p2']);
     expect(notices[0].text).toContain('отменён: не набралось игроков');
   });
+
+  it('counts recorded guests, and sends no call for a full table even when slot targets are larger', async () => {
+    const { db, start } = await setup(9);
+    await db.run(`INSERT INTO guest_player_placeholders (id, evening_id, display_name, response_status, registration_status, created_at, updated_at)
+      VALUES ('g1', 'ev', 'Гость', 'going', 'going', ?, ?)`, [new Date().toISOString(), new Date().toISOString()]);
+    const calls: string[] = [];
+    await runEveningShortfallChecks(db, start - 2 * HOUR, async (id) => { calls.push(id); return { success: true }; });
+    expect(calls).toEqual([]);
+    expect((await loadClubOrder(db, start - 0.5 * HOUR)).items.map((item) => item.id)).not.toContain('shortfall:ev');
+  });
+
+  it('re-sends cancellation notices the worker finds missing', async () => {
+    const { db, app, start } = await setup(2);
+    await request(app).patch('/api/evenings/ev').set('Cookie', `organizer_token=${generateOrganizerToken()}`).send({ status: 'cancelled', cancel_reason: 'shortfall' });
+    await db.run("DELETE FROM personal_notification_deliveries WHERE event_type = 'evening_cancelled' AND player_id = 'p1'");
+    await runEveningShortfallChecks(db, start - 2 * HOUR, async () => ({ success: true }));
+    const notices = await db.all<any>("SELECT player_id, text FROM personal_notification_deliveries WHERE event_type = 'evening_cancelled' ORDER BY player_id");
+    expect(notices.map((row) => row.player_id)).toEqual(['p0', 'p1']);
+    expect(notices[1].text).toContain('не набралось игроков');
+  });
 });

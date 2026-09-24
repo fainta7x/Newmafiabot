@@ -24,6 +24,10 @@ export async function ensureEveningShortfallSchema(db: DatabaseWrapper) {
     call_sent_at TEXT,
     cancel_prompt_at TEXT
   )`);
+  const columns = await db.all<any>('PRAGMA table_info(evening_shortfall_actions)');
+  // The reason is kept so cancellation notices can be re-sent after a failed delivery.
+  if (!columns.some((column: any) => column.name === 'cancel_reason')) await db.run('ALTER TABLE evening_shortfall_actions ADD COLUMN cancel_reason TEXT');
+  if (!columns.some((column: any) => column.name === 'cancelled_at')) await db.run('ALTER TABLE evening_shortfall_actions ADD COLUMN cancelled_at TEXT');
 }
 
 /** Players who said they come (the same count the recruitment state uses) against the table minimum. */
@@ -31,7 +35,13 @@ export async function loadEveningShortfall(db: DatabaseWrapper, eveningId: strin
   const state = await loadEveningRecruitmentState(db, eveningId);
   if (!state) return null;
   const minimum = eveningMinimumPlayers(state.evening.format);
-  return { state, minimum, confirmed: Number(state.confirmed_players || 0), short: Number(state.confirmed_players || 0) < minimum };
+  // Guests recorded without a club profile sit at the table too.
+  const hasGuests = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'guest_player_placeholders'");
+  const guests = hasGuests
+    ? Number((await db.get<any>("SELECT COUNT(*) AS count FROM guest_player_placeholders WHERE evening_id = ? AND COALESCE(response_status, '') IN ('going', 'late')", [eveningId]))?.count || 0)
+    : 0;
+  const confirmed = Number(state.confirmed_players || 0) + guests;
+  return { state, minimum, confirmed, short: confirmed < minimum };
 }
 
 export async function runEveningShortfallChecks(
@@ -54,7 +64,8 @@ export async function runEveningShortfallChecks(
     const shortfall = await loadEveningShortfall(db, id);
     if (!shortfall) continue;
 
-    if (!evening.call_sent_at && shortfall.state.can_recruit) {
+    // The call goes out only for a real shortfall against the approved table size (10, novice 8).
+    if (!evening.call_sent_at && shortfall.short) {
       const delivery = await recruit(id).catch(() => ({ success: false }));
       // Only a delivered call is recorded, so a bot outage is retried on the next run.
       if (delivery.success) {
@@ -82,7 +93,26 @@ export async function runEveningShortfallChecks(
       actions += 1;
     }
   }
+  // Re-send cancellation notices that did not get queued (idempotent per player), for cancelled
+  // evenings that have not happened yet.
+  for (const row of await db.all<any>(
+    `SELECT e.id, a.cancel_reason FROM game_evenings e JOIN evening_shortfall_actions a ON a.evening_id = e.id
+      WHERE e.status = 'cancelled' AND a.cancelled_at IS NOT NULL AND datetime(e.starts_at) > datetime(?) AND datetime(e.starts_at) <= datetime(?)`,
+    [new Date(now).toISOString(), new Date(now + 14 * 24 * HOUR).toISOString()],
+  )) {
+    actions += await notifyEveningCancelled(db, String(row.id), row.cancel_reason || null).catch(() => 0);
+  }
   return actions;
+}
+
+/** Remember why an evening was cancelled, so the notices can be re-sent with the same reason. */
+export async function recordEveningCancellation(db: DatabaseWrapper, eveningId: string, reason?: string | null) {
+  await ensureEveningShortfallSchema(db);
+  await db.run(
+    `INSERT INTO evening_shortfall_actions (evening_id, cancel_reason, cancelled_at) VALUES (?, ?, ?)
+     ON CONFLICT(evening_id) DO UPDATE SET cancel_reason = excluded.cancel_reason, cancelled_at = excluded.cancelled_at`,
+    [eveningId, reason || null, new Date().toISOString()],
+  );
 }
 
 /** Tell everyone who was coming or still deciding that the evening is cancelled. */

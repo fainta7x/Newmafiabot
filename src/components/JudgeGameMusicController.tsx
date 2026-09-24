@@ -283,9 +283,9 @@ export default function JudgeGameMusicController() {
                   <div key={entry.key} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 p-2">
                     <button type="button" onClick={() => entry.source_type === 'upload' ? startLocal(entry, picker.kind) : startExternal(entry, picker.kind)} className="min-w-0 flex-1 text-left">
                       <div className="truncate text-xs font-semibold text-white">{entry.title}</div>
-                      <div className="mt-0.5 truncate text-[9px] text-white/30">{entry.source_type === 'yandex' ? 'Яндекс · ' : 'Файл · '}{contributorText(entry)}</div>
+                      <div className="mt-0.5 truncate text-[10px] text-white/30">{entry.source_type === 'yandex' ? 'Яндекс · ' : 'Файл · '}{contributorText(entry)}</div>
                     </button>
-                    {picker.eveningId !== '__test_game__' && <button type="button" onClick={() => void exclude(entry)} title="Не использовать сегодня" className="h-8 rounded-lg border border-white/10 px-2 text-[9px] text-white/35">убрать</button>}
+                    {picker.eveningId !== '__test_game__' && <button type="button" onClick={() => void exclude(entry)} title="Не использовать сегодня" className="h-8 rounded-lg border border-white/10 px-2 text-[10px] text-white/35">убрать</button>}
                   </div>
                 ))}
               </div>
@@ -308,7 +308,7 @@ export default function JudgeGameMusicController() {
             >
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-300/[0.1] text-xs text-violet-100/75">♫</span>
               <span className="min-w-0">
-                <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">Сейчас играет</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">Сейчас играет</span>
                 <span className="mt-0.5 block truncate text-xs font-semibold text-white">{active.entry.title}</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-white/35">{playerCollapsed ? 'развернуть' : 'свернуть'}</span>
@@ -318,7 +318,7 @@ export default function JudgeGameMusicController() {
 
           {!playerCollapsed && (
             <>
-              <div className="mt-1 truncate px-1 text-[9px] text-white/35">
+              <div className="mt-1 truncate px-1 text-[10px] text-white/35">
                 {active.entry.source_type === 'yandex' ? `Яндекс Музыка · ${contributorText(active.entry)}` : `Файл · ${contributorText(active.entry)}`}
               </div>
               <div className="mt-2 flex gap-2">

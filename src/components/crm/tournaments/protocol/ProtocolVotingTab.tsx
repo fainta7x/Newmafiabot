@@ -279,7 +279,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                       className={`w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none ${isReadOnlyCandidate ? 'opacity-70 cursor-not-allowed bg-slate-900/60' : ''}`}
                     />
                     {isReadOnlyCandidate && (
-                      <span className="text-[9px] text-slate-500 text-center font-semibold uppercase tracking-wider mt-0.5">
+                      <span className="text-[10px] text-slate-500 text-center font-semibold uppercase tracking-wider mt-0.5">
                         {nominatedSeats.length === 1 ? "все голоса" : "остаток"}
                       </span>
                     )}

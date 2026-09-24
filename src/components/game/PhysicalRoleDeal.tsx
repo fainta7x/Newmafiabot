@@ -135,7 +135,7 @@ export default function PhysicalRoleDeal({
         <section data-testid="physical-role-deal-intro" className="w-full max-w-md rounded-[28px] border border-white/[0.09] bg-[#121318] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.48)]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Раздача ролей</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Раздача ролей</div>
               <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Подготовьте 10 карт</h2>
               <p className="mt-1 text-[11px] leading-4 text-white/38">6 мирных · 1 шериф · 2 мафии · 1 дон</p>
             </div>
@@ -148,7 +148,7 @@ export default function PhysicalRoleDeal({
               return (
                 <div key={role} className="rounded-[14px] border border-white/[0.06] bg-black/15 px-2 py-2.5 text-center">
                   <span className={`mx-auto block h-2 w-2 rounded-full ${meta.marker}`} />
-                  <div className="mt-1.5 text-[9px] font-semibold text-white/48">{meta.label}</div>
+                  <div className="mt-1.5 text-[10px] font-semibold text-white/48">{meta.label}</div>
                   <div className="mt-0.5 text-[13px] font-semibold text-white/82">{meta.max}</div>
                 </div>
               );
@@ -159,7 +159,7 @@ export default function PhysicalRoleDeal({
 
           {!musicDisabled && (
             <div className="mt-2.5 flex items-center justify-between gap-3 rounded-[14px] border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
-              <span className="text-[9px] font-semibold text-white/30">Музыка раздачи</span>
+              <span className="text-[10px] font-semibold text-white/30">Музыка раздачи</span>
               <strong className="min-w-0 truncate text-[10px] font-semibold text-white/60">{musicTrackTitle || 'Выбранный трек'}</strong>
             </div>
           )}
@@ -186,13 +186,13 @@ export default function PhysicalRoleDeal({
         <section className="rounded-[24px] border border-white/[0.08] bg-[#121318] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.34)]">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/28">Раздача ролей</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/28">Раздача ролей</div>
               <div className="mt-1 text-[17px] font-semibold tracking-[-0.01em] text-white">Фиксируйте фактическую карту</div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <div className="rounded-[12px] bg-black/20 px-2.5 py-2 text-center">
                 <div className="text-[14px] font-semibold text-white/82">{assignedCount}/10</div>
-                <div className="text-[7.5px] text-white/26">готово</div>
+                <div className="text-[10px] text-white/26">готово</div>
               </div>
               <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
             </div>
@@ -206,7 +206,7 @@ export default function PhysicalRoleDeal({
                 <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
                   <div className="flex items-center justify-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${meta.marker}`} />
-                    <span className="text-[8px] font-semibold text-white/38">{meta.label}</span>
+                    <span className="text-[10px] font-semibold text-white/38">{meta.label}</span>
                   </div>
                   <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : meta.countTone}`}>{counts[role]}/{meta.max}</div>
                 </div>
@@ -219,13 +219,13 @@ export default function PhysicalRoleDeal({
           <section className="rounded-[26px] border border-white/[0.09] bg-white/[0.045] p-3.5">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-white/28">Карту тянет</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/28">Карту тянет</div>
                 <div className="mt-1 flex min-w-0 items-baseline gap-2">
                   <span className="font-mono text-[24px] font-semibold tracking-[-0.05em] text-white">#{activeSeat.seat_number}</span>
                   <span className="truncate text-[17px] font-semibold text-white/78">{activeSeat.nickname || `Игрок ${activeSeat.seat_number}`}</span>
                 </div>
               </div>
-              <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[8px] font-semibold text-white/28">{activeIndex + 1} из 10</span>
+              <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[10px] font-semibold text-white/28">{activeIndex + 1} из 10</span>
             </div>
 
             <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>
@@ -246,7 +246,7 @@ export default function PhysicalRoleDeal({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${meta.marker}`} />
-                      <span className="text-[9px] font-semibold text-white/26">{counts[role]}/{meta.max}</span>
+                      <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{meta.max}</span>
                     </div>
                     <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
                   </button>
@@ -271,7 +271,7 @@ export default function PhysicalRoleDeal({
                 >
                   <div className="text-[10px] font-semibold text-white/72">{seat.seat_number}</div>
                   <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${meta?.marker || 'bg-white/12'}`} />
-                  <div className="mt-1 truncate text-[7px] text-white/24">{seat.nickname}</div>
+                  <div className="mt-1 truncate text-[10px] text-white/24">{seat.nickname}</div>
                 </button>
               );
             })}

@@ -434,8 +434,8 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <strong className={`text-[12px] ${achievement.earned ? 'text-text-primary' : 'text-text-secondary'}`}>{achievement.name}</strong>
-                              <span className="text-[9px] font-black uppercase tracking-wide text-text-muted">{achievement.rarity_icon} {achievement.rarity_name}</span>
-                              <span className={`ml-auto text-[9px] font-black uppercase ${achievement.earned ? 'text-success' : 'text-text-muted'}`}>{achievement.earned ? 'Получено' : 'Закрыто'}</span>
+                              <span className="text-[10px] font-black uppercase tracking-wide text-text-muted">{achievement.rarity_icon} {achievement.rarity_name}</span>
+                              <span className={`ml-auto text-[10px] font-black uppercase ${achievement.earned ? 'text-success' : 'text-text-muted'}`}>{achievement.earned ? 'Получено' : 'Закрыто'}</span>
                             </div>
                             <p className="mt-1 text-[11px] leading-4 text-text-secondary">{achievement.description}</p>
                             {achievement.earned && achievement.earned_at ? (

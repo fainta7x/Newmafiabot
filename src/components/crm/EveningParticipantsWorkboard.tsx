@@ -232,13 +232,13 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
       <div className="flex items-center gap-2.5">
         <button type="button" aria-label="Назад" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary"><ArrowLeft className="h-4 w-4" /></button>
         <div className="min-w-0 flex-1">
-          <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-text-muted">Состав вечера</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.13em] text-text-muted">Состав вечера</div>
           <h2 className="mt-0.5 truncate text-[14px] font-semibold text-text-primary">{evening.title}</h2>
-          <p className="mt-0.5 truncate text-[9px] text-text-muted">{eveningMeta(evening)}</p>
+          <p className="mt-0.5 truncate text-[10px] text-text-muted">{eveningMeta(evening)}</p>
         </div>
         <button type="button" aria-label="Обновить состав" disabled={busyIds.size > 0} onClick={() => void load()} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-semibold text-text-muted">
+      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold text-text-muted">
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{confirmedCount}</strong> идут</span>
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-success">{attendedCount}</strong> здесь</span>
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{responseCounts.late}</strong> позже</span>
@@ -250,9 +250,9 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
 
     <div data-testid="evening-roster-action-summary" className={`rounded-[15px] border px-3 py-2.5 ${needsAttention ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`}>
       {actionViews.length ? <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-warning">Нужно сделать</div><div className="mt-0.5 text-[13px] font-semibold text-text-primary">{actionViews.length} {actionWord(actionViews.length)}</div><div className="mt-0.5 truncate text-[9px] text-text-muted">Сверху вниз: явка → оплата</div></div>
-        <div className="shrink-0 rounded-[11px] bg-surface-1/60 px-2.5 py-1.5 text-[9px] text-text-muted"><strong className="text-text-primary">Явка {attendanceActions}</strong><span className="mx-1 text-border-strong">·</span><strong className="text-text-primary">Оплата {paymentActions}</strong></div>
-      </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено минимум {countPlayers(MIN_READY_PLAYERS)}.</div></div></div>}
+        <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-warning">Нужно сделать</div><div className="mt-0.5 text-[13px] font-semibold text-text-primary">{actionViews.length} {actionWord(actionViews.length)}</div><div className="mt-0.5 truncate text-[10px] text-text-muted">Сверху вниз: явка → оплата</div></div>
+        <div className="shrink-0 rounded-[11px] bg-surface-1/60 px-2.5 py-1.5 text-[10px] text-text-muted"><strong className="text-text-primary">Явка {attendanceActions}</strong><span className="mx-1 text-border-strong">·</span><strong className="text-text-primary">Оплата {paymentActions}</strong></div>
+      </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[10px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[10px] text-text-muted">Подтверждено минимум {countPlayers(MIN_READY_PLAYERS)}.</div></div></div>}
     </div>
 
     <div className="flex gap-2">
@@ -261,7 +261,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     </div>
 
     <div className="grid grid-cols-4 gap-1.5">
-      {filters.map((item) => <button key={item.id} data-testid={`evening-roster-filter-${item.id}`} type="button" onClick={() => setFilter(item.id)} className={`min-h-[44px] min-w-0 rounded-[12px] border px-1 text-[9px] font-semibold ${filter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}><span className="block truncate">{item.label}</span><span className="mt-0.5 block text-[10px] font-bold">{item.count}</span></button>)}
+      {filters.map((item) => <button key={item.id} data-testid={`evening-roster-filter-${item.id}`} type="button" onClick={() => setFilter(item.id)} className={`min-h-[44px] min-w-0 rounded-[12px] border px-1 text-[10px] font-semibold ${filter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}><span className="block truncate">{item.label}</span><span className="mt-0.5 block text-[10px] font-bold">{item.count}</span></button>)}
     </div>
 
     {visibleViews.length ? <div data-testid="evening-roster-list" className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">
@@ -272,8 +272,8 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           <button type="button" onClick={() => setActiveParticipant(participant)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-center gap-1.5"><strong className="truncate text-[12px] font-semibold text-text-primary">{participant.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-semibold ${rowStatusTone(participant)}`}>{rowStatusLabel(participant)}</span></span>
-              <span className={`mt-0.5 block truncate text-[9px] ${item.needsAction ? 'text-warning' : 'text-text-muted'}`}>{item.subtitle}</span>
+              <span className="flex min-w-0 items-center gap-1.5"><strong className="truncate text-[12px] font-semibold text-text-primary">{participant.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${rowStatusTone(participant)}`}>{rowStatusLabel(participant)}</span></span>
+              <span className={`mt-0.5 block truncate text-[10px] ${item.needsAction ? 'text-warning' : 'text-text-muted'}`}>{item.subtitle}</span>
             </span>
           </button>
           {item.action === 'attend' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-white px-3 text-[10px] font-semibold text-[#090a0d] disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : item.action === 'pay' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markPaid(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-success-soft px-3 text-[10px] font-semibold text-success disabled:opacity-40">{rowBusy ? '…' : `Принять ${money(debt(participant))}`}</button> : <button type="button" aria-label={`Открыть ${participant.nickname}`} onClick={() => setActiveParticipant(participant)} className="grid h-11 w-9 shrink-0 place-items-center text-text-muted"><ChevronRight className="h-4 w-4" /></button>}
@@ -284,7 +284,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     <MobileSheet open={Boolean(activeParticipant)} onClose={() => setActiveParticipant(null)} title={activeParticipant ? <div className="flex min-w-0 items-center gap-2.5"><PlayerAvatar playerId={activeParticipant.player_id} nickname={activeParticipant.nickname} size="sm" /><span className="truncate text-[15px] font-semibold text-text-primary">{activeParticipant.nickname}</span></div> : 'Игрок'} subtitle={activeParticipant ? EVENING_RESPONSE_LABELS[getEveningResponse(activeParticipant)] : undefined} widthClass="sm:max-w-lg">
       {activeParticipant ? <div data-testid="evening-roster-player-sheet" className="space-y-3">
         <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3.5">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-text-muted">В этом вечере</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.13em] text-text-muted">В этом вечере</div>
           <div className="mt-2 text-[13px] font-semibold text-text-primary">{factSummary(activeParticipant)}</div>
           <div className="mt-1 text-[10px] text-text-muted">Ответ: {EVENING_RESPONSE_LABELS[getEveningResponse(activeParticipant)]}{Number(activeParticipant.amount_due || 0) > 0 ? ` · к оплате ${money(activeParticipant.amount_due)}` : ''}</div>
         </div>

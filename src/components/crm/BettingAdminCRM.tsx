@@ -178,9 +178,9 @@ export const BettingAdminCRM: React.FC = () => {
 
               <div className="space-y-4 border-t border-border-soft p-4">
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[9px] text-text-muted">Комиссия</div><div className="mt-1 text-[13px] font-bold">{(Number(pool.house_rate_bps || 0) / 100).toFixed(0)}%</div></div>
-                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[9px] text-text-muted">Резерв</div><div className="mt-1 text-[13px] font-bold">{money(pool.reserve_amount)} 🪙</div></div>
-                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[9px] text-text-muted">Выплачено</div><div className="mt-1 text-[13px] font-bold">{money(pool.total_paid_out)} 🪙</div></div>
+                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Комиссия</div><div className="mt-1 text-[13px] font-bold">{(Number(pool.house_rate_bps || 0) / 100).toFixed(0)}%</div></div>
+                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Резерв</div><div className="mt-1 text-[13px] font-bold">{money(pool.reserve_amount)} 🪙</div></div>
+                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Выплачено</div><div className="mt-1 text-[13px] font-bold">{money(pool.total_paid_out)} 🪙</div></div>
                 </div>
 
                 <section>

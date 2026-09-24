@@ -34,7 +34,12 @@ const dateLabel = (value?: string | null) => value
   ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
   : 'Без выбранного вечера';
 
-export function NoviceDevelopmentCRM() {
+// Joining the club does not change game_level (BUSINESS_RULES: level is assessed manually),
+// and a `novice` level only admits NOVICE evenings, so the organizer must see that step.
+const levelBlocksCasual = (application: Application) => application.game_level === 'novice'
+  && (application.status === 'COMPLETED' || application.status === 'CONVERTED');
+
+export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void } = {}) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -169,6 +174,10 @@ export function NoviceDevelopmentCRM() {
           {application.status === 'ATTENDED' ? <button disabled={busy === application.id} type="button" onClick={() => void update(application, 'COMPLETED')} className="col-span-2 min-h-11 rounded-xl bg-white/[0.08] text-[12px] font-semibold">Новичковый этап пройден</button> : null}
           {application.status === 'COMPLETED' ? <button disabled={busy === application.id} type="button" onClick={() => void convert(application)} className="col-span-2 min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />Перевести в основной клуб</button> : null}
         </div>
+        {levelBlocksCasual(application) ? <div className="mt-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-2.5 text-[12px] leading-5 text-amber-100">
+          Уровень игры — «Новичок»: {application.status === 'CONVERTED' ? 'на обычные вечера' : 'после перевода на обычные вечера'} запись будет закрыта. Смени уровень в карточке игрока.
+          {onOpenPlayer && application.player_id ? <button type="button" onClick={() => onOpenPlayer(String(application.player_id))} className="mt-2 block min-h-10 w-full rounded-lg bg-amber-300/15 text-[12px] font-semibold">Открыть карточку игрока</button> : null}
+        </div> : null}
       </article>)}
     </div>
   </div>;

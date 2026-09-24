@@ -316,7 +316,7 @@ export const DataSettingsCRM: React.FC = () => {
       <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
         {tabs.map((item) => {
           const Icon = item.icon;
-          return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center rounded-[10px] px-1 text-[9px] font-bold ${tab === item.id ? 'bg-accent text-white' : 'text-text-muted'}`}><Icon className="mb-1 h-4 w-4" />{item.label}</button>;
+          return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center rounded-[10px] px-1 text-[10px] font-bold ${tab === item.id ? 'bg-accent text-white' : 'text-text-muted'}`}><Icon className="mb-1 h-4 w-4" />{item.label}</button>;
         })}
       </div>
 

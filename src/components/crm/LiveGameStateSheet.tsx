@@ -75,22 +75,22 @@ export default function LiveGameStateSheet({ open, gameNumber, hideRoles = false
           <div className="space-y-3 overflow-y-auto p-3 md:p-4">
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               <div data-testid="live-state-phase" className="col-span-2 rounded-2xl border border-amber-200/10 bg-amber-200/[0.07] p-3 md:col-span-1">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-100/55">Этап</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-100/55">Этап</div>
                 <div className="mt-1 text-sm font-semibold text-white">{view.phaseTitle}</div>
                 <div className="mt-0.5 text-[11px] text-white/42">{view.phaseDetail}</div>
               </div>
               <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-3">
-                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.10em] text-white/32"><Users className="h-3 w-3" /> В игре</div>
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.10em] text-white/32"><Users className="h-3 w-3" /> В игре</div>
                 <div className="mt-1 text-lg font-semibold text-white">{view.aliveCount}/10</div>
                 <div className="text-[10px] text-white/32">Красных {view.redAlive} · Чёрных {view.blackAlive}</div>
               </div>
               <div className="rounded-2xl border border-sky-200/10 bg-sky-300/[0.055] p-3">
-                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.10em] text-sky-100/50"><Clock3 className="h-3 w-3" /> Таймер</div>
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.10em] text-sky-100/50"><Clock3 className="h-3 w-3" /> Таймер</div>
                 <div className="mt-1 text-sm font-semibold text-white">{view.timerText || 'Не запущен'}</div>
                 <div className="text-[10px] text-white/32">{view.currentSpeakerSeat ? `Речь #${view.currentSpeakerSeat}` : 'Активной речи нет'}</div>
               </div>
               <div data-testid="live-state-next" className="rounded-2xl border border-emerald-200/10 bg-emerald-300/[0.055] p-3">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.10em] text-emerald-100/50">Следующий шаг</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.10em] text-emerald-100/50">Следующий шаг</div>
                 <div className="mt-1 text-sm font-semibold text-white">{view.nextStep}</div>
                 {view.savedAt && <div className="mt-0.5 text-[10px] text-white/25">Сохранено {view.savedAt}</div>}
               </div>
@@ -110,12 +110,12 @@ export default function LiveGameStateSheet({ open, gameNumber, hideRoles = false
                   <div key={player.seat} className={`min-w-0 rounded-xl border p-2 ${statusTone(player.alive)}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold">#{player.seat}</span>
-                      {!player.alive && <span className="text-[8px] font-semibold uppercase text-rose-200/65">вне игры</span>}
+                      {!player.alive && <span className="text-[10px] font-semibold uppercase text-rose-200/65">вне игры</span>}
                     </div>
                     <div className="mt-0.5 truncate text-[11px] font-semibold">{player.nickname}</div>
-                    <div className="mt-0.5 truncate text-[9px] text-white/32">{hideRoles ? 'Роль скрыта' : player.role}</div>
-                    <div className="truncate text-[9px] text-white/32">{player.status}</div>
-                    <div className="mt-1.5 flex flex-wrap gap-1 text-[8px] font-semibold">
+                    <div className="mt-0.5 truncate text-[10px] text-white/32">{hideRoles ? 'Роль скрыта' : player.role}</div>
+                    <div className="truncate text-[10px] text-white/32">{player.status}</div>
+                    <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-semibold">
                       {player.fouls > 0 && <span className="rounded-md border border-amber-200/10 bg-amber-200/[0.08] px-1.5 py-0.5 text-amber-100/72">Ф {player.fouls}</span>}
                       {player.minorTech > 0 && <span className="rounded-md border border-yellow-200/10 bg-yellow-200/[0.07] px-1.5 py-0.5 text-yellow-100/70">МТ {player.minorTech}</span>}
                       {player.majorTech > 0 && <span className="rounded-md border border-rose-200/10 bg-rose-300/[0.07] px-1.5 py-0.5 text-rose-100/72">БТ {player.majorTech}</span>}
@@ -165,7 +165,7 @@ export default function LiveGameStateSheet({ open, gameNumber, hideRoles = false
 
             {view.lastEvent && (
               <section className="rounded-[20px] border border-white/[0.07] bg-black/20 p-3">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.10em] text-white/25">Последнее событие</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.10em] text-white/25">Последнее событие</div>
                 <div className="mt-1 text-xs text-white/50">{view.lastEvent}</div>
               </section>
             )}

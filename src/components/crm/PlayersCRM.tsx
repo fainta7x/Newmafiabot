@@ -548,7 +548,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
 
             <section data-testid="crm-player-next" className="rounded-[17px] border border-white/10 bg-white/[0.055] p-3.5">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">Следующее</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Следующее</div>
               {bookingEvening && booking ? (
                 <div className="mt-1.5 flex items-center gap-3">
                   <div className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-text-primary">{bookingEvening.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}</span></div>
@@ -583,7 +583,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 ['Игры', playerDetails.gameStats?.completedGames || 0],
                 ['Победы', playerDetails.gameStats?.wins || 0],
                 ['Задачи', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
-              ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[8px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}
+              ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}
             </section>
 
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">

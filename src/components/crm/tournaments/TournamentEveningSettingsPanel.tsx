@@ -140,9 +140,9 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
     </div>
 
     <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-border-soft bg-surface-2 p-3 text-center">
-      <div><div className="text-[9px] uppercase text-text-muted">Состав</div><b className="text-sm">{detail.confirmed_count}/{detail.player_capacity}</b></div>
-      <div><div className="text-[9px] uppercase text-text-muted">Свободно</div><b className="text-sm">{detail.remaining_places}</b></div>
-      <div><div className="text-[9px] uppercase text-text-muted">Взнос</div><b className="text-sm">{Number(detail.entry_fee_rub || 0)} ₽</b></div>
+      <div><div className="text-[10px] uppercase text-text-muted">Состав</div><b className="text-sm">{detail.confirmed_count}/{detail.player_capacity}</b></div>
+      <div><div className="text-[10px] uppercase text-text-muted">Свободно</div><b className="text-sm">{detail.remaining_places}</b></div>
+      <div><div className="text-[10px] uppercase text-text-muted">Взнос</div><b className="text-sm">{Number(detail.entry_fee_rub || 0)} ₽</b></div>
     </div>
 
     <div className={`mt-3 rounded-2xl border p-3 ${readinessBlockers.length ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`} data-testid="tournament-readiness-summary">

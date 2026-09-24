@@ -202,7 +202,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                       onClick={() => { setReplacementPlayerId(player.id); setReplacementError(null); }}
                       className={`min-h-10 rounded-lg border px-3 text-left text-[11px] font-bold ${replacementPlayerId === player.id ? 'border-indigo-400 bg-indigo-500/15 text-indigo-100' : 'border-slate-800 bg-slate-900 text-slate-300'}`}
                     >
-                      {player.nickname}{player.full_name ? <span className="ml-1 text-[9px] font-normal text-slate-500">· {player.full_name}</span> : null}
+                      {player.nickname}{player.full_name ? <span className="ml-1 text-[10px] font-normal text-slate-500">· {player.full_name}</span> : null}
                     </button>
                   ))}
                 </div>
@@ -377,7 +377,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                 return (
                   <tr key={p.participant_id} className="hover:bg-slate-800/40">
                     <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
-                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}{(!String(p.player_id || '').trim() || Boolean((p as any).guest_placeholder_id)) ? <span className="ml-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[8px] font-black uppercase text-indigo-300">гость</span> : null}</td>
+                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}{(!String(p.player_id || '').trim() || Boolean((p as any).guest_placeholder_id)) ? <span className="ml-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-black uppercase text-indigo-300">гость</span> : null}</td>
                     <td className="py-2 px-2 text-amber-300/90">
                       {p.role === 'citizen' && 'Мирный'}
                       {p.role === 'sheriff' && 'Шериф'}
@@ -398,11 +398,11 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                         const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
                         const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
                         return isWinner ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                             +1
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
                             0
                           </span>
                         );

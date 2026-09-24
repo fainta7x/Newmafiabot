@@ -162,7 +162,7 @@ export const SystemStatusCard: React.FC = () => {
         {rows.map(({ key, name, ok, icon: Icon, detail }) => <div key={key} className={`rounded-[13px] border p-3 ${ok ? 'border-border-soft bg-surface-2' : 'border-warning/30 bg-warning-soft'}`}>
           <div className="flex items-center gap-2"><Icon className={`h-4 w-4 ${ok ? 'text-success' : 'text-warning'}`} /><strong className="text-[11px] text-text-primary">{name}</strong></div>
           <div className={`mt-2 text-[12px] font-black ${ok ? 'text-success' : 'text-warning'}`}>{label(ok)}</div>
-          <div className="mt-0.5 line-clamp-2 text-[9px] leading-3 text-text-muted">{detail}</div>
+          <div className="mt-0.5 line-clamp-2 text-[10px] leading-3 text-text-muted">{detail}</div>
         </div>)}
       </div> : null}
 
@@ -170,7 +170,7 @@ export const SystemStatusCard: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2"><Globe2 className={`h-4 w-4 ${vkData?.ok ? 'text-success' : 'text-text-muted'}`} /><strong className="text-[11px] text-text-primary">VK</strong></div>
-            {vkData ? <div className={`mt-1 text-[11px] font-black ${vkData.ok ? 'text-success' : vkData.vk.reachable ? 'text-warning' : 'text-danger'}`}>{vkData.ok ? 'Работает' : vkData.vk.reachable ? 'Частично' : 'Проблема'}</div> : <div className="mt-1 text-[9px] text-text-muted">Без публикаций и сообщений</div>}
+            {vkData ? <div className={`mt-1 text-[11px] font-black ${vkData.ok ? 'text-success' : vkData.vk.reachable ? 'text-warning' : 'text-danger'}`}>{vkData.ok ? 'Работает' : vkData.vk.reachable ? 'Частично' : 'Проблема'}</div> : <div className="mt-1 text-[10px] text-text-muted">Без публикаций и сообщений</div>}
           </div>
           <button
             type="button"
@@ -181,11 +181,11 @@ export const SystemStatusCard: React.FC = () => {
             <RefreshCw className={`h-3.5 w-3.5 ${vkLoading ? 'animate-spin' : ''}`} /> Проверить VK
           </button>
         </div>
-        {vkData ? <div className="mt-2 text-[9px] leading-4 text-text-muted">{vkDetail(vkData)}</div> : null}
-        {vkError ? <div className="mt-2 text-[9px] leading-4 text-danger">{vkError}</div> : null}
+        {vkData ? <div className="mt-2 text-[10px] leading-4 text-text-muted">{vkDetail(vkData)}</div> : null}
+        {vkError ? <div className="mt-2 text-[10px] leading-4 text-danger">{vkError}</div> : null}
       </div>
 
-      {data ? <p className="mt-3 text-[9px] text-text-muted">Проверено {new Date(data.checked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}</p> : null}
+      {data ? <p className="mt-3 text-[10px] text-text-muted">Проверено {new Date(data.checked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}</p> : null}
     </section>
   );
 };

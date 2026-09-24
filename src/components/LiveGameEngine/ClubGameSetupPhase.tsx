@@ -99,7 +99,7 @@ export default function ClubGameSetupPhase({
       <section data-testid="club-game-setup-hero" className="rounded-[24px] border border-white/[0.09] bg-white/[0.045] p-3.5 shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Подготовка игры</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Подготовка игры</div>
             <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Раздача ролей</h2>
             <p className="mt-1 text-[11px] leading-4 text-white/42">Сначала подтвердите фактический состав стола, затем раздайте физические карты.</p>
           </div>
@@ -107,7 +107,7 @@ export default function ClubGameSetupPhase({
             <Layers3 className="h-4 w-4" aria-hidden="true" />
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-[9px] font-semibold text-white/34">
+        <div className="mt-3 flex items-center gap-2 text-[10px] font-semibold text-white/34">
           <span className="rounded-lg bg-black/20 px-2 py-1.5">{selectedCount}/10 игроков</span>
           <span className="rounded-lg bg-black/20 px-2 py-1.5">6 · 1 · 2 · 1</span>
           {rosterConfirmed && (
@@ -139,7 +139,7 @@ export default function ClubGameSetupPhase({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] font-semibold text-white/68">Состав стола</div>
-            <div className="mt-0.5 text-[9px] text-white/28">Проверьте все 10 мест и подтвердите состав перед первой картой</div>
+            <div className="mt-0.5 text-[10px] text-white/28">Проверьте все 10 мест и подтвердите состав перед первой картой</div>
           </div>
           <div className={`rounded-xl px-2.5 py-1.5 text-[10px] font-semibold ${rosterReady ? 'bg-emerald-300/[0.07] text-emerald-100/60' : 'bg-black/20 text-white/42'}`}>{selectedCount}/10</div>
         </div>
@@ -149,7 +149,7 @@ export default function ClubGameSetupPhase({
             return (
               <div key={seat.seat_number} className={`min-w-0 rounded-[10px] border px-1 py-1.5 text-center ${selected ? 'border-white/[0.055] bg-black/15' : 'border-rose-300/10 bg-rose-300/[0.035]'}`}>
                 <div className="text-[10px] font-semibold text-white/78">{seat.seat_number}</div>
-                <div className={`mt-0.5 truncate text-[7.5px] ${selected ? 'text-white/28' : 'text-rose-100/45'}`}>{seat.nickname}</div>
+                <div className={`mt-0.5 truncate text-[10px] ${selected ? 'text-white/28' : 'text-rose-100/45'}`}>{seat.nickname}</div>
               </div>
             );
           })}
@@ -159,7 +159,7 @@ export default function ClubGameSetupPhase({
       <section data-testid="club-game-music-settings" className="rounded-[20px] border border-violet-300/[0.09] bg-violet-300/[0.035] p-3">
         <div className="flex items-center gap-2.5">
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-black/20 text-violet-100/55"><Music2 className="h-3.5 w-3.5" /></div>
-          <div><div className="text-[11px] font-semibold text-white/68">Музыка выбирается по ходу игры</div><div className="mt-0.5 text-[9px] leading-4 text-white/28">Раздача и ночи используют общий плейлист вечера · заранее выбирать два трека не нужно.</div></div>
+          <div><div className="text-[11px] font-semibold text-white/68">Музыка выбирается по ходу игры</div><div className="mt-0.5 text-[10px] leading-4 text-white/28">Раздача и ночи используют общий плейлист вечера · заранее выбирать два трека не нужно.</div></div>
         </div>
       </section>
 

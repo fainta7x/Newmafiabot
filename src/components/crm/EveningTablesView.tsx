@@ -170,7 +170,7 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
                   <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
                   <strong className="truncate text-[14px] text-text-primary">{table.name}</strong>
                 </div>
-                <span className="mt-1 inline-block text-[9px] font-black uppercase tracking-[0.12em] text-text-muted">{formatLabel(table.format)}</span>
+                <span className="mt-1 inline-block text-[10px] font-black uppercase tracking-[0.12em] text-text-muted">{formatLabel(table.format)}</span>
               </div>
               {!isReadonly && (
                 <div className="flex gap-1.5">
@@ -186,15 +186,15 @@ export const EveningTablesView: React.FC<EveningTablesViewProps> = ({ eveningId,
 
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[8px] font-bold uppercase tracking-[0.1em] text-text-muted">Ведущий</span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Ведущий</span>
                 <strong className="mt-1 block truncate text-[11px] text-text-primary">{table.host_name || 'Не назначен'}</strong>
               </div>
               <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[8px] font-bold uppercase tracking-[0.1em] text-text-muted">Тариф</span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Тариф</span>
                 <strong className="mt-1 block text-[11px] text-success">{table.default_price ?? evening.default_price} ₽</strong>
               </div>
               <div className="rounded-[14px] border border-border-soft bg-surface-2 p-2.5">
-                <span className="block text-[8px] font-bold uppercase tracking-[0.1em] text-text-muted">Мест</span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-muted">Мест</span>
                 <strong className="mt-1 block text-[11px] text-text-primary">{table.capacity}</strong>
               </div>
             </div>

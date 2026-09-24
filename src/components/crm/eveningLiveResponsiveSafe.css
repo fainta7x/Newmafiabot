@@ -314,7 +314,7 @@
     line-height: 1.15 !important;
   }
 
-  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 [class*="text-[9px]"] {
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 [class*="text-[10px]"] {
     font-size: clamp(7px, 3.5cqw, 9px) !important;
     line-height: 1.1 !important;
   }

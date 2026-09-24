@@ -111,15 +111,15 @@ export function PlayerActionOverlay({
             <div className="text-base font-black text-white truncate">#{player.slot_num} · {player.nickname}</div>
             <div className="mt-2 grid grid-cols-3 gap-1.5">
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/[.06] px-2 py-1.5 text-center">
-                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Фолы</div>
+                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Фолы</div>
                 <div className="text-sm font-mono font-black text-amber-300">{regularFouls}</div>
               </div>
               <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Малый техфол</div>
+                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Малый техфол</div>
                 <div className="text-sm font-mono font-black text-yellow-300">{minorTech}</div>
               </div>
               <div className="rounded-lg border border-rose-500/20 bg-rose-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Большой техфол</div>
+                <div className="text-[10px] uppercase font-black tracking-wider text-slate-500">Большой техфол</div>
                 <div className="text-sm font-mono font-black text-rose-300">{majorTech}</div>
               </div>
             </div>
@@ -193,7 +193,7 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
             return (
               <button key={seat} type="button" onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number relative h-14 rounded-xl border font-mono font-bold transition-opacity ${order >= 0 ? 'ring-2 ring-white/55' : 'opacity-60'}`} data-seat={seat}>
                 {seat}
-                {order >= 0 && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[9px] font-bold text-[#090a0d]">{order + 1}</span>}
+                {order >= 0 && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#090a0d]">{order + 1}</span>}
               </button>
             );
           })}
@@ -245,7 +245,7 @@ export function LiveGameToast({ toast }: { toast: { message: string; type: "erro
         data-testid="live-game-inline-toast"
         role="status"
         aria-live="polite"
-        className={`absolute inset-0 z-10 block truncate bg-[#101116] text-[9px] font-semibold leading-3 pointer-events-none ${inlineTone}`}
+        className={`absolute inset-0 z-10 block truncate bg-[#101116] text-[10px] font-semibold leading-3 pointer-events-none ${inlineTone}`}
         title={toast.message}
       >
         {toast.message}

@@ -38,6 +38,7 @@ interface MoreCRMProps {
   evenings?: GameEvening[];
   onLogout: () => void | Promise<void>;
   onOpenPlayerMusic: () => void;
+  onOpenPlayer?: (playerId: string) => void;
   activeScreen?: OrganizerMoreScreen | null;
   onScreenChange?: (screen: OrganizerMoreScreen | null) => void;
 }
@@ -68,7 +69,7 @@ const MenuRow = ({ id, label, detail, icon: Icon, onClick }: MenuItem) => (
   </button>
 );
 
-export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, onOpenTheme, onOpenGameEngine, evenings = [], onLogout, onOpenPlayerMusic, activeScreen, onScreenChange }) => {
+export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, onOpenTheme, onOpenGameEngine, evenings = [], onLogout, onOpenPlayerMusic, onOpenPlayer, activeScreen, onScreenChange }) => {
   const [adminOpen, setAdminOpen] = useState(false);
   const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
   const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
@@ -88,7 +89,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
       {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: запись, резерв, взносы и публикация — в карточке турнира.</p> : null}
-      {subscreen === 'development' ? <NoviceDevelopmentCRM /> : null}
+      {subscreen === 'development' ? <NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} /> : null}
     </div>;
   }
 

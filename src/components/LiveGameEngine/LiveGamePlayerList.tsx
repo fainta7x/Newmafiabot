@@ -25,7 +25,7 @@ export default function LiveGamePlayerList({
               {player.alive ? 'Жив' : player.eliminated_phase}
             </span>
           </div>
-          <div className="mt-2 text-[9px] font-bold text-slate-500">Открыть действия игрока</div>
+          <div className="mt-2 text-[10px] font-bold text-slate-500">Открыть действия игрока</div>
         </button>
       ))}
     </div>

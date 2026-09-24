@@ -62,7 +62,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-black uppercase tracking-wide text-slate-300">{label}</span>
-        <span className="text-[9px] text-slate-500 truncate">
+        <span className="text-[10px] text-slate-500 truncate">
           {value[mark].length ? value[mark].map((seat) => `#${seat}`).join(', ') : '—'}
         </span>
       </div>

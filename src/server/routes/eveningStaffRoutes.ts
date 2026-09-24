@@ -5,7 +5,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
-import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
+import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 
 const router = Router();
 
@@ -78,7 +78,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
   const participants = await db.all<any>(`
     SELECT ep.id, ep.player_id, p.nickname, ep.attendance_status,
            ep.payment_status, ep.amount_due, ep.amount_paid,
-           p.club_role, p.judge_level,
+           p.club_role, p.judge_level, p.game_level,
            CASE WHEN EXISTS (
              SELECT 1 FROM evening_fee_waivers w
               WHERE w.participant_id = ep.id AND w.evening_id = ep.evening_id
@@ -112,17 +112,23 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
       status: evening.status,
       settled_at: evening.settled_at || null,
       closed: evening.status === 'completed' || Boolean(evening.settled_at),
-      format: normalizeEveningFormat(evening.format),
     },
-    participants: participants.map((participant: any) => ({
+    participants: await Promise.all(participants.map(async (participant: any) => ({
       ...participant,
+      // Free because it is one of this newcomer's first two NOVICE visits — not a
+      // staff or organizer exemption, which also shows as a zero «waived» row.
+      novice_free: normalizeEveningFormat(evening.format) === 'NOVICE'
+        && String(participant.payment_status) === 'waived'
+        && !participant.fee_waived
+        && ['novice', 'unrated'].includes(String(participant.game_level || ''))
+        && await novicePriceForPlayer(db, String(participant.player_id), eveningId) === 0,
       fee_waived: Boolean(participant.fee_waived),
       fee_review_required: Boolean(participant.fee_review_required),
       fee_review_status: participant.fee_review_status || null,
       fee_review_reason: participant.fee_review_reason || null,
       amount_due: Number(participant.amount_due || 0),
       amount_paid: Number(participant.amount_paid || 0),
-    })),
+    }))),
   };
 }
 

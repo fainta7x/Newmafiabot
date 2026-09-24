@@ -42,13 +42,18 @@ describe('tournament registration reserve', () => {
     expect(notice?.text).toContain('10 октября');
     expect(notice?.text).toContain('Оплатите взнос 500 ₽');
 
-    // The same player can be promoted again later (cancel -> reserve -> vacancy) and must be told again.
+    // The same player can be promoted again later (cancel -> reserve -> vacancy) and must be told again,
+    // but a fee they already reported is not requested a second time.
+    await request(app).post('/api/tournaments/evenings/t1/payment/report').set('Cookie', playerCookie(players[10])).send({ amount_rub: 500 });
     await request(app).post('/api/tournaments/evenings/t1/cancel-registration').set('Cookie', playerCookie(players[10]));
     await request(app).post('/api/tournaments/evenings/t1/register').set('Cookie', playerCookie(players[10]));
     expect(await db.get<any>('SELECT status FROM tournament_registrations WHERE player_id = ?', [players[10]])).toMatchObject({ status: 'reserve' });
     await request(app).post('/api/tournaments/evenings/t1/cancel-registration').set('Cookie', playerCookie(players[1]));
     const notices = await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE player_id = ? AND event_type = 'tournament_reserve_promoted'", [players[10]]);
     expect(notices.length).toBeGreaterThanOrEqual(2);
+    const latest = await db.get<any>("SELECT text FROM personal_notification_deliveries WHERE player_id = ? AND event_type = 'tournament_reserve_promoted' ORDER BY created_at DESC, rowid DESC LIMIT 1", [players[10]]);
+    expect(latest?.text).toContain('«Осенний кубок»');
+    expect(latest?.text).not.toContain('Оплатите взнос');
   });
 
   it('tells an ineligible player up front and answers a forced register in Russian', async () => {

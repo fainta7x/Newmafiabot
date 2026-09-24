@@ -30,7 +30,11 @@ const normalizePreference = (value: unknown): PersonalNotificationPreference => 
   const normalized = String(value || 'auto').trim().toLowerCase();
   return normalized === 'telegram' || normalized === 'vk' ? normalized : 'auto';
 };
-const telegramTextWithAction = (text: string, actionPath?: string | null, hasReplyMarkup = false) => {
+// The Telegram outbox sends with parse_mode HTML, while personal notification text is plain
+// (shared with VK). Escape it so a title like «<Cup> & Co» cannot make Telegram reject the message.
+const escapeTelegramHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const telegramTextWithAction = (rawText: string, actionPath?: string | null, hasReplyMarkup = false) => {
+  const text = escapeTelegramHtml(rawText);
   if (hasReplyMarkup) return text;
   const baseUrl = playerAppBaseUrl();
   const path = String(actionPath || '').trim();

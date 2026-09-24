@@ -96,6 +96,8 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
 export const appBackTarget = (pathname: string): string | null => {
   const parts = partsOf(pathname);
   if (!parts.length) return null;
+  // The public rules page is opened from the player events tab; Telegram's Back returns there.
+  if (parts[0] === 'guide') return '/player/events';
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;
     if (parts[1] === 'players' && parts[2]) {

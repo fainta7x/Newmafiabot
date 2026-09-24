@@ -112,7 +112,9 @@ router.get('/games/:gameKey/replay', async (req, res) => {
       const voteRows = normalizeVoteRows(round.votes ?? round.voting ?? round.vote_result ?? round.results).map((vote) => ({ ...vote, candidate_name: nameOf(vote.candidate) }));
       if (voteRows.length) events.push({ id: `votes:${index}`, type: 'votes', round: number, title: 'Голосование', text: voteRows.map((vote) => `${vote.candidate_name}: ${vote.votes}`).join(' · '), votes: voteRows });
       const eliminated = round.eliminated ?? round.voted_out ?? round.removed ?? round.kicked;
-      if (eliminated != null) events.push({ id: `eliminated:${index}`, type: 'eliminated', round: number, title: 'Стол покинул', text: String(nameOf(eliminated)), player: nameOf(eliminated) });
+      // Club wording: a day exit is «заголосован», a judge's removal is «удалён».
+      const removedByJudge = round.eliminated == null && round.voted_out == null;
+      if (eliminated != null) events.push({ id: `eliminated:${index}`, type: 'eliminated', round: number, title: removedByJudge ? 'Удалён' : 'Заголосован', text: String(nameOf(eliminated)), player: nameOf(eliminated) });
       const killed = round.night_kill ?? round.killed ?? round.night_killed ?? round.shot;
       if (killed != null) events.push({ id: `night:${index}`, type: 'night', round: number, title: 'Ночь', text: `Убит: ${nameOf(killed)}`, player: nameOf(killed) });
     });
@@ -145,7 +147,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
     const eliminationEvents = events.filter((event) => event.type === 'eliminated');
     if (voteEvents.length) analysis.push(`За игру зафиксировано ${voteEvents.length} голосовани${voteEvents.length === 1 ? 'е' : 'й'} и ${eliminationEvents.length} уход(а) со стола по дневному решению.`);
     if (ppk != null) analysis.push(`Ключевым событием стал ППК игрока ${nameOf(ppk)} — по правилам он завершает игру победой противоположной команды.`);
-    if (firstKilled != null) analysis.push(`Первым ночью стол покинул ${nameOf(firstKilled)}; его посмертная информация отмечена в протоколе.`);
+    if (firstKilled != null) analysis.push(`Первым ночью убит ${nameOf(firstKilled)}; его лучший ход и протокол отмечены в протоколе игры.`);
     if (bestMoves.length) analysis.push(`Лучший ход зафиксирован у ${bestMoves.map((player: any) => String(player.display_name || player.nickname || 'игрока')).join(', ')}.`);
     if (!analysis.length) analysis.push('Протокол завершён; дополнительных автоматически выделяемых переломных событий не найдено.');
 

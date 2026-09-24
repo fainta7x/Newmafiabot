@@ -116,7 +116,7 @@ export const normalizeLiveBroadcastState = (
         role: boundedText(submitted.role, '—', 24),
         team: boundedText(submitted.team, '—', 24),
         alive,
-        status: boundedText(submitted.status, alive ? 'В игре' : 'Покинул стол', 100),
+        status: boundedText(submitted.status, alive ? 'В игре' : 'Вне игры', 100),
         statusKind: statusKind as LiveBroadcastState['players'][number]['statusKind'],
         fouls: Math.max(0, finiteInteger(submitted.fouls)),
         minorTech: Math.max(0, finiteInteger(submitted.minorTech)),

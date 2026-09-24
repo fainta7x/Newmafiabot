@@ -376,7 +376,13 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - what donations give the player (a thank-you, a badge, nothing that affects the game);
      - how purchases are redeemed at the evening.
 13. Learning portal, rules and glossary (user request 2026-09-24).
-   - Today the app has no rules, glossary or learning section. A novice only sees the evening schedule with the briefing time.
+   - First step done: the public page `/guide` works without sign-in. Its texts live in `src/lib/clubGuide.ts`; it is a draft by the assistant, approved as the starting point, for the club to edit. It has four tabs:
+     - «Вечер»: the first evening as a scenario from signing up to the final;
+     - «Роли»: each role's task and how to play it;
+     - «Правила»: table rules, fouls, voting and points;
+     - «Словарь»: a searchable glossary.
+   - Links: the player events tab («Правила и словарь») and CRM «Ещё → Памятка новичку».
+   - Left: lessons with videos and tests.
    - Target:
      - a rules and regulations section in a convenient format;
      - a glossary of Mafia terms (ПУ, ЛХ, ППК, фолы, договорка and so on);

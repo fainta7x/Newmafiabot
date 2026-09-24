@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
+  BookOpen,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -97,6 +98,8 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'development', label: 'Развитие', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
     { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
+    // Public page (no sign-in) to send a novice before the first evening; «Ссылка другу» there copies it.
+    { id: 'guide', label: 'Памятка новичку', detail: 'Правила и словарь — ссылка, которую можно отправить', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
   ];
   const reportItems: MenuItem[] = [{ id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics }];

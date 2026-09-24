@@ -94,7 +94,7 @@ export default function PlayerMusicSlots() {
               <div className="flex items-center justify-between gap-3">
                 <strong className="text-sm text-white">Слот {slot}</strong>
                 {entry && (
-                  <a href={entry.source_url} target="_blank" rel="noreferrer" className="text-[10px] font-semibold text-violet-200/70">
+                  <a href={entry.source_url} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-violet-200/70">
                     Открыть ↗
                   </a>
                 )}

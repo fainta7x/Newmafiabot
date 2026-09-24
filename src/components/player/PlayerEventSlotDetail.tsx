@@ -140,7 +140,7 @@ export default function PlayerEventSlotDetail({
         <button type="button" onClick={onBack} className="min-h-10 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-white/50">← События</button>
 
         <header className="mt-3 px-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30">Запись на вечер</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Запись на вечер</div>
           <h1 className="mt-1 text-2xl font-semibold">{event.title}</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">{eventDate(event.starts_at)}{event.venue ? ` · ${event.venue}` : ''}</p>
         </header>
@@ -155,11 +155,11 @@ export default function PlayerEventSlotDetail({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">{plan.event.assembled ? 'Стол собран' : 'Стол собирается'}</div>
-                  <div className="mt-1 text-[10px] text-white/30">
+                  <div className="mt-1 text-[11px] text-white/30">
                     {price > 0 ? `${price} ₽ за игру` : 'Для тебя бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
                   </div>
                 </div>
-                <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[8px] text-white/25">игр</div></div>
+                <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[11px] text-white/25">игр</div></div>
               </div>
             </section>
 
@@ -183,7 +183,7 @@ export default function PlayerEventSlotDetail({
                     </div>
                     {slot.participants.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {slot.participants.map((participant) => <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
+                        {slot.participants.map((participant) => <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
                       </div>
                     )}
                   </button>
@@ -193,13 +193,13 @@ export default function PlayerEventSlotDetail({
 
             <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
-                <div className="text-right"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
+                <div><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
+                <div className="text-right"><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
               </div>
               {maxEveningPrice > 0 && draft.length > 4 && (
-                <div className="mt-2 text-right text-[10px] text-emerald-200/60">Лимит клубного вечера применён: не больше {maxEveningPrice} ₽</div>
+                <div className="mt-2 text-right text-[11px] text-emerald-200/60">Лимит клубного вечера применён: не больше {maxEveningPrice} ₽</div>
               )}
-              {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[10px] font-semibold text-emerald-200/70">План сохранён</div>}
+              {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-200/70">План сохранён</div>}
               {saveError ? (
                 <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
                   {saveError.needsFirstApplication ? 'Записаться на игры можно после первой заявки: выбери путь «новичок» или «уже умею играть» в разделе «События». Организатор подтвердит уровень.' : saveError.message}

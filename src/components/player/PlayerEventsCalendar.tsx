@@ -417,7 +417,7 @@ export default function PlayerEventsCalendar({
                   <div key={day} className="min-h-[58px] rounded-lg border border-white/[0.05] bg-black/20 p-1">
                     <div className="text-[12px] text-white/50">{day}</div>
                     {items.slice(0, 2).map((event) => (
-                      <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => openEvent(event)} aria-label={`${event.title} ${formatEventDate(event.starts_at)}`} className={`mt-1 block min-h-6 w-full rounded px-1 py-1 text-left text-[10px] ${kindTone(event)}`}>
+                      <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => openEvent(event)} aria-label={`${event.title} ${formatEventDate(event.starts_at)}`} className={`mt-1 block min-h-6 w-full rounded px-1 py-1 text-left text-[11px] ${kindTone(event)}`}>
                         <span className="block truncate">{new Date(event.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}</span>
                         <span className="block truncate opacity-70">{kindLabel(event)}</span>
                       </button>

@@ -230,7 +230,7 @@ export default function PlayerGameDetail({
                 <div className="text-lg font-semibold text-white/90">{winnerLabel(detail.game.winner_team)}</div>
                 <div className="mt-1 text-sm text-white/45">{endReasonLabel(detail.protocol.end_reason)}</div>
               </div>
-              <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] text-white/55">
+              <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">
                 {detail.game.source === 'tournament'
                   ? 'Турнир'
                   : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}
@@ -260,7 +260,7 @@ export default function PlayerGameDetail({
             </div>
             {detail.protocol.judge_notes && (
               <div className="mt-3 rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-sm leading-5 text-white/60">
-                <div className="mb-1 text-[10px] uppercase tracking-[0.15em] text-white/30">Заметка судьи</div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.15em] text-white/30">Заметка судьи</div>
                 {detail.protocol.judge_notes}
               </div>
             )}
@@ -281,7 +281,7 @@ export default function PlayerGameDetail({
                               {round.day_number === 0 ? 'Нулевой круг' : `День ${round.day_number}`}
                               {round.is_revote ? ' · переголосование' : ''}
                             </div>
-                            {round.eligible_voters != null && <div className="text-[10px] text-white/30">голосуют {round.eligible_voters}</div>}
+                            {round.eligible_voters != null && <div className="text-[11px] text-white/30">голосуют {round.eligible_voters}</div>}
                           </div>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {round.nominated_seats.map((seat) => {
@@ -359,7 +359,7 @@ export default function PlayerGameDetail({
                         </div>
                       </button>
                       <div className="shrink-0 text-right">
-                        <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Итого</div>
+                        <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Итого</div>
                         <div className={`text-lg font-semibold ${item.score.total_points > 0 ? 'text-emerald-300' : item.score.total_points < 0 ? 'text-rose-300' : 'text-white/75'}`}>
                           {signedScore(item.score.total_points)}
                         </div>
@@ -378,7 +378,7 @@ export default function PlayerGameDetail({
                       <div className="mt-3 text-[11px] text-white/30">Дополнительных начислений нет.</div>
                     )}
 
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/50">
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-white/50">
                       {exit && <span className="rounded-full bg-white/[0.06] px-2 py-1">{exit}</span>}
                       {item.exit_order != null && <span className="rounded-full bg-white/[0.06] px-2 py-1">уход #{item.exit_order}</span>}
                       {item.regular_fouls > 0 && <span className="rounded-full bg-white/[0.06] px-2 py-1">фолы {item.regular_fouls}</span>}
@@ -396,7 +396,7 @@ export default function PlayerGameDetail({
 
                     {item.color_protocol.length > 0 && (
                       <div className="mt-2 rounded-xl bg-white/[0.045] px-2.5 py-2 text-xs text-white/55">
-                        <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-white/30">Цветовой протокол</div>
+                        <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-white/30">Цветовой протокол</div>
                         {item.color_protocol.map((entry, index) => (
                           <div key={`${entry.mark}:${index}`}>{colorMarkLabel(entry.mark)}: {entry.seat_numbers.length ? entry.seat_numbers.map((seat) => `#${seat}`).join(', ') : '—'}</div>
                         ))}
@@ -410,7 +410,7 @@ export default function PlayerGameDetail({
                       </div>
                     )}
 
-                    <div className="mt-3 border-t border-white/[0.06] pt-2 text-[10px] text-white/28">
+                    <div className="mt-3 border-t border-white/[0.06] pt-2 text-[11px] text-white/28">
                       {detail.game.elo_affected && item.elo_delta != null
                         ? `Elo: ${formatEloDelta(item.elo_delta)}${item.elo_before != null && item.elo_after != null ? ` · ${shortNumber(item.elo_before)} → ${shortNumber(item.elo_after)}` : ''}`
                         : 'Elo: эта игра рейтинг не меняет'}

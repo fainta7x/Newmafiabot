@@ -229,7 +229,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
     <section data-testid="premium-profile-connections" className="space-y-3">
       {isSelf && inbox.length > 0 ? (
         <div className="rounded-[26px] border border-amber-200/10 bg-amber-200/[0.045] p-4">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100/55">Приглашения</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/55">Приглашения</div>
           <h2 className="mt-1 text-base font-semibold">Тебя зовут на игру</h2>
           <p className="mt-1 text-xs leading-5 text-white/40">Принять приглашение — не то же самое, что записаться. Место подтверждается на странице вечера.</p>
           <div className="mt-3 space-y-2">
@@ -256,7 +256,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
       {!isSelf && context?.evenings?.length ? (
         <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4" data-testid="invitation-picker">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
           <h2 className="mt-1 text-base font-semibold">Пригласить на игровой вечер</h2>
           <p className="mt-1 text-xs leading-5 text-white/40">Показываем только вечера, на которые ты уже идёшь. Состояние записи игрока проверяется перед отправкой.</p>
           <select value={selectedEveningId} onChange={(event) => setSelectedEveningId(event.target.value)} className="mobile-field mt-3 w-full text-sm" aria-label="Игровой вечер для приглашения">
@@ -273,7 +273,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
       {!isSelf && context && context.evenings.length === 0 ? (
         <div data-testid="invitation-unavailable-state" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Приглашение</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Приглашение</div>
           <h2 className="mt-1 text-base font-semibold">{unavailableReasonLabel(context)}</h2>
           <p className="mt-1 text-xs leading-5 text-white/40">Кнопка отправки недоступна, пока сервер не вернёт состояние «Можно пригласить». Приглашение само по себе никогда не создаёт запись на вечер.</p>
         </div>
@@ -282,7 +282,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       {message ? <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-3 text-xs leading-5 text-white/65">{message}</div> : null}
 
       {(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">История клуба</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">История клуба</div>
         <h2 className="mt-1 text-base font-semibold">Кто кого привёл в 2LA noire</h2>
         <p className="mt-1 text-xs leading-5 text-white/35">Это отдельная историческая связь, подтверждённая организатором. Она не относится к приглашениям на конкретный вечер.</p>
         <div className="mt-3 space-y-2">
@@ -292,13 +292,13 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       </div> : null}
 
       {mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Успешная связка</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Успешная связка</div>
         <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">{countWins(mostSuccessful.same_team_wins || 0)} в {mostSuccessful.same_team_games} совместных играх · {Number(mostSuccessful.same_team_win_rate || 0).toFixed(1)}%</div><div className="mt-1 text-[11px] text-white/28">Показывается только при достаточной выборке, без влияния на рейтинг.</div></div><span className="text-white/25">→</span></div>
       </button> : null}
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи за столом</div><h2 className="mt-1 text-base font-semibold">С кем чаще пересекается игрок</h2></div>
+          <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи за столом</div><h2 className="mt-1 text-base font-semibold">С кем чаще пересекается игрок</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
         <p className="mt-1 text-xs leading-5 text-white/35">Только факты завершённых игр: один стол, одна команда или разные стороны. Без скрытого рейтинга совместимости.</p>
@@ -311,7 +311,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
                   <div className="truncate text-sm font-semibold">{item.nickname}</div>
                   <div className="mt-0.5 text-xs text-white/40">{item.relationship}</div>
                   <div className="mt-1 text-[11px] text-white/28">вместе {item.same_team_games} · против {item.opponent_games} · всего {item.shared_games}{item.same_team_games >= 3 ? ` · побед вместе ${item.same_team_wins || 0} (${Number(item.same_team_win_rate || 0).toFixed(1)}%)` : ''}</div>
-                  {item.last_shared_game_date ? <div className="mt-1 text-[10px] text-white/22">Последняя общая игра: {fmtDate(item.last_shared_game_date)}</div> : null}
+                  {item.last_shared_game_date ? <div className="mt-1 text-[11px] text-white/22">Последняя общая игра: {fmtDate(item.last_shared_game_date)}</div> : null}
                 </div>
                 <span className="text-white/25">→</span>
               </button>

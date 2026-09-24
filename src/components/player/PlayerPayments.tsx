@@ -104,12 +104,12 @@ function PaymentCard({ item, freeCredits, applying, onUseFree }: { item: Payment
           <div className="mt-1 text-xs text-white/40">{dateLabel(item.starts_at)}</div>
           {item.venue && <div className="mt-1 truncate text-xs text-white/30">📍 {item.venue}</div>}
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${statusClass(item.payment_status)}`}>{statusLabel(item.payment_status)}</span>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${statusClass(item.payment_status)}`}>{statusLabel(item.payment_status)}</span>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl bg-white/[0.04] p-2"><div className="text-sm font-semibold text-white/80">{rubles(item.amount_due)}</div><div className="mt-1 text-[10px] text-white/30">стоимость</div></div>
-        <div className="rounded-xl bg-white/[0.04] p-2"><div className="text-sm font-semibold text-emerald-200/75">{rubles(item.amount_paid)}</div><div className="mt-1 text-[10px] text-white/30">оплачено</div></div>
-        <div className="rounded-xl bg-white/[0.04] p-2"><div className={`text-sm font-semibold ${item.outstanding > 0 ? 'text-rose-200/80' : 'text-white/65'}`}>{rubles(item.outstanding)}</div><div className="mt-1 text-[10px] text-white/30">осталось</div></div>
+        <div className="rounded-xl bg-white/[0.04] p-2"><div className="text-sm font-semibold text-white/80">{rubles(item.amount_due)}</div><div className="mt-1 text-[11px] text-white/30">стоимость</div></div>
+        <div className="rounded-xl bg-white/[0.04] p-2"><div className="text-sm font-semibold text-emerald-200/75">{rubles(item.amount_paid)}</div><div className="mt-1 text-[11px] text-white/30">оплачено</div></div>
+        <div className="rounded-xl bg-white/[0.04] p-2"><div className={`text-sm font-semibold ${item.outstanding > 0 ? 'text-rose-200/80' : 'text-white/65'}`}>{rubles(item.outstanding)}</div><div className="mt-1 text-[11px] text-white/30">осталось</div></div>
       </div>
       {canUseFree && (
         <button type="button" disabled={applying} onClick={() => onUseFree(item.participant_id)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-medium text-white/70 disabled:opacity-40">
@@ -128,7 +128,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Оплатить через приложение</h2>
           <p className="mt-1 text-xs leading-5 text-white/35">Каждый платёж сохраняет своё назначение — деньги за вечер не смешиваются с жетонами, поддержкой или сборами.</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${online.available ? 'bg-emerald-400/[0.08] text-emerald-200/80' : 'bg-amber-300/[0.08] text-amber-100/60'}`}>{online.available ? 'СБП доступно' : 'Подключение'}</span>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${online.available ? 'bg-emerald-400/[0.08] text-emerald-200/80' : 'bg-amber-300/[0.08] text-amber-100/60'}`}>{online.available ? 'СБП доступно' : 'Подключение'}</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -143,10 +143,10 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[0.06] text-xl">{PURPOSE_ICON[purpose.id]}</span>
-                <span className="text-[9px] text-white/25">{ready ? 'Открыть ›' : purpose.configured ? 'СБП' : 'Настройка'}</span>
+                <span className="text-[11px] text-white/25">{ready ? 'Открыть ›' : purpose.configured ? 'СБП' : 'Настройка'}</span>
               </div>
               <div className="mt-3 text-sm font-semibold text-white/85">{purpose.title}</div>
-              <div className="mt-1 text-[10px] leading-4 text-white/35">{PURPOSE_HINT[purpose.id]}</div>
+              <div className="mt-1 text-[11px] leading-4 text-white/35">{PURPOSE_HINT[purpose.id]}</div>
             </button>
           );
         })}
@@ -160,8 +160,8 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
 
       {online.token_packages.length > 0 && (
         <div className="mt-3 rounded-2xl bg-black/15 px-3 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Пакеты жетонов</div>
-          <div className="mt-2 flex flex-wrap gap-2">{online.token_packages.map((item) => <span key={item.id} className="rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[10px] text-white/50">{item.token_amount.toLocaleString('ru-RU')} 🪙 · {rubles(item.price_rub)}</span>)}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Пакеты жетонов</div>
+          <div className="mt-2 flex flex-wrap gap-2">{online.token_packages.map((item) => <span key={item.id} className="rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[11px] text-white/50">{item.token_amount.toLocaleString('ru-RU')} 🪙 · {rubles(item.price_rub)}</span>)}</div>
         </div>
       )}
 
@@ -169,7 +169,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
         <div className="mt-3 space-y-2">{online.campaigns.map((campaign) => {
           const target = Number(campaign.target_amount_rub || 0);
           const progress = target > 0 ? Math.min(100, Math.round((campaign.collected_amount_rub / target) * 100)) : null;
-          return <div key={campaign.id} className="rounded-2xl bg-black/15 px-3 py-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-xs font-semibold text-white/75">🎯 {campaign.title}</div>{campaign.description && <div className="mt-1 text-[10px] leading-4 text-white/30">{campaign.description}</div>}</div>{target > 0 && <div className="shrink-0 text-right text-[10px] text-white/35">{rubles(campaign.collected_amount_rub)} / {rubles(target)}</div>}</div>{progress != null && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-white/45" style={{ width: `${progress}%` }} /></div>}</div>;
+          return <div key={campaign.id} className="rounded-2xl bg-black/15 px-3 py-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-xs font-semibold text-white/75">🎯 {campaign.title}</div>{campaign.description && <div className="mt-1 text-[11px] leading-4 text-white/30">{campaign.description}</div>}</div>{target > 0 && <div className="shrink-0 text-right text-[11px] text-white/35">{rubles(campaign.collected_amount_rub)} / {rubles(target)}</div>}</div>{progress != null && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-white/45" style={{ width: `${progress}%` }} /></div>}</div>;
         })}</div>
       )}
     </section>

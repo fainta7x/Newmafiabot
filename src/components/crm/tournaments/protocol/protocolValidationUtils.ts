@@ -249,13 +249,13 @@ export const validateProtocolVoting = (
     }
     if (zeroRoundEliminated.has(player.seat_number) && player.exit_type !== 'voted_zero_round') {
       return {
-        errorMsg: `Игрок #${player.seat_number} выбыл в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`,
+        errorMsg: `Игрок #${player.seat_number} заголосован в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`,
         roundIndexWithError: null,
       };
     }
     if (otherDayEliminated.has(player.seat_number) && player.exit_type !== 'voted_day') {
       return {
-        errorMsg: `Игрок #${player.seat_number} выбыл при голосовании, но его статус ухода в списке игроков не "Заголосован".`,
+        errorMsg: `Игрок #${player.seat_number} заголосован днём, но его статус ухода в списке игроков не "Заголосован".`,
         roundIndexWithError: null,
       };
     }
@@ -265,7 +265,7 @@ export const validateProtocolVoting = (
   if (zeroRoundEliminatedCount === 1) {
     if (!zeroRoundVotedId) {
       return {
-        errorMsg: 'В нулевом круге выбыл один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.',
+        errorMsg: 'В нулевом круге заголосован один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.',
         roundIndexWithError: null,
       };
     }
@@ -279,7 +279,7 @@ export const validateProtocolVoting = (
     }
   } else if (zeroRoundVotedId !== null && zeroRoundVotedId !== '') {
     return {
-      errorMsg: `В нулевом круге выбыло ${zeroRoundEliminatedCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено (пусто).`,
+      errorMsg: `В нулевом круге заголосовано ${zeroRoundEliminatedCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено (пусто).`,
       roundIndexWithError: null,
     };
   }

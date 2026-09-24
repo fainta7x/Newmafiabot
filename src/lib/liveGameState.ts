@@ -95,7 +95,7 @@ const exitLabel = (player: Record<string, any>): string => {
   if (player.exit_reason === 'voted_zero_round') return 'Заголосован в нулевой круг';
   if (player.exit_reason === 'voted_day') return 'Заголосован';
   if (player.exit_reason === 'removed') return player.eliminated_phase || 'Удалён';
-  return player.eliminated_phase || 'Покинул стол';
+  return player.eliminated_phase || 'Вне игры';
 };
 
 const getNextSpeaker = (players: Record<string, any>[], round: number): number | null => {

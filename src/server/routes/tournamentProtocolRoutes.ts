@@ -680,10 +680,10 @@ function validateVotes(
         return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован", но не был заголосован в подтверждённых кругах последующих дней.`;
       }
       if (zeroRoundEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_zero_round') {
-        return `Игрок #${pr.seat_number} выбыл в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`;
+        return `Игрок #${pr.seat_number} заголосован в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`;
       }
       if (otherDayEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_day') {
-        return `Игрок #${pr.seat_number} выбыл при голосовании, но его статус ухода в списке игроков не "Заголосован".`;
+        return `Игрок #${pr.seat_number} заголосован днём, но его статус ухода в списке игроков не "Заголосован".`;
       }
     }
 
@@ -691,7 +691,7 @@ function validateVotes(
     const zrCount = zeroRoundEliminated.size;
     if (zrCount === 1) {
       if (!zeroRoundVotedId) {
-        return 'В нулевом круге выбыл один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.';
+        return 'В нулевом круге заголосован один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.';
       }
       const targetSeat = Array.from(zeroRoundEliminated)[0];
       const targetPlayer = playerResults.find(p => Number(p.seat_number) === targetSeat);
@@ -700,7 +700,7 @@ function validateVotes(
       }
     } else {
       if (zeroRoundVotedId !== null && zeroRoundVotedId !== '' && zeroRoundVotedId !== undefined) {
-        return `В нулевом круге выбыло ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено.`;
+        return `В нулевом круге заголосовано ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено.`;
       }
     }
   }

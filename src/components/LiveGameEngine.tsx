@@ -980,7 +980,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       beginVotingFarewell(farewellQueue);
     }
 
-    setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: голосованием стол покинул игрок #${slot}; перед ночью — прощальная минута.` }]);
+    setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: заголосован игрок #${slot}; перед ночью — прощальная минута.` }]);
     setVotingStage('resolved');
   };
 
@@ -1038,7 +1038,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       const exitReason: NonNullable<ActivePlayerState['exit_reason']> = current.day_number === 0 ? 'voted_zero_round' : 'voted_day';
       result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (День ${roundNumber})`, exitReason));
       const farewellQueue = buildVotingFarewellQueue(result.eliminatedSeats, current.nominated_seats);
-      setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} покинули стол. Прощальные минуты: ${farewellQueue.map((s) => `#${s}`).join(', ')}.` }]);
+      setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} заголосованы. Прощальные минуты: ${farewellQueue.map((s) => `#${s}`).join(', ')}.` }]);
       setVotingStage('resolved');
       beginVotingFarewell(farewellQueue);
       return;
@@ -1329,7 +1329,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       fouls: p.fouls,
       pu: p.is_pu,
       alive: p.alive,
-      status_reason: p.alive ? 'Жив' : p.eliminated_phase || 'Покинул стол',
+      status_reason: p.alive ? 'Жив' : p.eliminated_phase || (p.exit_reason === 'killed' ? 'Убит' : p.exit_reason === 'removed' ? 'Удалён' : p.exit_reason?.startsWith('voted') ? 'Заголосован' : 'Вне игры'),
       base_points: 0,
       elo_change: 0,
       exit_reason: p.exit_reason,

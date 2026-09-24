@@ -187,6 +187,20 @@ Automatic final statuses should use the approved semantics:
 
 Do not collapse these into one generic “out” status when the distinction is visible to players, results or protocol history.
 
+Wording for how a player leaves the game (user-approved 2026-09-24): texts for players and organizers use only **«заголосован»** (voted out in the day) and **«убит»** (killed at night), plus **«удалён»** (removed by the judge) and **ППК**. Vague words that mix these up — «убрали», «выгнали», «покинул стол», «выбыл» — are not used. When the reason is unknown, the neutral label is «Вне игры».
+
+## Table conduct (user-approved 2026-09-24)
+
+Forbidden at the table; the judge punishes it with a foul, a technical foul or removal depending on severity:
+
+- swearing and near-swearing («хер», «хрен» and similar);
+- oaths and appeals to religion («клянусь», «богом клянусь»);
+- bets («спорим на тысячу, что я мирный»);
+- threats and insults that are personal, not part of the game;
+- remarks about intelligence, one's own included («я же не тупой так играть»).
+
+The novice guide (`/guide`) shows this list first in its «Правила» tab.
+
 ## Broadcast overlay visibility
 
 The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game, not a second judge protocol.

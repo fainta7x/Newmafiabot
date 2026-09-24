@@ -143,8 +143,8 @@ const colorMarkLabel = (mark: string) => {
 const voteOutcomeLabel = (outcome: string | null) => {
   if (!outcome) return null;
   if (outcome === 'tie_revote') return 'ничья → переголосование';
-  if (outcome === 'night') return 'никто не покинул стол → ночь';
-  if (outcome === 'eliminated') return 'игрок покинул стол';
+  if (outcome === 'night') return 'никто не заголосован → ночь';
+  if (outcome === 'eliminated') return 'игрок заголосован';
   return outcome.replaceAll('_', ' ');
 };
 

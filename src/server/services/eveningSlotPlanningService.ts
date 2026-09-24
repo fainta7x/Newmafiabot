@@ -81,9 +81,16 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
   const wholeEveningGames = Number(openSlots?.count || 0);
   let changed = 0;
   const now = new Date().toISOString();
+  // The evening's organizer never pays on a novice evening (user-approved 2026-09-24).
+  const staffTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'");
+  const organizerId = staffTable
+    ? String((await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]))?.organizer_player_id || '')
+    : '';
   for (const participant of participants) {
     if (waived.has(String(participant.id))) continue;
-    const price = await novicePriceForPlayer(db, String(participant.player_id), eveningId);
+    const price = organizerId && String(participant.player_id) === organizerId
+      ? 0
+      : await novicePriceForPlayer(db, String(participant.player_id), eveningId);
     const selected = Number(participant.games || 0);
     const planned = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
     const games = seated.has(String(participant.id)) ? Math.max(planned, 1) : planned;

@@ -340,6 +340,16 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - when and how often it is sent (for example the day before and on the day);
      - whether VK gets it too;
      - whether the organizer confirms it or it goes fully automatically.
+10. Parallel games of different formats (user request 2026-09-24, for later).
+   - Target: two or more tables running at the same time, possibly in different formats (for example a novice table next to a rating table).
+   - Today:
+     - an evening can already have several tables (`evening_tables`), and each table stores a `format` label;
+     - but every rule follows the evening's format, not the table's: price and prepayment, Elo, table size, the required judge level, the rating fee split;
+     - Live Game keeps one unfinished game per device (`mafia_live_session` in local storage), so each table needs its own judge phone.
+   - To agree before building:
+     - one evening with tables of different formats, or separate evenings at the same time;
+     - how the player registers and pays when formats differ;
+     - which tables and games the organizer and the OBS overlay see at once.
 
 ## Intentionally incomplete / deferred
 

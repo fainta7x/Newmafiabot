@@ -372,6 +372,26 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - which items are for tokens and which are for money, and whether tokens can be bought;
      - what donations give the player (a thank-you, a badge, nothing that affects the game);
      - how purchases are redeemed at the evening.
+13. Learning portal, rules and glossary (user request 2026-09-24).
+   - Today the app has no rules, glossary or learning section. A novice only sees the evening schedule with the briefing time.
+   - Target:
+     - a rules and regulations section in a convenient format;
+     - a glossary of Mafia terms (ПУ, ЛХ, ППК, фолы, договорка and so on);
+     - a learning portal with lessons, texts, links to videos and tests.
+   - It must work as a link that can be sent to a novice before the first evening, readable without signing in.
+   - To agree before building:
+     - the source texts (the club's regulations, which rules set);
+     - which videos to link;
+     - whether passing tests gives anything (tokens, an achievement, a level step towards «Клубный игрок»).
+14. Mini-games and in-app activities (user request 2026-09-24).
+   - Target: activities inside the app between evenings to keep players interested.
+   - Ideas to discuss:
+     - daily quizzes on the rules;
+     - «угадай роль» from famous games;
+     - predictions for the evening's games;
+     - weekly challenges;
+     - a streak for coming to evenings.
+   - To agree before building: which activities, what they give (tokens, achievements), and that nothing affects Elo or the game itself.
 
 ## Intentionally incomplete / deferred
 

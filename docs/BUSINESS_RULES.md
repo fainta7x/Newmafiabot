@@ -233,6 +233,16 @@ Approved response model for an announced evening includes:
 - **Приду позже**
 - **Пока думаю**
 
+Personal evening messages follow the player's answer (user-approved 2026-09-24):
+
+- no answer — an invitation with the answer buttons (skipped when the bot announcement already reached the player), and one more nudge within 24 hours of the start;
+- **Иду** — only a reminder 24 hours before;
+- **Не иду** — nothing until the next announcement;
+- **Пока думаю** — from 24 hours before, «Что решил?» with the answer buttons and a choice of when to ask again («утром в день игры» or «за 3 часа»);
+- **Приду позже** — asked to pick the games they will make, until they do.
+
+The Telegram group post lists, besides players by game, those who answered but picked no games («Идут, игры ещё не выбрали», «Придут позже», «Пока думают») and the number who declined.
+
 The event/announcement model is centered on an evening with linked player contacts/statuses. Avoid introducing a CRM model that requires a separate sales “deal” for every player/evening unless explicitly requested.
 
 Evening restrictions are product-level event restrictions (for example newcomer/rating/tournament type), not an invitation-reservation system by default.

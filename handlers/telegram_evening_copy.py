@@ -124,6 +124,15 @@ def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     return "\n".join(lines)
 
 
+def _players_word(count: int) -> str:
+    count = abs(int(count or 0))
+    if count % 10 == 1 and count % 100 != 11:
+        return "игрок"
+    if 2 <= count % 10 <= 4 and not 12 <= count % 100 <= 14:
+        return "игрока"
+    return "игроков"
+
+
 def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
     if not slots:
         return ["🎲 <b>По играм</b>", "Игры вечера пока не настроены."]
@@ -132,7 +141,7 @@ def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZON
         count = int(slot.get("registered_count") or len(slot.get("participants") or []))
         target = int(slot.get("target_players") or 11)
         ready = " ✅" if count >= target else ""
-        lines.append(f"{_format_time(slot.get('starts_at'), timezone_name)} · игра {int(slot.get('slot_number') or 0)} — <b>{count}</b> игроков{ready}")
+        lines.append(f"{_format_time(slot.get('starts_at'), timezone_name)} · игра {int(slot.get('slot_number') or 0)} — <b>{count}</b> {_players_word(count)}{ready}")
     return lines
 
 
@@ -163,7 +172,7 @@ def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE)
         players.values(),
         key=lambda item: (int(item.get("first_number") or 999), str(item.get("nickname") or "").casefold()),
     )
-    lines = [f"👥 <b>Записались: {len(ordered)}</b>", "<b>Кто и к какому времени</b>"]
+    lines = [f"👥 <b>Записались на игры: {len(ordered)}</b>", "<b>Кто и к какому времени</b>"]
     max_players = 45
     for item in ordered[:max_players]:
         nickname = escape(str(item.get("nickname") or "Игрок"))
@@ -171,6 +180,38 @@ def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE)
         lines.append(f"{_format_time(item.get('first_starts_at'), timezone_name)} — {nickname} · игры {games}")
     if len(ordered) > max_players:
         lines.append(f"…и ещё {len(ordered) - max_players} игроков")
+    return lines
+
+
+def _response_lines(participants: list[dict], slots: list[dict]) -> list[str]:
+    """Players who answered but are not in any game yet: «иду» without games, «позже», «думаю»."""
+    in_games = {
+        str(person.get("id") or person.get("player_id") or "")
+        for slot in slots
+        for person in (slot.get("participants") or [])
+    }
+    groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": []}
+    declined = 0
+    for participant in participants:
+        status = str(participant.get("response_status") or "")
+        if status == "declined":
+            declined += 1
+            continue
+        if status not in groups or str(participant.get("player_id") or "") in in_games:
+            continue
+        groups[status].append(escape(str(participant.get("nickname") or "Игрок")))
+    lines: list[str] = []
+    for status, title in (
+        ("going", "✅ Идут, игры ещё не выбрали"),
+        ("late", "⏳ Придут позже"),
+        ("thinking", "🤔 Пока думают"),
+    ):
+        names = sorted(groups[status], key=str.casefold)
+        if names:
+            shown = ", ".join(names[:30]) + (f" и ещё {len(names) - 30}" if len(names) > 30 else "")
+            lines.append(f"<b>{title} ({len(names)}):</b> {shown}")
+    if declined:
+        lines.append(f"❌ Не смогут: {declined}")
     return lines
 
 
@@ -246,7 +287,7 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
     )
 
 
-def thematic_event_text(evening: dict, slots: list[dict] | None = None) -> str:
+def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -256,7 +297,8 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None) -> str:
         event_base_text(evening, slot_rows),
         "\n".join(_slot_load_lines(slot_rows, timezone_name)),
         "\n".join(_arrival_lines(slot_rows, timezone_name)),
-        "Чтобы записаться или изменить свой план, выбери игры кнопкой ниже.",
+        "\n".join(_response_lines(participants or [], slot_rows)),
+        "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
     ]
     return "\n\n".join(section for section in sections if section)
 

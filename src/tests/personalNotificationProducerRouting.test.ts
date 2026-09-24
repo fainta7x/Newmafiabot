@@ -9,7 +9,10 @@ describe('channel-neutral personal notification producers',()=>{
     const source=read('src/server/services/personalTelegramNotificationService.ts');
     expect(source).toContain("from './personalNotificationRouterService.ts'");
     expect(source).not.toContain('telegram_user_id IS NOT NULL');
-    for(const type of ['invitation','upcoming_evening','booking_attendance_status','evening_reminder','attendance_confirmation','game_result','elo_change','bet_result','bet_refund']) expect(source).toContain(`'${type}'`);
+    for(const type of ['game_result','elo_change','bet_result','bet_refund']) expect(source).toContain(`'${type}'`);
+    const evening=read('src/server/services/eveningRsvpNudgeService.ts');
+    expect(evening).toContain("from './personalNotificationRouterService.ts'");
+    for(const type of ['invitation','invitation_nudge','evening_reminder','evening_pick_games','thinking_followup']) expect(evening).toContain(`'${type}'`);
   });
   it('routes both active and legacy player-to-player invitation services through the same channel-neutral router',()=>{
     const hardened=read('src/server/services/playerInvitationEligibilityService.ts');

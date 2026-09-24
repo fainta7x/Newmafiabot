@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import {
   findPlayersByNickname,
@@ -159,6 +160,35 @@ router.get('/evenings/:eveningId/participants', async (req, res) => {
     res.json({ evening, participants });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить состав вечера' });
+  }
+});
+
+// «Пока думаю» players choose when the bot should ask again (see eveningRsvpNudgeService).
+router.post('/evenings/:eveningId/followup', async (req, res) => {
+  try {
+    const db = req.db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const option = String(req.body?.when ?? '').trim() as RsvpFollowupOption;
+    if (!telegramUserId || !RSVP_FOLLOWUP_OPTIONS.includes(option)) return res.status(400).json({ error: 'Некорректный запрос' });
+    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    const evening = await db.get('SELECT id, status, settled_at, starts_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
+    if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+      return res.status(409).json({ error: 'Вечер уже закрыт', code: 'closed' });
+    }
+    await ensureEveningRsvpFollowupSchema(db);
+    const followupAt = rsvpFollowupAt(String(evening.starts_at), option);
+    if (!followupAt) return res.status(409).json({ error: 'Вечер уже начинается', code: 'too_late' });
+    const updated = await db.run(
+      `UPDATE evening_participants SET rsvp_followup_at = ?, updated_at = ?
+        WHERE evening_id = ? AND player_id = ? AND response_status = 'thinking'`,
+      [followupAt, new Date().toISOString(), evening.id, player.id],
+    );
+    if (!updated.changes) return res.status(409).json({ error: 'Ответ уже изменён', code: 'not_thinking' });
+    return res.json({ success: true, followup_at: followupAt });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить' });
   }
 });
 

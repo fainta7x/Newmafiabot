@@ -192,6 +192,8 @@ export interface PlayerAchievementProfile {
   total: number;
   percentage: number;
   categories: PlayerAchievementCategory[];
+  /** Completed games judged and closed evenings run as the assigned organizer. */
+  staff?: { judged_games: number; organized_evenings: number };
 }
 
 export interface PlayerDetails extends Player {

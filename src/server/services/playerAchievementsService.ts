@@ -44,6 +44,8 @@ export interface PlayerAchievementProfile {
       progress: { current: number; target: number } | null;
     }>;
   }>;
+  /** Completed games judged and closed evenings run as the assigned organizer. */
+  staff?: { judged_games: number; organized_evenings: number };
 }
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
@@ -370,5 +372,7 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
     .filter((category) => category.total > 0);
   const earned = categories.reduce((sum, category) => sum + category.earned, 0);
   const total = definitions.length;
-  return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories };
+  // Staff work shown next to achievements: completed games judged and closed evenings run as organizer.
+  const staff = { judged_games: stats.judgedGames, organized_evenings: stats.organizedEvenings };
+  return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories, staff };
 };

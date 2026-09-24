@@ -63,4 +63,15 @@ describe('evening organizer and game judge', () => {
     await evaluatePlayerAchievements(db, 'org');
     expect(await db.get<any>("SELECT achievement_id FROM player_achievements WHERE player_id = 'org' AND achievement_id = 'first_organized'")).toBeTruthy();
   });
+
+  it('reports organizers and judges and shows the counts on the player card', async () => {
+    const { db, app, now } = await setup('active', new Date().toISOString());
+    await assignOrganizer(db, now);
+    await settleEveningFromCloseout(db, 's1', { allow_missing_game_stats: true });
+    const report = await request(app).get('/api/analytics/staff?period=30d').set('Cookie', cookie());
+    expect(report.status).toBe(200);
+    expect(report.body.staff).toEqual([{ player_id: 'org', nickname: 'Хозяин', evenings: 1, games: 0 }]);
+    const card = await request(app).get('/api/players/org').set('Cookie', cookie());
+    expect(card.body.achievements.staff).toEqual({ judged_games: 0, organized_evenings: 1 });
+  });
 });

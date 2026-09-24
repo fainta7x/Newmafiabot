@@ -7,6 +7,53 @@ const router = Router();
 
 const pct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0;
 
+// Organizers and judges for a period: closed evenings run as the assigned organizer and completed
+// games judged by a club player (user-approved staff accounting, 2026-09-24).
+router.get('/staff', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const days = ({ '7d': 7, '30d': 30, '90d': 90 } as Record<string, number>)[String(req.query.period || 'all')] || 0;
+    const since = days ? new Date(Date.now() - days * 86_400_000).toISOString() : '0000';
+    const tables = new Set((await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((row: any) => String(row.name)));
+    const rows = new Map<string, { player_id: string; nickname: string; evenings: number; games: number }>();
+    const bump = (id: string, nickname: string, field: 'evenings' | 'games', count: number) => {
+      const row = rows.get(id) || { player_id: id, nickname, evenings: 0, games: 0 };
+      row[field] += count;
+      rows.set(id, row);
+    };
+    if (tables.has('evening_staff_assignments')) {
+      for (const row of await db.all<any>(`
+        SELECT s.organizer_player_id AS id, p.nickname, COUNT(*) AS count
+          FROM evening_staff_assignments s
+          JOIN game_evenings e ON e.id = s.evening_id
+          JOIN players p ON p.id = s.organizer_player_id
+         WHERE (e.status = 'completed' OR e.settled_at IS NOT NULL) AND e.starts_at >= ?
+         GROUP BY s.organizer_player_id, p.nickname`, [since])) bump(String(row.id), String(row.nickname), 'evenings', Number(row.count));
+    }
+    const clubGames = await db.all<any>(`
+      SELECT g.judge_player_id AS id, p.nickname, g.protocol_text
+        FROM games g JOIN players p ON p.id = g.judge_player_id
+        LEFT JOIN game_evenings e ON e.id = g.evening_id
+       WHERE g.archived_at IS NULL AND COALESCE(e.starts_at, g.created_at) >= ?`, [since]);
+    for (const game of clubGames) {
+      let completed = false;
+      try { const payload = JSON.parse(String(game.protocol_text || '')); completed = payload?.kind === 'club_evening_protocol' && payload.protocol?.status === 'completed'; } catch { completed = false; }
+      if (completed) bump(String(game.id), String(game.nickname), 'games', 1);
+    }
+    if (tables.has('tournament_games')) {
+      for (const row of await db.all<any>(`
+        SELECT tg.judge_player_id AS id, p.nickname, COUNT(*) AS count
+          FROM tournament_games tg JOIN players p ON p.id = tg.judge_player_id
+         WHERE tg.status = 'completed' AND COALESCE(tg.completed_at, '') >= ?
+         GROUP BY tg.judge_player_id, p.nickname`, [since])) bump(String(row.id), String(row.nickname), 'games', Number(row.count));
+    }
+    const staff = [...rows.values()].sort((a, b) => (b.evenings + b.games) - (a.evenings + a.games) || a.nickname.localeCompare(b.nickname, 'ru'));
+    return res.json({ period: req.query.period || 'all', staff });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать отчёт по организаторам и судьям' });
+  }
+});
+
 router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
     const { period, start_date, end_date } = req.query;

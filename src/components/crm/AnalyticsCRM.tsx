@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign, Send, TrendingUp, Users } from 'lucide-react';
 import { api, type AnalyticsData } from '../../lib/api.ts';
 import { AppUsagePanel } from './AppUsagePanel.tsx';
+import { StaffReportPanel } from './StaffReportPanel.tsx';
 
 type AnalyticsViewData = AnalyticsData & {
   playerJourney?: {
@@ -144,6 +145,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
         </div>
       </section>
 
+      <StaffReportPanel period={period} />
       <AppUsagePanel period={period} />
     </div>
   );

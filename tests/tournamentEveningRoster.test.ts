@@ -88,6 +88,12 @@ describe('TOURNAMENT-EVENING-001 canonical roster ownership', () => {
     expect((await db.get<any>(`SELECT COUNT(*) AS count FROM tournament_game_seats s
       JOIN tournament_games g ON g.id=s.game_id WHERE g.tournament_id=?`, [id]))?.count).toBe(100);
 
+    // A tournament evening cannot start without its organizer; with one assigned it is ready.
+    const withoutOrganizer = await request(app).get(`/api/tournaments/${id}`);
+    expect(withoutOrganizer.body.start_readiness).toMatchObject({ ready: false, errors: expect.arrayContaining(['Не выбран организатор турнира']) });
+    await addPlayer('org');
+    await db.run("UPDATE players SET club_role = 'organizer' WHERE id = 'org'");
+    await db.run('UPDATE tournaments SET organizer_player_id = ? WHERE id = ?', ['org', id]);
     const detail = await request(app).get(`/api/tournaments/${id}`);
     expect(detail.status).toBe(200);
     expect(detail.body.start_readiness).toMatchObject({ ready: true, participants_count: 10, games_count: 10, seats_count: 100 });

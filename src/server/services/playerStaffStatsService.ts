@@ -61,8 +61,7 @@ async function judgedByFormat(db: DatabaseWrapper, playerId: string, tables: Set
 
 async function organizedByFormat(db: DatabaseWrapper, playerId: string, tables: Set<string>) {
   const counts = new Map<EveningFormat, number>();
-  if (!tables.has('evening_staff_assignments')) return counts;
-  const rows = await db.all<any>(`
+  const rows = !tables.has('evening_staff_assignments') ? [] : await db.all<any>(`
     SELECT e.format, COUNT(*) AS count
       FROM evening_staff_assignments s JOIN game_evenings e ON e.id = s.evening_id
      WHERE s.organizer_player_id = ? AND (e.status = 'completed' OR e.settled_at IS NOT NULL)
@@ -70,6 +69,12 @@ async function organizedByFormat(db: DatabaseWrapper, playerId: string, tables: 
   for (const row of rows) {
     const format = normalizeEveningFormat(row.format);
     counts.set(format, (counts.get(format) || 0) + Number(row.count || 0));
+  }
+  // Completed tournaments run as their organizer.
+  if ((await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'organizer_player_id')) {
+    const tournaments = await db.get<any>("SELECT COUNT(*) AS count FROM tournaments WHERE organizer_player_id = ? AND status = 'completed'", [playerId]);
+    const count = Number(tournaments?.count || 0);
+    if (count) counts.set('TOURNAMENT', (counts.get('TOURNAMENT') || 0) + count);
   }
   return counts;
 }

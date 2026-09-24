@@ -265,6 +265,10 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     `, [playerId]);
     stats.organizedEvenings = Number(organized?.count || 0);
   }
+  if ((await db.all('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'organizer_player_id')) {
+    const tournaments = await db.get("SELECT COUNT(*) AS count FROM tournaments WHERE organizer_player_id = ? AND status = 'completed'", [playerId]);
+    stats.organizedEvenings += Number(tournaments?.count || 0);
+  }
 
   return stats;
 };

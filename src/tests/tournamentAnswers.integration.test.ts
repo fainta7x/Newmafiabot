@@ -113,4 +113,27 @@ describe('tournament answers', () => {
     expect(moved.status, JSON.stringify(moved.body)).toBe(200);
     expect((await db.get<any>("SELECT payment_deadline_72_done_at FROM tournaments WHERE id = 't1'")).payment_deadline_72_done_at).toBeNull();
   });
+
+  it('assigns a club organizer to the tournament and counts the completed tournament as organized', async () => {
+    const { db, app, players } = await setup(3);
+    await db.run("UPDATE tournaments SET judge_player_id = ?, chief_judge_name = 'Судья' WHERE id = 't1'", [players[1]]);
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const refused = await request(app).put('/api/tournaments/evenings/t1').set('Cookie', cookie).send({ organizer_player_id: players[2] });
+    expect(refused.status).toBe(400);
+    await db.run("UPDATE players SET club_role = 'organizer' WHERE id = ?", [players[2]]);
+    expect((await request(app).put('/api/tournaments/evenings/t1').set('Cookie', cookie).send({ organizer_player_id: players[2] })).status).toBe(200);
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = 't1'");
+    const card = await request(app).get(`/api/players/${players[2]}`).set('Cookie', cookie);
+    expect(card.body.staff_stats.organized).toEqual({ total: 1, by_format: [{ format: 'TOURNAMENT', label: 'турнирных', count: 1 }] });
+  });
+
+  it('does not start a tournament evening without its organizer', async () => {
+    const { app } = await setup(1);
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const detail = await request(app).get('/api/tournaments/t1').set('Cookie', cookie);
+    expect(detail.body.start_readiness.errors).toContain('Не выбран организатор турнира');
+    const started = await request(app).post('/api/tournaments/t1/start').set('Cookie', cookie);
+    expect(started.status).toBe(400);
+    expect(started.body.error).toContain('Не выбран организатор турнира');
+  });
 });

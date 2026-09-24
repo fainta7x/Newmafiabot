@@ -119,6 +119,13 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
   }
 });
 
+// Tournament evenings need their organizer before launch: settings lock once the tournament starts,
+// and the organizer is what counts the tournament in «Провёл вечеров» (user-approved 2026-09-24).
+function withOrganizerRequirement<T extends { ready: boolean; errors: string[] }>(readiness: T, tournament: any): T {
+  if (Number(tournament?.tournament_evening_flow || 0) !== 1 || tournament?.organizer_player_id) return readiness;
+  return { ...readiness, ready: false, errors: ['Не выбран организатор турнира', ...readiness.errors] };
+}
+
 // Dynamic detail/readiness shadows the legacy fixed-distance readiness response.
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
@@ -135,7 +142,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     `, [String(req.params.id)]);
     const games = await loadTournamentGames(db, String(req.params.id));
     const gameCount = normalizeTournamentGameCount(tournament.game_count);
-    const startReadiness = computeFlexibleStartReadiness(participants, games, gameCount);
+    const startReadiness = withOrganizerRequirement(computeFlexibleStartReadiness(participants, games, gameCount), tournament);
     const completeReadiness = await computeFlexibleCompleteReadiness(db, String(req.params.id), gameCount);
     return res.json({
       ...tournament,
@@ -232,7 +239,7 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
     if (tournament.status !== 'draft') return res.status(400).json({ error: 'Турнир не может быть запущен из текущего статуса' });
     const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [String(req.params.id)]);
     const games = await loadTournamentGames(db, String(req.params.id));
-    const readiness = computeFlexibleStartReadiness(participants, games, normalizeTournamentGameCount(tournament.game_count));
+    const readiness = withOrganizerRequirement(computeFlexibleStartReadiness(participants, games, normalizeTournamentGameCount(tournament.game_count)), tournament);
     if (!readiness.ready) {
       return res.status(400).json({ error: `Турнир не готов к запуску: ${readiness.errors.join('; ')}`, start_readiness: readiness });
     }

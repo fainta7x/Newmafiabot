@@ -426,7 +426,20 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
 
   The organizer can always mark a payment or move a player by hand.
 - **Does the evening's organizer pay? (user-approved 2026-09-24)** On club (CASUAL) and novice evenings the organizer never pays. On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
-- **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). With fewer registered it is a shortfall, and the evening is cancelled. Exception: novice evenings and games may run from 8 players and a judge.
+- **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). Exception: novice evenings and games may run from 8 players and a judge.
+
+  Roles by table size:
+
+  | Players | Roles |
+  |---|---|
+  | 10 | Дон, 2 мафии, Шериф, 6 мирных (classic) |
+  | 9 | Дон, 2 мафии, Шериф, 5 мирных |
+  | 8 | Дон, 1 мафия, Шериф, 5 мирных |
+
+  Tables of 8 and 9 are for novice evenings only.
+- **Shortfall (user-approved 2026-09-24).**
+  - **3 hours before:** if the evening is short of players, the app itself posts a call to come in the group of the main announcement.
+  - **1 hour before:** if it is still short, the organizer sees «Недобор — отменить вечер?» with a cancel button. On cancellation every registered player is told.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
 - CRM wording should use plain club words, not technical terms.
 

@@ -8,6 +8,7 @@ type TournamentDetail = {
   date: string;
   venue: string | null;
   judge_player_id?: string | null;
+  organizer_player_id?: string | null;
   judge_nickname?: string | null;
   chief_judge_name?: string | null;
   lifecycle: 'draft' | 'registration_open' | 'registration_closed' | 'active' | 'completed';
@@ -39,6 +40,8 @@ const toLocalInput = (value: string) => {
 export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { tournamentId: string; onChanged?: () => void }) {
   const [detail, setDetail] = useState<TournamentDetail | null>(null);
   const [judges, setJudges] = useState<Player[]>([]);
+  const [organizers, setOrganizers] = useState<Player[]>([]);
+  const [organizerPlayerId, setOrganizerPlayerId] = useState('');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [venue, setVenue] = useState('');
@@ -63,6 +66,8 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       const next = body as TournamentDetail;
       setDetail(next);
       setJudges(players.filter((player) => player.judge_level === 'judge'));
+      setOrganizers(players.filter((player) => player.club_role === 'organizer'));
+      setOrganizerPlayerId(next.organizer_player_id || '');
       setTitle(next.title || ''); setDate(toLocalInput(next.date)); setVenue(next.venue || ''); setJudgePlayerId(next.judge_player_id || '');
       setEntryFee(Number(next.entry_fee_rub || 0)); setPrizeFund(Number(next.prize_fund_rub || 0)); setPrizes(next.prize_allocations || []); setNotes(next.notes || '');
     } catch (loadError: any) {
@@ -77,6 +82,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
     if (!detail) return [] as string[];
     const blockers: string[] = [];
     if (!detail.judge_player_id) blockers.push('не выбран канонический судья');
+    if (!detail.organizer_player_id) blockers.push('не выбран организатор турнира');
     if (!detail.venue?.trim()) blockers.push('не указано место');
     if (Number.isNaN(new Date(detail.date).getTime())) blockers.push('не указаны корректные дата и время');
     if (detail.confirmed_count !== detail.player_capacity) blockers.push(`основной состав ${detail.confirmed_count}/${detail.player_capacity}`);
@@ -106,7 +112,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       return;
     }
     void requestAction('', 'PUT', {
-      title: title.trim(), date: new Date(date).toISOString(), venue: venue.trim(), judge_player_id: judgePlayerId,
+      title: title.trim(), date: new Date(date).toISOString(), venue: venue.trim(), judge_player_id: judgePlayerId, organizer_player_id: organizerPlayerId || null,
       entry_fee_rub: Number(entryFee || 0), prize_fund_rub: Number(prizeFund || 0), prize_allocations: prizes, notes: notes.trim() || null,
     });
   };
@@ -160,6 +166,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
         <label className="text-[11px] font-semibold text-text-secondary">Дата и время<input disabled={!editable || busy} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Место<input disabled={!editable || busy} value={venue} onChange={(e) => setVenue(e.target.value)} className={`${field} mt-1`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Судья<select disabled={!editable || busy} value={judgePlayerId} onChange={(e) => setJudgePlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите судью</option>{judges.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
+        <label className="text-[11px] font-semibold text-text-secondary">Организатор<select disabled={!editable || busy} value={organizerPlayerId} onChange={(e) => setOrganizerPlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите организатора</option>{organizers.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
         <label className="text-[11px] font-semibold text-text-secondary">Взнос, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={entryFee} onChange={(e) => setEntryFee(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Призовой фонд, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={prizeFund} onChange={(e) => setPrizeFund(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <div className="sm:col-span-2 rounded-xl border border-border-soft bg-surface-1 p-3">

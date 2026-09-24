@@ -77,6 +77,14 @@ router.get('/staff', requireOrganizerAuth, async (req, res) => {
          WHERE (e.status = 'completed' OR e.settled_at IS NOT NULL) AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) < datetime(?)
          GROUP BY s.organizer_player_id, p.nickname`, [since, until])) bump(String(row.id), String(row.nickname), 'evenings', Number(row.count));
     }
+    // Completed tournaments count as organized evenings of the tournament's organizer.
+    if (tables.has('tournaments') && (await db.all<any>('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'organizer_player_id')) {
+      for (const row of await db.all<any>(`
+        SELECT t.organizer_player_id AS id, p.nickname, COUNT(*) AS count
+          FROM tournaments t JOIN players p ON p.id = t.organizer_player_id
+         WHERE t.status = 'completed' AND datetime(t.date) >= datetime(?) AND datetime(t.date) < datetime(?)
+         GROUP BY t.organizer_player_id, p.nickname`, [since, until])) bump(String(row.id), String(row.nickname), 'evenings', Number(row.count));
+    }
     const clubGames = await db.all<any>(`
       SELECT g.judge_player_id AS id, p.nickname, g.protocol_text
         FROM games g JOIN players p ON p.id = g.judge_player_id

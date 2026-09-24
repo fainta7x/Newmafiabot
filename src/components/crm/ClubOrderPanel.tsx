@@ -16,6 +16,7 @@ type Item = {
   action_label: string;
   people?: Array<{ player_id: string; nickname: string; detail?: string }>;
   people_total?: number;
+  dismiss_label?: string;
 };
 type Payload = { items: Item[]; count: number; categories: Record<Category, string> };
 
@@ -36,7 +37,7 @@ export default function ClubOrderPanel({ refreshKey = 0, onOpenEveningSection, o
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/crm/club-order', { credentials: 'include' });
+      const response = await fetch('/api/crm/club-order', { credentials: 'include', cache: 'no-store' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить «Порядок в клубе»');
       if (!Array.isArray(body?.items)) throw new Error('Не удалось загрузить «Порядок в клубе»');
@@ -54,6 +55,24 @@ export default function ClubOrderPanel({ refreshKey = 0, onOpenEveningSection, o
     document.addEventListener('visibilitychange', refresh);
     return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load]);
+
+  const [busy, setBusy] = useState('');
+  const dismiss = async (item: Item) => {
+    if (busy) return;
+    setBusy(item.id);
+    try {
+      const response = await fetch('/api/crm/club-order/dismiss', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось скрыть пункт');
+      await load();
+    } catch (dismissError: any) {
+      setError(dismissError?.message || 'Не удалось скрыть пункт');
+    } finally {
+      setBusy('');
+    }
+  };
 
   const run = (action: Action) => {
     if (action.type === 'evening') onOpenEveningSection(action.evening_id, action.section);
@@ -106,6 +125,11 @@ export default function ClubOrderPanel({ refreshKey = 0, onOpenEveningSection, o
                       </div>
                     ) : null}
                     {item.action.type === 'player' && item.people?.length ? <p className="mt-1.5 text-[12px] text-text-muted">Нажми на игрока — откроется его профиль.</p> : null}
+                    {item.dismiss_label ? (
+                      <button type="button" disabled={busy === item.id} onClick={() => void dismiss(item)} className="mt-2 min-h-10 w-full rounded-[10px] border border-border-soft bg-surface-1 px-3 text-[13px] font-semibold text-text-secondary disabled:opacity-50">
+                        {busy === item.id ? 'Сохраняем…' : item.dismiss_label}
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               </div>

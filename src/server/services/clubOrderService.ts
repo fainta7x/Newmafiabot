@@ -23,6 +23,8 @@ export type ClubOrderItem = {
   people?: ClubOrderPerson[];
   /** How many people the item is about; `people` shows only the first few. */
   people_total?: number;
+  /** A second button that confirms nothing needs fixing (only for items the app cannot check itself). */
+  dismiss_label?: string;
 };
 
 export const CLUB_ORDER_CATEGORIES: Record<ClubOrderCategory, string> = {
@@ -56,6 +58,25 @@ const money = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} �
 const person = (row: any, detail?: string): ClubOrderPerson => ({ player_id: String(row.player_id ?? row.id), nickname: String(row.nickname || 'Без ника'), ...(detail ? { detail } : {}) });
 // Placeholder, archived and blocked profiles are not club members to look after.
 const MEMBER_SQL = `COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'blocked', 'guest_placeholder', 'legacy_guest_migrated')`;
+
+export async function ensureClubOrderSchema(db: DatabaseWrapper) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS club_order_dismissals (item_id TEXT PRIMARY KEY, dismissed_at TEXT NOT NULL)`);
+}
+
+async function loadDismissedKeys(db: DatabaseWrapper) {
+  await ensureClubOrderSchema(db);
+  return new Set((await db.all<any>('SELECT item_id FROM club_order_dismissals')).map((row: any) => String(row.item_id)));
+}
+
+/** Only questions the app cannot answer itself may be dismissed; real problems disappear when fixed. */
+export async function dismissClubOrderItem(db: DatabaseWrapper, itemId: unknown) {
+  const id = String(itemId || '').trim();
+  if (!/^duplicates:[^,]+(,[^,]+)+$/.test(id) || id.length > 2000) {
+    throw Object.assign(new Error('Этот пункт нельзя скрыть — он исчезнет, когда будет исправлен'), { statusCode: 400 });
+  }
+  await ensureClubOrderSchema(db);
+  await db.run('INSERT OR IGNORE INTO club_order_dismissals (item_id, dismissed_at) VALUES (?, ?)', [id, new Date().toISOString()]);
+}
 
 async function tableSet(db: DatabaseWrapper) {
   return new Set((await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((row: any) => String(row.name)));
@@ -157,13 +178,28 @@ async function profileItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
     if (key) groups.set(key, [...(groups.get(key) || []), row]);
   }
   for (const [key, rows] of groups) if (rows.length < 2) groups.delete(key);
-  if (groups.size) {
-    const first = [...groups.values()][0];
+  const dismissed = await loadDismissedKeys(db);
+  let shown = 0;
+  for (const rows of groups.values()) {
+    // The key lists the exact profiles, so a new namesake brings the question back.
+    const id = `duplicates:${rows.map((row: any) => String(row.id)).sort().join(',')}`;
+    if (dismissed.has(id) || shown >= 5) continue;
+    shown += 1;
+    const visits = new Map((await db.all<any>(
+      `SELECT player_id, COUNT(*) AS count FROM evening_participants
+        WHERE attendance_status = 'attended' AND player_id IN (${rows.map(() => '?').join(',')}) GROUP BY player_id`,
+      rows.map((row: any) => row.id),
+    )).map((row: any) => [String(row.player_id), Number(row.count || 0)]));
     items.push({
-      id: 'duplicates', category: 'profiles', title: 'Похоже на двойные профили',
-      detail: `${groups.size} ${plural(groups.size, 'ник встречается', 'ника встречаются', 'ников встречаются')} у нескольких игроков — проверь и объедини`,
-      action: { type: 'player', player_id: String(first[0].id) }, action_label: 'Проверить',
-      people: [...groups.values()].flat().slice(0, PEOPLE_LIMIT).map((row: any) => person(row)), people_total: [...groups.values()].flat().length,
+      id, category: 'profiles', title: `Двойной профиль? «${String(rows[0].nickname).trim()}»`,
+      detail: `${rows.length} ${plural(rows.length, 'профиль', 'профиля', 'профилей')} с одним ником. Если это один человек — архивируй пустой; если разные — нажми «Это разные игроки»`,
+      action: { type: 'player', player_id: String(rows[0].id) }, action_label: 'Проверить',
+      people: rows.slice(0, PEOPLE_LIMIT).map((row: any) => {
+        const count = visits.get(String(row.id)) || 0;
+        return person(row, count ? `визитов: ${count}` : 'не приходил');
+      }),
+      people_total: rows.length,
+      dismiss_label: 'Это разные игроки',
     });
   }
 

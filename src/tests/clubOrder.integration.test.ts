@@ -42,7 +42,7 @@ describe('«Порядок в клубе»', () => {
 
     const ids = (await loadClubOrder(db, NOW)).items.map((item) => item.id);
     expect(ids).toEqual(expect.arrayContaining([
-      'unclosed:old', 'draft:soon', 'organizer:soon', 'level-missing', 'duplicates', 'no-contact', 'protocols:paid', 'debts:paid',
+      'unclosed:old', 'draft:soon', 'organizer:soon', 'level-missing', 'duplicates:a,b', 'no-contact', 'protocols:paid', 'debts:paid',
     ]));
     expect(ids).not.toContain('no-evening');
     expect(ids).not.toContain('inactive');
@@ -68,10 +68,25 @@ describe('«Порядок в клубе»', () => {
     expect(ids).toEqual(['no-evening', 'inactive']);
   });
 
+  it('lets the organizer confirm namesakes are different people until a new namesake appears', async () => {
+    const { db, app, player } = await setup();
+    await player('a', 'Аня');
+    await player('b', 'аня');
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const ids = async () => (await loadClubOrder(db, NOW)).items.map((item) => item.id).filter((id) => id.startsWith('duplicates'));
+    expect(await ids()).toEqual(['duplicates:a,b']);
+    expect((await request(app).post('/api/crm/club-order/dismiss').set('Cookie', cookie).send({ id: 'debts:x' })).status).toBe(400);
+    expect((await request(app).post('/api/crm/club-order/dismiss').set('Cookie', cookie).send({ id: 'duplicates:a,b' })).status).toBe(200);
+    expect(await ids()).toEqual([]);
+    await player('c', 'АНЯ');
+    expect(await ids()).toEqual(['duplicates:a,b,c']);
+  });
+
   it('is served to organizers on the home screen endpoint', async () => {
     const { app } = await setup();
     const response = await request(app).get('/api/crm/club-order').set('Cookie', `organizer_token=${generateOrganizerToken()}`);
     expect(response.status).toBe(200);
+    expect(response.headers['cache-control']).toContain('no-store');
     expect(response.body.categories.money).toBe('Игры и деньги');
     expect((await request(app).get('/api/crm/club-order')).status).toBe(401);
   });

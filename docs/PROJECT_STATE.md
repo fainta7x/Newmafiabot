@@ -310,7 +310,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 3. ~~«Порядок в клубе» on the home screen~~ — built: it replaced the home «Задачи» card. It checks:
    - evenings not closed, drafts without an announcement, no organizer, an empty week, a skipped «Мы собрались» post;
    - players with an undetermined level;
-   - duplicate nicknames, players without Telegram and VK, players absent 90+ days;
+   - duplicate nicknames, per group, with a «Это разные игроки» dismissal that comes back if a new namesake appears; there is no merge tool for real duplicates yet, only archiving the empty profile;
+   - players without Telegram and VK, players absent 90+ days;
    - unfinished protocols and debts over the last 60 days.
 
    The code is in `clubOrderService.ts`.

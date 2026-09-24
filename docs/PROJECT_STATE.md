@@ -316,6 +316,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
    The code is in `clubOrderService.ts`.
 4. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
+   - Tournaments have no organizer attribution yet (only `tournaments.judge_player_id`), so organizer profile totals miss tournaments. Add an organizer to tournaments together with tournament prepayment.
 5. Plain wording across the CRM.
 6. Online checkout (after self-employment registration).
 7. Club finance: evening revenue, expenses, organizer and judge payouts, fund allocations (for example a % of each evening for club needs, the season prize fund).

@@ -14,23 +14,28 @@ export const NOVICE_PAID_GAME_PRICE = 200;
 export const NOVICE_FREE_VISITS = 2;
 
 /**
- * Per-game NOVICE price for this player on this evening. The first two
- * factually attended NOVICE evenings are free; the evening is priced by how
+ * Per-game NOVICE price for this player on this evening. For a player with the
+ * «Новичок» level the first two factually attended NOVICE evenings are free; the evening is priced by how
  * many NOVICE evenings the player attended *before* it, so marking attendance
  * on the evening itself never turns a free evening into a paid one.
  */
 export const novicePriceForPlayer = async (db: DatabaseWrapper, playerId: string, eveningId: string): Promise<number> => {
+  // Free visits are only for real novices (never played mafia). An experienced player at a
+  // novice evening, for example a guest from another city, pays from the first game.
+  // One query on purpose: this runs inside slot transactions.
   const row = await db.get<any>(
-    `SELECT COUNT(DISTINCT ep.evening_id) AS visits
-       FROM evening_participants ep
-       JOIN game_evenings e ON e.id = ep.evening_id
-       JOIN game_evenings current ON current.id = ?
-      WHERE ep.player_id = ? AND ep.attendance_status = 'attended'
-        AND UPPER(COALESCE(e.format, '')) = 'NOVICE'
-        AND e.id != current.id
-        AND datetime(e.starts_at) < datetime(current.starts_at)`,
-    [eveningId, playerId],
+    `SELECT (SELECT game_level FROM players WHERE id = ?) AS game_level,
+            (SELECT COUNT(DISTINCT ep.evening_id)
+               FROM evening_participants ep
+               JOIN game_evenings e ON e.id = ep.evening_id
+               JOIN game_evenings current ON current.id = ?
+              WHERE ep.player_id = ? AND ep.attendance_status = 'attended'
+                AND UPPER(COALESCE(e.format, '')) = 'NOVICE'
+                AND e.id != current.id
+                AND datetime(e.starts_at) < datetime(current.starts_at)) AS visits`,
+    [playerId, eveningId, playerId],
   );
+  if (String(row?.game_level || '') !== 'novice') return NOVICE_PAID_GAME_PRICE;
   return Number(row?.visits || 0) < NOVICE_FREE_VISITS ? 0 : NOVICE_PAID_GAME_PRICE;
 };
 

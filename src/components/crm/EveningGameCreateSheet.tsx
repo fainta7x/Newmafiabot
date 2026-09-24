@@ -65,6 +65,9 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [addingParticipant, setAddingParticipant] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Prepayment at the table (NOVICE/RATING): seated players who still owe, returned by the server.
+  const [unpaid, setUnpaid] = useState<Array<{ participant_id: string; nickname: string; amount_due: number; amount_paid: number }>>([]);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   useEffect(() => {
     setRoster((current) => {
@@ -287,11 +290,30 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         judge_guest: judgeMode === 'external',
         seats: seats.map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
       });
+      setUnpaid([]);
       onCreated(created);
     } catch (err: any) {
+      if (err?.body?.code === 'prepayment_required' && Array.isArray(err.body.unpaid)) {
+        setUnpaid(err.body.unpaid);
+        setError(null);
+        return;
+      }
       setError(err?.message || 'Не удалось создать игру');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const markPrepaid = async (row: { participant_id: string; amount_due: number }) => {
+    if (payingId) return;
+    setPayingId(row.participant_id);
+    try {
+      await api.updateParticipant(row.participant_id, { amount_paid: Number(row.amount_due || 0), payment_status: 'paid' } as any);
+      setUnpaid((current) => current.filter((item) => item.participant_id !== row.participant_id));
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось отметить оплату');
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -304,6 +326,25 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </div>
 
         {error ? <div className="flex items-start gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
+        {unpaid.length ? (
+          <section data-testid="game-prepayment-required" className="rounded-[14px] border border-warning/30 bg-warning-soft/40 p-3">
+            <div className="text-[13px] font-bold text-warning">Сначала предоплата</div>
+            <p className="mt-0.5 text-[12px] leading-4 text-text-secondary">Эти игроки за столом ещё не оплатили вечер. Отметьте оплату — и создавайте игру.</p>
+            <div className="mt-2 space-y-1.5">
+              {unpaid.map((row) => (
+                <div key={row.participant_id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5">
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong>
+                    <span className="text-[12px] text-text-muted">к оплате {Math.max(0, row.amount_due - row.amount_paid).toLocaleString('ru-RU')} ₽</span>
+                  </span>
+                  <button type="button" disabled={Boolean(payingId)} onClick={() => void markPrepaid(row)} className="min-h-10 shrink-0 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">
+                    {payingId === row.participant_id ? 'Сохраняем…' : 'Оплатил'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
         {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{awaitingArrival > 0 ? `Явка отмечена у ${eligible.length} из 10 нужных, ещё ${awaitingArrival} записаны, но не отмечены. Отметь, кто пришёл, на вкладке «Вечер» — или добавь игрока прямо здесь.` : `Для игры не хватает ${missingPresent} ${missingPresent === 1 ? 'пришедшего участника' : 'пришедших участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.`}</span></div> : null}
 

@@ -316,6 +316,14 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
    The code is in `clubOrderService.ts`.
 4. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
+   - Built:
+     - Free novice visits go only to players with the «Новичок» level.
+     - Prepayment at the table: `POST /api/games/evening/:id` returns `prepayment_required` with the seated players who still owe on NOVICE and RATING evenings. The game create sheet shows them with an «Оплатил» button.
+   - Left:
+     - the rating 500 ₽ entry price and the 50/40/10 split;
+     - tournament payment before a confirmed place;
+     - the table-size rule (10 players, or 8 for novices);
+     - organizer attribution for tournaments.
    - Tournaments have no organizer attribution yet (only `tournaments.judge_player_id`), so organizer profile totals miss tournaments. Add an organizer to tournaments together with tournament prepayment.
 5. Plain wording across the CRM.
 6. Online checkout (after self-employment registration).

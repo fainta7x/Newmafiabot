@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
 import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
@@ -154,6 +155,31 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     // Every game has a judge (user-approved 2026-09-24): a club player, or a named guest marked as such.
     if (!judge.judge_player_id && !(req.body?.judge_guest === true && judge.judge_name)) {
       return res.status(400).json({ error: 'Выберите судью игры из клуба (или укажите судью-гостя).', code: 'judge_required' });
+    }
+
+    // Prepayment at the table (user-approved 2026-09-24): on NOVICE and RATING evenings a game
+    // cannot start while a seated player still owes for the evening. Guests without a club
+    // profile have no payment row and never block.
+    if (['NOVICE', 'RATING'].includes(normalizeEveningFormat(evening.format))) {
+      const seatIds = (Array.isArray(req.body?.seats) ? req.body.seats : []).map((seat: any) => String(seat?.participant_id || '')).filter(Boolean);
+      const unpaid = seatIds.length ? await db.all<any>(
+        `SELECT ep.id AS participant_id, p.nickname, ep.amount_due, ep.amount_paid
+           FROM evening_participants ep JOIN players p ON p.id = ep.player_id
+          WHERE ep.evening_id = ? AND ep.id IN (${seatIds.map(() => '?').join(',')})
+            AND COALESCE(ep.payment_status, '') <> 'waived' AND ep.amount_due > ep.amount_paid
+          ORDER BY p.nickname COLLATE NOCASE`,
+        [eveningId, ...seatIds],
+      ) : [];
+      if (unpaid.length) {
+        return res.status(409).json({
+          error: `Сначала отметьте предоплату: ${unpaid.map((row: any) => row.nickname).join(', ')}`,
+          code: 'prepayment_required',
+          unpaid: unpaid.map((row: any) => ({
+            participant_id: String(row.participant_id), nickname: String(row.nickname || 'Игрок'),
+            amount_due: Number(row.amount_due || 0), amount_paid: Number(row.amount_paid || 0),
+          })),
+        });
+      }
     }
 
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {

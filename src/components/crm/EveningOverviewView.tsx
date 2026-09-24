@@ -54,6 +54,14 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     }
   };
 
+  // Re-evaluated every minute so «Начать вечер» turns primary once the evening is near.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (evening?.status !== 'published') return undefined;
+    const timer = window.setInterval(() => setClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [evening?.status]);
+
   if (loading) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[13px] text-danger">{error || 'Вечер не найден'}</div>;
 
@@ -64,7 +72,16 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       {(!readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         {!readonly && evening.status !== 'cancelled' ? <div>
           {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
-          {evening.status === 'published' ? <button disabled={busy} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
+          {evening.status === 'published' ? (() => {
+            // Days ahead, starting is not the next step: keep the button available but quiet.
+            const hoursToStart = (new Date(evening.starts_at).getTime() - clock) / 3_600_000;
+            const early = hoursToStart > 3;
+            const days = Math.ceil(hoursToStart / 24);
+            return <>
+              {early ? <p className="mb-2 text-[12px] leading-4 text-text-secondary">{hoursToStart >= 24 ? `Вечер через ${days} ${days === 1 ? 'день' : days < 5 ? 'дня' : 'дней'}` : `Вечер через ${Math.round(hoursToStart)} ч`} — «Начать вечер» нажимают в день вечера, когда игроки собираются.</p> : null}
+              <button disabled={busy} onClick={() => void updateStatus('active')} className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] text-[13px] font-bold disabled:opacity-50 ${early ? 'border border-border-soft bg-surface-2 text-text-secondary' : 'bg-success text-white'}`}><Play className="h-4 w-4" /> Начать вечер</button>
+            </>;
+          })() : null}
         </div> : null}
         {message ? <p className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}

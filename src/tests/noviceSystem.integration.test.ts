@@ -222,6 +222,29 @@ describe('NOVICE-001 funnel', () => {
     expect(await due('nb3')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
   });
 
+  it('charges a whole-evening «иду» without an exact plan and keeps a prepayment as paid', async () => {
+    const db = makeDb();
+    await createApp(db);
+    const { player } = await registerNewPlayer(db, { telegramUserId: '775', nickname: 'Весь вечер' });
+    const now = new Date().toISOString();
+    for (let index = 1; index <= 3; index += 1) {
+      await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES (?,?,?,'NOVICE',?,200,?,?)`, [`nw${index}`, `Новички ${index}`, new Date(Date.now() + (index - 3) * 86400000).toISOString(), index < 3 ? 'completed' : 'published', now, now]);
+    }
+    for (const index of [1, 2]) {
+      await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES (?,?,?,'going','going','attended','on_time','waived',0,0,?,?)`, [`ew${index}`, `nw${index}`, player.id, now, now]);
+    }
+    const plan = await ensureSlotsForEvening(db, 'nw3');
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('ew3','nw3',?,'going','going','pending','unknown','waived',0,0,?,?)`, [player.id, now, now]);
+    await reconcileNoviceEveningCharges(db, 'nw3');
+    expect(await db.get<any>("SELECT amount_due, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 200 * plan.slots.length, payment_status: 'unpaid' });
+
+    // An earlier visit is corrected away after the player prepaid: the evening is free again, the payment stays paid.
+    await db.run("UPDATE evening_participants SET amount_paid = 400 WHERE id='ew3'");
+    await db.run("UPDATE evening_participants SET attendance_status='no_show' WHERE id='ew2'");
+    await reconcileNoviceEveningCharges(db, 'nw3');
+    expect(await db.get<any>("SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 0, amount_paid: 400, payment_status: 'paid' });
+  });
+
   it('migrates the established roster to CLUB_PLAYER without changing skill level', async () => {
     const db = makeDb();
     const now = new Date().toISOString();

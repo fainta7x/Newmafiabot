@@ -34,8 +34,10 @@ export const novicePriceForPlayer = async (db: DatabaseWrapper, playerId: string
   return Number(row?.visits || 0) < NOVICE_FREE_VISITS ? 0 : NOVICE_PAID_GAME_PRICE;
 };
 
+// A recorded payment stays «paid» even if the evening becomes free, so settlement
+// still books it as income (as the regular-evening reconciler does).
 const novicePaymentStatus = (due: number, paid: number) =>
-  due <= 0 ? 'waived' : paid >= due ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+  due <= 0 ? (paid > 0 ? 'paid' : 'waived') : paid >= due ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
 
 /**
  * Re-prices every participant of an open NOVICE evening from the facts known
@@ -51,7 +53,7 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
     ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
     : []).map((row: any) => String(row.participant_id)));
   const participants = await db.all<any>(
-    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status,
+    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.response_status,
             (SELECT COUNT(*) FROM evening_slot_registrations r
                JOIN evening_game_slots s ON s.id = r.slot_id
               WHERE r.participant_id = ep.id AND s.evening_id = ep.evening_id) AS games
@@ -59,12 +61,18 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
       WHERE ep.evening_id = ? AND ep.player_id IS NOT NULL`,
     [eveningId],
   );
+  // A coarse «иду» (Telegram/VK/cabinet) without an exact plan means the whole
+  // evening, exactly as the slot plan counts it.
+  const openSlots = await db.get<any>("SELECT COUNT(*) AS count FROM evening_game_slots WHERE evening_id = ? AND status = 'open'", [eveningId]);
+  const wholeEveningGames = Number(openSlots?.count || 0);
   let changed = 0;
   const now = new Date().toISOString();
   for (const participant of participants) {
     if (waived.has(String(participant.id))) continue;
     const price = await novicePriceForPlayer(db, String(participant.player_id), eveningId);
-    const due = price * Number(participant.games || 0);
+    const selected = Number(participant.games || 0);
+    const games = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
+    const due = price * games;
     const paid = Math.max(0, Number(participant.amount_paid || 0));
     const status = novicePaymentStatus(due, paid);
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;

@@ -78,18 +78,21 @@ const organizerHeaders = () => {
 
 class ClubGameRequestError extends Error {
   readonly status: number;
+  /** Machine-readable reason and its details from the server (for example `prepayment_required`). */
+  readonly body: any;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body: any = null) {
     super(message);
     this.name = 'ClubGameRequestError';
     this.status = status;
+    this.body = body;
   }
 }
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, { credentials: 'include', ...options, headers: { ...organizerHeaders(), ...(options?.headers || {}) } });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ClubGameRequestError(body.error || body.message || 'Ошибка запроса', response.status);
+  if (!response.ok) throw new ClubGameRequestError(body.error || body.message || 'Ошибка запроса', response.status, body);
   return body as T;
 }
 

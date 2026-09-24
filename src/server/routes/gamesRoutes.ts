@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
 import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
@@ -161,6 +162,9 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     // cannot start while a seated player still owes for the evening. Guests without a club
     // profile have no payment row and never block.
     if (['NOVICE', 'RATING'].includes(normalizeEveningFormat(evening.format))) {
+      // Novice dues are estimates made at booking time; bring them to the canonical price
+      // (free visits, level, selected games) before judging who still owes.
+      await reconcileNoviceEveningCharges(db, eveningId);
       const seatIds = (Array.isArray(req.body?.seats) ? req.body.seats : []).map((seat: any) => String(seat?.participant_id || '')).filter(Boolean);
       const unpaid = seatIds.length ? await db.all<any>(
         `SELECT ep.id AS participant_id, p.nickname, ep.amount_due, ep.amount_paid

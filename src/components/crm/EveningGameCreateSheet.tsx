@@ -304,8 +304,11 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     }
   };
 
+  // The debtor list belongs to the lineup the server checked; a changed lineup must be re-checked.
+  useEffect(() => { setUnpaid([]); }, [seats]);
+
   const markPrepaid = async (row: { participant_id: string; amount_due: number }) => {
-    if (payingId) return;
+    if (payingId || !seats.includes(row.participant_id)) return;
     setPayingId(row.participant_id);
     try {
       await api.updateParticipant(row.participant_id, { amount_paid: Number(row.amount_due || 0), payment_status: 'paid' } as any);

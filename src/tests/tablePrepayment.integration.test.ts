@@ -41,6 +41,13 @@ describe('prepayment at the table', () => {
     expect(created.status, JSON.stringify(created.body)).toBeLessThan(300);
   });
 
+  it('recomputes novice dues first, so a real novice on a free visit is never blocked by a stale estimate', async () => {
+    const novice = await setup('NOVICE');
+    const created = await novice.create();
+    expect(created.body.code).not.toBe('prepayment_required');
+    expect(Number((await novice.db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'ep3'")).amount_due)).toBe(0);
+  });
+
   it('never blocks an exempt player or a casual evening (postpayment)', async () => {
     const rating = await setup('RATING');
     await rating.db.run("UPDATE evening_participants SET payment_status = 'waived' WHERE id = 'ep3'");

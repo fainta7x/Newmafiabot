@@ -12,6 +12,8 @@ type PaymentParticipant = {
   amount_paid: number;
   club_role?: string | null;
   judge_level?: string | null;
+  fee_waived?: boolean;
+  novice_free?: boolean;
 };
 
 type PaymentPayload = {
@@ -153,7 +155,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
                     <div className={`mt-0.5 text-[9px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
-                      {waived ? 'Без оплаты' : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
+                      {waived ? (participant.novice_free ? 'Бесплатно · вечер новичка' : 'Без оплаты') : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
                     </div>
                   </div>
 

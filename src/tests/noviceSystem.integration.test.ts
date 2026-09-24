@@ -245,6 +245,24 @@ describe('NOVICE-001 funnel', () => {
     expect(await db.get<any>("SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id='ew3'")).toMatchObject({ amount_due: 0, amount_paid: 400, payment_status: 'paid' });
   });
 
+  it('marks only a newcomer\'s free visit as «вечер новичка» in the payments list', async () => {
+    const db = makeDb();
+    const app = await createApp(db);
+    const { player: novice } = await registerNewPlayer(db, { telegramUserId: '776', nickname: 'Ученица' });
+    const { player: host } = await registerNewPlayer(db, { telegramUserId: '777', nickname: 'Ведущий' });
+    await db.run("UPDATE players SET game_level='novice', club_stage='NOVICE_ACTIVE' WHERE id=?", [novice.id]);
+    await db.run("UPDATE players SET game_level='club', club_role='organizer', club_stage='CLUB_PLAYER' WHERE id=?", [host.id]);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES ('np1','Школа',?,'NOVICE','active',200,?,?)`, [now, now, now]);
+    for (const [id, playerId] of [['epn', novice.id], ['eph', host.id]]) {
+      await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES (?,'np1',?,'going','going','attended','on_time','waived',0,0,?,?)`, [id, playerId, now, now]);
+    }
+    const response = await request(app).get('/api/evenings/np1/payments').set('Cookie', organizerCookie());
+    expect(response.status).toBe(200);
+    const byId = Object.fromEntries(response.body.participants.map((row: any) => [row.id, row.novice_free]));
+    expect(byId).toEqual({ epn: true, eph: false });
+  });
+
   it('migrates the established roster to CLUB_PLAYER without changing skill level', async () => {
     const db = makeDb();
     const now = new Date().toISOString();

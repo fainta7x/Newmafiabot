@@ -50,4 +50,22 @@ describe('tournament registration reserve', () => {
     const notices = await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE player_id = ? AND event_type = 'tournament_reserve_promoted'", [players[10]]);
     expect(notices.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('tells an ineligible player up front and answers a forced register in Russian', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    const app = await createApp(db);
+    const { player } = await registerNewPlayer(db, { telegramUserId: '9200', nickname: 'Клубный' });
+    await db.run("UPDATE players SET game_level = 'club', club_stage = 'CLUB_PLAYER' WHERE id = ?", [player.id]);
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO tournaments (id, title, date, venue, stage, status, created_at, updated_at, entry_fee_rub, prize_fund_rub, prize_allocations_json, published_at, tournament_evening_flow)
+       VALUES ('t2', 'Кубок', '2026-10-10T15:00:00.000Z', 'Суп с Котом', 'TOURNAMENT', 'draft', ?, ?, 0, 0, '[]', ?, 1)`,
+      [now, now, now],
+    );
+    const detail = await request(app).get('/api/tournaments/evenings/t2').set('Cookie', playerCookie(player.id));
+    expect(detail.body.ineligible_reason).toBe('level');
+    const forced = await request(app).post('/api/tournaments/evenings/t2/register').set('Cookie', playerCookie(player.id));
+    expect(forced.status).toBe(403);
+    expect(forced.body).toMatchObject({ code: 'NOT_ELIGIBLE', error: 'На турнир могут записаться только игроки с турнирным уровнем' });
+  });
 });

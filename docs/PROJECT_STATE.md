@@ -303,11 +303,12 @@ This real-world success and automated coverage are useful evidence, but they are
 
 Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
-1. Evening route with stages and the «Мы собрались» photo post gate (Telegram + VK, with «Пропустить»).
-2. «Порядок в клубе» on the home screen, replacing the manual-task counter.
-3. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
-4. Plain wording across the CRM.
-5. Online checkout (after self-employment registration).
+1. ~~Evening route with stages and the «Мы собрались» photo post gate~~ — built: the evening's «Маршрут» tab, `GET /api/evenings/:id/route`, `/api/evenings/:id/gathered-post` (Telegram `sendPhoto` to the format's destination, VK wall photo via the organizer user token; the first game of an `active` evening returns `gathered_post_required` until the post is published or skipped).
+2. Organizer and judge accountability: an organizer on every evening and a judge on every game, counted in statistics and achievements (user request 2026-09-24).
+3. «Порядок в клубе» on the home screen, replacing the manual-task counter.
+4. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
+5. Plain wording across the CRM.
+6. Online checkout (after self-employment registration).
 
 ## Intentionally incomplete / deferred
 

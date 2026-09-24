@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
+import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
@@ -122,6 +123,12 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     if (evening.settled_at || evening.status === 'completed') return res.status(409).json({ error: 'Завершённый вечер доступен только для чтения' });
     if (!['published', 'active'].includes(String(evening.status || ''))) return res.status(409).json({ error: 'Перед созданием игры опубликуйте вечер' });
+    // The first game of a running evening waits for the «Мы собрались» post (or an explicit «Пропустить»).
+    if (String(evening.status) === 'active'
+      && !(await db.get('SELECT id FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]))
+      && !(await gatheredPostSatisfied(db, eveningId))) {
+      return res.status(409).json({ error: 'Сначала опубликуйте пост «Мы собрались» во вкладке «Маршрут» или нажмите «Пропустить».', code: 'gathered_post_required' });
+    }
     const tableId = req.body?.evening_table_id ? String(req.body.evening_table_id) : null;
     if (tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [tableId, eveningId])) return res.status(400).json({ error: 'Выбранный стол не относится к этому вечеру' });
     const delegatedJudgeId = req.delegatedPlayerId ? String(req.delegatedPlayerId) : null;

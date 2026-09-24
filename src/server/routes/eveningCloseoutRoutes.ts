@@ -7,6 +7,7 @@ import {
 } from '../services/eveningCloseoutService.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { loadEveningRoute } from '../services/eveningRouteService.ts';
+import { loadGatheredPost, publishGatheredPost, skipGatheredPost } from '../services/eveningGatheredPostService.ts';
 
 const router = Router();
 
@@ -30,6 +31,22 @@ router.get('/:id/route', requireOrganizerAuth, async (req, res) => {
   } catch (error: any) {
     return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить маршрут вечера' });
   }
+});
+
+// «Мы собрались»: the photo post that opens the first game of a running evening.
+router.get('/:id/gathered-post', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await loadGatheredPost(req.db, String(req.params.id))); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить пост' }); }
+});
+
+router.post('/:id/gathered-post', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await publishGatheredPost(req.db, String(req.params.id), req.body || {})); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось опубликовать пост' }); }
+});
+
+router.post('/:id/gathered-post/skip', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await skipGatheredPost(req.db, String(req.params.id), req.body?.reason)); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось пропустить пост' }); }
 });
 
 router.post('/:id/closeout/walk-in', requireOrganizerAuth, async (req, res) => {

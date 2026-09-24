@@ -135,10 +135,10 @@ export default function EventsPanel({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События</h3>
-              <span className="rounded-lg bg-black/20 px-1.5 py-1 text-[9px] font-semibold text-white/30">{nightLogs.length}</span>
+              <span className="rounded-lg bg-black/20 px-1.5 py-1 text-[10px] font-semibold text-white/30">{nightLogs.length}</span>
             </div>
             <div data-testid="live-events-feedback" className="relative mt-1 h-3 min-w-0 overflow-hidden">
-              <p data-testid="live-events-latest" className={`absolute inset-0 truncate text-[9px] leading-3 ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
+              <p data-testid="live-events-latest" className={`absolute inset-0 truncate text-[10px] leading-3 ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
                 {latestLog || "Журнал и заметки не мешают текущему ходу"}
               </p>
             </div>
@@ -162,7 +162,7 @@ export default function EventsPanel({
               type="button"
               data-testid="live-copy-protocol"
               onClick={handleCopyTelegramProtocol}
-              className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[9px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[10px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
               title="Скопировать протокол в формате Telegram Markdown"
             >
               {copied ? (
@@ -184,7 +184,7 @@ export default function EventsPanel({
               aria-expanded={detailsOpen}
               aria-controls="live-events-details"
               onClick={() => setDetailsOpen((value) => !value)}
-              className="flex min-h-11 items-center gap-1 rounded-xl border border-white/[0.07] bg-black/20 px-2.5 text-[9px] font-semibold text-white/48 active:bg-white/[0.06]"
+              className="flex min-h-11 items-center gap-1 rounded-xl border border-white/[0.07] bg-black/20 px-2.5 text-[10px] font-semibold text-white/48 active:bg-white/[0.06]"
             >
               <span>{detailsOpen ? "Скрыть" : "Журнал"}</span>
               {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -195,7 +195,7 @@ export default function EventsPanel({
         {detailsOpen && (
           <div id="live-events-details" data-testid="live-events-details" className="mt-3 space-y-3 border-t border-white/[0.06] pt-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div data-testid="live-events-filters" className="flex rounded-xl border border-white/[0.07] bg-black/20 p-0.5 text-[9px] font-semibold">
+              <div data-testid="live-events-filters" className="flex rounded-xl border border-white/[0.07] bg-black/20 p-0.5 text-[10px] font-semibold">
                 <button
                   type="button"
                   onClick={() => setFilter("all")}

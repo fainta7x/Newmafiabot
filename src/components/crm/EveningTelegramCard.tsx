@@ -137,7 +137,7 @@ export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ evenin
           return <div key={destination.id} className="flex min-h-[38px] items-center gap-2 rounded-xl border border-border-soft bg-surface-1 px-3 text-[11px]">
             {destination.published ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : ready ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" /> : <TriangleAlert className="h-4 w-4 shrink-0 text-warning" />}
             <span className="min-w-0 flex-1 font-bold text-text-primary">{destination.name}</span>
-            <span className="shrink-0 text-[9px] text-text-muted">{destination.published ? `#${destination.message_id}` : ready ? 'готово' : 'не настроено'}</span>
+            <span className="shrink-0 text-[10px] text-text-muted">{destination.published ? `#${destination.message_id}` : ready ? 'готово' : 'не настроено'}</span>
           </div>;
         })}
       </div> : null}

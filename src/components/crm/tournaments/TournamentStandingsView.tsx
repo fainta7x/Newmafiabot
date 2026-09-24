@@ -235,31 +235,31 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                         {isRowExpanded && (
                           <div className="pt-2 border-t border-border-soft/60 grid grid-cols-5 gap-y-2 gap-x-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
                               <div className="font-bold text-emerald-400">
                                 {(item.positive_judge_points ?? 0) > 0 ? `+${item.positive_judge_points}` : (item.positive_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
                               <div className="font-bold text-emerald-400/80">
                                 {(item.positive_protocol_points ?? 0) > 0 ? `+${item.positive_protocol_points}` : (item.positive_protocol_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
                               <div className="font-bold text-danger">
                                 {(item.negative_judge_points ?? 0) > 0 ? `-${item.negative_judge_points}` : (item.negative_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
                               <div className="font-bold text-danger/80">
                                 {(item.negative_protocol_points ?? 0) > 0 ? `-${item.negative_protocol_points}` : (item.negative_protocol_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
                               <div className="font-bold text-rose-400">
                                 {(item.disciplinary_penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points}` : (item.disciplinary_penalty_points ?? 0)}
                               </div>
@@ -267,27 +267,27 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                             {/* Row 2 */}
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
+                              <div className="text-[10px] text-text-muted uppercase">ЛХ</div>
                               <div className="font-bold text-amber-400">
                                 {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Ci</div>
+                              <div className="text-[10px] text-text-muted uppercase">Ci</div>
                               <div className="font-bold text-cyan-400">
                                 {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Д</div>
+                              <div className="text-[10px] text-text-muted uppercase">Д</div>
                               <div className="font-bold text-purple-400">{item.don_wins}</div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Ш</div>
+                              <div className="text-[10px] text-text-muted uppercase">Ш</div>
                               <div className="font-bold text-amber-400">{item.sheriff_wins}</div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">У</div>
+                              <div className="text-[10px] text-text-muted uppercase">У</div>
                               <div className="font-bold text-rose-400">{item.first_killed_count}</div>
                             </div>
 
@@ -388,7 +388,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                           <span className="text-text-muted">Начисленный Ci:</span>
                                           <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
                                         </div>
-                                        <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                        <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                           {g.ci_reason === 'red_loss_full'
                                             ? 'полная компенсация за поражение красных'
                                             : g.ci_reason === 'red_win_half_with_black_lh'
@@ -480,31 +480,31 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                         {isRowExpanded && (
                           <div className="pt-2 border-t border-border-soft/60 grid grid-cols-5 gap-y-2 gap-x-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
                               <div className="font-bold text-emerald-400">
                                 {(item.positive_judge_points ?? 0) > 0 ? `+${item.positive_judge_points}` : (item.positive_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
                               <div className="font-bold text-emerald-400/80">
                                 {(item.positive_protocol_points ?? 0) > 0 ? `+${item.positive_protocol_points}` : (item.positive_protocol_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
                               <div className="font-bold text-danger">
                                 {(item.negative_judge_points ?? 0) > 0 ? `-${item.negative_judge_points}` : (item.negative_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
                               <div className="font-bold text-danger/80">
                                 {(item.negative_protocol_points ?? 0) > 0 ? `-${item.negative_protocol_points}` : (item.negative_protocol_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
+                              <div className="text-[10px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
                               <div className="font-bold text-rose-400">
                                 {(item.disciplinary_penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points}` : (item.disciplinary_penalty_points ?? 0)}
                               </div>
@@ -512,27 +512,27 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                             {/* Row 2 */}
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
+                              <div className="text-[10px] text-text-muted uppercase">ЛХ</div>
                               <div className="font-bold text-amber-400">
                                 {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Ci</div>
+                              <div className="text-[10px] text-text-muted uppercase">Ci</div>
                               <div className="font-bold text-cyan-400">
                                 {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Д</div>
+                              <div className="text-[10px] text-text-muted uppercase">Д</div>
                               <div className="font-bold text-purple-400">{item.don_wins}</div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">Ш</div>
+                              <div className="text-[10px] text-text-muted uppercase">Ш</div>
                               <div className="font-bold text-amber-400">{item.sheriff_wins}</div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">У</div>
+                              <div className="text-[10px] text-text-muted uppercase">У</div>
                               <div className="font-bold text-rose-400">{item.first_killed_count}</div>
                             </div>
 
@@ -633,7 +633,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                           <span className="text-text-muted">Начисленный Ci:</span>
                                           <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
                                         </div>
-                                        <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                        <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                           {g.ci_reason === 'red_loss_full'
                                             ? 'полная компенсация за поражение красных'
                                             : g.ci_reason === 'red_win_half_with_black_lh'
@@ -890,7 +890,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                               <span className="text-text-muted">Начисленный Ci:</span>
                                               <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
                                             </div>
-                                            <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                            <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                               {g.ci_reason === 'red_loss_full'
                                                 ? 'полная компенсация за поражение красных'
                                                 : g.ci_reason === 'red_win_half_with_black_lh'

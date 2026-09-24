@@ -564,7 +564,7 @@ export default function SpeechRecordingPilot() {
           <div className="mt-1 text-sm font-black">Автозапись без захвата Bluetooth</div>
           <p className="mt-1 text-[11px] leading-4 text-slate-400">Разрешение на микрофон даётся один раз. Во время игры микрофон открывается только на саму речь и полностью освобождается между речами, чтобы ночная музыка снова шла через обычный Bluetooth-аудиовыход.</p>
         </div>
-        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${testRecording || status === 'recording' ? 'bg-rose-500/15 text-rose-300' : status === 'paused' ? 'bg-amber-500/15 text-amber-300' : status === 'ready' ? 'bg-emerald-500/15 text-emerald-300' : status === 'opening' ? 'bg-sky-500/15 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
+        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${testRecording || status === 'recording' ? 'bg-rose-500/15 text-rose-300' : status === 'paused' ? 'bg-amber-500/15 text-amber-300' : status === 'ready' ? 'bg-emerald-500/15 text-emerald-300' : status === 'opening' ? 'bg-sky-500/15 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
           {testRecording ? '● тест' : status === 'recording' ? '● запись' : status === 'paused' ? 'пауза' : status === 'opening' ? 'микрофон…' : status === 'ready' ? 'автозапись готова' : 'выключено'}
         </span>
       </div>

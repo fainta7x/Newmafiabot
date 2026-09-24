@@ -791,7 +791,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       {bestMoveTimeLeft !== null && typeof document !== 'undefined' && createPortal(
         <div className="fixed left-1/2 top-3 z-[145] -translate-x-1/2 rounded-2xl border border-amber-400/50 bg-slate-950/95 px-5 py-2 text-center shadow-2xl backdrop-blur-xl">
-          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300">ЛХ · {BEST_MOVE_SECONDS} секунд</div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-amber-300">ЛХ · {BEST_MOVE_SECONDS} секунд</div>
           <div className={`font-mono text-3xl font-black ${bestMoveTimeLeft <= 5 ? 'text-rose-400' : 'text-white'}`}>{bestMoveTimeLeft}с</div>
         </div>,
         document.body,

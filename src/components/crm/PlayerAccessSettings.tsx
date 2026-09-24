@@ -238,7 +238,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
                 <div className="text-[12px] font-semibold text-text-primary">Доступы · CRM организатора</div>
                 <div className="mt-1 text-[10px] leading-4 text-text-muted">Отдельное административное право. Оно не меняется вместе со статусом в клубе, игровым уровнем или полномочиями ведущего.</div>
               </div>
-              <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${organizerAccess ? 'bg-success-soft text-success' : 'bg-black/20 text-text-muted'}`}>{organizerAccess ? 'Есть доступ' : 'Нет доступа'}</span>
+              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${organizerAccess ? 'bg-success-soft text-success' : 'bg-black/20 text-text-muted'}`}>{organizerAccess ? 'Есть доступ' : 'Нет доступа'}</span>
             </div>
             <button type="button" disabled={accessSaving} onClick={() => setConfirmation({ kind: 'crm-access', enabled: !organizerAccess })} className={`mt-3 min-h-[44px] w-full rounded-[11px] border px-3 text-[11px] font-semibold disabled:opacity-40 ${organizerAccess ? 'border-danger/30 bg-danger-soft text-danger' : 'border-accent/25 bg-accent-soft text-accent'}`}>{accessSaving ? 'Сохраняем…' : organizerAccess ? 'Отозвать доступ к CRM' : 'Выдать доступ к CRM'}</button>
           </div>

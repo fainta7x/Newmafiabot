@@ -61,7 +61,7 @@ export function EveningStaffCard({ eveningId }: { eveningId: string }) {
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent"><ShieldCheck className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <div className="text-[12px] font-bold text-text-primary">Команда вечера</div>
-          <div className="mt-0.5 text-[9px] text-text-muted">Организатор вечера и судьи конкретных игр</div>
+          <div className="mt-0.5 text-[10px] text-text-muted">Организатор вечера и судьи конкретных игр</div>
         </div>
       </div>
 
@@ -86,7 +86,7 @@ export function EveningStaffCard({ eveningId }: { eveningId: string }) {
 
       {data?.game_judges?.length ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {data.game_judges.map((game) => <span key={game.game_id} className="rounded-full bg-surface-2 px-2.5 py-1 text-[9px] text-text-secondary">Игра {game.game_number}: <strong className="text-text-primary">{game.nickname || 'не назначен'}</strong></span>)}
+          {data.game_judges.map((game) => <span key={game.game_id} className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] text-text-secondary">Игра {game.game_number}: <strong className="text-text-primary">{game.nickname || 'не назначен'}</strong></span>)}
         </div>
       ) : null}
     </section>

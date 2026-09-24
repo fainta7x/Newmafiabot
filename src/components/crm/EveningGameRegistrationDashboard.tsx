@@ -325,7 +325,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
                     className={`min-h-[54px] rounded-[11px] border px-3 text-left disabled:opacity-40 ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
                   >
                     <strong className="block text-[11px]">Игра {slot.slot_number}</strong>
-                    <span className="mt-0.5 block text-[9px] text-text-muted">{slotTime(slot.starts_at)} · {Number(slot.price || 0)} ₽ {selected ? '· ✓' : ''}</span>
+                    <span className="mt-0.5 block text-[10px] text-text-muted">{slotTime(slot.starts_at)} · {Number(slot.price || 0)} ₽ {selected ? '· ✓' : ''}</span>
                   </button>;
                 })}
               </div>

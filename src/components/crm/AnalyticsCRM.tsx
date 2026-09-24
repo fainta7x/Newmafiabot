@@ -83,7 +83,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <div className="rounded-[13px] border border-border-soft px-3 py-3"><div className="text-[11px] text-text-muted">Уровень «новичок»</div><strong className="mt-1 block text-[18px]">{journey.noviceLevel}</strong></div>
           <div className="rounded-[13px] border border-border-soft px-3 py-3"><div className="text-[11px] text-text-muted">Допущены в основной клуб</div><strong className="mt-1 block text-[18px] text-success">{journey.clubApproved}</strong></div>
-          <div className={`rounded-[13px] border px-3 py-3 ${journey.readyForClubReview ? 'border-warning/30 bg-warning-soft' : 'border-border-soft'}`}><div className="text-[11px] text-text-muted">Новички с 2+ визитами</div><strong className={`mt-1 block text-[18px] ${journey.readyForClubReview ? 'text-warning' : ''}`}>{journey.readyForClubReview}</strong><div className="mt-0.5 text-[9px] text-text-muted">Можно проверить, пора ли давать допуск</div></div>
+          <div className={`rounded-[13px] border px-3 py-3 ${journey.readyForClubReview ? 'border-warning/30 bg-warning-soft' : 'border-border-soft'}`}><div className="text-[11px] text-text-muted">Новички с 2+ визитами</div><strong className={`mt-1 block text-[18px] ${journey.readyForClubReview ? 'text-warning' : ''}`}>{journey.readyForClubReview}</strong><div className="mt-0.5 text-[10px] text-text-muted">Можно проверить, пора ли давать допуск</div></div>
         </div>
       </section>
 
@@ -98,12 +98,12 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
             ['Ответили', communication.answered],
             ['Идут', communication.positive],
             ['Пришли', communication.attended],
-          ].map(([label, value], index) => <React.Fragment key={String(label)}><div className="rounded-[12px] bg-surface-2 p-2.5 text-center"><strong className="block text-[20px] text-text-primary">{value}</strong><span className="text-[9px] text-text-muted">{label}</span></div>{index < 3 ? <ArrowRight className="h-3.5 w-3.5 text-text-muted" /> : null}</React.Fragment>)}
+          ].map(([label, value], index) => <React.Fragment key={String(label)}><div className="rounded-[12px] bg-surface-2 p-2.5 text-center"><strong className="block text-[20px] text-text-primary">{value}</strong><span className="text-[10px] text-text-muted">{label}</span></div>{index < 3 ? <ArrowRight className="h-3.5 w-3.5 text-text-muted" /> : null}</React.Fragment>)}
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.answerRate}%</strong><span className="text-[9px] text-text-muted">ответили</span></div>
-          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.positiveRate}%</strong><span className="text-[9px] text-text-muted">сказали «иду»</span></div>
-          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.attendanceRate}%</strong><span className="text-[9px] text-text-muted">реально пришли</span></div>
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.answerRate}%</strong><span className="text-[10px] text-text-muted">ответили</span></div>
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.positiveRate}%</strong><span className="text-[10px] text-text-muted">сказали «иду»</span></div>
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.attendanceRate}%</strong><span className="text-[10px] text-text-muted">реально пришли</span></div>
         </div>
         <p className="mt-3 text-[10px] text-text-muted">Напоминание получали: {communication.reminded} · ошибок первичной доставки: {communication.failed}. «Пришли» считается только по уже завершённым вечерам.</p>
       </section>
@@ -140,7 +140,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
       <section className={card}>
         <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black">Откуда приходят игроки</h3></div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {Object.entries(data.sourceBreakdown || {}).map(([src, count]) => <div key={src} className="rounded-[11px] bg-surface-2 p-3"><span className="block truncate text-[9px] font-bold uppercase text-text-muted">{src}</span><strong className="mt-1 block text-[16px]">{count} чел.</strong></div>)}
+          {Object.entries(data.sourceBreakdown || {}).map(([src, count]) => <div key={src} className="rounded-[11px] bg-surface-2 p-3"><span className="block truncate text-[10px] font-bold uppercase text-text-muted">{src}</span><strong className="mt-1 block text-[16px]">{count} чел.</strong></div>)}
         </div>
       </section>
 

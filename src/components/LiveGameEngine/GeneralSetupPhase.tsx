@@ -117,7 +117,7 @@ export default function SetupPhase({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/40 border border-slate-850 rounded-lg">
         <div className="space-y-1">
-          <label className="text-[9px] text-slate-500 font-bold uppercase block">Судья Вечера / Ведущий</label>
+          <label className="text-[10px] text-slate-500 font-bold uppercase block">Судья Вечера / Ведущий</label>
           <select value={isNaN(judgeId) || judgeId == null ? 0 : judgeId} onChange={(e) => setJudgeId(parseInt(e.target.value) || 0)} disabled={isManagedEngine} className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-xs text-slate-200 disabled:opacity-70">
             <option value={0}>-- Выбрать судью --</option>
             {players.map((p) => <option key={p.id} value={p.user_id}>{p.nickname} ({p.full_name})</option>)}
@@ -137,9 +137,9 @@ export default function SetupPhase({
           const roleButtonClass = (active: boolean, activeClass: string) => `py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${isTournamentEngine ? 'cursor-default' : 'cursor-pointer'} ${active ? activeClass : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`;
           return (
             <div key={s.slot_num} className={`p-3.5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3 ${isMir ? "bg-rose-950/5 border-rose-900/25 hover:border-rose-800/60" : isSheriff ? "bg-emerald-950/5 border-emerald-900/25 hover:border-emerald-800/60" : isMafia ? "bg-slate-900/10 border-slate-800/55 hover:border-slate-600" : "bg-purple-950/5 border-purple-900/25 hover:border-purple-800/60"}`}>
-              <div className="flex justify-between items-center"><span className={`w-6 h-6 rounded-lg font-mono font-black text-xs flex items-center justify-center border transition-all ${isMir ? "bg-rose-950 border-rose-800 text-rose-400" : isSheriff ? "bg-emerald-950 border-emerald-800 text-emerald-400" : isMafia ? "bg-slate-200 border-slate-400 text-slate-950 shadow-inner" : "bg-purple-950 border-purple-800 text-purple-400"}`}>{s.slot_num}</span><span className="text-[9px] font-mono font-bold text-slate-500 uppercase">Место №{s.slot_num}</span></div>
+              <div className="flex justify-between items-center"><span className={`w-6 h-6 rounded-lg font-mono font-black text-xs flex items-center justify-center border transition-all ${isMir ? "bg-rose-950 border-rose-800 text-rose-400" : isSheriff ? "bg-emerald-950 border-emerald-800 text-emerald-400" : isMafia ? "bg-slate-200 border-slate-400 text-slate-950 shadow-inner" : "bg-purple-950 border-purple-800 text-purple-400"}`}>{s.slot_num}</span><span className="text-[10px] font-mono font-bold text-slate-500 uppercase">Место №{s.slot_num}</span></div>
               <div className="space-y-1.5">
-                <label className="text-[9px] text-slate-500 font-bold uppercase block">Никнейм игрока</label>
+                <label className="text-[10px] text-slate-500 font-bold uppercase block">Никнейм игрока</label>
                 <select value={isNaN(s.user_id) || s.user_id == null ? 0 : s.user_id} onChange={(e) => handleSelectSetupPlayer(s.slot_num, parseInt(e.target.value) || 0)} disabled={isManagedEngine} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500 disabled:opacity-80">
                   <option value={0}>-- Выбрать игрока --</option>
                   {avail.map((p) => <option key={p.id} value={p.user_id}>{p.nickname} (Рейтинг: {p.elo})</option>)}
@@ -147,12 +147,12 @@ export default function SetupPhase({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] text-slate-500 font-bold uppercase block">Роль игрока</label>
+                <label className="text-[10px] text-slate-500 font-bold uppercase block">Роль игрока</label>
                 <div className="grid grid-cols-4 gap-1">
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мирный")} className={roleButtonClass(s.role === "Мирный", "bg-rose-500/15 border-rose-500/50 text-rose-500 scale-105 shadow-md shadow-rose-500/5")} title="Красный (Мирный)"><Heart className={`w-4 h-4 ${s.role === "Мирный" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Мир</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Шериф")} className={roleButtonClass(s.role === "Шериф", "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 scale-105 shadow-md shadow-emerald-500/5")} title="Шериф (Красный)"><Star className={`w-4 h-4 ${s.role === "Шериф" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Шер</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мафия")} className={roleButtonClass(s.role === "Мафия", "bg-slate-200 border-slate-400 text-slate-950 scale-105 shadow-md shadow-slate-200/5")} title="Мафия (Чёрный)"><PistolIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Маф</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Дон")} className={roleButtonClass(s.role === "Дон", "bg-purple-500/15 border-purple-500/50 text-purple-400 scale-105 shadow-md shadow-purple-500/5")} title="Дон (Чёрный)"><MafiaHatIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Дон</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мирный")} className={roleButtonClass(s.role === "Мирный", "bg-rose-500/15 border-rose-500/50 text-rose-500 scale-105 shadow-md shadow-rose-500/5")} title="Красный (Мирный)"><Heart className={`w-4 h-4 ${s.role === "Мирный" ? "fill-current" : ""}`} /><span className="text-[10px] font-bold">Мир</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Шериф")} className={roleButtonClass(s.role === "Шериф", "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 scale-105 shadow-md shadow-emerald-500/5")} title="Шериф (Красный)"><Star className={`w-4 h-4 ${s.role === "Шериф" ? "fill-current" : ""}`} /><span className="text-[10px] font-bold">Шер</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мафия")} className={roleButtonClass(s.role === "Мафия", "bg-slate-200 border-slate-400 text-slate-950 scale-105 shadow-md shadow-slate-200/5")} title="Мафия (Чёрный)"><PistolIcon className="w-4 h-4" /><span className="text-[10px] font-bold">Маф</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Дон")} className={roleButtonClass(s.role === "Дон", "bg-purple-500/15 border-purple-500/50 text-purple-400 scale-105 shadow-md shadow-purple-500/5")} title="Дон (Чёрный)"><MafiaHatIcon className="w-4 h-4" /><span className="text-[10px] font-bold">Дон</span></button>
                 </div>
               </div>
             </div>

@@ -126,7 +126,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12px] font-black text-text-primary">Оплата вечера</div>
-          <div className="mt-0.5 text-[9px] text-text-muted">
+          <div className="mt-0.5 text-[10px] text-text-muted">
             {data?.evening.closed ? 'Вечер закрыт · оплаты всё равно можно исправлять' : 'Отмечай оплату одним нажатием'}
           </div>
         </div>
@@ -154,19 +154,19 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                 <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
-                    <div className={`mt-0.5 text-[9px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
+                    <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
                       {waived ? (participant.novice_free ? 'Бесплатно · вечер новичка' : 'Без оплаты') : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
                     </div>
                   </div>
 
                   {waived ? (
-                    <span className="shrink-0 rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[9px] font-bold text-text-muted">0 ₽</span>
+                    <span className="shrink-0 rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
                   ) : paid ? (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[9px] font-black text-success disabled:opacity-40">
+                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Снять оплату
                     </button>
                   ) : (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[9px] font-black text-danger disabled:opacity-40">
+                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[10px] font-black text-danger disabled:opacity-40">
                       <XCircle className="h-3.5 w-3.5" /> Принять оплату
                     </button>
                   )}

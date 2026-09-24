@@ -109,7 +109,7 @@ export const DeveloperTestModeCRM: React.FC = () => {
             <div>Сценарий<br/><strong className="text-white/75">{state.active.scenario}</strong></div>
             <div>Фаза<br/><strong className="text-white/75">{state.active.phase}</strong></div>
           </div>
-          <div className="mt-2 break-all font-mono text-[9px] text-white/25">session: {state.active.id}</div>
+          <div className="mt-2 break-all font-mono text-[10px] text-white/25">session: {state.active.id}</div>
           <button type="button" onClick={() => void reset()} disabled={busy} className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-rose-300/15 bg-rose-300/[0.06] px-3 text-[11px] font-semibold text-rose-100 disabled:opacity-40"><Trash2 className="h-4 w-4" /> Сбросить эту [TEST]-сессию</button>
         </div> : <div className="mt-4 space-y-3">
           <label className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35" htmlFor="developer-scenario">Сценарий</label>

@@ -110,7 +110,7 @@ export default function EveningInviteAudienceManager({ onChanged }: Props) {
                   <div key={player.id} className="flex min-h-[48px] items-center gap-3 rounded-[11px] bg-surface-2 px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong>
-                      <span className="mt-0.5 block truncate text-[9px] text-text-muted">
+                      <span className="mt-0.5 block truncate text-[10px] text-text-muted">
                         {blocked ? 'Заблокирован' : enabled ? 'Получает личные анонсы' : isFuturePause(player) ? 'Временно не приглашать' : 'Не приглашать'}
                       </span>
                     </div>

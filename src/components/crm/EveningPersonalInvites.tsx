@@ -190,7 +190,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
 
         {filter === 'unanswered' && answeredRows.length ? <>
           <button type="button" onClick={() => setShowAnswered((value) => !value)} className="mt-3 flex min-h-[48px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">
-            <span><strong className="block text-[11px] text-text-primary">Уже ответили · {answeredRows.length}</strong><span className="text-[9px] text-text-muted">Скрыто, пока не понадобится</span></span>
+            <span><strong className="block text-[11px] text-text-primary">Уже ответили · {answeredRows.length}</strong><span className="text-[10px] text-text-muted">Скрыто, пока не понадобится</span></span>
             {showAnswered ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
           </button>
           {showAnswered ? <div className="mt-2">{renderRows(answeredRows)}</div> : null}

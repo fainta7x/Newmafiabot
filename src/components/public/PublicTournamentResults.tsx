@@ -397,11 +397,11 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
 
                     <div className="flex items-center gap-3 shrink-0 font-mono text-xs">
                       <div className="text-right">
-                        <span className="text-[9px] text-text-muted block leading-none">Очки</span>
+                        <span className="text-[10px] text-text-muted block leading-none">Очки</span>
                         <span className="font-black text-sm text-[#C94F67]">{item.total_points}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] text-text-muted block leading-none">Σдб</span>
+                        <span className="text-[10px] text-text-muted block leading-none">Σдб</span>
                         <span className="font-bold text-text-secondary">
                           {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
                         </span>
@@ -418,43 +418,43 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                   {isExpanded && (
                     <div className="pt-2.5 border-t border-border-soft/50 grid grid-cols-4 gap-2 text-center text-[11px] font-mono bg-surface-2/60 p-2.5 rounded-xl text-text-muted">
                       <div>
-                        <span className="text-[9px] block">Игры</span>
+                        <span className="text-[10px] block">Игры</span>
                         <strong className="text-text-primary font-bold">{item.games_played}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Победы</span>
+                        <span className="text-[10px] block">Победы</span>
                         <strong className="text-emerald-400 font-bold">{item.wins}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Д+Ш</span>
+                        <span className="text-[10px] block">Д+Ш</span>
                         <strong className="text-purple-400 font-bold">{item.don_wins + item.sheriff_wins}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Уб1</span>
+                        <span className="text-[10px] block">Уб1</span>
                         <strong className="text-text-secondary font-bold">{item.first_killed_count}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Плюс</span>
+                        <span className="text-[10px] block">Плюс</span>
                         <strong className="text-emerald-400 font-bold">{item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Судья</span>
+                        <span className="text-[10px] block">Судья</span>
                         <strong className={`font-bold ${(item.judge_bonus ?? 0) > 0 ? 'text-emerald-400' : (item.judge_bonus ?? 0) < 0 ? 'text-rose-400' : 'text-text-secondary'}`}>
                           {(item.judge_bonus ?? 0) > 0 ? `+${item.judge_bonus}` : (item.judge_bonus ?? 0) < 0 ? `−${Math.abs(item.judge_bonus)}` : '0'}
                         </strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Дисципл. минус</span>
+                        <span className="text-[10px] block">Дисципл. минус</span>
                         <strong className="text-[#C94F67] font-bold">
                           {(item.disciplinary_penalty_points ?? item.penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points ?? item.penalty_points}` : (item.disciplinary_penalty_points ?? item.penalty_points ?? 0)}
                         </strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">ЛХ</span>
+                        <span className="text-[10px] block">ЛХ</span>
                         <strong className="text-amber-400 font-bold">+{item.best_move_points}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Ci</span>
+                        <span className="text-[10px] block">Ci</span>
                         <strong className="text-cyan-400 font-bold">+{item.ci_points}</strong>
                       </div>
                     </div>

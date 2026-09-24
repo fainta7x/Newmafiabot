@@ -152,7 +152,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase text-white/25">
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-white/25">
         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((value) => <div key={value}>{value}</div>)}
       </div>
       <div className="mt-1 grid grid-cols-7 gap-1">
@@ -162,7 +162,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
           const dayItems = byDay.get(dayKey(date)) || [];
           return (
             <div key={dayKey(date)} className="min-h-[72px] rounded-xl border border-white/[0.055] bg-black/20 p-1">
-              <div className="px-0.5 text-[9px] font-semibold text-white/30">{day}</div>
+              <div className="px-0.5 text-[10px] font-semibold text-white/30">{day}</div>
               <div className="mt-1 space-y-1">
                 {dayItems.slice(0, 2).map((item) => {
                   const time = localTime(item.startsAt);
@@ -175,13 +175,13 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
                       onClick={() => open(item)}
                       title={accessibleLabel}
                       aria-label={accessibleLabel}
-                      className={`block w-full rounded-md border px-1 py-1 text-center font-mono text-[8px] font-semibold leading-none ${tone(item.kind)}`}
+                      className={`block w-full rounded-md border px-1 py-1 text-center font-mono text-[10px] font-semibold leading-none ${tone(item.kind)}`}
                     >
                       {time}
                     </button>
                   );
                 })}
-                {dayItems.length > 2 && <div className="px-1 text-[7px] text-white/25">+{dayItems.length - 2}</div>}
+                {dayItems.length > 2 && <div className="px-1 text-[10px] text-white/25">+{dayItems.length - 2}</div>}
               </div>
             </div>
           );
@@ -215,7 +215,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
           <div data-testid="crm-calendar-compact" className="mt-2 space-y-1.5">
             {upcoming.length ? upcoming.map((item) => (
               <button key={item.key} type="button" onClick={() => open(item)} className="flex min-h-[46px] w-full items-center gap-2.5 rounded-[13px] bg-black/20 px-3 text-left">
-                <span className={`rounded-lg border px-2 py-1 text-[9px] font-semibold ${tone(item.kind)}`}>{label(item.kind)}</span>
+                <span className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${tone(item.kind)}`}>{label(item.kind)}</span>
                 <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-white/75">{item.title}</span>
                 <span className="shrink-0 text-[10px] text-white/35">{compactDate(item.startsAt)} · {localTime(item.startsAt)}</span>
               </button>

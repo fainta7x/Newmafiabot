@@ -154,14 +154,14 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
 
                   <div className="grid grid-cols-2 gap-2 bg-surface-2 p-3 rounded-2xl border border-border-soft text-center font-mono">
                     <div>
-                      <span className="text-[9px] text-text-muted uppercase font-bold block">Участники</span>
+                      <span className="text-[10px] text-text-muted uppercase font-bold block">Участники</span>
                       <span className="text-sm font-bold text-text-primary">
                         {participantsCount} / 10
                       </span>
                       {reserveCount ? <span className="mt-0.5 block text-[11px] text-text-muted">+{reserveCount} в резерве</span> : null}
                     </div>
                     <div>
-                      <span className="text-[9px] text-text-muted uppercase font-bold block">Прогресс игр</span>
+                      <span className="text-[10px] text-text-muted uppercase font-bold block">Прогресс игр</span>
                       <span className="text-sm font-bold text-accent">
                         {completedGames} / {totalGames}
                       </span>

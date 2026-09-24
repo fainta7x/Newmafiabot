@@ -325,16 +325,16 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 text-[11px] font-black text-text-secondary"><UserPlus className="h-4 w-4" />Добавить игрока клуба или гостя</summary>
           <div className="space-y-3 border-t border-border-soft p-3">
             <div className="space-y-1.5">
-              <div className="text-[9px] font-black uppercase tracking-wide text-text-muted">Игрок из CRM — даже если его не было в Telegram-рассылке</div>
+              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Игрок из CRM — даже если его не было в Telegram-рассылке</div>
               <input value={manualPlayerQuery} onChange={(event) => setManualPlayerQuery(event.target.value)} placeholder="Например, Фандорин" className="w-full rounded-[11px] border border-border-soft bg-surface-1 px-3 py-2.5 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
               {manualCandidates.length > 0 ? <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{manualCandidates.map((player) => {
                 const existing = byPlayerId.get(String(player.id));
-                return <button key={player.id} type="button" disabled={addingParticipant} onClick={() => addKnownPlayer(player)} className="flex min-h-11 items-center gap-2 rounded-[11px] border border-border-soft bg-surface-1 px-2.5 text-left disabled:opacity-50"><PlayerAvatar nickname={player.nickname} playerId={player.id} forceStoredLookup size="sm" /><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{existing ? 'Уже на вечере · сделать доступным для игры' : 'Добавить на вечер и в игру'}</span></span></button>;
-              })}</div> : manualPlayerQuery.trim() ? <div className="text-[9px] text-text-muted">Подходящих игроков вне доступного состава не найдено.</div> : null}
+                return <button key={player.id} type="button" disabled={addingParticipant} onClick={() => addKnownPlayer(player)} className="flex min-h-11 items-center gap-2 rounded-[11px] border border-border-soft bg-surface-1 px-2.5 text-left disabled:opacity-50"><PlayerAvatar nickname={player.nickname} playerId={player.id} forceStoredLookup size="sm" /><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[10px] text-text-muted">{existing ? 'Уже на вечере · сделать доступным для игры' : 'Добавить на вечер и в игру'}</span></span></button>;
+              })}</div> : manualPlayerQuery.trim() ? <div className="text-[10px] text-text-muted">Подходящих игроков вне доступного состава не найдено.</div> : null}
             </div>
             <div className="space-y-1.5 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
-              <div className="text-[9px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
-              <p className="text-[9px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются.</p>
+              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
+              <p className="text-[10px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются.</p>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
                 <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
                 <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя</button>
@@ -344,31 +344,31 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </details>
 
         <div className="space-y-2 rounded-[16px] border border-border-soft bg-surface-2 p-2.5">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Состав игры · {selectedCount}/10</div><button type="button" onClick={shuffleSelected} disabled={selectedCount < 2} className="flex items-center gap-1 text-[9px] font-black text-text-muted disabled:opacity-30"><Shuffle className="h-3 w-3" />Перемешать</button></div>
+          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary"><Users className="h-3.5 w-3.5" />Состав игры · {selectedCount}/10</div><button type="button" onClick={shuffleSelected} disabled={selectedCount < 2} className="flex items-center gap-1 text-[10px] font-black text-text-muted disabled:opacity-30"><Shuffle className="h-3 w-3" />Перемешать</button></div>
           <div className="grid grid-cols-5 gap-1.5">
             {seats.map((participantId, index) => {
               const participant = participantId ? byId.get(participantId) : null;
               const isGuest = Boolean(participant && ((participant as any).is_guest || !String(participant.player_id || '').trim()));
-              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[8px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[9px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[7px] font-black uppercase text-text-muted">гость</span> : null}</button>;
+              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[10px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[10px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[10px] font-black uppercase text-text-muted">гость</span> : null}</button>;
             })}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={autoSelect} disabled={eligible.length < 10} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать 10</button>
             <button type="button" onClick={reuseLastLineup} disabled={lastCompletedLineup.length !== 10} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">Прошлая десятка</button>
           </div>
-          <p className="text-[9px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. При равном приоритете выбор перемешивается, чтобы состав не повторялся из-за алфавитного порядка.</p>
+          <p className="text-[10px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. При равном приоритете выбор перемешивается, чтобы состав не повторялся из-за алфавитного порядка.</p>
         </div>
 
         <TableScoutingCard participantIds={selectedParticipantIds} />
 
-        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Доступны для игры · приоритет ротации</span><span>{visible.length} участников</span></div>
+        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-text-muted"><span>Доступны для игры · приоритет ротации</span><span>{visible.length} участников</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск участника" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
         <div className="grid shrink-0 grid-cols-2 content-start gap-2 pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
             const priority = getRotationPriority(participant.id, previousRotationGame);
             const isGuest = Boolean((participant as any).is_guest || !String(participant.player_id || '').trim());
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}>{isGuest ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-1 text-[9px] font-black text-text-muted">Г</div> : <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" />}<div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{isGuest ? 'Гость без профиля' : priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}>{isGuest ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-1 text-[10px] font-black text-text-muted">Г</div> : <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" />}<div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[10px] text-text-muted">{isGuest ? 'Гость без профиля' : priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>

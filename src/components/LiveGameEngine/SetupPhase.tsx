@@ -35,11 +35,11 @@ const ClubSpeechRecordingControl = () => (
         </div>
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-white/68">Запись речей</div>
-          <div className="mt-0.5 text-[9px] leading-4 text-white/28">Опционально · можно оставить выключенной</div>
+          <div className="mt-0.5 text-[10px] leading-4 text-white/28">Опционально · можно оставить выключенной</div>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="rounded-lg border border-white/[0.06] bg-black/20 px-2 py-1 text-[8px] font-semibold text-white/28">Выкл.</span>
+        <span className="rounded-lg border border-white/[0.06] bg-black/20 px-2 py-1 text-[10px] font-semibold text-white/28">Выкл.</span>
         <ChevronDown className="h-3.5 w-3.5 text-white/24 transition-transform group-open:rotate-180" aria-hidden="true" />
       </div>
     </summary>

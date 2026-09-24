@@ -41,10 +41,17 @@ describe('rating evening money', () => {
       { id: 'e2', amount_due: 0, payment_status: 'waived' },
       { id: 'e3', amount_due: 500, payment_status: 'unpaid' },
     ]);
-    // Every player at a rating table pays, the organizer included (a full table is 5000 ₽).
+    // The organizer pays only when playing: organizing alone is free, sitting at a table costs 500 ₽.
     await db.run("INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES ('r', 'p0', ?, ?)", [now, now]);
     await reconcileNoviceEveningCharges(db, 'r');
+    expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e0'")).toEqual({ amount_due: 0 });
+    await reconcileNoviceEveningCharges(db, 'r', ['e0']);
     expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e0'")).toEqual({ amount_due: 500 });
+    // A judge who only judges is not charged either, even when marked present.
+    await db.run(`INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,judge_player_id,protocol_text,slots_json,created_at)
+      VALUES (1,'r',1,?,'draft','','Судья','p3','','[]',?)`, [now, now]);
+    await reconcileNoviceEveningCharges(db, 'r', ['e0']);
+    expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e3'")).toEqual({ amount_due: 0 });
     // A player seated at a new game without ever answering owes the fee before the prepayment check.
     expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'e2'")).toEqual({ amount_due: 0 });
     await reconcileNoviceEveningCharges(db, 'r', ['e2']);

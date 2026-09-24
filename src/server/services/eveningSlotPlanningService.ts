@@ -105,8 +105,9 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
 }
 
 /**
- * Rating evening: one 500 ₽ entry fee for everyone who comes (answered «иду»/«позже», picked games,
- * was marked present or is being seated now). Explicit fee waivers are kept; a recorded payment is never lost.
+ * Rating evening: one 500 ₽ entry fee for everyone who comes to play (answered «иду»/«позже», picked
+ * games, was marked present or is seated). The organizer and judges pay only if they actually play.
+ * Explicit fee waivers are kept; a recorded payment is never lost.
  */
 async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: string, seated: Set<string>): Promise<number> {
   const waiverTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_fee_waivers'");
@@ -122,15 +123,32 @@ async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: str
       WHERE ep.evening_id = ? AND ep.player_id IS NOT NULL`,
     [eveningId],
   );
+  // Staff (the evening's organizer and the judges of its games) pay only when they sit at a table
+  // as a player (user-approved 2026-09-24); organizing or judging alone is free.
+  const staffTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'");
+  const organizer = staffTable
+    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    : null;
+  const games = await db.all<any>('SELECT judge_player_id, slots_json FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
+  const staffIds = new Set([organizer?.organizer_player_id, ...games.map((game: any) => game.judge_player_id)].filter(Boolean).map(String));
+  const playedIds = new Set<string>(seated);
+  for (const game of games) {
+    let slots: any[] = [];
+    try { slots = JSON.parse(String(game.slots_json || '[]')); } catch { slots = []; }
+    if (Array.isArray(slots)) for (const slot of slots) if (slot?.participant_id) playedIds.add(String(slot.participant_id));
+  }
   let changed = 0;
   const now = new Date().toISOString();
   for (const participant of participants) {
     if (waived.has(String(participant.id))) continue;
-    const comes = seated.has(String(participant.id))
-      || Number(participant.games || 0) > 0
-      || ['going', 'late'].includes(String(participant.response_status || ''))
-      || String(participant.attendance_status || '') === 'attended';
-    // Every player at a rating table pays, the organizer included (a full table is 5000 ₽).
+    const plays = playedIds.has(String(participant.id));
+    const comes = staffIds.has(String(participant.player_id))
+      ? plays
+      : plays
+        || Number(participant.games || 0) > 0
+        || ['going', 'late'].includes(String(participant.response_status || ''))
+        || String(participant.attendance_status || '') === 'attended';
+    // Every player at a rating table pays, a playing organizer included (a full table is 5000 ₽).
     const due = comes ? RATING_ENTRY_FEE : 0;
     const status = novicePaymentStatus(due, Math.max(0, Number(participant.amount_paid || 0)));
     if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;

@@ -389,7 +389,7 @@ export const validateProtocolCompletion = (
         bestMove.participant_id !== protocol.zero_round_voted_participant_id
       ) {
         return generalValidationError(
-          'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг',
+          'Лучший ход после нулевого круга может оставить только игрок, заголосованный в нулевом круге',
         );
       }
     }

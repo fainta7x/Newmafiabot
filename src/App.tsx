@@ -201,7 +201,7 @@ export default function App() {
   }
 
   if (rootState.status === 'loading') {
-    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем сессию игрока…" />;
+    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем вход…" />;
   }
 
   if (rootState.status === 'unlinked') {
@@ -209,7 +209,7 @@ export default function App() {
   }
 
   if (rootState.status === 'error') {
-    return <RootMessage kind="error" title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
+    return <RootMessage kind="error" title="Не удалось войти" text="Не получилось подтвердить вход или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
   if (parsedPlayerRoute.replayGameKey) {

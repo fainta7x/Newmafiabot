@@ -28,7 +28,7 @@ eveningSlotRoutes.get('/:eveningId/slots', requireOrganizerAuth, async (req, res
     const plan = await loadEveningSlotPlan(req.db, String(req.params.eveningId));
     return res.json(plan);
   } catch (error: any) {
-    return sendError(res, error, 'Не удалось загрузить слоты вечера');
+    return sendError(res, error, 'Не удалось загрузить игры вечера');
   }
 });
 
@@ -60,7 +60,7 @@ eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res
     });
     return res.json(plan);
   } catch (error: any) {
-    return sendError(res, error, 'Не удалось сохранить настройки игровых слотов');
+    return sendError(res, error, 'Не удалось сохранить настройки игр вечера');
   }
 });
 
@@ -104,7 +104,7 @@ eveningSlotRoutes.get('/:eveningId/slots/me', async (req, res) => {
     }
     return res.json(plan);
   } catch (error: any) {
-    return sendError(res, error, 'Не удалось загрузить игровые слоты');
+    return sendError(res, error, 'Не удалось загрузить игры вечера');
   }
 });
 

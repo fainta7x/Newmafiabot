@@ -287,14 +287,14 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
           <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-accent" />
             <div>
-              <p className="text-[14px] font-semibold text-text-primary">Загружаем CRM</p>
+              <p className="text-[14px] font-semibold text-text-primary">Загружаем кабинет организатора</p>
               <p className="mt-1 text-[12px] text-text-secondary">Игроки, события и очередь действий появятся одновременно</p>
             </div>
           </div>
         ) : loadError && isOrganizer ? (
           <div className="flex min-h-[48vh] items-center justify-center">
             <div className="w-full max-w-sm rounded-[20px] border border-danger/30 bg-danger-soft p-5 text-center">
-              <h2 className="text-[16px] font-bold">Не удалось загрузить CRM</h2>
+              <h2 className="text-[16px] font-bold">Не удалось загрузить кабинет организатора</h2>
               <p className="mt-2 text-[12px] leading-relaxed text-text-secondary">{loadError}</p>
               <button type="button" onClick={() => void retryLoad()} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white">Повторить</button>
             </div>
@@ -420,7 +420,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
           <div className="w-full max-w-sm space-y-5 rounded-t-[24px] border border-border-soft bg-surface-1 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-text-primary sm:rounded-[24px]">
             <div className="text-center">
               <h3 className="text-[17px] font-bold">Вход для организатора</h3>
-              <p className="mt-1 text-[12px] text-text-secondary">Введите пароль для доступа к CRM</p>
+              <p className="mt-1 text-[12px] text-text-secondary">Введите пароль от кабинета организатора</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-4">
               <input

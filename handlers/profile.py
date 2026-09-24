@@ -423,7 +423,7 @@ async def show_game_by_id(callback: types.CallbackQuery):
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры", show_alert=True)
+        await callback.answer("Нет игр на этот вечер", show_alert=True)
         return
 
     night_kills_order = await get_night_kills_order(date_str, game_number or 0)
@@ -577,7 +577,7 @@ async def show_my_game_by_id(callback: types.CallbackQuery):
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры", show_alert=True)
+        await callback.answer("Нет игр на этот вечер", show_alert=True)
         return
 
     night_kills_order = await get_night_kills_order(date_str, game_number or 0)
@@ -1144,7 +1144,7 @@ async def show_game_protocol(callback: types.CallbackQuery, state: FSMContext):
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры.", show_alert=True)
+        await callback.answer("Нет игр на этот вечер.", show_alert=True)
         return
 
     night_kills_order = await get_night_kills_order(date_str, game_number or 0)
@@ -1262,7 +1262,7 @@ async def editgame_show_protocol(callback: types.CallbackQuery, state: FSMContex
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры.", show_alert=True)
+        await callback.answer("Нет игр на этот вечер.", show_alert=True)
         return
 
     data = await state.get_data()
@@ -1343,7 +1343,7 @@ async def editgame_players(callback: types.CallbackQuery, state: FSMContext):
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры.", show_alert=True)
+        await callback.answer("Нет игр на этот вечер.", show_alert=True)
         return
 
     data = await state.get_data()
@@ -1529,7 +1529,7 @@ async def editgame_regenerate(callback: types.CallbackQuery, state: FSMContext):
 
     slots = await get_game_slots_by_date(date_str, game_number=game_number)
     if not slots:
-        await callback.answer("Нет слотов игры.", show_alert=True)
+        await callback.answer("Нет игр на этот вечер.", show_alert=True)
         return
 
     # --- ЛОГИКА ПЕРЕСЧЕТА БАЛЛОВ ЗА ПОБЕДУ ---

@@ -148,12 +148,12 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
 
       <section data-testid="profile-personal-data" className="rounded-[var(--ds-radius-lg)] border border-border bg-[var(--ds-surface)] p-4">
         <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Основной профиль</div>
-        <p className="mt-1 text-sm leading-5 text-muted-foreground">Один профиль используется в кабинете, CRM и играх.</p>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">Один профиль — для кабинета, клуба и игр.</p>
         <div className="mt-3"><PlayerIdentityFields value={identity} onChange={setIdentity} /></div>
         {!identity.phone.trim() ? <button type="button" onClick={() => void setSensitiveChoice('phone', 'declined')} className="mt-2 min-h-11 w-full rounded-xl border border-border px-3 text-sm text-muted-foreground">Не хочу указывать телефон</button> : null}
         <div className="mt-3 rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)] px-3.5 py-3">
           <div className="text-sm font-semibold text-muted-foreground">Telegram</div>
-          <div className="mt-1 text-sm text-foreground">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Используется системная Telegram-привязка, если она есть'}</div>
+          <div className="mt-1 text-sm text-foreground">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Если профиль привязан к Telegram, используется он'}</div>
           <FieldDescription className="mt-1">Системная привязка не меняется вручную.</FieldDescription>
         </div>
 

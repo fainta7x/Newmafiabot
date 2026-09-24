@@ -276,7 +276,7 @@ export async function updateEveningSlotSettings(
   const nextDuration = Math.max(15, Math.min(180, Math.round(Number(input.slot_duration_minutes ?? settings.slot_duration_minutes ?? 60))));
   const nextStartsAt = normalizeStartsAt(input.starts_at, evening.starts_at);
   if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice) || !Number.isFinite(nextDuration)) {
-    throw Object.assign(new Error('Некорректные настройки игровых слотов'), { statusCode: 400 });
+    throw Object.assign(new Error('Неверные настройки игр вечера'), { statusCode: 400 });
   }
 
   const currentSlots = await db.all<any>('SELECT id, slot_number FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);

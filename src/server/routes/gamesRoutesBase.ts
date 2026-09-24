@@ -227,7 +227,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req, res) => {
 router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
 
     const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
@@ -238,7 +238,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
     const incomingProtocol = req.body?.protocol;
     const incomingResults = req.body?.player_results;
     if (!incomingProtocol || !Array.isArray(incomingResults) || incomingResults.length !== 10) {
-      return res.status(400).json({ error: 'Нужны protocol и 10 player_results' });
+      return res.status(400).json({ error: 'В протоколе нет результатов всех 10 игроков' });
     }
 
     const previous = safeJsonParse<any>(existing.protocol_text, null);
@@ -330,7 +330,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
 router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
@@ -360,7 +360,7 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
 router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
@@ -388,7 +388,7 @@ router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) =
 router.delete('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
@@ -415,10 +415,10 @@ router.delete('/:gameId/evening-draft', requireOrganizerAuth, async (req, res) =
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
     if (!protocol || protocol.kind !== 'club_evening_protocol') {
-      return res.status(400).json({ error: 'Можно удалить только клубный черновик' });
+      return res.status(400).json({ error: 'Удалить можно только незавершённую игру вечера' });
     }
     if (protocol.protocol?.status === 'completed') {
-      return res.status(409).json({ error: 'Завершённую игру удалить нельзя. Сначала верните её в черновик.' });
+      return res.status(409).json({ error: 'Завершённую игру удалить нельзя. Сначала откройте её протокол для правки.' });
     }
     await db.run('DELETE FROM games WHERE id = ?', [gameId]);
     res.json({ success: true });

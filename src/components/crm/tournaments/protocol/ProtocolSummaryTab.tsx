@@ -77,7 +77,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
 
     const gameId = Number(protocol.game_id);
     if (!Number.isInteger(gameId) || gameId <= 0) {
-      setReplacementError('Не удалось определить ID игры для замены гостя.');
+      setReplacementError('Не удалось найти игру для замены гостя.');
       return;
     }
 

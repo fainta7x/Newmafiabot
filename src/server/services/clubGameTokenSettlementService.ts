@@ -137,11 +137,11 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
 
   const linkedResults = results.filter((result: any) => String(result?.player_id || '').trim());
   const playerIds = linkedResults.map((result: any) => String(result.player_id).trim());
-  if (new Set(playerIds).size !== playerIds.length) throw new Error('Для начисления жетонов нужны уникальные UUID зарегистрированных игроков');
+  if (new Set(playerIds).size !== playerIds.length) throw new Error('Для начисления жетонов один игрок не может занимать два места');
   if (playerIds.length) {
     const placeholders = playerIds.map(() => '?').join(',');
     const existingPlayers = await db.all<{ id: string }>(`SELECT id FROM players WHERE id IN (${placeholders}) AND COALESCE(source, '') != 'legacy_guest_migrated'`, playerIds);
-    if (existingPlayers.length !== playerIds.length) throw new Error('Один или несколько UUID игроков завершённой игры отсутствуют в CRM');
+    if (existingPlayers.length !== playerIds.length) throw new Error('Кого-то из игроков этой игры больше нет в клубе — жетоны не начислены');
   }
 
   const winnerTeam = payload.protocol?.winner_team;
@@ -163,9 +163,9 @@ const rowKey = (subjectType: string, playerId: string) => `${subjectType}:${play
 export interface ReconcileClubGameSettlementOptions { activateIfUntracked?: boolean; context: ClubGameSettlementContext; }
 
 export const reconcileClubGameTokenSettlement = async (db: DatabaseWrapper, gameId: number, options: ReconcileClubGameSettlementOptions) => {
-  if (!Number.isInteger(gameId) || gameId <= 0) throw new Error('Некорректный ID клубной игры для settlement');
+  if (!Number.isInteger(gameId) || gameId <= 0) throw new Error('Игра для начисления жетонов не найдена');
   const game = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
-  if (!game) throw new Error('Клубная игра для settlement не найдена');
+  if (!game) throw new Error('Игра для начисления жетонов не найдена');
   if (!game.evening_id) return { managed: false, mutations: 0 };
   const existingRows = await db.all<SettlementRow>('SELECT * FROM club_game_token_settlements WHERE game_id = ? ORDER BY subject_type, player_id', [gameId]);
   const managed = existingRows.length > 0;

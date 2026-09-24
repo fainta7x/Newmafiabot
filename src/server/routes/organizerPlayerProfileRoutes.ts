@@ -43,7 +43,7 @@ router.use(async (req, res, next) => {
         const organizerAccess = await hasOrganizerPlayerAccess(db, playerId);
         originalJson({ ...body, organizer_player_access: organizerAccess });
       } catch (error: any) {
-        originalJson({ ...body, organizer_player_access: false, organizer_player_access_error: error?.message || 'Не удалось проверить доступ к CRM' });
+        originalJson({ ...body, organizer_player_access: false, organizer_player_access_error: error?.message || 'Не удалось проверить доступ к кабинету организатора' });
       }
     })();
     return res;
@@ -123,7 +123,7 @@ router.patch('/:id/organizer-access', requireOrganizerAuth, async (req: Authenti
       return res.status(400).json({ error: 'Validation error', details: error.errors || error.message });
     }
     return res.status(Number(error?.statusCode || 500)).json({
-      error: error?.message || 'Не удалось изменить доступ к CRM организатора',
+      error: error?.message || 'Не удалось изменить доступ к кабинету организатора',
       code: error?.code || 'organizer_access_change_failed',
     });
   }

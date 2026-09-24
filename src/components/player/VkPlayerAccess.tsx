@@ -15,7 +15,7 @@ const VK_ERROR_MESSAGES: Record<string, string> = {
   vk_auth_callback_failed: 'Не удалось завершить вход через VK. Попробуйте ещё раз чуть позже.',
   vk_runtime_origin_missing: 'Вход через VK временно не настроен на сервере. Сообщите организатору.',
   vk_runtime_app_id_invalid: 'VK ID временно недоступен из-за настройки приложения. Сообщите организатору.',
-  vk_runtime_https_required: 'VK ID требует защищённый HTTPS-вход. Сообщите организатору.',
+  vk_runtime_https_required: 'Вход через VK сейчас не работает. Сообщите организатору.',
   vk_auth_start_rate_limited: 'Слишком много попыток входа через VK. Повторите немного позже.',
 };
 

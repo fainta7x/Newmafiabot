@@ -247,7 +247,7 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
             {/* Available Players Selection Grid */}
             <div className="space-y-2 pt-2 border-t border-border-soft">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-xs font-bold text-text-primary">Выбор игроков из CRM</span>
+                <span className="text-xs font-bold text-text-primary">Выбор игроков клуба</span>
                 <div className="relative w-full sm:w-48">
                   <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input

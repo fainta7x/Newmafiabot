@@ -66,7 +66,7 @@ export function MusicLibraryCRM({ evenings, onOpenLibrary }: { evenings: GameEve
     <div className="mx-auto w-full max-w-3xl space-y-3">
       <section className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-white/[0.025] p-4">
         <h2 className="text-base font-semibold text-white">База ведущего</h2>
-        <p className="mt-1 text-xs leading-5 text-white/40">Постоянная база редактируется в едином разделе «Ведение». Здесь CRM показывает только контекст выбранного вечера.</p>
+        <p className="mt-1 text-xs leading-5 text-white/40">Общая музыкальная база правится в разделе «Ведение». Здесь — только музыка выбранного вечера.</p>
         <button type="button" onClick={onOpenLibrary} className="mt-4 min-h-11 w-full rounded-xl bg-violet-100 px-3 text-xs font-semibold text-[#15121b]">Открыть базу ведущего</button>
       </section>
 
@@ -75,7 +75,7 @@ export function MusicLibraryCRM({ evenings, onOpenLibrary }: { evenings: GameEve
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100/45">Состав на игру</div>
             <h3 className="mt-2 text-lg font-semibold text-white">Плейлист выбранного вечера</h3>
-            <p className="mt-1 text-xs leading-5 text-white/35">В базу вечера попадают музыка ведущего и два слота только тех игроков, которых отметили как пришедших.</p>
+            <p className="mt-1 text-xs leading-5 text-white/35">В музыку вечера попадают треки ведущего и по два трека тех игроков, кого отметили как пришедших.</p>
           </div>
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-300/[0.08] text-sm text-sky-100/75">♫</span>
         </div>

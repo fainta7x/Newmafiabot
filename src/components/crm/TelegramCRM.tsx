@@ -86,7 +86,7 @@ export const TelegramCRM: React.FC = () => {
         active: Boolean(item.active),
       }])));
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить Telegram-настройки');
+      setError(err?.message || 'Не удалось загрузить настройки Telegram');
     } finally { setLoading(false); }
   };
 
@@ -154,9 +154,9 @@ export const TelegramCRM: React.FC = () => {
       } else {
         const reasons: string[] = [];
         if (!result?.telegram?.configured) reasons.push('не задан TELEGRAM_BOT_TOKEN');
-        else if (!result?.telegram?.reachable) reasons.push(result?.telegram?.error ? `Telegram API: ${result.telegram.error}` : 'Telegram API недоступен');
-        if (result?.telegram?.reachable && !result?.telegram?.webhook_matches_bot_service) reasons.push('webhook ведёт не на текущий bot-service');
-        if (!result?.bot_service?.reachable) reasons.push(result?.bot_service?.error ? `bot-service: ${result.bot_service.error}` : 'bot-service недоступен');
+        else if (!result?.telegram?.reachable) reasons.push(result?.telegram?.error ? `Telegram API: ${result.telegram.error}` : 'Telegram не отвечает');
+        if (result?.telegram?.reachable && !result?.telegram?.webhook_matches_bot_service) reasons.push('Бот подключён не туда — сообщите разработчику');
+        if (!result?.bot_service?.reachable) reasons.push(result?.bot_service?.error ? `bot-service: ${result.bot_service.error}` : 'Бот не отвечает');
         if (result?.telegram?.last_error_message) reasons.push(`Telegram webhook: ${result.telegram.last_error_message}`);
         setError(`Проверка Telegram: ${reasons.join('; ') || 'обнаружена проблема конфигурации'}.`);
       }
@@ -216,7 +216,7 @@ export const TelegramCRM: React.FC = () => {
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <strong className="text-[14px] text-text-primary">Личные и organizer-уведомления</strong>
+            <strong className="text-[14px] text-text-primary">Личные уведомления и уведомления организаторам</strong>
             <p className="mt-1 text-[11px] leading-5 text-text-secondary">
               Durable outbox хранит состояние доставки и повторяет временные ошибки Telegram без отката основной операции.
             </p>
@@ -226,7 +226,7 @@ export const TelegramCRM: React.FC = () => {
           </span>
         </div>
         <div className="mt-3 grid gap-2 text-[10px] leading-4 text-text-secondary sm:grid-cols-2">
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Очередь outbox: <strong className="text-text-primary">{organizerNotifications?.queue_size ?? 0}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Ждут отправки: <strong className="text-text-primary">{organizerNotifications?.queue_size ?? 0}</strong></div>
           <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Источник организаторов: <strong className="text-text-primary">{organizerNotifications?.recipient_source || 'none'}</strong></div>
           <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя успешная: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_success?.sent_at)}</strong></div>
           <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя ошибка: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_failure?.last_attempt_at)}</strong></div>
@@ -250,7 +250,7 @@ export const TelegramCRM: React.FC = () => {
           <TestTube2 className="h-4 w-4" /> {busy === 'test-organizer' ? 'Ставим в очередь…' : 'Отправить тестовое уведомление организаторам'}
         </button>
         <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          {runtimeMonitor?.note || 'GitHub runtime-monitor проверяется отдельно: исправный webhook бота не подтверждает наличие GitHub Actions secrets.'}
+          {runtimeMonitor?.note || 'Здесь проверяется только бот. Остальные проверки приложения смотрит разработчик.'}
         </p>
       </section>
 
@@ -294,13 +294,13 @@ export const TelegramCRM: React.FC = () => {
                   <input
                     value={draft.topic_id}
                     onChange={(event) => patchDraft(id, { topic_id: event.target.value.replace(/\D/g, '') })}
-                    placeholder="ID нужной темы форума"
+                    placeholder="Номер темы в группе"
                     inputMode="numeric"
                     className="mt-1.5 min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none focus:border-accent/50"
                   />
                 </label>
               ) : (
-                <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2.5 text-[10px] leading-4 text-text-muted">Это канал — Topic ID не нужен.</div>
+                <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2.5 text-[10px] leading-4 text-text-muted">Это канал — номер темы не нужен.</div>
               )}
             </div>
 

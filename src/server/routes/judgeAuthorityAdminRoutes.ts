@@ -14,7 +14,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
   try {
     const db = req.db;
     const player = await db.get('SELECT id, nickname, judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
-    if (!player) return res.status(400).json({ error: 'Игрок-судья не найден в CRM' });
+    if (!player) return res.status(400).json({ error: 'Судья не найден среди игроков клуба' });
     if (normalizeJudgeLevel(player.judge_level) !== 'judge') {
       return res.status(400).json({
         error: `${player.nickname}: турнирную игру может вести только игрок со званием «Судья»`,

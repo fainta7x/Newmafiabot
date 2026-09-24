@@ -98,7 +98,7 @@ router.post('/betting/reconcile', requireOrganizerAuth, async (req, res) => {
 router.post('/:gameId/start', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const result = await startClubGameLifecycle(req.db as DatabaseWrapper, {
       gameId,
       roles: Array.isArray(req.body?.roles) ? req.body.roles : [],
@@ -116,7 +116,7 @@ router.post('/:gameId/start', requireOrganizerAuth, async (req, res) => {
 router.post('/:gameId/betting/close', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
     if (!before) return res.status(404).json({ error: 'Ставки на игру не найдены' });
@@ -132,7 +132,7 @@ router.post('/:gameId/betting/close', requireOrganizerAuth, async (req, res) => 
 router.post('/:gameId/betting/refund', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
     if (!before) return res.status(404).json({ error: 'Ставки на игру не найдены' });
@@ -147,7 +147,7 @@ router.post('/:gameId/betting/settle', requireOrganizerAuth, async (req, res) =>
   try {
     const gameId = Number(req.params.gameId);
     const winner = String(req.body?.winner || '');
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     if (winner !== 'red' && winner !== 'black') return res.status(400).json({ error: 'Выберите победителя: красные или чёрные' });
     const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
@@ -165,7 +165,7 @@ router.post('/:gameId/betting/settle', requireOrganizerAuth, async (req, res) =>
 router.post('/:gameId/betting/open', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const result = await startClubGameLifecycle(req.db as DatabaseWrapper, {
       gameId,
       roles: Array.isArray(req.body?.roles) ? req.body.roles : [],

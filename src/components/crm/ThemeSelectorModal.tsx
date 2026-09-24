@@ -39,7 +39,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold leading-tight">Тема интерфейса</h3>
-              <p className="text-xs text-text-secondary">Выберите оформление CRM системы</p>
+              <p className="text-xs text-text-secondary">Выберите оформление кабинета организатора</p>
             </div>
           </div>
           <button

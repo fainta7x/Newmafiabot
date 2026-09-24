@@ -182,7 +182,7 @@ const uploadSpeechClip = async (gameId: number, clip: StoredSpeechClip) => {
       await persistSpeechClip({
         ...pending,
         server_sync_status: 'failed',
-        server_sync_error: error?.message || 'Не удалось синхронизировать запись.',
+        server_sync_error: error?.message || 'Не удалось отправить запись.',
       });
     } catch {}
   } finally {

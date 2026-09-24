@@ -220,14 +220,14 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
 router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     const db = req.db || (await getDb());
     const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
     if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
     const incomingProtocol = req.body?.protocol; const rawResults = req.body?.player_results;
-    if (!incomingProtocol || !Array.isArray(rawResults) || !isSupportedTableSize(rawResults.length)) return res.status(400).json({ error: 'Нужны protocol и результаты всех игроков стола' });
+    if (!incomingProtocol || !Array.isArray(rawResults) || !isSupportedTableSize(rawResults.length)) return res.status(400).json({ error: 'В протоколе нет результатов всех игроков стола' });
     const previous = safeJsonParse<any>(existing.protocol_text, null);
     if (!previous || previous.kind !== 'club_evening_protocol' || previous.version !== 1) return res.status(400).json({ error: 'У игры отсутствует структурированный клубный протокол' });
     const previousStatus: 'draft' | 'completed' = previous.protocol?.status === 'completed' ? 'completed' : 'draft';
@@ -258,7 +258,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
 router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId); const seatNumber = Number(req.body?.seat_number);
-    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 10) return res.status(400).json({ error: 'Укажите место от 1 до 10' });
     const replacementPlayerId = String(req.body?.replacement_player_id || '').trim();
     if (!replacementPlayerId) return res.status(400).json({ error: 'Выберите зарегистрированного игрока' });

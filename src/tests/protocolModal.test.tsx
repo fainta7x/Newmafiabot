@@ -648,11 +648,11 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
 
       // Click revert to draft button
-      const revertBtn = screen.getByRole('button', { name: /Вернуть в черновик/i });
+      const revertBtn = screen.getByRole('button', { name: /Открыть для правки/i });
       fireEvent.click(revertBtn);
 
       // Confirm revert
-      const confirmBtn = screen.getByRole('button', { name: /Да, вернуть в черновик/i });
+      const confirmBtn = screen.getByRole('button', { name: /Да, открыть для правки/i });
       fireEvent.click(confirmBtn);
 
       await waitFor(() => expect(onProtocolUpdatedSpy).toHaveBeenCalledTimes(1));

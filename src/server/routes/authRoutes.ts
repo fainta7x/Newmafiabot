@@ -228,7 +228,7 @@ router.post('/login', async (req, res) => {
       if (!entitled) {
         res.clearCookie('organizer_token', { path: '/' });
         return res.status(403).json({
-          error: 'Доступ к CRM организатора не выдан для этого аккаунта',
+          error: 'У этого профиля нет доступа к кабинету организатора',
           code: 'organizer_player_access_required',
         });
       }
@@ -239,7 +239,7 @@ router.post('/login', async (req, res) => {
         role: 'ORGANIZER',
         token,
         organizerAccountLinked: true,
-        message: 'Успешная авторизация. Используется ранее выданный доступ к CRM организатора.',
+        message: 'Вход выполнен. Доступ к кабинету организатора уже был выдан.',
       });
     }
 

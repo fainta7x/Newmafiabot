@@ -111,7 +111,7 @@ export default function PlayerAwardSuggestionAction() {
           ) : null}
           <input value={tournamentName} onChange={(event) => setTournamentName(event.target.value)} placeholder="Турнир / событие" className="mobile-field" />
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={mode === 'correction' ? 'Что нужно исправить' : 'Что за награда'} className="mobile-field min-h-[88px] resize-y" />
-          <input value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} placeholder="HTTPS-ссылка на фото — необязательно" className="mobile-field" />
+          <input value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} placeholder="Ссылка на фото — необязательно" className="mobile-field" />
           <textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий организатору" className="mobile-field min-h-[88px] resize-y" />
           <button type="button" disabled={disabled} onClick={() => void submit()} className="min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-40">
             {saving ? 'Отправляем…' : 'Отправить на проверку'}

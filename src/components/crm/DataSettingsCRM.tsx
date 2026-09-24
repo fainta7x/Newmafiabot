@@ -326,7 +326,7 @@ export const DataSettingsCRM: React.FC = () => {
 
       {tab === 'database' ? (
         <div className="space-y-3">
-          <div className="rounded-[16px] border border-danger/25 bg-danger-soft p-3 text-[12px] leading-5 text-danger"><strong>Экспертный режим.</strong> Здесь можно исправлять рабочие записи напрямую. ID и бинарные данные заблокированы, а жетоны меняются только через ledger. Каждая правка попадёт в журнал.</div>
+          <div className="rounded-[16px] border border-danger/25 bg-danger-soft p-3 text-[12px] leading-5 text-danger"><strong>Экспертный режим.</strong> Здесь можно исправлять записи напрямую. Служебные поля менять нельзя, а жетоны меняются только через начисления и списания. Каждая правка попадёт в журнал.</div>
           <select className={fieldClass} value={tableName} onChange={(e) => setTableName(e.target.value)}>{tables.map((table) => <option key={table.table} value={table.table}>{table.label} · {table.table}</option>)}</select>
           {tableLoading ? <div className="py-8 text-center"><RefreshCw className="mx-auto h-5 w-5 animate-spin" /></div> : tableData ? <div className="space-y-2"><div className="text-[11px] text-text-muted">Записей: {tableData.total}. Показаны первые {tableData.rows.length}.</div>{tableData.rows.map((row) => <ExpertRowEditor key={row.__pk} row={row} columns={tableData.columns} table={tableData.table} onSaved={() => loadTable(tableData.table)} />)}</div> : null}
         </div>

@@ -103,7 +103,7 @@ router.put('/evenings/:eveningId/telegram-publications/:destinationId', async (r
       return res.status(400).json({ error: 'Некорректные данные Telegram-публикации' });
     }
     if (topicId !== null && (!Number.isInteger(topicId) || topicId <= 0)) {
-      return res.status(400).json({ error: 'Некорректный Topic ID' });
+      return res.status(400).json({ error: 'Неверный номер темы' });
     }
 
     const now = new Date().toISOString();

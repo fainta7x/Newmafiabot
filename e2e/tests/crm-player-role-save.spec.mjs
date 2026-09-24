@@ -69,8 +69,8 @@ test.describe('CRM player classification persistence', () => {
     await page.getByTestId('crm-player-access-edit').click();
     const sheet = page.getByTestId('crm-player-access-sheet');
 
-    await page.getByRole('button', { name: 'Выдать доступ к CRM', exact: true }).click();
-    await expect(page.getByText('Выдать доступ к CRM организатора?', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Дать доступ к кабинету организатора', exact: true }).click();
+    await expect(page.getByText('Дать доступ к кабинету организатора?', { exact: true })).toBeVisible();
     await shot(page, testInfo, 'crm-player-crm-authorization-confirmation-360x800.png');
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
 

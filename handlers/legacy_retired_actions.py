@@ -169,11 +169,11 @@ async def _send_player_app(message: Message) -> None:
 
 
 async def _send_admin_crm(message: Message) -> None:
-    keyboard = bot_menu.app_inline_keyboard("/admin", text="🗂 Открыть CRM")
+    keyboard = bot_menu.app_inline_keyboard("/admin", text="🗂 Открыть кабинет организатора")
     if keyboard:
         await message.answer(
             "Эта старая админ-функция больше не пишет в legacy-базу. "
-            "Используй актуальную CRM организатора.",
+            "Используй кабинет организатора.",
             reply_markup=keyboard,
         )
     else:
@@ -204,6 +204,6 @@ async def retire_legacy_admin_callback(callback: CallbackQuery):
     if not callback.from_user or not _is_admin(callback.from_user.id):
         await callback.answer("Эта старая кнопка больше не используется.", show_alert=True)
         return
-    await callback.answer("Старая админ-функция отключена. Открой CRM.", show_alert=True)
+    await callback.answer("Старая функция отключена. Открой кабинет организатора.", show_alert=True)
     if callback.message:
         await _send_admin_crm(callback.message)

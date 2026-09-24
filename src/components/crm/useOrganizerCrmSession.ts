@@ -120,7 +120,7 @@ export const useOrganizerCrmSession = () => {
         setIsOrganizer(false);
         setShowLoginModal(true);
       } else {
-        setLoadError(error?.message || 'Не удалось загрузить данные CRM');
+        setLoadError(error?.message || 'Не удалось загрузить кабинет организатора');
       }
     } finally {
       setLoading(false);
@@ -134,7 +134,7 @@ export const useOrganizerCrmSession = () => {
     try {
       await loadAllData();
     } catch (error: any) {
-      setLoadError(error?.message || 'Не удалось загрузить данные CRM');
+      setLoadError(error?.message || 'Не удалось загрузить кабинет организатора');
     } finally {
       if (needsBlockingLoader) setLoading(false);
     }

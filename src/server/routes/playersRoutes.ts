@@ -354,7 +354,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
     const { evening_id, table_id, create_followup_task, task_due_days } = req.body;
 
     if (!evening_id) {
-      return res.status(400).json({ error: 'Не указан evening_id' });
+      return res.status(400).json({ error: 'Не выбран вечер' });
     }
 
     const player = await db.get('SELECT * FROM players WHERE id = ?', [String(req.params.id)]);

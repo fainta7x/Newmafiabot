@@ -379,7 +379,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 text-[11px] font-black text-text-secondary"><UserPlus className="h-4 w-4" />Добавить игрока клуба или гостя</summary>
           <div className="space-y-3 border-t border-border-soft p-3">
             <div className="space-y-1.5">
-              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Игрок из CRM — даже если его не было в Telegram-рассылке</div>
+              <div className="text-[10px] font-black uppercase tracking-wide text-text-muted">Игрок клуба — даже если его не было в рассылке Telegram</div>
               <input value={manualPlayerQuery} onChange={(event) => setManualPlayerQuery(event.target.value)} placeholder="Например, Фандорин" className="w-full rounded-[11px] border border-border-soft bg-surface-1 px-3 py-2.5 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
               {manualCandidates.length > 0 ? <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{manualCandidates.map((player) => {
                 const existing = byPlayerId.get(String(player.id));

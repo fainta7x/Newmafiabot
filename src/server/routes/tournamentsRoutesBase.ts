@@ -285,7 +285,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
   for (const pid of uniquePlayerIds) {
     const pl = await db.get<any>('SELECT id, nickname FROM players WHERE id = ?', [pid]);
     if (!pl) {
-      return res.status(400).json({ error: `Игрок с ID ${pid} не найден в CRM` });
+      return res.status(400).json({ error: `Игрок не найден в клубе` });
     }
   }
 
@@ -428,7 +428,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
     for (const pid of uniquePlayerIds) {
       const pl = await db.get<any>('SELECT id FROM players WHERE id = ?', [pid]);
       if (!pl) {
-        return res.status(400).json({ error: `Игрок с ID ${pid} не найден в CRM` });
+        return res.status(400).json({ error: `Игрок не найден в клубе` });
       }
     }
 
@@ -543,7 +543,7 @@ router.patch('/:id/participants/:participantId/correct-player', requireOrganizer
 
     const newPlayer = await db.get<any>('SELECT * FROM players WHERE id = ?', [player_id]);
     if (!newPlayer) {
-      return res.status(400).json({ error: 'Игрок с указанным ID не найден в CRM' });
+      return res.status(400).json({ error: 'Игрок не найден в клубе' });
     }
 
     const duplicateCheck = await db.get<any>(
@@ -551,7 +551,7 @@ router.patch('/:id/participants/:participantId/correct-player', requireOrganizer
       [tournamentId, player_id, participantId]
     );
     if (duplicateCheck) {
-      return res.status(400).json({ error: 'Этот игрок CRM уже задействован в данном турнире' });
+      return res.status(400).json({ error: 'Этот игрок уже участвует в турнире' });
     }
 
     const displayName = newPlayer.nickname || newPlayer.first_name || participant.display_name;
@@ -707,7 +707,7 @@ async function checkGameEditingPermission(
   }
 
   if (game.status === 'completed') {
-    return { allowed: false, error: 'Сначала необходимо вернуть протокол игры в черновик' };
+    return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
   }
 
   if (game.status === 'planned') {
@@ -724,7 +724,7 @@ async function checkGameEditingPermission(
     if (game.status === 'active') {
       const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
       if (!protocol || protocol.status !== 'draft') {
-        return { allowed: false, error: 'Сначала необходимо вернуть протокол игры в черновик' };
+        return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
       }
       const otherActive = await db.get<any>(
         "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
@@ -1900,7 +1900,7 @@ router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth,
 // Legacy endpoint retained only as an explicit compatibility error.
 // Nomination winners are deterministic and cannot be selected manually.
 router.put('/:id/final-resolutions/nominations/:category', requireOrganizerAuth, async (_req: AuthenticatedRequest, res: Response) => {
-  res.status(410).json({ error: 'Номинации определяются автоматически по каноническим критериям.' });
+  res.status(410).json({ error: 'Номинации определяются автоматически по итогам турнира.' });
 });
 
 // GET /api/tournaments/:id/final-readiness - Get final readiness check results
@@ -2101,7 +2101,7 @@ export async function insertRowSafe(
 // Helper for backup validation
 export function validateTournamentBackupData(backupData: any, tournamentId: string) {
   if (!backupData || typeof backupData !== 'object') {
-    return { valid: false, error: 'Невалидный формат резервной копии: ожидается JSON-объект' };
+    return { valid: false, error: 'Файл не подходит: это не резервная копия турнира' };
   }
 
   if (backupData.schema_version !== 1) {

@@ -44,7 +44,7 @@ router.get('/calendar', async (req,res) => {
 
 router.get('/evenings/:eveningId/slots', async (req,res)=>{
   const playerId=requirePlayer(req,res);if(!playerId)return;const db=req.db;
-  try{const player=await db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1',[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});return res.json(await loadEveningSlotPlan(db,String(req.params.eveningId),playerId));}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить игровые слоты'});}
+  try{const player=await db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1',[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});return res.json(await loadEveningSlotPlan(db,String(req.params.eveningId),playerId));}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить игры вечера'});}
 });
 
 router.post('/evenings/:eveningId/slots', async (req,res)=>{

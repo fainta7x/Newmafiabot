@@ -83,7 +83,7 @@ export async function runEveningShortfallChecks(
         messageKey: `evening-shortfall:${id}`,
         eventType: 'evening_shortfall',
         entityId: id,
-        text: `⚠️ Недобор на «${String(evening.title || 'Игровой вечер')}»: записались ${shortfall.confirmed} из ${shortfall.minimum}. Отменить вечер? Кнопка — на главной CRM в «Порядке в клубе».`,
+        text: `⚠️ Недобор на «${String(evening.title || 'Игровой вечер')}»: записались ${shortfall.confirmed} из ${shortfall.minimum}. Отменить вечер? Кнопка — на главной кабинета организатора, в «Порядке в клубе».`,
       });
       await db.run(
         `INSERT INTO evening_shortfall_actions (evening_id, cancel_prompt_at) VALUES (?, ?)

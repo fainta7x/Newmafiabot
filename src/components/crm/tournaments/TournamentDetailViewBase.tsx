@@ -654,7 +654,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                       <span>Режим корректировки турнира</span>
                     </div>
                     <p className="text-text-secondary leading-relaxed">
-                      Турнир возвращён из завершённых для внесения исправлений. Публичные результаты временно скрыты, а результаты спорных ситуаций аннулированы. Для изменения судьи и ролей верните протокол соответствующей игры в черновик. После внесения правок завершите турнир повторно.
+                      Турнир возвращён из завершённых для внесения исправлений. Публичные результаты временно скрыты, а результаты спорных ситуаций аннулированы. Для изменения судьи и ролей откройте протокол нужной игры для правки. После внесения правок завершите турнир повторно.
                     </p>
                   </div>
 
@@ -1051,7 +1051,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                     </span>
                     {isCorrection && currentGame.status === 'completed' && (
                       <span className="text-[11px] text-amber-400 italic font-medium">
-                        Для изменения судьи/ролей верните протокол в черновик
+                        Чтобы поменять судью или роли, откройте протокол для правки
                       </span>
                     )}
                   </div>
@@ -1308,7 +1308,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           onClose={() => setShowProtocolImportModal(false)}
           onSuccess={() => {
             setShowProtocolImportModal(false);
-            setFeedbackMsg({ type: 'success', text: 'Протокол игры успешно сохранён в черновик!' });
+            setFeedbackMsg({ type: 'success', text: 'Протокол игры сохранён. Игра пока не завершена.' });
             loadDetail();
           }}
         />

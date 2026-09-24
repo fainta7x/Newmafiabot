@@ -94,18 +94,18 @@ export default function PlayerEloJourney({
     void fetch('/api/player/elo-journey', { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить Elo-карьеру');
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить историю Elo');
         if (!cancelled) setData(body as EloJourneyData);
       })
-      .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить Elo-карьеру'); })
+      .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить историю Elo'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
   const newest = useMemo(() => data ? data.events.slice().reverse() : [], [data]);
 
-  if (loading) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] text-white`}><div className="text-center"><div className="text-3xl">📈</div><div className="mt-2 text-xs text-white/30">Строим Elo-карьеру…</div></div></main>;
-  if (error || !data) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div className="w-full max-w-[430px] rounded-3xl border border-rose-200/10 bg-rose-200/[0.04] p-5 text-center"><div className="text-sm font-semibold">{error || 'Elo-карьера недоступна'}</div>{onBack && <button type="button" onClick={onBack} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button>}</div></main>;
+  if (loading) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] text-white`}><div className="text-center"><div className="text-3xl">📈</div><div className="mt-2 text-xs text-white/30">Собираем историю Elo…</div></div></main>;
+  if (error || !data) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div className="w-full max-w-[430px] rounded-3xl border border-rose-200/10 bg-rose-200/[0.04] p-5 text-center"><div className="text-sm font-semibold">{error || 'История Elo недоступна'}</div>{onBack && <button type="button" onClick={onBack} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button>}</div></main>;
 
   const preview = data.preview[team];
   const events = showAll ? newest : newest.slice(0, 8);
@@ -115,7 +115,7 @@ export default function PlayerEloJourney({
       <div className="mx-auto w-full max-w-[430px] space-y-3">
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">
           {onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}
-          <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">Elo-карьера</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая партия раскладывается на командный результат, силу состава и личные игровые баллы.</p></div>
+          <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">История Elo</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая партия раскладывается на командный результат, силу состава и личные игровые баллы.</p></div>
         </div>}
 
         <section className="rounded-[28px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.07] to-white/[0.025] p-4">

@@ -40,7 +40,7 @@ router.get('/evenings/:eveningId/slots', async (req, res) => {
     // Tell the client up front that saving will be refused until the first application is confirmed.
     return res.json({ ...plan, first_application_required: String(player.club_stage) === 'NEW' });
   } catch (error: any) {
-    return sendError(res, error, 'Не удалось загрузить игровые слоты');
+    return sendError(res, error, 'Не удалось загрузить игры вечера');
   }
 });
 

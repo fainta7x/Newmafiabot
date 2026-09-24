@@ -44,7 +44,7 @@ test.describe('Organizer evening closeout', () => {
     await expect(page.getByText('Богдан')).toBeVisible();
     await expect(page.getByText('Матроскина')).toBeVisible();
     await expect(page.getByText('Гость без записи', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Черновиков игр: 1/)).toBeVisible();
+    await expect(page.getByText(/Незавершённых игр: 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Закрыть вечер' })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
     await expectCloseoutTouchTargets(page, 'pending closeout');

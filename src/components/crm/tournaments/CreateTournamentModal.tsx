@@ -320,7 +320,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-bold text-text-primary">Выбор 10 участников</h4>
-                <p className="text-[11px] text-text-secondary">Выберите ровно 10 уникальных игроков из CRM</p>
+                <p className="text-[11px] text-text-secondary">Выберите ровно 10 разных игроков клуба</p>
               </div>
               <span
                 className={`px-3 py-1 rounded-full text-xs font-bold font-mono ${
@@ -406,7 +406,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
 
             <div className="space-y-1.5 border border-border-soft rounded-2xl p-2 bg-surface-2/50">
               {loadingPlayers ? (
-                <div className="py-4 text-center text-text-muted text-xs">Загрузка игроков из CRM...</div>
+                <div className="py-4 text-center text-text-muted text-xs">Загружаем игроков клуба…</div>
               ) : displayedPlayers.length === 0 ? (
                 <div className="py-4 text-center text-text-muted text-xs">Игроки не найдены</div>
               ) : (

@@ -65,7 +65,7 @@ test.describe('Organizer players mobile workflow', () => {
     await expect(access).toContainText('Статус игрока');
     await expect(access).toContainText('Опытный игрок');
     await expect(access).toContainText('Участник клуба');
-    await expect(access).toContainText('CRM организатора');
+    await expect(access).toContainText('Кабинет организатора');
     await expect(access.getByRole('button', { name: 'Добавить на игровой вечер', exact: true })).toBeVisible();
 
     const actionHeights = await quickActions.locator('a, button').evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
@@ -137,12 +137,12 @@ test.describe('CRM-PLAYER-UX-001 visual evidence', () => {
     await expect(accessSheet.getByText('Игра', { exact: true })).toBeVisible();
     await expect(accessSheet.getByText('В клубе', { exact: true })).toBeVisible();
     await expect(accessSheet.getByText('Ведение игр', { exact: true })).toBeVisible();
-    await expect(accessSheet.getByText('Доступы · CRM организатора', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Доступы · кабинет организатора', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, '360 access editor');
     await attachViewport(page, testInfo, 'crm-player-access-editor-360x800.png');
 
-    await page.getByRole('button', { name: 'Выдать доступ к CRM', exact: true }).click();
-    await expect(page.getByText('Выдать доступ к CRM организатора?', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Дать доступ к кабинету организатора', exact: true }).click();
+    await expect(page.getByText('Дать доступ к кабинету организатора?', { exact: true })).toBeVisible();
     await attachViewport(page, testInfo, 'crm-player-crm-authorization-confirmation-360x800.png');
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
 

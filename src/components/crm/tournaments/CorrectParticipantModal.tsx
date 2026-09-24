@@ -38,7 +38,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
           setPlayers(data || []);
         })
         .catch((err) => {
-          setError(err.message || 'Ошибка загрузки игроков CRM');
+          setError(err.message || 'Не удалось загрузить игроков клуба');
         })
         .finally(() => {
           setLoading(false);
@@ -70,7 +70,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
 
   const handleSave = async () => {
     if (!selectedPlayerId) {
-      setError('Выберите игрока из CRM');
+      setError('Выберите игрока клуба');
       return;
     }
     setSaving(true);

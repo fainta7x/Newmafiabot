@@ -92,7 +92,7 @@ export function ProtocolCompletionDialogs({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <RotateCcw className="w-6 h-6" />
-              <h3 className="text-lg font-bold">Вернуть протокол в черновик?</h3>
+              <h3 className="text-lg font-bold">Открыть протокол для правки?</h3>
             </div>
 
             <p className="text-xs sm:text-sm text-slate-300">
@@ -114,7 +114,7 @@ export function ProtocolCompletionDialogs({
                 onClick={onConfirmRevert}
                 className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md"
               >
-                {submitting ? 'Возвращаем...' : 'Да, вернуть в черновик'}
+                {submitting ? 'Возвращаем...' : 'Да, открыть для правки'}
               </button>
             </div>
           </div>

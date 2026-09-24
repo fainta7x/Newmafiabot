@@ -138,7 +138,7 @@ export default function JudgeMusicPlaylist() {
     <section className="rounded-3xl border border-violet-300/10 bg-gradient-to-b from-violet-300/[0.055] to-white/[0.025] p-4">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Музыкальная база</div>
       <h3 className="mt-2 text-lg font-semibold text-white">База ведущего</h3>
-      <p className="mt-1 text-xs leading-5 text-white/35">Постоянная база CRM: загруженные файлы и ссылки Яндекс Музыки. Полный трек по ссылке открывается в самом Яндексе, без скачивания в приложение.</p>
+      <p className="mt-1 text-xs leading-5 text-white/35">Общая база клуба: загруженные файлы и ссылки Яндекс Музыки. Трек по ссылке открывается в самом Яндексе.</p>
 
       <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
         <div className="text-xs font-semibold text-white/65">Добавить из Яндекс Музыки</div>
@@ -156,7 +156,7 @@ export default function JudgeMusicPlaylist() {
 
       {playerSlots.some((item) => item.entry) && (
         <div className="mt-4 rounded-2xl border border-sky-200/[0.08] bg-sky-300/[0.04] p-3">
-          <div className="text-xs font-semibold text-sky-100/75">Мои слоты игрока</div>
+          <div className="text-xs font-semibold text-sky-100/75">Мои треки игрока</div>
           <p className="mt-1 text-[11px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и вечера, где вы ведёте.</p>
           <div className="mt-2 space-y-1.5">
             {playerSlots.map((item) => item.entry ? (
@@ -164,7 +164,7 @@ export default function JudgeMusicPlaylist() {
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-300/[0.08] text-[11px] text-sky-100/75">{item.slot}</span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-white">{item.entry.title}</div>
-                  <div className="text-[11px] text-white/30">Яндекс · слот игрока</div>
+                  <div className="text-[11px] text-white/30">Яндекс · трек игрока</div>
                 </div>
               </div>
             ) : null)}

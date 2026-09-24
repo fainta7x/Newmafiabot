@@ -78,7 +78,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     <p className="mt-1 text-sm text-white/50">Выберите один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
     {!vkLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3">
       <div className="text-sm font-medium">VK не связан с профилем</div>
-      <p className="mt-1 text-xs leading-5 text-white/45">Свяжите свой VK через VK ID. Привязка выполняется только для текущего авторизованного профиля.</p>
+      <p className="mt-1 text-xs leading-5 text-white/45">Привяжите свой VK через VK ID. Он привяжется к профилю, в который вы сейчас вошли.</p>
       <button type="button" disabled={busy} onClick={()=>void linkVk()} className="mt-3 min-h-11 w-full rounded-xl bg-[#2688eb] px-3 text-sm font-semibold text-white disabled:opacity-40">Связать VK</button>
     </div> : <div className="mt-4 rounded-xl bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">VK связан с этим игровым профилем</div>}
     {state.available_channels.length ? <label className="mt-4 flex items-center justify-between gap-3 text-sm"><span>Получать личные уведомления</span><input type="checkbox" checked={state.personal_enabled} disabled={busy} onChange={(e)=>void save({ personal_enabled:e.target.checked })}/></label> : null}

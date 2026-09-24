@@ -191,13 +191,13 @@ Wording for how a player leaves the game (user-approved 2026-09-24): texts for p
 
 ## Table conduct (user-approved 2026-09-24)
 
-Forbidden at the table; the judge punishes it with a foul, a technical foul or removal depending on severity:
+Forbidden at the table, with the usual penalty:
 
-- swearing and near-swearing («хер», «хрен» and similar);
-- oaths and appeals to religion («клянусь», «богом клянусь»);
-- bets («спорим на тысячу, что я мирный»);
-- threats and insults that are personal, not part of the game;
-- remarks about intelligence, one's own included («я же не тупой так играть»).
+- swearing and near-swearing («хер», «хрен» and similar): accidental — technical foul; deliberate — removal;
+- oaths and appeals to religion («клянусь», «богом клянусь») — PPK;
+- bets («спорим на тысячу, что я мирный») — depends on the context, usually PPK;
+- threats and personal (not in-game) insults — usually PPK, sometimes removal;
+- remarks about intelligence, one's own included («я же не тупой так играть») — depends on severity, usually a technical foul.
 
 The novice guide (`/guide`) shows this list first in its «Правила» tab.
 

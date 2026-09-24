@@ -11,6 +11,7 @@ import {
   listPendingPlayerOnboardingLinks,
   resolvePendingPlayerOnboardingLink,
 } from '../services/playerOnboardingOrganizerService.ts';
+import { loadClubOrder } from '../services/clubOrderService.ts';
 
 const router = Router();
 
@@ -21,6 +22,16 @@ function getMoscowDateStr(value: string | null | undefined): string | null {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
   return `${parts.find((p) => p.type === 'year')?.value}-${parts.find((p) => p.type === 'month')?.value}-${parts.find((p) => p.type === 'day')?.value}`;
 }
+
+// «Порядок в клубе»: automatic hygiene list for the home screen (user-approved 2026-09-24).
+router.get('/club-order', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await loadClubOrder(db));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать список «Порядок в клубе»' });
+  }
+});
 
 router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {

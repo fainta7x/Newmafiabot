@@ -65,12 +65,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// The home screen also loads «Порядок в клубе»; these tests only look at the command-center payload.
+const clubOrder = { items: [], count: 0, categories: {} };
+const withClubOrder = (handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) =>
+  vi.fn((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('/api/crm/club-order') ? jsonResponse(clubOrder) : handler(input, init)));
+
 describe('OrganizerCommandCenter payment freshness', () => {
   it('uses no-store and lets only the latest parallel response update CRM payments', async () => {
     let resolveSlow!: (value: Response) => void;
     const slow = new Promise<Response>((resolve) => { resolveSlow = resolve; });
     let call = 0;
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = withClubOrder((input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toContain('/api/crm/command-center');
       expect(init?.cache).toBe('no-store');
       call += 1;
@@ -99,7 +104,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
     let resolveResume!: (value: Response) => void;
     const resumeResponse = new Promise<Response>((resolve) => { resolveResume = resolve; });
     let call = 0;
-    vi.stubGlobal('fetch', vi.fn(() => {
+    vi.stubGlobal('fetch', withClubOrder(() => {
       call += 1;
       if (call === 1) return jsonResponse(responseBody({ currentDue: 400, previousDue: 600 }));
       return resumeResponse;
@@ -127,7 +132,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
   });
 
   it('labels current payments and previous-evening debts with different evening title/date context', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => jsonResponse(responseBody({ currentDue: 400, previousDue: 300 }))));
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 400, previousDue: 300 }))));
     render(<OrganizerCommandCenter {...props} />);
 
     expect(await screen.findByText('Не оплачено · этот вечер')).toBeDefined();

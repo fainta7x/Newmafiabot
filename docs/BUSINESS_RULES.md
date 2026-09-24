@@ -330,14 +330,13 @@ Approved high-level publication format for tournament summary graphics is three 
 
 Historical UI/visual requirements may evolve, so inspect current publication components before changing visuals. The three-part information model should not be collapsed without an explicit redesign decision.
 
-## Tournament evening registration, reserve and entry fee
+## Tournament evening registration and entry fee
 
 - `TOURNAMENT` is a distinct event format. Regular `CASUAL` price-per-game, 400 ₽ cap, historical debt reconciliation, wallet-token logic and betting must not rewrite tournament entry-fee truth.
 - A tournament evening is only a registration/preparation front door into the canonical `tournaments` domain. Confirmed registrations synchronize into `tournament_participants` before seating; conducting, protocols, standings, compensation scoring, awards, three-part result publication, Elo and token settlement remain owned by the existing tournament engine.
 - Player capacity is **exactly 10**, excluding the assigned canonical judge. The assigned judge cannot register as a player in the same tournament.
-- The first ten eligible server-accepted registrations receive confirmed slots 1–10. Further eligible registrations enter deterministic FIFO reserve order unless an organizer performs an explicit audited reorder.
-- If a confirmed player cancels before the tournament starts, exactly the first reserve player is promoted atomically into the freed slot. Retries must not create an eleventh confirmed player or promote multiple reserves for one vacancy.
-- Organizer add/remove/manual-promotion/reserve-reorder actions require an explicit reason and must remain auditable.
+- Places, waiting and payment deadlines follow «Tournament registration» (answers «Играю» / «Готов подменить» / «Пока думаю» / «Не смогу»). A freed place is filled atomically by exactly one waiting player; retries must not create an eleventh confirmed player.
+- Organizer add/remove/manual-promotion/queue-reorder actions require an explicit reason and must remain auditable.
 - Draft creation is not publication. A stable player link uses `/player/events/<tournamentId>` only after explicit publication. Tournament publication uses the canonical personal notification router and sends at most one external personal notification channel per eligible canonical player; the assigned judge is excluded from the player audience.
 - Tournament money is stored in rubles. Prize-allocation total must equal the configured prize fund before publication.
 - Online acquiring is not part of this workflow. Player action **«Я оплатил взнос»** records only a `pending` payment claim. Only organizer `confirmed` status counts as received money. `rejected`, `waived`, `refunded` and return-to-`unpaid` remain explicit, correctable audit states; `waived` removes the unpaid obligation but is not revenue.
@@ -445,7 +444,7 @@ Elo is one shared player-strength measure across CASUAL, RATING and TOURNAMENT g
 Registration eligibility (user-approved 2026-09-23):
 
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
-- Tournament places follow «кто первый, того и место»: the first ten eligible registrations are confirmed, later ones form the FIFO reserve (see «Tournament evening registration, reserve and entry fee»).
+- Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
 The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). Calendar seasons (winter/spring/summer/autumn wins) are club statistics shown under «Клуб → Активность» as «Итоги сезона», not a rating.
 

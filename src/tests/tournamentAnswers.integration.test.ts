@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { enforceTournamentPaymentDeadlines, paymentDeadlineText } from '../server/services/tournamentEveningService.ts';
 
@@ -33,7 +33,7 @@ async function setup(count: number) {
     "INSERT INTO tournament_payment_claims (id, tournament_id, player_id, state, confirmed_amount_rub, updated_at) VALUES (?, 't1', ?, 'confirmed', 2000, ?)",
     [`pc-${id}`, id, now],
   );
-  return { db, players, answer, row, pay };
+  return { db, app, players, answer, row, pay };
 }
 
 describe('tournament answers', () => {
@@ -83,5 +83,34 @@ describe('tournament answers', () => {
     expect(await row(players[10])).toEqual({ status: 'reserve', response: 'substitute' });
     expect(await row(players[11])).toEqual({ status: 'confirmed', response: 'play' });
     expect(paymentDeadlineText(new Date(START).toISOString(), START - 23 * HOUR)).toBe('на месте до первой игры');
+  });
+
+  it('on a late catch-up run keeps players just called in, and a substitute answering later takes a free place', async () => {
+    const { db, players, answer, row, pay } = await setup(12);
+    for (const id of players.slice(0, 10)) await answer(id, 'play');
+    await answer(players[10], 'substitute');
+    for (const id of players.slice(0, 9)) await pay(id);
+
+    // The worker was down past both deadlines: one run applies both, but the called-in player keeps the place.
+    await enforceTournamentPaymentDeadlines(db, START - 20 * HOUR);
+    expect(await row(players[9])).toEqual({ status: 'reserve', response: 'substitute' });
+    expect(await row(players[10])).toEqual({ status: 'confirmed', response: 'play' });
+
+    // A place frees up after the deadline and nobody waits to play: a new «Готов подменить» takes it at once.
+    await answer(players[0], 'declined');
+    await db.run("UPDATE tournament_registrations SET status='cancelled', response='declined' WHERE player_id = ?", [players[9]]);
+    await answer(players[11], 'substitute');
+    expect(await row(players[11])).toEqual({ status: 'confirmed', response: 'play' });
+  });
+
+  it('runs the deadlines again after the organizer moves the tournament date', async () => {
+    const { db, app, players } = await setup(2);
+    await db.run("UPDATE tournaments SET judge_player_id = ?, chief_judge_name = 'Судья' WHERE id = 't1'", [players[1]]);
+    await enforceTournamentPaymentDeadlines(db, START - 71 * HOUR);
+    expect((await db.get<any>("SELECT payment_deadline_72_done_at FROM tournaments WHERE id = 't1'")).payment_deadline_72_done_at).toBeTruthy();
+    const moved = await request(app).put('/api/tournaments/evenings/t1').set('Cookie', `organizer_token=${generateOrganizerToken()}`)
+      .send({ date: new Date(START + 7 * 24 * HOUR).toISOString() });
+    expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+    expect((await db.get<any>("SELECT payment_deadline_72_done_at FROM tournaments WHERE id = 't1'")).payment_deadline_72_done_at).toBeNull();
   });
 });

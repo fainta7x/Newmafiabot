@@ -407,7 +407,8 @@ export async function answerTournament(db: DatabaseWrapper, tournamentId: string
     }
     await audit(tx, tournamentId, `answer_${response}`, 'player', playerId, playerId, null, { held_place: holdsPlace });
     await renumberReserve(tx, tournamentId);
-    if (holdsPlace) promoted = await fillFreeSlots(tx, tournament, now);
+    // Any answer can open or take a place (e.g. a substitute after the 3-day deadline): refill every time.
+    promoted = await fillFreeSlots(tx, tournament, now);
     await syncCanonicalParticipants(tx, tournamentId);
   }));
   await notifyPromoted(db, tournamentId, promoted);
@@ -436,11 +437,14 @@ export async function enforceTournamentPaymentDeadlines(db: DatabaseWrapper, now
     const seated = await db.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?', [tournamentId]);
     if (Number(seated?.count || 0) > 0) continue;
     const title = String(tournament.title || 'Турнир');
-    const unpaidHolders = (conn: DatabaseWrapper = db) => conn.all<any>(
+    // `calledBefore`: a deadline only applies to players who got their place before it; anyone called
+    // in after it (including during a catch-up run) keeps the place and pays by the next deadline or on site.
+    const unpaidHolders = (conn: DatabaseWrapper = db, calledBefore?: string) => conn.all<any>(
       `SELECT r.*,p.nickname FROM tournament_registrations r JOIN players p ON p.id=r.player_id
         LEFT JOIN tournament_payment_claims pc ON pc.tournament_id=r.tournament_id AND pc.player_id=r.player_id
-        WHERE r.tournament_id=? AND r.status='confirmed' AND COALESCE(pc.state,'unpaid') NOT IN (${SETTLED_PAYMENT.map(() => '?').join(',')})`,
-      [tournamentId, ...SETTLED_PAYMENT],
+        WHERE r.tournament_id=? AND r.status='confirmed' AND COALESCE(pc.state,'unpaid') NOT IN (${SETTLED_PAYMENT.map(() => '?').join(',')})
+          ${calledBefore ? 'AND (r.called_at IS NULL OR datetime(r.called_at) < datetime(?))' : ''}`,
+      calledBefore ? [tournamentId, ...SETTLED_PAYMENT, calledBefore] : [tournamentId, ...SETTLED_PAYMENT],
     );
 
     if (now >= start - REMINDER_HOURS * HOUR && now < start - TOURNAMENT_PAY_FIRST_DEADLINE_HOURS * HOUR) {
@@ -463,7 +467,7 @@ export async function enforceTournamentPaymentDeadlines(db: DatabaseWrapper, now
         const claimed = await tx.run(`UPDATE tournaments SET ${column}=?,updated_at=? WHERE id=? AND ${column} IS NULL`, [stamp, stamp, tournamentId]);
         if (!claimed.changes) return;
         const fresh = await tx.get<any>('SELECT * FROM tournaments WHERE id=?', [tournamentId]);
-        if (fee > 0) for (const row of await unpaidHolders(tx)) {
+        if (fee > 0) for (const row of await unpaidHolders(tx, new Date(start - hours * HOUR).toISOString())) {
           await tx.run("UPDATE tournament_registrations SET status='reserve',slot_number=NULL,queue_order=2147483000,response='substitute',updated_at=? WHERE id=?", [stamp, row.id]);
           await audit(tx, tournamentId, 'payment_deadline_release', 'system', 'system', String(row.player_id), `unpaid at ${hours}h`, null);
           demoted.push({ player_id: String(row.player_id), nickname: String(row.nickname || 'Игрок') });

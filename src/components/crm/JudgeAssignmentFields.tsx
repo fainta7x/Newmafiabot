@@ -26,7 +26,7 @@ export const JudgeAssignmentFields: React.FC<JudgeAssignmentFieldsProps> = ({
         onClick={() => onModeChange('linked')}
         className={`min-h-[44px] min-w-0 rounded-xl border px-3 text-xs font-bold ${mode === 'linked' ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2 text-text-secondary'} disabled:opacity-50`}
       >
-        Игрок из CRM
+        Судья клуба
       </button>
       <button
         type="button"
@@ -34,13 +34,13 @@ export const JudgeAssignmentFields: React.FC<JudgeAssignmentFieldsProps> = ({
         onClick={() => onModeChange('external')}
         className={`min-h-[44px] min-w-0 rounded-xl border px-3 text-xs font-bold ${mode === 'external' ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2 text-text-secondary'} disabled:opacity-50`}
       >
-        Внешний / текстовый
+        Гость (не из клуба)
       </button>
     </div>
 
     {mode === 'linked' ? (
       <label className="block min-w-0 text-[10px] font-black uppercase tracking-wide text-text-muted">
-        Судья — игрок CRM
+        Судья — игрок клуба
         <select
           value={judgePlayerId}
           disabled={disabled}
@@ -50,11 +50,11 @@ export const JudgeAssignmentFields: React.FC<JudgeAssignmentFieldsProps> = ({
           <option value="">Выбери игрока</option>
           {players.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}
         </select>
-        <span className="mt-1 block normal-case font-normal text-text-muted">Связь создаётся только выбором здесь — имя само по себе не привязывает профиль.</span>
+        <span className="mt-1 block normal-case font-normal text-text-muted">Игра попадёт в его статистику судейства, ачивки и жетоны.</span>
       </label>
     ) : (
       <label className="block min-w-0 text-[10px] font-black uppercase tracking-wide text-text-muted">
-        Имя внешнего судьи
+        Имя судьи-гостя
         <input
           type="text"
           value={judgeName}
@@ -63,7 +63,7 @@ export const JudgeAssignmentFields: React.FC<JudgeAssignmentFieldsProps> = ({
           placeholder="Имя для отображения"
           className="mt-1 min-h-[44px] w-full min-w-0 rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary"
         />
-        <span className="mt-1 block normal-case font-normal text-text-muted">Даже совпадающий ник останется неподвязанным, пока не выбран игрок CRM.</span>
+        <span className="mt-1 block normal-case font-normal text-text-muted">Только для судьи не из клуба: ему игра не засчитывается. Если судья есть в клубе — выбери его во вкладке «Судья клуба».</span>
       </label>
     )}
   </div>

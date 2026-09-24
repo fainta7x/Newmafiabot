@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
+import { skipGatheredPost } from '../server/services/eveningGatheredPostService.ts';
 
 describe('club evening game creation', () => {
   let app: any;
@@ -40,6 +41,11 @@ describe('club evening game creation', () => {
       });
     expect(eveningResponse.status).toBe(201);
     const eveningId = String(eveningResponse.body.id);
+    // Starting an evening needs its organizer and the «Мы собрались» post (skipped here).
+    const stamp = new Date().toISOString();
+    await db.run("INSERT OR IGNORE INTO players (id,nickname,club_role,created_at,updated_at) VALUES ('host-org','Хозяин вечера','organizer',?,?)", [stamp, stamp]);
+    await db.run('INSERT INTO evening_staff_assignments (evening_id,organizer_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', [eveningId, 'host-org', stamp, stamp]);
+    await skipGatheredPost(db, eveningId, 'test');
 
     const rosterResponse = await request(app)
       .post(`/api/evenings/${eveningId}/participants/bulk`)
@@ -72,6 +78,7 @@ describe('club evening game creation', () => {
       .set('Cookie', cookie)
       .send({
         judge_name: 'Ведущий',
+        judge_guest: true,
         seats: participants.map((participant, index) => ({
           participant_id: participant.id,
           seat_number: index + 1,
@@ -109,6 +116,7 @@ describe('club evening game creation', () => {
       .set('Cookie', cookie)
       .send({
         judge_name: 'Ведущий',
+        judge_guest: true,
         seats: participants.map((participant, index) => ({
           participant_id: participant.id,
           seat_number: index + 1,

@@ -47,13 +47,26 @@ describe('«Мы собрались» post', () => {
     }) as unknown as typeof fetch;
 
     const post = await publishGatheredPost(db, 'g1', { data_url: PHOTO, caption: '' }, fetchImpl);
-    expect(post.state).toBe('published');
+    expect(post.state).toBe('partial');
     expect((post as any).telegram_status).toBe('published');
     expect((post as any).vk_status).toBe('failed');
     const telegram = calls.find((call) => call.url.includes('/sendPhoto'));
     expect(telegram?.body.get('chat_id')).toBe('-1001');
     expect(telegram?.body.get('message_thread_id')).toBe('7');
     expect(String(telegram?.body.get('caption'))).toContain('Мы собрались! Пятница начинается.');
+
+    // A retry without a new photo never posts to Telegram again; only the failed VK leg is attempted.
+    const sendsBefore = calls.filter((call) => call.url.includes('/sendPhoto')).length;
+    const retried = await publishGatheredPost(db, 'g1', {}, fetchImpl);
+    expect(retried.state).toBe('partial');
+    expect(calls.filter((call) => call.url.includes('/sendPhoto')).length).toBe(sendsBefore);
+  });
+
+  it('refuses a second publication while one is still being sent', async () => {
+    const { db } = await setup();
+    await publishGatheredPost(db, 'g1', { data_url: PHOTO }, (async () => new Response('{}', { status: 500 })) as unknown as typeof fetch);
+    await db.run('UPDATE evening_gathered_posts SET sending_until = ? WHERE evening_id = ?', [new Date(Date.now() + 60_000).toISOString(), 'g1']);
+    await expect(publishGatheredPost(db, 'g1', { data_url: PHOTO })).rejects.toThrow('уже отправляется');
   });
 
   it('only runs after the evening has started and needs a photo', async () => {

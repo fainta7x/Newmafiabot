@@ -70,7 +70,7 @@ describe('stable judge identity', () => {
 
   it('keeps external club judge unlinked and awards no judge achievement', async () => {
     const seats = await seedEvening();
-    const created = await request(app).post('/api/games/evening/ev-judge').set(auth()).send({ judge_player_id: null, judge_name: 'External Judge', seats });
+    const created = await request(app).post('/api/games/evening/ev-judge').set(auth()).send({ judge_player_id: null, judge_name: 'External Judge', judge_guest: true, seats });
     expect(created.status).toBe(201);
     expect(created.body.judge_player_id).toBeNull();
     expect(created.body.judge_name).toBe('External Judge');

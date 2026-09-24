@@ -150,15 +150,18 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   );
 
   const gathered = await loadGatheredPost(db, eveningId);
+  const legs = [
+    (gathered as any).telegram_status === 'published' ? 'Telegram ✓' : (gathered as any).telegram_status === 'failed' ? 'Telegram ✗' : 'Telegram —',
+    (gathered as any).vk_status === 'published' ? 'ВК ✓' : (gathered as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
+  ].join(' · ');
   steps.live.push(
     gathered.state === 'published'
-      ? { id: 'gathered', title: 'Пост «Мы собрались»', detail: [
-        (gathered as any).telegram_status === 'published' ? 'Telegram ✓' : 'Telegram —',
-        (gathered as any).vk_status === 'published' ? 'ВК ✓' : 'ВК —',
-      ].join(' · '), status: 'done' }
-      : gathered.state === 'skipped'
-        ? { id: 'gathered', title: 'Пост «Мы собрались» пропущен', detail: 'Можно выложить позже', status: 'attention', action: 'gathered_post' }
-        : { id: 'gathered', title: 'Пост «Мы собрались»', detail: 'Фото в Telegram и ВК — после него открываются игры', status: evening.status === 'active' ? 'todo' : 'info', action: evening.status === 'active' ? 'gathered_post' : undefined },
+      ? { id: 'gathered', title: 'Пост «Мы собрались»', detail: legs, status: 'done' }
+      : gathered.state === 'partial'
+        ? { id: 'gathered', title: 'Пост «Мы собрались» дошёл не везде', detail: `${legs} — можно повторить`, status: 'attention', action: 'gathered_post' }
+        : gathered.state === 'skipped'
+          ? { id: 'gathered', title: 'Пост «Мы собрались» пропущен', detail: 'Можно выложить позже', status: 'attention', action: 'gathered_post' }
+          : { id: 'gathered', title: 'Пост «Мы собрались»', detail: 'Фото в Telegram и ВК — после него открываются игры', status: evening.status === 'active' ? 'todo' : 'info', action: evening.status === 'active' ? 'gathered_post' : undefined },
     { id: 'attendance', title: 'Отметить пришедших', detail: `Пришли: ${attended}${pendingExpected ? ` · ждём ещё ${players(pendingExpected)}` : ''}`, status: attended && !pendingExpected ? 'done' : attended ? 'attention' : 'todo', target: 'management' },
     { id: 'play', title: 'Игры вечера', detail: games.length ? `Сыграно: ${games.length - unfinishedGames}${unfinishedGames ? ` · идут/не завершены: ${unfinishedGames}` : ''}` : 'Ещё не начаты', status: games.length && !unfinishedGames ? 'done' : games.length ? 'attention' : 'todo', target: 'games' },
   );

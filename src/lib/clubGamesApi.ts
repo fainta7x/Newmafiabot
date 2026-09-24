@@ -259,6 +259,8 @@ export const clubGamesApi = {
     evening_table_id?: string | null;
     judge_name?: string | null;
     judge_player_id?: string | null;
+    /** A named judge from outside the club; such a game counts for nobody's judging stats. */
+    judge_guest?: boolean;
     seats: Array<{ participant_id: string; seat_number: number; role?: string | null }>;
   }) => request<ClubGameRecord>(`/api/games/evening/${encodeURIComponent(eveningId)}`, { method: 'POST', body: JSON.stringify(data) }),
   start: (gameId: number, data: ClubGameStartPayload) => request<ClubGameStartResult>(`/api/games/${gameId}/start`, {

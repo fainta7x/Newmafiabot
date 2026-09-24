@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { judgeRewardFor } from './staffRewards.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 
 export type ClubGameSettlementContext = 'completion' | 'correction' | 'reopen' | 'archive' | 'restore';
@@ -151,7 +152,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
   }
   if (game.judge_player_id) {
     const judge = await db.get<{ id: string }>("SELECT id FROM players WHERE id = ? AND COALESCE(source,'') != 'legacy_guest_migrated'", [String(game.judge_player_id)]);
-    if (judge) desired.set(`judge:${judge.id}`, { subjectType: 'judge', playerId: judge.id, amount: 100, breakdown: { judge_reward: 100 } });
+    if (judge) { const reward = judgeRewardFor(game.created_at); desired.set(`judge:${judge.id}`, { subjectType: 'judge', playerId: judge.id, amount: reward, breakdown: { judge_reward: reward } }); }
   }
   return desired;
 };

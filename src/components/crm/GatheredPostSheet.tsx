@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import MobileSheet from '../ui/MobileSheet.tsx';
 import { prepareGatheredPhoto } from '../../lib/gatheredPhoto.ts';
@@ -15,6 +15,15 @@ export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const input = useRef<HTMLInputElement | null>(null);
+  // A post that reached only one channel can be resent with the stored photo to the failed one.
+  const [retryable, setRetryable] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    void fetch(`/api/evenings/${encodeURIComponent(eveningId)}/gathered-post`, { credentials: 'include' })
+      .then((response) => response.json())
+      .then((state) => setRetryable(state?.state === 'partial' && Boolean(state?.has_photo)))
+      .catch(() => setRetryable(false));
+  }, [open, eveningId]);
 
   const pick = async (file?: File | null) => {
     if (!file) return;
@@ -31,7 +40,7 @@ export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: 
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result?.error || 'Не удалось сохранить');
-      if (!path && result?.state !== 'published') {
+      if (!path && !['published', 'partial'].includes(result?.state)) {
         throw new Error(`Не удалось опубликовать: ${[result?.telegram_error, result?.vk_error].filter(Boolean).join(' · ') || 'нет доступных каналов'}`);
       }
       setPhoto(null);
@@ -48,7 +57,7 @@ export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: 
     <MobileSheet open={open} onClose={() => !busy && onClose()} title="Мы собрались" subtitle="Фото уйдёт в Telegram и ВК. После поста открываются игры вечера."
       footer={<div className="grid grid-cols-[auto_1fr] gap-2">
         <button type="button" disabled={busy} onClick={() => void send('/skip', { reason: 'Пропущено организатором' })} className="min-h-12 rounded-2xl bg-white/[0.06] px-4 text-[14px] font-medium text-white/60 disabled:opacity-50">Пропустить</button>
-        <button type="button" disabled={busy || !photo} onClick={() => void send('', { data_url: photo, caption })} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{busy ? 'Публикуем…' : 'Опубликовать'}</button>
+        <button type="button" disabled={busy || (!photo && !retryable)} onClick={() => void send('', photo ? { data_url: photo, caption } : { caption })} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{busy ? 'Публикуем…' : !photo && retryable ? 'Повторить отправку' : 'Опубликовать'}</button>
       </div>}>
       <div className="space-y-3">
         <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void pick(event.target.files?.[0])} />

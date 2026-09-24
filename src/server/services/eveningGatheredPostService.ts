@@ -24,28 +24,36 @@ export async function ensureEveningGatheredPostSchema(db: DatabaseWrapper) {
       published_at TEXT,
       skipped_at TEXT,
       skip_reason TEXT,
+      sending_until TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
   `);
 }
 
+export type GatheredPostState = 'pending' | 'published' | 'partial' | 'skipped';
+
 export async function loadGatheredPost(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningGatheredPostSchema(db);
   const row = await db.get<any>(
-    `SELECT evening_id, caption, telegram_status, telegram_error, vk_status, vk_error, vk_url, published_at, skipped_at, skip_reason
+    `SELECT evening_id, caption, telegram_status, telegram_error, vk_status, vk_error, vk_url, published_at, skipped_at, skip_reason,
+            image_data IS NOT NULL AS has_photo
        FROM evening_gathered_posts WHERE evening_id = ? LIMIT 1`,
     [eveningId],
   );
-  return row
-    ? { ...row, state: row.published_at ? 'published' : row.skipped_at ? 'skipped' : 'pending' }
-    : { evening_id: eveningId, state: 'pending' as const };
+  if (!row) return { evening_id: eveningId, state: 'pending' as GatheredPostState, has_photo: false };
+  const legs = [row.telegram_status, row.vk_status];
+  // «partial»: one channel got the photo, the other failed — the game may start, the failed leg can be retried.
+  const state: GatheredPostState = legs.every((leg) => leg === 'published')
+    ? 'published'
+    : legs.some((leg) => leg === 'published') ? 'partial' : row.skipped_at ? 'skipped' : 'pending';
+  return { ...row, has_photo: Boolean(row.has_photo), state };
 }
 
-/** True when the first game of a running evening may start. */
+/** True when the first game may start: the post reached at least one channel, or it was skipped. */
 export async function gatheredPostSatisfied(db: DatabaseWrapper, eveningId: string) {
   const post = await loadGatheredPost(db, eveningId);
-  return post.state === 'published' || post.state === 'skipped';
+  return post.state !== 'pending';
 }
 
 export const defaultGatheredCaption = (evening: any, attended: number) => {
@@ -109,35 +117,62 @@ export async function publishGatheredPost(
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (evening.status !== 'active') throw Object.assign(new Error('Пост «Мы собрались» публикуется после начала вечера'), { statusCode: 409 });
 
-  const dataUrl = String(input.data_url || '');
-  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl);
-  if (!match) throw Object.assign(new Error('Нужна фотография'), { statusCode: 400 });
-  const mime = match[1];
-  const photo = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
-  if (!photo.length || photo.length > MAX_GATHERED_PHOTO_BYTES) throw Object.assign(new Error('Фото слишком большое'), { statusCode: 400 });
-
-  const attended = Number((await db.get<any>("SELECT COUNT(*) AS count FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.count || 0);
-  const caption = String(input.caption || '').trim().slice(0, 900) || defaultGatheredCaption(evening, attended);
-
-  const [telegram, vk] = await Promise.all([
-    publishTelegram(db, evening, photo, mime, caption, fetchImpl),
-    publishVk(photo, mime, caption, fetchImpl),
-  ]);
   const now = new Date().toISOString();
-  const published = telegram.status === 'published' || vk.status === 'published';
   await db.run(
-    `INSERT INTO evening_gathered_posts
-       (evening_id, image_data, mime_type, caption, telegram_status, telegram_error, vk_status, vk_error, vk_url, published_at, skipped_at, skip_reason, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)
-     ON CONFLICT(evening_id) DO UPDATE SET
-       image_data = excluded.image_data, mime_type = excluded.mime_type, caption = excluded.caption,
-       telegram_status = excluded.telegram_status, telegram_error = excluded.telegram_error,
-       vk_status = excluded.vk_status, vk_error = excluded.vk_error, vk_url = excluded.vk_url,
-       published_at = COALESCE(excluded.published_at, evening_gathered_posts.published_at),
-       skipped_at = CASE WHEN excluded.published_at IS NOT NULL THEN NULL ELSE evening_gathered_posts.skipped_at END,
-       updated_at = excluded.updated_at`,
-    [eveningId, photo.toString('base64'), mime, caption, telegram.status, telegram.error, vk.status, vk.error, vk.url, published ? now : null, now, now],
+    `INSERT OR IGNORE INTO evening_gathered_posts (evening_id, created_at, updated_at) VALUES (?, ?, ?)`,
+    [eveningId, now, now],
   );
+  const existing = await db.get<any>('SELECT * FROM evening_gathered_posts WHERE evening_id = ? LIMIT 1', [eveningId]);
+
+  // A new photo replaces the stored one; a retry without a photo resends the stored one to the failed channel.
+  let mime = String(existing?.mime_type || '');
+  let photo = existing?.image_data ? Buffer.from(String(existing.image_data), 'base64') : Buffer.alloc(0);
+  if (input.data_url) {
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/.exec(String(input.data_url));
+    if (!match) throw Object.assign(new Error('Нужна фотография'), { statusCode: 400 });
+    mime = match[1];
+    photo = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
+  }
+  if (!photo.length) throw Object.assign(new Error('Нужна фотография'), { statusCode: 400 });
+  if (photo.length > MAX_GATHERED_PHOTO_BYTES) throw Object.assign(new Error('Фото слишком большое'), { statusCode: 400 });
+
+  // Reserve the attempt so a double tap or a lost response cannot post the photo twice.
+  const reserved = await db.run(
+    `UPDATE evening_gathered_posts SET sending_until = ?, updated_at = ?
+      WHERE evening_id = ? AND (sending_until IS NULL OR sending_until < ?)`,
+    [new Date(Date.now() + 90_000).toISOString(), now, eveningId, now],
+  );
+  if (!reserved.changes) throw Object.assign(new Error('Пост уже отправляется — подождите минуту'), { statusCode: 409 });
+
+  try {
+    const attended = Number((await db.get<any>("SELECT COUNT(*) AS count FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.count || 0);
+    const caption = String(input.caption || '').trim().slice(0, 900) || String(existing?.caption || '') || defaultGatheredCaption(evening, attended);
+    // Channels that already have the photo are never posted to again.
+    const [telegram, vk] = await Promise.all([
+      existing?.telegram_status === 'published'
+        ? { status: 'published', error: null }
+        : publishTelegram(db, evening, photo, mime, caption, fetchImpl),
+      existing?.vk_status === 'published'
+        ? { status: 'published', error: null, url: existing.vk_url || null }
+        : publishVk(photo, mime, caption, fetchImpl),
+    ]);
+    const done = new Date().toISOString();
+    const reached = telegram.status === 'published' || vk.status === 'published';
+    await db.run(
+      `UPDATE evening_gathered_posts
+          SET image_data = ?, mime_type = ?, caption = ?,
+              telegram_status = ?, telegram_error = ?, vk_status = ?, vk_error = ?, vk_url = ?,
+              published_at = COALESCE(published_at, ?),
+              skipped_at = CASE WHEN ? THEN NULL ELSE skipped_at END,
+              sending_until = NULL, updated_at = ?
+        WHERE evening_id = ?`,
+      [photo.toString('base64'), mime, caption, telegram.status, telegram.error, vk.status, vk.error, (vk as any).url || null,
+        reached ? done : null, reached ? 1 : 0, done, eveningId],
+    );
+  } catch (error) {
+    await db.run('UPDATE evening_gathered_posts SET sending_until = NULL WHERE evening_id = ?', [eveningId]);
+    throw error;
+  }
   return loadGatheredPost(db, eveningId);
 }
 

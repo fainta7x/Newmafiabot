@@ -24,6 +24,7 @@ import {
 import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
 import { finalizeExistingVkEveningPublications } from '../services/vkDirectJoinPublishingService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
+import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 
 const router = Router();
 const expectedSql = "response_status IN ('going','late')";
@@ -202,6 +203,16 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     if (evening.status === 'completed' || evening.settled_at) return res.status(400).json({ error: 'Завершённый вечер доступен только для чтения' });
+
+    // Every evening has an organizer (user-approved 2026-09-24): starting needs one. The signed-in
+    // organizer is assigned automatically when their CRM login is linked to an «Организатор» profile.
+    if (data.status === 'active' && evening.status !== 'active') {
+      const organizerMissing = !(await eveningOrganizerAssigned(db, eveningId))
+        && !(await autoAssignEveningOrganizer(db, eveningId, (req as AuthenticatedRequest).organizerPlayerId || null));
+      if (organizerMissing) {
+        return res.status(409).json({ error: 'Назначьте организатора вечера — без него вечер не начать.', code: 'organizer_required' });
+      }
+    }
 
     const nextFormat = data.format ?? evening.format;
     const regular = isRegularEvening(nextFormat);

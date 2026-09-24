@@ -23,12 +23,12 @@ const makeDb = () => {
 };
 
 describe('editable achievement catalog', () => {
-  it('seeds the legacy 40 definitions and then reads organizer edits from the database', async () => {
+  it('seeds the 45 definitions (legacy 40 + organizer) and then reads organizer edits from the database', async () => {
     const db = makeDb();
     await ensureAdminDataSchema(db);
 
     const seeded = await loadAchievementDefinitions(db, true);
-    expect(seeded).toHaveLength(40);
+    expect(seeded).toHaveLength(45);
     expect(seeded.find((item) => item.id === 'first_game')?.name).toBe('Первая игра');
 
     await db.run(

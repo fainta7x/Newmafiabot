@@ -379,6 +379,14 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   - games and money.
 
   The home counter is the number of these items.
+- **Organizer and judge on everything (user-approved 2026-09-24):**
+  - An evening cannot start (via «Начать вечер» or by creating its first game) without an assigned organizer with the «Организатор» club role. A signed-in organizer whose CRM login is linked to such a profile is assigned automatically.
+  - Every game needs a judge: a club player, or a named guest explicitly marked as a guest. Guest judging counts for nobody.
+  - The judge gets 200 tokens per completed game (2 × the 100-token player participation reward) for games from 2026-09-24; older games keep the former 100.
+  - The evening's organizer gets 1000 tokens once per closed evening, for evenings from 2026-09-24.
+  - Organizer achievements count closed evenings run as the assigned organizer: 1, 5, 10, 25 and 50 evenings.
+  - Money payouts (salary) to organizers and judges belong to the planned club finance module.
+- **«Мы собрались» publication rules.** The first game may start once the post reached at least one channel or was skipped. A channel that failed can be retried with the stored photo; a channel that already has the photo is never posted to again.
 - **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.
 - **Payment by evening type (target):**
   - **NOVICE:** a mandatory prepayment step before the first game for players who owe (the first two attended evenings stay free).

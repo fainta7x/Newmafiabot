@@ -8,7 +8,7 @@ const router = Router();
 router.use(requireOrganizerAuth);
 
 const ACHIEVEMENT_CATEGORIES = new Set(['games', 'wins', 'rating', 'roles', 'judge', 'special']);
-const ACHIEVEMENT_METRICS = new Set(['games', 'wins', 'rating', 'judged', 'role', 'pu', 'perfect_game']);
+const ACHIEVEMENT_METRICS = new Set(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game']);
 const ACHIEVEMENT_RARITIES = new Set(['common', 'rare', 'epic', 'legendary']);
 const ACHIEVEMENT_ROLES = new Set(['sheriff', 'mafia', 'don']);
 

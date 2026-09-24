@@ -13,6 +13,7 @@ export interface AchievementStats {
   wins: number;
   elo: number;
   judgedGames: number;
+  organizedEvenings: number;
   puCount: number;
   perfectGames: number;
   roleWins: { sheriff: number; mafia: number; don: number };
@@ -75,7 +76,7 @@ const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'special']);
-const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'role', 'pu', 'perfect_game']);
+const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game']);
 const VALID_RARITIES = new Set<AchievementRarity>(['common', 'rare', 'epic', 'legendary']);
 
 const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.get(
@@ -128,6 +129,7 @@ export const getAchievementMetricValue = (achievement: AchievementDefinition, st
     case 'wins': return stats.wins;
     case 'rating': return stats.elo;
     case 'judged': return stats.judgedGames;
+    case 'organized': return stats.organizedEvenings;
     case 'pu': return stats.puCount;
     case 'perfect_game': return stats.perfectGames;
     case 'role': return achievement.role ? stats.roleWins[achievement.role] : 0;
@@ -154,6 +156,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     wins: 0,
     elo: numberOrZero(player.elo),
     judgedGames: 0,
+    organizedEvenings: 0,
     puCount: 0,
     perfectGames: 0,
     roleWins: { sheriff: 0, mafia: 0, don: 0 },
@@ -243,6 +246,18 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
   `, [playerId]);
   for (const row of judgedTournamentRows) judged.add(`tournament:${row.id}`);
   stats.judgedGames = judged.size;
+
+  // Closed evenings where this player was the assigned organizer.
+  const staffTable = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments' LIMIT 1");
+  if (staffTable) {
+    const organized = await db.get(`
+      SELECT COUNT(*) AS count
+        FROM evening_staff_assignments s
+        JOIN game_evenings e ON e.id = s.evening_id
+       WHERE s.organizer_player_id = ? AND (e.status = 'completed' OR e.settled_at IS NOT NULL)
+    `, [playerId]);
+    stats.organizedEvenings = Number(organized?.count || 0);
+  }
 
   return stats;
 };

@@ -53,7 +53,7 @@ const shuffledCopy = <T,>(items: T[], forceDifferent = false): T[] => {
 
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, games, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
-  const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('external');
+  const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('linked');
   const [judgePlayerId, setJudgePlayerId] = useState('');
   const [judgeName, setJudgeName] = useState(tables[0]?.host_name || '');
   const [crmPlayers, setCrmPlayers] = useState<Player[]>([]);
@@ -269,7 +269,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   };
 
   const create = async () => {
-    if (!eveningCanStart || creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
+    if (!eveningCanStart || creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())) return;
     if (linkedJudgePlayerId && seats.some((participantId) => String(byId.get(participantId)?.player_id || '') === linkedJudgePlayerId)) {
       setError('Судья этой игры не может одновременно быть игроком.');
       return;
@@ -284,6 +284,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         evening_table_id: selectedTableId || null,
         judge_player_id: judgeMode === 'linked' ? judgePlayerId : null,
         judge_name: judgeMode === 'linked' ? (linkedJudge?.nickname || null) : (judgeName.trim() || null),
+        judge_guest: judgeMode === 'external',
         seats: seats.map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
       });
       onCreated(created);
@@ -372,7 +373,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>
-        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
+        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId) || (judgeMode === 'external' && !judgeName.trim())} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
       </div>
     </div>
   );

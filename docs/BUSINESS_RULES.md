@@ -407,6 +407,7 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
 
     A rating game always has a full table of 10 players, so the evening collects 5000 ₽: 2500 ₽ to the winner, 2000 ₽ to the judge and 500 ₽ to the fund.
   - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽) set per tournament. A registered player's place is confirmed only after the payment is marked; unpaid players give their place to the reserve before the tournament.
+- **Does the evening's organizer pay? (user-approved 2026-09-24)** On club (CASUAL) and novice evenings the organizer never pays. On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
 - **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). With fewer registered it is a shortfall, and the evening is cancelled. Exception: novice evenings and games may run from 8 players and a judge.
 - **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
 - CRM wording should use plain club words, not technical terms.

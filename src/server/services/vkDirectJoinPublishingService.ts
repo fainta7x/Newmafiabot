@@ -6,6 +6,7 @@ import {
   type VkDestination,
 } from './vkPublishingService.ts';
 import { editVkWallPostWithPublisher } from './vkWallPostEditor.ts';
+import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 
@@ -77,6 +78,7 @@ export const announcementPriceLine = (format: unknown, pricePerGame: number) => 
   const normalized = normalizeEveningFormat(format);
   if (normalized === 'NOVICE') return `💳 Первые ${NOVICE_FREE_VISITS} вечера — бесплатно, дальше ${NOVICE_PAID_GAME_PRICE} ₽ за игру`;
   if (normalized === 'CASUAL') return `💳 ${pricePerGame.toLocaleString('ru-RU')} ₽ за игру, не больше ${CLUB_EVENING_MAX_PRICE} ₽ за вечер`;
+  if (normalized === 'RATING') return `💳 Взнос ${RATING_ENTRY_FEE.toLocaleString('ru-RU')} ₽ за вечер — до начала игр`;
   return `💳 ${pricePerGame.toLocaleString('ru-RU')} ₽ за игру`;
 };
 

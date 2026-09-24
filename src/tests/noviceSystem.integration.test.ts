@@ -247,6 +247,11 @@ describe('NOVICE-001 funnel', () => {
     await db.run(`INSERT INTO players (id,nickname,game_level,created_at,updated_at) VALUES ('fresh','Новичок','novice',?,?), ('guest','Гость из Казани','club',?,?)`, [now, now, now, now]);
     expect(await novicePriceForPlayer(db, 'fresh', 'ng1')).toBe(0);
     expect(await novicePriceForPlayer(db, 'guest', 'ng1')).toBe(NOVICE_PAID_GAME_PRICE);
+    // The evening's organizer never pays on a novice evening, even with a club level.
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('g1','ng1','guest','going','going','attended','on_time','unpaid',200,0,?,?)`, [now, now]);
+    await db.run("INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES ('ng1', 'guest', ?, ?)", [now, now]);
+    await reconcileNoviceEveningCharges(db, 'ng1', ['g1']);
+    expect(await db.get<any>("SELECT amount_due FROM evening_participants WHERE id = 'g1'")).toEqual({ amount_due: 0 });
     // The «free evenings left» banner follows the same rule as the price.
     await db.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE' WHERE id IN ('fresh', 'guest')");
     expect((await getNovicePlayerState(db, 'fresh'))?.free_visits_remaining).toBe(2);

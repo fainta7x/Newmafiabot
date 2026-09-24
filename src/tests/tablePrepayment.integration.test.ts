@@ -50,7 +50,9 @@ describe('prepayment at the table', () => {
 
   it('never blocks an exempt player or a casual evening (postpayment)', async () => {
     const rating = await setup('RATING');
-    await rating.db.run("UPDATE evening_participants SET payment_status = 'waived' WHERE id = 'ep3'");
+    // The organizer's «Освободить» is stored as a fee waiver, which recomputation respects.
+    await rating.db.run("INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at) VALUES ('ep3', 'ev', 'test', ?, ?)", [new Date().toISOString(), new Date().toISOString()]);
+    await rating.db.run("UPDATE evening_participants SET payment_status = 'waived', amount_due = 0 WHERE id = 'ep3'");
     expect((await rating.create()).body.code).not.toBe('prepayment_required');
     const casual = await setup('CASUAL');
     expect((await casual.create()).body.code).not.toBe('prepayment_required');

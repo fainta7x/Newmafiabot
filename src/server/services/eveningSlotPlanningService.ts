@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
@@ -50,9 +51,17 @@ const novicePaymentStatus = (due: number, paid: number) =>
  * in advance is estimated before the earlier evenings happen, so it must be
  * corrected before settlement. Explicit organizer fee waivers are kept.
  */
-export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, eveningId: string): Promise<number> {
+/**
+ * `seatedParticipantIds`: players being seated at a new game right now. They are at the club even
+ * if they never answered, so they owe for (at least) this game before the prepayment check.
+ */
+export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, eveningId: string, seatedParticipantIds: string[] = []): Promise<number> {
   const evening = await db.get<any>('SELECT id, format, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
-  if (!evening || normalizeEveningFormat(evening.format) !== 'NOVICE' || evening.status === 'completed' || evening.settled_at) return 0;
+  if (!evening || evening.status === 'completed' || evening.settled_at) return 0;
+  const format = normalizeEveningFormat(evening.format);
+  const seated = new Set(seatedParticipantIds.map(String));
+  if (format === 'RATING') return reconcileRatingEveningCharges(db, eveningId, seated);
+  if (format !== 'NOVICE') return 0;
   const waiverTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_fee_waivers'");
   const waived = new Set((waiverTable
     ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
@@ -72,11 +81,19 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
   const wholeEveningGames = Number(openSlots?.count || 0);
   let changed = 0;
   const now = new Date().toISOString();
+  // The evening's organizer never pays on a novice evening (user-approved 2026-09-24).
+  const staffTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'");
+  const organizerId = staffTable
+    ? String((await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]))?.organizer_player_id || '')
+    : '';
   for (const participant of participants) {
     if (waived.has(String(participant.id))) continue;
-    const price = await novicePriceForPlayer(db, String(participant.player_id), eveningId);
+    const price = organizerId && String(participant.player_id) === organizerId
+      ? 0
+      : await novicePriceForPlayer(db, String(participant.player_id), eveningId);
     const selected = Number(participant.games || 0);
-    const games = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
+    const planned = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
+    const games = seated.has(String(participant.id)) ? Math.max(planned, 1) : planned;
     const due = price * games;
     const paid = Math.max(0, Number(participant.amount_paid || 0));
     const status = novicePaymentStatus(due, paid);
@@ -87,7 +104,63 @@ export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, evening
   return changed;
 }
 
+/**
+ * Rating evening: one 500 ₽ entry fee for everyone who comes to play (answered «иду»/«позже», picked
+ * games, was marked present or is seated). The organizer and judges pay only if they actually play.
+ * Explicit fee waivers are kept; a recorded payment is never lost.
+ */
+async function reconcileRatingEveningCharges(db: DatabaseWrapper, eveningId: string, seated: Set<string>): Promise<number> {
+  const waiverTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_fee_waivers'");
+  const waived = new Set((waiverTable
+    ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
+    : []).map((row: any) => String(row.participant_id)));
+  const participants = await db.all<any>(
+    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.response_status, ep.attendance_status,
+            (SELECT COUNT(*) FROM evening_slot_registrations r
+               JOIN evening_game_slots s ON s.id = r.slot_id
+              WHERE r.participant_id = ep.id AND s.evening_id = ep.evening_id) AS games
+       FROM evening_participants ep
+      WHERE ep.evening_id = ? AND ep.player_id IS NOT NULL`,
+    [eveningId],
+  );
+  // Staff (the evening's organizer and the judges of its games) pay only when they sit at a table
+  // as a player (user-approved 2026-09-24); organizing or judging alone is free.
+  const staffTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'");
+  const organizer = staffTable
+    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    : null;
+  const games = await db.all<any>('SELECT judge_player_id, slots_json FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
+  const staffIds = new Set([organizer?.organizer_player_id, ...games.map((game: any) => game.judge_player_id)].filter(Boolean).map(String));
+  const playedIds = new Set<string>(seated);
+  for (const game of games) {
+    let slots: any[] = [];
+    try { slots = JSON.parse(String(game.slots_json || '[]')); } catch { slots = []; }
+    if (Array.isArray(slots)) for (const slot of slots) if (slot?.participant_id) playedIds.add(String(slot.participant_id));
+  }
+  let changed = 0;
+  const now = new Date().toISOString();
+  for (const participant of participants) {
+    if (waived.has(String(participant.id))) continue;
+    const plays = playedIds.has(String(participant.id));
+    const comes = staffIds.has(String(participant.player_id))
+      ? plays
+      : plays
+        || Number(participant.games || 0) > 0
+        || ['going', 'late'].includes(String(participant.response_status || ''))
+        || String(participant.attendance_status || '') === 'attended';
+    // Every player at a rating table pays, a playing organizer included (a full table is 5000 ₽).
+    const due = comes ? RATING_ENTRY_FEE : 0;
+    const status = novicePaymentStatus(due, Math.max(0, Number(participant.amount_paid || 0)));
+    if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
+    await db.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [due, status, now, participant.id]);
+    changed += 1;
+  }
+  return changed;
+}
+
 export const calculateEveningSelectionTotal = (format: unknown, prices: number[]): number => {
+  // A rating evening is one entry fee for the whole evening, however many games are picked.
+  if (normalizeEveningFormat(format) === 'RATING') return prices.length ? RATING_ENTRY_FEE : 0;
   if (normalizeEveningFormat(format) === 'CASUAL') {
     return Math.min(prices.length * SLOT_PRICE, CLUB_EVENING_MAX_PRICE);
   }

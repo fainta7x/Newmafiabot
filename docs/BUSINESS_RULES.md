@@ -201,6 +201,10 @@ Forbidden at the table, with the usual penalty:
 - interfering with the first-killed player's protocol or best move (naming three black players) — technical foul;
 - excessive emotion and aggression — technical foul;
 - any action during the night that the player's role does not call for — removal.
+- touching other players, knocking on the table, excessive gesturing — foul;
+- addressing the judge outside one's own minute, unless the judge gives the word — foul.
+
+Nomination and voting basics the guide teaches (user-approved 2026-09-24): one nomination per speech, and an already nominated player cannot be nominated again; on the first day a single nominee means no vote (none — no vote either), then night; a speech may end early with «спасибо» or «пас»; each player votes once, by raising a hand when the judge names the candidate, and cannot change the vote; a day removal cancels that day's vote. Phones are banned only at tournaments, so the guide does not list them.
 
 The novice guide (`/guide`) shows this list first in its «Правила» tab.
 

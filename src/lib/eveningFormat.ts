@@ -42,7 +42,11 @@ export const noviceScheduleLine = (firstGameAt: string | null | undefined): stri
 export const noviceStartsAt = (current: string, today = new Date()): string => {
   if (/^\d{4}-\d{2}-\d{2}/.test(current)) return `${current.slice(0, 10)}T${NOVICE_FIRST_GAME_TIME}`;
   const moscowToday = new Date(`${today.toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' })}T12:00:00Z`);
-  moscowToday.setUTCDate(moscowToday.getUTCDate() + ((5 - moscowToday.getUTCDay() + 7) % 7));
+  const moscowClockNow = today.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Moscow' });
+  let offset = (5 - moscowToday.getUTCDay() + 7) % 7;
+  // On Friday after the first-game time, today's slot has passed: take the next Friday.
+  if (offset === 0 && moscowClockNow >= NOVICE_FIRST_GAME_TIME) offset = 7;
+  moscowToday.setUTCDate(moscowToday.getUTCDate() + offset);
   return `${moscowToday.toISOString().slice(0, 10)}T${NOVICE_FIRST_GAME_TIME}`;
 };
 

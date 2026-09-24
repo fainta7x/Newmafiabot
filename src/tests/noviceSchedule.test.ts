@@ -11,5 +11,7 @@ describe('novice evening schedule', () => {
     expect(noviceStartsAt('2026-10-02T18:30')).toBe('2026-10-02T19:00');
     expect(noviceStartsAt('', new Date('2026-09-24T09:00:00Z'))).toBe('2026-09-25T19:00');
     expect(noviceStartsAt('', new Date('2026-09-25T09:00:00Z'))).toBe('2026-09-25T19:00');
+    // Friday 19:30 Moscow: tonight's first game has passed.
+    expect(noviceStartsAt('', new Date('2026-09-25T16:30:00Z'))).toBe('2026-10-02T19:00');
   });
 });

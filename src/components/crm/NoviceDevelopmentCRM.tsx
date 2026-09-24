@@ -34,10 +34,9 @@ const dateLabel = (value?: string | null) => value
   ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
   : 'Без выбранного вечера';
 
-// Joining the club does not change game_level (BUSINESS_RULES: level is assessed manually),
-// and a `novice` level only admits NOVICE evenings, so the organizer must see that step.
-const levelBlocksCasual = (application: Application) => application.game_level === 'novice'
-  && (application.status === 'COMPLETED' || application.status === 'CONVERTED');
+// Transfers now raise the level to «Клубный»; players transferred earlier may still carry `novice`,
+// which admits only NOVICE evenings, so the organizer must see that step.
+const levelBlocksCasual = (application: Application) => application.game_level === 'novice' && application.status === 'CONVERTED';
 
 export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void } = {}) {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -172,10 +171,10 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
           {application.status === 'NEW' ? <><button disabled={busy === application.id} type="button" onClick={() => void update(application, 'CONFIRMED')} className="min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><Check className="mr-1 inline h-4 w-4" />Подтвердить</button><button disabled={busy === application.id} type="button" onClick={() => void update(application, 'CANCELLED')} className="min-h-11 rounded-xl bg-rose-300/10 text-[12px] font-semibold text-rose-100"><X className="mr-1 inline h-4 w-4" />Отклонить</button></> : null}
           {application.status === 'CONFIRMED' ? <button disabled={busy === application.id} type="button" onClick={() => void update(application, 'ATTENDED')} className="col-span-2 min-h-11 rounded-xl bg-white/[0.08] text-[12px] font-semibold">Отметить первое посещение</button> : null}
           {application.status === 'ATTENDED' ? <button disabled={busy === application.id} type="button" onClick={() => void update(application, 'COMPLETED')} className="col-span-2 min-h-11 rounded-xl bg-white/[0.08] text-[12px] font-semibold">Новичковый этап пройден</button> : null}
-          {application.status === 'COMPLETED' ? <button disabled={busy === application.id} type="button" onClick={() => void convert(application)} className="col-span-2 min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />Перевести в основной клуб</button> : null}
+          {application.status === 'COMPLETED' ? <button disabled={busy === application.id} type="button" onClick={() => void convert(application)} className="col-span-2 min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />Перевести в основной клуб · уровень «Клубный»</button> : null}
         </div>
         {levelBlocksCasual(application) ? <div className="mt-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-2.5 text-[12px] leading-5 text-amber-100">
-          Уровень игры — «Новичок»: {application.status === 'CONVERTED' ? 'на обычные вечера' : 'после перевода на обычные вечера'} запись будет закрыта. Смени уровень в карточке игрока.
+          Уровень игры — «Новичок»: на обычные вечера запись закрыта. Смени уровень в карточке игрока.
           {onOpenPlayer && application.player_id ? <button type="button" onClick={() => onOpenPlayer(String(application.player_id))} className="mt-2 block min-h-10 w-full rounded-lg bg-amber-300/15 text-[12px] font-semibold">Открыть карточку игрока</button> : null}
         </div> : null}
       </article>)}

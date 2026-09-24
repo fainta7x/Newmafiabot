@@ -221,9 +221,9 @@ The current operating default is the established main club and its regular CASUA
 - A first application is reviewed manually by an organizer. Until confirmation, the player may see eligible NOVICE/CASUAL events but cannot self-register.
 - Confirming the novice route moves the player to `NOVICE_ACTIVE` and may classify an unassessed player as `game_level=novice`.
 - Confirming the experienced route moves the player to `CLUB_PLAYER` but leaves `game_level=unrated` until an organizer assesses it. Experience must never be fabricated from club tenure.
-- Promotion from the novice route to the main club is manual; attendance never auto-promotes or auto-removes a player.
+- Promotion from the novice route to the main club is manual; attendance never auto-promotes or auto-removes a player. The organizer's «Перевести в основной клуб» also raises `game_level` from `novice`/`unrated` to `club`, so CASUAL booking opens at once; a higher level already set by the organizer is kept (user-approved 2026-09-24).
 - The first two factually attended NOVICE evenings are free. Starting with the third attended NOVICE evening, the player price is **200 ₽ per selected game**.
-- The standard Friday operation is briefing at 18:30, rules-aware arrival at 19:00 and CASUAL continuation at 21:00. Organizers check the group on Thursday at 20:00 and decide by Friday at 15:00; the system must not cancel automatically.
+- The standard Friday operation is briefing at 18:30, rules-aware arrival at 19:00 and CASUAL continuation at 21:00. A NOVICE evening's start time is its first game (default 19:00); the briefing is shown 30 minutes earlier and has no game slot (user-approved 2026-09-24). Organizers check the group on Thursday at 20:00 and decide by Friday at 15:00; the system must not cancel automatically.
 - `game_level=unrated` remains blocked from RATING and TOURNAMENT until organizer assessment. Telegram and VK use the same canonical player/application state.
 
 Approved response model for an announced evening includes:

@@ -7,7 +7,7 @@ import {
 } from './vkPublishingService.ts';
 import { editVkWallPostWithPublisher } from './vkWallPostEditor.ts';
 import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
-import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 
 type EveningRow = {
   id: string;
@@ -88,6 +88,8 @@ export const buildDirectVkEveningAnnouncement = async (
   const plan = await loadEveningSlotPlan(db, evening.id);
   const lines = [`🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) lines.push(`📍 ${evening.venue}`);
+  const briefing = normalizeEveningFormat(plan.event.format) === 'NOVICE' ? noviceScheduleLine(evening.starts_at) : null;
+  if (briefing) lines.push(`🎓 ${briefing}`);
   lines.push(
     announcementPriceLine(plan.event.format, Number(plan.event.price_per_game || 0)),
     '',

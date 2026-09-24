@@ -230,7 +230,12 @@ export async function convertNoviceToClubPlayer(
   const timestamp = now();
 
   await db.run(
-    `UPDATE players SET club_stage = 'CLUB_PLAYER' WHERE id = ?`,
+    // User-approved 2026-09-24: finishing the school makes a novice/unassessed player a club-level player,
+    // so CASUAL booking opens at once. A higher level set by the organizer is kept.
+    `UPDATE players
+        SET club_stage = 'CLUB_PLAYER',
+            game_level = CASE WHEN COALESCE(game_level, 'unrated') IN ('novice', 'unrated') THEN 'club' ELSE game_level END
+      WHERE id = ?`,
     [playerId],
   );
 

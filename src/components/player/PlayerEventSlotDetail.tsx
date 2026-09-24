@@ -1,6 +1,7 @@
 import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
+import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 
@@ -143,6 +144,9 @@ export default function PlayerEventSlotDetail({
           <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Запись на вечер</div>
           <h1 className="mt-1 text-2xl font-semibold">{event.title}</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">{eventDate(event.starts_at)}{event.venue ? ` · ${event.venue}` : ''}</p>
+          {normalizeEveningFormat(event.format) === 'NOVICE' && noviceScheduleLine(event.starts_at)
+            ? <p className="mt-2 rounded-xl bg-sky-300/[0.08] px-3 py-2 text-[12px] leading-5 text-sky-100/80">{noviceScheduleLine(event.starts_at)}. Приходи к брифингу — расскажем правила.</p>
+            : null}
         </header>
 
         {error && <div className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-3 text-xs text-rose-100">{error}</div>}

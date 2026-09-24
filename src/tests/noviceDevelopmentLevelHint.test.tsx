@@ -16,19 +16,21 @@ const mockApplications = (items: unknown[]) => {
 describe('NoviceDevelopmentCRM level hint', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-  it('warns that a novice-level player cannot book regular evenings and opens the player card', async () => {
-    mockApplications([application({})]);
+  it('warns about a player transferred earlier who still has the novice level', async () => {
+    mockApplications([application({ status: 'CONVERTED' })]);
     const onOpenPlayer = vi.fn();
     render(<NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} />);
-    await waitFor(() => expect(screen.getByText(/после перевода на обычные вечера/)).toBeTruthy());
+    fireEvent.click(await screen.findByRole('button', { name: 'Все' }));
+    await waitFor(() => expect(screen.getByText(/на обычные вечера запись закрыта/)).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Открыть карточку игрока' }));
     expect(onOpenPlayer).toHaveBeenCalledWith('p1');
   });
 
-  it('stays quiet once the level already allows regular evenings', async () => {
-    mockApplications([application({ game_level: 'club' })]);
+  it('stays quiet before the transfer and once the level allows regular evenings', async () => {
+    mockApplications([application({}), application({ id: 'a2', status: 'CONVERTED', game_level: 'club' })]);
     render(<NoviceDevelopmentCRM />);
-    await waitFor(() => expect(screen.getByText('Лиса')).toBeTruthy());
+    fireEvent.click(await screen.findByRole('button', { name: 'Все' }));
+    await waitFor(() => expect(screen.getAllByText('Лиса').length).toBeGreaterThan(0));
     expect(screen.queryByText(/Смени уровень/)).toBeNull();
   });
 });

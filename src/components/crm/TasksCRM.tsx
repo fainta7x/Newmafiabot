@@ -24,9 +24,9 @@ interface TasksCRMProps {
 type FilterMode = 'all' | 'today' | 'overdue' | 'done';
 
 const FILTERS: Array<{ id: FilterMode; label: string }> = [
+  { id: 'all', label: 'Все активные' },
   { id: 'today', label: 'На сегодня' },
   { id: 'overdue', label: 'Просроченные' },
-  { id: 'all', label: 'Все активные' },
   { id: 'done', label: 'Выполненные' },
 ];
 
@@ -44,7 +44,8 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
   const [tasks, setTasks] = useState<OrganizerTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filterMode, setFilterMode] = useState<FilterMode>('today');
+  // The home «Задачи» tile counts every open task, so the list opens on the same set (not only today's).
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');

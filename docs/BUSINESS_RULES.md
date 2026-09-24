@@ -358,6 +358,36 @@ Historical UI/visual requirements may evolve, so inspect current publication com
 - `online_payment_available: false` is a product state, not automatically a bug.
 - Do not fabricate or enable a payment provider without an explicit provider/setup decision.
 
+## Organizer flow and payment targets (user-approved 2026-09-24)
+
+Target design; `docs/PROJECT_STATE.md` tracks what is built.
+
+- **Evening route.** An evening is run as one ordered route instead of unrelated tabs:
+  - preparation;
+  - gathering answers;
+  - the day of the evening;
+  - the evening in progress;
+  - closeout;
+  - after.
+
+  Each stage lists its steps, shows what is done, and offers one main action. Organizer to-dos such as photos and announcements live inside their stage.
+- **«Мы собрались» post.** After the evening starts, the organizer takes a photo in the app and the post with the photo is published automatically to Telegram and VK. The first game cannot start until the post is published, unless the organizer presses «Пропустить». A skipped post stays as a reminder in «Порядок в клубе».
+- **«Порядок в клубе».** The home screen shows an automatic list of things that need the organizer's action. Each item has one button that opens the place where it is fixed, and the item disappears once it is fixed. It covers:
+  - evenings and gathering;
+  - player statuses and novices;
+  - profiles;
+  - games and money.
+
+  The home counter is the number of these items.
+- **Novices stay novices** until the organizer decides to transfer them. The app never suggests a transfer based on a number of visits. A novice rating or tournament may later become a path into the club.
+- **Payment by evening type (target):**
+  - **NOVICE:** a mandatory prepayment step before the first game for players who owe (the first two attended evenings stay free).
+  - **CASUAL:** postpayment by played games (current rule above).
+  - **RATING:** a 500 ₽ entry fee before the games. The evening's winner takes the prize and a part goes to the season prize fund; the shares are to be decided.
+  - **TOURNAMENT:** prepayment of a flexible entry fee (typically 1500–3000 ₽).
+- **Online checkout** is planned once the organizer is registered as self-employed; until then payments stay manual.
+- CRM wording should use plain club words, not technical terms.
+
 ## Game formats and ratings (user-approved 2026-09-23)
 
 The club runs four evening formats, and each has its own competition:

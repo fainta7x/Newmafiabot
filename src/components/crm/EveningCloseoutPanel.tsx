@@ -176,7 +176,9 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
   };
 
   if (busyAction === 'load' && !state) return null;
-  if (!state || isFuture) return null;
+  if (!state) return null;
+  // Before the evening there is nothing to close; say so instead of an empty tab.
+  if (isFuture) return <section className="rounded-[16px] border border-border-soft bg-surface-1 p-4 text-[13px] leading-5 text-text-secondary" data-testid="evening-closeout-future">Закрытие откроется, когда вечер начнётся: здесь сверим явку, оплаты и долги и закроем вечер.</section>;
 
   if (readonly) {
     const collected = state.attended.reduce((sum, item) => sum + Math.max(0, Number(item.amount_paid || 0)), 0);

@@ -299,6 +299,16 @@ TOURNAMENT-EVENING-001 / PR #300 adds focused organizer/player registration, exa
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 
+## Current queue (organizer flow, approved 2026-09-24)
+
+Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
+
+1. Evening route with stages and the «Мы собрались» photo post gate (Telegram + VK, with «Пропустить»).
+2. «Порядок в клубе» on the home screen, replacing the manual-task counter.
+3. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
+4. Plain wording across the CRM.
+5. Online checkout (after self-employment registration).
+
 ## Intentionally incomplete / deferred
 
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.

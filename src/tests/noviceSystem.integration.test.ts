@@ -277,6 +277,11 @@ describe('NOVICE-001 funnel', () => {
     expect(response.status).toBe(200);
     const byId = Object.fromEntries(response.body.participants.map((row: any) => [row.id, row.novice_free]));
     expect(byId).toEqual({ epn: true, eph: false });
+
+    // The evening's assigned organizer is flagged so the list does not read as a pending CASUAL charge.
+    await db.run('INSERT INTO evening_staff_assignments (evening_id,organizer_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', ['np1', host.id, now, now]);
+    const withStaff = await request(app).get('/api/evenings/np1/payments').set('Cookie', organizerCookie());
+    expect(Object.fromEntries(withStaff.body.participants.map((row: any) => [row.id, row.staff_exempt]))).toEqual({ epn: false, eph: true });
   });
 
   it('migrates the established roster to CLUB_PLAYER without changing skill level', async () => {

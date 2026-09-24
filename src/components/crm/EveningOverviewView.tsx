@@ -7,6 +7,8 @@ import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 interface EveningOverviewViewProps {
   eveningId: string;
   onStatusChange?: () => void;
+  /** The route above already offers «Опубликовать» / «Начать вечер». */
+  hideStatusActions?: boolean;
 }
 
 type EveningData = GameEvening & {
@@ -15,7 +17,7 @@ type EveningData = GameEvening & {
 };
 
 
-export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onStatusChange }) => {
+export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onStatusChange, hideStatusActions = false }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -69,8 +71,8 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   return (
     <div className="space-y-3.5 pb-4">
-      {(!readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        {!readonly && evening.status !== 'cancelled' ? <div>
+      {(!hideStatusActions && !readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
+        {!hideStatusActions && !readonly && evening.status !== 'cancelled' ? <div>
           {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
           {evening.status === 'published' ? (() => {
             // Days ahead, starting is not the next step: keep the button available but quiet.

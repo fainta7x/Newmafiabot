@@ -6,6 +6,7 @@ import {
   settleEveningFromCloseout,
 } from '../services/eveningCloseoutService.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningRoute } from '../services/eveningRouteService.ts';
 
 const router = Router();
 
@@ -19,6 +20,15 @@ router.get('/:id/closeout', requireOrganizerAuth, async (req, res) => {
       code: error?.code,
       details: error?.details,
     });
+  }
+});
+
+// The evening route: ordered stages with the real state of each step (see eveningRouteService).
+router.get('/:id/route', requireOrganizerAuth, async (req, res) => {
+  try {
+    return res.json(await loadEveningRoute(req.db, String(req.params.id)));
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить маршрут вечера' });
   }
 });
 

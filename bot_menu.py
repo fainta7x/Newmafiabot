@@ -11,6 +11,7 @@ CABINET_BUTTON_TEXT = "Личный кабинет"
 CLUB_ACCESS_BUTTON_TEXT = "🎟 Доступ в клуб"
 REGULATIONS_BUTTON_TEXT = "📋 РЕГЛАМЕНТ"
 STATUS_BUTTON_TEXT = "🩺 Проверить состояние приложения"
+JUDGE_BUTTON_TEXT = "⚖ Судейство"
 
 
 def player_app_url(path: str = "/player") -> str | None:
@@ -50,7 +51,13 @@ def main_menu_for_user(*, is_admin: bool, is_judge: bool):
         builder.row(KeyboardButton(text="🛠 Админ-панель"))
         builder.row(KeyboardButton(text=STATUS_BUTTON_TEXT))
     elif is_judge:
-        builder.row(KeyboardButton(text="⚖ Панель судьи"))
+        # The old text button was retired with the legacy judge panel; open the app's judge section instead.
+        judge_url = player_app_url("/player/conduct")
+        builder.row(
+            KeyboardButton(text=JUDGE_BUTTON_TEXT, web_app=WebAppInfo(url=judge_url))
+            if judge_url
+            else KeyboardButton(text=JUDGE_BUTTON_TEXT)
+        )
 
     return builder.as_markup(
         resize_keyboard=True,

@@ -44,6 +44,8 @@ export interface PlayerAchievementProfile {
       progress: { current: number; target: number } | null;
     }>;
   }>;
+  /** Completed games judged and closed evenings run as the assigned organizer. */
+  staff?: { judged_games: number; organized_evenings: number };
 }
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
@@ -238,11 +240,16 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     const payload = safeJsonParse<any>(row.protocol_text, null);
     if (payload?.kind === 'club_evening_protocol' && payload.protocol?.status === 'completed') judged.add(`club:${row.id}`);
   }
+  // Older databases have no tournament-level judge yet; then only the per-game judge counts.
+  const tournamentJudge = (await db.all('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'judge_player_id')
+    ? 'COALESCE(tg.judge_player_id, t.judge_player_id)' : 'tg.judge_player_id';
   const judgedTournamentRows = await db.all(`
     SELECT tg.id
       FROM tournament_games tg
       JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
-     WHERE tg.judge_player_id = ? AND tg.status = 'completed' AND tgp.status = 'completed'
+      JOIN tournaments t ON t.id = tg.tournament_id
+     -- Managed tournament evenings keep the judge on the tournament; a per-game judge overrides it.
+     WHERE ${tournamentJudge} = ? AND tg.status = 'completed' AND tgp.status = 'completed'
   `, [playerId]);
   for (const row of judgedTournamentRows) judged.add(`tournament:${row.id}`);
   stats.judgedGames = judged.size;
@@ -370,5 +377,7 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
     .filter((category) => category.total > 0);
   const earned = categories.reduce((sum, category) => sum + category.earned, 0);
   const total = definitions.length;
-  return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories };
+  // Staff work shown next to achievements: completed games judged and closed evenings run as organizer.
+  const staff = { judged_games: stats.judgedGames, organized_evenings: stats.organizedEvenings };
+  return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories, staff };
 };

@@ -306,7 +306,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 1. ~~Evening route with stages and the «Мы собрались» photo post gate~~ — built: the evening's «Маршрут» tab, `GET /api/evenings/:id/route`, `/api/evenings/:id/gathered-post` (Telegram `sendPhoto` to the format's destination, VK wall photo via the organizer user token; the first game of an `active` evening returns `gathered_post_required` until the post is published or skipped).
 2. Organizer and judge accountability.
    - Built: an organizer is required to start an evening; a club or explicitly guest judge is required per game; token rewards (judge 200 per game, organizer 1000 per closed evening); organizer achievements.
-   - Remaining: «Провёл вечеров / Отсудил игр» in the player profile, and a CRM report per month and season.
+   - Also built: «Провёл вечеров / Отсудил игр» on the CRM player card and in the player's career profile, and the CRM «Аналитика» report «Организаторы и судьи» for 7/30/90 days or all time (`GET /api/analytics/staff`).
 3. «Порядок в клубе» on the home screen, replacing the manual-task counter.
 4. Payments per evening type: novice prepayment, rating entry fee with a season prize fund share.
 5. Plain wording across the CRM.

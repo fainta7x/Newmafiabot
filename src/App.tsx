@@ -5,6 +5,7 @@ import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import LiveBroadcastOverlay from "./components/public/LiveBroadcastOverlay.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
+import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
 import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboarding.tsx";
@@ -104,7 +105,8 @@ export default function App() {
   const isTournamentResultsRoute = isRoutePrefix(pathname, '/tournaments/results');
   const isLiveRoute = isRoutePrefix(pathname, '/live');
   const isBroadcastRoute = isRoutePrefix(pathname, '/broadcast');
-  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute;
+  const isGuideRoute = isRoutePrefix(pathname, '/guide');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute;
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
@@ -177,6 +179,8 @@ export default function App() {
   }
 
   if (isLiveRoute) return <BigScreenLive />;
+
+  if (isGuideRoute) return <PublicGuide initialTab={guideTabFromSearch(window.location.search)} />;
 
   if (isBroadcastRoute) {
     const parts = pathname.split('/').filter(Boolean);

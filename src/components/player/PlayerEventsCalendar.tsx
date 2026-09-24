@@ -333,6 +333,12 @@ export default function PlayerEventsCalendar({
           <p className="mt-1 text-[12px] leading-5 text-white/55">Посещений: {noviceState.novice_visits}. {noviceState.free_visits_remaining > 0 ? `Осталось бесплатных посещений: ${noviceState.free_visits_remaining}.` : 'Следующие игры — 200 ₽ за игру.'}</p>
         </section> : null}
 
+        {/* The public rules page (/guide) — also the link organizers send to a novice before the first evening. */}
+        <a data-testid="player-guide-link" href="/guide" className="mb-3 flex min-h-12 items-center justify-between gap-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-3.5 text-[14px] text-white/75">
+          <span><strong className="font-semibold text-white">Правила и словарь</strong> · памятка перед первым вечером</span>
+          <span aria-hidden="true" className="text-white/40">→</span>
+        </a>
+
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-2.5">
           <div className="flex items-center justify-between gap-2">
             <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-lg text-white/65">‹</button>

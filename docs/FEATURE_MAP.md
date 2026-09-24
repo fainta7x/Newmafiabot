@@ -56,6 +56,11 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 - API: `ratingRoutes.ts`, `ratingPeriodRoutes.ts`, `ratingPeriodStandingsRoutes.ts`, `playerTournamentResultsRoutes.ts`, `eloSeedAdminRoutes.ts`.
 - Formula work: `npm run project:find -- "elo expected rating"` before changing output.
 
+## Rules, glossary and novice guide
+
+- Public page `/guide` (no sign-in): `src/components/public/PublicGuide.tsx`, routed in `src/App.tsx`.
+- Texts (scenario, roles, table rules, glossary): `src/lib/clubGuide.ts`.
+
 ## Wallet / tokens / shop / payments
 
 - Player UI: `src/components/player/PlayerWalletHub.tsx`.

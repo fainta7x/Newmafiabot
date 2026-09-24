@@ -1,13 +1,16 @@
 import type { ActivePlayerState } from './types.js';
 
-const normalizeSlot = (slot: number): number => ((slot - 1 + 10) % 10) + 1;
+// Seats go round the table: 10 seats, or 8–9 at a novice table.
+const tableSize = (players: ActivePlayerState[]) => Math.max(1, players.length);
+const normalizeSlot = (slot: number, size: number): number => ((((slot - 1) % size) + size) % size) + 1;
 
 export const getNextDayStarterSlot = (
   players: ActivePlayerState[],
   previousStarterSlot: number,
 ): number | null => {
-  for (let offset = 1; offset <= 10; offset++) {
-    const slot = normalizeSlot(previousStarterSlot + offset);
+  const size = tableSize(players);
+  for (let offset = 1; offset <= size; offset++) {
+    const slot = normalizeSlot(previousStarterSlot + offset, size);
     const player = players.find((item) => item.slot_num === slot);
     if (player?.alive) return slot;
   }
@@ -18,11 +21,12 @@ export const getDaySpeakerQueue = (
   players: ActivePlayerState[],
   starterSlot: number,
 ): ActivePlayerState[] => {
-  const start = normalizeSlot(starterSlot);
+  const size = tableSize(players);
+  const start = normalizeSlot(starterSlot, size);
   const ordered: ActivePlayerState[] = [];
 
-  for (let offset = 0; offset < 10; offset++) {
-    const slot = normalizeSlot(start + offset);
+  for (let offset = 0; offset < size; offset++) {
+    const slot = normalizeSlot(start + offset, size);
     const player = players.find((item) => item.slot_num === slot);
     if (player) ordered.push(player);
   }

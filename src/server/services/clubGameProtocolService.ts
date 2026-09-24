@@ -1,4 +1,5 @@
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
+import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 
 const ROLE_ORDER = ['citizen', 'sheriff', 'mafia', 'don'] as const;
 type CanonicalRole = typeof ROLE_ORDER[number];
@@ -46,14 +47,14 @@ const referencedParticipant = (participantIds: Set<string>, value: unknown, labe
   return id;
 };
 
-const validateBestMoves = (protocol: any, participantIds: Set<string>) => {
+const validateBestMoves = (protocol: any, participantIds: Set<string>, tableSize: number) => {
   const moves = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
   for (const move of moves) {
     const participantId = referencedParticipant(participantIds, move?.participant_id, 'Лучший ход');
     if (!participantId) throw new Error('Лучший ход: не указан игрок');
     if (!['first_killed', 'zero_round_voted'].includes(String(move?.source || ''))) throw new Error('Лучший ход: некорректный источник');
     const seats: number[] = Array.isArray(move?.seat_numbers) ? move.seat_numbers.map(Number) : [];
-    if (seats.length > 3 || new Set(seats).size !== seats.length || seats.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > 10)) throw new Error('Лучший ход: можно указать до 3 уникальных мест от 1 до 10');
+    if (seats.length > 3 || new Set(seats).size !== seats.length || seats.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > tableSize)) throw new Error(`Лучший ход: можно указать до 3 уникальных мест от 1 до ${tableSize}`);
   }
 };
 
@@ -66,12 +67,14 @@ export const canonicalizeClubGameSave = (
   status: 'draft' | 'completed',
 ): CanonicalClubGameSave => {
   const previousResults = Array.isArray(previousPayload?.player_results) ? previousPayload.player_results : [];
-  if (previousResults.length !== 10) throw new Error('У исходной игры повреждён состав: ожидается 10 игроков');
-  if (!Array.isArray(incomingResults) || incomingResults.length !== 10) throw new Error('Для игры нужны результаты ровно 10 игроков');
+  // The table size is fixed when the game is created (10, or 8–9 on a novice evening).
+  const tableSize = previousResults.length;
+  if (!isSupportedTableSize(tableSize)) throw new Error('У исходной игры повреждён состав: ожидается от 8 до 10 игроков');
+  if (!Array.isArray(incomingResults) || incomingResults.length !== tableSize) throw new Error(`Для игры нужны результаты ровно ${tableSize} игроков`);
 
   const previousByParticipant = new Map<string, any>(previousResults.map((result: any) => [String(result.participant_id || ''), result]));
   const incomingIds = incomingResults.map((result: any) => String(result?.participant_id || '').trim());
-  if (incomingIds.some((id) => !id) || new Set(incomingIds).size !== 10) throw new Error('В протоколе должны быть 10 уникальных участников');
+  if (incomingIds.some((id) => !id) || new Set(incomingIds).size !== tableSize) throw new Error(`В протоколе должны быть ${tableSize} уникальных участников`);
   if (incomingIds.some((id) => !previousByParticipant.has(id))) throw new Error('Нельзя заменить состав уже созданной игры через протокол');
 
   const ppkCulpritId = String(incomingProtocol?.ppk_culprit_participant_id || '').trim() || null;
@@ -118,7 +121,7 @@ export const canonicalizeClubGameSave = (
     };
   }).sort((a, b) => a.seat_number - b.seat_number);
 
-  if (new Set(playerResults.map((result) => result.seat_number)).size !== 10) throw new Error('В протоколе должны быть уникальные места 1–10');
+  if (new Set(playerResults.map((result) => result.seat_number)).size !== tableSize) throw new Error(`В протоколе должны быть уникальные места 1–${tableSize}`);
   let winnerTeam = incomingProtocol?.winner_team === 'red' || incomingProtocol?.winner_team === 'black' ? incomingProtocol.winner_team : null;
   if (status === 'completed') {
     const roleCounts = new Map<CanonicalRole, number>(ROLE_ORDER.map((role) => [role, 0]));
@@ -126,7 +129,7 @@ export const canonicalizeClubGameSave = (
       if (!result.role) throw new Error(`Игрок #${result.seat_number}: перед завершением укажите роль`);
       roleCounts.set(result.role, (roleCounts.get(result.role) || 0) + 1);
     }
-    if (roleCounts.get('citizen') !== 6 || roleCounts.get('sheriff') !== 1 || roleCounts.get('mafia') !== 2 || roleCounts.get('don') !== 1) throw new Error('Для завершения нужны роли: 6 мирных, 1 Шериф, 2 мафии и 1 Дон');
+    if (!roleCountsMatchTable(Object.fromEntries(roleCounts), tableSize)) throw new Error(`Для завершения нужны роли: ${tableRolesLabel(tableSize)}`);
     if (incomingProtocol?.end_reason === 'ppk') {
       if (!ppkCulpritId) throw new Error('Для завершения по ППК укажите виновника');
       const culprit = playerResults.find((result) => result.participant_id === ppkCulpritId);
@@ -138,7 +141,7 @@ export const canonicalizeClubGameSave = (
 
   referencedParticipant(participantIds, incomingProtocol?.first_killed_participant_id, 'Первый убитый');
   referencedParticipant(participantIds, incomingProtocol?.zero_round_voted_participant_id, 'Нулевой круг');
-  validateBestMoves(incomingProtocol, participantIds);
+  validateBestMoves(incomingProtocol, participantIds, tableSize);
   const protocol = { ...incomingProtocol, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
   return { protocol, playerResults };
 };

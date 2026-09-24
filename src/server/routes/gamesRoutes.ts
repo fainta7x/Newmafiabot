@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { allowedTableSizes, isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
 import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
@@ -35,11 +36,19 @@ const normalizeGame = (row: any) => {
 };
 
 const loadEveningGameSeatRows = async (db: DatabaseWrapper, eveningId: string, seats: any[]) => {
-  if (!Array.isArray(seats) || seats.length !== 10) throw new Error('Для игры необходимо выбрать ровно 10 игроков');
+  // Table size (user-approved 2026-09-24): 10 players; a novice evening may seat 8 or 9.
+  const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ?', [eveningId]);
+  const sizes = allowedTableSizes(evening?.format);
+  const size = Array.isArray(seats) ? seats.length : 0;
+  if (!sizes.includes(size)) {
+    throw new Error(sizes.length > 1
+      ? `Для игры новичков нужно от ${sizes[0]} до ${sizes[sizes.length - 1]} игроков`
+      : 'Для игры необходимо выбрать ровно 10 игроков');
+  }
   const seatNumbers = seats.map((seat) => Number(seat.seat_number));
   const ids = seats.map((seat) => String(seat.participant_id || ''));
-  if (new Set(seatNumbers).size !== 10 || seatNumbers.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > 10)) throw new Error('Места должны быть уникальными числами от 1 до 10');
-  if (ids.some((id) => !id) || new Set(ids).size !== 10) throw new Error('Один участник не может занимать несколько мест');
+  if (new Set(seatNumbers).size !== size || seatNumbers.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > size)) throw new Error(`Места должны быть уникальными числами от 1 до ${size}`);
+  if (ids.some((id) => !id) || new Set(ids).size !== size) throw new Error('Один участник не может занимать несколько мест');
 
   const placeholders = ids.map(() => '?').join(',');
   const registered = await db.all<any>(
@@ -59,7 +68,7 @@ const loadEveningGameSeatRows = async (db: DatabaseWrapper, eveningId: string, s
     ids,
   );
   const rows = [...registered, ...guests];
-  if (rows.length !== 10 || rows.some((row: any) => String(row.evening_id) !== eveningId)) throw new Error('Все выбранные участники должны относиться к этому вечеру');
+  if (rows.length !== size || rows.some((row: any) => String(row.evening_id) !== eveningId)) throw new Error('Все выбранные участники должны относиться к этому вечеру');
   return rows;
 };
 
@@ -218,7 +227,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
     if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
     const incomingProtocol = req.body?.protocol; const rawResults = req.body?.player_results;
-    if (!incomingProtocol || !Array.isArray(rawResults) || rawResults.length !== 10) return res.status(400).json({ error: 'Нужны protocol и 10 player_results' });
+    if (!incomingProtocol || !Array.isArray(rawResults) || !isSupportedTableSize(rawResults.length)) return res.status(400).json({ error: 'Нужны protocol и результаты всех игроков стола' });
     const previous = safeJsonParse<any>(existing.protocol_text, null);
     if (!previous || previous.kind !== 'club_evening_protocol' || previous.version !== 1) return res.status(400).json({ error: 'У игры отсутствует структурированный клубный протокол' });
     const previousStatus: 'draft' | 'completed' = previous.protocol?.status === 'completed' ? 'completed' : 'draft';

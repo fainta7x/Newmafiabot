@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { allowedTableSizes, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import JudgeTestGameModal from './JudgeTestGameModal.tsx';
@@ -65,6 +66,10 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
   const evening = evenings.find((item) => item.id === eveningId) || evenings[0] || null;
   const byId = useMemo(() => new Map((evening?.participants || []).map((item) => [item.id, item])), [evening]);
   const selected = useMemo(() => lineup.map((id) => byId.get(id)).filter(Boolean) as JudgeStartParticipant[], [byId, lineup]);
+  // Table size (user-approved 2026-09-24): 10 players; a novice evening may seat 8 or 9.
+  const tableSizes = allowedTableSizes(evening?.format);
+  const minTable = tableSizes[0];
+  const smallTablesAllowed = tableSizes.length > 1;
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return (evening?.participants || []).filter((item) => !q || item.nickname.toLocaleLowerCase('ru-RU').includes(q));
@@ -102,7 +107,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
   };
 
   const create = async () => {
-    if (!allowClubGame || !evening || lineup.length !== 10 || creating) return;
+    if (!allowClubGame || !evening || !tableSizes.includes(lineup.length) || creating) return;
     setCreating(true);
     setError(null);
     try {
@@ -216,7 +221,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-3">
           <div className="flex items-center justify-between gap-3">
-            <div><div className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">Рассадка</div><div className="mt-1 text-sm text-white/55">{lineup.length}/10 игроков</div></div>
+            <div><div className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">Рассадка</div><div className="mt-1 text-sm text-white/55">{smallTablesAllowed ? `${lineup.length} игроков · нужно 8–10` : `${lineup.length}/10 игроков`}</div></div>
             <button type="button" disabled={lineup.length < 2} onClick={shuffle} className="min-h-10 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-medium text-white/60 disabled:opacity-25">Перемешать</button>
           </div>
           <div className="mt-3 grid grid-cols-5 gap-1.5">
@@ -226,6 +231,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
             })}
           </div>
           <p className="mt-3 text-[11px] leading-4 text-white/30">Порядок выбора — места 1–10. Нажмите на место, чтобы убрать игрока.</p>
+          {smallTablesAllowed && tableSizes.includes(lineup.length) ? <p data-testid="judge-table-roles" className="mt-2 text-[12px] font-semibold leading-4 text-white/60">Стол на {lineup.length}: {tableRolesLabel(lineup.length)}.</p> : null}
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-3">
@@ -247,11 +253,11 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
         </section>
 
         <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] px-3 py-3 text-xs leading-5 text-amber-50/45">
-          Создание игры подтверждает фактическое присутствие выбранной десятки. Если игрок ответил «приду позже», он будет отмечен как пришедший позже; остальные — как пришедшие вовремя.
+          Создание игры подтверждает фактическое присутствие выбранных игроков. Если игрок ответил «приду позже», он будет отмечен как пришедший позже; остальные — как пришедшие вовремя.
         </div>
 
-        <button type="button" disabled={lineup.length !== 10 || creating} onClick={() => void create()} className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black disabled:bg-white/[0.07] disabled:text-white/25">
-          {creating ? 'Создаём игру…' : lineup.length === 10 ? 'Создать игру и открыть ведение' : `Выберите ещё ${10 - lineup.length}`}
+        <button type="button" disabled={!tableSizes.includes(lineup.length) || creating} onClick={() => void create()} className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black disabled:bg-white/[0.07] disabled:text-white/25">
+          {creating ? 'Создаём игру…' : tableSizes.includes(lineup.length) ? 'Создать игру и открыть ведение' : `Выберите ещё ${minTable - lineup.length}`}
         </button>
       </div>
     </div>

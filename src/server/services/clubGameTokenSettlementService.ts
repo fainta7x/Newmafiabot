@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { judgeRewardFor } from './staffRewards.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { isSupportedTableSize } from '../../lib/tableComposition.ts';
 
 export type ClubGameSettlementContext = 'completion' | 'correction' | 'reopen' | 'archive' | 'restore';
 
@@ -131,7 +132,8 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
   const payload = safeJsonParse<any>(game.protocol_text, null);
   if (!payload || payload.kind !== 'club_evening_protocol' || payload.version !== 1 || payload.protocol?.status !== 'completed') return desired;
   const results = Array.isArray(payload.player_results) ? payload.player_results : [];
-  if (results.length !== 10) throw new Error('Для начисления жетонов завершённая клубная игра должна содержать ровно 10 результатов');
+  // 10 players, or 8–9 at a novice table (user-approved 2026-09-24).
+  if (!isSupportedTableSize(results.length)) throw new Error('Для начисления жетонов завершённая клубная игра должна содержать от 8 до 10 результатов');
 
   const linkedResults = results.filter((result: any) => String(result?.player_id || '').trim());
   const playerIds = linkedResults.map((result: any) => String(result.player_id).trim());

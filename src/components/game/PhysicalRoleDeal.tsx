@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
+import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 
 export type PhysicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
 
@@ -17,31 +18,27 @@ type Props = {
   onComplete: (assignments: Record<number, PhysicalRole>) => void;
 };
 
-const ROLE_META: Record<PhysicalRole, { label: string; max: number; marker: string; active: string; countTone: string }> = {
+const ROLE_META: Record<PhysicalRole, { label: string; marker: string; active: string; countTone: string }> = {
   citizen: {
     label: 'Мирный',
-    max: 6,
     marker: 'bg-rose-400',
     active: 'border-rose-300/35 bg-rose-300/[0.10] text-rose-100',
     countTone: 'text-rose-200/80',
   },
   sheriff: {
     label: 'Шериф',
-    max: 1,
     marker: 'bg-amber-300',
     active: 'border-amber-300/35 bg-amber-300/[0.10] text-amber-100',
     countTone: 'text-amber-200/80',
   },
   mafia: {
     label: 'Мафия',
-    max: 2,
     marker: 'bg-white/55',
     active: 'border-white/20 bg-white/[0.08] text-white',
     countTone: 'text-white/68',
   },
   don: {
     label: 'Дон',
-    max: 1,
     marker: 'bg-violet-300',
     active: 'border-violet-300/35 bg-violet-300/[0.10] text-violet-100',
     countTone: 'text-violet-200/80',
@@ -59,6 +56,10 @@ export default function PhysicalRoleDeal({
   onComplete,
 }: Props) {
   const sortedSeats = useMemo(() => seats.slice().sort((a, b) => a.seat_number - b.seat_number).slice(0, 10), [seats]);
+  // The deck follows the table size: 10 classic, 9 and 8 at a novice table.
+  const tableSize = sortedSeats.length;
+  const limits = useMemo(() => (isSupportedTableSize(tableSize) ? tableRoleCounts(tableSize) : tableRoleCounts(10)), [tableSize]);
+  const limitsLine = `${limits.citizen} / ${limits.sheriff} / ${limits.mafia} / ${limits.don}`;
   const [started, setStarted] = useState(false);
   const [assignments, setAssignments] = useState<Record<number, PhysicalRole>>(() => {
     const allowed = new Set(sortedSeats.map((seat) => seat.seat_number));
@@ -84,9 +85,9 @@ export default function PhysicalRoleDeal({
 
   const activeSeat = sortedSeats[activeIndex] || null;
   const assignedCount = Object.keys(assignments).length;
-  const exactComplete = sortedSeats.length === 10
-    && assignedCount === 10
-    && ROLES.every((role) => counts[role] === ROLE_META[role].max);
+  const exactComplete = isSupportedTableSize(tableSize)
+    && assignedCount === tableSize
+    && ROLES.every((role) => counts[role] === limits[role]);
   const musicDisabled = musicTrackId === null;
 
   const cancel = () => {
@@ -103,7 +104,7 @@ export default function PhysicalRoleDeal({
     if (!activeSeat) return;
     const previous = assignments[activeSeat.seat_number];
     const nextCount = counts[role] - (previous === role ? 1 : 0) + 1;
-    if (nextCount > ROLE_META[role].max) return;
+    if (nextCount > limits[role]) return;
 
     const next = { ...assignments, [activeSeat.seat_number]: role };
     setAssignments(next);
@@ -116,12 +117,12 @@ export default function PhysicalRoleDeal({
     setActiveIndex(index);
   };
 
-  if (sortedSeats.length !== 10) {
+  if (!isSupportedTableSize(tableSize)) {
     return (
       <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#090a0d]/95 p-3 backdrop-blur-xl">
         <div className="w-full max-w-md rounded-[28px] border border-rose-300/15 bg-white/[0.045] p-5 text-center shadow-2xl">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200/55">Раздача недоступна</div>
-          <div className="mt-2 text-lg font-semibold text-white">Для раздачи нужны 10 игроков</div>
+          <div className="mt-2 text-lg font-semibold text-white">Для раздачи нужно от 8 до 10 игроков</div>
           <p className="mt-2 text-[11px] leading-4 text-white/38">Сначала сформируйте полный стол, затем откройте раздачу ролей.</p>
           <button type="button" onClick={cancel} className="mt-5 min-h-12 w-full rounded-[16px] bg-white text-[12px] font-semibold text-[#090a0d]">Вернуться</button>
         </div>
@@ -136,8 +137,8 @@ export default function PhysicalRoleDeal({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Раздача ролей</div>
-              <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Подготовьте 10 карт</h2>
-              <p className="mt-1 text-[11px] leading-4 text-white/38">6 мирных · 1 шериф · 2 мафии · 1 дон</p>
+              <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Подготовьте {tableSize} карт</h2>
+              <p className="mt-1 text-[11px] leading-4 text-white/38">{limits.citizen} мирных · 1 шериф · {limits.mafia === 1 ? '1 мафия' : `${limits.mafia} мафии`} · 1 дон</p>
             </div>
             <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
           </div>
@@ -149,7 +150,7 @@ export default function PhysicalRoleDeal({
                 <div key={role} className="rounded-[14px] border border-white/[0.06] bg-black/15 px-2 py-2.5 text-center">
                   <span className={`mx-auto block h-2 w-2 rounded-full ${meta.marker}`} />
                   <div className="mt-1.5 text-[10px] font-semibold text-white/48">{meta.label}</div>
-                  <div className="mt-0.5 text-[13px] font-semibold text-white/82">{meta.max}</div>
+                  <div className="mt-0.5 text-[13px] font-semibold text-white/82">{limits[role]}</div>
                 </div>
               );
             })}
@@ -191,7 +192,7 @@ export default function PhysicalRoleDeal({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <div className="rounded-[12px] bg-black/20 px-2.5 py-2 text-center">
-                <div className="text-[14px] font-semibold text-white/82">{assignedCount}/10</div>
+                <div className="text-[14px] font-semibold text-white/82">{assignedCount}/{tableSize}</div>
                 <div className="text-[10px] text-white/26">готово</div>
               </div>
               <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
@@ -201,14 +202,14 @@ export default function PhysicalRoleDeal({
           <div className="mt-3 grid grid-cols-4 gap-1.5">
             {ROLES.map((role) => {
               const meta = ROLE_META[role];
-              const done = counts[role] === meta.max;
+              const done = counts[role] === limits[role];
               return (
                 <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
                   <div className="flex items-center justify-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${meta.marker}`} />
                     <span className="text-[10px] font-semibold text-white/38">{meta.label}</span>
                   </div>
-                  <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : meta.countTone}`}>{counts[role]}/{meta.max}</div>
+                  <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : meta.countTone}`}>{counts[role]}/{limits[role]}</div>
                 </div>
               );
             })}
@@ -225,7 +226,7 @@ export default function PhysicalRoleDeal({
                   <span className="truncate text-[17px] font-semibold text-white/78">{activeSeat.nickname || `Игрок ${activeSeat.seat_number}`}</span>
                 </div>
               </div>
-              <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[10px] font-semibold text-white/28">{activeIndex + 1} из 10</span>
+              <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[10px] font-semibold text-white/28">{activeIndex + 1} из {tableSize}</span>
             </div>
 
             <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>
@@ -235,7 +236,7 @@ export default function PhysicalRoleDeal({
                 const meta = ROLE_META[role];
                 const selected = assignments[activeSeat.seat_number] === role;
                 const usedByOthers = counts[role] - (selected ? 1 : 0);
-                const unavailable = !selected && usedByOthers >= meta.max;
+                const unavailable = !selected && usedByOthers >= limits[role];
                 return (
                   <button
                     key={role}
@@ -246,7 +247,7 @@ export default function PhysicalRoleDeal({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${meta.marker}`} />
-                      <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{meta.max}</span>
+                      <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{limits[role]}</span>
                     </div>
                     <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
                   </button>
@@ -289,7 +290,7 @@ export default function PhysicalRoleDeal({
           onClick={complete}
           className="min-h-[52px] w-full rounded-[16px] bg-white px-4 text-[12px] font-semibold text-[#090a0d] disabled:bg-white/[0.055] disabled:text-white/22"
         >
-          {exactComplete ? 'Роли зафиксированы — перейти к договорке' : `Распределите 6 / 1 / 2 / 1 · ${assignedCount}/10`}
+          {exactComplete ? 'Роли зафиксированы — перейти к договорке' : `Распределите ${limitsLine} · ${assignedCount}/${tableSize}`}
         </button>
       </div>
     </div>

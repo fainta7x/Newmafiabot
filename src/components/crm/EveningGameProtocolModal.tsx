@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileCheck, Moon, PencilLine, Save, Users, Vote, X } from 'lucide-react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 import {
   cleanAndSyncVotes,
   createNextRevoteRound,
@@ -227,7 +228,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
           nominated_seats: [],
           vote_counts: {},
           day_number: nextDay,
-          eligible_voters: nextDay === 0 ? 10 : playerResults.filter((p) => p.exit_type === 'alive').length,
+          eligible_voters: nextDay === 0 ? playerResults.length : playerResults.filter((p) => p.exit_type === 'alive').length,
           outcome: 'pending',
         }] as any) as any,
       };
@@ -313,8 +314,9 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   }, {}), [playerResults]);
 
   const completeGame = async () => {
-    if (roleCounts.citizen !== 6 || roleCounts.sheriff !== 1 || roleCounts.mafia !== 2 || roleCounts.don !== 1) {
-      alert('Перед завершением установите роли: 6 мирных, 1 Шериф, 2 мафии, 1 Дон.');
+    // Roles follow the table size: 10 classic, 9 and 8 at a novice table.
+    if (!roleCountsMatchTable(roleCounts, playerResults.length)) {
+      alert(`Перед завершением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
       setActiveTab('players');
       return;
     }

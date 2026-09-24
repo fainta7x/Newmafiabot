@@ -99,9 +99,11 @@ const exitLabel = (player: Record<string, any>): string => {
 };
 
 const getNextSpeaker = (players: Record<string, any>[], round: number): number | null => {
-  const start = ((Math.max(1, round) - 1) % 10) + 1;
-  for (let offset = 0; offset < 10; offset += 1) {
-    const seat = ((start - 1 + offset) % 10) + 1;
+  // 10 seats, or 8–9 at a novice table.
+  const size = players.length >= 8 && players.length <= 10 ? players.length : 10;
+  const start = ((Math.max(1, round) - 1) % size) + 1;
+  for (let offset = 0; offset < size; offset += 1) {
+    const seat = ((start - 1 + offset) % size) + 1;
     const player = players.find((item) => Number(item?.slot_num) === seat);
     if (player?.alive !== false && !player?.has_spoken_this_round) return seat;
   }

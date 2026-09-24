@@ -26,6 +26,7 @@ import {
   resetNextVotingCancelled,
   restoreRemovedPlayer,
 } from "../lib/gameDiscipline.js";
+import { getLiveGameTableSize } from "./LiveGameEngine/setupMode.js";
 import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
@@ -104,10 +105,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [dayStarterSlot, setDayStarterSlot] = useState(1);
   const [nightSubPhase, setNightSubPhase] = useState<NightSubPhase>("intro");
   const [postNightStage, setPostNightStage] = useState<PostNightStage>('none');
+  // 10 seats, or 8–9 when a novice club game was created for a smaller table.
+  const tableSize = getLiveGameTableSize(players);
   const [activePlayers, setActivePlayers] = useState<ActivePlayerState[]>(
-    Array.from({ length: 10 }, (_, index) => createEmptyActivePlayer(index + 1))
+    () => Array.from({ length: tableSize }, (_, index) => createEmptyActivePlayer(index + 1))
   );
-  const [discipline, setDiscipline] = useState<GameDiscipline>(createInitialLiveDiscipline);
+  const [discipline, setDiscipline] = useState<GameDiscipline>(() => createInitialLiveDiscipline(tableSize));
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
   const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
 
@@ -335,9 +338,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   useEffect(() => {
-    const storedSession = readRestorableLiveSession();
+    const storedSession = readRestorableLiveSession(undefined, tableSize);
     if (storedSession) setRestorableSession(storedSession);
-  }, []);
+    // The table size is fixed for the lifetime of this engine instance.
+  }, [tableSize]);
 
   useEffect(() => {
     if (phase === 'setup') return;
@@ -1399,7 +1403,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const renderTable = () => (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 max-w-7xl mx-auto w-full px-1 py-1">
-      {Array.from({ length: 10 }, (_, i) => i + 1).map((slot) => (
+      {activePlayers.map((player) => player.slot_num).map((slot) => (
         <SeatCard
           key={slot}
           slotNum={slot}
@@ -1565,6 +1569,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         source={activeBestMoveSource}
         slot={activeBestMoveSlot}
         nickname={bestMovePlayerNickname}
+        tableSize={activePlayers.length}
         pendingSeats={pendingBestMoveSeats}
         onToggleSeat={handleToggleBestMoveSeat}
         onReset={() => setPendingBestMoveSeats([])}

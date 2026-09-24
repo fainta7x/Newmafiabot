@@ -326,9 +326,9 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
        - 1 h before, when fewer than 10 (novice 8) have said they come, an organizer notice and a «Недобор — отменить вечер?» item with a cancel button in «Порядок в клубе»;
        - every cancellation notifies players who were coming or thinking.
      - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; only players pay; the organizer and judges pay only when they play. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
+     - Table size (`src/lib/tableComposition.ts`): novice evening games may seat 8 or 9 (roles per `BUSINESS_RULES`); every other game stays at exactly 10. Game creation (CRM sheet and judge launcher), the club protocol, token settlement, the Live Game deal/speech order/overlays and the OBS state follow the game's size. Betting opens only for 10-seat games; tournaments stay at 10.
    - Left:
-     - recording the rating winner's and judge's payouts (club finance module);
-     - the table-size rule (10 players, or 8–9 on novice evenings with the roles in `BUSINESS_RULES`): club games, protocol, Live Game roles, Elo and token settlement still assume exactly 10 seats.
+     - recording the rating winner's and judge's payouts (club finance module).
 5. Plain wording across the CRM.
 6. Online checkout (after self-employment registration).
 7. Club finance: evening revenue, expenses, organizer and judge payouts, fund allocations (for example a % of each evening for club needs, the season prize fund).
@@ -340,6 +340,38 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - when and how often it is sent (for example the day before and on the day);
      - whether VK gets it too;
      - whether the organizer confirms it or it goes fully automatically.
+10. Parallel games of different formats (user request 2026-09-24, for later).
+   - Target: two or more tables running at the same time, possibly in different formats (for example a novice table next to a rating table).
+   - Today:
+     - an evening can already have several tables (`evening_tables`), and each table stores a `format` label;
+     - but every rule follows the evening's format, not the table's: price and prepayment, Elo, table size, the required judge level, the rating fee split;
+     - Live Game keeps one unfinished game per device (`mafia_live_session` in local storage), so each table needs its own judge phone.
+   - To agree before building:
+     - one evening with tables of different formats, or separate evenings at the same time;
+     - how the player registers and pays when formats differ;
+     - which tables and games the organizer and the OBS overlay see at once.
+11. Achievement overhaul (user request 2026-09-24, for later).
+   - Today: 44 achievements in `src/lib/achievementCatalog.ts`, earned by counters (games, wins, Elo, judged, organized, role wins, ПУ, a game without fouls).
+   - The user finds the names and the difficulty poor. Examples:
+     - generic names repeat across categories («Мастер», «Легенда», «Мастер побед», «Легенда побед»);
+     - Elo steps start at 1400 («Начало пути»), although everyone starts at 1000;
+     - the role section has one win per role;
+     - «Идеальная игра» is just a game without fouls.
+   - To agree before building: the list of achievements, their names in the club's noir style, the thresholds and rarity, and what happens to achievements players already have.
+12. Shop, donations and micro-purchases (user request 2026-09-24).
+   - Today:
+     - the token shop (`ensurePlayerShopSchema.ts`, `PlayerWalletHub.tsx`) sells three items: «Купить роль на игру», «Заказ музыки», «Бесплатный вечер»;
+     - purchases are redeemed by hand by the organizer;
+     - tokens are earned only in the club (games, judging, organizing).
+   - Target:
+     - finish the shop and add interesting goods and services;
+     - design donations and purchases for real money.
+   - Real-money purchases depend on the online checkout (item 6, after self-employment registration).
+   - To agree before building:
+     - the new items and their prices;
+     - which items are for tokens and which are for money, and whether tokens can be bought;
+     - what donations give the player (a thank-you, a badge, nothing that affects the game);
+     - how purchases are redeemed at the evening.
 
 ## Intentionally incomplete / deferred
 

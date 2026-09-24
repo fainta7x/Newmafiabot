@@ -776,7 +776,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             {showFooterSummary && (
               <div className="live-judge-hud__summary">
                 <span>Выставлены: {nominations.length ? nominations.map((seat) => `#${seat}`).join(' · ') : '—'}</span>
-                <span>Живых: {activePlayers.filter((player) => player.alive).length}/10</span>
+                <span>Живых: {activePlayers.filter((player) => player.alive).length}/{activePlayers.length}</span>
               </div>
             )}
             {showFooterAction && (prevStep || nextStep) && (

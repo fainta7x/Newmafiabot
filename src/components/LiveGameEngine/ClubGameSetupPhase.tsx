@@ -4,6 +4,7 @@ import type { Player } from '../../types.js';
 import PhysicalRoleDeal from '../game/PhysicalRoleDeal.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
 import type { ActivePlayerState } from './types.js';
+import { isSupportedTableSize, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
 
 type Props = {
   players: Player[];
@@ -49,7 +50,10 @@ export default function ClubGameSetupPhase({
     .map((player) => player.user_id)
     .filter((userId): userId is number => Boolean(userId));
   const selectedCount = selectedUserIds.length;
-  const rosterReady = selectedCount === 10 && new Set(selectedUserIds).size === 10;
+  // 10 seats, or 8–9 at a novice table: the roster size comes from the created game.
+  const tableSize = activePlayers.length;
+  const roleCounts = isSupportedTableSize(tableSize) ? tableRoleCounts(tableSize) : null;
+  const rosterReady = Boolean(roleCounts) && selectedCount === tableSize && new Set(selectedUserIds).size === tableSize;
   const rosterSignature = activePlayers.map((player) => `${player.slot_num}:${player.user_id || 0}`).join('|');
   const rosterConfirmed = rosterReady && confirmedRosterSignature === rosterSignature;
 
@@ -78,7 +82,7 @@ export default function ClubGameSetupPhase({
 
   const primaryAction = !rosterReady
     ? {
-        label: 'Нужно 10 разных игроков',
+        label: `Нужно ${tableSize} разных игроков`,
         disabled: true,
         onClick: () => undefined,
       }
@@ -108,8 +112,8 @@ export default function ClubGameSetupPhase({
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[10px] font-semibold text-white/34">
-          <span className="rounded-lg bg-black/20 px-2 py-1.5">{selectedCount}/10 игроков</span>
-          <span className="rounded-lg bg-black/20 px-2 py-1.5">6 · 1 · 2 · 1</span>
+          <span className="rounded-lg bg-black/20 px-2 py-1.5">{selectedCount}/{tableSize} игроков</span>
+          {roleCounts ? <span data-testid="club-game-role-counts" className="rounded-lg bg-black/20 px-2 py-1.5" title={tableRolesLabel(tableSize)}>{roleCounts.citizen} · {roleCounts.sheriff} · {roleCounts.mafia} · {roleCounts.don}</span> : null}
           {rosterConfirmed && (
             <span data-testid="club-game-roster-confirmed" className="inline-flex items-center gap-1 rounded-lg bg-emerald-300/[0.08] px-2 py-1.5 text-emerald-100/70">
               <Check className="h-3 w-3" aria-hidden="true" />Состав подтверждён
@@ -139,9 +143,9 @@ export default function ClubGameSetupPhase({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] font-semibold text-white/68">Состав стола</div>
-            <div className="mt-0.5 text-[10px] text-white/28">Проверьте все 10 мест и подтвердите состав перед первой картой</div>
+            <div className="mt-0.5 text-[10px] text-white/28">Проверьте все {tableSize} мест и подтвердите состав перед первой картой</div>
           </div>
-          <div className={`rounded-xl px-2.5 py-1.5 text-[10px] font-semibold ${rosterReady ? 'bg-emerald-300/[0.07] text-emerald-100/60' : 'bg-black/20 text-white/42'}`}>{selectedCount}/10</div>
+          <div className={`rounded-xl px-2.5 py-1.5 text-[10px] font-semibold ${rosterReady ? 'bg-emerald-300/[0.07] text-emerald-100/60' : 'bg-black/20 text-white/42'}`}>{selectedCount}/{tableSize}</div>
         </div>
         <div className="mt-2.5 grid grid-cols-5 gap-1.5">
           {dealSeats.map((seat, index) => {

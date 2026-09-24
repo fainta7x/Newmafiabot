@@ -169,13 +169,15 @@ interface BestMoveProtocolOverlayProps {
   slot: number | null;
   nickname: string;
   pendingSeats: number[];
+  /** Seats at the table: 10, or 8–9 at a novice table. */
+  tableSize?: number;
   onToggleSeat: (slot: number) => void;
   onReset: () => void;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, onToggleSeat, onReset, onBack, onConfirm }: BestMoveProtocolOverlayProps) {
+export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, tableSize = 10, onToggleSeat, onReset, onBack, onConfirm }: BestMoveProtocolOverlayProps) {
   if (!source || slot === null) return null;
 
   return (
@@ -188,7 +190,7 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
           <p className="text-xs text-white/30">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
         </div>
         <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
-          {Array.from({ length: 10 }, (_, index) => index + 1).map((seat) => {
+          {Array.from({ length: tableSize }, (_, index) => index + 1).map((seat) => {
             const order = pendingSeats.indexOf(seat);
             return (
               <button key={seat} type="button" onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number relative h-14 rounded-xl border font-mono font-bold transition-opacity ${order >= 0 ? 'ring-2 ring-white/55' : 'opacity-60'}`} data-seat={seat}>

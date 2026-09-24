@@ -48,6 +48,7 @@ describe('path builders and back targets', () => {
 
   it('gives Telegram a deterministic parent screen', () => {
     expect(appBackTarget('/player')).toBeNull();
+    expect(appBackTarget('/guide')).toBe('/player/events');
     expect(appBackTarget('/player/games')).toBe('/player');
     expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games');
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');

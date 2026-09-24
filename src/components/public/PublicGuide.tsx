@@ -117,7 +117,8 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
           <p className="mt-2 text-[14px] leading-6 text-white/55">Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.</p>
         </header>
 
-        <nav className="sticky top-0 z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" aria-label="Разделы">
+        {/* Sticks below Telegram's top safe area (header, device cutout). */}
+        <nav className="sticky z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Разделы">
           <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
             {TABS.map((item) => (
               <button

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, RefreshCw, XCircle } from 'lucide-react';
 
 import EveningListControls from './EveningListControls.tsx';
+import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
 
 type PaymentParticipant = {
   id: string;
@@ -150,6 +151,26 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
       </div>
 
       {error ? <div className="mt-2 rounded-[10px] bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</div> : null}
+
+      {data?.evening.format === 'RATING' && data.participants.length ? (() => {
+        // Internal bookkeeping (organizers only): how the collected entry fees are split.
+        const collected = data.participants.reduce((sum, item) => sum + Math.max(0, Number(item.amount_paid || 0)), 0);
+        const expected = data.participants.reduce((sum, item) => sum + Math.max(0, Number(item.amount_due || 0)), 0);
+        const split = ratingEveningSplit(collected);
+        return (
+          <div className="mt-3 rounded-[12px] bg-surface-2 p-2.5" data-testid="rating-evening-split">
+            <div className="text-[12px] font-bold text-text-primary">Взносы: собрано {money(collected)} из {money(expected)}</div>
+            <div className="mt-1 grid grid-cols-3 gap-1.5 text-center">
+              {[['Победителю', split.winner], ['Судье', split.judge], ['В фонд сезона', split.fund]].map(([label, value]) => (
+                <div key={String(label)} className="rounded-[10px] bg-surface-1 px-1 py-1.5">
+                  <div className="text-[13px] font-bold text-text-primary">{money(Number(value))}</div>
+                  <div className="text-[10px] text-text-muted">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })() : null}
 
       {data?.participants.length ? (
         <>

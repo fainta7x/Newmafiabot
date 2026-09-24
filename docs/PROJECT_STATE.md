@@ -319,8 +319,9 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Built:
      - Free novice visits go only to players with the «Новичок» level.
      - Prepayment at the table: `POST /api/games/evening/:id` returns `prepayment_required` with the seated players who still owe on NOVICE and RATING evenings. The game create sheet shows them with an «Оплатил» button.
+     - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; the evening's organizer is not charged. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
    - Left:
-     - the rating 500 ₽ entry price and the 50/40/10 split;
+     - recording the rating winner's and judge's payouts (club finance module);
      - tournament payment before a confirmed place;
      - the table-size rule (10 players, or 8 for novices);
      - organizer attribution for tournaments.

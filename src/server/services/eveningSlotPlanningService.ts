@@ -13,17 +13,74 @@ export const TABLE_MIN_READY_SLOTS = 4;
 export const NOVICE_PAID_GAME_PRICE = 200;
 export const NOVICE_FREE_VISITS = 2;
 
-const novicePriceForPlayer = async (db: DatabaseWrapper, playerId: string): Promise<number> => {
+/**
+ * Per-game NOVICE price for this player on this evening. The first two
+ * factually attended NOVICE evenings are free; the evening is priced by how
+ * many NOVICE evenings the player attended *before* it, so marking attendance
+ * on the evening itself never turns a free evening into a paid one.
+ */
+export const novicePriceForPlayer = async (db: DatabaseWrapper, playerId: string, eveningId: string): Promise<number> => {
   const row = await db.get<any>(
     `SELECT COUNT(DISTINCT ep.evening_id) AS visits
        FROM evening_participants ep
        JOIN game_evenings e ON e.id = ep.evening_id
+       JOIN game_evenings current ON current.id = ?
       WHERE ep.player_id = ? AND ep.attendance_status = 'attended'
-        AND UPPER(COALESCE(e.format, '')) = 'NOVICE'`,
-    [playerId],
+        AND UPPER(COALESCE(e.format, '')) = 'NOVICE'
+        AND e.id != current.id
+        AND datetime(e.starts_at) < datetime(current.starts_at)`,
+    [eveningId, playerId],
   );
   return Number(row?.visits || 0) < NOVICE_FREE_VISITS ? 0 : NOVICE_PAID_GAME_PRICE;
 };
+
+// A recorded payment stays «paid» even if the evening becomes free, so settlement
+// still books it as income (as the regular-evening reconciler does).
+const novicePaymentStatus = (due: number, paid: number) =>
+  due <= 0 ? (paid > 0 ? 'paid' : 'waived') : paid >= due ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+
+/**
+ * Re-prices every participant of an open NOVICE evening from the facts known
+ * now (earlier attended NOVICE evenings × selected games). A registration made
+ * in advance is estimated before the earlier evenings happen, so it must be
+ * corrected before settlement. Explicit organizer fee waivers are kept.
+ */
+export async function reconcileNoviceEveningCharges(db: DatabaseWrapper, eveningId: string): Promise<number> {
+  const evening = await db.get<any>('SELECT id, format, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  if (!evening || normalizeEveningFormat(evening.format) !== 'NOVICE' || evening.status === 'completed' || evening.settled_at) return 0;
+  const waiverTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'evening_fee_waivers'");
+  const waived = new Set((waiverTable
+    ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
+    : []).map((row: any) => String(row.participant_id)));
+  const participants = await db.all<any>(
+    `SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.response_status,
+            (SELECT COUNT(*) FROM evening_slot_registrations r
+               JOIN evening_game_slots s ON s.id = r.slot_id
+              WHERE r.participant_id = ep.id AND s.evening_id = ep.evening_id) AS games
+       FROM evening_participants ep
+      WHERE ep.evening_id = ? AND ep.player_id IS NOT NULL`,
+    [eveningId],
+  );
+  // A coarse «иду» (Telegram/VK/cabinet) without an exact plan means the whole
+  // evening, exactly as the slot plan counts it.
+  const openSlots = await db.get<any>("SELECT COUNT(*) AS count FROM evening_game_slots WHERE evening_id = ? AND status = 'open'", [eveningId]);
+  const wholeEveningGames = Number(openSlots?.count || 0);
+  let changed = 0;
+  const now = new Date().toISOString();
+  for (const participant of participants) {
+    if (waived.has(String(participant.id))) continue;
+    const price = await novicePriceForPlayer(db, String(participant.player_id), eveningId);
+    const selected = Number(participant.games || 0);
+    const games = selected > 0 ? selected : ['going', 'late'].includes(String(participant.response_status || '')) ? wholeEveningGames : 0;
+    const due = price * games;
+    const paid = Math.max(0, Number(participant.amount_paid || 0));
+    const status = novicePaymentStatus(due, paid);
+    if (Number(participant.amount_due || 0) === due && String(participant.payment_status || '') === status) continue;
+    await db.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [due, status, now, participant.id]);
+    changed += 1;
+  }
+  return changed;
+}
 
 export const calculateEveningSelectionTotal = (format: unknown, prices: number[]): number => {
   if (normalizeEveningFormat(format) === 'CASUAL') {
@@ -266,7 +323,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   }
 
   const personalNovicePrice = playerId && normalizeEveningFormat(evening.format) === 'NOVICE'
-    ? await novicePriceForPlayer(db, playerId)
+    ? await novicePriceForPlayer(db, playerId, eveningId)
     : null;
   const slots = rows.map((row) => ({
     id: String(row.id),
@@ -321,7 +378,7 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
   const ids = Array.isArray(raw) ? Array.from(new Set(raw.map(v => String(v || '').trim()).filter(Boolean))) : [];
   if (ids.some(id => !byId.has(id))) throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
   const personalNovicePrice = normalizeEveningFormat(evening.format) === 'NOVICE'
-    ? await novicePriceForPlayer(db, playerId)
+    ? await novicePriceForPlayer(db, playerId, eveningId)
     : null;
   const estimate = calculateEveningSelectionTotal(
     evening.format,

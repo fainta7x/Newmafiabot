@@ -101,7 +101,7 @@ const formatDate = (value: string | null) => {
   if (!value) return 'Дата не указана';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const roleLabel = (role: PlayerGameDetailData['players'][number]['role']) => {

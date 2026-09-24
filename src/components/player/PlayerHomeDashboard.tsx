@@ -10,6 +10,13 @@ type PlayerEvening = {
   format: string;
 };
 
+type NoviceState = {
+  player: { club_stage: string };
+  applications: Array<{ status: string }>;
+  free_visits_remaining: number;
+  can_self_register: boolean;
+};
+
 type RatingPlayer = {
   place: number;
   player_id: string;
@@ -24,6 +31,7 @@ const formatEveningDate = (value: string) => {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Moscow',
   }).format(date);
 };
 
@@ -31,7 +39,7 @@ const formatGameDate = (value: string | null | undefined) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const roleLabel = (role: string | null | undefined) => {
@@ -68,6 +76,16 @@ export default function PlayerHomeDashboard({
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
+  const [novice, setNovice] = useState<NoviceState | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/player/novice', { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => { if (!cancelled && body?.player) setNovice(body as NoviceState); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +126,11 @@ export default function PlayerHomeDashboard({
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0] || null;
   }, [evenings]);
 
+  // A newcomer cannot book games until the organizer confirms their first application.
+  const awaitingFirstApplication = novice !== null && !novice.can_self_register;
+  const applicationPending = awaitingFirstApplication && novice.applications.some((item) => item.status === 'NEW');
+  const onNovicePath = novice?.player.club_stage === 'NOVICE_ACTIVE';
+
   const selfRating = rating?.find((item) => item.player_id === data.player.id) || null;
   const stats = data.games.stats;
   const latestGame = data.games.all[0] as PlayerMeResponse['games']['all'][number] | undefined;
@@ -123,6 +146,31 @@ export default function PlayerHomeDashboard({
           <h1 className="text-2xl font-semibold">Главная</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Привет, {data.player.nickname}</p>
         </header>
+
+        {awaitingFirstApplication ? (
+          <section data-testid="player-home-first-application" className="rounded-[28px] border border-emerald-300/20 bg-emerald-300/[0.07] p-4">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-emerald-100/70">Добро пожаловать в 2LA Noire</div>
+            {applicationPending ? (
+              <>
+                <h2 className="mt-2 text-lg font-semibold">Заявка у организатора</h2>
+                <p className="mt-1 text-sm leading-5 text-white/60">Как только её подтвердят, придёт уведомление и можно будет записываться на игры самостоятельно.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-2 text-lg font-semibold">Начни с первой заявки</h2>
+                <ol className="mt-2 space-y-1 text-sm leading-5 text-white/65">
+                  <li>1. Выбери: ты новичок или уже умеешь играть.</li>
+                  <li>2. Организатор подтвердит заявку.</li>
+                  <li>3. Записывайся на вечера сам — новичкам первые два вечера бесплатно.</li>
+                </ol>
+                <button type="button" onClick={() => onOpenEvents()} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
+                  <span>Подать заявку</span>
+                  <span>→</span>
+                </button>
+              </>
+            )}
+          </section>
+        ) : null}
 
         <section className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Следующий вечер</div>
@@ -140,8 +188,13 @@ export default function PlayerHomeDashboard({
                   {EVENING_FORMAT_LABELS[normalizeEveningFormat(nextEvening.format)]}
                 </span>
               </div>
-              <button type="button" onClick={() => onOpenEvents(nextEvening.id)} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
-                <span>Выбрать игры</span>
+              {onNovicePath && normalizeEveningFormat(nextEvening.format) === 'NOVICE' && novice ? (
+                <div className="mt-3 rounded-2xl bg-emerald-300/[0.08] px-3 py-2 text-[13px] text-emerald-100/80">
+                  {novice.free_visits_remaining > 0 ? `Бесплатных вечеров осталось: ${novice.free_visits_remaining}` : 'Дальше — 200 ₽ за игру'}
+                </div>
+              ) : null}
+              <button type="button" onClick={() => onOpenEvents(nextEvening.id)} className={`mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl px-4 text-sm font-semibold ${awaitingFirstApplication ? 'bg-white/[0.08] text-white/80' : 'bg-white text-black'}`}>
+                <span>{awaitingFirstApplication ? 'Посмотреть вечер' : 'Выбрать игры'}</span>
                 <span>→</span>
               </button>
             </div>
@@ -152,12 +205,14 @@ export default function PlayerHomeDashboard({
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Твоя игра</div>
-          <div className="mt-3 grid grid-cols-4 gap-1.5">
+          {stats.completedGames === 0 ? (
+            <p className="mt-2 text-sm leading-5 text-white/60">После первой сыгранной игры здесь появятся Elo, место в рейтинге и процент побед.</p>
+          ) : <div className="mt-3 grid grid-cols-4 gap-1.5">
             <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{data.player.elo}</div><div className="mt-1 text-[12px] text-white/50">Elo</div></div>
             <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{selfRating ? `#${selfRating.place}` : '—'}</div><div className="mt-1 text-[12px] text-white/50">Место</div></div>
             <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.completedGames}</div><div className="mt-1 text-[12px] text-white/50">Игры</div></div>
             <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.winRate}%</div><div className="mt-1 text-[12px] text-white/50">Победы</div></div>
-          </div>
+          </div>}
           {(currentStreak || recentResult) ? (
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 rounded-2xl bg-black/15 px-3 py-2 text-[12px] text-white/55">
               {currentStreak ? <span>Серия: <b className="font-semibold text-white/75">{currentStreak}</b></span> : null}

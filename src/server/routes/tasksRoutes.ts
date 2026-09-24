@@ -56,8 +56,10 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
     const tasks = await db.all(query, params);
     const nowMs = Date.now();
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    // «Сегодня» is the Moscow calendar day (UTC+3), whatever the server's time zone.
+    const moscowNow = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const todayStart = new Date(Date.UTC(moscowNow.getUTCFullYear(), moscowNow.getUTCMonth(), moscowNow.getUTCDate()) - 3 * 60 * 60 * 1000);
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
     const filtered = tasks.filter((t: any) => {
       if (today === 'true' || today === '1') {
         if (t.status === 'done' || t.status === 'cancelled' || !t.due_at) return false;

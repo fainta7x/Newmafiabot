@@ -150,8 +150,8 @@ export function NoviceDevelopmentCRM() {
         <h4 className="truncate text-[15px] font-semibold">{player.nickname || 'Игрок'}</h4>
         <p className="mt-1 text-[12px] text-white/45">{player.telegram_username ? `@${player.telegram_username}` : player.has_vk ? 'VK' : 'Telegram'} · {dateLabel(player.created_at)}</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'EXPERIENCED')} className="min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />Опытный — в клуб</button>
-          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'NOVICE')} className="min-h-11 rounded-xl bg-sky-300/10 text-[12px] font-semibold text-sky-100"><Check className="mr-1 inline h-4 w-4" />Новичок</button>
+          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'EXPERIENCED')} className="min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />В клуб (умеет играть)</button>
+          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'NOVICE')} className="min-h-11 rounded-xl bg-sky-300/10 text-[12px] font-semibold text-sky-100"><Check className="mr-1 inline h-4 w-4" />В школу новичков</button>
         </div>
       </article>)}
     </section> : null}

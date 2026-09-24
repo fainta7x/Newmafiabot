@@ -78,17 +78,19 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
     await ensureEveningSlotsSchema(db);
-    const now = new Date();
-    let dayOffset = (5 - now.getDay() + 7) % 7;
-    if (dayOffset === 0 && now.getHours() >= 20) dayOffset = 7;
+    // Weekday, hour and date are Moscow wall-clock values (UTC+3, no DST),
+    // independent of the server's time zone.
+    const now = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    let dayOffset = (5 - now.getUTCDay() + 7) % 7;
+    if (dayOffset === 0 && now.getUTCHours() >= 20) dayOffset = 7;
     const nextFriday = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
-    const day = nextFriday.getDate();
+    const day = nextFriday.getUTCDate();
     const monthsRu = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    const yearStr = nextFriday.getFullYear();
-    const monthStr = String(nextFriday.getMonth() + 1).padStart(2, '0');
+    const yearStr = nextFriday.getUTCFullYear();
+    const monthStr = String(nextFriday.getUTCMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
     const startsAtIso = `${yearStr}-${monthStr}-${dayStr}T20:00:00+03:00`;
-    const title = `Игровой вечер — ${day} ${monthsRu[nextFriday.getMonth()]}`;
+    const title = `Игровой вечер — ${day} ${monthsRu[nextFriday.getUTCMonth()]}`;
     const eveningId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
 

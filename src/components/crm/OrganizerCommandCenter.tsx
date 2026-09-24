@@ -305,8 +305,8 @@ export default function OrganizerCommandCenter({
             </button>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {item.kind === 'registration' ? <>
-                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'EXPERIENCED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'Опытный — в клуб'}</button>
-                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'NOVICE')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Новичок</button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'EXPERIENCED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'В клуб (умеет играть)'}</button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'NOVICE')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">В школу новичков</button>
               </> : <>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CONFIRMED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'Подтвердить'}</button>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CANCELLED')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Отклонить</button>

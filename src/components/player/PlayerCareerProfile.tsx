@@ -37,7 +37,7 @@ const dateText = (value: string | null) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 export default function PlayerCareerProfile({ playerId, onBack, embedded = false }: { playerId: string; onBack?: () => void; embedded?: boolean }) {

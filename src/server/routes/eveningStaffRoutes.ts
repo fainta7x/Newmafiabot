@@ -5,6 +5,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
+import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 
 const router = Router();
 
@@ -188,6 +189,7 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
     const eveningId = String(req.params.id);
     await ensureClubOperationsSchema(db);
     await reconcileRegularEveningPayments(db, eveningId);
+    await reconcileNoviceEveningCharges(db, eveningId);
     const payments = await loadPayments(db, eveningId);
     if (!payments) return res.status(404).json({ error: 'Вечер не найден' });
     return res.json(payments);
@@ -323,6 +325,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res, next) => {
   try {
     const db = req.db || (await getDb());
     await reconcileRegularEveningPayments(db, String(req.params.id));
+    await reconcileNoviceEveningCharges(db, String(req.params.id));
     return next();
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось пересчитать стоимость вечера' });

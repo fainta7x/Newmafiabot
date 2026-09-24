@@ -83,6 +83,7 @@ const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
 
 const formatDate = (value: string) => new Intl.DateTimeFormat('ru-RU', {
   day: '2-digit', month: '2-digit', year: 'numeric',
+  timeZone: 'Europe/Moscow',
 }).format(new Date(value));
 
 const formatLabels: Record<PeriodEvening['format'], string> = {

@@ -173,7 +173,9 @@ export default function PlayerEventsCalendar({
 
   useEffect(() => {
     let cancelled = false;
-    if (!requestedEventId) return () => { cancelled = true; };
+    // Wait for this month's calendar: a linked event is usually already in it,
+    // and only an event from another month needs a direct lookup.
+    if (!requestedEventId || loading) return () => { cancelled = true; };
 
     const local = events.find((event) => event.id === requestedEventId);
     if (local) {
@@ -231,7 +233,7 @@ export default function PlayerEventsCalendar({
     })();
 
     return () => { cancelled = true; };
-  }, [events, initialEventId, queryEventId, requestedEventId]);
+  }, [events, loading, initialEventId, queryEventId, requestedEventId]);
 
   const visible = useMemo(
     () => events
@@ -262,7 +264,8 @@ export default function PlayerEventsCalendar({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
       setNoviceState(body.state || noviceState);
-      setApplicationMessage(body.created ? (body.reservation?.reserved ? 'Заявка отправлена организатору. Место на выбранный вечер временно зарезервировано до решения.' : 'Заявка отправлена организатору. После подтверждения самостоятельная запись откроется автоматически.') : 'Такая заявка уже находится на рассмотрении.');
+      // The «Заявка отправлена» card below already explains what happens next.
+      setApplicationMessage(body.created ? '' : 'Такая заявка уже находится на рассмотрении.');
     } catch (submitError: any) {
       setApplicationMessage(submitError?.message || 'Не удалось отправить заявку');
     } finally {
@@ -333,7 +336,7 @@ export default function PlayerEventsCalendar({
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-2.5">
           <div className="flex items-center justify-between gap-2">
             <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-lg text-white/65">‹</button>
-            <b className="min-w-0 flex-1 text-center text-sm capitalize">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</b>
+            <b className="min-w-0 flex-1 text-center text-sm capitalize">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })}</b>
             <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-lg text-white/65">›</button>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-black/20 p-1">

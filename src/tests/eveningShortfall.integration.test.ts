@@ -64,6 +64,17 @@ describe('evening shortfall', () => {
     expect(order.items.map((item) => item.id)).not.toContain('shortfall:ev');
   });
 
+  it('does not call players to join when the same worker pass will cancel the evening', async () => {
+    const { db, start } = await setup(6, 'NOVICE');
+    const calls: string[] = [];
+    await runEveningShortfallChecks(db, start - 0.9 * HOUR, async (id) => {
+      calls.push(id);
+      return { success: true };
+    });
+    expect(calls).toEqual([]);
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
+  });
+
   it('tells every registered player when the organizer cancels the evening', async () => {
     const { db, app } = await setup(3);
     const cancelled = await request(app).patch('/api/evenings/ev').set('Cookie', `organizer_token=${generateOrganizerToken()}`)

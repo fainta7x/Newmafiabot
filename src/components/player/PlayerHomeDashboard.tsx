@@ -12,7 +12,7 @@ type PlayerEvening = {
 
 type NoviceState = {
   player: { club_stage: string };
-  applications: Array<{ status: string }>;
+  applications: Array<{ status: string; entry_route?: string }>;
   free_visits_remaining: number;
   can_self_register: boolean;
 };
@@ -126,9 +126,10 @@ export default function PlayerHomeDashboard({
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0] || null;
   }, [evenings]);
 
-  // A newcomer cannot book games until the organizer confirms their first application.
+  // Newcomers choose a route first: novices unlock their evenings immediately;
+  // experienced players wait for organizer assessment.
   const awaitingFirstApplication = novice !== null && !novice.can_self_register;
-  const applicationPending = awaitingFirstApplication && novice.applications.some((item) => item.status === 'NEW');
+  const pendingApplication = awaitingFirstApplication && novice.applications.find((item) => item.status === 'NEW');
   const onNovicePath = novice?.player.club_stage === 'NOVICE_ACTIVE';
 
   const selfRating = rating?.find((item) => item.player_id === data.player.id) || null;
@@ -150,21 +151,24 @@ export default function PlayerHomeDashboard({
         {awaitingFirstApplication ? (
           <section data-testid="player-home-first-application" className="rounded-[28px] border border-emerald-300/20 bg-emerald-300/[0.07] p-4">
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-emerald-100/70">Добро пожаловать в 2LA Noire</div>
-            {applicationPending ? (
+            {pendingApplication ? (
               <>
-                <h2 className="mt-2 text-lg font-semibold">Заявка у организатора</h2>
-                <p className="mt-1 text-sm leading-5 text-white/60">Как только её подтвердят, придёт уведомление и можно будет записываться на игры самостоятельно.</p>
+                <h2 className="mt-2 text-lg font-semibold">{pendingApplication.entry_route === 'NOVICE' ? 'Продолжи путь новичка' : 'Заявка у организатора'}</h2>
+                <p className="mt-1 text-sm leading-5 text-white/60">{pendingApplication.entry_route === 'NOVICE'
+                  ? 'Подтверждение больше не нужно. Продолжи в «Событиях» и выбери вечер.'
+                  : 'Как только её подтвердят, придёт уведомление и можно будет записываться на игры самостоятельно.'}</p>
+                {pendingApplication.entry_route === 'NOVICE' ? <button type="button" onClick={() => onOpenEvents()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">Продолжить в событиях</button> : null}
               </>
             ) : (
               <>
-                <h2 className="mt-2 text-lg font-semibold">Начни с первой заявки</h2>
+                <h2 className="mt-2 text-lg font-semibold">Выбери свой путь</h2>
                 <ol className="mt-2 space-y-1 text-sm leading-5 text-white/65">
                   <li>1. Выбери: ты новичок или уже умеешь играть.</li>
-                  <li>2. Организатор подтвердит заявку.</li>
-                  <li>3. Записывайся на вечера сам — новичкам первые два вечера бесплатно.</li>
+                  <li>2. Новичок сразу записывается на вечер; опытного игрока сначала проверит организатор.</li>
+                  <li>3. Новичкам первые два вечера бесплатно.</li>
                 </ol>
                 <button type="button" onClick={() => onOpenEvents()} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
-                  <span>Подать заявку</span>
+                  <span>Выбрать путь</span>
                   <span>→</span>
                 </button>
               </>

@@ -110,15 +110,14 @@ organizerRouter.get('/applications', async (req, res) => {
   );
   const summary = await req.db.all<any>('SELECT status, COUNT(*) AS count FROM novice_applications GROUP BY status');
   const nextEvening = await req.db.get<any>(
-    // Everyone who holds a place: players who answered «иду» plus newcomers whose
-    // application for this evening is still waiting or confirmed.
+    // Players who answered «Иду» plus pending applicants with a temporary hold.
     `SELECT e.id, e.title, e.starts_at, e.status,
             (SELECT COUNT(*) FROM (
                SELECT ep.player_id FROM evening_participants ep
                 WHERE ep.evening_id = e.id AND ep.response_status IN ('going','late') AND ep.player_id IS NOT NULL
                UNION
                SELECT na.player_id FROM novice_applications na
-                WHERE na.evening_id = e.id AND na.status IN ('NEW','CONFIRMED') AND na.player_id IS NOT NULL
+                WHERE na.evening_id = e.id AND na.status = 'NEW' AND na.player_id IS NOT NULL
             )) AS registered_count
        FROM game_evenings e
       WHERE UPPER(COALESCE(e.format,''))='NOVICE' AND e.status IN ('draft','published')

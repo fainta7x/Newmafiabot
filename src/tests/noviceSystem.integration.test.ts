@@ -8,6 +8,7 @@ import { NOVICE_PAID_GAME_PRICE, ensureSlotsForEvening, novicePriceForPlayer, re
 import { getNovicePlayerState } from '../server/services/noviceService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
+import { loadEveningShortfall } from '../server/services/eveningShortfallService.ts';
 
 const opened: DatabaseWrapper[] = [];
 const makeDb = () => { const db = createDatabaseConnection(':memory:'); opened.push(db); return db; };
@@ -17,7 +18,7 @@ const playerCookie = (id: string) => `player_token=${generatePlayerSessionToken(
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
 
 describe('NOVICE-001 funnel', () => {
-  it('keeps a first-time profile pending until organizer confirmation', async () => {
+  it('lets a first-time novice choose the school path and book without organizer approval', async () => {
     const db = makeDb();
     const app = await createApp(db);
     const registered = await registerNewPlayer(db, { telegramUserId: '771', nickname: 'Первая заявка' });
@@ -29,19 +30,25 @@ describe('NOVICE-001 funnel', () => {
 
     const applied = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(id)).send({ entry_route: 'NOVICE' });
     expect(applied.status).toBe(201);
-    expect(applied.body.state.player.club_stage).toBe('NEW');
+    expect(applied.body.state.player).toMatchObject({ club_stage: 'NOVICE_ACTIVE', game_level: 'novice' });
+    expect(applied.body.state.can_self_register).toBe(true);
+    expect(await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key = ?', [`verified-onboarding:new-player:${id}`]))
+      .toMatchObject({ status: 'done' });
 
     const queue = await request(app).get('/api/novice/applications').set('Cookie', organizerCookie());
     expect(queue.status).toBe(200);
-    expect(queue.body.applications[0]).toMatchObject({ player_id: id, entry_route: 'NOVICE', status: 'NEW' });
+    expect(queue.body.applications[0]).toMatchObject({ player_id: id, entry_route: 'NOVICE', status: 'CONFIRMED' });
+    expect(queue.body.applications.filter((item: any) => item.status === 'NEW')).toEqual([]);
 
-    const confirmed = await request(app)
-      .patch(`/api/novice/applications/${applied.body.id}`)
-      .set('Cookie', organizerCookie())
-      .send({ status: 'CONFIRMED' });
-    expect(confirmed.status).toBe(200);
-    expect(confirmed.body.state.player).toMatchObject({ club_stage: 'NOVICE_ACTIVE', game_level: 'novice' });
-    expect(confirmed.body.state.can_self_register).toBe(true);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+      VALUES ('self-book','Вечер новичков',?,'NOVICE','published',200,?,?)`, [new Date(Date.now() + 86400000).toISOString(), now, now]);
+    const slots = await ensureSlotsForEvening(db, 'self-book');
+    const booked = await request(app).put('/api/player/evenings/self-book/slots').set('Cookie', playerCookie(id))
+      .send({ slot_ids: [slots.slots[0].id] });
+    expect(booked.status, JSON.stringify(booked.body)).toBe(200);
+    expect(await db.get<any>("SELECT response_status FROM evening_participants WHERE evening_id='self-book' AND player_id=?", [id]))
+      .toMatchObject({ response_status: 'going' });
   });
 
   it('raises a novice to club level on transfer but keeps a higher organizer-set level', async () => {
@@ -104,7 +111,7 @@ describe('NOVICE-001 funnel', () => {
     expect(queue.body.awaiting_players.map((row: any) => row.id)).toEqual([racing.id]);
 
     // The player files a novice application after the organizer loaded the card.
-    await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(racing.id)).send({ entry_route: 'NOVICE' });
+    await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(racing.id)).send({ entry_route: 'EXPERIENCED' });
     const admit = await request(app).post(`/api/novice/players/${racing.id}/admit`).set('Cookie', organizerCookie()).send({ entry_route: 'EXPERIENCED' });
     expect(admit.status).toBe(409);
     expect(await db.get<any>('SELECT club_stage FROM players WHERE id = ?', [racing.id])).toMatchObject({ club_stage: 'NEW' });
@@ -132,11 +139,11 @@ describe('NOVICE-001 funnel', () => {
 
     const overview = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie());
     expect(overview.status).toBe(200);
-    expect(overview.body.summary.levelDecisionsCount).toBe(2);
+    expect(overview.body.summary.levelDecisionsCount).toBe(1);
     expect(overview.body.actionLists.levelDecisions).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'registration', player_id: player.id, nickname: 'Без заявки' }),
-      expect.objectContaining({ kind: 'application', player_id: applicant.id, entry_route: 'NOVICE' }),
     ]));
+    expect(overview.body.actionLists.levelDecisions.some((item: any) => item.player_id === applicant.id)).toBe(false);
   });
 
   it('temporarily reserves an evening place for a pending novice application', async () => {
@@ -159,8 +166,11 @@ describe('NOVICE-001 funnel', () => {
       .set('Cookie', playerCookie(first.player.id))
       .send({ entry_route: 'NOVICE', evening_id: 'reservation-evening' });
     expect(applied.status).toBe(201);
-    expect(applied.body.reservation).toMatchObject({ reserved: true, reserved_count: 1, capacity: 1, available_places: 0 });
-    expect(applied.body.state.applications[0]).toMatchObject({ status: 'NEW', reservation_status: 'reserved' });
+    expect(applied.body.reservation).toMatchObject({ reserved: false, reserved_count: 1, capacity: 1, available_places: 0 });
+    expect(applied.body.state.applications[0]).toMatchObject({ status: 'CONFIRMED', reservation_status: null });
+    expect(await db.get<any>("SELECT response_status FROM evening_participants WHERE evening_id='reservation-evening' AND player_id=?", [first.player.id]))
+      .toMatchObject({ response_status: 'going' });
+    expect((await loadEveningShortfall(db, 'reservation-evening'))?.confirmed).toBe(1);
 
     const blocked = await request(app)
       .post('/api/player/novice/applications')
@@ -169,10 +179,8 @@ describe('NOVICE-001 funnel', () => {
     expect(blocked.status).toBe(409);
     expect(blocked.body).toMatchObject({ code: 'evening_full' });
 
-    const released = await request(app)
-      .patch(`/api/novice/applications/${applied.body.id}`)
-      .set('Cookie', organizerCookie())
-      .send({ status: 'CANCELLED' });
+    const released = await request(app).post('/api/player/evenings/reservation-evening/respond')
+      .set('Cookie', playerCookie(first.player.id)).send({ response_status: 'declined' });
     expect(released.status).toBe(200);
 
     const retried = await request(app)
@@ -180,16 +188,42 @@ describe('NOVICE-001 funnel', () => {
       .set('Cookie', playerCookie(second.player.id))
       .send({ entry_route: 'NOVICE', evening_id: 'reservation-evening' });
     expect(retried.status).toBe(201);
-    expect(retried.body.reservation).toMatchObject({ reserved: true, reserved_count: 1, available_places: 0 });
+    expect(retried.body.reservation).toMatchObject({ reserved: false, reserved_count: 1, available_places: 0 });
   });
 
   it('keeps an experienced visitor separate from a mafia novice', async () => {
     const db = makeDb();
     const app = await createApp(db);
     const registered = await registerNewPlayer(db, { telegramUserId: '772', nickname: 'Опытный гость' });
-    const applied = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(registered.player.id)).send({ entry_route: 'EXPERIENCED' });
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+      VALUES ('experienced-evening','Клубный вечер',?,'CASUAL','published',100,?,?)`, [new Date(Date.now() + 86400000).toISOString(), stamp, stamp]);
+    const applied = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(registered.player.id))
+      .send({ entry_route: 'EXPERIENCED', evening_id: 'experienced-evening' });
+    expect(applied.body.state).toMatchObject({ can_self_register: false, player: { club_stage: 'NEW' } });
+    expect(applied.body.state.applications[0].status).toBe('NEW');
+    const switchRoute = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(registered.player.id)).send({ entry_route: 'NOVICE' });
+    expect(switchRoute.status).toBe(409);
     const confirmed = await request(app).patch(`/api/novice/applications/${applied.body.id}`).set('Cookie', organizerCookie()).send({ status: 'CONFIRMED' });
     expect(confirmed.body.state.player).toMatchObject({ club_stage: 'CLUB_PLAYER', game_level: 'unrated' });
+    expect(await db.get<any>("SELECT response_status FROM evening_participants WHERE evening_id='experienced-evening' AND player_id=?", [registered.player.id]))
+      .toMatchObject({ response_status: 'going' });
+  });
+
+  it('lets an existing pending novice continue without organizer action', async () => {
+    const db = makeDb();
+    const app = await createApp(db);
+    const player = (await registerNewPlayer(db, { telegramUserId: '799', nickname: 'Старая заявка' })).player;
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO novice_applications (id, player_id, source, entry_route, status, created_at, updated_at)
+      VALUES ('legacy-pending', ?,'TELEGRAM','NOVICE','NEW',?,?)`, [player.id, stamp, stamp]);
+    const resumed = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(player.id))
+      .send({ entry_route: 'NOVICE' });
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.id).toBe('legacy-pending');
+    expect(resumed.body.state.player).toMatchObject({ club_stage: 'NOVICE_ACTIVE', game_level: 'novice' });
+    expect(await db.get<any>("SELECT status FROM novice_applications WHERE id='legacy-pending'"))
+      .toMatchObject({ status: 'CONFIRMED' });
   });
 
   it('uses two free novice visits and then charges 200 rubles per selected game', async () => {

@@ -37,7 +37,7 @@ router.get('/evenings/:eveningId/slots', async (req, res) => {
     if (!playerLevelAllowsEveningFormat(player.game_level, plan.event.format)) {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
     }
-    // Tell the client up front that saving will be refused until the first application is confirmed.
+    // Tell the client up front that a first-time player must choose a path before booking.
     return res.json({ ...plan, first_application_required: String(player.club_stage) === 'NEW' });
   } catch (error: any) {
     return sendError(res, error, 'Не удалось загрузить игры вечера');
@@ -57,7 +57,7 @@ router.put('/evenings/:eveningId/slots', async (req, res) => {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
     }
     if (String(player.club_stage) === 'NEW') {
-      return res.status(403).json({ error: 'Первая заявка должна быть подтверждена организатором', code: 'first_application_required' });
+      return res.status(403).json({ error: 'Сначала выберите путь: новичок записывается сразу, опытный игрок ждёт подтверждения организатора', code: 'first_application_required' });
     }
 
     const plan = await replacePlayerSlotSelection(

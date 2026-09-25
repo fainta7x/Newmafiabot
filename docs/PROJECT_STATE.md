@@ -68,7 +68,7 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 Implemented and connected:
 
-- first-visit routing for actual Mafia novices versus experienced visitors, with one canonical manually reviewed application before self-registration;
+- first-visit routing for actual Mafia novices versus experienced visitors: novices can choose their path and book a novice evening immediately; experienced visitors require organizer approval before self-registration;
 - canonical novice progression state (`club_stage`) kept separate from playing access (`game_level`), channel-neutral Telegram/VK decision notifications and player-visible novice visit/free-price state;
 
 - Telegram/session authentication and canonical Player Cabinet shell;
@@ -122,7 +122,7 @@ Future music work should start from a concrete missing behavior or UX request, n
 
 Implemented and connected:
 
-- **Ещё → Развитие** for first applications, novice/experienced routing, manual confirmation, attendance/completion tracking and manual promotion to the main club;
+- **Ещё → Развитие** for experienced-player approval, novice/experienced routing, attendance/completion tracking and manual promotion to the main club;
 - next-NOVICE operational timing for the Thursday 20:00 group check and Friday 15:00 decision, explicitly without automatic cancellation;
 
 - organizer auth/entitlement tied to canonical player identity;

@@ -156,8 +156,8 @@ export async function registerVerifiedPlayerIdentity(
       `, [externalUserId, playerId, username, fullName, now, now]);
     }
 
-    // Every self-registration path (bot, WebApp, VK, verified onboarding) needs an
-    // organizer decision on the player's level before they can self-register.
+    // Keep a task while the new player chooses a route. Novices complete it by
+    // choosing the school path; experienced players still need organizer review.
     await recordNewPlayerOnboardingNotification(tx, { playerId, nickname, platform: input.platform });
 
     return { created: true, player: await selectPlayer(tx, playerId) };
@@ -169,7 +169,7 @@ export async function registerVerifiedPlayerIdentity(
         messageKey: `new-player-registered:${result.player.id}`,
         eventType: 'new_player_registered',
         entityId: String(result.player.id),
-        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nПодтвердите уровень: кабинет организатора → Ещё → Развитие.`,
+        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nНовичок запишется сам; если игрок уже умеет играть, подтвердите его уровень в кабинете организатора → Ещё → Развитие.`,
       });
     } catch (error) {
       // Registration must not fail because the organizer alert could not be queued.

@@ -248,8 +248,8 @@ The current operating default is the established main club and its regular CASUA
 
 - Being new to **2LA Noire** is independent from playing skill: `club_stage` owns the club relationship, while `game_level` owns sports-Mafia level/access.
 - The external first-visit choice has exactly two routes: **«Я новичок / почти не играл»** and **«Я уже умею играть»**.
-- A first application is reviewed manually by an organizer. Until confirmation, the player may see eligible NOVICE/CASUAL events but cannot self-register.
-- Confirming the novice route moves the player to `NOVICE_ACTIVE` and may classify an unassessed player as `game_level=novice`.
+- A first-time novice chooses the novice route independently and immediately receives `NOVICE_ACTIVE` and, if previously unassessed, `game_level=novice`. No organizer approval is required. Choosing the route alone does not book an evening; the player then answers «Иду» and chooses games. A legacy pending novice application can be continued by the player without organizer intervention.
+- An experienced visitor's first application is reviewed manually by an organizer; until confirmation, they may see eligible events but cannot self-register. If their application selected a specific available evening, confirmation also records «Иду» for that evening.
 - Confirming the experienced route moves the player to `CLUB_PLAYER` but leaves `game_level=unrated` until an organizer assesses it. Experience must never be fabricated from club tenure.
 - Promotion from the novice route to the main club is manual; attendance never auto-promotes or auto-removes a player. The organizer's «Перевести в основной клуб» also raises `game_level` from `novice`/`unrated` to `club`, so CASUAL booking opens at once; a higher level already set by the organizer is kept (user-approved 2026-09-24).
 - The first two factually attended NOVICE evenings are free. Starting with the third attended NOVICE evening, the player price is **200 ₽ per selected game**.

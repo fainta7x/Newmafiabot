@@ -62,6 +62,25 @@ describe('PlayerEventsCalendar', () => {
     expect(await screen.findByRole('button', { name: /Я новичок или почти не играл/ })).toBeTruthy();
   });
 
+  it('starts the novice path without silently booking the nearest evening', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      if (String(url).includes('/novice/applications')) return {
+        ok: true, status: 201, json: async () => ({ created: true, state: {
+          player: { club_stage: 'NOVICE_ACTIVE', game_level: 'novice' }, applications: [], novice_visits: 0, free_visits_remaining: 2, can_self_register: true,
+        } }),
+      } as Response;
+      return { ok: true, json: async () => ({ events: [{ ...event, format: 'NOVICE' }], novice_state: {
+        player: { club_stage: 'NEW', game_level: 'unrated' }, applications: [], novice_visits: 0, free_visits_remaining: 2, can_self_register: false,
+      } }) } as Response;
+    });
+    render(<PlayerEventsCalendar />);
+    fireEvent.click(await screen.findByRole('button', { name: /Я новичок или почти не играл/ }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/player/novice/applications', expect.objectContaining({
+      body: JSON.stringify({ entry_route: 'NOVICE', evening_id: null }),
+    })));
+    expect(await screen.findByText(/Готово! Теперь выберите новичковый вечер/)).toBeTruthy();
+  });
+
   it('replaces the first-application choices with a single pending status', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,

@@ -48,7 +48,7 @@ export const isCorrectSplitVoteAssignment = (scenario: SplitVoteScenario, select
   const expected = splitVoteAssignments(scenario);
   return scenario.candidates.every((candidate) => {
     const actual = selected[candidate] ?? [];
-    return actual.length === expected[candidate].length &&
+    return actual.length === expected[candidate].length && new Set(actual).size === actual.length &&
       actual.every((seat) => expected[candidate].includes(seat));
   });
 };

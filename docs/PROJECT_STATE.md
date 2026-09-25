@@ -66,7 +66,7 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 ### Player application
 
-The public split-vote trainer linked from Player Cabinet includes basic and advanced personal-vote questions and an interactive whole-table level. In the interactive level the player processes nominees in nomination order, assigns each of the ten seat cards once or skips a nominee, reviews the distribution, and receives one final check. Practice and exam each run for five questions; the exam ends on the first incorrect full distribution. The level also offers endless practice. Results are session-only. Deployment of changes must be verified separately.
+The public split-vote trainer linked from Player Cabinet includes basic and advanced personal-vote questions and an interactive whole-table level. In the interactive level the player processes nominees in nomination order, assigns each of the ten seat cards once or skips a nominee, reviews the distribution, and receives one final check. Practice and exam each run for five questions; the exam ends on the first incorrect full distribution. The level also offers endless practice. Passing the basic exam unlocks advanced; passing advanced unlocks interactive and mixed endless training. Passed exams persist per authenticated player in SQLite, while anonymous visitors can only practice basic questions. Deployment of changes must be verified separately.
 
 Implemented and connected:
 
@@ -398,7 +398,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - which videos to link;
      - whether passing tests gives anything (tokens, an achievement, a level step towards «Клубный игрок»).
 14. Mini-games and in-app activities (user request 2026-09-24).
-   - The player's home screen links to `/guide?tab=split`. The zero-round split-vote training offers basic (pair includes №1, 2–4 nominees) and advanced (pair excludes №1, random nomination order) practice and exams: five randomly generated questions each; practice reports the score, an exam fails on the first wrong answer and passes only on 5/5. Endless training mixes all pairs. All modes choose only from nominated candidates, explain the 5:5 split and have no saved progress, access effects or rewards. Rescue after a broken split and harder multi-candidate tasks remain for later.
+   - The player's home screen links to `/guide?tab=split`. The zero-round split-vote training has basic (pair includes №1, 2–4 nominees), advanced (pair excludes №1, random nomination order), and interactive whole-table levels. Practice and exams have five randomly generated questions; practice reports the score and exams require 5/5. Passing an exam opens the next level for that account; passing advanced also opens mixed endless practice. The interactive level offers its own endless practice. Progress has no rating, token or award effects. Rescue after a broken split remains for later.
    - Target: activities inside the app between evenings to keep players interested.
    - Ideas to discuss:
      - daily quizzes on the rules;

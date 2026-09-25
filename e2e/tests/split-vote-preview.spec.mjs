@@ -20,6 +20,7 @@ test('split-vote exercise fits a Telegram-sized screen and explains the choice',
 });
 
 test('whole-table voting uses nomination order on a phone', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['basic', 'advanced'] } }));
   await page.goto('/e2e/split-vote.html');
   await page.getByRole('button', { name: 'Бесконечная практика' }).click();
   const nominees = (await page.getByTestId('split-vote-nominees').textContent()).match(/№\d+/g);

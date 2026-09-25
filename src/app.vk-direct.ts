@@ -36,6 +36,7 @@ import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
 import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
 import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
+import playerSplitVoteProgressRoutes from './server/routes/playerSplitVoteProgressRoutes.ts';
 import playerReplayRoutes from './server/routes/playerReplayRoutes.ts';
 import playerEveningJourneyRoutes from './server/routes/playerEveningJourneyRoutes.ts';
 import adminDataRoutes from './server/routes/adminDataRoutes.ts';
@@ -138,6 +139,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerPaymentRoutes);
   app.use('/api/player', playerExperienceRoutes);
   app.use('/api/player', playerInsightsRoutes);
+  app.use('/api/player', playerSplitVoteProgressRoutes);
   app.use('/api/player', playerReplayRoutes);
   app.use('/api/player', playerEveningJourneyRoutes);
   app.use('/api/admin-data', adminDataRoutes);

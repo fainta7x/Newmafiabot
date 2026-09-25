@@ -568,4 +568,6 @@ When a requested change touches any rule above:
 5. update this file if the approved rule itself changed.
 # Split-vote training interaction
 
+The levels unlock in order: basic → advanced → whole-table interactive. Only passing all five questions of the previous level's exam unlocks the next level. Practice does not unlock levels. Exam completion is recorded for the authenticated player's account and survives device changes. Anonymous visitors can use basic practice but cannot record an exam pass. Mixed endless practice opens with advanced's exam; whole-table endless practice opens with the interactive level. No rating, tokens or awards are granted.
+
 In the whole-table level, nominees are processed in their randomized nomination order. Each seat card may be assigned to one nominee only; skipping assigns no votes. The player can revise earlier steps before submitting the complete distribution. A question is correct only if all ten seats are assigned to the two split candidates according to the approved zero-round rules and every other nominee receives no votes. Practice comprises five questions, and the five-question exam fails on the first incorrect complete distribution. Endless practice has no question limit.

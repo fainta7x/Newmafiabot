@@ -61,6 +61,7 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 - Public page `/guide` (no sign-in): `src/components/public/PublicGuide.tsx`, routed in `src/App.tsx`.
 - Texts (scenario, roles, table rules, glossary): `src/lib/clubGuide.ts`; public lessons reuse these texts in `PublicGuide.tsx`, and the self-check uses `src/lib/clubGuideQuiz.ts`.
 - Player home entry for zero-round split-vote practice: `src/components/player/PlayerHomeDashboard.tsx`; public mode/exam UI: `src/components/public/SplitVoteTraining.tsx`, with generated questions and approved vote mapping in `src/lib/splitVoteTraining.ts`.
+- Account-level unlocks: `src/server/routes/playerSplitVoteProgressRoutes.ts`; additive storage: `src/db/ensureSplitVoteProgressSchema.ts`.
 
 ## Wallet / tokens / shop / payments
 

@@ -317,6 +317,8 @@ The regular club cadence is automatic rather than organizer-maintained by hand.
 - The automation must be idempotent: refreshes, retries, restarts or delayed wake-ups must not create duplicate posts or duplicate personal invitations.
 - If the service was asleep at the exact due time, the next safe reconciliation should catch up the still-upcoming Friday instead of silently skipping the week.
 - Existing manually created Friday drafts inside the rolling window may be promoted to registration-open/published state rather than duplicated.
+- A cancelled Friday remains cancelled; rolling calendar reconciliation must not create another evening for that date.
+- A weekly announcement that has started delivery must not retry automatically after an uncertain delivery result; investigate the publication and resume manually to avoid duplicate posts.
 
 ## Announcement history
 

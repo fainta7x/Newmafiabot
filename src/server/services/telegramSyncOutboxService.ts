@@ -237,6 +237,10 @@ export async function drainTelegramSyncOutbox(
     allowEveningCreateOutsideWindow?: boolean;
   } = {},
 ): Promise<{ processed: number; succeeded: number; failed: number; skipped: boolean }> {
+  // Keep queued Telegram publications intact while the emergency publishing pause is active.
+  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+    return { processed: 0, succeeded: 0, failed: 0, skipped: true };
+  }
   if (activeDrains.has(db as object)) return { processed: 0, succeeded: 0, failed: 0, skipped: true };
   activeDrains.add(db as object);
 

@@ -397,3 +397,6 @@ Always distinguish:
 ## Automatic UI preview
 
 The user-approved UI preview workflow automatically builds isolated pages and mobile evidence for relevant PR updates, including drafts. Follow [UI_PREVIEW](UI_PREVIEW.md) for artifacts, private publishing and the supported agent-browser path. It needs no manual workflow dispatch. Broad manual Playwright suites retain their separate release role.
+# Emergency weekly publishing pause
+
+`WEEKLY_EVENING_AUTOMATION_ENABLED` defaults to off. While off, the weekly calendar reconciler does not create evenings or publish Monday announcements, and the Telegram sync outbox retains queued jobs without sending them. Keep it off during investigation of repeated publications. Before setting it to `true`, inspect existing evenings and pending Telegram jobs for duplicate or cancelled dates and check for other running bot instances. Enabling the flag resumes queued delivery; do not enable it blindly. This flag affects this application instance only and does not revoke a Telegram token used by another instance.

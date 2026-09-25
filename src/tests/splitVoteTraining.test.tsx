@@ -71,23 +71,23 @@ describe('zero-round split-vote training', () => {
     expect(choices.map((choice) => choice.textContent?.replace('За ', ''))).toEqual(nominees);
     const previousSeat = screen.getByTestId('split-vote-seat').textContent;
     fireEvent.click(choices[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Проверить голос' }));
-    expect(screen.getByRole('status').textContent).toContain('5:5');
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
+    expect(screen.getByRole('status').textContent).toContain('по 5 голосов');
     fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
-    expect(screen.getByRole('button', { name: 'Проверить голос' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Проверить ответ' })).toHaveProperty('disabled', true);
     expect(screen.getByTestId('split-vote-seat').textContent).not.toBe(previousSeat);
     expect(screen.getAllByRole('button', { name: /^За №/ })).not.toHaveLength(choices.length);
     expect(screen.queryByTestId('split-vote-result')).toBeNull();
   });
 
   const answerQuestion = (right: boolean) => {
-    const pair = screen.getByText(/Из них делим/).textContent!.match(/№(\d+) и №(\d+)/)!;
+    const pair = screen.getByText(/Попил между игроками/).textContent!.match(/№(\d+) и №(\d+)/)!;
     const seat = Number(screen.getByTestId('split-vote-seat').textContent!.match(/№(\d+)/)![1]);
     const answer = correctSplitVote({ pair: [Number(pair[1]), Number(pair[2])], seat, candidates: [] });
     const options = screen.getAllByRole('button', { name: /^За №/ });
     const selected = options.find((button) => (button.textContent === `За №${answer}`) === right)!;
     fireEvent.click(selected);
-    fireEvent.click(screen.getByRole('button', { name: 'Проверить голос' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
   };
 
   it('finishes basic practice after five answers, even if they include mistakes', () => {
@@ -95,7 +95,7 @@ describe('zero-round split-vote training', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[0]);
     for (let index = 0; index < 5; index += 1) {
       expect(screen.getByTestId('split-vote-question').textContent).toContain(`Вопрос ${index + 1} из 5`);
-      expect(screen.getByText(/Из них делим/).textContent).toMatch(/№1 и №\d+/);
+      expect(screen.getByText(/Попил между игроками/).textContent).toMatch(/№1 и №\d+/);
       answerQuestion(false);
       if (index < 4) fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
     }
@@ -104,8 +104,8 @@ describe('zero-round split-vote training', () => {
 
   it('fails an advanced exam immediately after its first mistake and allows a retry', () => {
     render(<SplitVoteTraining />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 без ошибок' })[1]);
-    expect(screen.getByText(/Из них делим/).textContent).not.toMatch(/№1 и/);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[1]);
+    expect(screen.getByText(/Попил между игроками/).textContent).not.toMatch(/№1 и/);
     answerQuestion(false);
     expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен не сдан: ошибка в вопросе 1');
     expect(screen.queryByRole('button', { name: 'Следующая задача' })).toBeNull();
@@ -115,7 +115,7 @@ describe('zero-round split-vote training', () => {
 
   it('passes an exam only after five correct answers', () => {
     render(<SplitVoteTraining />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 без ошибок' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]);
     for (let index = 0; index < 5; index += 1) {
       answerQuestion(true);
       if (index < 4) {

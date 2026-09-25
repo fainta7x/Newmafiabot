@@ -74,6 +74,9 @@ export async function runEveningShortfallChecks(
   now = Date.now(),
   recruit: (eveningId: string) => Promise<{ success: boolean }> = requestBotEveningRecruitment,
 ) {
+  // The emergency publishing pause must also stop the one-hour auto-cancellation.
+  // Otherwise a newly created Friday could be cancelled in the same minute.
+  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') return 0;
   await ensureEveningShortfallSchema(db);
   await ensureGuestPlayerPlaceholderSchema(db);
   const evenings = await db.all<any>(

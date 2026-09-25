@@ -136,6 +136,16 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     const current = await db.get<any>('SELECT status, retry_count FROM telegram_message_outbox WHERE message_key = ?', [key]);
     if (!current || current.status === 'sent' || Number(current.retry_count || 0) >= MAX_RETRIES) return { sent: 0, failed: 0 };
     const attemptAt = nowIso();
+    const cancellation = row.event_type === 'evening_cancelled' || row.event_type === 'evening_shortfall';
+    if (cancellation) {
+      // Telegram sendMessage has no idempotency key. Claim before the external call,
+      // so a successful send followed by a lost acknowledgement cannot resend.
+      const claim = await db.run(`UPDATE telegram_message_outbox
+        SET retry_count=?, last_attempt_at=?, next_attempt_at=NULL, updated_at=?
+        WHERE message_key=? AND status <> 'sent' AND retry_count < ?`,
+      [MAX_RETRIES, attemptAt, attemptAt, key, MAX_RETRIES]);
+      if (!claim.changes) return { sent: 0, failed: 0 };
+    }
     const result = await sendTelegramMessage(row, fetchImpl);
     if (result.ok) {
       await db.run(`
@@ -151,7 +161,7 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     }
 
     const failedAttempts = Number(current.retry_count || 0) + 1;
-    const canRetry = Boolean(result.temporary) && failedAttempts < MAX_RETRIES;
+    const canRetry = !cancellation && Boolean(result.temporary) && failedAttempts < MAX_RETRIES;
     const storedRetryCount = canRetry ? failedAttempts : MAX_RETRIES;
     const nextAttemptAt = canRetry
       ? new Date(Date.now() + retryDelayMs(failedAttempts, result.retryAfterSeconds)).toISOString()
@@ -178,6 +188,9 @@ export async function drainTelegramMessageOutbox(
   const params: any[] = [MAX_RETRIES];
   if (options.category) { clauses.push('category = ?'); params.push(options.category); }
   if (options.entityId != null) { clauses.push('entity_id = ?'); params.push(String(options.entityId)); }
+  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+    clauses.push("event_type NOT IN ('evening_cancelled', 'evening_shortfall')");
+  }
   params.push(limit);
   const rows = await db.all<any>(`
     SELECT * FROM telegram_message_outbox

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../db/ensureWeeklyEveningAutomationSchema.ts';
+import { runEveningShortfallChecks } from '../server/services/eveningShortfallService.ts';
 import {
   ensureRollingFridayCalendar,
   reconcileWeeklyEveningAutomation,
@@ -25,6 +26,21 @@ afterEach(() => {
 });
 
 describe('weekly Friday evening automation', () => {
+  it('cannot alternate creation and shortfall cancellation of the same Friday', async () => {
+    const db = createDb();
+    const now = new Date('2026-08-28T16:10:00.000Z'); // Friday, 19:10 Moscow
+    await ensureRollingFridayCalendar(db, now);
+    const evening = await db.get<any>("SELECT id FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
+    expect(evening?.id).toBeTruthy();
+    await runEveningShortfallChecks(db, now.getTime(), async () => ({ success: true }));
+    expect(await db.get<any>('SELECT status FROM game_evenings WHERE id=?', [evening.id])).toMatchObject({ status: 'cancelled' });
+    for (let i = 0; i < 5; i += 1) {
+      const calendar = await ensureRollingFridayCalendar(db, now);
+      expect(calendar.created).not.toContain(evening.id);
+      await runEveningShortfallChecks(db, now.getTime(), async () => { throw new Error('unexpected recruitment'); });
+    }
+    expect(await db.get<any>("SELECT COUNT(*) AS count FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'")).toMatchObject({ count: 1 });
+  });
   it('keeps the next 35 days of Fridays published in the app without prematurely posting to Telegram', async () => {
     const db = createDb();
     const result = await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));

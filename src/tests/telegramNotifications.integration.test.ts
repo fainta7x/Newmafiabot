@@ -96,6 +96,43 @@ describe('durable Telegram notification outbox', () => {
     const row = await db.get<any>("SELECT * FROM telegram_message_outbox WHERE message_key='personal:event:stable'");
     expect(row?.status).toBe('sent');
   });
+
+  it('holds cancellation messages during emergency pause while other notifications can send', async () => {
+    const oldFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    try {
+      await enqueueTelegramMessage(db, { messageKey: 'cancel:e1', category: 'personal', eventType: 'evening_cancelled', chatId: '101', text: 'Отмена' });
+      await enqueueTelegramMessage(db, { messageKey: 'test:e1', category: 'organizer', eventType: 'test_notification', chatId: '202', text: 'Проверка' });
+      const calls: string[] = [];
+      const result = await drainTelegramMessageOutbox(db, { fetchImpl: (async (_url, init) => {
+        calls.push(String(JSON.parse(String(init?.body)).chat_id)); return successResponse();
+      }) as typeof fetch });
+      expect(result).toMatchObject({ processed: 1, sent: 1 });
+      expect(calls).toEqual(['202']);
+      expect(await db.get<any>("SELECT status FROM telegram_message_outbox WHERE message_key='cancel:e1'")).toMatchObject({ status: 'pending' });
+    } finally {
+      if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+      else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;
+    }
+  });
+
+  it('never retries a cancellation message after an uncertain Telegram response', async () => {
+    const oldFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true';
+    try {
+      await enqueueTelegramMessage(db, { messageKey: 'cancel:uncertain', category: 'personal', eventType: 'evening_cancelled', chatId: '101', text: 'Отмена' });
+      let attempts = 0;
+      const fetchImpl = (async () => { attempts += 1; return failureResponse(); }) as typeof fetch;
+      expect(await drainTelegramMessageOutbox(db, { fetchImpl })).toMatchObject({ processed: 1, failed: 1 });
+      expect(await drainTelegramMessageOutbox(db, { fetchImpl })).toMatchObject({ processed: 0 });
+      expect(attempts).toBe(1);
+      expect(await db.get<any>("SELECT status, retry_count FROM telegram_message_outbox WHERE message_key='cancel:uncertain'"))
+        .toMatchObject({ status: 'failed', retry_count: 6 });
+    } finally {
+      if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+      else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;
+    }
+  });
 });
 
 describe('personal and organizer Telegram notifications', () => {

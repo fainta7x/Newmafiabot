@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
@@ -8,7 +8,13 @@ import { loadClubOrder } from '../server/services/clubOrderService.ts';
 import { eveningMinimumPlayers, runEveningShortfallChecks } from '../server/services/eveningShortfallService.ts';
 
 const opened: DatabaseWrapper[] = [];
-afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
+const previousAutomationFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+beforeEach(() => { process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true'; });
+afterEach(() => {
+  if (previousAutomationFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+  else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = previousAutomationFlag;
+  while (opened.length) opened.pop()?.sqlite.close();
+});
 const HOUR = 3_600_000;
 
 async function setup(going: number, format = 'CASUAL') {
@@ -28,6 +34,14 @@ async function setup(going: number, format = 'CASUAL') {
 }
 
 describe('evening shortfall', () => {
+  it('does not auto-cancel or send recruitment calls during emergency pause', async () => {
+    const { db, start } = await setup(3);
+    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    let calls = 0;
+    expect(await runEveningShortfallChecks(db, start - 0.9 * HOUR, async () => { calls += 1; return { success: true }; })).toBe(0);
+    expect(calls).toBe(0);
+    expect(await db.get<any>("SELECT status FROM game_evenings WHERE id='ev'")).toMatchObject({ status: 'published' });
+  });
   it('knows the table minimum: 10 players, 8 on a novice evening', () => {
     expect(eveningMinimumPlayers('CASUAL')).toBe(10);
     expect(eveningMinimumPlayers('RATING')).toBe(10);

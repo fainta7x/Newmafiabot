@@ -123,7 +123,9 @@ export async function drainVkMessageOutbox(db: DatabaseWrapper, options: { limit
   await ensureVkPersonalMessageSchema(db);
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || 4)));
-  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND (next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now')) ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
+  const eveningPause = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true'
+    ? "AND event_type <> 'evening_cancelled'" : '';
+  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND (next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now')) ${eveningPause} ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
   let sent = 0, failed = 0;
   for (let offset = 0; offset < rows.length; offset += concurrency) {
     const results = await Promise.all(rows.slice(offset, offset + concurrency).map((row: any) => deliverOne(db, row, options.fetchImpl || fetch)));

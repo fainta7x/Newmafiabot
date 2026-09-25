@@ -206,7 +206,7 @@ export default function PlayerEventSlotDetail({
               {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-200/70">План сохранён</div>}
               {saveError ? (
                 <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
-                  {saveError.needsFirstApplication ? 'Записаться на игры можно после первой заявки: выбери путь «новичок» или «уже умею играть» в разделе «События». Организатор подтвердит уровень.' : saveError.message}
+                  {saveError.needsFirstApplication ? 'Сначала выбери путь в разделе «События»: новичок сможет записаться сразу, опытного игрока проверит организатор.' : saveError.message}
                   {saveError.needsFirstApplication ? <button type="button" onClick={onBack} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
                 </div>
               ) : null}

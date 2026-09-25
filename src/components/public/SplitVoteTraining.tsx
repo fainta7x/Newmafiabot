@@ -1,56 +1,116 @@
 import React, { useState } from 'react';
-import { SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, splitVoteGroups } from '../../lib/splitVoteTraining.ts';
+import { SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
+
+type TrainingMode = 'practice' | 'exam' | 'endless';
+type Session = { difficulty: SplitVoteDifficulty; mode: TrainingMode };
+type Result = 'passed' | 'failed' | 'completed' | null;
+
+const DIFFICULTIES = [
+  { value: 'basic', title: 'Обычный уровень', description: 'В попиле участвует №1.' },
+  { value: 'advanced', title: 'Сложный уровень', description: 'Попил между игроками без №1.' },
+] as const;
 
 export const SplitVoteTraining: React.FC = () => {
-  const [scenario, setScenario] = useState(() => generateSplitVoteScenario());
+  const [session, setSession] = useState<Session | null>(null);
+  const [scenario, setScenario] = useState<SplitVoteScenario | null>(null);
   const [choice, setChoice] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
   const [correct, setCorrect] = useState(0);
   const [attempts, setAttempts] = useState(0);
-  const answer = correctSplitVote(scenario);
-  const groups = splitVoteGroups(scenario.pair);
+  const [result, setResult] = useState<Result>(null);
+
+  const start = (next: Session) => {
+    setSession(next);
+    setScenario(generateSplitVoteScenario(undefined, Math.random, next.difficulty));
+    setChoice(null);
+    setChecked(false);
+    setCorrect(0);
+    setAttempts(0);
+    setResult(null);
+  };
 
   const next = () => {
-    setScenario(generateSplitVoteScenario(scenario));
+    if (!session || !scenario) return;
+    setScenario(generateSplitVoteScenario(scenario, Math.random, session.difficulty));
     setChoice(null);
     setChecked(false);
   };
+
+  const answer = scenario ? correctSplitVote(scenario) : null;
+  const groups = scenario ? splitVoteGroups(scenario.pair) : null;
+  const label = session?.difficulty === 'basic' ? 'Обычный уровень' : session?.difficulty === 'advanced' ? 'Сложный уровень' : 'Бесконечная тренировка';
 
   return (
     <div className="space-y-4" data-testid="split-vote-training">
       <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
         <h2 className="text-lg font-semibold">Попил: твой голос</h2>
-        <p className="mt-2 text-sm leading-6 text-white/70">Нулевой круг, за столом 10 игроков. Нужно поделить голоса поровну между двумя выставленными игроками: 5 и 5. Выбери, за кого голосуешь ты.</p>
-        <p className="mt-2 text-xs leading-5 text-white/50">Каждый раз меняются выставленные игроки, пара для попила и твоё место. Ответы здесь для тренировки: они не влияют на рейтинг или награды.</p>
+        <p className="mt-2 text-sm leading-6 text-white/70">Нулевой круг, за столом 10 игроков. Выбери, за кого тебе голосовать из выставленных кандидатур, чтобы попил получился 5:5.</p>
         <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
           <summary className="cursor-pointer font-semibold text-white">Правила попила на 10 игроков</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_VOTE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
         </details>
       </section>
 
-      <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
-        <p className="text-sm text-white/65">Из них делим <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
-        <p data-testid="split-vote-seat" className="text-sm text-white/65">Ты сидишь на месте <strong className="text-white">№{scenario.seat}</strong>.</p>
-        <h3 className="text-base font-semibold">За кого ты проголосуешь?</h3>
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Твой голос">
-          {scenario.candidates.map((candidate) => (
-            <button key={candidate} type="button" disabled={checked} aria-pressed={choice === candidate} onClick={() => setChoice(candidate)}
-              className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'} disabled:opacity-80`}>За №{candidate}</button>
+      {!session || !scenario ? (
+        <div className="space-y-3" data-testid="split-vote-modes">
+          {DIFFICULTIES.map((difficulty) => (
+            <section key={difficulty.value} className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
+              <h3 className="text-base font-semibold">{difficulty.title}</h3>
+              <p className="mt-1 text-sm text-white/60">{difficulty.description}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => start({ difficulty: difficulty.value, mode: 'practice' })} className="min-h-12 rounded-2xl border border-white/15 px-2 text-sm font-semibold">Практика · 5 вопросов</button>
+                <button type="button" onClick={() => start({ difficulty: difficulty.value, mode: 'exam' })} className="min-h-12 rounded-2xl bg-white px-2 text-sm font-semibold text-black">Экзамен · 5 без ошибок</button>
+              </div>
+            </section>
           ))}
+          <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
+            <h3 className="text-base font-semibold">Бесконечная тренировка</h3>
+            <p className="mt-1 text-sm text-white/60">Все варианты попила, без ограничения по числу вопросов.</p>
+            <button type="button" onClick={() => start({ difficulty: 'all', mode: 'endless' })} className="mt-3 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold">Начать тренировку</button>
+          </section>
+          <p className="px-1 text-xs leading-5 text-white/45">Практика позволяет ошибаться. Экзамен заканчивается после первой ошибки. Результаты не сохраняются и не влияют на награды или рейтинг.</p>
+          <a href="/player" className="block min-h-11 rounded-2xl px-3 py-3 text-center text-sm text-white/65">Вернуться в кабинет игрока</a>
         </div>
-        {!checked ? <button type="button" disabled={choice === null} onClick={() => { setChecked(true); setAttempts((value) => value + 1); if (choice === answer) setCorrect((value) => value + 1); }} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black disabled:opacity-40">Проверить голос</button> : null}
-        {checked ? (
-          <div role="status" className="space-y-2 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-            <p className="font-semibold text-white">{choice === answer ? 'Верно!' : `Сейчас правильный голос — за №${answer}.`}</p>
-            <p>В №{scenario.pair[0]} голосуют: {groups.first.map((seat) => `№${seat}`).join(', ')}.</p>
-            <p>В №{scenario.pair[1]} голосуют: {groups.second.map((seat) => `№${seat}`).join(', ')}.</p>
-            <p>Так получается 5:5. Остальные выставленные не получают голосов.</p>
+      ) : (
+        <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="split-vote-question">
+          <div className="flex items-center justify-between gap-2 text-xs text-white/50"><span>{label} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span><span>{session.mode === 'endless' ? `Задача ${attempts + (checked ? 0 : 1)}` : `Вопрос ${Math.min(attempts + (checked ? 0 : 1), 5)} из 5`}</span></div>
+          <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
+          <p className="text-sm text-white/65">Из них делим <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
+          <p data-testid="split-vote-seat" className="text-sm text-white/65">Ты сидишь на месте <strong className="text-white">№{scenario.seat}</strong>.</p>
+          <h3 className="text-base font-semibold">За кого ты проголосуешь?</h3>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Твой голос">
+            {scenario.candidates.map((candidate) => (
+              <button key={candidate} type="button" disabled={checked} aria-pressed={choice === candidate} onClick={() => setChoice(candidate)}
+                className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'} disabled:opacity-80`}>За №{candidate}</button>
+            ))}
           </div>
-        ) : null}
-        {checked ? <button type="button" onClick={next} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Следующая задача</button> : null}
-      </section>
-      {attempts > 0 ? <p className="text-center text-xs text-white/50">Правильных ответов: {correct} из {attempts} в этой сессии.</p> : null}
+          {!checked ? <button type="button" disabled={choice === null} onClick={() => {
+            if (choice === null) return;
+            const right = choice === answer;
+            setChecked(true);
+            setAttempts((value) => value + 1);
+            if (right) setCorrect((value) => value + 1);
+            if (session.mode === 'exam' && !right) setResult('failed');
+            else if (session.mode !== 'endless' && attempts + 1 === 5) setResult(session.mode === 'exam' ? 'passed' : 'completed');
+          }} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black disabled:opacity-40">Проверить голос</button> : null}
+          {checked && groups ? (
+            <div role="status" className="space-y-2 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
+              <p className="font-semibold text-white">{choice === answer ? 'Верно!' : `Правильный голос — за №${answer}.`}</p>
+              <p>В №{scenario.pair[0]} голосуют: {groups.first.map((seat) => `№${seat}`).join(', ')}.</p>
+              <p>В №{scenario.pair[1]} голосуют: {groups.second.map((seat) => `№${seat}`).join(', ')}.</p>
+              <p>Так получается 5:5. Остальные выставленные не получают голосов.</p>
+            </div>
+          ) : null}
+          {result ? <div data-testid="split-vote-result" className="rounded-2xl border border-white/15 bg-white/[.06] p-4 text-sm leading-6">
+            <strong className="block text-base">{result === 'passed' ? 'Экзамен сдан: 5 из 5' : result === 'failed' ? `Экзамен не сдан: ошибка в вопросе ${attempts}` : `Практика завершена: ${correct} из 5`}</strong>
+            {result === 'failed' ? <p className="mt-1 text-white/65">Для сдачи нужны пять правильных ответов подряд.</p> : null}
+          </div> : null}
+          {checked && !result ? <button type="button" onClick={next} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Следующая задача</button> : null}
+          {result ? <button type="button" onClick={() => start(session)} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Попробовать снова</button> : null}
+          <button type="button" onClick={() => setSession(null)} className="min-h-11 w-full rounded-2xl text-sm text-white/60">К выбору режима</button>
+          {session.mode === 'endless' && attempts > 0 ? <p className="text-center text-xs text-white/50">Правильных ответов: {correct} из {attempts}.</p> : null}
+        </section>
+      )}
     </div>
   );
 };

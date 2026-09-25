@@ -396,7 +396,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - which videos to link;
      - whether passing tests gives anything (tokens, an achievement, a level step towards «Клубный игрок»).
 14. Mini-games and in-app activities (user request 2026-09-24).
-   - A public zero-round split-vote practice in `/guide?tab=split` generates ten-seat questions with changing nominated players, split pair and learner seat. It checks where the learner votes and explains the 5:5 distribution. All pairs №1–10 follow the club-approved patterns; rescue after a broken split and harder multi-candidate tasks remain for later. It saves no progress and awards nothing.
+   - The player's home screen links to `/guide?tab=split`. The zero-round split-vote training offers basic (pair includes №1) and advanced (pair excludes №1) practice and exams: five randomly generated questions each; practice reports the score, an exam fails on the first wrong answer and passes only on 5/5. Endless training mixes all pairs. All modes choose only from nominated candidates, explain the 5:5 split and have no saved progress, access effects or rewards. Rescue after a broken split and harder multi-candidate tasks remain for later.
    - Target: activities inside the app between evenings to keep players interested.
    - Ideas to discuss:
      - daily quizzes on the rules;

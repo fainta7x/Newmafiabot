@@ -2,11 +2,39 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { SplitVoteTraining } from '../components/public/SplitVoteTraining.tsx';
-import { correctSplitVote, generateSplitVoteScenario, splitVoteGroups } from '../lib/splitVoteTraining.ts';
+import { correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups } from '../lib/splitVoteTraining.ts';
 
 afterEach(cleanup);
 
 describe('zero-round split-vote training', () => {
+  it('checks each nominated player, including nominees who receive no votes', () => {
+    const scenario = { candidates: [3, 4, 1], pair: [1, 3] as [number, number], seat: 6 };
+    const expected = splitVoteAssignments(scenario);
+    expect(expected[4]).toEqual([]);
+    expect(expected[1]).toEqual([2, 3, 4, 5, 6]);
+    expect(expected[3]).toEqual([1, 7, 8, 9, 10]);
+    expect(isCorrectSplitVoteAssignment(scenario, expected)).toBe(true);
+    expect(isCorrectSplitVoteAssignment(scenario, { ...expected, 4: [7], 3: [1, 8, 9, 10] })).toBe(false);
+  });
+
+  it('keeps cards unavailable after assignment, allows backtracking and fails an exam at the final check', () => {
+    render(<SplitVoteTraining />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[2]);
+    const first = screen.getByRole('button', { name: '№1' });
+    fireEvent.click(first);
+    fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    expect(screen.queryByRole('button', { name: '№1' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Вернуться к предыдущему' }));
+    expect(screen.getByRole('button', { name: '№1' })).toHaveProperty('disabled', false);
+    fireEvent.click(screen.getByRole('button', { name: '№1' }));
+    const nominees = screen.getByTestId('split-vote-nominees').textContent!.match(/№\d+/g)!;
+    for (let index = 0; index < nominees.length; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Пропустить' }));
+    }
+    expect(screen.queryByTestId('split-vote-result')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));
+    expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен не сдан: ошибка в вопросе 1');
+  });
   it('uses the club examples and has exactly five voters on each side', () => {
     const cases: Array<{ pair: [number, number]; first: number[]; seat: number; vote: number }> = [
       { pair: [1, 4], first: [2, 3, 4, 5, 6], seat: 6, vote: 1 },

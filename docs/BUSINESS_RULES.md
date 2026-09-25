@@ -566,3 +566,6 @@ When a requested change touches any rule above:
 3. avoid unrelated cleanup in the same change;
 4. run the full CI before merge;
 5. update this file if the approved rule itself changed.
+# Split-vote training interaction
+
+In the whole-table level, nominees are processed in their randomized nomination order. Each seat card may be assigned to one nominee only; skipping assigns no votes. The player can revise earlier steps before submitting the complete distribution. A question is correct only if all ten seats are assigned to the two split candidates according to the approved zero-round rules and every other nominee receives no votes. Practice comprises five questions, and the five-question exam fails on the first incorrect complete distribution. Endless practice has no question limit.

@@ -198,8 +198,8 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
       <div className="mx-auto max-w-md space-y-4">
         <header className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
-          <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />{tab === 'split' ? 'Тренировка попила' : 'Правила и словарь'}</h1>
-          <p className="mt-2 text-[14px] leading-6 text-white/55">{tab === 'split' ? 'Выбери правильный голос и проверь себя.' : 'Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.'}</p>
+          <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />{tab === 'split' ? 'Как голосовать при попиле' : 'Правила и словарь'}</h1>
+          <p className="mt-2 text-[14px] leading-6 text-white/55">{tab === 'split' ? 'Разбери правила и проверь себя на игровых задачах.' : 'Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.'}</p>
         </header>
 
         {/* Sticks below Telegram's top safe area (header, device cutout). */}

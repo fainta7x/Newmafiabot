@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../db/ensureWeeklyEveningAutomationSchema.ts';
 import {
@@ -8,6 +8,8 @@ import {
 } from '../server/services/weeklyEveningAutomationService.ts';
 
 const openDatabases: DatabaseWrapper[] = [];
+const previousAutomationFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+beforeEach(() => { process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true'; });
 const createDb = () => {
   const db = createDatabaseConnection(':memory:');
   openDatabases.push(db);
@@ -15,6 +17,8 @@ const createDb = () => {
 };
 
 afterEach(() => {
+  if (previousAutomationFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+  else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = previousAutomationFlag;
   while (openDatabases.length) {
     try { openDatabases.pop()?.sqlite.close(); } catch { /* already closed */ }
   }
@@ -93,7 +97,7 @@ describe('weekly Friday evening automation', () => {
     expect(run?.completed_at).toBeTruthy();
   });
 
-  it('retries a completed weekly run when the Telegram channel publication is still missing', async () => {
+  it('does not repeat a completed weekly run when the Telegram publication record is missing', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
     await ensureWeeklyEveningAutomationSchema(db);
@@ -130,8 +134,8 @@ describe('weekly Friday evening automation', () => {
       },
     });
 
-    expect(channelCalls).toBe(1);
-    expect(result).toMatchObject([{ evening_id: target.id, status: 'done' }]);
+    expect(channelCalls).toBe(0);
+    expect(result).toMatchObject([{ evening_id: target.id, status: 'skipped' }]);
   });
 
   it('does not mark the weekly run done when Telegram delivery fails', async () => {
@@ -155,5 +159,29 @@ describe('weekly Friday evening automation', () => {
     const run = await db.get<any>('SELECT status, last_error FROM club_weekly_automation_runs LIMIT 1');
     expect(run?.status).toBe('error');
     expect(run?.last_error).toContain('Telegram delivery failed');
+    const second = await runDueWeeklyAnnouncements(db, { now, baseUrl: 'https://example.test', delivery: {
+      enqueueTelegramChannel: async () => { throw new Error('unexpected resend'); },
+      enqueueTelegramDm: async () => {}, drainTelegram: async () => ({ failed: 0 }), syncVk: async () => ({}),
+    } });
+    expect(second[0]?.status).toBe('skipped');
+  });
+
+  it('never replaces a cancelled Friday on later calendar refreshes', async () => {
+    const db = createDb();
+    const now = new Date('2026-08-22T10:00:00.000Z');
+    await ensureRollingFridayCalendar(db, now);
+    await db.run("UPDATE game_evenings SET status='cancelled' WHERE substr(starts_at,1,10)='2026-08-28'");
+    await ensureRollingFridayCalendar(db, now);
+    await ensureRollingFridayCalendar(db, now);
+    const rows = await db.all<any>("SELECT status FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
+    expect(rows).toEqual([{ status: 'cancelled' }]);
+  });
+
+  it('pauses calendar creation and all announcement delivery by default', async () => {
+    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    const db = createDb();
+    const result = await reconcileWeeklyEveningAutomation(db, { now: new Date('2026-08-24T16:01:00.000Z') });
+    expect(result.paused).toBe(true);
+    expect(await db.get<any>('SELECT COUNT(*) AS count FROM game_evenings')).toMatchObject({ count: 0 });
   });
 });

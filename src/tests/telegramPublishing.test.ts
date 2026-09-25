@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 import {
@@ -15,8 +15,12 @@ import {
 } from '../server/services/telegramSyncOutboxService.ts';
 
 let db: DatabaseWrapper | null = null;
+const previousAutomationFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+beforeEach(() => { process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true'; });
 
 afterEach(() => {
+  if (previousAutomationFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+  else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = previousAutomationFlag;
   try { db?.sqlite.close(); } catch {}
   db = null;
 });
@@ -58,6 +62,17 @@ async function insertTournament(target: DatabaseWrapper, id: string, status = 'd
 }
 
 describe('Telegram publishing destinations', () => {
+  it('keeps queued jobs untouched while emergency publishing is paused', async () => {
+    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    await enqueueTelegramTournamentSync(db, 'pending-tournament');
+    const before = await db.get<any>('SELECT COUNT(*) AS count FROM telegram_sync_outbox');
+    const result = await drainTelegramSyncOutbox(db, { deliver: async () => { throw new Error('unexpected send'); } });
+    const after = await db.get<any>('SELECT COUNT(*) AS count FROM telegram_sync_outbox');
+    expect(result).toMatchObject({ skipped: true, processed: 0 });
+    expect(after?.count).toBe(before?.count);
+  });
   it('seeds all Telegram destinations and bootstraps only the legacy club route by default', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);

@@ -17,7 +17,6 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HORIZON_DAYS = 35;
-const STALE_RUN_MS = 30 * 60 * 1000;
 const WORKER_INTERVAL_MS = 30 * 60 * 1000;
 const workerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
 
@@ -70,8 +69,7 @@ const titleForFriday = (date: Date) => `Игровой вечер — ${date.get
 const findEveningForCivilDate = (db: DatabaseWrapper, key: string) => db.get<any>(
   `SELECT * FROM game_evenings
     WHERE substr(starts_at, 1, 10) = ?
-      AND status != 'cancelled'
-    ORDER BY created_at ASC
+    ORDER BY CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END, created_at ASC
     LIMIT 1`,
   [key],
 );
@@ -80,6 +78,8 @@ async function createPublishedFridayEvening(db: DatabaseWrapper, date: Date) {
   const key = dateKey(date);
   const existing = await findEveningForCivilDate(db, key);
   if (existing) {
+    // A cancellation reserves this civil date: never create a replacement automatically.
+    if (String(existing.status) === 'cancelled') return { evening: null, created: false };
     if (String(existing.status) === 'draft') {
       const updatedAt = new Date().toISOString();
       await db.transaction(async (tx) => {
@@ -145,6 +145,7 @@ export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date
     const date = addCivilDays(start, offset);
     if (date.getUTCDay() !== 5) continue;
     const result = await createPublishedFridayEvening(db, date);
+    if (!result.evening) continue;
     const eveningId = String(result.evening.id);
     await ensureEveningCloseoutTask(db, eveningId);
     (result.created ? created : existing).push(eveningId);
@@ -159,25 +160,15 @@ async function acquireRun(
   eveningId: string,
   dueAt: string,
   now: Date,
-  retryCompleted = false,
 ) {
   const nowIso = now.toISOString();
-  const staleBefore = new Date(now.getTime() - STALE_RUN_MS).toISOString();
   const result = await db.run(`
     INSERT INTO club_weekly_automation_runs (
       automation_key, evening_id, kind, status, first_due_at, completed_at,
       last_error, created_at, updated_at
     ) VALUES (?, ?, 'weekly_announcement', 'running', ?, NULL, NULL, ?, ?)
-    ON CONFLICT(automation_key) DO UPDATE SET
-      status='running', last_error=NULL, updated_at=excluded.updated_at
-    WHERE (club_weekly_automation_runs.status != 'done' OR ? = 1)
-      AND (
-        ? = 1
-        OR
-        club_weekly_automation_runs.status != 'running'
-        OR club_weekly_automation_runs.updated_at < ?
-      )
-  `, [key, eveningId, dueAt, nowIso, nowIso, retryCompleted ? 1 : 0, retryCompleted ? 1 : 0, staleBefore]);
+    ON CONFLICT(automation_key) DO NOTHING
+  `, [key, eveningId, dueAt, nowIso, nowIso]);
   return result.changes > 0;
 }
 
@@ -251,14 +242,12 @@ export async function runDueWeeklyAnnouncements(
 
     const key = `weekly-announcement:${String(evening.id)}`;
     const channelBefore = await telegramChannelPublicationState(db, evening);
-    const retryMissingTelegram = channelBefore.ready && !channelBefore.published;
     const acquired = await acquireRun(
       db,
       key,
       String(evening.id),
       new Date(dueMs).toISOString(),
       now,
-      retryMissingTelegram,
     );
     if (!acquired) {
       results.push({ evening_id: String(evening.id), status: 'skipped' });
@@ -294,6 +283,10 @@ export async function reconcileWeeklyEveningAutomation(
   db: DatabaseWrapper,
   options: { now?: Date; baseUrl?: string; delivery?: Partial<DeliveryAdapters> } = {},
 ) {
+  // Emergency opt-in: no background or heartbeat publishing until explicitly enabled.
+  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+    return { success: true, paused: true, calendar: null, announcements: [] as Awaited<ReturnType<typeof runDueWeeklyAnnouncements>> };
+  }
   const now = options.now || new Date();
   const calendar = await ensureRollingFridayCalendar(db, now);
   const announcements = await runDueWeeklyAnnouncements(db, { ...options, now });

@@ -14,7 +14,7 @@ test('split-vote exercise fits a Telegram-sized screen and explains the choice',
   await page.screenshot({ path: testInfo.outputPath('split-vote-choice.png') });
   await page.getByRole('button', { name: /^За №/ }).first().click();
   await page.getByRole('button', { name: 'Проверить ответ' }).click();
-  await expect(page.getByRole('status')).toContainText('5:5');
+  await expect(page.getByRole('status')).toContainText('по 5 голосов');
   await page.getByRole('button', { name: 'Следующая задача' }).click();
   await expect(page.getByRole('button', { name: 'Проверить ответ' })).toBeDisabled();
 });

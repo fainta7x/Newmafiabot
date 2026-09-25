@@ -3,6 +3,30 @@ import type { NoviceApplicationStatus, NoviceEntryRoute } from '../../shared/nov
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { NOVICE_FREE_VISITS } from './eveningSlotPlanningService.ts';
+import { setParticipantResponse } from './eveningParticipantState.ts';
+import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
+import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
+
+async function syncSelectedEvening(db: DatabaseWrapper, eveningId: string) {
+  await enqueueTelegramEveningSync(db, eveningId).catch((error) => console.warn('[NOVICE] Telegram evening sync failed:', error));
+  kickVkLiveEveningSync(db);
+}
+
+/** A selected evening becomes an actual «Иду», not an indefinite application-only hold. */
+async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string, playerId: string) {
+  const evening = await db.get<any>("SELECT id, status, settled_at FROM game_evenings WHERE id = ?", [eveningId]);
+  if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) return false;
+  const stamp = now();
+  await db.run(`INSERT OR IGNORE INTO evening_participants
+    (id, evening_id, player_id, response_status, registration_status, attendance_status, arrival_status,
+     payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+    VALUES (?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', 'waived', 0, 0, ?, ?, ?)`,
+    [id(), eveningId, playerId, stamp, stamp, stamp]);
+  const participant = await db.get<any>('SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?', [eveningId, playerId]);
+  if (!participant || String(participant.attendance_status) !== 'pending') return false;
+  await setParticipantResponse(db, String(participant.id), 'going');
+  return true;
+}
 
 export const NOVICE_APPLICATION_STATUSES = {
   NEW: 'NEW',
@@ -16,6 +40,14 @@ export const NOVICE_APPLICATION_STATUSES = {
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 
+async function completeFirstRouteTask(db: DatabaseWrapper, playerId: string, stamp: string) {
+  const table = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name='organizer_tasks'");
+  if (!table) return;
+  await db.run(`UPDATE organizer_tasks SET status='done', completed_at=?, updated_at=?
+    WHERE automation_key=? AND status NOT IN ('done','cancelled')`,
+  [stamp, stamp, `verified-onboarding:new-player:${playerId}`]);
+}
+
 async function getEveningReservationInfo(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const settings = await db.get<any>(
     'SELECT ready_players_per_slot FROM evening_slot_settings WHERE evening_id = ? LIMIT 1',
@@ -25,22 +57,20 @@ async function getEveningReservationInfo(db: DatabaseWrapper, eveningId: string,
   const reserved = await db.get<any>(
     `SELECT COUNT(*) AS reserved_count FROM (
        SELECT DISTINCT ep.player_id
-         FROM evening_slot_registrations r
-         JOIN evening_game_slots s ON s.id = r.slot_id
-         JOIN evening_participants ep ON ep.id = r.participant_id
-        WHERE s.evening_id = ? AND ep.player_id IS NOT NULL
+         FROM evening_participants ep
+        WHERE ep.evening_id = ? AND ep.player_id IS NOT NULL AND ep.response_status IN ('going', 'late')
        UNION
        SELECT DISTINCT na.player_id
          FROM novice_applications na
         WHERE na.evening_id = ? AND na.player_id IS NOT NULL
-          AND na.status IN ('NEW', 'CONFIRMED')
+          AND na.status = 'NEW'
      ) reserved_players`,
     [eveningId, eveningId],
   );
   const playerReservation = playerId
     ? await db.get<any>(
         `SELECT id, status FROM novice_applications
-          WHERE evening_id = ? AND player_id = ? AND status IN ('NEW', 'CONFIRMED')
+          WHERE evening_id = ? AND player_id = ? AND status = 'NEW'
           ORDER BY datetime(created_at) DESC LIMIT 1`,
         [eveningId, playerId],
       )
@@ -67,7 +97,7 @@ export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string
   if (!player) return null;
   const applications = await db.all<any>(
     `SELECT na.*, e.title AS evening_title, e.starts_at AS evening_starts_at,
-              CASE WHEN na.evening_id IS NOT NULL AND na.status IN ('NEW', 'CONFIRMED') THEN 'reserved' ELSE NULL END AS reservation_status
+              CASE WHEN na.evening_id IS NOT NULL AND na.status = 'NEW' THEN 'reserved' ELSE NULL END AS reservation_status
        FROM novice_applications na
        LEFT JOIN game_evenings e ON e.id = na.evening_id
       WHERE na.player_id = ?
@@ -107,14 +137,27 @@ export async function createNoviceApplication(
   let result: { id: string; created: boolean; reservation?: Awaited<ReturnType<typeof getEveningReservationInfo>> };
 
   await db.transaction(async (tx) => {
+    const player = await tx.get<any>("SELECT club_stage, game_level FROM players WHERE id = ?", [input.playerId]);
+    if (!player) throw Object.assign(new Error('Игрок не найден'), { statusCode: 404 });
+    if (entryRoute === 'NOVICE' && !['NEW', 'NOVICE_ACTIVE'].includes(String(player.club_stage || 'NEW')))
+      throw Object.assign(new Error('Маршрут игрока уже определён'), { statusCode: 409, code: 'route_already_set' });
+    const otherRoute = await tx.get<any>("SELECT id FROM novice_applications WHERE player_id = ? AND entry_route <> ? AND status NOT IN ('CANCELLED','CONVERTED') LIMIT 1", [input.playerId, entryRoute]);
+    if (otherRoute) throw Object.assign(new Error('Другая первая заявка уже подана'), { statusCode: 409, code: 'route_already_set' });
     const existing = await tx.get<any>(
-      `SELECT id, status FROM novice_applications
-        WHERE player_id = ? AND COALESCE(evening_id, '') = COALESCE(?, '')
+      `SELECT id, status, evening_id FROM novice_applications
+        WHERE player_id = ? AND (? = 'NOVICE' OR COALESCE(evening_id, '') = COALESCE(?, ''))
+          AND entry_route = ?
           AND status NOT IN ('CANCELLED', 'CONVERTED')
         ORDER BY datetime(created_at) DESC LIMIT 1`,
-      [input.playerId, input.eveningId ?? null],
+      [input.playerId, entryRoute, input.eveningId ?? null, entryRoute],
     );
     if (existing) {
+      if (entryRoute === 'NOVICE' && existing.status === 'NEW') {
+        await tx.run("UPDATE novice_applications SET status = 'CONFIRMED', evening_id = ?, decided_at = ?, updated_at = ? WHERE id = ?", [input.eveningId ?? null, timestamp, timestamp, existing.id]);
+        await tx.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = CASE WHEN COALESCE(game_level, 'unrated') = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?", [input.playerId]);
+        await completeFirstRouteTask(tx, input.playerId, timestamp);
+        if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId);
+      }
       result = {
         id: String(existing.id),
         created: false,
@@ -137,18 +180,25 @@ export async function createNoviceApplication(
     await tx.run(
       `INSERT INTO novice_applications
         (id, player_id, evening_id, source, entry_route, status, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'NEW', ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         applicationId,
         input.playerId,
         input.eveningId ?? null,
         String(input.source || 'ORGANIZER').toUpperCase(),
         entryRoute,
+        entryRoute === 'NOVICE' ? 'CONFIRMED' : 'NEW',
         input.notes ?? null,
         timestamp,
         timestamp,
       ],
     );
+    if (entryRoute === 'NOVICE') {
+      await tx.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = CASE WHEN COALESCE(game_level, 'unrated') = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?", [input.playerId]);
+      await completeFirstRouteTask(tx, input.playerId, timestamp);
+      await tx.run('UPDATE novice_applications SET decided_at = ? WHERE id = ?', [timestamp, applicationId]);
+      if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId);
+    }
     result = {
       id: applicationId,
       created: true,
@@ -157,7 +207,8 @@ export async function createNoviceApplication(
     };
   });
 
-  if (input.notifyOrganizer === false) return result!;
+  if (entryRoute === 'NOVICE' && input.eveningId) await syncSelectedEvening(db, input.eveningId);
+  if (input.notifyOrganizer === false || entryRoute === 'NOVICE') return result!;
   const player = await db.get<any>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [input.playerId]);
   const evening = input.eveningId
     ? await db.get<any>('SELECT title, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [input.eveningId])
@@ -169,7 +220,7 @@ export async function createNoviceApplication(
     messageKey: `novice-application:${applicationId}`,
     eventType: 'novice_application_created',
     entityId: applicationId,
-    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
+    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · уже умеет играть${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
   });
   return result!;
 }
@@ -195,6 +246,8 @@ export async function updateNoviceApplicationStatus(
       `UPDATE players SET club_stage = ?, game_level = CASE WHEN ? = 'NOVICE' AND game_level = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?`,
       [route === 'NOVICE' ? 'NOVICE_ACTIVE' : 'CLUB_PLAYER', route, application.player_id],
     );
+    if (application.evening_id && await registerForSelectedEvening(db, String(application.evening_id), String(application.player_id)))
+      await syncSelectedEvening(db, String(application.evening_id));
   }
   if (application.player_id && ['CONFIRMED', 'CANCELLED'].includes(status)) {
     // The organizer has decided on the newcomer, so the registration follow-up is done.

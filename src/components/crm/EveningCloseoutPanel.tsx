@@ -19,7 +19,7 @@ type Player = { id: string; nickname: string };
 type WalkInCandidate = Player & { participant?: Participant };
 
 type CloseoutState = {
-  evening: { id: string; title: string; starts_at: string; status: string; settled_at?: string | null };
+  evening: { id: string; title: string; starts_at: string; format: string; status: string; settled_at?: string | null };
   participants: Participant[];
   pending_expected: Participant[];
   attended: Participant[];
@@ -175,8 +175,20 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
     finally { setBusyAction(null); }
   };
 
+  const cancelShortfall = async () => {
+    if (!state || busyAction || !window.confirm('Отменить вечер из-за недобора? Всем записавшимся придёт сообщение об отмене.')) return;
+    setBusyAction('cancel'); setError(null);
+    try {
+      await request(`/api/evenings/${encodeURIComponent(eveningId)}/closeout/cancel-shortfall`, { method: 'POST' });
+      onSettled?.();
+      await load(true);
+    } catch (err: any) { setError(err?.message || 'Не удалось отменить вечер'); }
+    finally { setBusyAction(null); }
+  };
+
   if (busyAction === 'load' && !state) return null;
   if (!state) return null;
+  if (state.evening.status === 'cancelled') return <section className="rounded-[16px] border border-border-soft bg-surface-1 p-4 text-[14px] text-text-primary">Вечер отменён.</section>;
   // Before the evening there is nothing to close; say so instead of an empty tab.
   if (isFuture) return <section className="rounded-[16px] border border-border-soft bg-surface-1 p-4 text-[13px] leading-5 text-text-secondary" data-testid="evening-closeout-future">Закрытие откроется, когда вечер начнётся: здесь сверим явку, оплаты и долги и закроем вечер.</section>;
 
@@ -197,6 +209,8 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
   const attendanceReady = state.pending_expected.length === 0;
   const gamesReady = !state.games.needs_override || allowMissingStats;
   const closeDisabled = Boolean(busyAction) || busyIds.size > 0 || !attendanceReady || !gamesReady;
+  const minimum = state.evening.format === 'NOVICE' ? 8 : 10;
+  const canCancelShortfall = state.evening.format !== 'TOURNAMENT' && state.games.total === 0 && state.attended.length < minimum;
   const blockerReason = state.pending_expected.length
     ? `Нельзя закрыть: не отмечена явка у ${state.pending_expected.length} ожидаемых игроков.`
     : state.games.needs_override && !allowMissingStats
@@ -243,6 +257,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
     {message ? <p className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[13px] text-success">{message}</p> : null}
 
     <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+76px)] z-20 mt-3 rounded-[16px] border border-border-soft bg-[#111217]/95 p-2.5 shadow-[0_-12px_36px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:bottom-3" data-testid="evening-closeout-action">
+      {canCancelShortfall ? <button type="button" disabled={Boolean(busyAction)} onClick={() => void cancelShortfall()} className="mb-2 min-h-12 w-full rounded-[13px] border border-warning/50 px-3 text-[14px] font-bold text-warning disabled:opacity-35">Отменить из-за недобора</button> : null}
       {blockerReason ? <div className="mb-2 flex items-start gap-1.5 px-1 text-[12px] leading-4 text-warning"><XCircle className="mt-0.5 h-4 w-4 shrink-0" /> {blockerReason}</div> : null}
       <button type="button" disabled={closeDisabled} onClick={() => void settle()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[13px] bg-accent px-3 text-[14px] font-bold text-white disabled:opacity-35"><CheckCircle2 className="h-4 w-4" /> {busyAction === 'settle' ? 'Закрываем…' : 'Закрыть вечер'}</button>
     </div>

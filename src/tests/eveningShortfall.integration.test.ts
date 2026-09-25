@@ -34,7 +34,7 @@ describe('evening shortfall', () => {
     expect(eveningMinimumPlayers('NOVICE')).toBe(8);
   });
 
-  it('calls people in the group once at 3 hours and asks the organizer to cancel at 1 hour', async () => {
+  it('calls people in the group once at 3 hours and cancels automatically at 1 hour', async () => {
     const { db, start } = await setup(6);
     const calls: string[] = [];
     const recruit = async (id: string) => { calls.push(id); return { success: true }; };
@@ -47,9 +47,9 @@ describe('evening shortfall', () => {
     expect((await loadClubOrder(db, start - 2 * HOUR)).items.map((item) => item.id)).not.toContain('shortfall:ev');
 
     await runEveningShortfallChecks(db, start - 0.9 * HOUR, recruit);
-    expect(await db.get<any>("SELECT cancel_prompt_at FROM evening_shortfall_actions WHERE evening_id = 'ev'")).toMatchObject({ cancel_prompt_at: expect.any(String) });
+    expect(await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).toMatchObject({ status: 'cancelled' });
     const order = await loadClubOrder(db, start - 0.9 * HOUR);
-    expect(order.items.find((item) => item.id === 'shortfall:ev')).toMatchObject({ action: { type: 'cancel_evening', evening_id: 'ev' }, action_label: 'Отменить вечер' });
+    expect(order.items.map((item) => item.id)).not.toContain('shortfall:ev');
   });
 
   it('retries the group call when the bot was unavailable, and leaves a full evening alone', async () => {
@@ -72,6 +72,32 @@ describe('evening shortfall', () => {
     const notices = await db.all<any>("SELECT player_id, text FROM personal_notification_deliveries WHERE event_type = 'evening_cancelled' ORDER BY player_id");
     expect(notices.map((row) => row.player_id)).toEqual(['p0', 'p1', 'p2']);
     expect(notices[0].text).toContain('отменён: не набралось игроков');
+  });
+
+  it('lets the organizer cancel an old short evening from closeout, without closing it as played', async () => {
+    const { db, app } = await setup(3);
+    await db.run("UPDATE game_evenings SET starts_at = '2026-09-18T20:00:00+03:00' WHERE id = 'ev'");
+    const result = await request(app).post('/api/evenings/ev/closeout/cancel-shortfall')
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`).send({});
+    expect(result.status).toBe(200);
+    expect((await db.get<any>("SELECT status, settled_at FROM game_evenings WHERE id = 'ev'"))).toMatchObject({ status: 'cancelled', settled_at: null });
+    expect((await db.all<any>("SELECT player_id FROM personal_notification_deliveries WHERE event_type = 'evening_cancelled'")).length).toBe(3);
+  });
+
+  it('never auto-cancels an evening with a full table', async () => {
+    const { db, start } = await setup(10);
+    await runEveningShortfallChecks(db, start - 0.9 * HOUR, async () => ({ success: true }));
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('published');
+  });
+
+  it('waits for attendance to be checked, then cancels when too few came', async () => {
+    const { db, start } = await setup(10);
+    await runEveningShortfallChecks(db, start + HOUR, async () => ({ success: true }));
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('published');
+    await db.run("UPDATE evening_participants SET attendance_status = 'no_show' WHERE evening_id = 'ev'");
+    await db.run("UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = 'ev' AND player_id IN ('p0','p1','p2')");
+    await runEveningShortfallChecks(db, start + HOUR, async () => ({ success: true }));
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
   });
 
   it('counts recorded guests, and sends no call for a full table even when slot targets are larger', async () => {

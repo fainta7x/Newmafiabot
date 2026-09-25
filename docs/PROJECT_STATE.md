@@ -66,6 +66,8 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 ### Player application
 
+The public split-vote trainer linked from Player Cabinet includes basic and advanced personal-vote questions and an interactive whole-table level. In the interactive level the player processes nominees in nomination order, assigns each of the ten seat cards once or skips a nominee, reviews the distribution, and receives one final check. Practice and exam each run for five questions; the exam ends on the first incorrect full distribution. The level also offers endless practice. Results are session-only. Deployment of changes must be verified separately.
+
 Implemented and connected:
 
 - first-visit routing for actual Mafia novices versus experienced visitors: novices can choose their path and book a novice evening immediately; experienced visitors require organizer approval before self-registration;

@@ -56,9 +56,15 @@ describe('zero-round split-vote training', () => {
       for (let index = 0; index < 30; index += 1) {
         const next = generateSplitVoteScenario(previous, () => (index % 4) / 4, difficulty);
         expect(next.pair[0] === 1).toBe(difficulty === 'basic');
+        if (difficulty === 'basic') expect(next.candidates.length).toBeGreaterThanOrEqual(2);
+        if (difficulty === 'basic') expect(next.candidates.length).toBeLessThanOrEqual(4);
+        expect(next.candidates.length).not.toBe(previous.candidates.length);
         expect(next.pair).not.toEqual(previous.pair);
         previous = next;
       }
+    }
+    for (let index = 0; index < 3; index += 1) {
+      expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 3, 'basic').candidates).toHaveLength(index + 2);
     }
   });
 

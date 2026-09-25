@@ -38,7 +38,8 @@ export const correctSplitVote = (scenario: SplitVoteScenario): number => {
 };
 
 export const generateSplitVoteScenario = (previous?: SplitVoteScenario, random: () => number = Math.random, difficulty: SplitVoteDifficulty = 'all'): SplitVoteScenario => {
-  const count = pick(SEATS.slice(1).filter((value) => value !== previous?.candidates.length), random);
+  const counts = difficulty === 'basic' ? [2, 3, 4] : SEATS.slice(1);
+  const count = pick(counts.filter((value) => value !== previous?.candidates.length), random);
   const pairs = PAIRS.filter(([first]) => difficulty === 'all' || (difficulty === 'basic' ? first === 1 : first !== 1));
   const pair = pick(pairs.filter(([a, b]) => a !== previous?.pair[0] || b !== previous?.pair[1]), random);
   const seat = pick(SEATS.filter((value) => value !== previous?.seat), random);

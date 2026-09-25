@@ -40,3 +40,13 @@ test('whole-table voting uses nomination order on a phone', async ({ page }, tes
   await page.getByRole('button', { name: 'Проверить голосование' }).click();
   await expect(page.getByRole('status')).toContainText('Распределение голосов неверное');
 });
+
+test('passed exam is clearly marked on a phone', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['basic'] } }));
+  await page.goto('/e2e/split-vote.html');
+  const level = page.getByTestId('split-vote-level-basic');
+  await expect(level.getByTestId('split-vote-passed-basic')).toContainText('Экзамен сдан');
+  await expect(level.getByRole('button', { name: 'Пройти ещё раз' })).toBeVisible();
+  await level.screenshot({ path: testInfo.outputPath('split-vote-passed-390.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});

@@ -7,13 +7,13 @@ import { correctSplitVote, generateSplitVoteScenario, splitVoteGroups } from '..
 afterEach(cleanup);
 
 describe('zero-round split-vote training', () => {
-  it('uses the four club examples and has exactly five voters on each side', () => {
+  it('uses the club examples and has exactly five voters on each side', () => {
     const cases: Array<{ pair: [number, number]; first: number[]; seat: number; vote: number }> = [
       { pair: [1, 4], first: [2, 3, 4, 5, 6], seat: 6, vote: 1 },
       { pair: [1, 8], first: [6, 7, 8, 9, 10], seat: 4, vote: 8 },
       { pair: [3, 8], first: [6, 7, 8, 9, 10], seat: 9, vote: 3 },
-      { pair: [3, 5], first: [5, 6, 7, 8, 9], seat: 6, vote: 3 },
-      { pair: [7, 9], first: [1, 2, 3, 9, 10], seat: 10, vote: 7 },
+      { pair: [3, 5], first: [4, 5, 6, 7, 8], seat: 6, vote: 3 },
+      { pair: [7, 9], first: [1, 2, 8, 9, 10], seat: 10, vote: 7 },
     ];
     for (const { pair, first, seat, vote } of cases) {
       const groups = splitVoteGroups(pair);
@@ -37,8 +37,19 @@ describe('zero-round split-vote training', () => {
     }
     for (let first = 1; first <= 10; first += 1) {
       for (let second = first + 1; second <= 10; second += 1) {
-        expect(splitVoteGroups([first, second]).first).toHaveLength(5);
+        const expected = first === 1 && second <= 5 ? [2, 3, 4, 5, 6]
+          : first <= 5 && second >= 6 ? [6, 7, 8, 9, 10]
+            : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((seat) => [1, 2, 3, 4, 5].some((step) => (first + step - 1) % 10 + 1 === seat));
+        const groups = splitVoteGroups([first, second]);
+        expect(groups.first).toEqual(expected);
+        expect(groups.second).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((seat) => !expected.includes(seat)));
+        for (let seat = 1; seat <= 10; seat += 1) {
+          expect(correctSplitVote({ pair: [first, second], candidates: [first, second], seat })).toBe(expected.includes(seat) ? first : second);
+        }
       }
+    }
+    for (let index = 0; index < 9; index += 1) {
+      expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 9).candidates).toHaveLength(index + 2);
     }
   });
 
@@ -47,11 +58,15 @@ describe('zero-round split-vote training', () => {
     const initial = screen.getByTestId('split-vote-training');
     expect(initial.textContent).toContain('Ты сидишь на месте');
     const choices = screen.getAllByRole('button', { name: /^За №/ });
-    expect(choices.length).toBeGreaterThanOrEqual(2);
+    const nominees = screen.getByTestId('split-vote-nominees').textContent?.match(/№\d+/g);
+    expect(choices.map((choice) => choice.textContent?.replace('За ', ''))).toEqual(nominees);
+    const previousSeat = screen.getByTestId('split-vote-seat').textContent;
     fireEvent.click(choices[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Проверить голос' }));
     expect(screen.getByRole('status').textContent).toContain('5:5');
     fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
     expect(screen.getByRole('button', { name: 'Проверить голос' })).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('split-vote-seat').textContent).not.toBe(previousSeat);
+    expect(screen.getAllByRole('button', { name: /^За №/ })).not.toHaveLength(choices.length);
   });
 });

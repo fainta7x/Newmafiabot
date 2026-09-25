@@ -249,7 +249,7 @@ export default function PlayerEventsCalendar({
 
   const pendingApplication = noviceState?.applications.find((application) => application.status === 'NEW') || null;
 
-  const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED') => {
+  const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED', selectedEveningId?: string | null) => {
     setApplicationBusy(entryRoute);
     setApplicationMessage('');
     const expectedKind = entryRoute === 'NOVICE' ? 'novice' : 'club';
@@ -259,13 +259,17 @@ export default function PlayerEventsCalendar({
     try {
       const response = await fetch('/api/player/novice/applications', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entry_route: entryRoute, evening_id: target?.id || null }),
+        // Choosing the novice path alone never books an evening. An older pending
+        // application can explicitly retain its selected evening when resumed.
+        body: JSON.stringify({ entry_route: entryRoute, evening_id: selectedEveningId === undefined
+          ? (entryRoute === 'EXPERIENCED' ? target?.id || null : null)
+          : selectedEveningId }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
       setNoviceState(body.state || noviceState);
-      // The «Заявка отправлена» card below already explains what happens next.
-      setApplicationMessage(body.created ? '' : 'Такая заявка уже находится на рассмотрении.');
+      setApplicationMessage(entryRoute === 'NOVICE' ? 'Готово! Теперь выберите новичковый вечер и ответьте «Иду».'
+        : body.created ? '' : 'Такая заявка уже находится на рассмотрении.');
     } catch (submitError: any) {
       setApplicationMessage(submitError?.message || 'Не удалось отправить заявку');
     } finally {
@@ -308,19 +312,25 @@ export default function PlayerEventsCalendar({
           {pendingApplication ? (
             <>
               <h2 className="mt-1 text-[18px] font-semibold">Заявка отправлена</h2>
-              <p className="mt-1 text-[13px] leading-5 text-white/55">Организатор должен подтвердить первый визит. После подтверждения самостоятельная запись откроется автоматически.</p>
+              <p className="mt-1 text-[13px] leading-5 text-white/55">{pendingApplication.entry_route === 'NOVICE'
+                ? 'Для новичка подтверждение организатора больше не требуется. Продолжите — запись откроется сразу.'
+                : 'Опытный игрок ждёт подтверждения организатора. После этого самостоятельная запись откроется.'}</p>
               <div className="mt-3 rounded-2xl border border-sky-200/10 bg-black/20 px-3 py-3 text-[13px] leading-5 text-sky-100/80">
                 {pendingApplication.evening_title
                   ? <>Вечер: <strong>{pendingApplication.evening_title}</strong>{pendingApplication.reservation_status === 'reserved' ? ' · место временно зарезервировано.' : '.'}</>
                   : 'Заявка пока не привязана к конкретному вечеру.'}
               </div>
+              {pendingApplication.entry_route === 'NOVICE' ? <button type="button" disabled={applicationBusy !== null}
+                onClick={() => void submitFirstApplication('NOVICE', pendingApplication.evening_id && events.some((event) => event.id === pendingApplication.evening_id) ? pendingApplication.evening_id : null)}
+                className="mt-3 min-h-12 w-full rounded-2xl bg-white px-3 text-[14px] font-semibold text-black">{pendingApplication.evening_id && events.some((event) => event.id === pendingApplication.evening_id)
+                  ? 'Начать и записаться на выбранный вечер' : 'Начать без ожидания подтверждения'}</button> : null}
             </>
           ) : (
             <>
               <h2 className="mt-1 text-[18px] font-semibold">Выберите подходящий путь</h2>
-              <p className="mt-1 text-[13px] leading-5 text-white/55">Первая заявка подтверждается организатором. После подтверждения вы сможете записываться самостоятельно.</p>
+              <p className="mt-1 text-[13px] leading-5 text-white/55">Если вы новичок, сразу откроется запись на вечера новичков. Если уже умеете играть, организатор сначала подтвердит ваш уровень.</p>
               <div className="mt-3 grid gap-2">
-                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Школа мафии · первые 2 посещения бесплатно</span></button>
+                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Запись откроется сразу · первые 2 посещения бесплатно</span></button>
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
               </div>
             </>
@@ -331,6 +341,7 @@ export default function PlayerEventsCalendar({
         {noviceState?.player.club_stage === 'NOVICE_ACTIVE' ? <section className="mb-3 rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.07] p-3">
           <strong className="text-[14px] text-emerald-100">Новичковый маршрут активен</strong>
           <p className="mt-1 text-[12px] leading-5 text-white/55">Посещений: {noviceState.novice_visits}. {noviceState.free_visits_remaining > 0 ? `Осталось бесплатных посещений: ${noviceState.free_visits_remaining}.` : 'Следующие игры — 200 ₽ за игру.'}</p>
+          {applicationMessage ? <p role="status" className="mt-2 text-[13px] leading-5 text-emerald-100/80">{applicationMessage}</p> : null}
         </section> : null}
 
         {/* The public rules page (/guide) — also the link organizers send to a novice before the first evening. */}

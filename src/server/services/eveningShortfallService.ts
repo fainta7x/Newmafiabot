@@ -91,7 +91,7 @@ export async function runEveningShortfallChecks(
     if (!shortfall) continue;
 
     // The call goes out only for a real shortfall against the approved table size (10, novice 8).
-    if (!evening.call_sent_at && shortfall.short) {
+    if (!evening.call_sent_at && shortfall.short && start - now > CANCEL_PROMPT_HOURS * HOUR) {
       const delivery = await recruit(id).catch(() => ({ success: false }));
       // Only a delivered call is recorded, so a bot outage is retried on the next run.
       if (delivery.success) {

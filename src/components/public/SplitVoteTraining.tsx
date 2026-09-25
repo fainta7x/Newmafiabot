@@ -29,9 +29,9 @@ export const SplitVoteTraining: React.FC = () => {
       </section>
 
       <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <p className="text-sm text-white/65">Ты сидишь на месте <strong className="text-white">№{scenario.seat}</strong>.</p>
-        <p className="text-sm text-white/65">Выставлены: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
-        <p className="text-sm text-white/65">Стол делит <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
+        <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
+        <p className="text-sm text-white/65">Из них делим <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
+        <p data-testid="split-vote-seat" className="text-sm text-white/65">Ты сидишь на месте <strong className="text-white">№{scenario.seat}</strong>.</p>
         <h3 className="text-base font-semibold">За кого ты проголосуешь?</h3>
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Твой голос">
           {scenario.candidates.map((candidate) => (

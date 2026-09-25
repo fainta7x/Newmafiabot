@@ -203,7 +203,7 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
 - If №1 is split with №2–5, №2–6 vote for №1; №1 and №7–10 vote for the other candidate.
 - If №1 is split with №6–10, №6–10 vote for №1; №1–5 vote for the other candidate.
 - For a candidate from №2–5 split with one from №6–10, №6–10 vote for the candidate from №2–5; №1–5 vote for the candidate from №6–10.
-- If both candidates are in one half (№2–5 or №6–10), the higher numbered candidate and the next four seats (wrapping after №10) vote for the lower numbered candidate; the other five vote for the higher numbered candidate. For №3/№5, №5–9 vote for №3 and №10, №1–4 for №5. For №7/№9, №9–10 and №1–3 vote for №7, while №4–8 vote for №9.
+- If both candidates are in one half (№2–5 or №6–10), the five seats **after the lower numbered candidate** (wrapping after №10) vote for that candidate; the other five vote for the higher numbered candidate. For №3/№5, №4–8 vote for №3 and №9–10, №1–3 for №5. For №7/№9, №8–10 and №1–2 vote for №7, while №3–7 vote for №9. This rule does not replace the №1 special case or the split between different halves.
 
 ## Table conduct (user-approved 2026-09-24)
 

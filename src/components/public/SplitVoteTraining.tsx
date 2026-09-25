@@ -6,7 +6,7 @@ type Session = { difficulty: SplitVoteDifficulty; mode: TrainingMode };
 type Result = 'passed' | 'failed' | 'completed' | null;
 
 const DIFFICULTIES = [
-  { value: 'basic', title: 'Обычный уровень', description: 'Один из двух кандидатов в попиле — игрок №1.' },
+  { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
   { value: 'advanced', title: 'Сложный уровень', description: 'В попиле участвуют два игрока, и среди них нет №1.' },
 ] as const;
 

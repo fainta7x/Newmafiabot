@@ -54,11 +54,11 @@ export const isCorrectSplitVoteAssignment = (scenario: SplitVoteScenario, select
 };
 
 export const generateSplitVoteScenario = (previous?: SplitVoteScenario, random: () => number = Math.random, difficulty: SplitVoteDifficulty = 'all'): SplitVoteScenario => {
-  const counts = difficulty === 'basic' ? [2, 3, 4] : SEATS.slice(1);
+  const counts = difficulty === 'basic' ? [2, 3, 4] : difficulty === 'interactive' ? [3, 4, 5] : SEATS.slice(1);
   const count = pick(counts.filter((value) => value !== previous?.candidates.length), random);
   const pairs = PAIRS.filter(([first]) => difficulty === 'all' || difficulty === 'interactive' || (difficulty === 'basic' ? first === 1 : first !== 1));
   const pair = pick(pairs.filter(([a, b]) => a !== previous?.pair[0] || b !== previous?.pair[1]), random);
-  const seat = pick(SEATS.filter((value) => value !== previous?.seat), random);
+  const seat = pick(SEATS.filter((value) => !pair.includes(value) && value !== previous?.seat), random);
   const others = SEATS.filter((value) => !pair.includes(value));
   // Fisher-Yates: choose additional nominees without bias or duplicates.
   for (let index = others.length - 1; index > 0; index -= 1) {

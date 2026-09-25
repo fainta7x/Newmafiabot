@@ -7,7 +7,10 @@ import { generatePlayerSessionToken } from '../server/auth.ts';
 import { correctSplitVote } from '../lib/splitVoteTraining.ts';
 
 const scenario = { candidates: [1, 3], pair: [1, 3], seat: 2 };
-const answers = Array.from({ length: 5 }, (_, index) => ({ scenario: { ...scenario, seat: index + 2 }, answer: 1 }));
+const answers = [2, 4, 5, 6, 7].map((seat) => {
+  const entry = { ...scenario, pair: [1, 3] as [number, number], seat };
+  return { scenario: entry, answer: correctSplitVote(entry) };
+});
 
 describe('player split-vote progression', () => {
   const rows = new Map<string, Set<string>>();
@@ -30,7 +33,7 @@ describe('player split-vote progression', () => {
     expect((await request(app).get('/api/player/split-vote-progress')).status).toBe(401);
     expect((await request(app).post('/api/player/split-vote-progress').send({ level: 'basic', answers })).status).toBe(401);
     const response = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('alice'))
-      .send({ level: 'basic', answers: [...answers.slice(0, 4), { ...answers[4], answer: 3 }] });
+      .send({ level: 'basic', answers: [...answers.slice(0, 4), { ...answers[4], answer: answers[4].answer === 1 ? 3 : 1 }] });
     expect(response.status).toBe(400);
     expect(rows.size).toBe(0);
   });
@@ -43,8 +46,8 @@ describe('player split-vote progression', () => {
     expect(passed.status).toBe(200);
     expect(passed.body.passed).toEqual(['basic']);
     expect((await request(app).get('/api/player/split-vote-progress').set('Cookie', cookie('bob'))).body.passed).toEqual([]);
-    const advanced = answers.map(({ scenario: entry }) => {
-      const next = { ...entry, pair: [3, 5] as [number, number], candidates: [3, 5] };
+    const advanced = [1, 2, 4, 6, 7].map((seat) => {
+      const next = { ...scenario, seat, pair: [3, 5] as [number, number], candidates: [3, 5] };
       return { scenario: next, answer: correctSplitVote(next) };
     });
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('bob'))

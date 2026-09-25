@@ -398,7 +398,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - which videos to link;
      - whether passing tests gives anything (tokens, an achievement, a level step towards «Клубный игрок»).
 14. Mini-games and in-app activities (user request 2026-09-24).
-   - The player's home screen links to `/guide?tab=split`. The zero-round split-vote training has basic (pair includes №1, 2–4 nominees), advanced (pair excludes №1, random nomination order), and interactive whole-table levels. Practice and exams have five randomly generated questions; practice reports the score and exams require 5/5. Passing an exam opens the next level for that account; passing advanced also opens mixed endless practice. The interactive level offers its own endless practice. Progress has no rating, token or award effects. Rescue after a broken split remains for later.
+   - The player's home screen links to `/guide?tab=split`. The zero-round split-vote training has basic (pair includes №1, 2–4 nominees), advanced (pair excludes №1, random nomination order), and interactive whole-table (3–5 nominees) levels. The learner's seat never belongs to the split pair. Practice and exams have five randomly generated questions; practice reports the score and exams require 5/5. Passing an exam opens the next level for that account; passing advanced also opens mixed endless practice. The interactive level offers its own endless practice. Progress has no rating, token or award effects. Rescue after a broken split remains for later.
    - Target: activities inside the app between evenings to keep players interested.
    - Ideas to discuss:
      - daily quizzes on the rules;

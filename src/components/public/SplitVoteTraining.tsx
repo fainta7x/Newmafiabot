@@ -8,7 +8,7 @@ type Result = 'passed' | 'failed' | 'completed' | null;
 const DIFFICULTIES = [
   { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
   { value: 'advanced', title: 'Продвинутый уровень', description: 'В попиле участвуют два игрока без №1. Порядок выставления случайный.' },
-  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Пройди выставленных по порядку: назначь голосующих за каждого или пропусти кандидата.' },
+  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата.' },
 ] as const;
 type ExamAnswer = { scenario: SplitVoteScenario; answer: number | Record<number, number[]> };
 type ProgressState = 'loading' | 'ready' | 'guest' | 'error';

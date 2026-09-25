@@ -65,6 +65,7 @@ describe('zero-round split-vote training', () => {
       expect(next.pair).not.toEqual(previous.pair);
       expect(next.candidates.length).not.toBe(previous.candidates.length);
       expect(next.seat).not.toBe(previous.seat);
+      expect(next.pair).not.toContain(next.seat);
       expect(next.pair.every((candidate) => next.candidates.includes(candidate))).toBe(true);
       expect(new Set(next.candidates).size).toBe(next.candidates.length);
       expect(splitVoteGroups(next.pair).first).toHaveLength(5);
@@ -86,13 +87,16 @@ describe('zero-round split-vote training', () => {
     for (let index = 0; index < 9; index += 1) {
       expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 9).candidates).toHaveLength(index + 2);
     }
-    for (const difficulty of ['basic', 'advanced'] as const) {
+    for (const difficulty of ['basic', 'advanced', 'interactive'] as const) {
       let previous = generateSplitVoteScenario(undefined, () => 0, difficulty);
       for (let index = 0; index < 30; index += 1) {
         const next = generateSplitVoteScenario(previous, () => (index % 4) / 4, difficulty);
-        expect(next.pair[0] === 1).toBe(difficulty === 'basic');
+        if (difficulty !== 'interactive') expect(next.pair[0] === 1).toBe(difficulty === 'basic');
         if (difficulty === 'basic') expect(next.candidates.length).toBeGreaterThanOrEqual(2);
         if (difficulty === 'basic') expect(next.candidates.length).toBeLessThanOrEqual(4);
+        if (difficulty === 'interactive') expect(next.candidates.length).toBeGreaterThanOrEqual(3);
+        if (difficulty === 'interactive') expect(next.candidates.length).toBeLessThanOrEqual(5);
+        expect(next.pair).not.toContain(next.seat);
         expect(next.candidates.length).not.toBe(previous.candidates.length);
         expect(next.pair).not.toEqual(previous.pair);
         previous = next;
@@ -100,6 +104,7 @@ describe('zero-round split-vote training', () => {
     }
     for (let index = 0; index < 3; index += 1) {
       expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 3, 'basic').candidates).toHaveLength(index + 2);
+      expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 3, 'interactive').candidates).toHaveLength(index + 3);
     }
   });
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
 import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
 import { GUIDE_QUIZ } from '../../lib/clubGuideQuiz.ts';
@@ -163,7 +163,18 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [detailedRules, setDetailedRules] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const terms = useMemo(() => searchGlossary(query), [query]);
+
+  useEffect(() => {
+    const strip = tabsRef.current;
+    const active = strip?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!strip || !active) return;
+    const container = strip.getBoundingClientRect();
+    const button = active.getBoundingClientRect();
+    if (button.right > container.right) strip.scrollLeft += button.right - container.right + 4;
+    if (button.left < container.left) strip.scrollLeft -= container.left - button.left + 4;
+  }, [tab]);
 
   const selectTab = (next: GuideTab) => {
     setTab(next);
@@ -187,13 +198,13 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
       <div className="mx-auto max-w-md space-y-4">
         <header className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
-          <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Правила и словарь</h1>
-          <p className="mt-2 text-[14px] leading-6 text-white/55">Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.</p>
+          <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />{tab === 'split' ? 'Тренировка попила' : 'Правила и словарь'}</h1>
+          <p className="mt-2 text-[14px] leading-6 text-white/55">{tab === 'split' ? 'Выбери правильный голос и проверь себя.' : 'Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.'}</p>
         </header>
 
         {/* Sticks below Telegram's top safe area (header, device cutout). */}
         <nav className="sticky z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Разделы">
-          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.04] p-1">
+          <div ref={tabsRef} className="flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.04] p-1">
             {TABS.map((item) => (
               <button
                 key={item.id}

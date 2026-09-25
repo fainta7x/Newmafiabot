@@ -13,6 +13,7 @@ describe('public guide for novices', () => {
     expect(guideTabFromSearch('?tab=rules')).toBe('rules');
     expect(guideTabFromSearch('?tab=glossary')).toBe('glossary');
     expect(guideTabFromSearch('?tab=quiz')).toBe('quiz');
+    expect(guideTabFromSearch('?tab=lessons')).toBe('lessons');
     expect(guideTabFromSearch('?tab=nope')).toBe('evening');
   });
 
@@ -63,5 +64,20 @@ describe('public guide for novices', () => {
     }
     expect(screen.getByText('Готово: 4 из 4')).toBeTruthy();
     expect(screen.getByText(/не влияет на доступ к играм, Elo или награды/)).toBeTruthy();
+  });
+
+  it('offers a linked learning route through the existing approved material', () => {
+    render(<PublicGuide initialTab="lessons" />);
+    expect(screen.getAllByTestId('guide-lesson')).toHaveLength(4);
+    fireEvent.click(screen.getAllByTestId('guide-lesson')[0]);
+    expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Подтверждение организатора не нужно');
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    expect(screen.getAllByTestId('guide-role')).toHaveLength(ROLES.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Голосование');
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Как не получить замечание');
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить себя' }));
+    expect(screen.getByTestId('guide-quiz')).toBeTruthy();
   });
 });

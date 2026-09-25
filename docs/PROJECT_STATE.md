@@ -384,8 +384,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - «Правила»: table rules, fouls, voting and points;
      - «Словарь»: a searchable glossary.
    - Links: the player events tab («Правила и словарь») and CRM «Ещё → Памятка новичку».
-   - A short public self-check on approved table rules is available in `/guide?tab=quiz`; it has no login, rewards, or effect on player status.
-   - Left: structured lessons, club-approved video links, and any assessed/rewarded tests.
+   - Four public lessons in `/guide?tab=lessons` lead through the existing evening, roles and basic-rule texts to the short self-check at `/guide?tab=quiz`. No login or saved progress is required; the test has no rewards or effect on player status.
+   - Left: club-approved video links, any assessed/rewarded tests, and optional saved learning progress if approved.
    - Target:
      - a rules and regulations section in a convenient format;
      - a glossary of Mafia terms (ПУ, ЛХ, ППК, фолы, договорка and so on);

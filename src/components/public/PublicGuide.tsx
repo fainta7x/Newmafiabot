@@ -3,10 +3,11 @@ import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
 import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
 import { GUIDE_QUIZ } from '../../lib/clubGuideQuiz.ts';
 
-export type GuideTab = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz';
+export type GuideTab = 'evening' | 'lessons' | 'roles' | 'rules' | 'glossary' | 'quiz';
 
 const TABS: Array<{ id: GuideTab; label: string }> = [
   { id: 'evening', label: 'Вечер' },
+  { id: 'lessons', label: 'Уроки' },
   { id: 'roles', label: 'Роли' },
   { id: 'rules', label: 'Правила' },
   { id: 'glossary', label: 'Словарь' },
@@ -15,8 +16,15 @@ const TABS: Array<{ id: GuideTab; label: string }> = [
 
 export const guideTabFromSearch = (search: string): GuideTab => {
   const tab = new URLSearchParams(search).get('tab');
-  return tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' ? tab : 'evening';
+  return tab === 'lessons' || tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' ? tab : 'evening';
 };
+
+const LESSONS = [
+  { title: 'Первый вечер', description: 'Как записаться, прийти и сесть за стол.', content: 'scenario', start: 0, end: 3 },
+  { title: 'Кто за столом', description: 'Цели мирного, Шерифа, мафии и Дона.', content: 'roles', start: 0, end: 0 },
+  { title: 'День и ночь', description: 'Речь, голосование, ночная игра и победа.', content: 'scenario', start: 3, end: SCENARIO.length },
+  { title: 'Правила за столом', description: 'Как играть спокойно и не получить замечание.', content: 'rules', start: 0, end: 0 },
+] as const;
 
 const Blocks = ({ blocks }: { blocks: GuideBlock[] }) => (
   <div className="space-y-3">
@@ -82,6 +90,33 @@ const Roles = () => (
     ))}
   </div>
 );
+
+const Lessons = ({ onQuiz }: { onQuiz: () => void }) => {
+  const [lessonIndex, setLessonIndex] = useState<number | null>(null);
+  if (lessonIndex === null) return (
+    <div className="space-y-3">
+      <p className="px-1 text-sm leading-6 text-white/65">Четыре коротких урока по материалам памятки. Можно читать в любом порядке, без регистрации.</p>
+      {LESSONS.map((lesson, index) => (
+        <button key={lesson.title} type="button" data-testid="guide-lesson" onClick={() => setLessonIndex(index)} className="flex min-h-20 w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[.045] p-4 text-left">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-black">{index + 1}</span>
+          <span><strong className="block text-base text-white">{lesson.title}</strong><span className="mt-1 block text-sm leading-5 text-white/60">{lesson.description}</span></span>
+        </button>
+      ))}
+      <p className="px-1 text-xs leading-5 text-white/45">После уроков можно проверить себя в коротком тесте. Результат ни на что не влияет.</p>
+    </div>
+  );
+  const lesson = LESSONS[lessonIndex];
+  return (
+    <div className="space-y-3" data-testid="guide-lesson-content">
+      <button type="button" onClick={() => setLessonIndex(null)} className="min-h-11 rounded-xl px-2 text-sm text-white/70">← Все уроки</button>
+      <header className="px-1"><p className="text-xs uppercase tracking-wider text-white/50">Урок {lessonIndex + 1} из {LESSONS.length}</p><h2 className="mt-1 text-xl font-semibold">{lesson.title}</h2><p className="mt-1 text-sm text-white/65">{lesson.description}</p></header>
+      {lesson.content === 'roles' ? <Roles /> : null}
+      {lesson.content === 'scenario' ? <div className="space-y-3"><Blocks blocks={SCENARIO.slice(lesson.start, lesson.end).map((step) => ({ title: step.title, lead: step.text, points: step.points || [] }))} /></div> : null}
+      {lesson.content === 'rules' ? <Blocks blocks={SIMPLE_RULES.filter((block) => ['Как тут наказывают', '⛔ Чего делать нельзя', 'Как не получить замечание'].includes(block.title))} /> : null}
+      <button type="button" onClick={() => lessonIndex === LESSONS.length - 1 ? onQuiz() : setLessonIndex(lessonIndex + 1)} className="min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">{lessonIndex === LESSONS.length - 1 ? 'Проверить себя' : 'Следующий урок'}</button>
+    </div>
+  );
+};
 
 const GuideQuiz = () => {
   const [index, setIndex] = useState(0);
@@ -156,7 +191,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
         {/* Sticks below Telegram's top safe area (header, device cutout). */}
         <nav className="sticky z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Разделы">
-          <div className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
+          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.04] p-1">
             {TABS.map((item) => (
               <button
                 key={item.id}
@@ -164,7 +199,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
                 data-testid={`guide-tab-${item.id}`}
                 aria-pressed={tab === item.id}
                 onClick={() => selectTab(item.id)}
-                className={`min-h-11 min-w-0 rounded-xl px-1 text-[12px] font-semibold ${tab === item.id ? 'bg-white text-black' : 'text-white/60'}`}
+                className={`min-h-11 min-w-[64px] flex-1 rounded-xl px-1 text-[12px] font-semibold ${tab === item.id ? 'bg-white text-black' : 'text-white/60'}`}
               >
                 {item.label}
               </button>
@@ -173,6 +208,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
         </nav>
 
         {tab === 'evening' ? <Scenario /> : null}
+        {tab === 'lessons' ? <Lessons onQuiz={() => selectTab('quiz')} /> : null}
         {tab === 'roles' ? <Roles /> : null}
         {tab === 'quiz' ? <GuideQuiz /> : null}
         {tab === 'rules' ? (

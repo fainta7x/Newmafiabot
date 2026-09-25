@@ -59,7 +59,7 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 ## Rules, glossary and novice guide
 
 - Public page `/guide` (no sign-in): `src/components/public/PublicGuide.tsx`, routed in `src/App.tsx`.
-- Texts (scenario, roles, table rules, glossary): `src/lib/clubGuide.ts`.
+- Texts (scenario, roles, table rules, glossary): `src/lib/clubGuide.ts`; public lessons reuse these texts in `PublicGuide.tsx`, and the self-check uses `src/lib/clubGuideQuiz.ts`.
 
 ## Wallet / tokens / shop / payments
 

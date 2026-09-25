@@ -131,14 +131,17 @@ export const SplitVoteTraining: React.FC = () => {
       {!session || !scenario ? (
         <div className="space-y-3" data-testid="split-vote-modes">
           {DIFFICULTIES.map((difficulty) => (
-            <section key={difficulty.value} className="rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid={`split-vote-level-${difficulty.value}`}>
-              <h3 className="text-base font-semibold">{difficulty.title} {passed.includes(difficulty.value) ? '✓' : null}</h3>
+            <section key={difficulty.value} className={`rounded-3xl border p-4 ${passed.includes(difficulty.value) ? 'border-emerald-400/50 bg-emerald-500/[.08]' : 'border-white/10 bg-white/[.045]'}`} data-testid={`split-vote-level-${difficulty.value}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold">{difficulty.title}</h3>
+                {passed.includes(difficulty.value) ? <span data-testid={`split-vote-passed-${difficulty.value}`} className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-200"><span aria-hidden="true">✓</span> Экзамен сдан</span> : null}
+              </div>
               <p className="mt-1 text-sm text-white/60">{difficulty.description}</p>
               {!unlocked(difficulty.value) ? <p className="mt-2 text-sm text-amber-200">🔒 Сначала сдай экзамен предыдущего уровня.</p> : null}
               {difficulty.value === 'basic' && progressState === 'guest' ? <p className="mt-2 text-sm text-white/60">Практика доступна без входа. Для экзамена войди в кабинет игрока.</p> : null}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button type="button" disabled={!unlocked(difficulty.value)} onClick={() => start({ difficulty: difficulty.value, mode: 'practice' })} className="min-h-12 rounded-2xl border border-white/15 px-2 text-sm font-semibold disabled:opacity-40">Практика · 5 вопросов</button>
-                <button type="button" disabled={!unlocked(difficulty.value) || progressState !== 'ready'} onClick={() => start({ difficulty: difficulty.value, mode: 'exam' })} className="min-h-12 rounded-2xl bg-white px-2 text-sm font-semibold text-black disabled:opacity-40">Экзамен · 5 вопросов</button>
+                <button type="button" disabled={!unlocked(difficulty.value) || progressState !== 'ready'} onClick={() => start({ difficulty: difficulty.value, mode: 'exam' })} className={`min-h-12 rounded-2xl px-2 text-sm font-semibold disabled:opacity-40 ${passed.includes(difficulty.value) ? 'border border-emerald-400/50 bg-emerald-500/20 text-emerald-100' : 'bg-white text-black'}`}>{passed.includes(difficulty.value) ? 'Пройти ещё раз' : 'Экзамен · 5 вопросов'}</button>
               </div>
               {difficulty.value === 'interactive' ? <button type="button" disabled={!unlocked('interactive')} onClick={() => start({ difficulty: 'interactive', mode: 'endless' })} className="mt-2 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Бесконечная практика</button> : null}
             </section>
@@ -206,7 +209,7 @@ export const SplitVoteTraining: React.FC = () => {
               <p>Каждый получает по 5 голосов. За остальных выставленных игроков не голосуют.</p>
             </div>
           ) : null}
-          {result ? <div data-testid="split-vote-result" className="rounded-2xl border border-white/15 bg-white/[.06] p-4 text-sm leading-6">
+          {result ? <div data-testid="split-vote-result" className={`rounded-2xl border p-4 text-sm leading-6 ${result === 'passed' ? 'border-emerald-400/50 bg-emerald-500/[.12] text-emerald-100' : 'border-white/15 bg-white/[.06]'}`}>
             <strong className="block text-base">{result === 'passed' ? 'Экзамен сдан: 5 из 5' : result === 'failed' ? `Экзамен не сдан: ошибка в вопросе ${attempts}` : `Практика завершена: ${correct} из 5`}</strong>
             {result === 'passed' && session.difficulty !== 'interactive' ? <p className="mt-1 text-white/75">Следующий уровень открыт. Вернись к выбору режима, чтобы начать.</p> : null}
             {result === 'failed' ? <p className="mt-1 text-white/65">Для сдачи нужны пять правильных ответов подряд.</p> : null}
@@ -214,7 +217,7 @@ export const SplitVoteTraining: React.FC = () => {
           {saving ? <p role="status" className="text-sm text-white/70">Сохраняем результат экзамена…</p> : null}
           {saveError ? <div role="alert" className="text-sm text-amber-200">{saveError}<button type="button" onClick={() => void savePassedExam(examAnswers, session.difficulty)} className="mt-2 min-h-11 w-full rounded-2xl border border-white/30">Повторить сохранение</button></div> : null}
           {checked && !result && !saving && !saveError ? <button type="button" onClick={next} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Следующая задача</button> : null}
-          {result ? <button type="button" onClick={() => start(session)} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Попробовать снова</button> : null}
+          {result ? <button type="button" onClick={() => start(session)} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{result === 'passed' ? 'Пройти ещё раз' : 'Попробовать снова'}</button> : null}
           <button type="button" onClick={() => setSession(null)} className="min-h-11 w-full rounded-2xl text-sm text-white/60">К выбору режима</button>
           {session.mode === 'endless' && attempts > 0 ? <p className="text-center text-xs text-white/50">Правильных ответов: {correct} из {attempts}.</p> : null}
         </section>

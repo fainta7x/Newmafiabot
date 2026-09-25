@@ -13,6 +13,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('zero-round split-vote training', () => {
+  const examButton = (level: 'basic' | 'advanced' | 'interactive') => screen.getByTestId(`split-vote-level-${level}`).querySelectorAll('button')[1];
   it('checks each nominated player, including nominees who receive no votes', () => {
     const scenario = { candidates: [3, 4, 1], pair: [1, 3] as [number, number], seat: 6 };
     const expected = splitVoteAssignments(scenario);
@@ -25,8 +26,8 @@ describe('zero-round split-vote training', () => {
 
   it('keeps cards unavailable after assignment, allows backtracking and fails an exam at the final check', async () => {
     render(<SplitVoteTraining />);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[2]).toHaveProperty('disabled', false));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[2]);
+    await waitFor(() => expect(examButton('interactive')).toHaveProperty('disabled', false));
+    fireEvent.click(examButton('interactive'));
     const first = screen.getByRole('button', { name: '№1' });
     fireEvent.click(first);
     fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
@@ -163,8 +164,8 @@ describe('zero-round split-vote training', () => {
 
   it('fails an advanced exam immediately after its first mistake and allows a retry', async () => {
     render(<SplitVoteTraining />);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[1]).toHaveProperty('disabled', false));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[1]);
+    await waitFor(() => expect(examButton('advanced')).toHaveProperty('disabled', false));
+    fireEvent.click(examButton('advanced'));
     expect(screen.getByText(/Попил между игроками/).textContent).not.toMatch(/№1 и/);
     answerQuestion(false);
     expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен не сдан: ошибка в вопросе 1');
@@ -175,8 +176,8 @@ describe('zero-round split-vote training', () => {
 
   it('passes an exam only after five correct answers', async () => {
     render(<SplitVoteTraining />);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]).toHaveProperty('disabled', false));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]);
+    await waitFor(() => expect(examButton('basic')).toHaveProperty('disabled', false));
+    fireEvent.click(examButton('basic'));
     for (let index = 0; index < 5; index += 1) {
       answerQuestion(true);
       if (index < 4) {
@@ -185,6 +186,8 @@ describe('zero-round split-vote training', () => {
       }
     }
     await waitFor(() => expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен сдан: 5 из 5'));
+    expect(screen.getByTestId('split-vote-result').className).toContain('border-emerald');
+    expect(screen.getByRole('button', { name: 'Пройти ещё раз' })).toBeTruthy();
   });
 
   it('opens levels only after saving the prerequisite exam to the player account', async () => {
@@ -193,15 +196,17 @@ describe('zero-round split-vote training', () => {
       json: () => Promise.resolve({ passed: options?.method === 'POST' ? ['basic'] : [] }),
     })));
     render(<SplitVoteTraining />);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]).toHaveProperty('disabled', false));
+    await waitFor(() => expect(examButton('basic')).toHaveProperty('disabled', false));
     expect(screen.getByTestId('split-vote-level-advanced').querySelectorAll('button')[0]).toHaveProperty('disabled', true);
     for (let index = 0; index < 5; index += 1) {
-      if (index === 0) fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]);
+      if (index === 0) fireEvent.click(examButton('basic'));
       answerQuestion(true);
       if (index < 4) fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
     }
     await waitFor(() => expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен сдан'));
     fireEvent.click(screen.getByRole('button', { name: 'К выбору режима' }));
+    expect(screen.getByTestId('split-vote-passed-basic').textContent).toContain('Экзамен сдан');
+    expect(examButton('basic').textContent).toBe('Пройти ещё раз');
     expect(screen.getByTestId('split-vote-level-advanced').querySelectorAll('button')[0]).toHaveProperty('disabled', false);
     expect(screen.getByTestId('split-vote-level-interactive').querySelectorAll('button')[0]).toHaveProperty('disabled', true);
     expect(fetch).toHaveBeenCalledWith('/api/player/split-vote-progress', expect.objectContaining({ method: 'POST' }));

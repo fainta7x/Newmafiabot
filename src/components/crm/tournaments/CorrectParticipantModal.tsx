@@ -129,7 +129,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
         {/* Player search & selector */}
         <div className="space-y-2">
           <label className="block text-xs font-bold text-text-secondary">
-            Выберите правильный профиль из CRM:
+            Выберите правильный профиль игрока клуба:
           </label>
           <div className="relative">
             <Search className="w-4 h-4 text-text-muted absolute left-3 top-3" />

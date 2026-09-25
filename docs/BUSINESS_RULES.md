@@ -198,6 +198,13 @@ Wording for how a player leaves the game (user-approved 2026-09-24): texts for p
 - The Sheriff may reveal («вскрытие») at any allowed moment: in their speech or by gesture, even at the cost of a foul. If the Sheriff is not killed quickly, the Don usually either kills the Sheriff as soon as possible or claims to be the Sheriff and convinces the town that the real Sheriff is mafia.
 - «Попил»: on the first day, while all 10 (or 8) are at the table, the town often splits the votes evenly between two players and then leaves both, so nobody is voted out on day one. It applies to tables of 10 or 8; nine votes cannot split evenly between two players. Mafia wins at parity, so a blind first-day vote almost always removes a red; keeping everyone gives the town an extra day and one mistake to spare.
 
+Training patterns for **ten players in the zero round** (user examples 2026-09-25): a question lists all nominees, the chosen two for the split, and the learner's seat; the answer is which **nominated player receives the learner's vote**. Other nominees get no votes in these exercises. Exactly five voters vote for each split candidate.
+
+- If №1 is split with №2–5, №2–6 vote for №1; №1 and №7–10 vote for the other candidate.
+- If №1 is split with №6–10, №6–10 vote for №1; №1–5 vote for the other candidate.
+- For a candidate from №2–5 split with one from №6–10, №6–10 vote for the candidate from №2–5; №1–5 vote for the candidate from №6–10.
+- If both candidates are in one half (№2–5 or №6–10), the higher numbered candidate and the next four seats (wrapping after №10) vote for the lower numbered candidate; the other five vote for the higher numbered candidate. For №3/№5, №5–9 vote for №3 and №10, №1–4 for №5. For №7/№9, №9–10 and №1–3 vote for №7, while №4–8 vote for №9.
+
 ## Table conduct (user-approved 2026-09-24)
 
 Forbidden at the table, with the usual penalty:

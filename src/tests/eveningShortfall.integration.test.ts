@@ -90,6 +90,16 @@ describe('evening shortfall', () => {
     expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('published');
   });
 
+  it('waits for attendance to be checked, then cancels when too few came', async () => {
+    const { db, start } = await setup(10);
+    await runEveningShortfallChecks(db, start + HOUR, async () => ({ success: true }));
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('published');
+    await db.run("UPDATE evening_participants SET attendance_status = 'no_show' WHERE evening_id = 'ev'");
+    await db.run("UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = 'ev' AND player_id IN ('p0','p1','p2')");
+    await runEveningShortfallChecks(db, start + HOUR, async () => ({ success: true }));
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
+  });
+
   it('counts recorded guests, and sends no call for a full table even when slot targets are larger', async () => {
     const { db, start } = await setup(9);
     await db.run(`INSERT INTO guest_player_placeholders (id, evening_id, display_name, response_status, registration_status, created_at, updated_at)

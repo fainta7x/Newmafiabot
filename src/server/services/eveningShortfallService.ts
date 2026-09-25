@@ -5,6 +5,7 @@ import { requestBotEveningRecruitment } from './botTelegramSyncService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 
 /**
  * Shortfall (user-approved 2026-09-24):
@@ -20,6 +21,7 @@ export const CANCEL_PROMPT_HOURS = 1;
 export const eveningMinimumPlayers = (format: unknown) => (normalizeEveningFormat(format) === 'NOVICE' ? 8 : 10);
 
 export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: string, now = Date.now(), automatic = false) {
+  await ensureGuestPlayerPlaceholderSchema(db);
   const evening = await db.get<any>('SELECT id, format, status, starts_at, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (evening.status === 'cancelled') return false;
@@ -27,10 +29,12 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
     throw Object.assign(new Error('Этот вечер нельзя отменить из-за недобора'), { statusCode: 409 });
   const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
   if (games) throw Object.assign(new Error('По вечеру уже есть игры; сначала проверьте их результаты'), { statusCode: 409 });
-  const attended = Number((await db.get<any>("SELECT COUNT(*) AS count FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.count || 0);
+  const guestTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'guest_player_placeholders'");
+  const attended = Number((await db.get<any>("SELECT COUNT(*) AS count FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders g WHERE g.legacy_participant_id = evening_participants.id AND g.replaced_at IS NULL)", [eveningId]))?.count || 0)
+    + (guestTable ? Number((await db.get<any>("SELECT COUNT(*) AS count FROM guest_player_placeholders WHERE evening_id = ? AND attendance_status = 'attended' AND replaced_at IS NULL", [eveningId]))?.count || 0) : 0);
   if (attended >= eveningMinimumPlayers(evening.format))
     throw Object.assign(new Error('На вечер пришло достаточно игроков'), { statusCode: 409 });
-  if (automatic && (evening.status !== 'published' || new Date(evening.starts_at).getTime() <= now)) return false;
+  if (automatic && !['published', 'active'].includes(evening.status)) return false;
   const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [new Date(now).toISOString(), eveningId, evening.status]);
   if (!changed.changes) return false;
   await recordEveningCancellation(db, eveningId, 'shortfall');
@@ -71,6 +75,7 @@ export async function runEveningShortfallChecks(
   recruit: (eveningId: string) => Promise<{ success: boolean }> = requestBotEveningRecruitment,
 ) {
   await ensureEveningShortfallSchema(db);
+  await ensureGuestPlayerPlaceholderSchema(db);
   const evenings = await db.all<any>(
     `SELECT e.id, e.title, e.format, e.starts_at, a.call_sent_at, a.cancel_prompt_at
        FROM game_evenings e LEFT JOIN evening_shortfall_actions a ON a.evening_id = e.id
@@ -120,6 +125,30 @@ export async function runEveningShortfallChecks(
       );
       actions += 1;
     }
+  }
+  // After the start, act on attendance only once the organizer has checked every expected
+  // player. Unmarked attendance is unknown, not evidence that nobody came.
+  for (const evening of await db.all<any>(
+    `SELECT id, format FROM game_evenings WHERE status IN ('published','active') AND settled_at IS NULL
+       AND UPPER(COALESCE(format, '')) <> 'TOURNAMENT' AND datetime(starts_at) <= datetime(?)
+       AND datetime(starts_at) > datetime(?)`,
+    [new Date(now).toISOString(), new Date(now - 14 * 24 * HOUR).toISOString()],
+  )) {
+    const id = String(evening.id);
+    const attendance = await db.get<any>(`SELECT
+      SUM(CASE WHEN attendance_status = 'attended' THEN 1 ELSE 0 END) AS attended,
+      SUM(CASE WHEN response_status IN ('going','late') AND attendance_status = 'pending' THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN attendance_status IN ('attended','no_show') THEN 1 ELSE 0 END) AS checked
+      FROM evening_participants WHERE evening_id = ? AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders g WHERE g.legacy_participant_id = evening_participants.id AND g.replaced_at IS NULL)`, [id]);
+    const guests = await db.get<any>(`SELECT
+      SUM(CASE WHEN attendance_status = 'attended' THEN 1 ELSE 0 END) AS attended,
+      SUM(CASE WHEN response_status IN ('going','late') AND attendance_status = 'pending' THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN attendance_status IN ('attended','no_show') THEN 1 ELSE 0 END) AS checked
+      FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL`, [id]);
+    const count = (key: 'attended' | 'pending' | 'checked') => Number(attendance?.[key] || 0) + Number(guests?.[key] || 0);
+    if (count('checked') === 0 || count('pending') > 0 || count('attended') >= eveningMinimumPlayers(evening.format)) continue;
+    try { if (await cancelEveningForShortfall(db, id, now, true)) actions += 1; }
+    catch (error) { console.warn('[SHORTFALL] Attendance cancellation needs organizer review:', error); }
   }
   // Re-send cancellation notices that did not get queued (idempotent per player), for cancelled
   // evenings that have not happened yet.

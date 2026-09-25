@@ -16,9 +16,10 @@ const validScenario = (value: unknown, level: Level): value is SplitVoteScenario
     candidates.every((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10) &&
     new Set(candidates).size === candidates.length &&
     Array.isArray(pair) && pair.length === 2 && pair.every((seat) => candidates.includes(seat)) && pair[0] < pair[1] &&
-    Number.isInteger(scenario.seat) && scenario.seat >= 1 && scenario.seat <= 10 &&
+    Number.isInteger(scenario.seat) && scenario.seat >= 1 && scenario.seat <= 10 && !pair.includes(scenario.seat) &&
     (level !== 'basic' || (pair[0] === 1 && candidates.length <= 4)) &&
-    (level !== 'advanced' || pair[0] !== 1);
+    (level !== 'advanced' || pair[0] !== 1) &&
+    (level !== 'interactive' || (candidates.length >= 3 && candidates.length <= 5));
 };
 
 router.get('/split-vote-progress', async (req, res) => {

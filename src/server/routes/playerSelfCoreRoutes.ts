@@ -358,7 +358,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       return res.status(403).json({ error: 'Этот формат вечера недоступен для вашего игрового уровня' });
     }
     if (String(player.club_stage) === 'NEW') {
-      return res.status(403).json({ error: 'Первая заявка должна быть подтверждена организатором', code: 'first_application_required' });
+      return res.status(403).json({ error: 'Сначала выберите путь: новичок записывается сразу, опытный игрок ждёт подтверждения организатора', code: 'first_application_required' });
     }
 
     const existingParticipant = await db.get(

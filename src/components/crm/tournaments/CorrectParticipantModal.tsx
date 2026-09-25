@@ -108,7 +108,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
           </span>
           <p className="text-sm font-bold text-text-primary">{participant.display_name}</p>
           {participant.player_nickname && participant.player_nickname !== participant.display_name && (
-            <p className="text-xs text-text-muted">Никнейм в CRM: {participant.player_nickname}</p>
+            <p className="text-xs text-text-muted">Ник в клубе: {participant.player_nickname}</p>
           )}
         </div>
 
@@ -129,7 +129,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
         {/* Player search & selector */}
         <div className="space-y-2">
           <label className="block text-xs font-bold text-text-secondary">
-            Выберите правильный профиль из CRM:
+            Выберите правильный профиль игрока клуба:
           </label>
           <div className="relative">
             <Search className="w-4 h-4 text-text-muted absolute left-3 top-3" />

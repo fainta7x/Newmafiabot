@@ -93,7 +93,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || body.message || 'Не удалось сохранить судью');
-      setMessage(body.judge_player_id ? `Связан с CRM: ${body.judge_name}` : `Сохранён как внешний судья: ${body.judge_name || 'не указан'}`);
+      setMessage(body.judge_player_id ? `Судья из клуба: ${body.judge_name}` : `Сохранён как внешний судья: ${body.judge_name || 'не указан'}`);
       setRevision((value) => value + 1);
     } catch (err: any) {
       setError(err.message || 'Не удалось сохранить судью');

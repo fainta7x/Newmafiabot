@@ -108,7 +108,7 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
           </span>
           <p className="text-sm font-bold text-text-primary">{participant.display_name}</p>
           {participant.player_nickname && participant.player_nickname !== participant.display_name && (
-            <p className="text-xs text-text-muted">Никнейм в CRM: {participant.player_nickname}</p>
+            <p className="text-xs text-text-muted">Ник в клубе: {participant.player_nickname}</p>
           )}
         </div>
 

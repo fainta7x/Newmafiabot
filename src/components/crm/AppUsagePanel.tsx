@@ -28,7 +28,7 @@ const SCREEN_LABELS: Record<string, string> = {
   '/admin/analytics': 'Аналитика',
 };
 
-const SURFACE_LABELS = { player: 'Кабинет', crm: 'CRM', public: 'Публичные' } as const;
+const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы', public: 'Публичные' } as const;
 
 const screenLabel = (row: UiUsageRow) => SCREEN_LABELS[row.name] || row.name;
 

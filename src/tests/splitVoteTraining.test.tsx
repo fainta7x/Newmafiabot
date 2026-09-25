@@ -51,12 +51,21 @@ describe('zero-round split-vote training', () => {
     for (let index = 0; index < 9; index += 1) {
       expect(generateSplitVoteScenario(undefined, () => (index + 0.1) / 9).candidates).toHaveLength(index + 2);
     }
+    for (const difficulty of ['basic', 'advanced'] as const) {
+      let previous = generateSplitVoteScenario(undefined, () => 0, difficulty);
+      for (let index = 0; index < 30; index += 1) {
+        const next = generateSplitVoteScenario(previous, () => (index % 4) / 4, difficulty);
+        expect(next.pair[0] === 1).toBe(difficulty === 'basic');
+        expect(next.pair).not.toEqual(previous.pair);
+        previous = next;
+      }
+    }
   });
 
-  it('offers every nominated candidate and explains the result after a vote', () => {
+  it('offers every nominated candidate and keeps the endless mode running', () => {
     render(<SplitVoteTraining />);
-    const initial = screen.getByTestId('split-vote-training');
-    expect(initial.textContent).toContain('Ты сидишь на месте');
+    expect(screen.getByTestId('split-vote-modes')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     const choices = screen.getAllByRole('button', { name: /^За №/ });
     const nominees = screen.getByTestId('split-vote-nominees').textContent?.match(/№\d+/g);
     expect(choices.map((choice) => choice.textContent?.replace('За ', ''))).toEqual(nominees);
@@ -68,5 +77,52 @@ describe('zero-round split-vote training', () => {
     expect(screen.getByRole('button', { name: 'Проверить голос' })).toHaveProperty('disabled', true);
     expect(screen.getByTestId('split-vote-seat').textContent).not.toBe(previousSeat);
     expect(screen.getAllByRole('button', { name: /^За №/ })).not.toHaveLength(choices.length);
+    expect(screen.queryByTestId('split-vote-result')).toBeNull();
+  });
+
+  const answerQuestion = (right: boolean) => {
+    const pair = screen.getByText(/Из них делим/).textContent!.match(/№(\d+) и №(\d+)/)!;
+    const seat = Number(screen.getByTestId('split-vote-seat').textContent!.match(/№(\d+)/)![1]);
+    const answer = correctSplitVote({ pair: [Number(pair[1]), Number(pair[2])], seat, candidates: [] });
+    const options = screen.getAllByRole('button', { name: /^За №/ });
+    const selected = options.find((button) => (button.textContent === `За №${answer}`) === right)!;
+    fireEvent.click(selected);
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить голос' }));
+  };
+
+  it('finishes basic practice after five answers, even if they include mistakes', () => {
+    render(<SplitVoteTraining />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[0]);
+    for (let index = 0; index < 5; index += 1) {
+      expect(screen.getByTestId('split-vote-question').textContent).toContain(`Вопрос ${index + 1} из 5`);
+      expect(screen.getByText(/Из них делим/).textContent).toMatch(/№1 и №\d+/);
+      answerQuestion(false);
+      if (index < 4) fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
+    }
+    expect(screen.getByTestId('split-vote-result').textContent).toContain('Практика завершена: 0 из 5');
+  });
+
+  it('fails an advanced exam immediately after its first mistake and allows a retry', () => {
+    render(<SplitVoteTraining />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 без ошибок' })[1]);
+    expect(screen.getByText(/Из них делим/).textContent).not.toMatch(/№1 и/);
+    answerQuestion(false);
+    expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен не сдан: ошибка в вопросе 1');
+    expect(screen.queryByRole('button', { name: 'Следующая задача' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Попробовать снова' }));
+    expect(screen.queryByTestId('split-vote-result')).toBeNull();
+  });
+
+  it('passes an exam only after five correct answers', () => {
+    render(<SplitVoteTraining />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 без ошибок' })[0]);
+    for (let index = 0; index < 5; index += 1) {
+      answerQuestion(true);
+      if (index < 4) {
+        expect(screen.queryByTestId('split-vote-result')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
+      }
+    }
+    expect(screen.getByTestId('split-vote-result').textContent).toContain('Экзамен сдан: 5 из 5');
   });
 });

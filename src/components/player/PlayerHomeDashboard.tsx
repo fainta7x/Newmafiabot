@@ -207,6 +207,11 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
+        <a data-testid="player-split-vote-link" href="/guide?tab=split" className="flex min-h-20 items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
+          <span><strong className="block text-base text-white">Попил: потренировать голос</strong><span className="mt-1 block text-sm leading-5 text-white/60">Практика, экзамен или задачи без конца</span></span>
+          <span aria-hidden="true" className="text-xl text-white/45">→</span>
+        </a>
+
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Твоя игра</div>
           {stats.completedGames === 0 ? (

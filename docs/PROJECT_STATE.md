@@ -396,6 +396,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - which videos to link;
      - whether passing tests gives anything (tokens, an achievement, a level step towards «Клубный игрок»).
 14. Mini-games and in-app activities (user request 2026-09-24).
+   - A public zero-round split-vote practice in `/guide?tab=split` generates ten-seat questions with changing nominated players, split pair and learner seat. It checks where the learner votes and explains the 5:5 distribution. All pairs №1–10 follow the club-approved patterns; rescue after a broken split and harder multi-candidate tasks remain for later. It saves no progress and awards nothing.
    - Target: activities inside the app between evenings to keep players interested.
    - Ideas to discuss:
      - daily quizzes on the rules;

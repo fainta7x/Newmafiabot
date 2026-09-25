@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
 import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
 import { GUIDE_QUIZ } from '../../lib/clubGuideQuiz.ts';
+import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 
-export type GuideTab = 'evening' | 'lessons' | 'roles' | 'rules' | 'glossary' | 'quiz';
+export type GuideTab = 'evening' | 'lessons' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split';
 
 const TABS: Array<{ id: GuideTab; label: string }> = [
   { id: 'evening', label: 'Вечер' },
@@ -12,11 +13,12 @@ const TABS: Array<{ id: GuideTab; label: string }> = [
   { id: 'rules', label: 'Правила' },
   { id: 'glossary', label: 'Словарь' },
   { id: 'quiz', label: 'Тест' },
+  { id: 'split', label: 'Попил' },
 ];
 
 export const guideTabFromSearch = (search: string): GuideTab => {
   const tab = new URLSearchParams(search).get('tab');
-  return tab === 'lessons' || tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' ? tab : 'evening';
+  return tab === 'lessons' || tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' || tab === 'split' ? tab : 'evening';
 };
 
 const LESSONS = [
@@ -211,6 +213,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
         {tab === 'lessons' ? <Lessons onQuiz={() => selectTab('quiz')} /> : null}
         {tab === 'roles' ? <Roles /> : null}
         {tab === 'quiz' ? <GuideQuiz /> : null}
+        {tab === 'split' ? <SplitVoteTraining /> : null}
         {tab === 'rules' ? (
           <div className="space-y-3">
             {/* Plain words first for a novice; the full club terms (фол, техфол, ППК) for experienced players. */}

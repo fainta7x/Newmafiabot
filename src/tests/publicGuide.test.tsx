@@ -14,6 +14,7 @@ describe('public guide for novices', () => {
     expect(guideTabFromSearch('?tab=glossary')).toBe('glossary');
     expect(guideTabFromSearch('?tab=quiz')).toBe('quiz');
     expect(guideTabFromSearch('?tab=lessons')).toBe('lessons');
+    expect(guideTabFromSearch('?tab=split')).toBe('split');
     expect(guideTabFromSearch('?tab=nope')).toBe('evening');
   });
 

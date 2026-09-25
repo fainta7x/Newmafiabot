@@ -22,8 +22,11 @@ const ENV_KEYS = [
 ] as const;
 
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+const originalWeeklyFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
 
 afterEach(() => {
+  if (originalWeeklyFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+  else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = originalWeeklyFlag;
   for (const key of ENV_KEYS) {
     const value = originalEnv[key];
     if (value === undefined) delete process.env[key];
@@ -267,7 +270,7 @@ describe('VK publishing adapter', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.vk.com/method/wall.edit');
   });
 
-  it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {
+  it('never creates missing VK posts from the periodic refresh', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ response: { post_id: 88 } }), { status: 200 }),
@@ -285,14 +288,27 @@ describe('VK publishing adapter', () => {
       ) VALUES ('evening-auto-publish', 'Пятничная игра', ?, 'CASUAL', 'published', 100, ?, ?)
     `, [startsAt, createdAt, createdAt]);
 
-    const result = await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' });
-    expect(result).toEqual([{ evening_id: 'evening-auto-publish', success: true }]);
-    expect(await db.get<any>(`
-      SELECT destination_key, post_id, status
-        FROM vk_evening_publications
-       WHERE evening_id='evening-auto-publish' AND destination_key='public'
-    `)).toEqual({ destination_key: 'public', post_id: 88, status: 'published' });
-    expect(fetchMock).toHaveBeenCalledWith('https://api.vk.com/method/wall.post', expect.anything());
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true';
+    expect(await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' })).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    expect(await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' })).toEqual([]);
+  });
+
+  it('does not retry an uncertain VK post after its API call fails', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { error_code: 10, error_msg: 'timeout' } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id, title, starts_at, format, status, default_price, created_at, updated_at)
+      VALUES ('vk-uncertain', 'Пятница', ?, 'CASUAL', 'published', 100, ?, ?)`, [now, now, now]);
+    await expect(syncDirectVkEveningPublications(db, 'vk-uncertain', 'https://example.test')).rejects.toBeTruthy();
+    const callsAfterFirst = fetchMock.mock.calls.length;
+    const second = await syncDirectVkEveningPublications(db, 'vk-uncertain', 'https://example.test');
+    expect(second.results[0]).toMatchObject({ skipped: true, reason: 'publication_requires_reconciliation' });
+    expect(fetchMock).toHaveBeenCalledTimes(callsAfterFirst);
   });
   it('sends a channel message with the community publisher token', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';

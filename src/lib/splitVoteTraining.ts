@@ -49,5 +49,13 @@ export const generateSplitVoteScenario = (previous?: SplitVoteScenario, random: 
     const swap = Math.min(index, Math.floor(random() * (index + 1)));
     [others[index], others[swap]] = [others[swap], others[index]];
   }
-  return { candidates: [...pair, ...others.slice(0, count - 2)].sort((a, b) => a - b), pair, seat };
+  const candidates = [...pair, ...others.slice(0, count - 2)].sort((a, b) => a - b);
+  if (difficulty === 'advanced') {
+    // Nomination order is independent of seat numbers and the chosen split pair.
+    for (let index = candidates.length - 1; index > 0; index -= 1) {
+      const swap = Math.min(index, Math.floor(random() * (index + 1)));
+      [candidates[index], candidates[swap]] = [candidates[swap], candidates[index]];
+    }
+  }
+  return { candidates, pair, seat };
 };

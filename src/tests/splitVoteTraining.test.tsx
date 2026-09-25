@@ -68,6 +68,18 @@ describe('zero-round split-vote training', () => {
     }
   });
 
+  it('randomizes the advanced nomination order without changing the vote', () => {
+    const ascending = generateSplitVoteScenario(undefined, () => 0.999, 'advanced');
+    const shuffled = generateSplitVoteScenario(undefined, () => 0, 'advanced');
+    expect(ascending.candidates).toEqual([...ascending.candidates].sort((a, b) => a - b));
+    expect(shuffled.candidates).not.toEqual([...shuffled.candidates].sort((a, b) => a - b));
+    expect(shuffled.pair.every((candidate) => shuffled.candidates.includes(candidate))).toBe(true);
+    expect(new Set(shuffled.candidates).size).toBe(shuffled.candidates.length);
+    for (let seat = 1; seat <= 10; seat += 1) {
+      expect(correctSplitVote({ ...shuffled, seat })).toBe(correctSplitVote({ ...shuffled, seat, candidates: [...shuffled.candidates].sort((a, b) => a - b) }));
+    }
+  });
+
   it('offers every nominated candidate and keeps the endless mode running', () => {
     render(<SplitVoteTraining />);
     expect(screen.getByTestId('split-vote-modes')).toBeTruthy();

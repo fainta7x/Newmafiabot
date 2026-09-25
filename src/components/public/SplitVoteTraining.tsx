@@ -7,7 +7,7 @@ type Result = 'passed' | 'failed' | 'completed' | null;
 
 const DIFFICULTIES = [
   { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
-  { value: 'advanced', title: 'Сложный уровень', description: 'В попиле участвуют два игрока, и среди них нет №1.' },
+  { value: 'advanced', title: 'Сложный уровень', description: 'В попиле участвуют два игрока без №1. Порядок выставления случайный.' },
 ] as const;
 
 export const SplitVoteTraining: React.FC = () => {
@@ -74,7 +74,7 @@ export const SplitVoteTraining: React.FC = () => {
       ) : (
         <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="split-vote-question">
           <div className="flex items-center justify-between gap-2 text-xs text-white/50"><span>{label} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span><span>{session.mode === 'endless' ? `Задача ${attempts + (checked ? 0 : 1)}` : `Вопрос ${Math.min(attempts + (checked ? 0 : 1), 5)} из 5`}</span></div>
-          <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены игроки: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
+          <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
           <p className="text-sm text-white/65">Попил между игроками <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
           <p data-testid="split-vote-seat" className="text-sm text-white/65">Твой номер за столом — <strong className="text-white">№{scenario.seat}</strong>.</p>
           <h3 className="text-base font-semibold">За кого тебе нужно проголосовать?</h3>

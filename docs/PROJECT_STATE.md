@@ -323,7 +323,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - Tournament organizer: `tournaments.organizer_player_id` (club role «Организатор»), chosen in the tournament settings. Completed tournaments count in «Провёл вечеров», the staff report and the organizer achievements.
      - Shortfall (`eveningShortfallService.ts`, run by the personal notification worker):
        - 3 h before, an automatic group call through the existing Telegram recruitment post;
-       - 1 h before, when fewer than 10 (novice 8) have said they come, an organizer notice and a «Недобор — отменить вечер?» item with a cancel button in «Порядок в клубе»;
+       - 1 h before, when fewer than 10 (novice 8) have said they come, automatic cancellation with notices, unless a game or sufficient recorded attendance requires organizer review; past evenings without games can be cancelled for shortfall from closeout;
        - every cancellation notifies players who were coming or thinking.
      - Rating entry fee: one 500 ₽ fee per evening (`src/lib/ratingEveningMoney.ts`), recomputed together with novice charges; only players pay; the organizer and judges pay only when they play. The organizer payments panel shows the 50/40/10 split of what was collected; the split is not shown to players.
      - Table size (`src/lib/tableComposition.ts`): novice evening games may seat 8 or 9 (roles per `BUSINESS_RULES`); every other game stays at exactly 10. Game creation (CRM sheet and judge launcher), the club protocol, token settlement, the Live Game deal/speech order/overlays and the OBS state follow the game's size. Betting opens only for 10-seat games; tournaments stay at 10.

@@ -8,8 +8,14 @@ import {
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { loadEveningRoute } from '../services/eveningRouteService.ts';
 import { loadGatheredPost, publishGatheredPost, skipGatheredPost } from '../services/eveningGatheredPostService.ts';
+import { cancelEveningForShortfall } from '../services/eveningShortfallService.ts';
 
 const router = Router();
+
+router.post('/:id/closeout/cancel-shortfall', requireOrganizerAuth, async (req, res) => {
+  try { return res.json({ cancelled: await cancelEveningForShortfall(req.db, String(req.params.id)) }); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось отменить вечер' }); }
+});
 
 router.get('/:id/closeout', requireOrganizerAuth, async (req, res) => {
   try {

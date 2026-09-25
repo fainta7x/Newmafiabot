@@ -4,6 +4,7 @@ import { loadEveningRecruitmentState } from './eveningRecruitmentService.ts';
 import { requestBotEveningRecruitment } from './botTelegramSyncService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 
 /**
  * Shortfall (user-approved 2026-09-24):
@@ -17,6 +18,26 @@ export const CALL_HOURS = 3;
 export const CANCEL_PROMPT_HOURS = 1;
 
 export const eveningMinimumPlayers = (format: unknown) => (normalizeEveningFormat(format) === 'NOVICE' ? 8 : 10);
+
+export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: string, now = Date.now(), automatic = false) {
+  const evening = await db.get<any>('SELECT id, format, status, starts_at, settled_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  if (evening.status === 'cancelled') return false;
+  if (!['published', 'active'].includes(evening.status) || evening.settled_at || normalizeEveningFormat(evening.format) === 'TOURNAMENT')
+    throw Object.assign(new Error('Этот вечер нельзя отменить из-за недобора'), { statusCode: 409 });
+  const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
+  if (games) throw Object.assign(new Error('По вечеру уже есть игры; сначала проверьте их результаты'), { statusCode: 409 });
+  const attended = Number((await db.get<any>("SELECT COUNT(*) AS count FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.count || 0);
+  if (attended >= eveningMinimumPlayers(evening.format))
+    throw Object.assign(new Error('На вечер пришло достаточно игроков'), { statusCode: 409 });
+  if (automatic && (evening.status !== 'published' || new Date(evening.starts_at).getTime() <= now)) return false;
+  const changed = await db.run("UPDATE game_evenings SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = ? AND settled_at IS NULL", [new Date(now).toISOString(), eveningId, evening.status]);
+  if (!changed.changes) return false;
+  await recordEveningCancellation(db, eveningId, 'shortfall');
+  await notifyEveningCancelled(db, eveningId, 'shortfall');
+  await finalizeExistingVkEveningPublications(db, eveningId).catch((error) => console.warn('[SHORTFALL] VK finalization failed:', error));
+  return true;
+}
 
 export async function ensureEveningShortfallSchema(db: DatabaseWrapper) {
   await db.exec(`CREATE TABLE IF NOT EXISTS evening_shortfall_actions (
@@ -78,6 +99,13 @@ export async function runEveningShortfallChecks(
       }
     }
 
+    if (start - now <= CANCEL_PROMPT_HOURS * HOUR && shortfall.short) {
+      try {
+        if (await cancelEveningForShortfall(db, id, now, true)) { actions += 1; continue; }
+      } catch (error) {
+        console.warn('[SHORTFALL] Automatic cancellation needs organizer review:', error);
+      }
+    }
     if (!evening.cancel_prompt_at && start - now <= CANCEL_PROMPT_HOURS * HOUR && shortfall.short) {
       await enqueueOrganizerNotification(db, {
         messageKey: `evening-shortfall:${id}`,

@@ -14,6 +14,7 @@ export async function refreshExistingVkEveningPosts(
   db: DatabaseWrapper,
   options: { now?: Date; baseUrl?: string } = {},
 ) {
+  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') return [];
   const now = options.now || new Date();
   const baseUrl = String(options.baseUrl || getPublicAppBaseUrl()).replace(/\/+$/, '');
   await ensureVkIntegrationSchema(db);
@@ -22,7 +23,7 @@ export async function refreshExistingVkEveningPosts(
   const rows = await db.all<{ id: string }>(`
     SELECT DISTINCT e.id
       FROM game_evenings e
-      LEFT JOIN vk_evening_publications p ON p.evening_id = e.id
+      JOIN vk_evening_publications p ON p.evening_id = e.id AND p.post_id > 0
      WHERE e.status IN ('published', 'active')
        AND e.settled_at IS NULL
        AND datetime(e.starts_at) > datetime(?)
@@ -33,7 +34,7 @@ export async function refreshExistingVkEveningPosts(
   const results: Array<{ evening_id: string; success: boolean; error?: string }> = [];
   for (const row of rows) {
     try {
-      const sync = await syncDirectVkEveningPublications(db, String(row.id), baseUrl);
+      const sync = await syncDirectVkEveningPublications(db, String(row.id), baseUrl, { onlyExisting: true });
       const failures = sync.results.filter((item) => !item.success && !item.skipped);
       if (failures.length) {
         results.push({

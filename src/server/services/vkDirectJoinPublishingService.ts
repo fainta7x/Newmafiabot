@@ -184,6 +184,11 @@ const syncDestination = async (
   if (onlyExisting && !existing?.post_id) {
     return { publication: null, skipped: true, reason: 'no_existing_post' };
   }
+  // Once a create was attempted, its remote outcome may be unknown. Never create
+  // a second VK post automatically without an operator reconciling the first.
+  if (!existing?.post_id && existing) {
+    return { publication: existing, skipped: true, reason: 'publication_requires_reconciliation' };
+  }
 
   const hash = messageHash(message);
   if (
@@ -216,6 +221,15 @@ const syncDestination = async (
       externalUrl = `https://vk.com/wall${postOwnerId}_${postId}`;
     }
   } else {
+    const claimed = await db.run(`
+      INSERT INTO vk_evening_publications (
+        evening_id, destination_key, group_id, answer_map_json, status, updated_at
+      ) VALUES (?, ?, ?, '{}', 'publishing', ?)
+      ON CONFLICT(evening_id, destination_key) DO NOTHING
+    `, [evening.id, destination.key, destination.groupId, nowIso()]);
+    if (claimed.changes === 0) {
+      return { publication: await getPublication(db, evening.id, destination.key), skipped: true, reason: 'publication_already_claimed' };
+    }
     const published = await createVkWallPost({ groupId: destination.groupId, message });
     postOwnerId = published.ownerId;
     postId = published.postId;

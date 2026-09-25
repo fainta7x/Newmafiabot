@@ -1,19 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
 import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
+import { GUIDE_QUIZ } from '../../lib/clubGuideQuiz.ts';
 
-export type GuideTab = 'evening' | 'roles' | 'rules' | 'glossary';
+export type GuideTab = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz';
 
 const TABS: Array<{ id: GuideTab; label: string }> = [
   { id: 'evening', label: 'Вечер' },
   { id: 'roles', label: 'Роли' },
   { id: 'rules', label: 'Правила' },
   { id: 'glossary', label: 'Словарь' },
+  { id: 'quiz', label: 'Тест' },
 ];
 
 export const guideTabFromSearch = (search: string): GuideTab => {
   const tab = new URLSearchParams(search).get('tab');
-  return tab === 'roles' || tab === 'rules' || tab === 'glossary' ? tab : 'evening';
+  return tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' ? tab : 'evening';
 };
 
 const Blocks = ({ blocks }: { blocks: GuideBlock[] }) => (
@@ -81,6 +83,40 @@ const Roles = () => (
   </div>
 );
 
+const GuideQuiz = () => {
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [score, setScore] = useState(0);
+  if (index === GUIDE_QUIZ.length) return (
+    <section className="rounded-3xl border border-white/10 bg-white/[.045] p-5 text-center">
+      <h2 className="text-xl font-semibold">Готово: {score} из {GUIDE_QUIZ.length}</h2>
+      <p className="mt-2 text-sm leading-6 text-white/65">Это проверка для себя. Она не влияет на доступ к играм, Elo или награды.</p>
+      <button type="button" className="mt-4 min-h-12 rounded-2xl bg-white px-5 font-semibold text-black" onClick={() => { setIndex(0); setSelected(null); setAnswered(false); setScore(0); }}>Пройти ещё раз</button>
+    </section>
+  );
+  const item = GUIDE_QUIZ[index];
+  return (
+    <section className="space-y-4 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="guide-quiz">
+      <p className="text-xs uppercase tracking-wider text-white/50">Вопрос {index + 1} из {GUIDE_QUIZ.length}</p>
+      <h2 className="text-lg font-semibold">{item.question}</h2>
+      <div className="space-y-2" role="group" aria-label={item.question}>
+        {item.options.map((option, optionIndex) => (
+          <button key={option} type="button" disabled={answered} aria-pressed={selected === optionIndex}
+            onClick={() => setSelected(optionIndex)}
+            className={`w-full min-h-12 rounded-2xl border px-4 py-3 text-left text-sm ${selected === optionIndex ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/75'} disabled:opacity-80`}>{option}</button>
+        ))}
+      </div>
+      {answered ? <p role="status" className="text-sm leading-6 text-white/80">{selected === item.correct ? 'Верно. ' : 'Пока нет. '}{item.explanation}</p> : null}
+      <button type="button" disabled={selected === null} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black disabled:opacity-40"
+        onClick={() => {
+          if (!answered) { setAnswered(true); if (selected === item.correct) setScore((value) => value + 1); }
+          else { setIndex((value) => value + 1); setSelected(null); setAnswered(false); }
+        }}>{answered ? (index === GUIDE_QUIZ.length - 1 ? 'Посмотреть результат' : 'Следующий вопрос') : 'Проверить ответ'}</button>
+    </section>
+  );
+};
+
 /**
  * «Правила и словарь» — a public page (no sign-in) to send a novice before the first evening:
  * /guide, /guide?tab=rules, /guide?tab=glossary.
@@ -120,7 +156,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
         {/* Sticks below Telegram's top safe area (header, device cutout). */}
         <nav className="sticky z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Разделы">
-          <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
+          <div className="grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
             {TABS.map((item) => (
               <button
                 key={item.id}
@@ -128,7 +164,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
                 data-testid={`guide-tab-${item.id}`}
                 aria-pressed={tab === item.id}
                 onClick={() => selectTab(item.id)}
-                className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${tab === item.id ? 'bg-white text-black' : 'text-white/60'}`}
+                className={`min-h-11 min-w-0 rounded-xl px-1 text-[12px] font-semibold ${tab === item.id ? 'bg-white text-black' : 'text-white/60'}`}
               >
                 {item.label}
               </button>
@@ -138,6 +174,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
         {tab === 'evening' ? <Scenario /> : null}
         {tab === 'roles' ? <Roles /> : null}
+        {tab === 'quiz' ? <GuideQuiz /> : null}
         {tab === 'rules' ? (
           <div className="space-y-3">
             {/* Plain words first for a novice; the full club terms (фол, техфол, ППК) for experienced players. */}

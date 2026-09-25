@@ -12,6 +12,7 @@ describe('public guide for novices', () => {
     expect(guideTabFromSearch('?tab=roles')).toBe('roles');
     expect(guideTabFromSearch('?tab=rules')).toBe('rules');
     expect(guideTabFromSearch('?tab=glossary')).toBe('glossary');
+    expect(guideTabFromSearch('?tab=quiz')).toBe('quiz');
     expect(guideTabFromSearch('?tab=nope')).toBe('evening');
   });
 
@@ -50,5 +51,17 @@ describe('public guide for novices', () => {
     expect(screen.getAllByTestId('guide-term').map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Техфол')]));
     fireEvent.change(screen.getByTestId('guide-search'), { target: { value: 'абракадабра' } });
     expect(screen.getByText(/Такого слова пока нет/)).toBeTruthy();
+  });
+
+  it('lets a novice check the approved basics without a login or rewards', () => {
+    render(<PublicGuide initialTab="quiz" />);
+    for (const answer of ['Не меньше 8', 'Один Дон и одна мафия', 'Следующая речь длится 30 секунд', 'Нет']) {
+      fireEvent.click(screen.getByRole('button', { name: answer }));
+      fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
+      expect(screen.getByRole('status').textContent).toContain('Верно');
+      fireEvent.click(screen.getByRole('button', { name: /Следующий вопрос|Посмотреть результат/ }));
+    }
+    expect(screen.getByText('Готово: 4 из 4')).toBeTruthy();
+    expect(screen.getByText(/не влияет на доступ к играм, Elo или награды/)).toBeTruthy();
   });
 });

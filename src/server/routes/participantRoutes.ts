@@ -9,6 +9,7 @@ import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
+import { withdrawAttendanceRewards } from '../services/eveningAttendanceRewardService.ts';
 import { updateGuestPlaceholder } from '../services/guestPlayerService.ts';
 
 const router = Router();
@@ -113,6 +114,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
     }
 
+    if (part.player_id) await withdrawAttendanceRewards(db, { eveningId: String(part.evening_id), playerId: String(part.player_id) });
     await db.run('DELETE FROM evening_participants WHERE id = ?', [String(req.params.id)]);
     await runCrmAutomations(db);
     res.json({ success: true, message: 'Участник удален из вечера' });

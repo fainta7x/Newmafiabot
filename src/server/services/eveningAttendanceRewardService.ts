@@ -74,3 +74,43 @@ export async function reconcileParticipantAttendanceReward(db: DatabaseWrapper, 
   );
   return { changed: true, delta };
 }
+
+/**
+ * Takes back attendance tokens before the participant (or the whole evening) is deleted, so a
+ * removed check-in never leaves tokens behind. When a single participant is removed the tracking
+ * row stays at zero: re-adding the player later continues with the next revision instead of
+ * reusing an already spent idempotency key.
+ */
+export async function withdrawAttendanceRewards(db: DatabaseWrapper, input: { eveningId: string; playerId?: string | null }) {
+  await ensureAttendanceRewardSchema(db);
+  const rows = await db.all<any>(
+    `SELECT r.evening_id, r.player_id, r.target_amount, r.revision, e.title AS evening_title
+       FROM evening_attendance_rewards r LEFT JOIN game_evenings e ON e.id = r.evening_id
+      WHERE r.evening_id = ? AND (? IS NULL OR r.player_id = ?) AND r.target_amount <> 0`,
+    [input.eveningId, input.playerId ?? null, input.playerId ?? null],
+  );
+  for (const row of rows) {
+    const eveningId = String(row.evening_id);
+    const playerId = String(row.player_id);
+    const previousAmount = Number(row.target_amount || 0);
+    const revision = Number(row.revision || 0) + 1;
+    await mutateTokenBalance(db, {
+      playerId,
+      delta: -previousAmount,
+      reasonType: 'evening_attendance',
+      description: `Вечер «${String(row.evening_title || 'Игровой вечер')}»: корректировка жетонов за приход`,
+      sourceType: 'evening_attendance',
+      sourceId: eveningId,
+      idempotencyKey: `evening-attendance:${eveningId}:${playerId}:rev:${revision}`,
+      debitPolicy: 'allow_negative',
+      actorType: 'system',
+      actorId: null,
+      metadata: { evening_id: eveningId, previous_target: previousAmount, target: 0, delta: -previousAmount, revision, reason: 'removed' },
+    });
+    await db.run(
+      'UPDATE evening_attendance_rewards SET target_amount = 0, revision = ?, updated_at = ? WHERE evening_id = ? AND player_id = ?',
+      [revision, new Date().toISOString(), eveningId, playerId],
+    );
+  }
+  return rows.length;
+}

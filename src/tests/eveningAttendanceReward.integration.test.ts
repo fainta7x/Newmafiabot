@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import request from 'supertest';
 import { createApp } from '../app.ts';
+import { generateOrganizerToken } from '../server/auth.ts';
 import { setParticipantAttendance, setParticipantResponse } from '../server/services/eveningParticipantState.ts';
 import { attendanceRewardFor } from '../server/services/eveningAttendanceRewardService.ts';
 
@@ -9,7 +11,7 @@ afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
 
 async function setup(startsAt = '2026-10-02T16:00:00.000Z') {
   const db = createDatabaseConnection(':memory:'); opened.push(db);
-  await createApp(db);
+  const app = await createApp(db);
   const now = new Date().toISOString();
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
     VALUES ('ev','Пятница',?,'Europe/Moscow','CASUAL','active',20,100,?,?)`, [startsAt, now, now]);
@@ -19,7 +21,7 @@ async function setup(startsAt = '2026-10-02T16:00:00.000Z') {
       VALUES (?,?,?,?,?,'pending','unknown','unpaid',0,0,?,?)`, [`ep-${id}`, 'ev', id, response, response, now, now]);
   };
   const tokens = async (id: string) => Number((await db.get<any>('SELECT tokens FROM players WHERE id = ?', [id])).tokens);
-  return { db, add, tokens };
+  return { db, add, tokens, app };
 }
 
 describe('tokens for coming to an evening', () => {
@@ -64,5 +66,27 @@ describe('tokens for coming to an evening', () => {
     await old.add('d', 'going');
     await setParticipantAttendance(old.db, 'ep-d', 'attended_on_time');
     expect(await old.tokens('d')).toBe(0);
+  });
+
+  it('takes the tokens back when a checked-in player or the whole evening is deleted', async () => {
+    const { db, add, tokens, app } = await setup();
+    const auth = { Cookie: `organizer_token=${generateOrganizerToken()}` };
+    await add('e', 'going');
+    await add('f', 'going');
+    await setParticipantAttendance(db, 'ep-e', 'attended_on_time');
+    await setParticipantAttendance(db, 'ep-f', 'attended_late');
+
+    expect((await request(app).delete('/api/evening-participants/ep-e').set(auth)).status).toBe(200);
+    expect(await tokens('e')).toBe(0);
+
+    // Re-added and checked in again: paid once more, not swallowed by an old idempotency key.
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('ep-e2','ev','e','going','going','pending','unknown','unpaid',0,0,?,?)`, [new Date().toISOString(), new Date().toISOString()]);
+    await setParticipantAttendance(db, 'ep-e2', 'attended_on_time');
+    expect(await tokens('e')).toBe(500);
+
+    expect((await request(app).delete('/api/evenings/ev').set(auth)).status).toBe(200);
+    expect(await tokens('e')).toBe(0);
+    expect(await tokens('f')).toBe(0);
   });
 });

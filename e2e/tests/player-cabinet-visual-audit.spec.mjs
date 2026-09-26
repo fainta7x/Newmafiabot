@@ -9,7 +9,7 @@ for (const width of [360, 390]) {
     const launcher = page.getByTestId('player-live-launcher');
     await expect(page.getByTestId('product-mode-switch-player')).toContainText('CRM');
     await expect(launcher).toBeVisible();
-    await expect(page.getByTestId('player-split-vote-link')).toHaveAttribute('href', '/guide?tab=split');
+    await expect(page.getByTestId('player-split-vote-link')).toHaveAttribute('href', '/guide?tab=trainers');
     await expect(nav.getByRole('button', { name: 'Главная', exact: true })).toHaveAttribute('aria-current', 'page');
     const launcherBox = await launcher.boundingBox();
     expect(launcherBox).not.toBeNull();

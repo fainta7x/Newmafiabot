@@ -17,6 +17,7 @@ describe('public guide for novices', () => {
     expect(guideTabFromSearch('?tab=quiz')).toBe('quiz');
     expect(guideTabFromSearch('?tab=lessons')).toBe('lessons');
     expect(guideTabFromSearch('?tab=split')).toBe('split');
+    expect(guideTabFromSearch('?tab=trainers')).toBe('trainers');
     expect(guideTabFromSearch('?tab=nope')).toBe('home');
   });
 
@@ -40,11 +41,13 @@ describe('public guide for novices', () => {
 
   it('opens sections from the home screen and comes back', async () => {
     render(<PublicGuide />);
-    expect(screen.getByTestId('guide-path')).toBeTruthy();
+    expect(screen.getByTestId('guide-sections')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('guide-section-reference'));
     fireEvent.click(screen.getByTestId('guide-tab-evening'));
     expect(screen.getAllByTestId('guide-step')).toHaveLength(SCENARIO.length);
+    expect(screen.getByTestId('guide-place').textContent).toBe('Справочник');
     fireEvent.click(screen.getByTestId('guide-back'));
-    expect(await screen.findByTestId('guide-path')).toBeTruthy();
+    expect(await screen.findByTestId('guide-shelf-reference')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('guide-tab-roles'));
     expect(screen.getAllByTestId('guide-role')).toHaveLength(ROLES.length);
@@ -124,6 +127,7 @@ describe('public guide for novices', () => {
 
   it('opens an article from its shelf and groups a long topic', () => {
     render(<PublicGuide />);
+    fireEvent.click(screen.getByTestId('guide-section-articles'));
     fireEvent.click(screen.getByTestId('guide-tab-split-article'));
     expect(screen.getByTestId('guide-article').textContent).toContain('Как делают попил');
     cleanup();
@@ -131,5 +135,41 @@ describe('public guide for novices', () => {
     // The six «попил» parts are one topic in the rules, not six separate ones.
     const topics = screen.getAllByTestId('guide-rule').map((topic) => topic.textContent || '');
     expect(topics.filter((text) => text.includes('Попил в первый день'))).toHaveLength(1);
+  });
+
+  it('puts every section on the first screen and the trainers two taps away', () => {
+    window.localStorage.clear();
+    render(<PublicGuide />);
+    const sections = screen.getByTestId('guide-sections');
+    for (const id of ['lessons', ...GUIDE_SHELVES.map((shelf) => shelf.id)]) expect(sections.querySelector(`[data-testid="guide-section-${id}"]`)).toBeTruthy();
+    // The sections come before the novice path, so a returning player does not scroll past the lessons.
+    expect(sections.compareDocumentPosition(screen.getByTestId('guide-continue')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('guide-section-trainers').textContent).toContain('Попил');
+
+    fireEvent.click(screen.getByTestId('guide-section-trainers'));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Тренажёры');
+    expect(screen.getByText('Голосование и попил')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('guide-tab-split-three'));
+    expect(screen.getByTestId('split-three-training')).toBeTruthy();
+    // The other trainers of the section are right below, no need to go back.
+    const more = screen.getByTestId('guide-more');
+    expect(more.textContent).toContain('Попил в нулевом круге');
+    expect(more.textContent).not.toContain('Попил на троих');
+    cleanup();
+
+    // The home screen remembers the last trainer.
+    render(<PublicGuide />);
+    expect(screen.getByTestId('guide-recent').textContent).toContain('Попил на троих');
+  });
+
+  it('goes up to the section when a trainer link was opened directly', () => {
+    window.localStorage.clear();
+    render(<PublicGuide initialTab="split" />);
+    fireEvent.click(screen.getByTestId('guide-back'));
+    expect(screen.getByTestId('guide-shelf-trainers')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('guide-back'));
+    expect(screen.getByTestId('guide-sections')).toBeTruthy();
+    // A trainer opened from a link is remembered too.
+    expect(screen.getByTestId('guide-recent').textContent).toContain('Попил в нулевом круге');
   });
 });

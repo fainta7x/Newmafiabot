@@ -4,8 +4,8 @@ import {
   Moon, Scale, Sparkles, Users, Vote,
 } from 'lucide-react';
 import {
-  GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, isGuideScreen,
-  type GuideEntry, type GuideIcon, type GuideView,
+  GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, findGuideShelf, isGuideScreen, pluralRu,
+  type GuideEntry, type GuideIcon, type GuideShelf, type GuideView,
 } from '../../lib/guideCatalog.ts';
 import { Article } from './guide/GuideBlocks.tsx';
 import {
@@ -15,7 +15,7 @@ import {
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 import { SplitThreeTraining } from './SplitThreeTraining.tsx';
 
-/** 'home', 'lessons' or a catalog entry id (see src/lib/guideCatalog.ts). */
+/** 'home', 'lessons', a section (shelf id) or a catalog entry id (see src/lib/guideCatalog.ts). */
 export type GuideTab = string;
 type GuideScreen = { tab: GuideTab; lesson?: number };
 
@@ -83,45 +83,108 @@ const ShelfTitle = ({ children }: { children: React.ReactNode }) => (
   <h2 className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/45">{children}</h2>
 );
 
+const shelfEntries = (shelf: GuideShelf) => GUIDE_ENTRIES.filter((entry) => entry.shelf === shelf.id);
+
+/** A big section card on the home screen: everything is at most two taps away. */
+const SectionCard = ({ id, icon: Icon, title, detail, onOpen, children }: {
+  id: string; icon: React.ComponentType<{ className?: string }>; title: string; detail: string; onOpen: () => void; children?: React.ReactNode;
+}) => (
+  <button type="button" data-testid={`guide-section-${id}`} onClick={onOpen} className="flex min-h-[124px] flex-col justify-between rounded-3xl border border-white/10 bg-white/[.055] p-3.5 text-left active:bg-white/[.09]">
+    <span className="flex items-center justify-between gap-2">
+      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[.09] text-white/85"><Icon className="h-5 w-5" /></span>
+      <ChevronRight className="h-5 w-5 text-white/30" aria-hidden="true" />
+    </span>
+    <span className="mt-3 block">
+      <strong className="block text-[16px] text-white">{title}</strong>
+      <span className="mt-0.5 line-clamp-2 text-[12px] leading-4 text-white/55">{detail}</span>
+      {children}
+    </span>
+  </button>
+);
+
 const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: GuideScreen) => void }) => {
   const nextLesson = GUIDE_LESSONS.findIndex((lesson) => !progress.lessons.includes(lesson.id));
   const doneCount = GUIDE_LESSONS.filter((lesson) => progress.lessons.includes(lesson.id)).length + (progress.quizBest !== null ? 1 : 0);
   const total = GUIDE_LESSONS.length + 1;
   const started = doneCount > 0;
+  const recent = progress.recent ? findGuideEntry(progress.recent) : null;
+  const RecentIcon = recent ? ICONS[recent.icon] : null;
   return (
-    <div className="space-y-6">
-      <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[.10] via-white/[.04] to-transparent p-5">
-        <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/50"><GraduationCap className="h-4 w-4" />Путь новичка</div>
-        <h2 className="mt-2 text-[20px] font-semibold leading-7">{!started ? 'Короткие уроки — и вы готовы к первой игре' : doneCount === total ? 'Путь пройден — до встречи за столом' : `Пройдено ${doneCount} из ${total}`}</h2>
-        <div className="mt-3 flex gap-1" aria-hidden="true">
-          {Array.from({ length: total }, (_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index < doneCount ? 'bg-white' : 'bg-white/15'}`} />)}
-        </div>
-        <button type="button" data-testid="guide-continue" onClick={() => (nextLesson >= 0 ? go({ tab: 'lessons', lesson: nextLesson }) : go({ tab: 'quiz' }))}
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-black">
-          {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Проверить себя ещё раз'}<ChevronRight className="h-4 w-4" />
-        </button>
+    <div className="space-y-5">
+      <section className="grid grid-cols-2 gap-2" data-testid="guide-sections" aria-label="Разделы">
+        <SectionCard id="lessons" icon={GraduationCap} title="Уроки" onOpen={() => go({ tab: 'lessons' })}
+          detail={started ? `Пройдено ${doneCount} из ${total}` : `${GUIDE_LESSONS.length} ${pluralRu(GUIDE_LESSONS.length, 'короткий урок', 'коротких урока', 'коротких уроков')} для новичка`}>
+          <span className="mt-2 flex gap-0.5" aria-hidden="true">
+            {Array.from({ length: total }, (_, index) => <span key={index} className={`h-1 flex-1 rounded-full ${index < doneCount ? 'bg-white' : 'bg-white/15'}`} />)}
+          </span>
+        </SectionCard>
+        {GUIDE_SHELVES.map((shelf) => {
+          const entries = shelfEntries(shelf);
+          if (!entries.length) return null;
+          return <SectionCard key={shelf.id} id={shelf.id} icon={ICONS[shelf.icon]} title={shelf.title} detail={shelf.summary} onOpen={() => go({ tab: shelf.id })} />;
+        })}
       </section>
 
-      <section className="space-y-2">
-        <ShelfTitle>Уроки</ShelfTitle>
-        <LessonPath progress={progress} onLesson={(lesson) => go({ tab: 'lessons', lesson })} onQuiz={() => go({ tab: 'quiz' })} />
-      </section>
+      {recent && RecentIcon ? (
+        <section className="space-y-2">
+          <ShelfTitle>Вы недавно открывали</ShelfTitle>
+          <button type="button" data-testid="guide-recent" onClick={() => go({ tab: recent.id })} className="flex min-h-[64px] w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[.045] p-3 pr-2 text-left active:bg-white/[.08]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[.08] text-white/80"><RecentIcon className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1"><strong className="block text-[15px] text-white">{recent.title}</strong><span className="mt-0.5 block truncate text-[13px] text-white/55">{findGuideShelf(recent.shelf)?.title}</span></span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-white/35" aria-hidden="true" />
+          </button>
+        </section>
+      ) : null}
 
-      {GUIDE_SHELVES.map((shelf) => {
-        const entries = GUIDE_ENTRIES.filter((entry) => entry.shelf === shelf.id);
-        if (!entries.length) return null;
-        return (
-          <section key={shelf.id} className="space-y-2" data-testid={`guide-shelf-${shelf.id}`}>
-            <ShelfTitle>{shelf.title}</ShelfTitle>
-            <div className={shelf.layout === 'tiles' ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
-              {entries.map((entry) => (shelf.layout === 'tiles'
-                ? <Tile key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />
-                : <Row key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />))}
-            </div>
-          </section>
-        );
-      })}
+      {doneCount < total ? (
+        <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[.10] via-white/[.04] to-transparent p-4">
+          <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/50"><GraduationCap className="h-4 w-4" />Путь новичка</div>
+          <p className="mt-1.5 text-[15px] leading-6 text-white/80">{started ? `Пройдено ${doneCount} из ${total}. Продолжим?` : 'Впервые в мафии? Короткие уроки — и вы готовы к первой игре.'}</p>
+          <button type="button" data-testid="guide-continue" onClick={() => (nextLesson >= 0 ? go({ tab: 'lessons', lesson: nextLesson }) : go({ tab: 'quiz' }))}
+            className="mt-3 flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-black">
+            {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Проверить себя'}<ChevronRight className="h-4 w-4" />
+          </button>
+        </section>
+      ) : null}
     </div>
+  );
+};
+
+const EntryList = ({ shelf, entries, go }: { shelf: GuideShelf; entries: GuideEntry[]; go: (screen: GuideScreen) => void }) => (
+  <div className={shelf.layout === 'tiles' ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+    {entries.map((entry) => (shelf.layout === 'tiles'
+      ? <Tile key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />
+      : <Row key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />))}
+  </div>
+);
+
+/** One section: its entries, grouped when the catalog gives them a group. */
+const SectionScreen = ({ shelf, go }: { shelf: GuideShelf; go: (screen: GuideScreen) => void }) => {
+  const entries = shelfEntries(shelf);
+  const groups = [...new Set(entries.map((entry) => entry.group || ''))];
+  return (
+    <div className="space-y-5 pt-2" data-testid={`guide-shelf-${shelf.id}`}>
+      <p className="px-1 text-sm leading-6 text-white/65">{shelf.lead}</p>
+      {groups.map((group) => (
+        <section key={group || 'all'} className="space-y-2">
+          {group ? <ShelfTitle>{group}</ShelfTitle> : null}
+          <EntryList shelf={shelf} entries={entries.filter((entry) => (entry.group || '') === group)} go={go} />
+        </section>
+      ))}
+    </div>
+  );
+};
+
+/** At the end of every entry: the rest of its section, so the next trainer or article is one tap away. */
+const MoreInSection = ({ entry, go }: { entry: GuideEntry; go: (screen: GuideScreen) => void }) => {
+  const shelf = findGuideShelf(entry.shelf);
+  const others = shelf ? shelfEntries(shelf).filter((item) => item.id !== entry.id) : [];
+  if (!shelf || !others.length) return null;
+  return (
+    <section className="space-y-2 pt-2" data-testid="guide-more">
+      <ShelfTitle>Ещё в разделе «{shelf.title}»</ShelfTitle>
+      <div className="space-y-2">{others.map((item) => <Row key={item.id} entry={item} onOpen={() => go({ tab: item.id })} />)}</div>
+    </section>
   );
 };
 
@@ -153,10 +216,17 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
     } catch { /* the page works without updating the address */ }
   }, []);
 
+  // Remember the open entry however it was reached: a tap, a shared link or the back button.
+  useEffect(() => {
+    if (!findGuideEntry(screen.tab)) return;
+    updateProgress((current) => (current.recent === screen.tab ? current : { ...current, recent: screen.tab }));
+  }, [screen.tab, updateProgress]);
+
   const back = useCallback(() => {
     if (depth.current > 0) { window.history.back(); return; }
     // Opened straight on a section (a shared link): go up one level instead of leaving the page.
-    const up: GuideScreen = screen.tab === 'lessons' && screen.lesson !== undefined ? { tab: 'lessons' } : { tab: 'home' };
+    const parent = findGuideEntry(screen.tab)?.shelf;
+    const up: GuideScreen = screen.tab === 'lessons' && screen.lesson !== undefined ? { tab: 'lessons' } : parent ? { tab: parent } : { tab: 'home' };
     setScreen(up);
     window.scrollTo?.({ top: 0 });
     try { window.history.replaceState({ guide: up }, '', screenUrl(up)); } catch { /* ignore */ }
@@ -201,23 +271,29 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const home = screen.tab === 'home';
   const lessonOpen = screen.tab === 'lessons' && screen.lesson !== undefined;
   const entry = findGuideEntry(screen.tab);
+  const shelf = findGuideShelf(screen.tab);
   const View = entry ? GUIDE_VIEWS[entry.view] : null;
-  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Путь новичка' : entry?.view === 'split' ? 'Попил в нулевом круге' : entry?.title || 'Школа мафии';
+  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Уроки' : shelf?.title || entry?.title || 'Школа мафии';
+  // Where this screen lives, shown above the title.
+  const place = lessonOpen ? 'Уроки' : entry ? findGuideShelf(entry.shelf)?.title : 'Школа мафии';
 
   return (
-    <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 text-white" style={{ paddingTop: home ? 28 : 0 }}>
+    <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 text-white" style={{ paddingTop: home ? 20 : 0 }}>
       <div className="mx-auto max-w-md space-y-4">
         {home ? (
           <header className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
-            <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Школа мафии</h1>
-            <p className="mt-2 text-[14px] leading-6 text-white/55">Всё, что нужно знать перед первым вечером спортивной мафии.</p>
+            <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Школа мафии</h1>
+            <p className="mt-1.5 text-[14px] leading-6 text-white/55">Уроки, тренажёры и правила спортивной мафии.</p>
           </header>
         ) : (
           /* Sticks below Telegram's top safe area (header, device cutout). */
           <nav className="sticky z-10 -mx-4 flex min-h-14 items-center gap-1 border-b border-white/[.06] bg-[#090a0d]/95 px-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Навигация">
             <button type="button" data-testid="guide-back" onClick={back} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/80 active:bg-white/10" aria-label="Назад"><ChevronLeft className="h-6 w-6" /></button>
-            <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
+            <div className="min-w-0 flex-1">
+              <div data-testid="guide-place" className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40">{place}</div>
+              <h1 className="truncate text-[17px] font-semibold leading-6">{title}</h1>
+            </div>
             <span className="w-11 shrink-0" aria-hidden="true" />
           </nav>
         )}
@@ -230,7 +306,9 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
           </div>
         ) : null}
         {lessonOpen ? <div className="pt-2"><LessonScreen key={screen.lesson} index={screen.lesson!} onNext={() => finishLesson(screen.lesson!)} onPrevious={() => (screen.lesson! > 0 ? go({ tab: 'lessons', lesson: screen.lesson! - 1 }) : back())} /></div> : null}
+        {shelf ? <SectionScreen shelf={shelf} go={go} /> : null}
         {entry && View ? <div className="pt-2"><View entry={entry} onQuizFinish={finishQuiz} /></div> : null}
+        {entry ? <MoreInSection entry={entry} go={go} /> : null}
 
         {home || entry?.view === 'quiz' ? (
           <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4 text-center">

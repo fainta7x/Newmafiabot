@@ -61,7 +61,7 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 - Public page `/guide` (no sign-in): `src/components/public/PublicGuide.tsx`, routed in `src/App.tsx`.
 - Split-vote trainer: `src/lib/splitVoteTraining.ts`, expert level `src/lib/splitVoteExpert.ts`; progress `/api/player/split-vote-progress`; curator view `/api/learning/split-vote` (`learningProgressRoutes.ts`) and `src/components/crm/LearningProgressCRM.tsx` («Ещё → Обучение», player card block).
 - Texts (scenario, roles, table rules, glossary): `src/lib/clubGuide.ts`; the self-check uses `src/lib/clubGuideQuiz.ts`.
-- What the page shows (lessons, reference, articles, trainers) and in which order: `src/lib/guideCatalog.ts` — add a lesson or an article there; a new kind of screen or trainer also gets a component in `GUIDE_VIEWS` (`PublicGuide.tsx`). Shared pieces and screens: `src/components/public/guide/`.
+- What the page shows (lessons, reference, articles, trainers) and in which order: `src/lib/guideCatalog.ts` (sections `GUIDE_SHELVES` with the home-card summary, entries with an optional topic `group`) — add a lesson or an article there; a new kind of screen or trainer also gets a component in `GUIDE_VIEWS` (`PublicGuide.tsx`). Shared pieces and screens: `src/components/public/guide/`.
 - Player home entry for zero-round split-vote practice: `src/components/player/PlayerHomeDashboard.tsx`; public mode/exam UI: `src/components/public/SplitVoteTraining.tsx`, with generated questions and approved vote mapping in `src/lib/splitVoteTraining.ts`.
 - Account-level unlocks: `src/server/routes/playerSplitVoteProgressRoutes.ts`; additive storage: `src/db/ensureSplitVoteProgressSchema.ts`.
 

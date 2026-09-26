@@ -76,4 +76,9 @@ export async function ensureAdminDataSchema(db: DatabaseWrapper): Promise<void> 
       ],
     );
   }
+  // Renamed 2026-09-26 before any release to players; an organizer's own edit is kept.
+  await db.run(
+    "UPDATE achievement_definitions SET name = 'Нулевой пациент', description = 'Сдать экзамен эксперта в тренажёре попила нулевого круга', icon = '🧪', updated_at = ? WHERE id = 'split_vote_expert' AND name = 'Спасатель попила'",
+    [now],
+  );
 }

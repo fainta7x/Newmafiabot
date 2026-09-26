@@ -217,7 +217,7 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
 - Who insures (throws a vote to a nominee outside the split) does not matter; everyone else votes as the basic split rules say. A player whose own candidate has already passed can only insure.
 - Only rescuable tasks are generated. An exam has 5 tasks, all with a break; 4 have №1 in the split. The expert level opens after the whole-table exam.
 
-- **Achievement for the trainer** (user-approved 2026-09-26): one achievement, «Спасатель попила» (epic, category «🎓 Обучение»), for passing the expert exam. The other levels give no achievement. The curator (organizer) sees who passed which exam and when: «Ещё → Обучение» and the «Тренажёр попила» block on the player card.
+- **Achievement for the trainer** (user-approved 2026-09-26): one achievement, «Нулевой пациент» (renamed from «Спасатель попила» 2026-09-26: later trainers will rescue splits at other stages of the game; epic, category «🎓 Обучение»), for passing the expert exam. The other levels give no achievement. The curator (organizer) sees who passed which exam and when: «Ещё → Обучение» and the «Тренажёр попила» block on the player card.
 
 ## Table conduct (user-approved 2026-09-24)
 

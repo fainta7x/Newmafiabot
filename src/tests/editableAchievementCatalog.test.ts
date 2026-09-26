@@ -55,4 +55,15 @@ describe('editable achievement catalog', () => {
     expect(active.some((item) => item.id === 'first_game')).toBe(false);
     expect(all.some((item) => item.id === 'first_game')).toBe(true);
   });
+
+  it('renames the trainer achievement to «Нулевой пациент» unless an organizer renamed it', async () => {
+    const db = makeDb();
+    await ensureAdminDataSchema(db);
+    await db.run("UPDATE achievement_definitions SET name = 'Спасатель попила' WHERE id = 'split_vote_expert'");
+    await ensureAdminDataSchema(db);
+    expect((await db.get("SELECT name FROM achievement_definitions WHERE id = 'split_vote_expert'")).name).toBe('Нулевой пациент');
+    await db.run("UPDATE achievement_definitions SET name = 'Своё название' WHERE id = 'split_vote_expert'");
+    await ensureAdminDataSchema(db);
+    expect((await db.get("SELECT name FROM achievement_definitions WHERE id = 'split_vote_expert'")).name).toBe('Своё название');
+  });
 });

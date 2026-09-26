@@ -37,7 +37,8 @@ describe('zero-round split-vote training', () => {
     fireEvent.click(screen.getByRole('button', { name: '№1' }));
     const nominees = screen.getByTestId('split-vote-nominees').textContent!.match(/№\d+/g)!;
     for (let index = 0; index < nominees.length; index += 1) {
-      fireEvent.click(screen.getByRole('button', { name: 'Пропустить' }));
+      // The last nominee takes everyone left automatically, so its button reads «Продолжить».
+      fireEvent.click(screen.getByRole('button', { name: /^(Пропустить|Продолжить)$/ }));
     }
     expect(screen.queryByTestId('split-vote-result')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));

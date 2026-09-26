@@ -1,21 +1,25 @@
 import React, { useEffect, useState } from 'react';
+import { SplitVoteExpertSession } from './SplitVoteExpert.tsx';
+import { EXPERT_SECONDS, type ExpertScenario } from '../../lib/splitVoteExpert.ts';
 import { SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 
 type TrainingMode = 'practice' | 'exam' | 'endless';
-type Session = { difficulty: SplitVoteDifficulty; mode: TrainingMode };
+type Level = SplitVoteDifficulty | 'expert';
+type Session = { difficulty: Level; mode: TrainingMode };
 type Result = 'passed' | 'failed' | 'completed' | null;
 
 const DIFFICULTIES = [
   { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
   { value: 'advanced', title: 'Продвинутый уровень', description: 'В попиле участвуют два игрока без №1. Порядок выставления случайный.' },
-  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата.' },
+  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата. Кто не поднял руку, уходит в последнего.' },
+  { value: 'expert', title: 'Эксперт · спасение попила', description: `Кто-то уже сломал попил: проголосовал не туда или не поднял руку. За ${EXPERT_SECONDS} секунд распредели оставшихся так, чтобы попил состоялся.` },
 ] as const;
 type ExamAnswer = { scenario: SplitVoteScenario; answer: number | Record<number, number[]> };
 type ProgressState = 'loading' | 'ready' | 'guest' | 'error';
 
 export const SplitVoteTraining: React.FC = () => {
   const [progressState, setProgressState] = useState<ProgressState>('loading');
-  const [passed, setPassed] = useState<SplitVoteDifficulty[]>([]);
+  const [passed, setPassed] = useState<Level[]>([]);
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [examAnswers, setExamAnswers] = useState<ExamAnswer[]>([]);
@@ -42,11 +46,12 @@ export const SplitVoteTraining: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  const unlocked = (difficulty: SplitVoteDifficulty) => difficulty === 'basic' ||
+  const unlocked = (difficulty: Level) => difficulty === 'basic' ||
     (difficulty === 'advanced' && passed.includes('basic')) ||
+    (difficulty === 'expert' && passed.includes('interactive')) ||
     ((difficulty === 'interactive' || difficulty === 'all') && passed.includes('advanced'));
 
-  const savePassedExam = async (answers: ExamAnswer[], level: SplitVoteDifficulty) => {
+  const savePassedExam = async (answers: ExamAnswer[] | Array<{ scenario: ExpertScenario; answer: Record<number, number[]> }>, level: Level): Promise<boolean> => {
     setSaving(true);
     setSaveError('');
     try {
@@ -57,16 +62,18 @@ export const SplitVoteTraining: React.FC = () => {
       if (!response.ok) throw new Error('save');
       const data = await response.json();
       setPassed(data.passed);
-      setResult('passed');
+      if (level !== 'expert') setResult('passed');
+      return true;
     } catch {
-      setSaveError('Не удалось сохранить результат. Проверь соединение и попробуй ещё раз.');
+      if (level !== 'expert') setSaveError('Не удалось сохранить результат. Проверь соединение и попробуй ещё раз.');
+      return false;
     } finally { setSaving(false); }
   };
 
   const start = (next: Session) => {
     if (!unlocked(next.difficulty) || (next.mode === 'exam' && progressState !== 'ready')) return;
     setSession(next);
-    setScenario(generateSplitVoteScenario(undefined, Math.random, next.difficulty));
+    if (next.difficulty !== 'expert') setScenario(generateSplitVoteScenario(undefined, Math.random, next.difficulty));
     setChoice(null);
     setChecked(false);
     setCorrect(0);
@@ -81,6 +88,7 @@ export const SplitVoteTraining: React.FC = () => {
 
   const next = () => {
     if (!session || !scenario) return;
+    if (session.difficulty === 'expert') return;
     setScenario(generateSplitVoteScenario(scenario, Math.random, session.difficulty));
     setChoice(null);
     setChecked(false);
@@ -106,7 +114,12 @@ export const SplitVoteTraining: React.FC = () => {
   const advanceNominee = () => {
     if (!scenario) return;
     const candidate = scenario.candidates[nomineeIndex];
-    setAssignments((current) => ({ ...current, [candidate]: selectedSeats }));
+    const lastIndex = scenario.candidates.length - 1;
+    // Nobody left out: whoever has not voted by the last nominee votes for them automatically.
+    const chosen = nomineeIndex === lastIndex
+      ? [...selectedSeats, ...Array.from({ length: 10 }, (_, index) => index + 1).filter((seat) => !assignedSeats.includes(seat) && !selectedSeats.includes(seat))]
+      : selectedSeats;
+    setAssignments((current) => ({ ...current, [candidate]: chosen }));
     setSelectedSeats([]);
     setNomineeIndex((index) => index + 1);
   };
@@ -121,14 +134,16 @@ export const SplitVoteTraining: React.FC = () => {
     <div className="space-y-4" data-testid="split-vote-training">
       <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
         <h2 className="text-lg font-semibold">Учимся голосовать при попиле</h2>
-        <p className="mt-2 text-sm leading-6 text-white/70">За столом 10 игроков. В первых двух уровнях выбери свой голос. В сложном уровне распредели все 10 голосов по выставленным кандидатам в нужном порядке.</p>
+        <p className="mt-2 text-sm leading-6 text-white/70">За столом 10 игроков. В первых двух уровнях выбери свой голос. В сложном уровне распредели все 10 голосов по выставленным кандидатам в нужном порядке. В экспертном — спаси попил, который кто-то уже сломал.</p>
         <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
           <summary className="cursor-pointer font-semibold text-white">Правила попила на 10 игроков</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_VOTE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
         </details>
       </section>
 
-      {!session || !scenario ? (
+      {session?.difficulty === 'expert' ? (
+        <SplitVoteExpertSession mode={session.mode} onExit={() => setSession(null)} onPassed={(answers) => savePassedExam(answers, 'expert')} />
+      ) : !session || !scenario ? (
         <div className="space-y-3" data-testid="split-vote-modes">
           {DIFFICULTIES.map((difficulty) => (
             <section key={difficulty.value} className={`rounded-3xl border p-4 ${passed.includes(difficulty.value) ? 'border-emerald-400/50 bg-emerald-500/[.08]' : 'border-white/10 bg-white/[.045]'}`} data-testid={`split-vote-level-${difficulty.value}`}>
@@ -143,6 +158,7 @@ export const SplitVoteTraining: React.FC = () => {
                 <button type="button" disabled={!unlocked(difficulty.value)} onClick={() => start({ difficulty: difficulty.value, mode: 'practice' })} className="min-h-12 rounded-2xl border border-white/15 px-2 text-sm font-semibold disabled:opacity-40">Практика · 5 вопросов</button>
                 <button type="button" disabled={!unlocked(difficulty.value) || progressState !== 'ready'} onClick={() => start({ difficulty: difficulty.value, mode: 'exam' })} className={`min-h-12 rounded-2xl px-2 text-sm font-semibold disabled:opacity-40 ${passed.includes(difficulty.value) ? 'border border-emerald-400/50 bg-emerald-500/20 text-emerald-100' : 'bg-white text-black'}`}>{passed.includes(difficulty.value) ? 'Пройти ещё раз' : 'Экзамен · 5 вопросов'}</button>
               </div>
+              {difficulty.value === 'expert' ? <button type="button" disabled={!unlocked('expert')} onClick={() => start({ difficulty: 'expert', mode: 'endless' })} className="mt-2 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Бесконечная практика</button> : null}
               {difficulty.value === 'interactive' ? <button type="button" disabled={!unlocked('interactive')} onClick={() => start({ difficulty: 'interactive', mode: 'endless' })} className="mt-2 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Бесконечная практика</button> : null}
             </section>
           ))}
@@ -163,14 +179,14 @@ export const SplitVoteTraining: React.FC = () => {
           {interactive && !checked ? (
             nomineeIndex < scenario.candidates.length ? <div className="space-y-3" data-testid="split-vote-interactive">
               <h3 className="text-base font-semibold">Кто голосует за №{scenario.candidates[nomineeIndex]}?</h3>
-              <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. Выбери номера игроков; выбранные на прошлых шагах больше недоступны.</p>
+              <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. {nomineeIndex === scenario.candidates.length - 1 ? 'Это последний кандидат: все, кто ещё не голосовал, голосуют за него автоматически.' : 'Выбери номера игроков; выбранные на прошлых шагах больше недоступны. Кто не поднимет руку ни за кого, уйдёт в последнего.'}</p>
               <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
                 {Array.from({ length: 10 }, (_, index) => index + 1).filter((seat) => !assignedSeats.includes(seat)).map((seat) => (
                   <button key={seat} type="button" aria-pressed={selectedSeats.includes(seat)} onClick={() => setSelectedSeats((current) => current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat])}
                     className={`min-h-12 rounded-2xl border text-sm font-semibold ${selectedSeats.includes(seat) ? 'border-white bg-white/20' : 'border-white/15'}`}>№{seat}</button>
                 ))}
               </div>
-              <button type="button" onClick={advanceNominee} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{selectedSeats.length ? 'Продолжить' : 'Пропустить'}</button>
+              <button type="button" onClick={advanceNominee} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{selectedSeats.length || nomineeIndex === scenario.candidates.length - 1 ? 'Продолжить' : 'Пропустить'}</button>
               {nomineeIndex > 0 ? <button type="button" onClick={() => {
                 const prior = scenario.candidates[nomineeIndex - 1];
                 setSelectedSeats(assignments[prior] ?? []);

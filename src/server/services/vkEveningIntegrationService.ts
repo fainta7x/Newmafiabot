@@ -569,6 +569,8 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
         : (destination.active ? 'manual' : 'not_configured'),
       external_url: publication?.external_url || destination.configuredUrl,
       post_id: publication?.post_id || null,
+      // VK did not confirm whether the post came out: the organizer should look at the group.
+      needs_check: Boolean(publication && !publication.post_id && publication.status === 'publishing'),
       poll_id: publication?.poll_id || null,
       last_error: visibleError,
       updated_at: publication?.updated_at || null,

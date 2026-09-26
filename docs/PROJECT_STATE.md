@@ -303,6 +303,10 @@ TOURNAMENT-EVENING-001 / PR #300 adds focused organizer/player registration, exa
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 
+## Publishing after the 2026-09-25 incident
+
+On 2026-09-25 an evening auto-cancelled for shortfall was recreated by the rolling calendar and announced again in a loop. #496–#498 closed the loop and added an emergency pause. The follow-up on 2026-09-26 added duplicate safeguards in the bot, the outbox, the shortfall call and VK (listed in `docs/RUNBOOK.md` → «Emergency weekly publishing pause») and made publishing run by default. Deploying that `main` lifts the pause; `WEEKLY_EVENING_AUTOMATION_ENABLED=false` brings it back. Runtime check after deploy: the calendar has no duplicate evenings for one date, and exactly one pinned router post in the public group.
+
 ## Current queue (organizer flow, approved 2026-09-24)
 
 Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».

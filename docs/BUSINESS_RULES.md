@@ -479,7 +479,7 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
 
   Tables of 8 and 9 are for novice evenings only.
 - **Shortfall (user-approved 2026-09-24).**
-  - **3 hours before:** if the evening is short of players, the app itself posts a call to come in the group of the main announcement.
+  - **3 hours before:** if the evening is short of players, the app itself posts a call to come in the group of the main announcement. The call goes out once; if it fails, the organizer is told to call by hand instead of the app repeating it.
   - **1 hour before:** if fewer than 10 players (novice: 8) have confirmed, the published evening is cancelled automatically, provided no game was started and the recorded attendance does not already meet the minimum. Registered players are notified. If automatic cancellation is blocked by actual games or attendance, the organizer reviews the evening.
   - A past evening with no games and fewer than the minimum recorded attendees can be marked «Отменить из-за недобора» from closeout instead of being closed as played.
   - After the start, the app cancels automatically for low actual attendance only once every expected player has an attendance mark; unknown attendance does not count as absence.

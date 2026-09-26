@@ -46,7 +46,7 @@ router.post('/vk/evenings/:eveningId/sync', requireOrganizerAuth, async (req,res
   try {
     const db=req.db as DatabaseWrapper; await ensureVkIntegrationSchema(db); await hydrateVkOAuthAccessToken(db);
     const publisher=getVkIntegrationStatus(); if(!publisher.configured) return res.status(409).json({code:'vk_publish_token_required',error:'Запись через VK ID работает. Для автопубликации в паблик на сервере нужен ключ сообщества VK.'});
-    const eveningId=String(req.params.eveningId||''); const result=await syncDirectVkEveningPublications(db,eveningId,baseUrlFor(req));
+    const eveningId=String(req.params.eveningId||''); const result=await syncDirectVkEveningPublications(db,eveningId,baseUrlFor(req),{confirmMissing:typeof req.body?.confirm_missing==='string'?req.body.confirm_missing:null});
     return res.json({success:true,...result,state:await enrichedState(db,eveningId)});
   } catch(error:any){ return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось синхронизировать VK'}); }
 });

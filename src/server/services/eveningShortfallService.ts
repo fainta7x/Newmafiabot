@@ -1,3 +1,4 @@
+import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { loadEveningRecruitmentState } from './eveningRecruitmentService.ts';
@@ -76,7 +77,7 @@ export async function runEveningShortfallChecks(
 ) {
   // The emergency publishing pause must also stop the one-hour auto-cancellation.
   // Otherwise a newly created Friday could be cancelled in the same minute.
-  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') return 0;
+  if (isEveningPublishingPaused()) return 0;
   await ensureEveningShortfallSchema(db);
   await ensureGuestPlayerPlaceholderSchema(db);
   const evenings = await db.all<any>(
@@ -95,15 +96,25 @@ export async function runEveningShortfallChecks(
 
     // The call goes out only for a real shortfall against the approved table size (10, novice 8).
     if (!evening.call_sent_at && shortfall.short && start - now > CANCEL_PROMPT_HOURS * HOUR) {
-      const delivery = await recruit(id).catch(() => ({ success: false }));
-      // Only a delivered call is recorded, so a bot outage is retried on the next run.
-      if (delivery.success) {
-        await db.run(
-          `INSERT INTO evening_shortfall_actions (evening_id, call_sent_at) VALUES (?, ?)
-           ON CONFLICT(evening_id) DO UPDATE SET call_sent_at = excluded.call_sent_at`,
-          [id, new Date(now).toISOString()],
-        );
+      // The call is posted at most once. It is recorded before sending: a timeout or a
+      // partial delivery may still have reached a group, and repeating it would spam it.
+      const claimed = await db.run(
+        `INSERT INTO evening_shortfall_actions (evening_id, call_sent_at) VALUES (?, ?)
+         ON CONFLICT(evening_id) DO UPDATE SET call_sent_at = excluded.call_sent_at
+         WHERE evening_shortfall_actions.call_sent_at IS NULL`,
+        [id, new Date(now).toISOString()],
+      );
+      if (claimed.changes > 0) {
         actions += 1;
+        const delivery = await recruit(id).catch(() => ({ success: false }));
+        if (!delivery.success) {
+          await enqueueOrganizerNotification(db, {
+            messageKey: `evening-shortfall-call:${id}`,
+            eventType: 'evening_shortfall',
+            entityId: id,
+            text: `⚠️ «${String(evening.title || 'Игровой вечер')}»: не хватает игроков, а позвать в общий чат автоматически не получилось. Проверь группу и при необходимости нажми «Позвать в общий чат» в карточке вечера.`,
+          });
+        }
       }
     }
 

@@ -1,3 +1,4 @@
+import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
   requestBotEveningAnnouncement,
@@ -43,6 +44,9 @@ const workerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
 const DEFAULT_WORKER_INTERVAL_MS = 30_000;
 const DEFAULT_BATCH_SIZE = 8;
 const AUTOMATIC_EVENING_CREATE_WINDOW_MS = (4 * 24 * 60 * 60 * 1000) + (60 * 60 * 1000);
+
+// About two hours of retries with the backoff below; a job still failing after that needs a person.
+const MAX_ATTEMPTS = 12;
 
 const retryDelayMs = (attemptNumber: number) =>
   Math.min(10 * 60_000, 15_000 * (2 ** Math.max(0, attemptNumber - 1)));
@@ -91,6 +95,28 @@ async function automaticEveningSyncPolicy(
   }
   return { deliver: true };
 }
+
+/**
+ * Personal invitations and reminders make sense only while the evening is open and has not
+ * started. A job left in the queue (for example during the publishing pause) for an evening
+ * that has since started, closed or been cancelled is dropped instead of messaging players.
+ */
+async function dispatchStillRelevant(db: DatabaseWrapper, kind: TelegramDispatchJobKind, entityId: string, now: Date) {
+  if (kind === 'tournament') return true;
+  const evening = await db.get<any>('SELECT starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [entityId]);
+  if (!evening || evening.settled_at || !['published', 'active'].includes(String(evening.status || ''))) return false;
+  const startMs = new Date(String(evening.starts_at || '')).getTime();
+  return Number.isFinite(startMs) && startMs > now.getTime();
+}
+
+/** A result the bot will return again on every retry: repeating it cannot help and may repost. */
+const isFinalFailure = (result: BotSyncResult) => {
+  if ([400, 401, 403, 404, 409].includes(Number(result.status))) return true;
+  // Some players blocked the bot or a delivery record failed to save: each player's outcome is
+  // already recorded, the organizer sees the undelivered ones and can repeat by hand. An automatic
+  // retry would message again the players whose record failed to save.
+  return String(result.data?.error || result.error || '') === 'partial_delivery';
+};
 
 export async function enqueueTelegramEveningSync(db: DatabaseWrapper, eveningId: string): Promise<void> {
   const id = String(eveningId || '').trim();
@@ -238,7 +264,7 @@ export async function drainTelegramSyncOutbox(
   } = {},
 ): Promise<{ processed: number; succeeded: number; failed: number; skipped: boolean }> {
   // Keep queued Telegram publications intact while the emergency publishing pause is active.
-  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+  if (isEveningPublishingPaused()) {
     return { processed: 0, succeeded: 0, failed: 0, skipped: true };
   }
   if (activeDrains.has(db as object)) return { processed: 0, succeeded: 0, failed: 0, skipped: true };
@@ -312,6 +338,8 @@ export async function drainTelegramSyncOutbox(
               last_error: row.last_error,
             });
           }
+        } else if (!(await dispatchStillRelevant(db, row.kind as TelegramDispatchJobKind, String(row.entity_id || ''), now))) {
+          result = { success: true, status: 200, data: { skipped: true, reason: 'evening_not_open' } };
         } else {
           result = await dispatchDeliver({
             dispatch_key: row.job_key,
@@ -341,6 +369,12 @@ export async function drainTelegramSyncOutbox(
       }
 
       const attemptNumber = Number(row.attempt_count || 0) + 1;
+      if (isFinalFailure(result) || attemptNumber >= MAX_ATTEMPTS) {
+        await db.run(`DELETE FROM ${table} WHERE ${keyColumn} = ? AND version = ?`, [row.job_key, Number(row.version)]);
+        failed += 1;
+        console.warn('[TELEGRAM] Delivery stopped without another retry:', row.job_key, String(result.error || result.status));
+        continue;
+      }
       const nextAttemptAt = new Date(now.getTime() + retryDelayMs(attemptNumber)).toISOString();
       const errorText = String(result.error || `Bot HTTP ${result.status || 502}`).slice(0, 1000);
       const update = await db.run(

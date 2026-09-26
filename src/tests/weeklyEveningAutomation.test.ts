@@ -194,7 +194,7 @@ describe('weekly Friday evening automation', () => {
   });
 
   it('pauses calendar creation and all announcement delivery by default', async () => {
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     const db = createDb();
     const result = await reconcileWeeklyEveningAutomation(db, { now: new Date('2026-08-24T16:01:00.000Z') });
     expect(result.paused).toBe(true);

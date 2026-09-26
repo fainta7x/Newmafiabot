@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from collections import defaultdict
 from html import escape
 
 from aiogram import Bot
@@ -15,6 +17,31 @@ from bot_telegram_api import (
 )
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.telegram_evening_copy import closed_event_text, format_start, thematic_event_text
+
+
+# One publication run at a time per evening (and one for the public router): a web retry
+# that overlaps a slow first run must wait and then see the saved post instead of
+# sending a second one.
+_evening_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+_router_lock = asyncio.Lock()
+
+
+def evening_publication_lock(evening_id: str) -> asyncio.Lock:
+    return _evening_locks[str(evening_id)]
+
+
+async def _save_with_retry(operation, attempts: int = 3) -> dict:
+    result: dict = {"success": False, "error": "backend_write_failed"}
+    for attempt in range(max(1, attempts)):
+        try:
+            result = await operation()
+        except Exception as exc:  # noqa: BLE001 - a failed save is reported, never raised
+            result = {"success": False, "error": str(exc)}
+        if result.get("success"):
+            return result
+        if attempt + 1 < attempts:
+            await asyncio.sleep(0.5 * (attempt + 1))
+    return result
 
 
 async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
@@ -52,7 +79,8 @@ async def _edit_message_status(
     except TelegramBadRequest as exc:
         if "message is not modified" in str(exc).lower():
             return "ok"
-        if "message" in str(exc).lower() and "not found" in str(exc).lower():
+        text = str(exc).lower()
+        if ("message" in text and "not found" in text) or "message_id_invalid" in text:
             return "missing"
         print(f"[TELEGRAM PUBLISH] Failed to edit {chat_id}/{message_id}: {exc}")
         return "failed"
@@ -158,6 +186,14 @@ async def sync_evening_telegram(
     refresh_router: bool = True,
     allow_create: bool = True,
 ) -> dict:
+    async with evening_publication_lock(evening_id):
+        result = await _sync_evening_telegram_locked(bot, evening_id, allow_create=allow_create)
+    if refresh_router:
+        result["public_router"] = await sync_public_router(bot)
+    return result
+
+
+async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_create: bool) -> dict:
     plan_result = await get_evening_telegram_plan(evening_id)
     if not plan_result.get("success"):
         return {"success": False, "error": plan_result.get("error") or "plan_unavailable"}
@@ -235,16 +271,21 @@ async def sync_evening_telegram(
         topic_id = destination.get("topic_id")
         try:
             message = await _send_message(bot, chat_id, int(topic_id) if topic_id else None, text, event_keyboard)
-            saved = await save_evening_telegram_publication(
+            saved = await _save_with_retry(lambda: save_evening_telegram_publication(
                 evening_id,
                 destination_id,
                 chat_id,
                 int(topic_id) if topic_id else None,
                 message.message_id,
-            )
+            ))
+            if not saved.get("success"):
+                # An unsaved post would be sent again on the next run. Remove it so the
+                # retry publishes exactly one post.
+                removed = await _delete_message(bot, chat_id, message.message_id)
+                print(f"[TELEGRAM PUBLISH] Post for {evening_id}/{destination_id} not saved; removed={removed}")
             results.append({
                 "destination_id": destination_id,
-                "action": "created",
+                "action": "created" if saved.get("success") else "create_unsaved",
                 "success": bool(saved.get("success")),
                 "message_id": message.message_id,
             })
@@ -252,13 +293,12 @@ async def sync_evening_telegram(
             print(f"[TELEGRAM PUBLISH] Failed to send {destination_id} for {evening_id}: {exc}")
             results.append({"destination_id": destination_id, "action": "create_failed", "success": False, "error": str(exc)})
 
-    router_result = await sync_public_router(bot) if refresh_router else None
     failures = [item for item in results if not item.get("success")]
     return {
         "success": not failures,
         "evening_id": evening_id,
         "results": results,
-        "public_router": router_result,
+        "public_router": None,
     }
 
 
@@ -272,6 +312,11 @@ def _router_event_block(title: str, empty_text: str, evening: dict | None) -> li
 
 
 async def sync_public_router(bot: Bot) -> dict:
+    async with _router_lock:
+        return await _sync_public_router_locked(bot)
+
+
+async def _sync_public_router_locked(bot: Bot) -> dict:
     payload_result = await get_public_router_payload()
     if not payload_result.get("success"):
         return {"success": False, "error": payload_result.get("error") or "router_unavailable"}
@@ -333,18 +378,25 @@ async def sync_public_router(bot: Bot) -> dict:
     chat_id = str(public_destination.get("chat_id")).strip()
     message_id = public_destination.get("router_message_id")
     if message_id:
-        edited = await _edit_message(bot, chat_id, int(message_id), text, keyboard)
-        if edited:
+        edit_status = await _edit_message_status(bot, chat_id, int(message_id), text, keyboard)
+        if edit_status == "ok":
             return {
                 "success": not cleanup_failed,
                 "action": "edited",
                 "message_id": int(message_id),
                 "cleanup": cleanup_results,
             }
+        if edit_status != "missing":
+            # A temporary Telegram or network error is not a reason for a second pinned
+            # message: keep the existing one and try again on the next refresh.
+            return {"success": False, "error": "router_edit_failed", "cleanup": cleanup_results}
 
     try:
         message = await _send_message(bot, chat_id, None, text, keyboard)
-        await save_public_router_message_id(message.message_id)
+        saved = await _save_with_retry(lambda: save_public_router_message_id(message.message_id))
+        if not saved.get("success"):
+            await _delete_message(bot, chat_id, message.message_id)
+            return {"success": False, "error": "router_not_saved", "cleanup": cleanup_results}
         try:
             await bot.pin_chat_message(chat_id=chat_id, message_id=message.message_id, disable_notification=True)
         except Exception as exc:

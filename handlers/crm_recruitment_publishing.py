@@ -1,3 +1,6 @@
+import asyncio
+from collections import defaultdict
+
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -21,7 +24,16 @@ async def _event_keyboard(bot: Bot, evening_id: str) -> InlineKeyboardMarkup | N
         return None
 
 
+# One group call at a time per evening, so an overlapping retry cannot post twice.
+_recruit_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+
 async def send_crm_evening_recruitment(bot: Bot, evening_id: str) -> dict:
+    async with _recruit_locks[str(evening_id)]:
+        return await _send_crm_evening_recruitment(bot, evening_id)
+
+
+async def _send_crm_evening_recruitment(bot: Bot, evening_id: str) -> dict:
     state_result = await get_evening_recruitment_state(evening_id)
     if not state_result.get("success"):
         return {"success": False, "error": state_result.get("error") or "recruitment_state_unavailable"}

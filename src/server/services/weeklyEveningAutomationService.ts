@@ -1,3 +1,4 @@
+import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
@@ -284,7 +285,7 @@ export async function reconcileWeeklyEveningAutomation(
   options: { now?: Date; baseUrl?: string; delivery?: Partial<DeliveryAdapters> } = {},
 ) {
   // Emergency opt-in: no background or heartbeat publishing until explicitly enabled.
-  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+  if (isEveningPublishingPaused()) {
     return { success: true, paused: true, calendar: null, announcements: [] as Awaited<ReturnType<typeof runDueWeeklyAnnouncements>> };
   }
   const now = options.now || new Date();

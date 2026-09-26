@@ -99,7 +99,7 @@ describe('durable Telegram notification outbox', () => {
 
   it('holds cancellation messages during emergency pause while other notifications can send', async () => {
     const oldFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     try {
       await enqueueTelegramMessage(db, { messageKey: 'cancel:e1', category: 'personal', eventType: 'evening_cancelled', chatId: '101', text: 'Отмена' });
       await enqueueTelegramMessage(db, { messageKey: 'test:e1', category: 'organizer', eventType: 'test_notification', chatId: '202', text: 'Проверка' });
@@ -110,6 +110,25 @@ describe('durable Telegram notification outbox', () => {
       expect(result).toMatchObject({ processed: 1, sent: 1 });
       expect(calls).toEqual(['202']);
       expect(await db.get<any>("SELECT status FROM telegram_message_outbox WHERE message_key='cancel:e1'")).toMatchObject({ status: 'pending' });
+    } finally {
+      if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+      else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;
+    }
+  });
+
+  it('closes cancellation notices held during the pause without sending them once they are stale', async () => {
+    const oldFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true';
+    try {
+      await enqueueTelegramMessage(db, { messageKey: 'cancel:old', category: 'personal', eventType: 'evening_cancelled', chatId: '101', text: 'Отмена вчера' });
+      await enqueueTelegramMessage(db, { messageKey: 'cancel:fresh', category: 'personal', eventType: 'evening_cancelled', chatId: '102', text: 'Отмена сейчас' });
+      await db.run("UPDATE telegram_message_outbox SET created_at = ? WHERE message_key = 'cancel:old'", [new Date(Date.now() - 24 * 3600_000).toISOString()]);
+      const calls: string[] = [];
+      await drainTelegramMessageOutbox(db, { fetchImpl: (async (_url, init) => {
+        calls.push(String(JSON.parse(String(init?.body)).chat_id)); return successResponse();
+      }) as typeof fetch });
+      expect(calls).toEqual(['102']);
+      expect(await db.get<any>("SELECT status FROM telegram_message_outbox WHERE message_key='cancel:old'")).toMatchObject({ status: 'failed' });
     } finally {
       if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
       else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;

@@ -184,9 +184,9 @@ const syncDestination = async (
   if (onlyExisting && !existing?.post_id) {
     return { publication: null, skipped: true, reason: 'no_existing_post' };
   }
-  // Once a create was attempted, its remote outcome may be unknown. Never create
-  // a second VK post automatically without an operator reconciling the first.
-  if (!existing?.post_id && existing) {
+  // A create whose outcome is unknown (network error, lost response) stays claimed. Never create
+  // a second VK post until the organizer has checked the group and confirmed there is none.
+  if (existing && !existing.post_id && existing.status === 'publishing') {
     return { publication: existing, skipped: true, reason: 'publication_requires_reconciliation' };
   }
 
@@ -225,12 +225,27 @@ const syncDestination = async (
       INSERT INTO vk_evening_publications (
         evening_id, destination_key, group_id, answer_map_json, status, updated_at
       ) VALUES (?, ?, ?, '{}', 'publishing', ?)
-      ON CONFLICT(evening_id, destination_key) DO NOTHING
+      ON CONFLICT(evening_id, destination_key) DO UPDATE SET
+        status = 'publishing', group_id = excluded.group_id, updated_at = excluded.updated_at
+      WHERE vk_evening_publications.status <> 'publishing' AND COALESCE(vk_evening_publications.post_id, 0) = 0
     `, [evening.id, destination.key, destination.groupId, nowIso()]);
     if (claimed.changes === 0) {
       return { publication: await getPublication(db, evening.id, destination.key), skipped: true, reason: 'publication_already_claimed' };
     }
-    const published = await createVkWallPost({ groupId: destination.groupId, message });
+    let published: Awaited<ReturnType<typeof createVkWallPost>>;
+    try {
+      published = await createVkWallPost({ groupId: destination.groupId, message });
+    } catch (error: any) {
+      if (!error?.vkDefinite) {
+        // Unknown outcome: keep the claim and let the organizer check the group.
+        await db.run(
+          'UPDATE vk_evening_publications SET last_error = ?, updated_at = ? WHERE evening_id = ? AND destination_key = ?',
+          [`VK не ответил, вышел ли пост: ${error instanceof Error ? error.message : String(error)}`, nowIso(), evening.id, destination.key],
+        );
+        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { vkUncertain: true });
+      }
+      throw error;
+    }
     postOwnerId = published.ownerId;
     postId = published.postId;
     externalUrl = published.externalUrl;
@@ -264,7 +279,7 @@ export async function syncDirectVkEveningPublications(
   db: DatabaseWrapper,
   eveningId: string,
   baseUrl: string,
-  options: { onlyExisting?: boolean } = {},
+  options: { onlyExisting?: boolean; confirmMissing?: string | null } = {},
 ) {
   const evening = await loadEvening(db, eveningId);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
@@ -272,6 +287,13 @@ export async function syncDirectVkEveningPublications(
     throw Object.assign(new Error('VK-анонс можно публиковать только для открытого вечера'), { statusCode: 409 });
   }
 
+  if (options.confirmMissing && !options.onlyExisting) {
+    // The organizer checked this one destination and saw no post: release only its unknown-outcome claim.
+    await db.run(
+      "DELETE FROM vk_evening_publications WHERE evening_id = ? AND destination_key = ? AND status = 'publishing' AND COALESCE(post_id, 0) = 0",
+      [eveningId, options.confirmMissing],
+    );
+  }
   const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);
   const onlyExisting = Boolean(options.onlyExisting);
   const results: Array<{ destination: string; success: boolean; skipped?: boolean; reason?: string; error?: string }> = [];
@@ -285,8 +307,8 @@ export async function syncDirectVkEveningPublications(
       } else {
         results.push({ destination: destination.key, success: true });
       }
-    } catch (error) {
-      await savePublicationError(db, evening.id, destination, error);
+    } catch (error: any) {
+      if (!error?.vkUncertain) await savePublicationError(db, evening.id, destination, error);
       results.push({ destination: destination.key, success: false, error: error instanceof Error ? error.message : String(error) });
     }
   }

@@ -36,7 +36,7 @@ async function setup(going: number, format = 'CASUAL') {
 describe('evening shortfall', () => {
   it('does not auto-cancel or send recruitment calls during emergency pause', async () => {
     const { db, start } = await setup(3);
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     let calls = 0;
     expect(await runEveningShortfallChecks(db, start - 0.9 * HOUR, async () => { calls += 1; return { success: true }; })).toBe(0);
     expect(calls).toBe(0);
@@ -66,12 +66,14 @@ describe('evening shortfall', () => {
     expect(order.items.map((item) => item.id)).not.toContain('shortfall:ev');
   });
 
-  it('retries the group call when the bot was unavailable, and leaves a full evening alone', async () => {
+  it('posts the group call at most once, even after a failed or uncertain delivery, and leaves a full evening alone', async () => {
     const { db, start } = await setup(6);
     let attempts = 0;
+    // A timeout or a partial delivery may already have reached a group: repeating it would spam it.
     await runEveningShortfallChecks(db, start - 2 * HOUR, async () => { attempts += 1; return { success: false }; });
     await runEveningShortfallChecks(db, start - 1.9 * HOUR, async () => { attempts += 1; return { success: true }; });
-    expect(attempts).toBe(2);
+    await runEveningShortfallChecks(db, start - 1.8 * HOUR, async () => { attempts += 1; return { success: true }; });
+    expect(attempts).toBe(1);
 
     const full = await setup(12);
     const order = await loadClubOrder(full.db, full.start - 0.5 * HOUR);

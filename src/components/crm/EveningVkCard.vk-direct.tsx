@@ -11,6 +11,7 @@ type VkDestination = {
   configured_url: string | null;
   post_id: number | null;
   last_error: string | null;
+  needs_check?: boolean;
 };
 
 type VkState = {
@@ -74,13 +75,21 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const post = state?.destinations.find((item) => item.key === 'public') || null;
   const postUrl = post?.external_url || post?.configured_url || null;
 
-  const publish = async () => {
+  const publish = async (confirmMissing: string | null = null) => {
     if (busy || !canPublish) return;
     setBusy('publish'); setError(null); setMessage(null);
     try {
-      await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/sync`, { method: 'POST' });
+      const result = await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(confirmMissing ? { confirm_missing: confirmMissing } : {}),
+      });
       await load(true);
-      setMessage('Пост в паблике опубликован.');
+      const unconfirmed = Array.isArray(result?.results)
+        && result.results.some((item: any) => item.reason === 'publication_requires_reconciliation' && item.destination !== confirmMissing);
+      setMessage(unconfirmed
+        ? 'VK не подтвердил прошлую публикацию. Загляни в паблик, прежде чем публиковать снова.'
+        : 'Пост в паблике опубликован.');
     } catch (err: any) {
       setError(err?.message || 'Не удалось опубликовать в VK');
     } finally { setBusy(null); }
@@ -124,8 +133,17 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
             {post?.published && postUrl ? <a href={postUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-surface-2 px-2.5 text-[10px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
           </div>
           {post?.last_error ? <p className="mt-1 text-[10px] leading-4 text-danger">{post.last_error}</p> : null}
+
         </div>
       )}
+
+      {state.destinations.filter((item) => item.needs_check).map((item) => (
+        <div key={item.key} className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[11px] leading-4 text-warning" data-testid={`vk-needs-check-${item.key}`}>
+          <strong className="block">{item.key === 'public' ? 'Паблик' : item.name || 'Канал VK'}: VK не ответил, вышла ли публикация.</strong>
+          Загляни туда: если публикация есть — ничего не делай. Если её нет — опубликуй заново.
+          {canPublish ? <button type="button" disabled={Boolean(busy)} onClick={() => void publish(item.key)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy === 'publish' ? 'Публикуем…' : 'Публикации нет — опубликовать'}</button> : null}
+        </div>
+      ))}
 
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[11px] leading-4 text-danger">{error}</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] leading-4 text-success">{message}</div> : null}
@@ -133,7 +151,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       {draft && showDraft ? <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="mt-3 w-full resize-none rounded-lg border border-border-soft bg-surface-1 p-2 text-[11px] leading-4 text-text-primary" aria-label="Текст анонса" /> : null}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {state.integration.configured && !post?.published
+        {state.integration.configured && !post?.published && !post?.needs_check
           ? <button type="button" disabled={Boolean(busy) || !canPublish} onClick={() => void publish()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy === 'publish' ? 'Публикуем…' : 'Опубликовать'}</button>
           : draft?.join_url
             ? <a href={draft.join_url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[11px] font-black text-text-primary"><ExternalLink className="h-3.5 w-3.5" />Страница вечера</a>

@@ -6,7 +6,7 @@
  * - an article: add an entry with view 'article' and its blocks to GUIDE_ENTRIES (shelf 'articles');
  * - a trainer or a new reference screen: add an entry with a new `view`, then map that view to a
  *   component in GUIDE_VIEWS (src/components/public/PublicGuide.tsx).
- * The home screen, the addresses (/guide?tab=<id>) and the back navigation pick entries up automatically.
+ * The home screen sections, the addresses (/guide?tab=<id>) and the back navigation pick entries up automatically.
  * Texts about the game come only from the organizer's explanations (see docs/BUSINESS_RULES.md).
  */
 import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, type GuideBlock } from './clubGuide.ts';
@@ -34,18 +34,32 @@ export type GuideEntry = {
   /** One line under the title on the home screen. */
   detail: string;
   icon: GuideIcon;
+  /** Sub-heading inside the section screen; entries with the same group stand together. */
+  group?: string;
   /** Content for view 'article'. */
   blocks?: GuideBlock[];
 };
 
-export type GuideShelf = { id: GuideShelfId; title: string; layout: 'tiles' | 'rows' };
+export type GuideShelf = {
+  id: GuideShelfId; title: string;
+  /** Two short lines on the home card: what is inside. Update it when the section gets something new. */
+  summary: string;
+  /** The first line of the section screen. */
+  lead: string;
+  icon: GuideIcon; layout: 'tiles' | 'rows';
+};
 
-/** Home screen order. A shelf without entries is not shown. */
+/**
+ * Sections of the home screen, in order (after «Уроки»). Each one opens its own screen at
+ * /guide?tab=<shelf id>. A shelf without entries is not shown.
+ */
 export const GUIDE_SHELVES: GuideShelf[] = [
-  { id: 'reference', title: 'Справочник', layout: 'tiles' },
-  { id: 'articles', title: 'Статьи', layout: 'rows' },
-  { id: 'trainers', title: 'Тренажёры', layout: 'rows' },
+  { id: 'trainers', title: 'Тренажёры', summary: 'Попил за столом 10 и 9 человек, тест', lead: 'Задачи с проверкой ответа. Экзамены сохраняются в кабинете игрока.', icon: 'vote', layout: 'rows' },
+  { id: 'reference', title: 'Справочник', summary: 'Вечер, роли, правила, словарь', lead: 'Роли, правила и слова клуба — когда нужно быстро найти ответ.', icon: 'book', layout: 'tiles' },
+  { id: 'articles', title: 'Статьи', summary: 'Попил в первый день, договорка', lead: 'Разборы игровых ситуаций.', icon: 'article', layout: 'rows' },
 ];
+
+export const findGuideShelf = (id: string) => GUIDE_SHELVES.find((shelf) => shelf.id === id) || null;
 
 const blocksOfGroup = (group: string) => SIMPLE_RULES.filter((block) => block.group === group);
 const blocksTitled = (...titles: string[]) => SIMPLE_RULES.filter((block) => titles.includes(block.title));
@@ -57,9 +71,9 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'glossary', shelf: 'reference', view: 'glossary', icon: 'book', title: 'Словарь', detail: `${GLOSSARY.length} слов клуба` },
   { id: 'split-article', shelf: 'articles', view: 'article', icon: 'article', title: 'Попил в первый день', detail: 'Зачем город никого не заголосовывает в первый день', blocks: blocksOfGroup('Попил в первый день') },
   { id: 'agreement', shelf: 'articles', view: 'article', icon: 'article', title: 'Договорка', detail: 'Как мафия решает, кого убивать', blocks: blocksTitled('Договорка — как мафия решает, кого убивать') },
-  { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
-  { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', title: 'Попил на троих', detail: 'За столом 9 человек · лёгкий и средний уровни' },
-  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
+  { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
+  { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · лёгкий и средний уровни' },
+  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Знание правил', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
 ];
 
 export type GuideLessonContent =
@@ -78,7 +92,7 @@ export const GUIDE_LESSONS: GuideLesson[] = [
 ];
 
 /** Screens that are not catalog entries. */
-export const GUIDE_FIXED_SCREENS = ['home', 'lessons'] as const;
+export const GUIDE_FIXED_SCREENS = ['home', 'lessons', ...GUIDE_SHELVES.map((shelf) => shelf.id)] as const;
 
 export const findGuideEntry = (id: string) => GUIDE_ENTRIES.find((entry) => entry.id === id) || null;
 

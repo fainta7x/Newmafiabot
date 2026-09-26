@@ -207,8 +207,8 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
-        <a data-testid="player-split-vote-link" href="/guide?tab=split" className="flex min-h-20 items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
-          <span><strong className="block text-base text-white">Научиться голосовать при попиле</strong><span className="mt-1 block text-sm leading-5 text-white/60">Разбери правила, реши задачи и проверь себя на экзамене</span></span>
+        <a data-testid="player-split-vote-link" href="/guide?tab=trainers" className="flex min-h-20 items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
+          <span><strong className="block text-base text-white">Тренажёры по попилу</strong><span className="mt-1 block text-sm leading-5 text-white/60">Реши задачи и сдай экзамены по уровням</span></span>
           <span aria-hidden="true" className="text-xl text-white/45">→</span>
         </a>
 

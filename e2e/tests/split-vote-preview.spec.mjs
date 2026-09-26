@@ -54,6 +54,9 @@ test('passed exam is clearly marked on a phone', async ({ page }, testInfo) => {
 test('guide home leads a novice through lessons and sections on a phone', async ({ page }, testInfo) => {
   await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ status: 401, json: {} }));
   await page.goto('/e2e/split-vote.html?tab=home');
+  // Every section and the novice path fit the first phone screen.
+  await expect(page.getByTestId('guide-section-trainers')).toBeInViewport();
+  await expect(page.getByTestId('guide-section-articles')).toBeInViewport();
   await expect(page.getByTestId('guide-continue')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('guide-home-390.png'), fullPage: true });
@@ -64,6 +67,7 @@ test('guide home leads a novice through lessons and sections on a phone', async 
   await page.screenshot({ path: testInfo.outputPath('guide-lesson-390.png') });
 
   await page.getByTestId('guide-back').click();
+  await page.getByTestId('guide-section-reference').click();
   await page.getByTestId('guide-tab-roles').click();
   await expect(page.getByTestId('guide-role-card')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('guide-roles-390.png'), fullPage: true });
@@ -75,11 +79,17 @@ test('guide home leads a novice through lessons and sections on a phone', async 
   await page.screenshot({ path: testInfo.outputPath('guide-rules-390.png'), fullPage: true });
 });
 
-test('guide articles and trainers shelves open on a phone', async ({ page }, testInfo) => {
+test('guide articles and trainers sections open on a phone', async ({ page }, testInfo) => {
   await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ status: 401, json: {} }));
   await page.goto('/e2e/split-vote.html?tab=home');
-  await page.getByTestId('guide-shelf-articles').scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath('guide-home-shelves-390.png') });
+  await page.getByTestId('guide-section-trainers').click();
+  await expect(page.getByTestId('guide-tab-split-three')).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath('guide-trainers-390.png') });
+  await page.getByTestId('guide-tab-split-three').click();
+  await expect(page.getByTestId('split-three-modes')).toBeVisible();
+  await page.getByTestId('guide-more').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('guide-trainer-more-390.png') });
+  await page.goto('/e2e/split-vote.html?tab=articles');
   await page.getByTestId('guide-tab-split-article').click();
   await expect(page.getByTestId('guide-article')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);

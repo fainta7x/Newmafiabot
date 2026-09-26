@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { seatList } from '../../lib/splitVoteTraining.ts';
+import { SplitTableMap } from './guide/SplitTableMap.tsx';
 import {
-  SPLIT_THREE_HARD_RULES, SPLIT_THREE_RULES, aliveSeats, completeSplitThreeAnswer, correctSplitThreeVote, generateSplitThreeScenario,
+  SPLIT_THREE_HARD_RULES, SPLIT_THREE_RULES, aliveSeats, blackIfReal, completeSplitThreeAnswer, correctSplitThreeVote, generateSplitThreeScenario,
   isCorrectSplitThreeAssignment, splitThreeAssignments, splitThreeVersions, type SplitThreeLevel, type SplitThreeScenario,
 } from '../../lib/splitThreeTraining.ts';
 
@@ -118,6 +119,9 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
 
   const expected = scenario ? splitThreeAssignments(scenario) : null;
   const taken = Object.values(assignments).flat();
+  // The table picture: the correct split after the answer, the learner's own distribution while filling it in.
+  const mapVotes = checked ? expected ?? undefined
+    : medium && scenario ? { ...assignments, ...(nomineeIndex < scenario.candidates.length ? { [scenario.candidates[nomineeIndex]]: selected } : {}) } : undefined;
 
   return (
     <div className="space-y-4" data-testid="split-three-training">
@@ -167,8 +171,15 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
               <p>Шерифами назвались <strong className="text-white">{sheriffs.trusted.seat}</strong> и <strong className="text-white">{sheriffs.doubted.seat}</strong>. Город меньше верит шерифу <strong className="text-white">{sheriffs.doubted.seat}</strong>.</p>
               <p>Шериф {sheriffs.doubted.seat} проверил {sheriffs.doubted.check} — <strong className="text-white">{sheriffs.doubted.black ? 'чёрный' : 'красный'}</strong>.</p>
               <p>Шериф {sheriffs.trusted.seat} проверил {sheriffs.trusted.check} — <strong className="text-white">{sheriffs.trusted.black ? 'чёрный' : 'красный'}</strong>.</p>
+              <div data-testid="split-three-teams" className="mt-2 space-y-0.5 border-t border-amber-300/20 pt-2 text-[13px]">
+                {(['doubted', 'trusted'] as const).map((who) => (
+                  <p key={who}>Если прав шериф {sheriffs[who].seat}: мафия — <strong className="text-white">{blackIfReal(sheriffs, who).join(', ')}</strong>.</p>
+                ))}
+              </div>
             </div>
           ) : null}
+          <SplitTableMap killed={scenario.killed} candidates={scenario.candidates} split={scenario.split} seat={medium ? null : scenario.seat}
+            claims={sheriffs ? [sheriffs.trusted, sheriffs.doubted].map(({ seat, check, black }) => ({ seat, check, black })) : []} votes={mapVotes} />
           <p className="text-sm text-white/65" data-testid="split-three-nominees">Выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
           <p className="text-sm text-white/65" data-testid="split-three-split">{medium ? <>Пилим: <strong className="text-white">{scenario.split.join(', ')}</strong>.</> : 'Пилим всех троих.'}</p>
           {!medium ? <p className="text-sm text-white/65" data-testid="split-three-seat">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p> : null}

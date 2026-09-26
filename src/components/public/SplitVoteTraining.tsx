@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SplitVoteExpertSession } from './SplitVoteExpert.tsx';
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
+import { SplitTableMap } from './guide/SplitTableMap.tsx';
 import { EXPERT_SECONDS, type ExpertScenario } from '../../lib/splitVoteExpert.ts';
 import { seatList, SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 
@@ -182,6 +183,8 @@ export const SplitVoteTraining: React.FC = () => {
           <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
           <p className="text-sm text-white/65">Попил между <strong className="text-white">{scenario.pair[0]} и {scenario.pair[1]}</strong>.</p>
           <p data-testid="split-vote-seat" className="text-sm text-white/65">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p>
+          <SplitTableMap candidates={scenario.candidates} split={scenario.pair} seat={scenario.seat}
+            votes={checked ? splitVoteAssignments(scenario) : interactive ? { ...assignments, ...(nomineeIndex < scenario.candidates.length ? { [scenario.candidates[nomineeIndex]]: selectedSeats } : {}) } : undefined} />
           {interactive && !checked ? (
             nomineeIndex < scenario.candidates.length ? <div className="space-y-3" data-testid="split-vote-interactive">
               <h3 className="text-base font-semibold">Кто голосует в {scenario.candidates[nomineeIndex]}?</h3>

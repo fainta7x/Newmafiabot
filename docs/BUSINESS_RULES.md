@@ -234,6 +234,8 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
   - Example: 10 killed, sheriffs 1 and 4, the town trusts 4 less, 4 checked 2 black, 1 checked 6 red; nominated 4, 2, 7. By 4's version 1 and 2 are mafia → both vote for 4; by 1's version 4 is mafia → he votes for 2; split player 7 votes for 4 → 127 in 4, 345 in 2, 689 in 7.
   - Example (kind 3): 10 killed, sheriffs 1 and 3, the town trusts 3 less, 1 checked 2 black, 3 checked 5 red; nominated 2, 3, 7. 2, 3 and 7 vote as split players for 2; by 3's version 1 is mafia → he votes where a vote is free, for 3 → 237 in 2, 145 in 3, 689 in 7.
 
+The table picture in the trainers (user-approved 2026-09-26): a round table with eleven places — the host at the bottom, players 1–10 starting at the host's left hand and going round the table (1 bottom-left, 10 bottom-right next to the host). The trainers show on it who was killed, who is nominated and split, the learner's seat, the sheriff claims with their checks and, while distributing or after the answer, whom every seat votes for. The hard level also shows a short summary «если прав шериф N: мафия — …» for both versions (a restatement of the task, not the answer).
+
 Seats in the trainers are written the club way (user-approved 2026-09-26): no «№»; who votes for whom is written seat after seat with 10 as «0» («в 2 проголосовали 3460»); a list of nominees keeps commas; a single seat keeps «10».
 
 ## Table conduct (user-approved 2026-09-24)

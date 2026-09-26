@@ -71,6 +71,10 @@ describe('three-way split trainer screen', () => {
     const claims = screen.getByTestId('split-three-sheriffs').textContent || '';
     expect(claims).toContain('Город меньше верит шерифу 4');
     expect(claims).toContain('Шериф 4 проверил 2 — чёрный');
+    // A short summary of both versions, and the table picture.
+    expect(screen.getByTestId('split-three-teams').textContent).toContain('Если прав шериф 4: мафия — 1, 2.');
+    expect(screen.getByTestId('split-three-teams').textContent).toContain('Если прав шериф 1: мафия — 4.');
+    expect(screen.getByTestId('split-table-seat-10').querySelector('line')).toBeTruthy();
     const pick = (...seats: number[]) => seats.forEach((seat) => fireEvent.click(screen.getByRole('button', { name: String(seat) })));
     // Plain seat order would be wrong here: 1 and 2 must vote for 4.
     pick(2, 4, 7); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));

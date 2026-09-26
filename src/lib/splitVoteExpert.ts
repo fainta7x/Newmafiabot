@@ -64,6 +64,12 @@ export const completeExpertAnswer = (scenario: ExpertScenario, answer: Record<nu
   return complete;
 };
 
+/** Every vote of the round: the ones cast before the task plus the learner's answer. */
+export const allExpertVotes = (scenario: ExpertScenario, answer: Record<number, number[]>) => {
+  const { votes } = expertHistory(scenario);
+  return Object.fromEntries(scenario.candidates.map((candidate) => [candidate, [...(votes[candidate] ?? []), ...(answer[candidate] ?? [])]]));
+};
+
 export type ExpertCheck = { ok: boolean; totals: Record<number, number>; reason?: string };
 
 /** Checks a learner's rescue (unassigned players are added to the last nominee first). */

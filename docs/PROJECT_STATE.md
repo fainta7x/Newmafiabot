@@ -369,7 +369,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Today:
      - the token shop (`ensurePlayerShopSchema.ts`, `PlayerWalletHub.tsx`) sells three items: «Купить роль на игру», «Заказ музыки», «Бесплатный вечер»;
      - purchases are redeemed by hand by the organizer;
-     - tokens are earned only in the club (games, judging, organizing).
+     - tokens are earned only in the club: coming to an evening (500 at the start after signing up, 400 late or without signing up; `eveningAttendanceRewardService.ts`), games, judging and organizing.
    - Target:
      - finish the shop and add interesting goods and services;
      - design donations and purchases for real money.

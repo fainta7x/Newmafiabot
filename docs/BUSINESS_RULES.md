@@ -423,6 +423,7 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   - Every game needs a judge: a club player, or a named guest explicitly marked as a guest. Guest judging counts for nobody.
   - The judge gets 200 tokens per completed game (2 × the 100-token player participation reward) for games from 2026-09-24; older games keep the former 100.
   - The evening's organizer gets 1000 tokens once per closed evening, for evenings from 2026-09-24.
+- **Tokens for coming to an evening (user-approved 2026-09-26).** A registered player gets 500 tokens for arriving at the start after signing up («Иду» or «Приду позже»), and 400 for arriving late or without signing up. The reward follows the organizer's attendance mark: marking pays, unmarking takes it back, switching between «вовремя» and «опоздал» settles the difference, and closing the evening re-checks everyone. Guests without a profile get nothing. Evenings before 2026-09-26 are not paid. The old bot's «+500 вовремя, +400 позже» text was never credited.
   - Organizer achievements count closed evenings run as the assigned organizer: 1, 5, 10, 25 and 50 evenings.
   - Money payouts (salary) to organizers and judges belong to the planned club finance module.
   - On profiles, «Отсудил игр» is shown openly but only for players who judged at least one game. «Провёл вечеров» is shown only on profiles of players with the «Организатор» club role. Both are split by kind: club, novice, rating and tournament.

@@ -32,6 +32,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
   const [answers, setAnswers] = useState<Array<{ scenario: SplitThreeScenario; answer: Answer }>>([]);
   const [result, setResult] = useState<null | 'passed' | 'failed' | 'completed'>(null);
   const [saveError, setSaveError] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +67,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
 
   const save = async (list: Array<{ scenario: SplitThreeScenario; answer: Answer }>, level: SplitThreeLevel) => {
     setSaveError(false);
+    setSaving(true);
     try {
       const response = await fetch('/api/player/split-vote-progress', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -75,7 +77,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
       const data = await response.json();
       setPassed(data.passed);
       setResult('passed');
-    } catch { setSaveError(true); }
+    } catch { setSaveError(true); } finally { setSaving(false); }
   };
 
   const finish = (right: boolean, answer: Answer) => {
@@ -198,7 +200,8 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             {result === 'passed' && session.level === 'three_easy' ? <p className="mt-1 text-white/75">Средний уровень открыт.</p> : null}
           </div> : null}
           {saveError ? <div role="alert" className="text-sm text-amber-200">Не удалось сохранить результат. Проверь соединение.<button type="button" onClick={() => void save(answers, session.level)} className="mt-2 min-h-11 w-full rounded-2xl border border-white/30">Повторить сохранение</button></div> : null}
-          {checked && !result && !saveError ? <button type="button" onClick={advance} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Следующая задача</button> : null}
+          {saving ? <p role="status" className="text-sm text-white/70">Сохраняем результат экзамена…</p> : null}
+          {checked && !result && !saveError && !saving && !(session.mode === 'exam' && position === 4) ? <button type="button" onClick={advance} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Следующая задача</button> : null}
           {result ? <button type="button" onClick={() => start(session)} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{result === 'passed' ? 'Пройти ещё раз' : 'Попробовать снова'}</button> : null}
           <button type="button" onClick={() => setSession(null)} className="min-h-11 w-full rounded-2xl text-sm text-white/60">К выбору режима</button>
           {session.mode === 'endless' && position > 0 ? <p className="text-center text-xs text-white/50">Правильных ответов: {correct} из {position + (checked ? 1 : 0)}.</p> : null}

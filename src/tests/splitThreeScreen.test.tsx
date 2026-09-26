@@ -39,4 +39,23 @@ describe('three-way split trainer screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));
     expect(screen.getByRole('status').textContent).toContain('Верно!');
   });
+
+  it('keeps the player on the fifth exam task while the result is saving', async () => {
+    let finishSave: (response: Response) => void = () => undefined;
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: RequestInit) => (init?.method === 'POST'
+      ? new Promise<Response>((resolve) => { finishSave = resolve; })
+      : Promise.resolve(new Response(JSON.stringify({ passed: [] }), { status: 200 })))));
+    render(<SplitThreeTraining initial={[easy, easy, easy, easy, easy]} />);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0].hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Экзамен · 5 вопросов' })[0]);
+    for (let task = 0; task < 5; task += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'В 2' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
+      if (task < 4) fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
+    }
+    expect(screen.getByText('Сохраняем результат экзамена…')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Следующая задача' })).toBeNull();
+    finishSave(new Response(JSON.stringify({ passed: ['three_easy'] }), { status: 200 }));
+    await waitFor(() => expect(screen.getByTestId('split-three-result').textContent).toContain('Экзамен сдан: 5 из 5'));
+  });
 });

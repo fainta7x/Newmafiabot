@@ -98,7 +98,8 @@ describe('split-vote progress table', () => {
       PRIMARY KEY (player_id, level)
     )`);
     await db.run("INSERT INTO player_split_vote_progress (player_id, level, passed_at) VALUES ('p1', 'interactive', '2026-09-25 10:00:00')");
-    await ensureSplitVoteProgressSchema(db);
+    // Two first requests at once must share one rebuild.
+    await Promise.all([ensureSplitVoteProgressSchema(db), ensureSplitVoteProgressSchema(db)]);
     await ensureSplitVoteProgressSchema(db);
     await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'expert')");
     await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'three_medium')");

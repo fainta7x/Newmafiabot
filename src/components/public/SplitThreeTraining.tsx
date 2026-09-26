@@ -112,15 +112,17 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
 
   return (
     <div className="space-y-4" data-testid="split-three-training">
-      <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <h2 className="text-lg font-semibold">Попил на троих, за столом 9 человек</h2>
-        <p className="mt-2 text-sm leading-6 text-white/70">Одного игрока убили, за столом осталось 9 человек. Город делит голоса поровну между тремя выставленными — по 3 голоса каждому.</p>
-        <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
-          <summary className="cursor-pointer font-semibold text-white">Правила попила на троих</summary>
-          <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
-          <p className="mt-2 leading-6 text-white/60">Пример: убит 10, выставлены 7, 2, 5, 9, 4, пилим 2, 9, 4. В 2 голосуют 249, в 9 — 135, в 4 — 678, в 7 и 5 — никто.</p>
-        </details>
-      </section>
+      {/* The intro stays on the level list; during a task the question comes first. */}
+      {!session ? (
+        <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
+          <p className="text-sm leading-6 text-white/75">Одного игрока убили, за столом 9 человек. Голоса делят поровну между тремя выставленными — по 3 голоса каждому.</p>
+          <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
+            <summary className="cursor-pointer font-semibold text-white">Правила попила на троих</summary>
+            <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
+            <p className="mt-2 leading-6 text-white/60">Пример: убит 10, выставлены 7, 2, 5, 9, 4, пилим 2, 9, 4. В 2 голосуют 249, в 9 — 135, в 4 — 678, в 7 и 5 — никто.</p>
+          </details>
+        </section>
+      ) : null}
 
       {!session || !scenario ? (
         <div className="space-y-3" data-testid="split-three-modes">

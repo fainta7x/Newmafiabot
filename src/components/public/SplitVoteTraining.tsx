@@ -132,14 +132,16 @@ export const SplitVoteTraining: React.FC = () => {
 
   return (
     <div className="space-y-4" data-testid="split-vote-training">
-      <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <h2 className="text-lg font-semibold">Учимся голосовать при попиле</h2>
-        <p className="mt-2 text-sm leading-6 text-white/70">За столом 10 игроков. В первых двух уровнях выбери свой голос. В сложном уровне распредели все 10 голосов по выставленным кандидатам в нужном порядке. В экспертном — спаси попил, который кто-то уже сломал.</p>
-        <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
-          <summary className="cursor-pointer font-semibold text-white">Правила попила на 10 игроков</summary>
-          <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_VOTE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
-        </details>
-      </section>
+      {/* The intro stays on the level list; during a task the question comes first. */}
+      {!session ? (
+        <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
+          <p className="text-sm leading-6 text-white/75">За столом 10 человек. Уровни открываются по очереди: сдай экзамен — откроется следующий.</p>
+          <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
+            <summary className="cursor-pointer font-semibold text-white">Правила попила на 10 человек</summary>
+            <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_VOTE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
+          </details>
+        </section>
+      ) : null}
 
       {session?.difficulty === 'expert' ? (
         <SplitVoteExpertSession mode={session.mode} onExit={() => setSession(null)} onPassed={(answers) => savePassedExam(answers, 'expert')} />

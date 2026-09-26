@@ -163,10 +163,13 @@ describe('public guide for novices', () => {
   });
 
   it('goes up to the section when a trainer link was opened directly', () => {
+    window.localStorage.clear();
     render(<PublicGuide initialTab="split" />);
     fireEvent.click(screen.getByTestId('guide-back'));
     expect(screen.getByTestId('guide-shelf-trainers')).toBeTruthy();
     fireEvent.click(screen.getByTestId('guide-back'));
     expect(screen.getByTestId('guide-sections')).toBeTruthy();
+    // A trainer opened from a link is remembered too.
+    expect(screen.getByTestId('guide-recent').textContent).toContain('Попил в нулевом круге');
   });
 });

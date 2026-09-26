@@ -209,13 +209,18 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
   const go = useCallback((next: GuideScreen) => {
     setScreen(next);
-    if (findGuideEntry(next.tab)) updateProgress((current) => ({ ...current, recent: next.tab }));
     window.scrollTo?.({ top: 0 });
     try {
       window.history.pushState({ guide: next }, '', screenUrl(next));
       depth.current += 1;
     } catch { /* the page works without updating the address */ }
-  }, [updateProgress]);
+  }, []);
+
+  // Remember the open entry however it was reached: a tap, a shared link or the back button.
+  useEffect(() => {
+    if (!findGuideEntry(screen.tab)) return;
+    updateProgress((current) => (current.recent === screen.tab ? current : { ...current, recent: screen.tab }));
+  }, [screen.tab, updateProgress]);
 
   const back = useCallback(() => {
     if (depth.current > 0) { window.history.back(); return; }

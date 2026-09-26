@@ -5,6 +5,9 @@ import request from 'supertest';
 import routes from '../server/routes/playerSplitVoteProgressRoutes.ts';
 import { generatePlayerSessionToken } from '../server/auth.ts';
 import { correctSplitVote } from '../lib/splitVoteTraining.ts';
+import { generateExpertExam, solveExpert } from '../lib/splitVoteExpert.ts';
+import { createDatabaseConnection } from '../db/index.ts';
+import { ensureSplitVoteProgressSchema } from '../db/ensureSplitVoteProgressSchema.ts';
 
 const scenario = { candidates: [1, 3], pair: [1, 3], seat: 2 };
 const answers = [2, 4, 5, 6, 7].map((seat) => {
@@ -52,5 +55,41 @@ describe('player split-vote progression', () => {
     });
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('bob'))
       .send({ level: 'advanced', answers: advanced })).status).toBe(403);
+  });
+
+  it('records the expert level only after the interactive one, with four of five tasks around №1', async () => {
+    const exam = generateExpertExam();
+    const answers = exam.map((scenario) => ({ scenario, answer: solveExpert(scenario)! }));
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('carol'))
+      .send({ level: 'expert', answers })).status).toBe(403);
+    rows.set('carol', new Set(['basic', 'advanced', 'interactive']));
+    const passed = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('carol')).send({ level: 'expert', answers });
+    expect(passed.status).toBe(200);
+    expect(passed.body.passed).toContain('expert');
+
+    const wrong = answers.map((entry, index) => (index === 0 ? { ...entry, answer: {} } : entry));
+    rows.set('dave', new Set(['basic', 'advanced', 'interactive']));
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('dave')).send({ level: 'expert', answers: wrong })).status).toBe(400);
+  });
+});
+
+describe('split-vote progress table', () => {
+  it('accepts the expert level on an old table and keeps passed exams', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await db.exec(`CREATE TABLE player_split_vote_progress (
+      player_id TEXT NOT NULL,
+      level TEXT NOT NULL CHECK (level IN ('basic', 'advanced', 'interactive')),
+      passed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (player_id, level)
+    )`);
+    await db.run("INSERT INTO player_split_vote_progress (player_id, level, passed_at) VALUES ('p1', 'interactive', '2026-09-25 10:00:00')");
+    await ensureSplitVoteProgressSchema(db);
+    await ensureSplitVoteProgressSchema(db);
+    await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'expert')");
+    expect(await db.all("SELECT level, passed_at FROM player_split_vote_progress WHERE player_id = 'p1' ORDER BY level")).toEqual([
+      { level: 'expert', passed_at: expect.any(String) },
+      { level: 'interactive', passed_at: '2026-09-25 10:00:00' },
+    ]);
+    db.sqlite.close();
   });
 });

@@ -22,7 +22,7 @@ test('split-vote exercise fits a Telegram-sized screen and explains the choice',
 test('whole-table voting uses nomination order on a phone', async ({ page }, testInfo) => {
   await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['basic', 'advanced'] } }));
   await page.goto('/e2e/split-vote.html');
-  await page.getByRole('button', { name: 'Бесконечная практика' }).click();
+  await page.getByTestId('split-vote-level-interactive').getByRole('button', { name: 'Бесконечная практика' }).click();
   const nominees = (await page.getByTestId('split-vote-nominees').textContent()).match(/№\d+/g);
   for (const nominee of nominees) {
     await expect(page.getByRole('heading', { name: `Кто голосует за ${nominee}?` })).toBeVisible();
@@ -32,7 +32,7 @@ test('whole-table voting uses nomination order on a phone', async ({ page }, tes
       await page.getByRole('button', { name: 'Продолжить' }).click();
       await expect(page.getByRole('button', { name: '№1', exact: true })).toHaveCount(0);
     } else {
-      await page.getByRole('button', { name: 'Пропустить' }).click();
+      await page.getByRole('button', { name: /^(Пропустить|Продолжить)$/ }).click();
     }
   }
   await expect(page.getByTestId('split-vote-review')).toBeVisible();
@@ -84,4 +84,14 @@ test('guide articles and trainers shelves open on a phone', async ({ page }, tes
   await expect(page.getByTestId('guide-article')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('guide-article-390.png') });
+});
+
+test('expert level shows the break and a running 15-second timer on a phone', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['basic', 'advanced', 'interactive'] } }));
+  await page.goto('/e2e/split-vote.html');
+  await page.getByTestId('split-vote-level-expert').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
+  await expect(page.getByTestId('split-vote-break')).toBeVisible();
+  await expect(page.getByTestId('split-vote-timer')).toContainText('с');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath('split-vote-expert-390.png'), fullPage: true });
 });

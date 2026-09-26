@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { ensureSplitVoteProgressSchema } from '../../db/ensureSplitVoteProgressSchema.ts';
 import { correctSplitVote, isCorrectSplitVoteAssignment, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
+import { checkExpertAnswer, isValidExpertScenario } from '../../lib/splitVoteExpert.ts';
 import { getPlayerSessionId } from '../auth.ts';
 
 const router = Router();
-type Level = 'basic' | 'advanced' | 'interactive';
-const LEVELS: Level[] = ['basic', 'advanced', 'interactive'];
+type Level = 'basic' | 'advanced' | 'interactive' | 'expert';
+const LEVELS: Level[] = ['basic', 'advanced', 'interactive', 'expert'];
 
 const validScenario = (value: unknown, level: Level): value is SplitVoteScenario => {
   if (!value || typeof value !== 'object') return false;
@@ -20,6 +21,22 @@ const validScenario = (value: unknown, level: Level): value is SplitVoteScenario
     (level !== 'basic' || (pair[0] === 1 && candidates.length <= 4)) &&
     (level !== 'advanced' || pair[0] !== 1) &&
     (level !== 'interactive' || (candidates.length >= 3 && candidates.length <= 5));
+};
+
+const isAssignment = (value: unknown): value is Record<number, number[]> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) &&
+  Object.values(value).every((seats) => Array.isArray(seats) && seats.every((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10));
+
+/** Expert exam: five rescued broken splits, four of them with №1 in the split. */
+const isPassedExpertExam = (answers: unknown) => {
+  if (!Array.isArray(answers) || answers.length !== 5) return false;
+  if (new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5) return false;
+  const valid = answers.every((entry: unknown) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const { scenario, answer } = entry as { scenario: unknown; answer: unknown };
+    return isValidExpertScenario(scenario) && isAssignment(answer) && checkExpertAnswer(scenario, answer).ok;
+  });
+  return valid && answers.filter((entry: { scenario: { pair: number[] } }) => entry.scenario.pair.includes(1)).length === 4;
 };
 
 router.get('/split-vote-progress', async (req, res) => {
@@ -40,7 +57,7 @@ router.post('/split-vote-progress', async (req, res) => {
   if (!playerId) return res.status(401).json({ error: 'Войдите в кабинет игрока, чтобы сохранить прогресс.' });
   const level = req.body?.level as Level;
   const answers = req.body?.answers;
-  if (!LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
+  if (level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
     new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5 ||
     !answers.every((entry: unknown) => {
       if (!entry || typeof entry !== 'object') return false;

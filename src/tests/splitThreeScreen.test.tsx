@@ -62,7 +62,7 @@ describe('three-way split trainer screen', () => {
   it('shows the two sheriffs at the hard level and checks the whole table', async () => {
     const hard: SplitThreeScenario = {
       killed: 10, candidates: [4, 2, 7], split: [4, 2, 7], seat: 3,
-      sheriffs: { trusted: { seat: 1, check: 6, black: false }, doubted: { seat: 4, check: 2 } },
+      sheriffs: { trusted: { seat: 1, check: 6, black: false }, doubted: { seat: 4, check: 2, black: true } },
     };
     progress(['three_easy', 'three_medium']);
     render(<SplitThreeTraining initial={[hard, hard]} />);

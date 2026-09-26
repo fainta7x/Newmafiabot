@@ -165,7 +165,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           {sheriffs ? (
             <div data-testid="split-three-sheriffs" className="space-y-1 rounded-2xl border border-amber-300/30 bg-amber-400/[.07] p-3 text-sm leading-6 text-white/80">
               <p>Шерифами назвались <strong className="text-white">{sheriffs.trusted.seat}</strong> и <strong className="text-white">{sheriffs.doubted.seat}</strong>. Город меньше верит шерифу <strong className="text-white">{sheriffs.doubted.seat}</strong>.</p>
-              <p>Шериф {sheriffs.doubted.seat} проверил {sheriffs.doubted.check} — <strong className="text-white">чёрный</strong>.</p>
+              <p>Шериф {sheriffs.doubted.seat} проверил {sheriffs.doubted.check} — <strong className="text-white">{sheriffs.doubted.black ? 'чёрный' : 'красный'}</strong>.</p>
               <p>Шериф {sheriffs.trusted.seat} проверил {sheriffs.trusted.check} — <strong className="text-white">{sheriffs.trusted.black ? 'чёрный' : 'красный'}</strong>.</p>
             </div>
           ) : null}
@@ -210,7 +210,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
               <p className="font-semibold text-white">{checked.right ? 'Верно!' : medium ? 'Распределение голосов неверное.' : `Тебе нужно голосовать в ${correctSplitThreeVote(scenario)}.`}</p>
               {sheriffs ? splitThreeVersions(scenario).map(({ sheriff, blacks, into }) => (
-                <p key={sheriff} className="text-white/70">Если прав шериф {sheriff}, мафия — {blacks.join(' и ')}: {blacks.length > 1 ? 'они голосуют' : 'он голосует'} в {into.join(' или ')}.</p>
+                <p key={sheriff} className="text-white/70">Если прав шериф {sheriff}, мафия — {blacks.join(' и ')}: {into.length ? `${blacks.length > 1 ? 'они голосуют' : 'он голосует'} в ${into.join(' или ')}` : `чёрных по другой версии в попиле нет — ${blacks.length > 1 ? 'голосуют' : 'голосует'} как обычно`}.</p>
               )) : null}
               {scenario.candidates.map((candidate) => (
                 <p key={candidate}>В {candidate} {expected[candidate].length ? `голосуют ${seatList(expected[candidate])}` : 'никто не голосует'}{!sheriffs && candidate === scenario.split[0] ? ' — сами пилящиеся' : ''}.</p>

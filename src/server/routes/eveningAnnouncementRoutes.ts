@@ -9,6 +9,7 @@ import {
   loadReminderRecipients,
 } from '../services/eveningAnnouncementTrackingService.ts';
 import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
+import { isEveningPublishingPaused } from '../services/eveningPublishingPause.ts';
 import { requestBotEveningRecruitment } from '../services/botTelegramSyncService.ts';
 import {
   drainTelegramSyncOutbox,
@@ -62,7 +63,7 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
   try {
     const overview = await loadAnnouncementOverview(req.db, String(req.params.id));
     if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    return res.json(overview);
+    return res.json({ ...overview, publishing_paused: isEveningPublishingPaused() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние рассылки' });
   }
@@ -118,6 +119,7 @@ router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
       success: true,
       queued,
       drain,
+      publishing_paused: isEveningPublishingPaused(),
       dm: {
         sent: Math.max(0, sentAfter - sentBefore),
         failed: Number(after?.summary?.failed || 0),
@@ -187,6 +189,7 @@ router.post('/:id/remind-unanswered', requireOrganizerAuth, async (req, res) => 
       success: true,
       queued,
       drain,
+      publishing_paused: isEveningPublishingPaused(),
       campaign_generation: campaignGeneration,
       sent: Number(sentInCampaign?.count || 0),
       failed: queued ? Number(remaining?.recipients?.length || 0) : 0,

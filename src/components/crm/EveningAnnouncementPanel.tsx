@@ -25,6 +25,7 @@ type AnnouncementPlayer = {
 };
 
 type AnnouncementOverview = {
+  publishing_paused?: boolean;
   summary: {
     audience: number;
     sent: number;
@@ -145,7 +146,9 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
       const result = await request(`/api/evenings/${encodeURIComponent(eveningId)}/announce`, { method: 'POST' });
       const sent = Number(result?.dm?.sent || 0);
       const failed = Number(result?.dm?.failed || 0);
-      setMessage(result?.queued
+      setMessage(result?.publishing_paused
+        ? 'Рассылки сейчас на паузе: приглашения сохранены и уйдут, когда паузу снимут.'
+        : result?.queued
         ? `Сейчас доставлено ${sent}. Остальная рассылка сохранена в очереди — бот повторит автоматически.`
         : `Рассылка завершена: доставлено ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
       await load(true);
@@ -162,7 +165,9 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
       const result = await request(`/api/evenings/${encodeURIComponent(eveningId)}/remind-unanswered`, { method: 'POST' });
       const sent = Number(result?.sent || 0);
       const failed = Number(result?.failed || 0);
-      setMessage(result?.queued
+      setMessage(result?.publishing_paused
+        ? 'Рассылки сейчас на паузе: напоминания сохранены и уйдут, когда паузу снимут.'
+        : result?.queued
         ? `Сейчас отправлено ${sent}. Остальные напоминания сохранены в очереди — бот повторит автоматически без дублей.`
         : `Напоминания отправлены: ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
       await load(true);
@@ -216,6 +221,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
         </div>
 
         {loading && !overview ? <div className="mt-4 flex items-center gap-2 text-[11px] text-text-muted"><RefreshCw className="h-4 w-4 animate-spin" /> Загружаем рассылку…</div> : null}
+        {overview?.publishing_paused ? <div className="mt-3 rounded-[12px] bg-warning-soft px-3 py-2 text-[11px] leading-4 text-warning">Рассылки на паузе. Приглашения и напоминания копятся в очереди и не уйдут игрокам, пока паузу не снимут.</div> : null}
         {error ? <div className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
         {message ? <div className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</div> : null}
 

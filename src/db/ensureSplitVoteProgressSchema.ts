@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 
-const LEVELS_SQL = "'basic', 'advanced', 'interactive', 'expert'";
+const LEVELS_SQL = "'basic', 'advanced', 'interactive', 'expert', 'three_easy', 'three_medium'";
 
 export async function ensureSplitVoteProgressSchema(db: DatabaseWrapper): Promise<void> {
   await db.exec(`CREATE TABLE IF NOT EXISTS player_split_vote_progress (
@@ -9,9 +9,9 @@ export async function ensureSplitVoteProgressSchema(db: DatabaseWrapper): Promis
     passed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (player_id, level)
   )`);
-  // Tables created before the expert level only accept three levels: rebuild them keeping every row.
+  // Older tables accept fewer levels in their CHECK: rebuild them once, keeping every row.
   const table = await db.get<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'player_split_vote_progress'", []);
-  if (table && !String(table.sql).includes("'expert'")) {
+  if (table && !String(table.sql).includes("'three_medium'")) {
     await db.transaction(async (tx) => {
       await tx.exec(`CREATE TABLE player_split_vote_progress_next (
         player_id TEXT NOT NULL,

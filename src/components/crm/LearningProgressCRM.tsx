@@ -71,12 +71,12 @@ export function LearningProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h3 className="text-[15px] font-semibold text-white">Тренажёр попила</h3>
+            <h3 className="text-[15px] font-semibold text-white">Тренажёры попила</h3>
             <p className="mt-0.5 text-[12px] leading-5 text-white/50">Кто какие экзамены сдал. Практику без экзамена здесь не видно.</p>
           </div>
           <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-1.5">
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
           {SPLIT_VOTE_LEVELS.map((item) => (
             <button key={item.id} type="button" onClick={() => { setLevel(item.id); setStatus('passed'); }} className={`rounded-2xl border p-2 text-left ${level === item.id ? 'border-white/40 bg-white/[0.08]' : 'border-white/10 bg-black/10'}`}>
               <strong className="block text-[18px] text-white">{counts[item.id] ?? 0}</strong>
@@ -144,7 +144,7 @@ export function PlayerLearningBlock({ playerId }: { playerId: string }) {
   if (!row) return null;
   return (
     <section data-testid="crm-player-learning" className="space-y-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5">
-      <div className="text-[13px] font-bold text-text-primary">🎓 Тренажёр попила</div>
+      <div className="text-[13px] font-bold text-text-primary">🎓 Тренажёры попила</div>
       <LevelMarks row={row} />
       <div className="text-[12px] text-text-secondary">{passedCount(row)
         ? SPLIT_VOTE_LEVELS.filter((level) => row.passed[level.id]).map((level) => `${level.label} — ${dateLabel(row.passed[level.id])}`).join(' · ')

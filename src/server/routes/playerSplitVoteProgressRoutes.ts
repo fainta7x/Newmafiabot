@@ -2,14 +2,18 @@ import { Router } from 'express';
 import { ensureSplitVoteProgressSchema } from '../../db/ensureSplitVoteProgressSchema.ts';
 import { correctSplitVote, isCorrectSplitVoteAssignment, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 import { checkExpertAnswer, isValidExpertScenario } from '../../lib/splitVoteExpert.ts';
+import { correctSplitThreeVote, isCorrectSplitThreeAssignment, isValidSplitThreeScenario, type SplitThreeLevel } from '../../lib/splitThreeTraining.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { evaluatePlayerAchievements } from '../services/playerAchievementsService.ts';
 
 const router = Router();
-type Level = 'basic' | 'advanced' | 'interactive' | 'expert';
-const LEVELS: Level[] = ['basic', 'advanced', 'interactive', 'expert'];
+type ZeroRoundLevel = 'basic' | 'advanced' | 'interactive' | 'expert';
+type Level = ZeroRoundLevel | SplitThreeLevel;
+/** Each trainer is its own chain: a level opens after the previous level of the same trainer. */
+const TRACKS: Level[][] = [['basic', 'advanced', 'interactive', 'expert'], ['three_easy', 'three_medium']];
+const LEVELS: Level[] = TRACKS.flat();
 
-const validScenario = (value: unknown, level: Level): value is SplitVoteScenario => {
+const validScenario = (value: unknown, level: ZeroRoundLevel): value is SplitVoteScenario => {
   if (!value || typeof value !== 'object') return false;
   const scenario = value as SplitVoteScenario;
   const candidates = scenario.candidates;
@@ -40,6 +44,18 @@ const isPassedExpertExam = (answers: unknown) => {
   return valid && answers.filter((entry: { scenario: { pair: number[] } }) => entry.scenario.pair.includes(1)).length === 4;
 };
 
+/** Three-way split exam: five distinct correct answers. */
+const isPassedSplitThreeExam = (answers: unknown, level: SplitThreeLevel) => {
+  if (!Array.isArray(answers) || answers.length !== 5) return false;
+  if (new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5) return false;
+  return answers.every((entry: unknown) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const { scenario, answer } = entry as { scenario: unknown; answer: unknown };
+    if (!isValidSplitThreeScenario(scenario, level)) return false;
+    return level === 'three_easy' ? answer === correctSplitThreeVote(scenario) : isAssignment(answer) && isCorrectSplitThreeAssignment(scenario, answer);
+  });
+};
+
 router.get('/split-vote-progress', async (req, res) => {
   const playerId = getPlayerSessionId(req);
   if (!playerId) return res.status(401).json({ error: 'Войдите в кабинет игрока, чтобы сохранить прогресс.' });
@@ -58,12 +74,12 @@ router.post('/split-vote-progress', async (req, res) => {
   if (!playerId) return res.status(401).json({ error: 'Войдите в кабинет игрока, чтобы сохранить прогресс.' });
   const level = req.body?.level as Level;
   const answers = req.body?.answers;
-  if (level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
+  if (level === 'three_easy' || level === 'three_medium' ? !isPassedSplitThreeExam(answers, level) : level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
     new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5 ||
     !answers.every((entry: unknown) => {
       if (!entry || typeof entry !== 'object') return false;
       const { scenario, answer } = entry as { scenario: unknown; answer: unknown };
-      if (!validScenario(scenario, level)) return false;
+      if (!validScenario(scenario, level as ZeroRoundLevel)) return false;
       return level === 'interactive'
         ? answer !== null && typeof answer === 'object' && !Array.isArray(answer) &&
           Object.values(answer).every((seats) => Array.isArray(seats) && seats.every((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10)) &&
@@ -72,8 +88,9 @@ router.post('/split-vote-progress', async (req, res) => {
     })) return res.status(400).json({ error: 'Экзамен не сдан: проверьте все пять ответов.' });
   try {
     await ensureSplitVoteProgressSchema(req.db);
-    if (level !== 'basic') {
-      const prerequisite = LEVELS[LEVELS.indexOf(level) - 1];
+    const track = TRACKS.find((items) => items.includes(level))!;
+    if (track.indexOf(level) > 0) {
+      const prerequisite = track[track.indexOf(level) - 1];
       const prior = await req.db.get('SELECT 1 AS passed FROM player_split_vote_progress WHERE player_id = ? AND level = ?', [playerId, prerequisite]);
       if (!prior) return res.status(403).json({ error: 'Сначала сдайте предыдущий экзамен.' });
     }

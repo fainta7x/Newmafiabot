@@ -219,6 +219,16 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
 
 - **Achievement for the trainer** (user-approved 2026-09-26): one achievement, «Нулевой пациент» (renamed from «Спасатель попила» 2026-09-26: later trainers will rescue splits at other stages of the game; epic, category «🎓 Обучение»), for passing the expert exam. The other levels give no achievement. The curator (organizer) sees who passed which exam and when: «Ещё → Обучение» and the «Тренажёр попила» block on the player card.
 
+**Three-way split with nine at the table** (user-approved 2026-09-26), a separate trainer «Попил на троих»:
+
+- One player (any seat) is killed, nine remain; three nominees split the vote 3 : 3 : 3.
+- The three split players vote first: all three for the first of them in nomination order.
+- Everyone else votes in seat order: the first three for the second split player, the next three for the third. Other nominees get no votes. Whoever votes for nobody goes to the last nominee.
+- Examples: 10 killed, nominated 5, 2, 8 → 258 in 5, 134 in 2, 679 in 8. 10 killed, nominated 7, 2, 5, 9, 4, split 2, 9, 4 → 249 in 2, 135 in 9, 678 in 4, nobody in 7 and 5.
+- Four levels are planned: easy (three nominees, pick your own vote), medium (4–6 nominees, three split, distribute the whole table), hard and expert (to be explained by the user). Each opens by the previous level's exam of 5 correct answers; this chain does not depend on the zero-round trainer.
+
+Seats in the trainers are written the club way (user-approved 2026-09-26): no «№»; who votes for whom is written seat after seat with 10 as «0» («в 2 проголосовали 3460»); a list of nominees keeps commas; a single seat keeps «10».
+
 ## Table conduct (user-approved 2026-09-24)
 
 Forbidden at the table, with the usual penalty:

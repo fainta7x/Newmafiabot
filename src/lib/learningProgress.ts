@@ -1,9 +1,11 @@
-/** Split-vote trainer levels in the order they open, with the names players and organizers see. */
+/** Split-vote trainer levels (zero round, then the three-way split), with the names organizers see. */
 export const SPLIT_VOTE_LEVELS = [
   { id: 'basic', label: 'Обычный' },
   { id: 'advanced', label: 'Продвинутый' },
   { id: 'interactive', label: 'Сложный' },
   { id: 'expert', label: 'Эксперт' },
+  { id: 'three_easy', label: 'Трое · лёгкий' },
+  { id: 'three_medium', label: 'Трое · средний' },
 ] as const;
 export type SplitVoteLevelId = typeof SPLIT_VOTE_LEVELS[number]['id'];
 

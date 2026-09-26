@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from collections import defaultdict
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -17,6 +18,11 @@ from bot_announcement_api import (
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_telegram_publishing import sync_evening_telegram
 from handlers.telegram_evening_copy import private_event_text, recruitment_private_text
+
+
+# Personal invitations and reminders run once at a time per evening: an overlapping
+# web retry waits, then gets only the players who still have no saved delivery.
+_dm_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 def _response_keyboard(evening_id: str, selected_status: str | None = None) -> InlineKeyboardMarkup:
@@ -43,6 +49,11 @@ async def _retry_backend_write(operation, attempts: int = 3) -> dict:
 
 
 async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
+    async with _dm_locks[f"announce:{evening_id}"]:
+        return await _send_crm_evening_announcement(bot, evening_id)
+
+
+async def _send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
     group_result = await sync_evening_telegram(bot, evening_id)
     if not group_result.get("success"):
         return group_result
@@ -102,6 +113,11 @@ async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
 
 
 async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
+    async with _dm_locks[f"remind:{evening_id}"]:
+        return await _send_crm_evening_reminders(bot, evening_id)
+
+
+async def _send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
     recipients_result = await get_evening_reminder_recipients(evening_id)
     if not recipients_result.get("success"):
         return {"success": False, "error": recipients_result.get("error") or "recipients_unavailable"}

@@ -1,3 +1,4 @@
+import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
@@ -14,7 +15,7 @@ export async function refreshExistingVkEveningPosts(
   db: DatabaseWrapper,
   options: { now?: Date; baseUrl?: string } = {},
 ) {
-  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') return [];
+  if (isEveningPublishingPaused()) return [];
   const now = options.now || new Date();
   const baseUrl = String(options.baseUrl || getPublicAppBaseUrl()).replace(/\/+$/, '');
   await ensureVkIntegrationSchema(db);

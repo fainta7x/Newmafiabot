@@ -399,6 +399,20 @@ Always distinguish:
 The user-approved UI preview workflow automatically builds isolated pages and mobile evidence for relevant PR updates, including drafts. Follow [UI_PREVIEW](UI_PREVIEW.md) for artifacts, private publishing and the supported agent-browser path. It needs no manual workflow dispatch. Broad manual Playwright suites retain their separate release role.
 # Emergency weekly publishing pause
 
-`WEEKLY_EVENING_AUTOMATION_ENABLED` defaults to off. While off, the weekly calendar reconciler does not create evenings or publish Monday announcements, the Telegram sync outbox retains queued jobs without sending them, and the periodic VK evening worker does not refresh posts. The VK worker never creates missing publications, even after the flag is enabled. An uncertain VK creation attempt stays marked for manual reconciliation instead of retrying. Keep the flag off during investigation of repeated publications. Before setting it to `true`, inspect existing evenings, pending Telegram jobs, VK publication rows lacking `post_id`, and other running bot instances. Enabling the flag resumes queued Telegram delivery; do not enable it blindly. This flag affects this application instance only and does not revoke Telegram or VK tokens used by another instance.
+Publishing runs by default. Setting `WEEKLY_EVENING_AUTOMATION_ENABLED=false` on Amvera pauses it (the flag was opt-in until 2026-09-26; after the repeated-publication incident of 2026-09-25 the safeguards below were added and the default became on). While paused:
 
-The same pause also stops automatic shortfall cancellation and holds queued personal Telegram/VK cancellation notices and organizer shortfall prompts. Other personal and organizer notifications continue. When the pause ends, inspect these held messages before enabling the flag. Telegram cancellation messages are attempted only once because `sendMessage` has no idempotency key; reconcile any failed delivery manually.
+- the weekly calendar reconciler does not create evenings or publish Monday announcements;
+- the Telegram sync outbox keeps queued jobs without sending them;
+- the periodic VK evening worker does not refresh posts;
+- automatic shortfall calls and cancellations stop, and queued personal Telegram/VK cancellation notices and organizer shortfall prompts are held.
+
+Other personal and organizer notifications continue. The evening's «Приглашения и анонсы» panel shows that publishing is paused. The flag affects this application instance only and does not revoke Telegram or VK tokens used by another instance, so a second running bot with the same token is still a duplicate source.
+
+Duplicate safeguards (so the pause is not needed for normal work):
+
+- Bot (`handlers/crm_telegram_publishing.py`, `crm_evening_announcement.py`, `crm_recruitment_publishing.py`): one publication run at a time per evening, one router run at a time; a post whose record could not be saved is deleted so a retry publishes exactly one; the pinned public router is recreated only when Telegram says the old message is gone, never after a temporary error.
+- Web outbox (`telegramSyncOutboxService.ts`): invitation/reminder jobs for an evening that has started, closed or been cancelled are dropped; final bot answers (4xx, `partial_delivery`) are not retried; every job stops after 12 attempts.
+- Shortfall group call (`eveningShortfallService.ts`): recorded before sending and posted at most once; a failed call notifies the organizer instead of repeating.
+- VK (`vkDirectJoinPublishingService.ts`): a definite VK refusal may be retried; an unknown outcome (network error, VK codes 1 and 10) keeps the claim, and the evening's VK card asks the organizer to check the group and offers «Поста нет — опубликовать».
+- Cancellation and shortfall notices older than 6 hours are closed without sending when the pause ends.
+- A cancelled Friday reserves its date: the rolling calendar never creates a replacement.

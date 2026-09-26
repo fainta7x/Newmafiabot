@@ -63,7 +63,7 @@ async function insertTournament(target: DatabaseWrapper, id: string, status = 'd
 
 describe('Telegram publishing destinations', () => {
   it('keeps queued jobs untouched while emergency publishing is paused', async () => {
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
     await enqueueTelegramTournamentSync(db, 'pending-tournament');
@@ -335,6 +335,9 @@ describe('Telegram publishing destinations', () => {
   it('retries durable tournament and DM dispatch jobs and reports them in queue health', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
+    await insertEvening(db, 'ev-dispatch');
+    await db.run("UPDATE game_evenings SET starts_at = '2030-01-03T16:00:00.000Z' WHERE id = 'ev-dispatch'");
+    await db.run('DELETE FROM telegram_sync_outbox');
     await enqueueTelegramTournamentSync(db, 'tour-dispatch');
     await enqueueTelegramAnnouncement(db, 'ev-dispatch');
     await enqueueTelegramReminder(db, 'ev-dispatch');
@@ -362,6 +365,44 @@ describe('Telegram publishing destinations', () => {
       dispatchDeliver: async () => ({ success: true, status: 200 }),
     });
     expect(succeeded).toMatchObject({ processed: 3, succeeded: 3, failed: 0 });
+    expect((await getTelegramSyncOutboxSummary(db)).pending).toBe(0);
+  });
+
+  it('never retries a job forever and never messages players about a closed evening', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    await insertEvening(db, 'ev-open');
+    await db.run("UPDATE game_evenings SET starts_at = '2030-01-03T16:00:00.000Z' WHERE id = 'ev-open'");
+    await insertEvening(db, 'ev-cancelled', 'cancelled');
+    await db.run('DELETE FROM telegram_sync_outbox');
+    await enqueueTelegramAnnouncement(db, 'ev-open');
+    await enqueueTelegramReminder(db, 'ev-cancelled');
+    const calls: string[] = [];
+
+    // Some players blocked the bot: each outcome is recorded, so the job is finished, not repeated.
+    const first = await drainTelegramSyncOutbox(db, {
+      limit: 10,
+      now: new Date('2030-01-01T12:00:00.000Z'),
+      dispatchDeliver: async (job) => {
+        calls.push(job.dispatch_key);
+        return { success: false, status: 502, data: { error: 'partial_delivery' }, error: 'partial_delivery' };
+      },
+    });
+    expect(calls).toEqual(['announcement:ev-open']);
+    expect(first.processed).toBe(2);
+    expect((await getTelegramSyncOutboxSummary(db)).pending).toBe(0);
+
+    // A bot that keeps failing is given up after a bounded number of attempts.
+    await enqueueTelegramAnnouncement(db, 'ev-open');
+    let attempts = 0;
+    for (let minute = 0; minute < 400; minute += 11) {
+      await drainTelegramSyncOutbox(db, {
+        limit: 10,
+        now: new Date(Date.parse('2030-01-01T12:00:00.000Z') + minute * 60_000),
+        dispatchDeliver: async () => { attempts += 1; return { success: false, status: 503, error: 'bot sleeping' }; },
+      });
+    }
+    expect(attempts).toBe(12);
     expect((await getTelegramSyncOutboxSummary(db)).pending).toBe(0);
   });
 

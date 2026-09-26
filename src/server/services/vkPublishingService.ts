@@ -178,7 +178,9 @@ export function getVkIntegrationStatus() {
 }
 
 export const callVkApi = async <T>(token: string, method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
-  if (!token) throw new Error('VK access token is not configured');
+  // A definite failure means VK did not publish anything and a retry is safe; a network error
+  // or a lost response leaves the outcome unknown.
+  if (!token) throw Object.assign(new Error('VK access token is not configured'), { vkDefinite: true });
 
   const body = new URLSearchParams();
   body.set('access_token', token);
@@ -197,7 +199,9 @@ export const callVkApi = async <T>(token: string, method: string, params: Record
   if (!response.ok) throw new Error(`VK HTTP ${response.status}`);
   if (payload.error) {
     const code = Number(payload.error.error_code || 0);
-    throw new Error(`VK API ${code || 'error'}: ${payload.error.error_msg || 'unknown error'}`);
+    // VK «unknown error» (1) and «internal server error» (10) may still have applied the call.
+    const definite = code > 0 && code !== 1 && code !== 10;
+    throw Object.assign(new Error(`VK API ${code || 'error'}: ${payload.error.error_msg || 'unknown error'}`), { vkDefinite: definite, vkErrorCode: code });
   }
   if (payload.response === undefined) throw new Error('VK API returned an empty response');
   return payload.response;
@@ -230,7 +234,7 @@ const isChannelPeer = (groupId: string) => String(groupId || '').trim().startsWi
 
 const verifiedOwnerIdForGroup = async (groupId: string): Promise<number> => {
   const ownerId = rawOwnerIdForGroup(groupId);
-  if (!Number.isFinite(ownerId) || ownerId >= 0) throw new Error('Некорректный VK community ID');
+  if (!Number.isFinite(ownerId) || ownerId >= 0) throw Object.assign(new Error('Некорректный VK community ID'), { vkDefinite: true });
   return ownerId;
 };
 

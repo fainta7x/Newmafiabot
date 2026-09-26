@@ -23,7 +23,7 @@ async function overview() {
 
 describe('evening publishing pause', () => {
   it('tells the organizer that invitations are held while publishing is paused', async () => {
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     const paused = await overview();
     expect(paused.status).toBe(200);
     expect(paused.body.publishing_paused).toBe(true);

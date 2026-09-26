@@ -1,3 +1,4 @@
+import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
 
@@ -22,6 +23,7 @@ export interface TelegramDeliveryDiagnostics {
 }
 
 const MAX_RETRIES = 6;
+const STALE_EVENING_NOTICE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_CONCURRENCY = 4;
 const BASE_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS = 5 * 60_000;
@@ -177,6 +179,22 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
   }
 }
 
+/**
+ * Cancellation and shortfall notices held back during the publishing pause are news only for a
+ * few hours. After that they are closed without sending, so lifting the pause never floods players
+ * with stale «вечер отменён» messages.
+ */
+export async function expireStaleEveningNotices(db: DatabaseWrapper, table: 'telegram_message_outbox' | 'vk_message_outbox', maxRetries: number) {
+  const cutoff = new Date(Date.now() - STALE_EVENING_NOTICE_MS).toISOString();
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE ${table}
+        SET status = 'failed', retry_count = ?, last_error = 'Устарело: не отправлено после паузы публикаций', updated_at = ?
+      WHERE status <> 'sent' AND event_type IN ('evening_cancelled', 'evening_shortfall') AND created_at < ?`,
+    [maxRetries, now, cutoff],
+  );
+}
+
 export async function drainTelegramMessageOutbox(
   db: DatabaseWrapper,
   options: { limit?: number; concurrency?: number; category?: string; entityId?: string | number; fetchImpl?: typeof fetch } = {},
@@ -188,8 +206,10 @@ export async function drainTelegramMessageOutbox(
   const params: any[] = [MAX_RETRIES];
   if (options.category) { clauses.push('category = ?'); params.push(options.category); }
   if (options.entityId != null) { clauses.push('entity_id = ?'); params.push(String(options.entityId)); }
-  if (process.env.WEEKLY_EVENING_AUTOMATION_ENABLED !== 'true') {
+  if (isEveningPublishingPaused()) {
     clauses.push("event_type NOT IN ('evening_cancelled', 'evening_shortfall')");
+  } else {
+    await expireStaleEveningNotices(db, 'telegram_message_outbox', MAX_RETRIES);
   }
   params.push(limit);
   const rows = await db.all<any>(`

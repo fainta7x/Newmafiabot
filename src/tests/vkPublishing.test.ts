@@ -3,6 +3,7 @@ import { createDatabaseConnection } from '../db/index.ts';
 import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
 import { finalizeExistingVkEveningPublications, syncDirectVkEveningPublications } from '../server/services/vkDirectJoinPublishingService.ts';
 import { refreshExistingVkEveningPosts } from '../server/services/vkLiveEveningSyncWorker.ts';
+import { getVkEveningIntegrationState } from '../server/services/vkEveningIntegrationService.ts';
 import {
   canEditVkWallPosts,
   createVkWallPost,
@@ -291,7 +292,7 @@ describe('VK publishing adapter', () => {
     process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true';
     expect(await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' })).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
-    delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'false';
     expect(await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' })).toEqual([]);
   });
 
@@ -309,6 +310,35 @@ describe('VK publishing adapter', () => {
     const second = await syncDirectVkEveningPublications(db, 'vk-uncertain', 'https://example.test');
     expect(second.results[0]).toMatchObject({ skipped: true, reason: 'publication_requires_reconciliation' });
     expect(fetchMock).toHaveBeenCalledTimes(callsAfterFirst);
+  });
+  it('retries after a definite VK refusal and after the organizer confirms an uncertain post is missing', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const refused = new Response(JSON.stringify({ error: { error_code: 214, error_msg: 'Access to adding post denied' } }), { status: 200 });
+    const unknown = new Response(JSON.stringify({ error: { error_code: 10, error_msg: 'Internal server error' } }), { status: 200 });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(refused)
+      .mockResolvedValueOnce(unknown)
+      .mockImplementation(async () => new Response(JSON.stringify({ response: { post_id: 77 } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id, title, starts_at, format, status, default_price, created_at, updated_at)
+      VALUES ('vk-retry', 'Пятница', ?, 'CASUAL', 'published', 100, ?, ?)`, [now, now, now]);
+
+    // VK refused: nothing was posted, so the next attempt may publish.
+    await expect(syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test')).rejects.toBeTruthy();
+    // VK failed with an unknown outcome: the claim stays until the organizer checks the group.
+    await expect(syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test')).rejects.toBeTruthy();
+    const blocked = await syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test');
+    expect(blocked.results[0]).toMatchObject({ skipped: true, reason: 'publication_requires_reconciliation' });
+    const state = await getVkEveningIntegrationState(db, 'vk-retry');
+    expect(state.destinations.find((item: any) => item.key === 'public')).toMatchObject({ needs_check: true, published: false });
+
+    const confirmed = await syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test', { confirmMissing: true });
+    expect(confirmed.results[0]).toMatchObject({ success: true });
+    expect(confirmed.results[0].skipped).toBeFalsy();
+    expect((await db.get<any>("SELECT post_id FROM vk_evening_publications WHERE evening_id = 'vk-retry'")).post_id).toBe(77);
   });
   it('sends a channel message with the community publisher token', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';

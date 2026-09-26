@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  EXPERT_SECONDS, checkExpertAnswer, completeExpertAnswer, expertHistory, generateExpertExam, generateExpertScenario,
+  EXPERT_SECONDS, allExpertVotes, checkExpertAnswer, completeExpertAnswer, expertHistory, generateExpertExam, generateExpertScenario,
   solveExpert, type ExpertScenario,
 } from '../../lib/splitVoteExpert.ts';
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
@@ -173,7 +173,7 @@ export const SplitVoteExpertSession = ({ mode, onExit, onPassed, scenarios }: {
       <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
       <p className="text-sm text-white/65">Договорились о попиле между <strong className="text-white">{scenario.pair[0]} и {scenario.pair[1]}</strong>. За 15 секунд распредели оставшихся так, чтобы попил состоялся.</p>
       {/* Who already voted, and after the round the votes as they were cast. */}
-      <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={outcome ? outcome.answer : expertHistory(scenario).votes} />
+      <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={outcome ? allExpertVotes(scenario, outcome.answer) : expertHistory(scenario).votes} />
       {!outcome ? <ExpertRound key={round} scenario={scenario} onDone={done} /> : <>
         <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100">⚠️ {describeBreak(scenario)}</p>
         <OutcomeView scenario={scenario} outcome={outcome} />

@@ -205,13 +205,13 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
 - For a candidate from №2–5 split with one from №6–10, №6–10 vote for the candidate from №2–5; №1–5 vote for the candidate from №6–10.
 - If both candidates are in one half (№2–5 or №6–10), the five seats **after the lower numbered candidate** (wrapping after №10) vote for that candidate; the other five vote for the higher numbered candidate. For №3/№5, №4–8 vote for №3 and №9–10, №1–3 for №5. For №7/№9, №8–10 and №1–2 vote for №7, while №3–7 vote for №9. This rule does not replace the №1 special case or the split between different halves.
 
-- **A player who raises no hand** for any nominee votes for the last nominee automatically (user-approved 2026-09-26). Every trainer level counts it this way: in the whole-table level the last nominee takes everyone left.
+- **A player who votes for no nominee** votes for the last nominee automatically (user-approved 2026-09-26). Every trainer level counts it this way: in the whole-table level the last nominee takes everyone left.
 
 **Expert level: rescuing a broken split** (user-approved 2026-09-26):
 
 - 3–5 nominees in random order at a table of 10, zero round; the agreed split is two of them.
 - The task starts after something already went wrong:
-  - a player raised a hand by mistake for a nominee outside the split, before the pair's vote — that vote is spent (example: 2, 1, 4, 3, split №1/№3, №4 voted for №2);
+  - a player voted by mistake for a nominee outside the split, before the pair's vote — that vote is spent (example: 2, 1, 4, 3, split №1/№3, №4 voted for №2);
   - the first split candidate got 4 votes instead of 5 (example: 1, 2, 3, 4, split №1/№3, four voted for №1).
 - The learner distributes the remaining players within **15 seconds** so the split still happens: both split candidates get the same number of votes, more than anyone else.
 - Who insures (throws a vote to a nominee outside the split) does not matter; everyone else votes as the basic split rules say. A player whose own candidate has already passed can only insure.

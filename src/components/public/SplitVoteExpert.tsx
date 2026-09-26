@@ -12,7 +12,7 @@ const seats = (list: number[]) => (list.length ? list.map((seat) => `№${seat}`
 
 /** What already happened before the learner takes over. */
 export const describeBreak = (scenario: ExpertScenario) => (scenario.broken.kind === 'stray'
-  ? `За №${scenario.broken.nominee} случайно поднял руку №${scenario.broken.voter}. Его голос уже потрачен.`
+  ? `За №${scenario.broken.nominee} случайно проголосовал №${scenario.broken.voter}. Его голос уже потрачен.`
   : `За №${scenario.broken.nominee} проголосовали только четверо: ${seats(scenario.broken.voters)}. Нужно было пятеро.`);
 
 /** One timed rescue task. Reaching the last nominee sends everyone left to it and checks the result. */
@@ -69,7 +69,7 @@ const ExpertRound = ({ scenario, onDone }: { scenario: ExpertScenario; onDone: (
       <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100" data-testid="split-vote-break">⚠️ {describeBreak(scenario)}</p>
       {index < lastIndex ? <>
         <h3 className="text-base font-semibold">Кто голосует за №{candidate}?</h3>
-        <p className="text-xs text-white/60">Кто не поднимет руку ни за кого, уйдёт в последнего — №{scenario.candidates[lastIndex]}.</p>
+        <p className="text-xs text-white/60">Кто ни за кого не проголосует, уйдёт в последнего — №{scenario.candidates[lastIndex]}.</p>
         <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
           {available.map((seat) => (
             <button key={seat} type="button" aria-pressed={selected.includes(seat)} onClick={() => setSelected((current) => (current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat]))}

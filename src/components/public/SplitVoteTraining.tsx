@@ -11,8 +11,8 @@ type Result = 'passed' | 'failed' | 'completed' | null;
 const DIFFICULTIES = [
   { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
   { value: 'advanced', title: 'Продвинутый уровень', description: 'В попиле участвуют два игрока без №1. Порядок выставления случайный.' },
-  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата. Кто не поднял руку, уходит в последнего.' },
-  { value: 'expert', title: 'Эксперт · спасение попила', description: `Кто-то уже сломал попил: проголосовал не туда или не поднял руку. За ${EXPERT_SECONDS} секунд распредели оставшихся так, чтобы попил состоялся.` },
+  { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата. Кто ни за кого не проголосовал, уходит в последнего.' },
+  { value: 'expert', title: 'Эксперт · спасение попила', description: `Кто-то уже сломал попил: проголосовал не туда или не проголосовал вовсе. За ${EXPERT_SECONDS} секунд распредели оставшихся так, чтобы попил состоялся.` },
 ] as const;
 type ExamAnswer = { scenario: SplitVoteScenario; answer: number | Record<number, number[]> };
 type ProgressState = 'loading' | 'ready' | 'guest' | 'error';
@@ -179,7 +179,7 @@ export const SplitVoteTraining: React.FC = () => {
           {interactive && !checked ? (
             nomineeIndex < scenario.candidates.length ? <div className="space-y-3" data-testid="split-vote-interactive">
               <h3 className="text-base font-semibold">Кто голосует за №{scenario.candidates[nomineeIndex]}?</h3>
-              <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. {nomineeIndex === scenario.candidates.length - 1 ? 'Это последний кандидат: все, кто ещё не голосовал, голосуют за него автоматически.' : 'Выбери номера игроков; выбранные на прошлых шагах больше недоступны. Кто не поднимет руку ни за кого, уйдёт в последнего.'}</p>
+              <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. {nomineeIndex === scenario.candidates.length - 1 ? 'Это последний кандидат: все, кто ещё не голосовал, голосуют за него автоматически.' : 'Выбери номера игроков; выбранные на прошлых шагах больше недоступны. Кто ни за кого не проголосует, уйдёт в последнего.'}</p>
               <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
                 {Array.from({ length: 10 }, (_, index) => index + 1).filter((seat) => !assignedSeats.includes(seat)).map((seat) => (
                   <button key={seat} type="button" aria-pressed={selectedSeats.includes(seat)} onClick={() => setSelectedSeats((current) => current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat])}

@@ -4,16 +4,16 @@
  *
  * - 3–5 nominees in random order; the agreed split pair is two of them.
  * - Something already went wrong before the task starts:
- *   - «stray»: during the vote for a nominee outside the split (before the pair), one player raised
- *     a hand by mistake — that vote is spent;
+ *   - «stray»: during the vote for a nominee outside the split (before the pair), one player voted
+ *     by mistake — that vote is spent;
  *   - «short»: the first pair nominee got 4 votes instead of 5 — one player of that group did not
- *     raise a hand.
+ *     vote.
  * - The task starts at the next nominee. The learner distributes the remaining players so the split
  *   still happens: both pair nominees end with the same number of votes, more than anyone else.
  * - Whoever insures (throws a vote to a nominee outside the split) does not matter. Every other
  *   player votes as the basic split rules say. A player whose own nominee has already passed can
  *   only insure.
- * - A player who raises no hand votes for the last nominee automatically (for every trainer level).
+ * - A player who votes for nobody votes for the last nominee automatically (for every trainer level).
  * - Only rescuable tasks are generated. 15 seconds per task. In an exam 4 of 5 tasks have №1 in the
  *   split and every task has a break.
  */

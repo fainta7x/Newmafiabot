@@ -12,7 +12,7 @@ const pick = (...seats: number[]) => seats.forEach((seat) => fireEvent.click(scr
 describe('expert split-vote screen', () => {
   it('starts after the break and accepts a rescue with one insurer', () => {
     render(<SplitVoteExpertSession mode="endless" scenarios={[stray, stray]} onExit={() => undefined} onPassed={async () => true} />);
-    expect(screen.getByTestId('split-vote-break').textContent).toContain('За №2 случайно поднял руку №4');
+    expect(screen.getByTestId('split-vote-break').textContent).toContain('За №2 случайно проголосовал №4');
     expect(screen.getByRole('heading', { name: 'Кто голосует за №1?' })).toBeTruthy();
     // №4 already voted and is not offered again.
     expect(screen.queryByRole('button', { name: '№4' })).toBeNull();

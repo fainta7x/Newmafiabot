@@ -128,6 +128,7 @@ test('three-way split hard level shows both sheriffs on a phone', async ({ page 
   await expect(page.getByTestId('split-three-sheriffs')).toContainText('Город меньше верит шерифу');
   // The task opens from its conditions even though the level card was lower on the page.
   await expect(page.getByTestId('split-three-sheriffs')).toBeInViewport();
+  await expect(page.getByTestId('split-table-map')).toBeVisible();
   await expect(page.getByTestId('split-three-interactive')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('split-three-hard-390.png') });

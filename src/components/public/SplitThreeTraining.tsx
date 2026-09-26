@@ -16,7 +16,7 @@ const LEVELS: Array<{ value: SplitThreeLevel; title: string; description: string
 ];
 const LEVEL_TITLES: Record<SplitThreeLevel, string> = { three_easy: 'Лёгкий уровень', three_medium: 'Средний уровень' };
 
-/** «Попил на троих при девяти»: levels open one after another by an exam of 5 correct answers. */
+/** «Попил на троих, за столом 9 человек»: levels open one after another by an exam of 5 correct answers. */
 export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[] } = {}) => {
   const [progress, setProgress] = useState<ProgressState>('loading');
   const [passed, setPassed] = useState<string[]>([]);
@@ -113,8 +113,8 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
   return (
     <div className="space-y-4" data-testid="split-three-training">
       <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <h2 className="text-lg font-semibold">Попил на троих при девяти</h2>
-        <p className="mt-2 text-sm leading-6 text-white/70">Одного игрока убили, за столом девять. Город делит голоса поровну между тремя выставленными — по 3 голоса каждому.</p>
+        <h2 className="text-lg font-semibold">Попил на троих, за столом 9 человек</h2>
+        <p className="mt-2 text-sm leading-6 text-white/70">Одного игрока убили, за столом осталось 9 человек. Город делит голоса поровну между тремя выставленными — по 3 голоса каждому.</p>
         <details className="mt-3 rounded-2xl border border-white/10 p-3 text-sm text-white/75">
           <summary className="cursor-pointer font-semibold text-white">Правила попила на троих</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
@@ -147,7 +147,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <span>{LEVEL_TITLES[session.level]} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span>
             <span>{session.mode === 'endless' ? `Задача ${position + 1}` : `Вопрос ${position + 1} из 5`}</span>
           </div>
-          <p className="text-sm text-white/65">Убит <strong className="text-white" data-testid="split-three-killed">{scenario.killed}</strong>. За столом девять.</p>
+          <p className="text-sm text-white/65">Убит <strong className="text-white" data-testid="split-three-killed">{scenario.killed}</strong>. За столом 9 человек.</p>
           <p className="text-sm text-white/65" data-testid="split-three-nominees">Выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
           <p className="text-sm text-white/65" data-testid="split-three-split">{medium ? <>Пилим: <strong className="text-white">{scenario.split.join(', ')}</strong>.</> : 'Пилим всех троих.'}</p>
           {!medium ? <p className="text-sm text-white/65" data-testid="split-three-seat">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p> : null}

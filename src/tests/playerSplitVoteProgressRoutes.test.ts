@@ -72,35 +72,19 @@ describe('player split-vote progression', () => {
     rows.set('dave', new Set(['basic', 'advanced', 'interactive']));
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('dave')).send({ level: 'expert', answers: wrong })).status).toBe(400);
   });
-});
-
-describe('three-way split exams', () => {
-  const rows = new Map<string, Set<string>>();
-  const db = {
-    exec: async () => undefined,
-    all: async (_sql: string, [playerId]: string[]) => [...(rows.get(playerId) ?? [])].map((level) => ({ level })),
-    get: async (_sql: string, params: string[] = []) => (params.length === 2 && rows.get(params[0])?.has(params[1]) ? { passed: 1 } : undefined),
-    run: async (_sql: string, [playerId, level]: string[]) => { const levels = rows.get(playerId) ?? new Set<string>(); levels.add(level); rows.set(playerId, levels); },
-  };
-  const app = express();
-  app.use(express.json());
-  app.use(cookieParser());
-  app.use((req, _res, next) => { req.db = db as any; next(); });
-  app.use('/api/player', routes);
-  const cookie = `player_token=${generatePlayerSessionToken('erin')}`;
 
   it('opens the medium level only after the easy exam, on its own chain', async () => {
     const easy = Array.from({ length: 5 }, () => generateSplitThreeScenario('three_easy')).map((scenario) => ({ scenario, answer: correctSplitThreeVote(scenario) }));
     const medium = Array.from({ length: 5 }, () => generateSplitThreeScenario('three_medium')).map((scenario) => ({ scenario, answer: splitThreeAssignments(scenario) }));
-    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie).send({ level: 'three_medium', answers: medium })).status).toBe(403);
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_medium', answers: medium })).status).toBe(403);
     // No zero-round exams are needed for this trainer.
-    const passedEasy = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie).send({ level: 'three_easy', answers: easy });
+    const passedEasy = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_easy', answers: easy });
     expect(passedEasy.status).toBe(200);
-    const passedMedium = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie).send({ level: 'three_medium', answers: medium });
+    const passedMedium = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_medium', answers: medium });
     expect(passedMedium.status).toBe(200);
     expect(passedMedium.body.passed).toEqual(expect.arrayContaining(['three_easy', 'three_medium']));
     const wrong = medium.map((entry, index) => (index === 2 ? { ...entry, answer: {} } : entry));
-    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie).send({ level: 'three_medium', answers: wrong })).status).toBe(400);
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_medium', answers: wrong })).status).toBe(400);
   });
 });
 

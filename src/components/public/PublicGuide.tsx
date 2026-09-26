@@ -7,6 +7,7 @@ import {
   GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, findGuideShelf, isGuideScreen, pluralRu,
   type GuideEntry, type GuideIcon, type GuideShelf, type GuideView,
 } from '../../lib/guideCatalog.ts';
+import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { Article } from './guide/GuideBlocks.tsx';
 import {
   EMPTY_PROGRESS, EveningScreen, GlossaryScreen, GuideQuiz, LessonPath, LessonScreen, RolesScreen, RulesScreen,
@@ -209,7 +210,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
 
   const go = useCallback((next: GuideScreen) => {
     setScreen(next);
-    window.scrollTo?.({ top: 0 });
+    scrollPageTop();
     try {
       window.history.pushState({ guide: next }, '', screenUrl(next));
       depth.current += 1;
@@ -228,7 +229,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
     const parent = findGuideEntry(screen.tab)?.shelf;
     const up: GuideScreen = screen.tab === 'lessons' && screen.lesson !== undefined ? { tab: 'lessons' } : parent ? { tab: parent } : { tab: 'home' };
     setScreen(up);
-    window.scrollTo?.({ top: 0 });
+    scrollPageTop();
     try { window.history.replaceState({ guide: up }, '', screenUrl(up)); } catch { /* ignore */ }
   }, [screen]);
 
@@ -237,7 +238,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
       depth.current = Math.max(0, depth.current - 1);
       const state = (event.state as { guide?: GuideScreen } | null)?.guide;
       setScreen(state || { tab: guideTabFromSearch(window.location.search), lesson: lessonFromSearch(window.location.search) });
-      window.scrollTo?.({ top: 0 });
+      scrollPageTop();
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);

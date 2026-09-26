@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SplitVoteExpertSession } from './SplitVoteExpert.tsx';
+import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { EXPERT_SECONDS, type ExpertScenario } from '../../lib/splitVoteExpert.ts';
 import { seatList, SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 
@@ -69,6 +70,9 @@ export const SplitVoteTraining: React.FC = () => {
       return false;
     } finally { setSaving(false); }
   };
+
+  // Every task opens from its conditions, not from where the previous screen was scrolled.
+  useEffect(() => { if (session) scrollPageTop(); }, [session, scenario]);
 
   const start = (next: Session) => {
     if (!unlocked(next.difficulty) || (next.mode === 'exam' && progressState !== 'ready')) return;

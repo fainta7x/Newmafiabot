@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { seatList } from '../../lib/splitVoteTraining.ts';
 import {
-  SPLIT_THREE_RULES, aliveSeats, completeSplitThreeAnswer, correctSplitThreeVote, generateSplitThreeScenario,
-  isCorrectSplitThreeAssignment, splitThreeAssignments, type SplitThreeLevel, type SplitThreeScenario,
+  SPLIT_THREE_HARD_RULES, SPLIT_THREE_RULES, aliveSeats, completeSplitThreeAnswer, correctSplitThreeVote, generateSplitThreeScenario,
+  isCorrectSplitThreeAssignment, splitThreeAssignments, splitThreeVersions, type SplitThreeLevel, type SplitThreeScenario,
 } from '../../lib/splitThreeTraining.ts';
 
 type Mode = 'practice' | 'exam' | 'endless';
@@ -13,8 +14,10 @@ type ProgressState = 'loading' | 'ready' | 'guest' | 'error';
 const LEVELS: Array<{ value: SplitThreeLevel; title: string; description: string }> = [
   { value: 'three_easy', title: 'Лёгкий уровень', description: 'Выставлены трое, пилим всех. Выбери, в кого голосуешь ты.' },
   { value: 'three_medium', title: 'Средний уровень', description: 'Выставлены 4–6, пилим троих из них. Распиши весь стол по кандидатам.' },
+  { value: 'three_hard', title: 'Сложный уровень', description: 'За столом два шерифа, одному город верит меньше. Распиши стол так, чтобы ни одна версия не могла сломать попил.' },
 ];
-const LEVEL_TITLES: Record<SplitThreeLevel, string> = { three_easy: 'Лёгкий уровень', three_medium: 'Средний уровень' };
+const LEVEL_TITLES: Record<SplitThreeLevel, string> = { three_easy: 'Лёгкий уровень', three_medium: 'Средний уровень', three_hard: 'Сложный уровень' };
+const ORDER: SplitThreeLevel[] = LEVELS.map((level) => level.value);
 
 /** «Попил на троих, за столом 9 человек»: levels open one after another by an exam of 5 correct answers. */
 export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[] } = {}) => {
@@ -46,11 +49,17 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
     return () => { active = false; };
   }, []);
 
-  const unlocked = (level: SplitThreeLevel) => level === 'three_easy' || passed.includes('three_easy');
+  // Each level opens after the exam of the previous one.
+  const unlocked = (level: SplitThreeLevel) => ORDER.indexOf(level) === 0 || passed.includes(ORDER[ORDER.indexOf(level) - 1]);
   const scenario = queue[position];
-  const medium = session?.level === 'three_medium';
+  /** Medium and hard: distribute the whole table. */
+  const medium = session?.level !== 'three_easy';
+  const sheriffs = scenario?.sheriffs;
 
   const resetTask = () => { setChoice(null); setNomineeIndex(0); setAssignments({}); setSelected([]); setChecked(null); };
+  // Every task opens from its conditions, not from where the previous screen was scrolled.
+  const taskKey = session ? `${session.level}:${session.mode}:${position}` : '';
+  useEffect(() => { if (taskKey) scrollPageTop(); }, [taskKey]);
   const start = (next: Session) => {
     if (!unlocked(next.level) || (next.mode === 'exam' && progress !== 'ready')) return;
     setSession(next);
@@ -120,6 +129,9 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <summary className="cursor-pointer font-semibold text-white">Правила попила на троих</summary>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
             <p className="mt-2 leading-6 text-white/60">Пример: убит 10, выставлены 7, 2, 5, 9, 4, пилим 2, 9, 4. В 2 голосуют 249, в 9 — 135, в 4 — 678, в 7 и 5 — никто.</p>
+            <p className="mt-3 font-semibold text-white">Сложный уровень: два шерифа</p>
+            <ul className="mt-2 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_HARD_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
+            <p className="mt-2 leading-6 text-white/60">Пример: убит 10, шерифы 1 и 4, город меньше верит шерифу 4. Шериф 4 проверил 2 — чёрный, шериф 1 проверил 6 — красный. Выставлены 4, 2, 7. Если прав 4, то 1 и 2 — мафия: они голосуют в 4. Если прав 1, то мафия 4: он голосует в 2. Пилящийся 7 голосует в 4. Ответ: в 4 — 127, в 2 — 345, в 7 — 689.</p>
           </details>
         </section>
       ) : null}
@@ -133,7 +145,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
                 {passed.includes(level.value) ? <span className="rounded-full border border-emerald-400/50 bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-200">✓ Экзамен сдан</span> : null}
               </div>
               <p className="mt-1 text-sm text-white/60">{level.description}</p>
-              {!unlocked(level.value) ? <p className="mt-2 text-sm text-amber-200">🔒 Сначала сдай экзамен лёгкого уровня.</p> : null}
+              {!unlocked(level.value) ? <p className="mt-2 text-sm text-amber-200">🔒 Сначала сдай экзамен: {LEVEL_TITLES[ORDER[ORDER.indexOf(level.value) - 1]].toLowerCase()}.</p> : null}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button type="button" disabled={!unlocked(level.value)} onClick={() => start({ level: level.value, mode: 'practice' })} className="min-h-12 rounded-2xl border border-white/15 px-2 text-sm font-semibold disabled:opacity-40">Практика · 5 вопросов</button>
                 <button type="button" disabled={!unlocked(level.value) || progress !== 'ready'} onClick={() => start({ level: level.value, mode: 'exam' })} className="min-h-12 rounded-2xl bg-white px-2 text-sm font-semibold text-black disabled:opacity-40">{passed.includes(level.value) ? 'Пройти ещё раз' : 'Экзамен · 5 вопросов'}</button>
@@ -141,7 +153,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
               <button type="button" disabled={!unlocked(level.value)} onClick={() => start({ level: level.value, mode: 'endless' })} className="mt-2 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Бесконечная практика</button>
             </section>
           ))}
-          <p className="px-1 text-xs leading-5 text-white/55">{progress === 'guest' ? 'Чтобы сдавать экзамены и сохранять прогресс, войди в кабинет игрока.' : progress === 'error' ? 'Не удалось загрузить прогресс. Обнови страницу.' : 'Сложный и экспертный уровни появятся позже.'}</p>
+          <p className="px-1 text-xs leading-5 text-white/55">{progress === 'guest' ? 'Чтобы сдавать экзамены и сохранять прогресс, войди в кабинет игрока.' : progress === 'error' ? 'Не удалось загрузить прогресс. Обнови страницу.' : 'Экспертный уровень появится позже.'}</p>
         </div>
       ) : (
         <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="split-three-question">
@@ -150,6 +162,13 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <span>{session.mode === 'endless' ? `Задача ${position + 1}` : `Вопрос ${position + 1} из 5`}</span>
           </div>
           <p className="text-sm text-white/65">Убит <strong className="text-white" data-testid="split-three-killed">{scenario.killed}</strong>. За столом 9 человек.</p>
+          {sheriffs ? (
+            <div data-testid="split-three-sheriffs" className="space-y-1 rounded-2xl border border-amber-300/30 bg-amber-400/[.07] p-3 text-sm leading-6 text-white/80">
+              <p>Шерифами назвались <strong className="text-white">{sheriffs.trusted.seat}</strong> и <strong className="text-white">{sheriffs.doubted.seat}</strong>. Город меньше верит шерифу <strong className="text-white">{sheriffs.doubted.seat}</strong>.</p>
+              <p>Шериф {sheriffs.doubted.seat} проверил {sheriffs.doubted.check} — <strong className="text-white">чёрный</strong>.</p>
+              <p>Шериф {sheriffs.trusted.seat} проверил {sheriffs.trusted.check} — <strong className="text-white">{sheriffs.trusted.black ? 'чёрный' : 'красный'}</strong>.</p>
+            </div>
+          ) : null}
           <p className="text-sm text-white/65" data-testid="split-three-nominees">Выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
           <p className="text-sm text-white/65" data-testid="split-three-split">{medium ? <>Пилим: <strong className="text-white">{scenario.split.join(', ')}</strong>.</> : 'Пилим всех троих.'}</p>
           {!medium ? <p className="text-sm text-white/65" data-testid="split-three-seat">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p> : null}
@@ -190,8 +209,11 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           {checked && expected ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
               <p className="font-semibold text-white">{checked.right ? 'Верно!' : medium ? 'Распределение голосов неверное.' : `Тебе нужно голосовать в ${correctSplitThreeVote(scenario)}.`}</p>
+              {sheriffs ? splitThreeVersions(scenario).map(({ sheriff, blacks, into }) => (
+                <p key={sheriff} className="text-white/70">Если прав шериф {sheriff}, мафия — {blacks.join(' и ')}: {blacks.length > 1 ? 'они голосуют' : 'он голосует'} в {into.join(' или ')}.</p>
+              )) : null}
               {scenario.candidates.map((candidate) => (
-                <p key={candidate}>В {candidate} {expected[candidate].length ? `голосуют ${seatList(expected[candidate])}` : 'никто не голосует'}{candidate === scenario.split[0] ? ' — сами пилящиеся' : ''}.</p>
+                <p key={candidate}>В {candidate} {expected[candidate].length ? `голосуют ${seatList(expected[candidate])}` : 'никто не голосует'}{!sheriffs && candidate === scenario.split[0] ? ' — сами пилящиеся' : ''}.</p>
               ))}
               <p>Каждый из трёх пилящихся получает по 3 голоса.</p>
             </div>
@@ -199,7 +221,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
 
           {result ? <div data-testid="split-three-result" className={`rounded-2xl border p-4 text-sm leading-6 ${result === 'passed' ? 'border-emerald-400/50 bg-emerald-500/[.12] text-emerald-100' : 'border-white/15 bg-white/[.06]'}`}>
             <strong className="block text-base">{result === 'passed' ? 'Экзамен сдан: 5 из 5' : result === 'failed' ? `Экзамен не сдан: ошибка в вопросе ${position + 1}` : `Практика завершена: ${correct} из 5`}</strong>
-            {result === 'passed' && session.level === 'three_easy' ? <p className="mt-1 text-white/75">Средний уровень открыт.</p> : null}
+            {result === 'passed' && ORDER.indexOf(session.level) < ORDER.length - 1 ? <p className="mt-1 text-white/75">{LEVEL_TITLES[ORDER[ORDER.indexOf(session.level) + 1]]} открыт.</p> : null}
           </div> : null}
           {saveError ? <div role="alert" className="text-sm text-amber-200">Не удалось сохранить результат. Проверь соединение.<button type="button" onClick={() => void save(answers, session.level)} className="mt-2 min-h-11 w-full rounded-2xl border border-white/30">Повторить сохранение</button></div> : null}
           {saving ? <p role="status" className="text-sm text-white/70">Сохраняем результат экзамена…</p> : null}

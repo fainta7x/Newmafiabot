@@ -3,6 +3,7 @@ import {
   EXPERT_SECONDS, checkExpertAnswer, completeExpertAnswer, expertHistory, generateExpertExam, generateExpertScenario,
   solveExpert, type ExpertScenario,
 } from '../../lib/splitVoteExpert.ts';
+import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { seatList } from '../../lib/splitVoteTraining.ts';
 
 type Mode = 'practice' | 'exam' | 'endless';
@@ -131,6 +132,8 @@ export const SplitVoteExpertSession = ({ mode, onExit, onPassed, scenarios }: {
   const [saveError, setSaveError] = useState(false);
   const [round, setRound] = useState(0);
   const scenario = queue[position];
+  // A timed task must open from its conditions.
+  useEffect(() => { scrollPageTop(); }, [position, round]);
 
   const save = async (list: Answer[]) => {
     setSaving(true); setSaveError(false);

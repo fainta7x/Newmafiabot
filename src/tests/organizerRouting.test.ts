@@ -45,6 +45,9 @@ describe('organizer routing model', () => {
 
   it('restores the correct path after an external player card', () => {
     expect(routePathForReturnContext({ tab: 'evenings', eveningId: 'Friday Night', eveningSection: 'tables', scrollY: 240 })).toBe('/admin/evenings/Friday%20Night/tables');
+    // A player opened from «Ещё → Обучение» returns to that screen, not to the «Ещё» root.
+    expect(routePathForReturnContext({ tab: 'more', eveningId: null, eveningSection: 'overview', scrollY: 0, moreScreen: 'learning' })).toBe('/admin/more/learning');
+    expect(routePathForReturnContext({ tab: 'more', eveningId: null, eveningSection: 'overview', scrollY: 0 })).toBe('/admin/more');
     expect(routePathForReturnContext({ tab: 'analytics', eveningId: null, eveningSection: 'overview', scrollY: 0 })).toBe('/admin/analytics');
   });
 });

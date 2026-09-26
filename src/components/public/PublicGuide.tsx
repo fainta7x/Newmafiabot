@@ -13,6 +13,7 @@ import {
   readProgress, writeProgress, type GuideProgress,
 } from './guide/GuideScreens.tsx';
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
+import { SplitThreeTraining } from './SplitThreeTraining.tsx';
 
 /** 'home', 'lessons' or a catalog entry id (see src/lib/guideCatalog.ts). */
 export type GuideTab = string;
@@ -31,6 +32,7 @@ const GUIDE_VIEWS: Record<GuideView, React.FC<ViewProps>> = {
   glossary: () => <GlossaryScreen />,
   quiz: ({ onQuizFinish }) => <GuideQuiz onFinish={onQuizFinish} />,
   split: () => <SplitVoteTraining />,
+  'split-three': () => <SplitThreeTraining />,
   article: ({ entry }) => <Article blocks={entry.blocks || []} />,
 };
 
@@ -200,7 +202,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const lessonOpen = screen.tab === 'lessons' && screen.lesson !== undefined;
   const entry = findGuideEntry(screen.tab);
   const View = entry ? GUIDE_VIEWS[entry.view] : null;
-  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Путь новичка' : entry?.view === 'split' ? 'Как голосовать при попиле' : entry?.title || 'Школа мафии';
+  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Путь новичка' : entry?.view === 'split' ? 'Попил в нулевом круге' : entry?.title || 'Школа мафии';
 
   return (
     <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 text-white" style={{ paddingTop: home ? 28 : 0 }}>

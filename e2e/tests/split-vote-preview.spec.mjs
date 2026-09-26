@@ -95,3 +95,18 @@ test('expert level shows the break and a running 15-second timer on a phone', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('split-vote-expert-390.png'), fullPage: true });
 });
+
+test('three-way split trainer fits a phone at both levels', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy'] } }));
+  await page.goto('/e2e/split-vote.html?tab=split-three');
+  await expect(page.getByTestId('split-three-modes')).toBeVisible();
+  await page.getByTestId('split-three-level-three_easy').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
+  await expect(page.getByRole('button', { name: /^В \d+$/ }).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath('split-three-easy-390.png'), fullPage: true });
+  await page.getByRole('button', { name: 'К выбору режима' }).click();
+  await page.getByTestId('split-three-level-three_medium').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
+  await expect(page.getByTestId('split-three-interactive')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath('split-three-medium-390.png'), fullPage: true });
+});

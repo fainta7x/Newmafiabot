@@ -23,7 +23,7 @@ export const pluralRu = (count: number, one: string, few: string, many: string) 
 
 export type GuideShelfId = 'reference' | 'articles' | 'trainers';
 export type GuideIcon = 'moon' | 'users' | 'scale' | 'book' | 'vote' | 'article' | 'list';
-export type GuideView = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split' | 'article';
+export type GuideView = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split' | 'split-three' | 'article';
 
 export type GuideEntry = {
   /** Stable address: /guide?tab=<id>. Never rename a published id — people share links. */
@@ -57,7 +57,8 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'glossary', shelf: 'reference', view: 'glossary', icon: 'book', title: 'Словарь', detail: `${GLOSSARY.length} слов клуба` },
   { id: 'split-article', shelf: 'articles', view: 'article', icon: 'article', title: 'Попил в первый день', detail: 'Зачем город никого не заголосовывает в первый день', blocks: blocksOfGroup('Попил в первый день') },
   { id: 'agreement', shelf: 'articles', view: 'article', icon: 'article', title: 'Договорка', detail: 'Как мафия решает, кого убивать', blocks: blocksTitled('Договорка — как мафия решает, кого убивать') },
-  { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', title: 'Голосование при попиле', detail: 'Задачи с уровнями и экзаменами' },
+  { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', title: 'Попил в нулевом круге', detail: 'За столом 10 · уровни и экзамены' },
+  { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', title: 'Попил на троих', detail: 'За столом 9 · лёгкий уровень' },
   { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
 ];
 

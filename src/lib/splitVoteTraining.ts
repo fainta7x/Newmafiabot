@@ -7,11 +7,18 @@ export type SplitVoteScenario = {
 export type SplitVoteDifficulty = 'basic' | 'advanced' | 'interactive' | 'all';
 
 const SEATS = Array.from({ length: 10 }, (_, index) => index + 1);
+
+/**
+ * Who votes for whom is written the club way: seats one after another with no separators, and seat 10
+ * as «0», in seat order («в 2 проголосовали 3460»). The nominee list keeps commas (2, 1, 4, 10), and a single seat on
+ * its own keeps «10».
+ */
+export const seatList = (seats: number[]) => [...seats].sort((x, y) => x - y).map((seat) => (seat === 10 ? '0' : String(seat))).join('');
 export const SPLIT_VOTE_RULES = [
-  '№1 с №2–5: №2–6 голосуют в №1, остальные — во второго игрока.',
-  '№1 с №6–10: №6–10 голосуют в №1, №1–5 — во второго игрока.',
-  'Игрок из №2–5 с игроком из №6–10: №6–10 голосуют в кандидата из первой половины, №1–5 — в кандидата из второй.',
-  'Двое из одной половины (№2–5 или №6–10): пять мест после меньшего номера голосуют в него; остальные — во второго игрока.',
+  '1 с 2–5: 23456 голосуют в 1, остальные — во второго игрока.',
+  '1 с 6–10: 67890 голосуют в 1, а 12345 — во второго игрока.',
+  'Игрок из 2–5 с игроком из 6–10: 67890 голосуют в кандидата из первой половины, 12345 — в кандидата из второй.',
+  'Двое из одной половины (2–5 или 6–10): пять мест после меньшего номера голосуют в него; остальные — во второго игрока.',
 ] as const;
 const PAIRS: Array<[number, number]> = SEATS.flatMap((first) =>
   SEATS.filter((second) => second > first)

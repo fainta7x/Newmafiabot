@@ -81,19 +81,19 @@ export const checkExpertAnswer = (scenario: ExpertScenario, answer: Record<numbe
   for (const candidate of remaining) {
     for (const seat of complete[candidate]) {
       if (!Number.isInteger(seat) || seat < 1 || seat > 10) return { ok: false, totals, reason: 'Неизвестный номер.' };
-      if (spent.has(seat) || seen.has(seat)) return { ok: false, totals, reason: `№${seat} голосует дважды.` };
+      if (spent.has(seat) || seen.has(seat)) return { ok: false, totals, reason: `${seat} голосует дважды.` };
       seen.add(seat);
       totals[candidate] += 1;
       const own = intended(seat);
       // Everyone votes as the basic rules say, except those who insure by voting outside the split.
       const followsRules = candidate === own && remaining.includes(own);
-      if (!followsRules && !outside.includes(candidate)) return { ok: false, totals, reason: `№${seat} должен голосовать за №${own} или страховать кандидата вне попила.` };
+      if (!followsRules && !outside.includes(candidate)) return { ok: false, totals, reason: `${seat} должен голосовать в ${own} или страховать кандидата вне попила.` };
     }
   }
   const [a, b] = scenario.pair;
   const others = scenario.candidates.filter((candidate) => !scenario.pair.includes(candidate));
   const ok = totals[a] === totals[b] && others.every((candidate) => totals[candidate] < totals[a]);
-  return { ok, totals, reason: ok ? undefined : `Попил не состоялся: у №${a} — ${totals[a]}, у №${b} — ${totals[b]}.` };
+  return { ok, totals, reason: ok ? undefined : `Попил не состоялся: у ${a} — ${totals[a]}, у ${b} — ${totals[b]}.` };
 };
 
 /** One correct rescue, shown after an answer. Returns null when the split cannot be rescued. */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { seatList } from '../lib/splitVoteTraining.ts';
 import {
   checkExpertAnswer, completeExpertAnswer, generateExpertExam, generateExpertScenario, isValidExpertScenario, solveExpert,
   type ExpertScenario,
@@ -77,5 +78,12 @@ describe('expert split-vote: rescuing a broken split', () => {
     const scenario: ExpertScenario = { candidates: [5, 2, 1, 7, 3], pair: [1, 3], broken: { kind: 'stray', votes: [{ nominee: 5, voter: 4 }, { nominee: 2, voter: 8 }] } };
     expect(isValidExpertScenario(scenario)).toBe(true);
     expect(checkExpertAnswer(scenario, { 1: [2, 3, 5, 6], 7: [], 3: [1, 7, 9, 10] }).ok).toBe(true);
+  });
+
+  it('writes voters the club way: one after another, 10 as «0»', () => {
+    expect(seatList([3, 4, 6, 10])).toBe('3460');
+    expect(seatList([1, 7, 8, 9, 10])).toBe('17890');
+    // Tap order does not matter: always in seat order, 10 last.
+    expect(seatList([6, 10, 8, 7, 9])).toBe('67890');
   });
 });

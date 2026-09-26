@@ -75,18 +75,19 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const post = state?.destinations.find((item) => item.key === 'public') || null;
   const postUrl = post?.external_url || post?.configured_url || null;
 
-  const publish = async (confirmMissing = false) => {
+  const publish = async (confirmMissing: string | null = null) => {
     if (busy || !canPublish) return;
     setBusy('publish'); setError(null); setMessage(null);
     try {
       const result = await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirm_missing: confirmMissing }),
+        body: JSON.stringify(confirmMissing ? { confirm_missing: confirmMissing } : {}),
       });
       await load(true);
-      const publicResult = Array.isArray(result?.results) ? result.results.find((item: any) => item.destination === 'public') : null;
-      setMessage(publicResult?.reason === 'publication_requires_reconciliation'
+      const unconfirmed = Array.isArray(result?.results)
+        && result.results.some((item: any) => item.reason === 'publication_requires_reconciliation' && item.destination !== confirmMissing);
+      setMessage(unconfirmed
         ? 'VK не подтвердил прошлую публикацию. Загляни в паблик, прежде чем публиковать снова.'
         : 'Пост в паблике опубликован.');
     } catch (err: any) {
@@ -132,14 +133,17 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
             {post?.published && postUrl ? <a href={postUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-surface-2 px-2.5 text-[10px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
           </div>
           {post?.last_error ? <p className="mt-1 text-[10px] leading-4 text-danger">{post.last_error}</p> : null}
-          {post?.needs_check ? (
-            <div className="mt-2 rounded-lg bg-warning-soft px-2.5 py-2 text-[11px] leading-4 text-warning">
-              VK не ответил, вышел ли пост. Загляни в паблик: если пост там есть — ничего не делай. Если поста нет — опубликуй заново.
-              {canPublish ? <button type="button" disabled={Boolean(busy)} onClick={() => void publish(true)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy === 'publish' ? 'Публикуем…' : 'Поста нет — опубликовать'}</button> : null}
-            </div>
-          ) : null}
+
         </div>
       )}
+
+      {state.destinations.filter((item) => item.needs_check).map((item) => (
+        <div key={item.key} className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[11px] leading-4 text-warning" data-testid={`vk-needs-check-${item.key}`}>
+          <strong className="block">{item.key === 'public' ? 'Паблик' : item.name || 'Канал VK'}: VK не ответил, вышла ли публикация.</strong>
+          Загляни туда: если публикация есть — ничего не делай. Если её нет — опубликуй заново.
+          {canPublish ? <button type="button" disabled={Boolean(busy)} onClick={() => void publish(item.key)} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy === 'publish' ? 'Публикуем…' : 'Публикации нет — опубликовать'}</button> : null}
+        </div>
+      ))}
 
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[11px] leading-4 text-danger">{error}</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] leading-4 text-success">{message}</div> : null}

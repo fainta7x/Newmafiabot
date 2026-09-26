@@ -335,10 +335,14 @@ describe('VK publishing adapter', () => {
     const state = await getVkEveningIntegrationState(db, 'vk-retry');
     expect(state.destinations.find((item: any) => item.key === 'public')).toMatchObject({ needs_check: true, published: false });
 
-    const confirmed = await syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test', { confirmMissing: true });
+    // Another destination still waiting for a check keeps its claim.
+    await db.run(`INSERT INTO vk_evening_publications (evening_id, destination_key, group_id, answer_map_json, status, updated_at)
+      VALUES ('vk-retry', 'channel', '-1', '{}', 'publishing', ?)`, [now]);
+    const confirmed = await syncDirectVkEveningPublications(db, 'vk-retry', 'https://example.test', { confirmMissing: 'public' });
     expect(confirmed.results[0]).toMatchObject({ success: true });
     expect(confirmed.results[0].skipped).toBeFalsy();
-    expect((await db.get<any>("SELECT post_id FROM vk_evening_publications WHERE evening_id = 'vk-retry'")).post_id).toBe(77);
+    expect((await db.get<any>("SELECT post_id FROM vk_evening_publications WHERE evening_id = 'vk-retry' AND destination_key = 'public'")).post_id).toBe(77);
+    expect(await db.get<any>("SELECT status FROM vk_evening_publications WHERE evening_id = 'vk-retry' AND destination_key = 'channel'")).toMatchObject({ status: 'publishing' });
   });
   it('sends a channel message with the community publisher token', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';

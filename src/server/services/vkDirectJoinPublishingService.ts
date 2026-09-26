@@ -279,7 +279,7 @@ export async function syncDirectVkEveningPublications(
   db: DatabaseWrapper,
   eveningId: string,
   baseUrl: string,
-  options: { onlyExisting?: boolean; confirmMissing?: boolean } = {},
+  options: { onlyExisting?: boolean; confirmMissing?: string | null } = {},
 ) {
   const evening = await loadEvening(db, eveningId);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
@@ -288,10 +288,10 @@ export async function syncDirectVkEveningPublications(
   }
 
   if (options.confirmMissing && !options.onlyExisting) {
-    // The organizer checked the group and saw no post: release the unknown-outcome claim.
+    // The organizer checked this one destination and saw no post: release only its unknown-outcome claim.
     await db.run(
-      "DELETE FROM vk_evening_publications WHERE evening_id = ? AND status = 'publishing' AND COALESCE(post_id, 0) = 0",
-      [eveningId],
+      "DELETE FROM vk_evening_publications WHERE evening_id = ? AND destination_key = ? AND status = 'publishing' AND COALESCE(post_id, 0) = 0",
+      [eveningId, options.confirmMissing],
     );
   }
   const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);

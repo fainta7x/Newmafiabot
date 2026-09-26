@@ -4,8 +4,8 @@
  *
  * - 3–5 nominees in random order; the agreed split pair is two of them.
  * - Something already went wrong before the task starts:
- *   - «stray»: during the vote for a nominee outside the split (before the pair), one player voted
- *     by mistake — that vote is spent;
+ *   - «stray»: during the votes for nominees outside the split (before the pair), 1–3 players voted
+ *     by mistake, for one or several of those nominees — those votes are spent;
  *   - «short»: the first pair nominee got 4 votes instead of 5 — one player of that group did not
  *     vote.
  * - The task starts at the next nominee. The learner distributes the remaining players so the split
@@ -23,7 +23,7 @@ export const EXPERT_SECONDS = 15;
 const SEATS = Array.from({ length: 10 }, (_, index) => index + 1);
 
 export type ExpertBreak =
-  | { kind: 'stray'; nominee: number; voter: number }
+  | { kind: 'stray'; votes: Array<{ nominee: number; voter: number }> }
   | { kind: 'short'; nominee: number; voters: number[] };
 
 export type ExpertScenario = {
@@ -36,8 +36,13 @@ export type ExpertScenario = {
 export const expertHistory = (scenario: ExpertScenario) => {
   const votes: Record<number, number[]> = Object.fromEntries(scenario.candidates.map((candidate) => [candidate, []]));
   const { broken } = scenario;
-  if (broken.kind === 'stray') votes[broken.nominee] = [broken.voter];
-  else votes[broken.nominee] = [...broken.voters];
+  if (broken.kind === 'stray') {
+    for (const vote of broken.votes) votes[vote.nominee].push(vote.voter);
+    // The task starts after the last nominee someone voted for by mistake.
+    const lastIndex = Math.max(...broken.votes.map((vote) => scenario.candidates.indexOf(vote.nominee)));
+    return { votes, startIndex: lastIndex + 1 };
+  }
+  votes[broken.nominee] = [...broken.voters];
   return { votes, startIndex: scenario.candidates.indexOf(broken.nominee) + 1 };
 };
 
@@ -152,11 +157,12 @@ export const generateExpertScenario = (random: () => number = Math.random, withS
     const candidates = shuffle([...pair, ...others], random);
     const firstPairIndex = Math.min(candidates.indexOf(pair[0]), candidates.indexOf(pair[1]));
     const beforePair = candidates.slice(0, firstPairIndex);
-    const kinds: Array<'stray' | 'short'> = beforePair.length ? ['stray', 'short'] : ['short'];
-    const kind = pick(kinds, random);
+    // Wrong votes are the more varied case, so they come up more often when possible.
+    const kind: 'stray' | 'short' = beforePair.length && random() < 0.65 ? 'stray' : 'short';
     let broken: ExpertBreak;
     if (kind === 'stray') {
-      broken = { kind, nominee: pick(beforePair, random), voter: pick(SEATS, random) };
+      const voters = shuffle(SEATS, random).slice(0, pick([1, 2, 3], random));
+      broken = { kind, votes: voters.map((voter) => ({ nominee: pick(beforePair, random), voter })) };
     } else {
       const nominee = candidates[firstPairIndex];
       const groups = splitVoteGroups(pair);
@@ -187,8 +193,13 @@ export const isValidExpertScenario = (value: unknown): value is ExpertScenario =
   if (!broken || typeof broken !== 'object') return false;
   const firstPairIndex = Math.min(candidates.indexOf(pair[0]), candidates.indexOf(pair[1]));
   if (broken.kind === 'stray') {
-    const index = candidates.indexOf(broken.nominee);
-    if (index < 0 || index >= firstPairIndex || !seat(broken.voter)) return false;
+    if (!Array.isArray(broken.votes) || broken.votes.length < 1 || broken.votes.length > 3) return false;
+    if (new Set(broken.votes.map((vote) => vote?.voter)).size !== broken.votes.length) return false;
+    const ok = broken.votes.every((vote) => {
+      const index = candidates.indexOf(vote?.nominee);
+      return index >= 0 && index < firstPairIndex && seat(vote.voter);
+    });
+    if (!ok) return false;
   } else if (broken.kind === 'short') {
     if (broken.nominee !== candidates[firstPairIndex] || !Array.isArray(broken.voters) || broken.voters.length !== 4) return false;
     const groups = splitVoteGroups(pair);

@@ -11,9 +11,15 @@ type Outcome = { ok: boolean; timedOut: boolean; totals: Record<number, number>;
 const seats = (list: number[]) => (list.length ? list.map((seat) => `№${seat}`).join(', ') : 'никто');
 
 /** What already happened before the learner takes over. */
-export const describeBreak = (scenario: ExpertScenario) => (scenario.broken.kind === 'stray'
-  ? `За №${scenario.broken.nominee} случайно проголосовал №${scenario.broken.voter}. Его голос уже потрачен.`
-  : `За №${scenario.broken.nominee} проголосовали только четверо: ${seats(scenario.broken.voters)}. Нужно было пятеро.`);
+export const describeBreak = (scenario: ExpertScenario) => {
+  const { broken } = scenario;
+  if (broken.kind === 'short') return `За №${broken.nominee} проголосовали только четверо: ${seats(broken.voters)}. Нужно было пятеро.`;
+  const byNominee = scenario.candidates
+    .map((nominee) => ({ nominee, voters: broken.votes.filter((vote) => vote.nominee === nominee).map((vote) => vote.voter) }))
+    .filter((item) => item.voters.length);
+  const parts = byNominee.map((item) => `за №${item.nominee} — ${seats(item.voters)}`);
+  return `По ошибке проголосовали ${parts.join('; ')}. ${broken.votes.length === 1 ? 'Этот голос уже потрачен.' : 'Эти голоса уже потрачены.'}`;
+};
 
 /** One timed rescue task. Reaching the last nominee sends everyone left to it and checks the result. */
 const ExpertRound = ({ scenario, onDone }: { scenario: ExpertScenario; onDone: (outcome: Outcome) => void }) => {

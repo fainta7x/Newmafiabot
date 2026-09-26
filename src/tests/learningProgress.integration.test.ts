@@ -38,7 +38,7 @@ describe('learning progress for the curator', () => {
     expect(card.body).toMatchObject({ id: 'p2', nickname: 'Борис', passed: { basic: '2026-09-25 09:00:00' } });
   });
 
-  it('awards «Спасатель попила» only for the expert exam', async () => {
+  it('awards «Нулевой пациент» only for the expert exam', async () => {
     const { db } = await setup();
     expect(await evaluatePlayerAchievements(db, 'p1')).toContain('split_vote_expert');
     expect(await evaluatePlayerAchievements(db, 'p2')).not.toContain('split_vote_expert');

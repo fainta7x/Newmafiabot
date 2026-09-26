@@ -78,7 +78,7 @@ router.post('/split-vote-progress', async (req, res) => {
       if (!prior) return res.status(403).json({ error: 'Сначала сдайте предыдущий экзамен.' });
     }
     await req.db.run('INSERT OR IGNORE INTO player_split_vote_progress (player_id, level) VALUES (?, ?)', [playerId, level]);
-    // «Спасатель попила» is earned right away, not at the next achievement sweep.
+    // «Нулевой пациент» is earned right away, not at the next achievement sweep.
     if (level === 'expert') await evaluatePlayerAchievements(req.db, playerId).catch((error) => console.warn('[SPLIT_VOTE] Achievement check failed:', error));
     const rows = await req.db.all('SELECT level FROM player_split_vote_progress WHERE player_id = ?', [playerId]);
     res.json({ passed: rows.map((row: { level: Level }) => row.level) });

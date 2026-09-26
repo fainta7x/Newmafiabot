@@ -88,7 +88,7 @@ const raw: Array<Omit<AchievementDefinition, 'order'>> = [
   { id: 'pu_ten', name: 'Легендарная жертва', description: 'Стать ПУ 10 раз', icon: '🦁', category: 'special', metric: 'pu', threshold: 10, rarity: 'legendary' },
   { id: 'perfect_game', name: 'Идеальная игра', description: 'Закончить игру без фолов и техфолов', icon: '💎', category: 'special', metric: 'perfect_game', threshold: 1, rarity: 'epic' },
   // User-approved 2026-09-26: one achievement for the split-vote trainer, for passing the expert exam.
-  { id: 'split_vote_expert', name: 'Спасатель попила', description: 'Сдать экзамен экспертного уровня тренажёра попила', icon: '🛟', category: 'learning', metric: 'split_expert', threshold: 1, rarity: 'epic' },
+  { id: 'split_vote_expert', name: 'Нулевой пациент', description: 'Сдать экзамен эксперта в тренажёре попила нулевого круга', icon: '🧪', category: 'learning', metric: 'split_expert', threshold: 1, rarity: 'epic' },
 ];
 
 export const ACHIEVEMENTS: AchievementDefinition[] = raw.map((item, index) => ({ ...item, order: index + 1 }));

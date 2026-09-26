@@ -83,5 +83,7 @@ describe('expert split-vote: rescuing a broken split', () => {
   it('writes voters the club way: one after another, 10 as «0»', () => {
     expect(seatList([3, 4, 6, 10])).toBe('3460');
     expect(seatList([1, 7, 8, 9, 10])).toBe('17890');
+    // Tap order does not matter: always in seat order, 10 last.
+    expect(seatList([6, 10, 8, 7, 9])).toBe('67890');
   });
 });

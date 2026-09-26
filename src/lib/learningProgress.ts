@@ -6,6 +6,7 @@ export const SPLIT_VOTE_LEVELS = [
   { id: 'expert', label: 'Эксперт' },
   { id: 'three_easy', label: 'Трое · лёгкий' },
   { id: 'three_medium', label: 'Трое · средний' },
+  { id: 'three_hard', label: 'Трое · сложный' },
 ] as const;
 export type SplitVoteLevelId = typeof SPLIT_VOTE_LEVELS[number]['id'];
 

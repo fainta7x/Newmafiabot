@@ -86,6 +86,18 @@ describe('player split-vote progression', () => {
     const wrong = medium.map((entry, index) => (index === 2 ? { ...entry, answer: {} } : entry));
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_medium', answers: wrong })).status).toBe(400);
   });
+
+  it('opens the hard three-way level only after the medium exam', async () => {
+    const hard = Array.from({ length: 5 }, () => generateSplitThreeScenario('three_hard')).map((scenario) => ({ scenario, answer: splitThreeAssignments(scenario) }));
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: hard })).status).toBe(403);
+    rows.set('fred', new Set(['three_easy', 'three_medium']));
+    const passed = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: hard });
+    expect(passed.status).toBe(200);
+    expect(passed.body.passed).toContain('three_hard');
+    // A task without the sheriff claims is not a hard-level task.
+    const stripped = hard.map((entry, index) => (index === 0 ? { ...entry, scenario: { ...entry.scenario, sheriffs: undefined } } : entry));
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: stripped })).status).toBe(400);
+  });
 });
 
 describe('split-vote progress table', () => {
@@ -103,10 +115,30 @@ describe('split-vote progress table', () => {
     await ensureSplitVoteProgressSchema(db);
     await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'expert')");
     await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'three_medium')");
+    await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p1', 'three_hard')");
     expect(await db.all("SELECT level, passed_at FROM player_split_vote_progress WHERE player_id = 'p1' ORDER BY level")).toEqual([
       { level: 'expert', passed_at: expect.any(String) },
       { level: 'interactive', passed_at: '2026-09-25 10:00:00' },
+      { level: 'three_hard', passed_at: expect.any(String) },
       { level: 'three_medium', passed_at: expect.any(String) },
+    ]);
+    db.sqlite.close();
+  });
+
+  it('adds the hard three-way level to the table deployed with the medium level', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await db.exec(`CREATE TABLE player_split_vote_progress (
+      player_id TEXT NOT NULL,
+      level TEXT NOT NULL CHECK (level IN ('basic', 'advanced', 'interactive', 'expert', 'three_easy', 'three_medium')),
+      passed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (player_id, level)
+    )`);
+    await db.run("INSERT INTO player_split_vote_progress (player_id, level, passed_at) VALUES ('p2', 'three_medium', '2026-09-26 10:00:00')");
+    await ensureSplitVoteProgressSchema(db);
+    await db.run("INSERT INTO player_split_vote_progress (player_id, level) VALUES ('p2', 'three_hard')");
+    expect(await db.all("SELECT level, passed_at FROM player_split_vote_progress WHERE player_id = 'p2' ORDER BY level")).toEqual([
+      { level: 'three_hard', passed_at: expect.any(String) },
+      { level: 'three_medium', passed_at: '2026-09-26 10:00:00' },
     ]);
     db.sqlite.close();
   });

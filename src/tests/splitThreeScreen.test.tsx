@@ -58,4 +58,33 @@ describe('three-way split trainer screen', () => {
     finishSave(new Response(JSON.stringify({ passed: ['three_easy'] }), { status: 200 }));
     await waitFor(() => expect(screen.getByTestId('split-three-result').textContent).toContain('Экзамен сдан: 5 из 5'));
   });
+
+  it('shows the two sheriffs at the hard level and checks the whole table', async () => {
+    const hard: SplitThreeScenario = {
+      killed: 10, candidates: [4, 2, 7], split: [4, 2, 7], seat: 3,
+      sheriffs: { trusted: { seat: 1, check: 6, black: false }, doubted: { seat: 4, check: 2, black: true } },
+    };
+    progress(['three_easy', 'three_medium']);
+    render(<SplitThreeTraining initial={[hard, hard]} />);
+    await waitFor(() => expect(screen.getByTestId('split-three-level-three_hard').querySelector('button')!.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[2]);
+    const claims = screen.getByTestId('split-three-sheriffs').textContent || '';
+    expect(claims).toContain('Город меньше верит шерифу 4');
+    expect(claims).toContain('Шериф 4 проверил 2 — чёрный');
+    const pick = (...seats: number[]) => seats.forEach((seat) => fireEvent.click(screen.getByRole('button', { name: String(seat) })));
+    // Plain seat order would be wrong here: 1 and 2 must vote for 4.
+    pick(2, 4, 7); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    pick(1, 3, 5); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));
+    const status = screen.getByRole('status').textContent || '';
+    expect(status).toContain('Распределение голосов неверное');
+    expect(status).toContain('Если прав шериф 4, мафия — 1 и 2: они голосуют в 4');
+    expect(status).toContain('В 4 голосуют 127');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
+    pick(1, 2, 7); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    pick(3, 4, 5); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));
+    expect(screen.getByRole('status').textContent).toContain('Верно!');
+  });
 });

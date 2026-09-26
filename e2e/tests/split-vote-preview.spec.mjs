@@ -120,3 +120,33 @@ test('three-way split trainer fits a phone at both levels', async ({ page }, tes
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('split-three-medium-390.png'), fullPage: true });
 });
+
+test('three-way split hard level shows both sheriffs on a phone', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium'] } }));
+  await page.goto('/e2e/split-vote.html?tab=split-three');
+  await page.getByTestId('split-three-level-three_hard').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
+  await expect(page.getByTestId('split-three-sheriffs')).toContainText('Город меньше верит шерифу');
+  // The task opens from its conditions even though the level card was lower on the page.
+  await expect(page.getByTestId('split-three-sheriffs')).toBeInViewport();
+  await expect(page.getByTestId('split-three-interactive')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath('split-three-hard-390.png') });
+  for (let step = 0; step < 6; step += 1) {
+    const next = page.getByRole('button', { name: /^(Пропустить|Продолжить)$/ });
+    if (!(await next.isVisible())) break;
+    await next.click();
+  }
+  await page.getByRole('button', { name: 'Проверить голосование' }).click();
+  await expect(page.getByRole('status')).toContainText('Если прав шериф');
+  await page.screenshot({ path: testInfo.outputPath('split-three-hard-answer-390.png'), fullPage: true });
+});
+
+test('a guide screen opened from the bottom of another starts at its top', async ({ page }) => {
+  // The app scrolls inside #root, so the reset must not rely on window.scrollTo alone.
+  await page.goto('/e2e/split-vote.html?tab=split-three');
+  await page.getByTestId('guide-more').scrollIntoViewIfNeeded();
+  await page.getByTestId('guide-tab-split').click();
+  await expect(page.getByTestId('split-vote-modes')).toBeVisible();
+  await expect(page.getByTestId('guide-place')).toBeInViewport();
+  expect(await page.evaluate(() => document.getElementById('root').scrollTop)).toBe(0);
+});

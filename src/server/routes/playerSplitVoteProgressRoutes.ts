@@ -10,7 +10,7 @@ const router = Router();
 type ZeroRoundLevel = 'basic' | 'advanced' | 'interactive' | 'expert';
 type Level = ZeroRoundLevel | SplitThreeLevel;
 /** Each trainer is its own chain: a level opens after the previous level of the same trainer. */
-const TRACKS: Level[][] = [['basic', 'advanced', 'interactive', 'expert'], ['three_easy', 'three_medium']];
+const TRACKS: Level[][] = [['basic', 'advanced', 'interactive', 'expert'], ['three_easy', 'three_medium', 'three_hard']];
 const LEVELS: Level[] = TRACKS.flat();
 
 const validScenario = (value: unknown, level: ZeroRoundLevel): value is SplitVoteScenario => {
@@ -74,7 +74,7 @@ router.post('/split-vote-progress', async (req, res) => {
   if (!playerId) return res.status(401).json({ error: 'Войдите в кабинет игрока, чтобы сохранить прогресс.' });
   const level = req.body?.level as Level;
   const answers = req.body?.answers;
-  if (level === 'three_easy' || level === 'three_medium' ? !isPassedSplitThreeExam(answers, level) : level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
+  if (level === 'three_easy' || level === 'three_medium' || level === 'three_hard' ? !isPassedSplitThreeExam(answers, level) : level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
     new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5 ||
     !answers.every((entry: unknown) => {
       if (!entry || typeof entry !== 'object') return false;

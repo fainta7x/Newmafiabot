@@ -76,7 +76,7 @@ export function LearningProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId
           </div>
           <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <div className="mt-3 grid grid-cols-4 gap-1.5">
           {SPLIT_VOTE_LEVELS.map((item) => (
             <button key={item.id} type="button" onClick={() => { setLevel(item.id); setStatus('passed'); }} className={`rounded-2xl border p-2 text-left ${level === item.id ? 'border-white/40 bg-white/[0.08]' : 'border-white/10 bg-black/10'}`}>
               <strong className="block text-[18px] text-white">{counts[item.id] ?? 0}</strong>

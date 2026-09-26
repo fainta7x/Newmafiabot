@@ -72,7 +72,7 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'split-article', shelf: 'articles', view: 'article', icon: 'article', title: 'Попил в первый день', detail: 'Зачем город никого не заголосовывает в первый день', blocks: blocksOfGroup('Попил в первый день') },
   { id: 'agreement', shelf: 'articles', view: 'article', icon: 'article', title: 'Договорка', detail: 'Как мафия решает, кого убивать', blocks: blocksTitled('Договорка — как мафия решает, кого убивать') },
   { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
-  { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · лёгкий и средний уровни' },
+  { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · три уровня и экзамены' },
   { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Знание правил', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
 ];
 

@@ -65,5 +65,10 @@ describe('editable achievement catalog', () => {
     await db.run("UPDATE achievement_definitions SET name = 'Своё название' WHERE id = 'split_vote_expert'");
     await ensureAdminDataSchema(db);
     expect((await db.get("SELECT name FROM achievement_definitions WHERE id = 'split_vote_expert'")).name).toBe('Своё название');
+    // Only the fields still holding the old defaults change: a custom description stays.
+    await db.run("UPDATE achievement_definitions SET name = 'Спасатель попила', description = 'Моё описание', icon = '🛟' WHERE id = 'split_vote_expert'");
+    await ensureAdminDataSchema(db);
+    expect(await db.get("SELECT name, description, icon FROM achievement_definitions WHERE id = 'split_vote_expert'"))
+      .toEqual({ name: 'Нулевой пациент', description: 'Моё описание', icon: '🧪' });
   });
 });

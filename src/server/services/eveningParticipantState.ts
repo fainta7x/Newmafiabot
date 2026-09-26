@@ -7,6 +7,7 @@ import {
   type EveningAttendanceFact,
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
+import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
 
 export class EveningParticipantStateError extends Error {
   status: number;
@@ -50,6 +51,9 @@ export async function setParticipantResponse(db: DatabaseWrapper, participantId:
     [status, status, confirmedAt, now, participantId],
   );
 
+  // A changed answer can move an already arrived player between 500 and 400.
+  await reconcileParticipantAttendanceReward(db, participantId);
+
   if (status === 'declined') {
     await db.run(
       `DELETE FROM evening_slot_registrations
@@ -75,6 +79,8 @@ export async function setParticipantAttendance(db: DatabaseWrapper, participantI
       WHERE id = ?`,
     [attendanceStatus, arrivalStatus, checkedInAt, now, participantId],
   );
+  // Tokens for coming follow the attendance mark (500 at the start after signing up, 400 otherwise).
+  await reconcileParticipantAttendanceReward(db, participantId);
 }
 
 export const legacyAttendancePatchToFact = (

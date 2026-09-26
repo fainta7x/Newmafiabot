@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { awardEveningOrganizer } from './staffRewards.ts';
+import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -278,6 +279,13 @@ export async function settleEveningFromCloseout(
     await awardEveningOrganizer(db, eveningId);
   } catch (error) {
     console.error('[EVENING CLOSEOUT] organizer reward failed:', error instanceof Error ? error.message : String(error));
+  }
+  // Closing re-checks every player's attendance tokens, so a mark set by any path is settled.
+  try {
+    const participants = await db.all<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id IS NOT NULL', [eveningId]);
+    for (const participant of participants) await reconcileParticipantAttendanceReward(db, String(participant.id));
+  } catch (error) {
+    console.error('[EVENING CLOSEOUT] attendance rewards failed:', error instanceof Error ? error.message : String(error));
   }
   // Publication finalization is best-effort and must never roll back a settled
   // evening. Telegram is finalized by its durable outbox trigger; VK is edited

@@ -5,6 +5,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
+import { withdrawAttendanceRewards } from '../services/eveningAttendanceRewardService.ts';
 import {
   createEveningSchema,
   updateEveningSchema,
@@ -304,6 +305,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
       });
     }
 
+    await withdrawAttendanceRewards(db, { eveningId: String(req.params.id) });
     await db.run('DELETE FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     res.json({ success: true, message: 'Игровой вечер успешно удален' });
   } catch (err: any) {

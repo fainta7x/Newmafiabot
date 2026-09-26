@@ -5,7 +5,8 @@
  * Facts follow docs/BUSINESS_RULES.md; the club edits the texts here.
  */
 
-export type GuideBlock = { title: string; lead?: string; points: string[] };
+/** `group` joins consecutive blocks into one topic on the page (for example all of «Попил»). */
+export type GuideBlock = { title: string; lead?: string; points: string[]; group?: string };
 export type ScenarioStep = { title: string; when?: string; text: string; points?: string[] };
 export type GuideRole = { name: string; team: 'red' | 'black'; count: string; task: string; how: string[]; tip: string };
 export type GlossaryTerm = { term: string; meaning: string; aliases?: string[] };
@@ -174,6 +175,7 @@ export const SIMPLE_RULES: GuideBlock[] = [
   },
   {
     title: 'Попил — почему в первый день никого не заголосовывают',
+    group: 'Попил в первый день',
     lead: 'Коротко: в первый день город специально никого не заголосовывает. Так у мирных остаётся право на одну ошибку.',
     points: [
       'Мафия выигрывает, когда её за столом становится столько же, сколько мирных. Каждый заголосованный или убитый мирный приближает мафию к победе.',
@@ -184,6 +186,7 @@ export const SIMPLE_RULES: GuideBlock[] = [
   },
   {
     title: 'Как делают попил',
+    group: 'Попил в первый день',
     points: [
       'Стол договаривается поделить голоса поровну между двумя игроками. Например, половина голосует за №3, половина — за №7.',
       'Выходит ничья. Стол голосует так же ещё раз, а потом решает оставить обоих.',
@@ -193,11 +196,13 @@ export const SIMPLE_RULES: GuideBlock[] = [
   },
   {
     title: 'Почему попил даёт право на ошибку',
+    group: 'Попил в первый день',
     lead: 'За столом 7 мирных и 3 мафии. Мафия побеждает, когда мирных остаётся столько же, сколько её, — то есть 3.',
     points: [],
   },
   {
     title: 'Вариант 1. В первый день заголосовали наугад — и это мирный (так бывает чаще всего)',
+    group: 'Попил в первый день',
     points: [
       'День 1: заголосован мирный → 6 мирных, 3 мафии.',
       'Ночь: мафия убила мирного → 5 на 3.',
@@ -208,6 +213,7 @@ export const SIMPLE_RULES: GuideBlock[] = [
   },
   {
     title: 'Вариант 2. В первый день попил — никто не заголосован',
+    group: 'Попил в первый день',
     points: [
       'День 1: никто не заголосован → 7 на 3.',
       'Ночь: мафия убила мирного → 6 на 3.',
@@ -219,6 +225,7 @@ export const SIMPLE_RULES: GuideBlock[] = [
   },
   {
     title: 'Итог',
+    group: 'Попил в первый день',
     lead: 'В первый день вы голосуете почти вслепую. Попил позволяет не тратить свою единственную ошибку на угадайку и оставить её на тот момент, когда уже есть информация.',
     points: [],
   },

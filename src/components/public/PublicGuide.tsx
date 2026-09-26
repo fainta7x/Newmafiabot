@@ -1,189 +1,192 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
-import { GLOSSARY, GUIDE_INTRO, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary, type GuideBlock } from '../../lib/clubGuide.ts';
-import { GUIDE_QUIZ } from '../../lib/clubGuideQuiz.ts';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  BookA, BookOpen, Check, ChevronLeft, ChevronRight, Copy, FileText, GraduationCap, ListChecks,
+  Moon, Scale, Sparkles, Users, Vote,
+} from 'lucide-react';
+import {
+  GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, isGuideScreen,
+  type GuideEntry, type GuideIcon, type GuideView,
+} from '../../lib/guideCatalog.ts';
+import { Article } from './guide/GuideBlocks.tsx';
+import {
+  EMPTY_PROGRESS, EveningScreen, GlossaryScreen, GuideQuiz, LessonPath, LessonScreen, RolesScreen, RulesScreen,
+  readProgress, writeProgress, type GuideProgress,
+} from './guide/GuideScreens.tsx';
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 
-export type GuideTab = 'evening' | 'lessons' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split';
+/** 'home', 'lessons' or a catalog entry id (see src/lib/guideCatalog.ts). */
+export type GuideTab = string;
+type GuideScreen = { tab: GuideTab; lesson?: number };
 
-const TABS: Array<{ id: GuideTab; label: string }> = [
-  { id: 'evening', label: 'Вечер' },
-  { id: 'lessons', label: 'Уроки' },
-  { id: 'roles', label: 'Роли' },
-  { id: 'rules', label: 'Правила' },
-  { id: 'glossary', label: 'Словарь' },
-  { id: 'quiz', label: 'Тест' },
-  { id: 'split', label: 'Попил' },
-];
+const ICONS: Record<GuideIcon, React.ComponentType<{ className?: string }>> = {
+  moon: Moon, users: Users, scale: Scale, book: BookA, vote: Vote, article: FileText, list: ListChecks,
+};
+
+type ViewProps = { entry: GuideEntry; onQuizFinish: (score: number) => void };
+/** Every catalog `view` has one component. A new kind of trainer or screen is added here. */
+const GUIDE_VIEWS: Record<GuideView, React.FC<ViewProps>> = {
+  evening: () => <EveningScreen />,
+  roles: () => <RolesScreen />,
+  rules: () => <RulesScreen />,
+  glossary: () => <GlossaryScreen />,
+  quiz: ({ onQuizFinish }) => <GuideQuiz onFinish={onQuizFinish} />,
+  split: () => <SplitVoteTraining />,
+  article: ({ entry }) => <Article blocks={entry.blocks || []} />,
+};
 
 export const guideTabFromSearch = (search: string): GuideTab => {
   const tab = new URLSearchParams(search).get('tab');
-  return tab === 'lessons' || tab === 'roles' || tab === 'rules' || tab === 'glossary' || tab === 'quiz' || tab === 'split' ? tab : 'evening';
+  return isGuideScreen(tab) ? tab : 'home';
 };
 
-const LESSONS = [
-  { title: 'Первый вечер', description: 'Как записаться, прийти и сесть за стол.', content: 'scenario', start: 0, end: 3 },
-  { title: 'Кто за столом', description: 'Цели мирного, Шерифа, мафии и Дона.', content: 'roles', start: 0, end: 0 },
-  { title: 'День и ночь', description: 'Речь, голосование, ночная игра и победа.', content: 'scenario', start: 3, end: SCENARIO.length },
-  { title: 'Правила за столом', description: 'Как играть спокойно и не получить замечание.', content: 'rules', start: 0, end: 0 },
-] as const;
+const screenUrl = (screen: GuideScreen) => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('tab');
+  url.searchParams.delete('lesson');
+  if (screen.tab !== 'home') url.searchParams.set('tab', screen.tab);
+  if (screen.tab === 'lessons' && screen.lesson !== undefined) url.searchParams.set('lesson', String(screen.lesson + 1));
+  return `${url.pathname}${url.search}`;
+};
+const lessonFromSearch = (search: string) => {
+  const value = Number(new URLSearchParams(search).get('lesson'));
+  return Number.isInteger(value) && value >= 1 && value <= GUIDE_LESSONS.length ? value - 1 : undefined;
+};
 
-const Blocks = ({ blocks }: { blocks: GuideBlock[] }) => (
-  <div className="space-y-3">
-    {blocks.map((block) => (
-      <section key={block.title} className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-        <h2 className="text-[16px] font-semibold text-white">{block.title}</h2>
-        {block.lead ? <p className="mt-1.5 text-[14px] leading-6 text-white/65">{block.lead}</p> : null}
-        {block.points.length ? <ul className="mt-2.5 space-y-2">
-          {block.points.map((point) => (
-            <li key={point} className="flex gap-2.5 text-[14px] leading-6 text-white/75">
-              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/40" aria-hidden="true" />
-              <span>{point}</span>
-            </li>
-          ))}
-        </ul> : null}
-      </section>
-    ))}
-  </div>
+type TelegramBackButton = { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void };
+const telegramBackButton = (): TelegramBackButton | null =>
+  (window as unknown as { Telegram?: { WebApp?: { BackButton?: TelegramBackButton } } }).Telegram?.WebApp?.BackButton || null;
+
+const Tile = ({ entry, onOpen }: { entry: GuideEntry; onOpen: () => void }) => {
+  const Icon = ICONS[entry.icon];
+  return (
+    <button type="button" data-testid={`guide-tab-${entry.id}`} onClick={onOpen} className="flex min-h-[112px] flex-col justify-between rounded-3xl border border-white/10 bg-white/[.045] p-3.5 text-left active:bg-white/[.08]">
+      <span className="grid h-9 w-9 place-items-center rounded-2xl bg-white/[.08] text-white/80"><Icon className="h-5 w-5" /></span>
+      <span><strong className="block text-[15px] text-white">{entry.title}</strong><span className="mt-0.5 block text-[12px] leading-4 text-white/50">{entry.detail}</span></span>
+    </button>
+  );
+};
+
+const Row = ({ entry, onOpen }: { entry: GuideEntry; onOpen: () => void }) => {
+  const Icon = ICONS[entry.icon];
+  return (
+    <button type="button" data-testid={`guide-tab-${entry.id}`} onClick={onOpen} className="flex min-h-[72px] w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[.045] p-3.5 pr-2 text-left active:bg-white/[.08]">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[.08] text-white/80"><Icon className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1"><strong className="block text-[15px] text-white">{entry.title}</strong><span className="mt-0.5 block text-[13px] leading-5 text-white/55">{entry.detail}</span></span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-white/35" aria-hidden="true" />
+    </button>
+  );
+};
+
+const ShelfTitle = ({ children }: { children: React.ReactNode }) => (
+  <h2 className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/45">{children}</h2>
 );
 
-const Scenario = () => (
-  <div className="space-y-3">
-    <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
-      <h2 className="text-[18px] font-semibold text-white">{GUIDE_INTRO.title}</h2>
-      <p className="mt-2 text-[15px] leading-6 text-white/75">{GUIDE_INTRO.text}</p>
-    </section>
-    <h2 className="px-1 pt-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/45">Ваш первый вечер — шаг за шагом</h2>
-    <ol className="space-y-2.5">
-      {SCENARIO.map((step, index) => (
-        <li key={step.title} data-testid="guide-step" className="flex gap-3 rounded-3xl border border-white/10 bg-white/[.035] p-4">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[14px] font-bold text-black">{index + 1}</span>
-          <div className="min-w-0 flex-1">
-            {step.when ? <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/45">{step.when}</div> : null}
-            <h3 className="text-[16px] font-semibold text-white">{step.title}</h3>
-            <p className="mt-1 text-[14px] leading-6 text-white/75">{step.text}</p>
-            {step.points?.length ? (
-              <ul className="mt-2 space-y-1.5">
-                {step.points.map((point) => <li key={point} className="text-[14px] leading-6 text-white/60">— {point}</li>)}
-              </ul>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ol>
-  </div>
-);
-
-const Roles = () => (
-  <div className="space-y-3">
-    <p className="px-1 text-[14px] leading-6 text-white/65">За столом две команды: <strong className="text-rose-200">красные</strong> — город, и <strong className="text-white">чёрные</strong> — мафия. У каждой роли своя задача.</p>
-    {ROLES.map((role) => (
-      <section key={role.name} data-testid="guide-role" className={`rounded-3xl border p-4 ${role.team === 'red' ? 'border-rose-300/20 bg-rose-400/[.06]' : 'border-white/15 bg-white/[.05]'}`}>
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-[18px] font-semibold text-white">{role.name}</h2>
-          <span className={`shrink-0 text-[12px] font-semibold ${role.team === 'red' ? 'text-rose-200/80' : 'text-white/55'}`}>{role.team === 'red' ? 'Красные' : 'Чёрные'} · {role.count}</span>
+const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: GuideScreen) => void }) => {
+  const nextLesson = GUIDE_LESSONS.findIndex((lesson) => !progress.lessons.includes(lesson.id));
+  const doneCount = GUIDE_LESSONS.filter((lesson) => progress.lessons.includes(lesson.id)).length + (progress.quizBest !== null ? 1 : 0);
+  const total = GUIDE_LESSONS.length + 1;
+  const started = doneCount > 0;
+  return (
+    <div className="space-y-6">
+      <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[.10] via-white/[.04] to-transparent p-5">
+        <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/50"><GraduationCap className="h-4 w-4" />Путь новичка</div>
+        <h2 className="mt-2 text-[20px] font-semibold leading-7">{!started ? 'Короткие уроки — и вы готовы к первой игре' : doneCount === total ? 'Путь пройден — до встречи за столом' : `Пройдено ${doneCount} из ${total}`}</h2>
+        <div className="mt-3 flex gap-1" aria-hidden="true">
+          {Array.from({ length: total }, (_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index < doneCount ? 'bg-white' : 'bg-white/15'}`} />)}
         </div>
-        <p className="mt-2 rounded-2xl bg-black/25 px-3 py-2.5 text-[14px] leading-6 text-white"><strong>Задача:</strong> {role.task}</p>
-        <ul className="mt-2.5 space-y-1.5">
-          {role.how.map((point) => <li key={point} className="text-[14px] leading-6 text-white/70">— {point}</li>)}
-        </ul>
-        <p className="mt-2.5 text-[13px] italic leading-5 text-white/55">💡 {role.tip}</p>
-      </section>
-    ))}
-  </div>
-);
-
-const Lessons = ({ onQuiz }: { onQuiz: () => void }) => {
-  const [lessonIndex, setLessonIndex] = useState<number | null>(null);
-  if (lessonIndex === null) return (
-    <div className="space-y-3">
-      <p className="px-1 text-sm leading-6 text-white/65">Четыре коротких урока по материалам памятки. Можно читать в любом порядке, без регистрации.</p>
-      {LESSONS.map((lesson, index) => (
-        <button key={lesson.title} type="button" data-testid="guide-lesson" onClick={() => setLessonIndex(index)} className="flex min-h-20 w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[.045] p-4 text-left">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-black">{index + 1}</span>
-          <span><strong className="block text-base text-white">{lesson.title}</strong><span className="mt-1 block text-sm leading-5 text-white/60">{lesson.description}</span></span>
+        <button type="button" data-testid="guide-continue" onClick={() => (nextLesson >= 0 ? go({ tab: 'lessons', lesson: nextLesson }) : go({ tab: 'quiz' }))}
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-black">
+          {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Проверить себя ещё раз'}<ChevronRight className="h-4 w-4" />
         </button>
-      ))}
-      <p className="px-1 text-xs leading-5 text-white/45">После уроков можно проверить себя в коротком тесте. Результат ни на что не влияет.</p>
-    </div>
-  );
-  const lesson = LESSONS[lessonIndex];
-  return (
-    <div className="space-y-3" data-testid="guide-lesson-content">
-      <button type="button" onClick={() => setLessonIndex(null)} className="min-h-11 rounded-xl px-2 text-sm text-white/70">← Все уроки</button>
-      <header className="px-1"><p className="text-xs uppercase tracking-wider text-white/50">Урок {lessonIndex + 1} из {LESSONS.length}</p><h2 className="mt-1 text-xl font-semibold">{lesson.title}</h2><p className="mt-1 text-sm text-white/65">{lesson.description}</p></header>
-      {lesson.content === 'roles' ? <Roles /> : null}
-      {lesson.content === 'scenario' ? <div className="space-y-3"><Blocks blocks={SCENARIO.slice(lesson.start, lesson.end).map((step) => ({ title: step.title, lead: step.text, points: step.points || [] }))} /></div> : null}
-      {lesson.content === 'rules' ? <Blocks blocks={SIMPLE_RULES.filter((block) => ['Как тут наказывают', '⛔ Чего делать нельзя', 'Как не получить замечание'].includes(block.title))} /> : null}
-      <button type="button" onClick={() => lessonIndex === LESSONS.length - 1 ? onQuiz() : setLessonIndex(lessonIndex + 1)} className="min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">{lessonIndex === LESSONS.length - 1 ? 'Проверить себя' : 'Следующий урок'}</button>
-    </div>
-  );
-};
+      </section>
 
-const GuideQuiz = () => {
-  const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(false);
-  const [score, setScore] = useState(0);
-  if (index === GUIDE_QUIZ.length) return (
-    <section className="rounded-3xl border border-white/10 bg-white/[.045] p-5 text-center">
-      <h2 className="text-xl font-semibold">Готово: {score} из {GUIDE_QUIZ.length}</h2>
-      <p className="mt-2 text-sm leading-6 text-white/65">Это проверка для себя. Она не влияет на доступ к играм, Elo или награды.</p>
-      <button type="button" className="mt-4 min-h-12 rounded-2xl bg-white px-5 font-semibold text-black" onClick={() => { setIndex(0); setSelected(null); setAnswered(false); setScore(0); }}>Пройти ещё раз</button>
-    </section>
-  );
-  const item = GUIDE_QUIZ[index];
-  return (
-    <section className="space-y-4 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="guide-quiz">
-      <p className="text-xs uppercase tracking-wider text-white/50">Вопрос {index + 1} из {GUIDE_QUIZ.length}</p>
-      <h2 className="text-lg font-semibold">{item.question}</h2>
-      <div className="space-y-2" role="group" aria-label={item.question}>
-        {item.options.map((option, optionIndex) => (
-          <button key={option} type="button" disabled={answered} aria-pressed={selected === optionIndex}
-            onClick={() => setSelected(optionIndex)}
-            className={`w-full min-h-12 rounded-2xl border px-4 py-3 text-left text-sm ${selected === optionIndex ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/75'} disabled:opacity-80`}>{option}</button>
-        ))}
-      </div>
-      {answered ? <p role="status" className="text-sm leading-6 text-white/80">{selected === item.correct ? 'Верно. ' : 'Пока нет. '}{item.explanation}</p> : null}
-      <button type="button" disabled={selected === null} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black disabled:opacity-40"
-        onClick={() => {
-          if (!answered) { setAnswered(true); if (selected === item.correct) setScore((value) => value + 1); }
-          else { setIndex((value) => value + 1); setSelected(null); setAnswered(false); }
-        }}>{answered ? (index === GUIDE_QUIZ.length - 1 ? 'Посмотреть результат' : 'Следующий вопрос') : 'Проверить ответ'}</button>
-    </section>
+      <section className="space-y-2">
+        <ShelfTitle>Уроки</ShelfTitle>
+        <LessonPath progress={progress} onLesson={(lesson) => go({ tab: 'lessons', lesson })} onQuiz={() => go({ tab: 'quiz' })} />
+      </section>
+
+      {GUIDE_SHELVES.map((shelf) => {
+        const entries = GUIDE_ENTRIES.filter((entry) => entry.shelf === shelf.id);
+        if (!entries.length) return null;
+        return (
+          <section key={shelf.id} className="space-y-2" data-testid={`guide-shelf-${shelf.id}`}>
+            <ShelfTitle>{shelf.title}</ShelfTitle>
+            <div className={shelf.layout === 'tiles' ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+              {entries.map((entry) => (shelf.layout === 'tiles'
+                ? <Tile key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />
+                : <Row key={entry.id} entry={entry} onOpen={() => go({ tab: entry.id })} />))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 };
 
 /**
- * «Правила и словарь» — a public page (no sign-in) to send a novice before the first evening:
- * /guide, /guide?tab=rules, /guide?tab=glossary.
+ * «Школа мафии» — a public page (no sign-in) to send a novice before the first evening.
+ * The home screen leads through the lessons and opens the catalog (src/lib/guideCatalog.ts);
+ * every screen has its own address (/guide?tab=rules, /guide?tab=lessons&lesson=2) and the
+ * phone's back button (browser or Telegram) returns to the previous screen.
  */
-export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 'evening' }) => {
-  const [tab, setTab] = useState<GuideTab>(initialTab);
-  const [query, setQuery] = useState('');
+export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 'home' }) => {
+  const [screen, setScreen] = useState<GuideScreen>(() => ({
+    tab: isGuideScreen(initialTab) ? initialTab : 'home',
+    lesson: initialTab === 'lessons' ? lessonFromSearch(typeof window === 'undefined' ? '' : window.location.search) : undefined,
+  }));
+  const [progress, setProgress] = useState<GuideProgress>(() => (typeof window === 'undefined' ? EMPTY_PROGRESS : readProgress()));
   const [copied, setCopied] = useState(false);
-  const [detailedRules, setDetailedRules] = useState(false);
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const terms = useMemo(() => searchGlossary(query), [query]);
+  const depth = useRef(0);
+
+  const updateProgress = useCallback((change: (current: GuideProgress) => GuideProgress) => {
+    setProgress((current) => { const next = change(current); writeProgress(next); return next; });
+  }, []);
+
+  const go = useCallback((next: GuideScreen) => {
+    setScreen(next);
+    window.scrollTo?.({ top: 0 });
+    try {
+      window.history.pushState({ guide: next }, '', screenUrl(next));
+      depth.current += 1;
+    } catch { /* the page works without updating the address */ }
+  }, []);
+
+  const back = useCallback(() => {
+    if (depth.current > 0) { window.history.back(); return; }
+    // Opened straight on a section (a shared link): go up one level instead of leaving the page.
+    const up: GuideScreen = screen.tab === 'lessons' && screen.lesson !== undefined ? { tab: 'lessons' } : { tab: 'home' };
+    setScreen(up);
+    window.scrollTo?.({ top: 0 });
+    try { window.history.replaceState({ guide: up }, '', screenUrl(up)); } catch { /* ignore */ }
+  }, [screen]);
 
   useEffect(() => {
-    const strip = tabsRef.current;
-    const active = strip?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
-    if (!strip || !active) return;
-    const container = strip.getBoundingClientRect();
-    const button = active.getBoundingClientRect();
-    if (button.right > container.right) strip.scrollLeft += button.right - container.right + 4;
-    if (button.left < container.left) strip.scrollLeft -= container.left - button.left + 4;
-  }, [tab]);
+    const onPop = (event: PopStateEvent) => {
+      depth.current = Math.max(0, depth.current - 1);
+      const state = (event.state as { guide?: GuideScreen } | null)?.guide;
+      setScreen(state || { tab: guideTabFromSearch(window.location.search), lesson: lessonFromSearch(window.location.search) });
+      window.scrollTo?.({ top: 0 });
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
-  const selectTab = (next: GuideTab) => {
-    setTab(next);
-    try {
-      const url = new URL(window.location.href);
-      if (next === 'evening') url.searchParams.delete('tab'); else url.searchParams.set('tab', next);
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-    } catch { /* the page works without updating the address */ }
+  // Inside Telegram the native «Назад» button in the header does the same as ours.
+  useEffect(() => {
+    const button = telegramBackButton();
+    if (!button) return undefined;
+    if (screen.tab === 'home') { button.hide(); return undefined; }
+    button.show();
+    button.onClick(back);
+    return () => { button.offClick(back); };
+  }, [screen.tab, back]);
+
+  const finishLesson = (index: number) => {
+    const id = GUIDE_LESSONS[index].id;
+    updateProgress((current) => ({ ...current, lessons: current.lessons.includes(id) ? current.lessons : [...current.lessons, id] }));
+    go(index === GUIDE_LESSONS.length - 1 ? { tab: 'quiz' } : { tab: 'lessons', lesson: index + 1 });
   };
+  const finishQuiz = (score: number) => updateProgress((current) => ({ ...current, quizBest: Math.max(score, current.quizBest ?? 0) }));
 
   const copyLink = async () => {
     try {
@@ -193,83 +196,51 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
     } catch { /* clipboard may be unavailable in some webviews */ }
   };
 
+  const home = screen.tab === 'home';
+  const lessonOpen = screen.tab === 'lessons' && screen.lesson !== undefined;
+  const entry = findGuideEntry(screen.tab);
+  const View = entry ? GUIDE_VIEWS[entry.view] : null;
+  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Путь новичка' : entry?.view === 'split' ? 'Как голосовать при попиле' : entry?.title || 'Школа мафии';
+
   return (
-    <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 pt-7 text-white">
+    <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 text-white" style={{ paddingTop: home ? 28 : 0 }}>
       <div className="mx-auto max-w-md space-y-4">
-        <header className="text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
-          <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />{tab === 'split' ? 'Как голосовать при попиле' : 'Правила и словарь'}</h1>
-          <p className="mt-2 text-[14px] leading-6 text-white/55">{tab === 'split' ? 'Разбери правила и проверь себя на игровых задачах.' : 'Как пройдёт ваш первый вечер спортивной мафии — от входа до финала игры.'}</p>
-        </header>
+        {home ? (
+          <header className="text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
+            <h1 className="mt-4 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Школа мафии</h1>
+            <p className="mt-2 text-[14px] leading-6 text-white/55">Всё, что нужно знать перед первым вечером спортивной мафии.</p>
+          </header>
+        ) : (
+          /* Sticks below Telegram's top safe area (header, device cutout). */
+          <nav className="sticky z-10 -mx-4 flex min-h-14 items-center gap-1 border-b border-white/[.06] bg-[#090a0d]/95 px-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Навигация">
+            <button type="button" data-testid="guide-back" onClick={back} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/80 active:bg-white/10" aria-label="Назад"><ChevronLeft className="h-6 w-6" /></button>
+            <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
+            <span className="w-11 shrink-0" aria-hidden="true" />
+          </nav>
+        )}
 
-        {/* Sticks below Telegram's top safe area (header, device cutout). */}
-        <nav className="sticky z-10 -mx-4 bg-[#090a0d]/95 px-4 py-2 backdrop-blur" style={{ top: 'var(--tg-content-safe-area-top, 0px)' }} aria-label="Разделы">
-          <div ref={tabsRef} className="flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.04] p-1">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                data-testid={`guide-tab-${item.id}`}
-                aria-pressed={tab === item.id}
-                onClick={() => selectTab(item.id)}
-                className={`min-h-11 min-w-[64px] flex-1 rounded-xl px-1 text-[12px] font-semibold ${tab === item.id ? 'bg-white text-black' : 'text-white/60'}`}
-              >
-                {item.label}
+        {home ? <HomeScreen progress={progress} go={go} /> : null}
+        {screen.tab === 'lessons' && !lessonOpen ? (
+          <div className="space-y-3 pt-2">
+            <p className="px-1 text-sm leading-6 text-white/65">Короткие уроки по материалам памятки. Можно читать в любом порядке, без регистрации.</p>
+            <LessonPath progress={progress} onLesson={(lesson) => go({ tab: 'lessons', lesson })} onQuiz={() => go({ tab: 'quiz' })} />
+          </div>
+        ) : null}
+        {lessonOpen ? <div className="pt-2"><LessonScreen key={screen.lesson} index={screen.lesson!} onNext={() => finishLesson(screen.lesson!)} onPrevious={() => (screen.lesson! > 0 ? go({ tab: 'lessons', lesson: screen.lesson! - 1 }) : back())} /></div> : null}
+        {entry && View ? <div className="pt-2"><View entry={entry} onQuizFinish={finishQuiz} /></div> : null}
+
+        {home || entry?.view === 'quiz' ? (
+          <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4 text-center">
+            <p className="text-[14px] leading-6 text-white/60">Готовы попробовать? Запишитесь на ближайший вечер в кабинете игрока.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a href="/player/events" className="flex min-h-12 items-center justify-center rounded-2xl bg-white px-3 text-[14px] font-semibold text-black">Выбрать вечер</a>
+              <button type="button" onClick={() => void copyLink()} className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/15 px-3 text-[14px] font-semibold text-white/80">
+                {copied ? <><Check className="h-4 w-4" />Скопировано</> : <><Copy className="h-4 w-4" />Ссылка другу</>}
               </button>
-            ))}
-          </div>
-        </nav>
-
-        {tab === 'evening' ? <Scenario /> : null}
-        {tab === 'lessons' ? <Lessons onQuiz={() => selectTab('quiz')} /> : null}
-        {tab === 'roles' ? <Roles /> : null}
-        {tab === 'quiz' ? <GuideQuiz /> : null}
-        {tab === 'split' ? <SplitVoteTraining /> : null}
-        {tab === 'rules' ? (
-          <div className="space-y-3">
-            {/* Plain words first for a novice; the full club terms (фол, техфол, ППК) for experienced players. */}
-            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[.04] p-1">
-              <button type="button" data-testid="guide-rules-simple" aria-pressed={!detailedRules} onClick={() => setDetailedRules(false)} className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${!detailedRules ? 'bg-white text-black' : 'text-white/60'}`}>Простыми словами</button>
-              <button type="button" data-testid="guide-rules-detailed" aria-pressed={detailedRules} onClick={() => setDetailedRules(true)} className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${detailedRules ? 'bg-white text-black' : 'text-white/60'}`}>Подробно</button>
             </div>
-            {detailedRules
-              ? <p className="px-1 text-[13px] leading-5 text-white/50">Полный свод с терминами клуба — для тех, кто уже играл. Незнакомое слово ищите во вкладке «Словарь».</p>
-              : null}
-            <Blocks blocks={detailedRules ? TABLE_RULES : SIMPLE_RULES} />
-          </div>
+          </section>
         ) : null}
-        {tab === 'glossary' ? (
-          <div className="space-y-3">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-              <input
-                data-testid="guide-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Найти слово: ПУ, фол, Дон…"
-                className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[.045] pl-10 pr-3 text-[15px] text-white outline-none placeholder:text-white/30"
-              />
-            </label>
-            {terms.map((item) => (
-              <article key={item.term} data-testid="guide-term" className="rounded-2xl border border-white/10 bg-white/[.035] p-3.5">
-                <h2 className="text-[15px] font-semibold text-white">{item.term}</h2>
-                <p className="mt-1 text-[14px] leading-6 text-white/70">{item.meaning}</p>
-              </article>
-            ))}
-            {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Спросите судью на брифинге.</p> : null}
-            <p className="text-center text-[12px] text-white/35">В словаре {GLOSSARY.length} слов.</p>
-          </div>
-        ) : null}
-
-        <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4 text-center">
-          <p className="text-[14px] leading-6 text-white/60">Готовы попробовать? Запишитесь на ближайший вечер в кабинете игрока.</p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <a href="/player/events" className="flex min-h-12 items-center justify-center rounded-2xl bg-white px-3 text-[14px] font-semibold text-black">Выбрать вечер</a>
-            <button type="button" onClick={() => void copyLink()} className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/15 px-3 text-[14px] font-semibold text-white/80">
-              {copied ? <><Check className="h-4 w-4" />Скопировано</> : <><Copy className="h-4 w-4" />Ссылка другу</>}
-            </button>
-          </div>
-        </section>
       </div>
     </main>
   );

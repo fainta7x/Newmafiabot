@@ -384,13 +384,11 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - what donations give the player (a thank-you, a badge, nothing that affects the game);
      - how purchases are redeemed at the evening.
 13. Learning portal, rules and glossary (user request 2026-09-24).
-   - First step done: the public page `/guide` works without sign-in. Its texts live in `src/lib/clubGuide.ts`; it is a draft by the assistant, approved as the starting point, for the club to edit. It has four tabs:
-     - «Вечер»: the first evening as a scenario from signing up to the final;
-     - «Роли»: each role's task and how to play it;
-     - «Правила»: table rules, fouls, voting and points;
-     - «Словарь»: a searchable glossary.
-   - Links: the player events tab («Правила и словарь») and CRM «Ещё → Памятка новичку».
-   - Four public lessons in `/guide?tab=lessons` lead through the existing evening, roles and basic-rule texts to the short self-check at `/guide?tab=quiz`. No login or saved progress is required; the test has no rewards or effect on player status.
+   - Built: «Школа мафии», the public page `/guide` (no sign-in). Its texts live in `src/lib/clubGuide.ts`; they are an assistant draft approved as the starting point, for the club to edit.
+     - The home screen shows the novice path (lessons with a progress bar and «Продолжить») and shelves from the catalog `src/lib/guideCatalog.ts`: «Справочник» (evening, roles, rules, glossary), «Статьи» (попил, договорка), «Тренажёры» (split-vote trainer, self-check).
+     - Each screen has an address (`/guide?tab=<id>`, `/guide?tab=lessons&lesson=2`), and the phone or Telegram back button returns to the previous screen. Rules open topic by topic, roles one at a time, and the glossary filters by letter.
+     - Lesson and self-check progress is remembered only in the browser, with no rewards or effect on player status.
+   - Links: the player events tab and CRM «Ещё → Памятка новичку».
    - Left: club-approved video links, any assessed/rewarded tests, and optional saved learning progress if approved.
    - Target:
      - a rules and regulations section in a convenient format;

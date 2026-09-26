@@ -154,6 +154,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       eveningId: activeEveningId,
       eveningSection: activeEveningSection,
       scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+      moreScreen: activeTab === 'more' ? activeMoreScreen : null,
     });
     setActivePlayerId(id);
     setActiveTab('players');
@@ -170,6 +171,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       setActiveTab(returnContext.tab);
       setActiveEveningId(returnContext.eveningId);
       setActiveEveningSection(returnContext.eveningSection);
+      if (returnContext.tab === 'more') setActiveMoreScreen(returnContext.moreScreen ?? null);
       navigateAdmin(routePathForReturnContext(returnContext), true);
       moveWindowScroll(returnContext.scrollY);
       return;

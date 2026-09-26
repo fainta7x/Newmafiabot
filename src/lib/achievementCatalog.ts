@@ -1,6 +1,6 @@
-export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'organizer' | 'special';
+export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'organizer' | 'special' | 'learning';
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game';
+export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game' | 'split_expert';
 
 export interface AchievementCategoryDefinition {
   id: AchievementCategoryId;
@@ -30,6 +30,7 @@ export const ACHIEVEMENT_CATEGORIES: AchievementCategoryDefinition[] = [
   { id: 'judge', name: '⚖️ Судейские', icon: '⚖️', order: 5 },
   { id: 'organizer', name: '🎩 Организаторские', icon: '🎩', order: 6 },
   { id: 'special', name: '✨ Особые', icon: '✨', order: 7 },
+  { id: 'learning', name: '🎓 Обучение', icon: '🎓', order: 8 },
 ];
 
 export const ACHIEVEMENT_RARITIES = {
@@ -86,6 +87,8 @@ const raw: Array<Omit<AchievementDefinition, 'order'>> = [
   { id: 'pu_master', name: 'ПУ-мастер', description: 'Стать ПУ 5 раз', icon: '👑', category: 'special', metric: 'pu', threshold: 5, rarity: 'epic' },
   { id: 'pu_ten', name: 'Легендарная жертва', description: 'Стать ПУ 10 раз', icon: '🦁', category: 'special', metric: 'pu', threshold: 10, rarity: 'legendary' },
   { id: 'perfect_game', name: 'Идеальная игра', description: 'Закончить игру без фолов и техфолов', icon: '💎', category: 'special', metric: 'perfect_game', threshold: 1, rarity: 'epic' },
+  // User-approved 2026-09-26: one achievement for the split-vote trainer, for passing the expert exam.
+  { id: 'split_vote_expert', name: 'Спасатель попила', description: 'Сдать экзамен экспертного уровня тренажёра попила', icon: '🛟', category: 'learning', metric: 'split_expert', threshold: 1, rarity: 'epic' },
 ];
 
 export const ACHIEVEMENTS: AchievementDefinition[] = raw.map((item, index) => ({ ...item, order: index + 1 }));

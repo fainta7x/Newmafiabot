@@ -2,7 +2,7 @@ import type { OrganizerPrimaryTab } from '../../lib/organizerUx.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 export type OrganizerMainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
-export type OrganizerMoreScreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | 'tournaments' | 'development';
+export type OrganizerMoreScreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | 'tournaments' | 'development' | 'learning';
 
 export type OrganizerRouteState = {
   tab: OrganizerMainTab;
@@ -17,10 +17,12 @@ export type OrganizerPlayerReturnContext = {
   eveningId: string | null;
   eveningSection: EveningSection;
   scrollY: number;
+  /** The «Ещё» screen the player was opened from (for example «Обучение»), to come back to it. */
+  moreScreen?: OrganizerMoreScreen | null;
 } | null;
 
 const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'management', 'tables', 'closeout', 'games']);
-const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music', 'tournaments', 'development']);
+const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music', 'tournaments', 'development', 'learning']);
 
 const rootRoute = (tab: OrganizerMainTab = 'overview'): OrganizerRouteState => ({ tab, eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });
 const safeDecode = (value: string | undefined): string | null => { if (!value) return null; try { return decodeURIComponent(value); } catch { return value; } };
@@ -54,4 +56,8 @@ export const organizerTabPath = (tab: OrganizerMainTab): string => {
 export const organizerEveningPath = (eveningId: string, section: EveningSection = 'overview'): string => { const base = `/admin/evenings/${encodeURIComponent(eveningId)}`; return section === 'overview' ? base : `${base}/${section}`; };
 export const organizerPlayerPath = (playerId: string): string => `/admin/players/${encodeURIComponent(playerId)}`;
 export const organizerMorePath = (screen?: OrganizerMoreScreen | null): string => screen ? `/admin/more/${screen}` : '/admin/more';
-export const routePathForReturnContext = (context: NonNullable<OrganizerPlayerReturnContext>): string => context.tab === 'evenings' && context.eveningId ? organizerEveningPath(context.eveningId, context.eveningSection) : organizerTabPath(context.tab);
+export const routePathForReturnContext = (context: NonNullable<OrganizerPlayerReturnContext>): string => {
+  if (context.tab === 'evenings' && context.eveningId) return organizerEveningPath(context.eveningId, context.eveningSection);
+  if (context.tab === 'more') return organizerMorePath(context.moreScreen);
+  return organizerTabPath(context.tab);
+};

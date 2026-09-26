@@ -2,7 +2,7 @@ import type { OrganizerPrimaryTab } from '../../lib/organizerUx.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 export type OrganizerMainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
-export type OrganizerMoreScreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | 'tournaments' | 'development';
+export type OrganizerMoreScreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | 'tournaments' | 'development' | 'learning';
 
 export type OrganizerRouteState = {
   tab: OrganizerMainTab;
@@ -20,7 +20,7 @@ export type OrganizerPlayerReturnContext = {
 } | null;
 
 const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'management', 'tables', 'closeout', 'games']);
-const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music', 'tournaments', 'development']);
+const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music', 'tournaments', 'development', 'learning']);
 
 const rootRoute = (tab: OrganizerMainTab = 'overview'): OrganizerRouteState => ({ tab, eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });
 const safeDecode = (value: string | undefined): string | null => { if (!value) return null; try { return decodeURIComponent(value); } catch { return value; } };

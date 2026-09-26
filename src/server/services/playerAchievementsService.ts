@@ -14,6 +14,8 @@ export interface AchievementStats {
   elo: number;
   judgedGames: number;
   organizedEvenings: number;
+  /** 1 when the player passed the expert exam of the split-vote trainer. */
+  splitVoteExpert: number;
   puCount: number;
   perfectGames: number;
   roleWins: { sheriff: number; mafia: number; don: number };
@@ -77,8 +79,8 @@ const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
 };
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'special']);
-const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game']);
+const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'special', 'learning']);
+const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game', 'split_expert']);
 const VALID_RARITIES = new Set<AchievementRarity>(['common', 'rare', 'epic', 'legendary']);
 
 const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.get(
@@ -134,6 +136,7 @@ export const getAchievementMetricValue = (achievement: AchievementDefinition, st
     case 'organized': return stats.organizedEvenings;
     case 'pu': return stats.puCount;
     case 'perfect_game': return stats.perfectGames;
+    case 'split_expert': return stats.splitVoteExpert;
     case 'role': return achievement.role ? stats.roleWins[achievement.role] : 0;
   }
 };
@@ -159,6 +162,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     elo: numberOrZero(player.elo),
     judgedGames: 0,
     organizedEvenings: 0,
+    splitVoteExpert: 0,
     puCount: 0,
     perfectGames: 0,
     roleWins: { sheriff: 0, mafia: 0, don: 0 },
@@ -268,6 +272,12 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
   if ((await db.all('PRAGMA table_info(tournaments)')).some((column: any) => column.name === 'organizer_player_id')) {
     const tournaments = await db.get("SELECT COUNT(*) AS count FROM tournaments WHERE organizer_player_id = ? AND status = 'completed'", [playerId]);
     stats.organizedEvenings += Number(tournaments?.count || 0);
+  }
+
+  const splitProgress = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'player_split_vote_progress' LIMIT 1");
+  if (splitProgress) {
+    const expert = await db.get("SELECT 1 AS passed FROM player_split_vote_progress WHERE player_id = ? AND level = 'expert' LIMIT 1", [playerId]);
+    stats.splitVoteExpert = expert ? 1 : 0;
   }
 
   return stats;

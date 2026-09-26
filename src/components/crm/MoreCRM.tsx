@@ -18,8 +18,7 @@ import {
   Palette,
   Send,
   Settings2,
-  Sprout,
-} from 'lucide-react';
+  Sprout, GraduationCap } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -30,6 +29,7 @@ import { MusicLibraryCRM } from './MusicLibraryCRM.tsx';
 import type { GameEvening } from '../../lib/api.ts';
 import type { OrganizerMoreScreen } from './organizerRouting.ts';
 import NoviceDevelopmentCRM from './NoviceDevelopmentCRM.tsx';
+import LearningProgressCRM from './LearningProgressCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -49,7 +49,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Telegram',
-  system: 'Состояние системы', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Развитие игроков',
+  system: 'Состояние системы', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Развитие игроков', learning: 'Обучение',
 };
 
 const menuTone = (id: string) => {
@@ -91,12 +91,14 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
       {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: ответы игроков, очередь на место, взносы и публикация — в карточке турнира.</p> : null}
       {subscreen === 'development' ? <NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} /> : null}
+      {subscreen === 'learning' ? <LearningProgressCRM onOpenPlayer={onOpenPlayer} /> : null}
     </div>;
   }
 
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'development', label: 'Развитие', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
+    { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал', icon: GraduationCap, onClick: () => setSubscreen('learning') },
     { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     // Public page (no sign-in) to send a novice before the first evening; «Ссылка другу» there copies it.
     { id: 'guide', label: 'Памятка новичку', detail: 'Правила и словарь — ссылка, которую можно отправить', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },

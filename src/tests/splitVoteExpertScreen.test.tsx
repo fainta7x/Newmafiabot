@@ -6,13 +6,13 @@ import type { ExpertScenario } from '../lib/splitVoteExpert.ts';
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-const stray: ExpertScenario = { candidates: [2, 1, 4, 3], pair: [1, 3], broken: { kind: 'stray', nominee: 2, voter: 4 } };
+const stray: ExpertScenario = { candidates: [2, 1, 4, 3], pair: [1, 3], broken: { kind: 'stray', votes: [{ nominee: 2, voter: 4 }] } };
 const pick = (...seats: number[]) => seats.forEach((seat) => fireEvent.click(screen.getByRole('button', { name: `№${seat}` })));
 
 describe('expert split-vote screen', () => {
   it('starts after the break and accepts a rescue with one insurer', () => {
     render(<SplitVoteExpertSession mode="endless" scenarios={[stray, stray]} onExit={() => undefined} onPassed={async () => true} />);
-    expect(screen.getByTestId('split-vote-break').textContent).toContain('За №2 случайно проголосовал №4');
+    expect(screen.getByTestId('split-vote-break').textContent).toContain('По ошибке проголосовали за №2 — №4');
     expect(screen.getByRole('heading', { name: 'Кто голосует за №1?' })).toBeTruthy();
     // №4 already voted and is not offered again.
     expect(screen.queryByRole('button', { name: '№4' })).toBeNull();

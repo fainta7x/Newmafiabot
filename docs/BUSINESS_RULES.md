@@ -211,7 +211,7 @@ Training patterns for **ten players in the zero round** (user examples 2026-09-2
 
 - 3–5 nominees in random order at a table of 10, zero round; the agreed split is two of them.
 - The task starts after something already went wrong:
-  - a player voted by mistake for a nominee outside the split, before the pair's vote — that vote is spent (example: 2, 1, 4, 3, split №1/№3, №4 voted for №2);
+  - 1–3 players voted by mistake for one or several nominees outside the split, before the pair's vote — those votes are spent (example: 2, 1, 4, 3, split №1/№3, №4 voted for №2);
   - the first split candidate got 4 votes instead of 5 (example: 1, 2, 3, 4, split №1/№3, four voted for №1).
 - The learner distributes the remaining players within **15 seconds** so the split still happens: both split candidates get the same number of votes, more than anyone else.
 - Who insures (throws a vote to a nominee outside the split) does not matter; everyone else votes as the basic split rules say. A player whose own candidate has already passed can only insure.

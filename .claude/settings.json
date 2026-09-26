@@ -11,6 +11,15 @@
       "WebSearch",
       "mcp__github",
       "mcp__Claude_Code_Remote"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ],
+    "ask": [
+      "Bash(sqlite3 /data/*)",
+      "Edit(/data/**)"
     ]
   }
 }

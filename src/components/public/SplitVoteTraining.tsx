@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SplitVoteExpertSession } from './SplitVoteExpert.tsx';
 import { EXPERT_SECONDS, type ExpertScenario } from '../../lib/splitVoteExpert.ts';
-import { SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
+import { seatList, SPLIT_VOTE_RULES, correctSplitVote, generateSplitVoteScenario, isCorrectSplitVoteAssignment, splitVoteAssignments, splitVoteGroups, type SplitVoteDifficulty, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 
 type TrainingMode = 'practice' | 'exam' | 'endless';
 type Level = SplitVoteDifficulty | 'expert';
@@ -9,8 +9,8 @@ type Session = { difficulty: Level; mode: TrainingMode };
 type Result = 'passed' | 'failed' | 'completed' | null;
 
 const DIFFICULTIES = [
-  { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — №1.' },
-  { value: 'advanced', title: 'Продвинутый уровень', description: 'В попиле участвуют два игрока без №1. Порядок выставления случайный.' },
+  { value: 'basic', title: 'Обычный уровень', description: 'Выставлены 2–4 игрока. Один из двух кандидатов в попиле — 1.' },
+  { value: 'advanced', title: 'Продвинутый уровень', description: 'В попиле участвуют два игрока без 1. Порядок выставления случайный.' },
   { value: 'interactive', title: 'Сложный уровень · голосование', description: 'Выставлены 3–5 игроков. Пройди их по порядку: назначь голосующих за каждого или пропусти кандидата. Кто ни за кого не проголосовал, уходит в последнего.' },
   { value: 'expert', title: 'Эксперт · спасение попила', description: `Кто-то уже сломал попил: проголосовал не туда или не проголосовал вовсе. За ${EXPERT_SECONDS} секунд распредели оставшихся так, чтобы попил состоялся.` },
 ] as const;
@@ -164,7 +164,7 @@ export const SplitVoteTraining: React.FC = () => {
           ))}
           <section className="rounded-3xl border border-white/10 bg-white/[.045] p-4">
             <h3 className="text-base font-semibold">Бесконечная тренировка</h3>
-            <p className="mt-1 text-sm text-white/60">Решай сколько хочешь: здесь встречаются попилы с игроком №1 и без него.</p>
+            <p className="mt-1 text-sm text-white/60">Решай сколько хочешь: здесь встречаются попилы с игроком 1 и без него.</p>
             <button type="button" disabled={!unlocked('all')} onClick={() => start({ difficulty: 'all', mode: 'endless' })} className="mt-3 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Начать тренировку</button>
           </section>
           <p className="px-1 text-xs leading-5 text-white/55">{progressState === 'guest' ? 'Чтобы сдавать экзамены и сохранять прогресс, войди в кабинет игрока.' : progressState === 'error' ? 'Не удалось загрузить прогресс. Обнови страницу и попробуй снова.' : progressState === 'loading' ? 'Загружаем твой прогресс…' : 'Следующий уровень откроется после пяти правильных ответов на экзамене. Прогресс хранится в твоём аккаунте.'}</p>
@@ -173,17 +173,17 @@ export const SplitVoteTraining: React.FC = () => {
       ) : (
         <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="split-vote-question">
           <div className="flex items-center justify-between gap-2 text-xs text-white/50"><span>{label} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span><span>{session.mode === 'endless' ? `Задача ${attempts + (checked ? 0 : 1)}` : `Вопрос ${Math.min(attempts + (checked ? 0 : 1), 5)} из 5`}</span></div>
-          <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
-          <p className="text-sm text-white/65">Попил между игроками <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>.</p>
-          <p data-testid="split-vote-seat" className="text-sm text-white/65">Твой номер за столом — <strong className="text-white">№{scenario.seat}</strong>.</p>
+          <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
+          <p className="text-sm text-white/65">Попил между <strong className="text-white">{scenario.pair[0]} и {scenario.pair[1]}</strong>.</p>
+          <p data-testid="split-vote-seat" className="text-sm text-white/65">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p>
           {interactive && !checked ? (
             nomineeIndex < scenario.candidates.length ? <div className="space-y-3" data-testid="split-vote-interactive">
-              <h3 className="text-base font-semibold">Кто голосует за №{scenario.candidates[nomineeIndex]}?</h3>
+              <h3 className="text-base font-semibold">Кто голосует в {scenario.candidates[nomineeIndex]}?</h3>
               <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. {nomineeIndex === scenario.candidates.length - 1 ? 'Это последний кандидат: все, кто ещё не голосовал, голосуют за него автоматически.' : 'Выбери номера игроков; выбранные на прошлых шагах больше недоступны. Кто ни за кого не проголосует, уйдёт в последнего.'}</p>
               <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
                 {Array.from({ length: 10 }, (_, index) => index + 1).filter((seat) => !assignedSeats.includes(seat)).map((seat) => (
                   <button key={seat} type="button" aria-pressed={selectedSeats.includes(seat)} onClick={() => setSelectedSeats((current) => current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat])}
-                    className={`min-h-12 rounded-2xl border text-sm font-semibold ${selectedSeats.includes(seat) ? 'border-white bg-white/20' : 'border-white/15'}`}>№{seat}</button>
+                    className={`min-h-12 rounded-2xl border text-sm font-semibold ${selectedSeats.includes(seat) ? 'border-white bg-white/20' : 'border-white/15'}`}>{seat}</button>
                 ))}
               </div>
               <button type="button" onClick={advanceNominee} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{selectedSeats.length || nomineeIndex === scenario.candidates.length - 1 ? 'Продолжить' : 'Пропустить'}</button>
@@ -195,7 +195,7 @@ export const SplitVoteTraining: React.FC = () => {
               }} className="min-h-11 w-full rounded-2xl text-sm text-white/70">Вернуться к предыдущему</button> : null}
             </div> : <div className="space-y-3" data-testid="split-vote-review">
               <h3 className="text-base font-semibold">Проверь распределение голосов</h3>
-              {scenario.candidates.map((candidate) => <p key={candidate} className="text-sm text-white/75">За №{candidate}: {(assignments[candidate] ?? []).length ? assignments[candidate].map((seat) => `№${seat}`).join(', ') : 'никто'}</p>)}
+              {scenario.candidates.map((candidate) => <p key={candidate} className="text-sm text-white/75">В {candidate}: {(assignments[candidate] ?? []).length ? seatList(assignments[candidate]) : 'никто'}</p>)}
               <button type="button" onClick={() => finishQuestion(isCorrectSplitVoteAssignment(scenario, assignments), assignments)} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">Проверить голосование</button>
               <button type="button" onClick={() => {
                 const index = scenario.candidates.length - 1;
@@ -209,7 +209,7 @@ export const SplitVoteTraining: React.FC = () => {
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Твой голос">
             {scenario.candidates.map((candidate) => (
               <button key={candidate} type="button" disabled={checked} aria-pressed={choice === candidate} onClick={() => setChoice(candidate)}
-                className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'} disabled:opacity-80`}>За №{candidate}</button>
+                className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'} disabled:opacity-80`}>В {candidate}</button>
             ))}
           </div>
           {!checked ? <button type="button" disabled={choice === null} onClick={() => {
@@ -218,10 +218,10 @@ export const SplitVoteTraining: React.FC = () => {
           }} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black disabled:opacity-40">Проверить ответ</button> : null}</> : null}
           {checked && groups ? (
             <div role="status" className="space-y-2 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-              <p className="font-semibold text-white">{interactive ? (isCorrectSplitVoteAssignment(scenario, assignments) ? 'Верно!' : 'Распределение голосов неверное.') : choice === answer ? 'Верно!' : `Тебе нужно голосовать за игрока №${answer}.`}</p>
-              {interactive ? scenario.candidates.map((candidate) => <p key={candidate}>За №{candidate}: ты выбрал {(assignments[candidate] ?? []).length ? assignments[candidate].map((seat) => `№${seat}`).join(', ') : 'никого'}; правильно — {(splitVoteAssignments(scenario)[candidate]).length ? splitVoteAssignments(scenario)[candidate].map((seat) => `№${seat}`).join(', ') : 'никого'}.</p>) : null}
-              <p>За игрока №{scenario.pair[0]} голосуют номера: {groups.first.map((seat) => `№${seat}`).join(', ')}.</p>
-              <p>За игрока №{scenario.pair[1]} голосуют номера: {groups.second.map((seat) => `№${seat}`).join(', ')}.</p>
+              <p className="font-semibold text-white">{interactive ? (isCorrectSplitVoteAssignment(scenario, assignments) ? 'Верно!' : 'Распределение голосов неверное.') : choice === answer ? 'Верно!' : `Тебе нужно голосовать в ${answer}.`}</p>
+              {interactive ? scenario.candidates.map((candidate) => <p key={candidate}>В {candidate}: ты выбрал {(assignments[candidate] ?? []).length ? seatList(assignments[candidate]) : 'никого'}; правильно — {(splitVoteAssignments(scenario)[candidate]).length ? seatList(splitVoteAssignments(scenario)[candidate]) : 'никого'}.</p>) : null}
+              <p>В {scenario.pair[0]} голосуют {seatList(groups.first)}.</p>
+              <p>В {scenario.pair[1]} голосуют {seatList(groups.second)}.</p>
               <p>Каждый получает по 5 голосов. За остальных выставленных игроков не голосуют.</p>
             </div>
           ) : null}

@@ -3,21 +3,22 @@ import {
   EXPERT_SECONDS, checkExpertAnswer, completeExpertAnswer, expertHistory, generateExpertExam, generateExpertScenario,
   solveExpert, type ExpertScenario,
 } from '../../lib/splitVoteExpert.ts';
+import { seatList } from '../../lib/splitVoteTraining.ts';
 
 type Mode = 'practice' | 'exam' | 'endless';
 type Answer = { scenario: ExpertScenario; answer: Record<number, number[]> };
 type Outcome = { ok: boolean; timedOut: boolean; totals: Record<number, number>; reason?: string; answer: Record<number, number[]> };
 
-const seats = (list: number[]) => (list.length ? list.map((seat) => `№${seat}`).join(', ') : 'никто');
+const seats = (list: number[]) => (list.length ? seatList(list) : 'никто');
 
 /** What already happened before the learner takes over. */
 export const describeBreak = (scenario: ExpertScenario) => {
   const { broken } = scenario;
-  if (broken.kind === 'short') return `За №${broken.nominee} проголосовали только четверо: ${seats(broken.voters)}. Нужно было пятеро.`;
+  if (broken.kind === 'short') return `В ${broken.nominee} проголосовали только четверо: ${seats(broken.voters)}. Нужно было пятеро.`;
   const byNominee = scenario.candidates
     .map((nominee) => ({ nominee, voters: broken.votes.filter((vote) => vote.nominee === nominee).map((vote) => vote.voter) }))
     .filter((item) => item.voters.length);
-  const parts = byNominee.map((item) => `за №${item.nominee} — ${seats(item.voters)}`);
+  const parts = byNominee.map((item) => `в ${item.nominee} — ${seats(item.voters)}`);
   return `По ошибке проголосовали ${parts.join('; ')}. ${broken.votes.length === 1 ? 'Этот голос уже потрачен.' : 'Эти голоса уже потрачены.'}`;
 };
 
@@ -74,12 +75,12 @@ const ExpertRound = ({ scenario, onDone }: { scenario: ExpertScenario; onDone: (
       </div>
       <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100" data-testid="split-vote-break">⚠️ {describeBreak(scenario)}</p>
       {index < lastIndex ? <>
-        <h3 className="text-base font-semibold">Кто голосует за №{candidate}?</h3>
-        <p className="text-xs text-white/60">Кто ни за кого не проголосует, уйдёт в последнего — №{scenario.candidates[lastIndex]}.</p>
+        <h3 className="text-base font-semibold">Кто голосует в {candidate}?</h3>
+        <p className="text-xs text-white/60">Кто ни за кого не проголосует, уйдёт в последнего — в {scenario.candidates[lastIndex]}.</p>
         <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
           {available.map((seat) => (
             <button key={seat} type="button" aria-pressed={selected.includes(seat)} onClick={() => setSelected((current) => (current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat]))}
-              className={`min-h-12 rounded-2xl border text-sm font-semibold ${selected.includes(seat) ? 'border-white bg-white/20' : 'border-white/15'}`}>№{seat}</button>
+              className={`min-h-12 rounded-2xl border text-sm font-semibold ${selected.includes(seat) ? 'border-white bg-white/20' : 'border-white/15'}`}>{seat}</button>
           ))}
         </div>
         <button type="button" onClick={advance} className="min-h-12 w-full rounded-2xl bg-white px-4 font-semibold text-black">{selected.length ? 'Продолжить' : 'Пропустить'}</button>
@@ -97,13 +98,13 @@ const OutcomeView = ({ scenario, outcome }: { scenario: ExpertScenario; outcome:
       {!outcome.ok && outcome.reason && !outcome.timedOut ? <p>{outcome.reason}</p> : null}
       <p className="text-white/60">Итог голосования:</p>
       <ul className="space-y-0.5">
-        {scenario.candidates.map((candidate) => <li key={candidate}>№{candidate}: <strong className="text-white">{outcome.totals[candidate] ?? 0}</strong></li>)}
+        {scenario.candidates.map((candidate) => <li key={candidate}>{candidate}: <strong className="text-white">{outcome.totals[candidate] ?? 0}</strong></li>)}
       </ul>
       {!outcome.ok && example ? <>
         <p className="pt-1 text-white/60">Например, так:</p>
         <ul className="space-y-0.5">
           {scenario.candidates.map((candidate, index) => (
-            <li key={candidate}>За №{candidate}: {seats(index < startIndex ? votes[candidate] : example[candidate] ?? [])}{index < startIndex ? ' (уже проголосовали)' : ''}</li>
+            <li key={candidate}>В {candidate}: {seats(index < startIndex ? votes[candidate] : example[candidate] ?? [])}{index < startIndex ? ' (уже проголосовали)' : ''}</li>
           ))}
         </ul>
         <p className="text-white/60">Кто страхует — неважно. Остальные голосуют как по обычным правилам попила.</p>
@@ -165,8 +166,8 @@ export const SplitVoteExpertSession = ({ mode, onExit, onPassed, scenarios }: {
         <span>Эксперт · {mode === 'exam' ? 'экзамен' : mode === 'practice' ? 'практика' : 'без конца'}</span>
         <span>{mode === 'endless' ? `Задача ${position + 1}` : `Задача ${Math.min(position + 1, 5)} из 5`}</span>
       </div>
-      <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.map((seat) => `№${seat}`).join(', ')}</strong>.</p>
-      <p className="text-sm text-white/65">Договорились о попиле между <strong className="text-white">№{scenario.pair[0]} и №{scenario.pair[1]}</strong>. За 15 секунд распредели оставшихся так, чтобы попил состоялся.</p>
+      <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
+      <p className="text-sm text-white/65">Договорились о попиле между <strong className="text-white">{scenario.pair[0]} и {scenario.pair[1]}</strong>. За 15 секунд распредели оставшихся так, чтобы попил состоялся.</p>
       {!outcome ? <ExpertRound key={round} scenario={scenario} onDone={done} /> : <>
         <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100">⚠️ {describeBreak(scenario)}</p>
         <OutcomeView scenario={scenario} outcome={outcome} />

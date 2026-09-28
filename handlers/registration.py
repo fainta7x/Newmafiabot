@@ -45,8 +45,10 @@ def _url_keyboard(text: str, url: str | None) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
 
 
-async def _handle_club_access(message: Message, kb) -> None:
-    canonical = await get_canonical_profile(message.from_user.id)
+async def _handle_club_access(message: Message, kb, user=None) -> None:
+    # From an inline button the message belongs to the bot; the caller passes who pressed it.
+    user = user or message.from_user
+    canonical = await get_canonical_profile(user.id)
     if not canonical.get("success"):
         await message.answer(
             "Чтобы проверить доступ в основной клуб, сначала нужен профиль игрока. "
@@ -57,7 +59,7 @@ async def _handle_club_access(message: Message, kb) -> None:
 
     player = (canonical.get("data") or {}).get("player") or {}
     level = str(player.get("game_level") or "novice").strip().lower()
-    nickname = str(player.get("nickname") or message.from_user.full_name or "Игрок")
+    nickname = str(player.get("nickname") or user.full_name or "Игрок")
 
     if level in {"club", "tournament", "rating"}:
         club = await _destination("club")
@@ -79,16 +81,16 @@ async def _handle_club_access(message: Message, kb) -> None:
     novice = await _destination("novice")
     novice_url = str(novice.get("invite_url") or "").strip() or None
 
-    if message.from_user.id not in _club_access_requests and config.ADMIN_IDS:
-        _club_access_requests.add(message.from_user.id)
-        username = f"@{message.from_user.username}" if message.from_user.username else "без @username"
+    if user.id not in _club_access_requests and config.ADMIN_IDS:
+        _club_access_requests.add(user.id)
+        username = f"@{user.username}" if user.username else "без @username"
         try:
             await message.bot.send_message(
                 config.ADMIN_IDS[0],
                 "🎭 <b>Запрос на допуск в основной клуб</b>\n\n"
                 f"Игрок: <b>{nickname}</b>\n"
                 f"Telegram: {username}\n"
-                f"ID: <code>{message.from_user.id}</code>\n"
+                f"ID: <code>{user.id}</code>\n"
                 f"Текущий уровень: <code>{level}</code>\n\n"
                 "Если игрок подходит для основного клуба — измени ему игровой уровень в кабинете организатора. "
                 "До этого ссылка на основной клуб ему не выдаётся.",
@@ -101,12 +103,12 @@ async def _handle_club_access(message: Message, kb) -> None:
         "🔒 <b>Доступ в основной клуб пока не открыт.</b>\n\n"
         "Основной клуб доступен только после подтверждения организатора. "
         "Запрос на допуск отправлен.\n\n"
-        "Пока можешь присоединиться к Школе мафии — там проходят игры для новичков и тех, кто ещё знакомится с нашим клубом."
+        "Пока можешь присоединиться к группе «Игры для новичков» — там проходят игры для новичков и тех, кто ещё знакомится с нашим клубом."
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=_url_keyboard("🌱 Вступить в Школу мафии", novice_url) or kb,
+        reply_markup=_url_keyboard("🌱 Вступить в «Игры для новичков»", novice_url) or kb,
     )
 
 
@@ -153,11 +155,14 @@ async def _send_normal_start(
         await _handle_club_access(message, kb)
         return
 
+    # The keyboard message first, then the menu card, so the card stays at the bottom of the chat.
     await message.answer(
         bot_menu.start_text(message.from_user.first_name if message.from_user else None, is_organizer=message.from_user.id in config.ADMIN_IDS),
         parse_mode="HTML",
         reply_markup=kb,
     )
+    from handlers.bot_home import send_home
+    await send_home(message)
 
 
 @router.message(Command("app"), F.chat.type == "private")
@@ -201,11 +206,8 @@ async def regulations_from_compact_menu(message: Message):
 
 @router.message(F.text == "🏠 В главное меню", F.chat.type == "private")
 async def back_to_compact_main_menu(message: Message):
-    await message.answer(
-        bot_menu.start_text(message.from_user.first_name if message.from_user else None, is_organizer=message.from_user.id in config.ADMIN_IDS),
-        parse_mode="HTML",
-        reply_markup=await _main_menu(message.from_user.id),
-    )
+    from handlers.bot_home import send_home
+    await send_home(message)
 
 
 @router.message(Command("start"), F.chat.type == "private")

@@ -316,6 +316,39 @@ router.get('/players/by-telegram/:telegramUserId/achievements', async (req, res)
   }
 });
 
+// The bot's «Мои записи» card: the player's answers for open evenings and the token balance.
+router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
+  try {
+    const db = req.db;
+    const player = await db.get<any>(
+      'SELECT id, nickname, tokens FROM players WHERE telegram_user_id = ? LIMIT 1',
+      [String(req.params.telegramUserId)],
+    );
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    const evenings = await db.all<any>(
+      `SELECT e.id, e.title, e.starts_at, e.format, e.venue, ep.response_status,
+              (SELECT COUNT(*) FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS games
+         FROM evening_participants ep
+         JOIN game_evenings e ON e.id = ep.evening_id
+        WHERE ep.player_id = ?
+          AND e.status IN ('published', 'active') AND e.settled_at IS NULL
+          AND ep.response_status IN ('going', 'late', 'thinking')
+        ORDER BY e.starts_at ASC
+        LIMIT 10`,
+      [player.id],
+    );
+    return res.json({
+      success: true,
+      player: { id: String(player.id), nickname: String(player.nickname || ''), tokens: Number(player.tokens || 0) },
+      evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0) })),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить записи игрока' });
+  }
+});
+
 router.get('/players/by-telegram/:telegramUserId/tokens', async (req, res) => {
   try {
     const db = req.db;

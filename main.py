@@ -25,6 +25,7 @@ from handlers import crm_evening_response
 from handlers import payment
 from handlers import profile
 from handlers import registration
+from handlers import bot_home
 from handlers import shop
 from handlers import start_profile
 from handlers import telegram_admin_tools
@@ -228,6 +229,7 @@ def setup_handlers():
         telegram_admin_tools.router,
         admin.router,
         registration.router,
+        bot_home.router,
         start_profile.router,
         profile.router,
         payment.router,

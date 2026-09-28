@@ -266,6 +266,7 @@ After registration/preparation, continue through the existing tournament seating
 - Worker: `src/server/services/telegramSyncOutboxService.ts`.
 - Python: `main.py`, `bot_api.py`, `bot_announcement_api.py`, `bot_profile_link_api.py`, `bot_telegram_api.py`, `handlers/`.
 - Runtime docs: `docs/telegram-runtime-health.md`, `docs/telegram-webapp-integration.md`.
+- Bot home card (/start, «📋 Меню», /events, /faq): `handlers/bot_home.py` — nearest evenings with answer buttons, «Мои записи» (`GET /api/bot/players/by-telegram/:id/home`), frequent questions (`FAQ` in the same file), learning, our groups, «Написать организатору». Command list and bot description: `commands.py`.
 - Green CI does not prove live token/webhook/deployed SHA.
 
 ## Runtime health / outage alerts

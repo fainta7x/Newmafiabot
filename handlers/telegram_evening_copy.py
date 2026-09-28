@@ -64,6 +64,18 @@ def novice_promo_html() -> str:
     return "\n\n".join(parts)
 
 
+def club_links() -> dict[str, str]:
+    """Organizer Telegram and club VK group links from `src/shared/novicePromo.json`, when valid."""
+    links: dict[str, str] = {}
+    telegram = str((_NOVICE_PROMO.get("contacts") or {}).get("telegram") or "").strip().lstrip("@")
+    if re.fullmatch(r"[A-Za-z0-9_]{4,32}", telegram):
+        links["organizer_telegram"] = f"https://t.me/{telegram}"
+    vk_group = str((_NOVICE_PROMO.get("groups") or {}).get("vk") or "").strip()
+    if vk_group.startswith("https://vk.com/") or vk_group.startswith("https://vk.ru/"):
+        links["vk_group"] = vk_group
+    return links
+
+
 def organizer_contacts_html() -> str:
     """«✉️ Остались вопросы? Пишите: Telegram · VK» — only the contacts that are filled in."""
     contacts = _NOVICE_PROMO.get("contacts") or {}
@@ -75,6 +87,15 @@ def organizer_contacts_html() -> str:
     if vk.startswith("https://vk.com/") or vk.startswith("https://vk.me/"):
         links.append(f'<a href="{escape(vk)}">VK</a>')
     return f"✉️ Остались вопросы? Пишите: {' · '.join(links)}" if links else ""
+
+
+def venue_map_url(venue: object) -> str | None:
+    """Yandex Maps link for a known venue, None otherwise."""
+    name = str(venue or "").strip() or "Суп с Котом"
+    known = _KNOWN_VENUES.get(name.lower().replace("«", "").replace("»", "").replace('"', "").strip())
+    if not known or not known.get("mapQuery"):
+        return None
+    return f"https://yandex.ru/maps/?text={quote(str(known['mapQuery']))}"
 
 
 def venue_html(venue: object) -> str:

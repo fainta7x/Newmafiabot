@@ -40,6 +40,17 @@ def _response_keyboard(evening_id: str, selected_status: str | None = None) -> I
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _selected_keyboard(existing: InlineKeyboardMarkup | None, evening_id: str, selected_status: str) -> InlineKeyboardMarkup:
+    """Mark the chosen answer and keep the message's other buttons (games, map, «Назад»)."""
+    rows = list(existing.inline_keyboard) if existing and existing.inline_keyboard else []
+    extra = [row for row in rows if not any(str(button.callback_data or "").startswith("evr:") for button in row)]
+    if not rows or len(extra) == len(rows):
+        return _response_keyboard(evening_id, selected_status)
+    answers = [row for row in crm_evening_response_kb(evening_id, selected_status).inline_keyboard
+               if all(str(button.callback_data or "").startswith("evr:") for button in row)]
+    return InlineKeyboardMarkup(inline_keyboard=answers + extra)
+
+
 @router.message(Command("linkprofile"))
 async def link_crm_profile(message: Message):
     if not message.from_user:
@@ -178,7 +189,7 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
             # Group posts are shared. Do not paint one person's selected status for everyone.
             if callback.message and callback.message.chat.type == ChatType.PRIVATE:
                 await callback.message.edit_reply_markup(
-                    reply_markup=_response_keyboard(evening_id, response_status)
+                    reply_markup=_selected_keyboard(callback.message.reply_markup, evening_id, response_status)
                 )
         except Exception as exc:
             print(f"[CRM RSVP] Response saved, but selected button state was not updated: {exc}")

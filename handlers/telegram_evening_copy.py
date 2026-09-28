@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from html import escape
+from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _FORMAT_LABELS = {
@@ -17,6 +18,21 @@ _MONTHS_RU = (
 _CLUB_GAME_PRICE = 100
 _CLUB_EVENING_MAX_PRICE = 400
 _DEFAULT_TIMEZONE = "Europe/Moscow"
+# Known club venues: address and map query. The web app keeps the same list in src/lib/venues.ts.
+_KNOWN_VENUES = {
+    "суп с котом": ("Пушкинский проезд, 4А", "Тула, Пушкинский проезд, 4А, Суп с Котом"),
+}
+
+
+def venue_html(venue: object) -> str:
+    """«Суп с Котом, Пушкинский проезд, 4А · на карте» for known venues, the plain name otherwise."""
+    name = str(venue or "").strip() or "Суп с Котом"
+    known = _KNOWN_VENUES.get(name.lower().replace("«", "").replace("»", "").replace('"', "").strip())
+    if not known:
+        return escape(name)
+    address, map_query = known
+    url = f"https://yandex.ru/maps/?text={quote(map_query)}"
+    return f'{escape(name)}, {escape(address)} · <a href="{escape(url)}">на карте</a>'
 
 
 def _local_datetime(value: object, timezone_name: object = _DEFAULT_TIMEZONE) -> datetime:
@@ -104,7 +120,7 @@ def _novice_briefing_line(canonical_format: str, starts_at: object, timezone_nam
 def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     title = escape(str(evening.get("title") or _FORMAT_LABELS.get(canonical_format, "Игровой вечер")))
-    venue = escape(str(evening.get("venue") or "Суп с Котом"))
+    venue = venue_html(evening.get("venue"))
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     price = _price_text(evening, slots)
     notes = str(evening.get("notes") or "").strip()

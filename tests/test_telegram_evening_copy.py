@@ -48,3 +48,10 @@ def test_group_post_stays_within_telegram_limit():
     text = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, people)
     assert len(text) <= 4000
     assert "Пока думают (50)" in text
+
+
+def test_announcement_shows_venue_address_and_map_link():
+    text = event_base_text({"format": "CASUAL", "title": "Пятница", "venue": "Суп с Котом", "starts_at": "2026-09-25T16:00:00.000Z"})
+    assert "📍 Суп с Котом, Пушкинский проезд, 4А · <a href=\"https://yandex.ru/maps/?text=" in text
+    other = event_base_text({"format": "CASUAL", "title": "Пятница", "venue": "Антикафе <Лофт>", "starts_at": "2026-09-25T16:00:00.000Z"})
+    assert "📍 Антикафе &lt;Лофт&gt;" in other and "<a href" not in other

@@ -177,6 +177,7 @@ Search focused coverage for `manual player add`, `walk-in`, and `active evening`
 - API: `eveningsRoutes.ts`, `participantRoutes.ts`, `eveningAnnouncementRoutes.ts`, `tableScoutingRoutes.ts`.
 - Announcement creation and external Telegram/VK delivery are separate diagnostic stages.
 - Weekly auto-announcement deliberately keeps calendar publication separate from external publication.
+- Venue address and «Как добраться» map link: `src/lib/venues.ts` (web, VK text, `VenueAddress.tsx`) and `_KNOWN_VENUES` in `handlers/telegram_evening_copy.py` (Telegram) — keep both lists in step.
 - «Перенести начало» (draft/published only): `EveningStartTimeEditor.tsx` → `PUT /api/evenings/:id/slots` (`updateEveningSlotSettings`) moves every game with the start and re-syncs the Telegram/VK posts of a published evening.
 
 ### Telegram history preservation

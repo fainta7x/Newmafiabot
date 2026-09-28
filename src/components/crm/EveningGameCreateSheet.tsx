@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { AlertCircle, Search, Shuffle, UserPlus, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
-import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { allowedTableSizes, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
@@ -20,13 +20,8 @@ interface EveningGameCreateSheetProps {
   onCreated: (game: ClubGameRecord) => void;
 }
 
-const playerCanJudgeFormat = (player: Player, format: string) => {
-  const level = String((player as any).judge_level || 'none');
-  const normalized = normalizeEveningFormat(format);
-  if (normalized === 'NOVICE') return level === 'trainee' || level === 'host' || level === 'judge';
-  if (normalized === 'CASUAL') return level === 'host' || level === 'judge';
-  return level === 'judge';
-};
+// «Может вести» marks (src/lib/hostFormats.ts); the server checks the same rule.
+const playerCanJudgeFormat = (player: Player, format: string) => canHostEveningFormat(player as any, format);
 
 const gameIsCompleted = (game: ClubGameRecord) => game.status === 'completed' || Boolean(game.club_protocol?.protocol?.winner_team);
 

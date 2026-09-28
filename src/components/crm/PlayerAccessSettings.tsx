@@ -8,19 +8,16 @@ import {
   clubRoleFrom,
   clubStageNote,
   GAME_LEVELS,
-  JUDGE_LEVELS,
   membershipOf,
   normalizeClubRole,
   normalizeGameLevel,
-  normalizeJudgeLevel,
   organizationOf,
-  organizationSummary,
   type ClubMembership,
   type ClubOrganization,
   type ClubRole,
   type GameLevel,
-  type JudgeLevel,
 } from '../../lib/playerAccess.ts';
+import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { usePlayerEveningQuickAdd } from './PlayerEveningQuickAdd.tsx';
@@ -31,14 +28,15 @@ const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU',
 type PlayerWithAccess = PlayerDetails & {
   game_level?: GameLevel | null;
   club_role?: ClubRole | null;
-  judge_level?: JudgeLevel | null;
+  judge_level?: string | null;
+  host_formats?: string | null;
   organizer_player_access?: boolean;
 };
 
 type Draft = {
   game_level: GameLevel;
   club_role: ClubRole;
-  judge_level: JudgeLevel;
+  host_formats: HostFormat[];
 };
 
 type Confirmation =
@@ -49,13 +47,13 @@ type Confirmation =
 const normalize = (player: PlayerWithAccess): Draft => ({
   game_level: normalizeGameLevel(player.game_level),
   club_role: normalizeClubRole(player.club_role),
-  judge_level: normalizeJudgeLevel(player.judge_level),
+  host_formats: hostFormatsOf(player),
 });
 
 const equalDraft = (left: Draft, right: Draft) =>
   left.game_level === right.game_level
   && left.club_role === right.club_role
-  && left.judge_level === right.judge_level;
+  && left.host_formats.join(',') === right.host_formats.join(',');
 
 export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetails; onSaved?: () => void | Promise<void> }) {
   const accessPlayer = player as PlayerWithAccess;
@@ -192,7 +190,8 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
   const summaryRows: Array<[string, string, string | null]> = [
     ['Уровень игры', accessLabel(GAME_LEVELS, draft.game_level), null],
     ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
-    ['Роль в клубе', organizationSummary(draft.club_role, draft.judge_level), null],
+    ['Роль в клубе', accessLabel(CLUB_ORGANIZATION, organizationOf(draft.club_role)), null],
+    ['Может вести', hostFormatsSummary(draft.host_formats), null],
     ['Доступы', organizerAccess ? 'Кабинет организатора' : 'Только кабинет игрока', null],
   ];
 
@@ -227,9 +226,24 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
           <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={membershipOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
-            <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и право вести игры. Кабинет организатора не открывает.</div></div>
+            <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и какие вечера может вести. Кабинет организатора не открывает.</div></div>
             <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
-            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Ведёт игры</span><select value={draft.judge_level} onChange={(event) => setDraft((value) => ({ ...value, judge_level: event.target.value as JudgeLevel }))} className="mobile-field w-full max-w-full">{JUDGE_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+            <fieldset className="space-y-1.5" data-testid="crm-player-host-formats">
+              <legend className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Может вести</legend>
+              {HOST_FORMAT_OPTIONS.map((item) => {
+                const checked = draft.host_formats.includes(item.value);
+                return (
+                  <label key={item.value} className="flex min-h-11 items-start gap-2.5 rounded-[10px] border border-border-soft px-3 py-2">
+                    <input type="checkbox" checked={checked} className="mt-0.5 h-5 w-5 shrink-0"
+                      onChange={() => setDraft((value) => ({
+                        ...value,
+                        host_formats: HOST_FORMATS.filter((format) => (format === item.value ? !checked : value.host_formats.includes(format))),
+                      }))} />
+                    <span className="min-w-0"><span className="block text-[13px] text-text-primary">{item.label}</span><span className="block text-[11px] leading-4 text-text-muted">{item.hint}</span></span>
+                  </label>
+                );
+              })}
+            </fieldset>
           </div>
 
           <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3">

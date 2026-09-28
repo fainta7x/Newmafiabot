@@ -251,7 +251,7 @@ describe('CRM player access profile', () => {
     ]);
 
     const organize = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
-      .send({ player_ids: ['bulk-a', 'bulk-b'], organization: 'organizer', judge_level: 'host' });
+      .send({ player_ids: ['bulk-a', 'bulk-b'], organization: 'organizer', host_formats_add: ['NOVICE', 'CASUAL'] });
     expect(organize.status, JSON.stringify(organize.body)).toBe(200);
     const leave = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
       .send({ player_ids: ['bulk-a'], organization: 'none' });

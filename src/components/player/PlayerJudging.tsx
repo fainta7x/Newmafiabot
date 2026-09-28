@@ -282,9 +282,9 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
       {dashboard && (
         <>
           <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Мой уровень</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Какие игры я веду</div>
             <div className="mt-2 text-2xl font-semibold text-white">{dashboard.player.judge_level_label}</div>
-            <p className="mt-2 text-sm leading-5 text-white/40">{levelDescription[dashboard.player.judge_level]}</p>
+            <p className="mt-2 text-sm leading-5 text-white/40">{dashboard.player.judge_level === 'none' ? levelDescription.none : 'Вести можно те игры, на которые вас назначил организатор.'}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {(Object.keys(dashboard.permissions) as Array<keyof typeof dashboard.permissions>).map((key) => (
                 <span key={key} className={`rounded-full border px-2.5 py-1 text-xs ${dashboard.permissions[key] ? 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100/75' : 'border-white/10 bg-white/[0.03] text-white/25'}`}>{permissionLabel(key)}</span>

@@ -9,7 +9,6 @@ import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
-import { requiredJudgeLevelForEveningFormat } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
@@ -160,7 +159,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     const judge = await resolveJudgeAssignment(db, {
       judge_player_id: requestedJudgeId,
       judge_name: delegatedJudgeId ? null : (req.body?.judge_name ?? null),
-      required_level: requestedJudgeId ? requiredJudgeLevelForEveningFormat(evening.format) : undefined,
+      required_format: requestedJudgeId ? String(evening.format || 'CASUAL') : undefined,
     });
     // Every game has a judge (user-approved 2026-09-24): a club player, or a named guest marked as such.
     if (!judge.judge_player_id && !(req.body?.judge_guest === true && judge.judge_name)) {

@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { judgeLevelAllowsEveningFormat, normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
+import { normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
+import { canHostEveningFormat } from '../lib/hostFormats.ts';
 
 dotenv.config();
 
@@ -209,8 +210,8 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     );
     if (!evening || !['published', 'active'].includes(String(evening.status || ''))) return false;
 
-    const player = await db.get('SELECT judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
-    if (!judgeLevelAllowsEveningFormat(player?.judge_level, evening.format)) return false;
+    const player = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!canHostEveningFormat(player, evening.format)) return false;
 
     const requestedJudgeId = req.body?.judge_player_id == null ? playerId : String(req.body.judge_player_id);
     if (requestedJudgeId !== playerId) return false;
@@ -237,8 +238,8 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
        LIMIT 1
     `, [Number(clubMatch[1])]);
     if (!game || String(game.judge_player_id || '') !== playerId || game.archived_at) return false;
-    const player = await db.get('SELECT judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
-    if (!judgeLevelAllowsEveningFormat(player?.judge_level, game.evening_format)) return false;
+    const player = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!canHostEveningFormat(player, game.evening_format)) return false;
     try {
       const existing = typeof game.protocol_text === 'string' ? JSON.parse(game.protocol_text) : null;
       if (existing?.protocol?.status === 'completed') return false;

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { STOPPED_REASON, clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
+import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -196,10 +197,15 @@ const bulkAccessSchema = z.object({
   // «stopped» pauses announcements and invitations instead of touching club_role.
   activity: z.enum(['regular', 'sometimes', 'stopped']).optional(),
   organization: z.enum(['none', 'team', 'organizer']).optional(),
-  judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
-}).refine((data) => data.game_level || data.activity || data.organization || data.judge_level, { message: 'Выберите, что поменять' });
+  // «Может вести»: marks to add and to remove; formats in neither list stay as they are for each player.
+  host_formats_add: z.array(z.enum(HOST_FORMATS)).optional(),
+  host_formats_remove: z.array(z.enum(HOST_FORMATS)).optional(),
+}).refine(
+  (data) => data.game_level || data.activity || data.organization || data.host_formats_add?.length || data.host_formats_remove?.length,
+  { message: 'Выберите, что поменять' },
+);
 
-// POST /api/players/access/bulk - set level, how often the player comes, club role and judge level for many players at once.
+// POST /api/players/access/bulk - set level, how often the player comes, club role and «Может вести» for many players at once.
 // Access to the organizer cabinet is never changed here; it stays a deliberate per-player action.
 router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
   try {
@@ -211,7 +217,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT game_level, club_role, judge_level, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -230,9 +236,15 @@ router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
           pauseReason = null;
         }
         const statusChanged = contactStatus !== contact;
+        const hostChanged = Boolean(data.host_formats_add?.length || data.host_formats_remove?.length);
+        const formats = new Set(hostFormatsOf(current));
+        data.host_formats_add?.forEach((format) => formats.add(format));
+        data.host_formats_remove?.forEach((format) => formats.delete(format));
+        const nextFormats = HOST_FORMATS.filter((format) => formats.has(format));
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?, judge_level = ?${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
-          [data.game_level ?? current.game_level, clubRole, data.judge_level ?? current.judge_level,
+          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
+          [data.game_level ?? current.game_level, clubRole,
+            ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
             ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), now, id],
         );
         updated += Number(result.changes || 0);

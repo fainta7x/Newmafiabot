@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { RefreshCw, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import {
-  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, JUDGE_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
-  normalizeClubRole, normalizeGameLevel, normalizeJudgeLevel, organizationOf,
-  type ClubOrganization, type GameLevel, type JudgeLevel, type PlayerActivity,
+  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
+  normalizeClubRole, normalizeGameLevel, organizationOf,
+  type ClubOrganization, type GameLevel, type PlayerActivity,
 } from '../../lib/playerAccess.ts';
+import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 
-type Row = Player & { game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
+type HostChoice = '' | 'yes' | 'no';
+
+type Row = Player & { host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
 
 const stopped = (row: Row) => row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON;
 type LevelFilter = GameLevel | 'all';
@@ -49,7 +52,11 @@ export function PlayerAccessBulkCRM() {
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
   const [activity, setActivity] = useState<PlayerActivity | ''>('');
   const [organization, setOrganization] = useState<ClubOrganization | ''>('');
-  const [judgeLevel, setJudgeLevel] = useState<JudgeLevel | ''>('');
+  // «Может вести»: per evening type — add the mark, remove it, or leave each player as is.
+  const [hosting, setHosting] = useState<Record<HostFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '' });
+  const hostAdd = HOST_FORMATS.filter((format) => hosting[format] === 'yes');
+  const hostRemove = HOST_FORMATS.filter((format) => hosting[format] === 'no');
+  const hostChanged = hostAdd.length + hostRemove.length > 0;
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -88,7 +95,7 @@ export function PlayerAccessBulkCRM() {
   });
 
   const apply = async () => {
-    if (saving || !selected.size || !(gameLevel || activity || organization || judgeLevel)) return;
+    if (saving || !selected.size || !(gameLevel || activity || organization || hostChanged)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -98,14 +105,15 @@ export function PlayerAccessBulkCRM() {
         ...(gameLevel ? { game_level: gameLevel } : {}),
         ...(activity ? { activity } : {}),
         ...(organization ? { organization } : {}),
-        ...(judgeLevel ? { judge_level: judgeLevel } : {}),
+        ...(hostAdd.length ? { host_formats_add: hostAdd } : {}),
+        ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
       });
       setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
       setSelected(new Set());
       setGameLevel('');
       setActivity('');
       setOrganization('');
-      setJudgeLevel('');
+      setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
       await load();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить изменения');
@@ -115,7 +123,7 @@ export function PlayerAccessBulkCRM() {
   };
 
   return (
-    <div className="space-y-3 pb-80" data-testid="crm-access-bulk">
+    <div className="space-y-3 pb-[440px]" data-testid="crm-access-bulk">
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -157,7 +165,7 @@ export function PlayerAccessBulkCRM() {
                 <span className="mt-0.5 block truncate text-[11px] text-white/50">
                   {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {stopped(row) ? 'Перестал ходить' : accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
-                  {normalizeJudgeLevel(row.judge_level) !== 'none' ? ` · ${accessLabel(JUDGE_LEVELS, normalizeJudgeLevel(row.judge_level))}` : ''}
+                  {hostFormatsOf(row).length ? ` · ${hostFormatsSummary(hostFormatsOf(row))}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
                 </span>
               </span>
@@ -173,11 +181,27 @@ export function PlayerAccessBulkCRM() {
             <Select label="Уровень игры" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
             <Select label="Как часто ходит" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
             <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={CLUB_ORGANIZATION} />
-            <Select label="Ведёт игры" value={judgeLevel} onChange={setJudgeLevel} options={JUDGE_LEVELS} />
+          </div>
+          <div className="mt-1">
+            <span className="mb-1 block text-[11px] font-semibold text-white/70">Может вести</span>
+            <div className="grid grid-cols-3 gap-2">
+              {HOST_FORMAT_OPTIONS.map((option) => (
+                <label key={option.value} className="block min-w-0">
+                  <span className="mb-1 block truncate text-[10px] text-white/50">{option.label}</span>
+                  <select value={hosting[option.value]} aria-label={`Может вести: ${option.label}`}
+                    onChange={(event) => setHosting((current) => ({ ...current, [option.value]: event.target.value as HostChoice }))}
+                    className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-1 text-[12px] text-white">
+                    <option value="">Не менять</option>
+                    <option value="yes">Может</option>
+                    <option value="no">Не может</option>
+                  </select>
+                </label>
+              ))}
+            </div>
           </div>
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(gameLevel || activity || organization || judgeLevel)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(gameLevel || activity || organization || hostChanged)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
         </div>

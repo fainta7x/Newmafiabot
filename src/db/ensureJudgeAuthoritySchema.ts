@@ -38,4 +38,8 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   await db.run(
     "UPDATE players SET judge_level = 'none' WHERE judge_level IS NULL OR judge_level = '' OR judge_level NOT IN ('none','trainee','host','judge')",
   );
+  // «Может вести» marks (src/lib/hostFormats.ts). NULL means «derive from judge_level», so nothing changes for existing players.
+  if (!columns.some((column) => column.name === 'host_formats')) {
+    await db.run('ALTER TABLE players ADD COLUMN host_formats TEXT');
+  }
 }

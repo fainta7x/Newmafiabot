@@ -38,10 +38,12 @@ test.describe('CRM player classification persistence', () => {
     const sheet = page.getByTestId('crm-player-access-sheet');
     await expect(sheet).toBeVisible();
     const selects = sheet.getByRole('combobox');
-    await expect(selects).toHaveCount(4);
+    await expect(selects).toHaveCount(3);
     await selects.nth(0).selectOption('club');
     await selects.nth(2).selectOption('team');
-    await selects.nth(3).selectOption('host');
+    const hosting = sheet.getByTestId('crm-player-host-formats');
+    await hosting.getByRole('checkbox', { name: /Вечера для новичков/ }).check();
+    await hosting.getByRole('checkbox', { name: /Клубные вечера/ }).check();
     await noOverflow(page);
     await shot(page, testInfo, 'crm-player-access-editor-360x800.png');
 
@@ -51,7 +53,7 @@ test.describe('CRM player classification persistence', () => {
     await expect(page.getByTestId('crm-player-work-card')).toBeVisible();
     await expect(summary).toContainText('Играет в клубе');
     await expect(summary).toContainText('Помогает клубу');
-    await expect(summary).toContainText('Ведущий');
+    await expect(summary).toContainText('Ведёт: новички, клубные');
     await expect(page.getByTestId('crm-player-access-success')).toContainText('подтверждены повторным чтением');
     await shot(page, testInfo, 'crm-player-role-save-persisted-360x800.png');
 
@@ -61,7 +63,9 @@ test.describe('CRM player classification persistence', () => {
     await expect(persisted.nth(0)).toHaveValue('club');
     await expect(persisted.nth(1)).toHaveValue('member');
     await expect(persisted.nth(2)).toHaveValue('team');
-    await expect(persisted.nth(3)).toHaveValue('host');
+    const reopenedHosting = reopened.getByTestId('crm-player-host-formats');
+    await expect(reopenedHosting.getByRole('checkbox', { name: /Клубные вечера/ })).toBeChecked();
+    await expect(reopenedHosting.getByRole('checkbox', { name: /Рейтинг и турниры/ })).not.toBeChecked();
   });
 
   test('keeps the editor open with selected values after a server error and shows CRM confirmation', async ({ page }, testInfo) => {

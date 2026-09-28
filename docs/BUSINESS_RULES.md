@@ -395,6 +395,15 @@ Runtime smoke tests should prefer:
 
 Do not use a club-wide production announcement as a generic health check.
 
+### Where announcements go (user-confirmed 2026-09-28)
+
+- **Telegram entry channel «Мафия в Туле 2LA Noire»** is what people find in Telegram search. Its job is to route incoming people through the bot: a novice goes to the novice group, someone who can already play goes to the club group. The channel holds one pinned router message (the nearest novice and club evenings with buttons), edited in place. The only evening posts there are the **invitation posts of novice evenings**; club evening posts never appear there and are removed if found.
+- **Telegram novice group «Игры для новичков»** gets the ordinary novice evening announcement, not the invitation.
+- **Telegram club group «2LA Noire мафия в Туле»** gets the club (CASUAL) evening announcement.
+- **Telegram closed rating/tournament channel** is for the narrow circle of tournament players: RATING and TOURNAMENT evenings, later other posts for them.
+- **VK group** gets the invitation post for novice evenings and the ordinary announcement for the others.
+- The invitation post is the approved promo text (`src/shared/novicePromo.json`) followed by date, venue, schedule and price, a sign-up link, the novice chat link and the organizer contacts. The Telegram sign-up link goes through the bot so the Mini App gets the player's Telegram login, and it lets a novice sign up straight from the post without going through the groups first.
+
 ## Tournament publication
 
 Approved high-level publication format for tournament summary graphics is three logical outputs:

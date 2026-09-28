@@ -16,7 +16,7 @@ from bot_telegram_api import (
     save_public_router_message_id,
 )
 from crm_evening_keyboard import crm_evening_response_kb
-from handlers.telegram_evening_copy import closed_event_text, format_start, thematic_event_text
+from handlers.telegram_evening_copy import closed_event_text, format_start, novice_invitation_text, thematic_event_text
 
 
 # One publication run at a time per evening (and one for the public router): a web retry
@@ -134,10 +134,10 @@ async def _send_message(
 
 
 async def _cleanup_public_event_post(bot: Bot, publication: dict | None) -> bool:
-    """Remove obsolete per-evening posts from the public welcome group.
+    """Remove obsolete per-evening posts from the public entry channel.
 
-    The public destination is router-only: it must contain one persistent navigation
-    message that is edited in place, never separate evening announcements.
+    The public destination keeps one persistent navigation message that is edited in
+    place; the only evening posts there are the invitations of open novice evenings.
     """
     if not publication:
         return True
@@ -207,12 +207,16 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
     results: list[dict] = []
 
-    # Public welcome group is router-only. Never create or refresh a separate evening post there.
-    desired.discard("public")
-    public_publication = publications.get("public")
-    if public_publication:
-        public_removed = await _cleanup_public_event_post(bot, public_publication)
-        results.append({"destination_id": "public", "action": "removed_event_post", "success": public_removed})
+    # The public entry channel keeps the pinned router; the only evening posts there are the
+    # invitations of novice evenings. Any other public post (club evenings, closed novice
+    # evenings) is removed.
+    novice = str(evening.get("canonical_format") or evening.get("format") or "").upper() == "NOVICE"
+    if not (novice and "public" in desired):
+        desired.discard("public")
+        public_publication = publications.get("public")
+        if public_publication:
+            public_removed = await _cleanup_public_event_post(bot, public_publication)
+            results.append({"destination_id": "public", "action": "removed_event_post", "success": public_removed})
 
     # Existing routed posts must become visibly inert once the evening is closed,
     # cancelled or routed away. Reuse the same message identity, remove the action
@@ -242,7 +246,16 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
         publication = publications.get(destination_id)
-        text = thematic_event_text(evening, slots, participants, signup_url=event_url)
+        if destination_id == "public":
+            novice_chat = str((destinations.get("novice") or {}).get("invite_url") or "").strip()
+            text = novice_invitation_text(
+                evening,
+                slots,
+                signup_url=event_url,
+                novice_chat_url=novice_chat if novice_chat.startswith("https://t.me/") else None,
+            )
+        else:
+            text = thematic_event_text(evening, slots, participants)
 
         if publication:
             edit_status = await _edit_message_status(
@@ -330,7 +343,8 @@ async def _sync_public_router_locked(bot: Bot) -> dict:
     novice_evening = payload.get("novice_evening")
     club_evening = payload.get("club_evening")
 
-    cleanup_results = await _cleanup_current_public_event_posts(bot, [novice_evening, club_evening])
+    # Novice invitations stay in the public group; only club evening posts are removed.
+    cleanup_results = await _cleanup_current_public_event_posts(bot, [club_evening])
 
     bot_url = await _bot_url(bot)
     club_access_url = await _bot_url(bot, "club_access")
@@ -367,7 +381,7 @@ async def _sync_public_router_locked(bot: Bot) -> dict:
 
     novice_url = str(novice_destination.get("invite_url") or "").strip()
     if novice_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🌱 Школа мафии", url=novice_url)])
+        keyboard_rows.append([InlineKeyboardButton(text="🌱 Группа «Игры для новичков»", url=novice_url)])
     if club_access_url:
         keyboard_rows.append([InlineKeyboardButton(text="🎟 Проверить доступ в основной клуб", url=club_access_url)])
     if not novice_event_url and not club_event_url and bot_url:

@@ -107,3 +107,57 @@ def test_unsaved_post_is_removed_so_a_retry_does_not_duplicate_it(monkeypatch):
     result = asyncio.run(publishing.sync_evening_telegram(bot, "ev2", refresh_router=False))
     assert result["success"] is False
     assert bot.deleted == [101]
+
+
+class _RecordingBot:
+    def __init__(self):
+        self.sent = []
+        self.deleted = []
+
+    async def get_me(self):
+        return type("Me", (), {"username": "club_bot"})()
+
+    async def send_message(self, **kwargs):
+        self.sent.append(kwargs)
+        return type("Message", (), {"message_id": 100 + len(self.sent)})()
+
+    async def delete_message(self, chat_id, message_id):
+        self.deleted.append((chat_id, message_id))
+
+
+def _install_format_plan(monkeypatch, fmt, publications=None):
+    async def plan(evening_id):
+        return {"success": True, "data": {
+            "evening": {"id": evening_id, "status": "published", "format": fmt, "title": "Вечер", "starts_at": "2026-10-02T16:00:00Z"},
+            "slots": [], "participants": [],
+            "destinations": [
+                {"id": "public", "active": True, "chat_id": "-100"},
+                {"id": "novice", "active": True, "chat_id": "-300", "invite_url": "https://t.me/+novice"},
+                {"id": "club", "active": True, "chat_id": "-200"},
+            ],
+            "publications": publications or [],
+            "desired_destination_ids": ["public", "novice" if fmt == "NOVICE" else "club"],
+        }}
+
+    async def save(*args):
+        return {"success": True}
+
+    monkeypatch.setattr(publishing, "get_evening_telegram_plan", plan)
+    monkeypatch.setattr(publishing, "save_evening_telegram_publication", save)
+
+
+def test_novice_evening_posts_the_invitation_to_the_public_group(monkeypatch):
+    _install_format_plan(monkeypatch, "NOVICE")
+    bot = _RecordingBot()
+    asyncio.run(publishing.sync_evening_telegram(bot, "ev-n", refresh_router=False))
+    by_chat = {item["chat_id"]: item["text"] for item in bot.sent}
+    assert "Почему затягивает" in by_chat["-100"] and "Чат для новичков" in by_chat["-100"]
+    assert "Почему затягивает" not in by_chat["-300"]
+
+
+def test_club_evening_keeps_the_public_group_router_only(monkeypatch):
+    _install_format_plan(monkeypatch, "CASUAL", [{"destination_id": "public", "chat_id": "-100", "message_id": 7}])
+    bot = _RecordingBot()
+    asyncio.run(publishing.sync_evening_telegram(bot, "ev-c", refresh_router=False))
+    assert [item["chat_id"] for item in bot.sent] == ["-200"]
+    assert bot.deleted == [("-100", 7)]

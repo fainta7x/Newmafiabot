@@ -384,12 +384,7 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
     )
 
 
-def thematic_event_text(
-    evening: dict,
-    slots: list[dict] | None = None,
-    participants: list[dict] | None = None,
-    signup_url: str | None = None,
-) -> str:
+def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -397,27 +392,14 @@ def thematic_event_text(
     people = participants or []
     skip = _without_games(people)
 
-    novice = canonical_format == "NOVICE"
-    promo = novice_promo_html() if novice else ""
-    # The bot link (t.me/<bot>?start=event_<id>) opens the Mini App with the player's Telegram login.
-    signup = (
-        f'📲 <a href="{escape(signup_url)}">Записаться в приложении</a> — там же видно, кто уже идёт.'
-        if novice and signup_url
-        else ""
-    )
-    contacts = organizer_contacts_html() if novice else ""
-
     def compose(max_players: int, names: bool) -> str:
         sections = [
-            promo,
             f"{label} · <b>2LA Noire</b>",
             event_base_text(evening, slot_rows),
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),
             "\n".join(_arrival_lines(slot_rows, timezone_name, skip, max_players)),
             "\n".join(_response_lines(people, names=names)),
             "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
-            signup,
-            contacts,
         ]
         return "\n\n".join(section for section in sections if section)
 
@@ -437,3 +419,23 @@ def closed_event_text(evening: dict, *, cancelled: bool = False, obsolete: bool 
     else:
         heading = "🔒 Запись закрыта"
     return f"{heading}\n\n{event_base_text(evening)}"
+
+
+def novice_invitation_text(
+    evening: dict,
+    slots: list[dict] | None = None,
+    *,
+    signup_url: str | None = None,
+    novice_chat_url: str | None = None,
+) -> str:
+    """The invitation post of a novice evening for the public entry group: promo, when and where, how to join."""
+    sections = [novice_promo_html(), event_base_text(evening, slots or [])]
+    links = []
+    if signup_url:
+        # The bot link (t.me/<bot>?start=event_<id>) opens the Mini App with the player's Telegram login.
+        links.append(f'📲 <a href="{escape(signup_url)}">Записаться в приложении</a>')
+    if novice_chat_url:
+        links.append(f'💬 <a href="{escape(novice_chat_url)}">Чат для новичков</a>')
+    sections.append("\n".join(links))
+    sections.append(organizer_contacts_html())
+    return "\n\n".join(section for section in sections if section)

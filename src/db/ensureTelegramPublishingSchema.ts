@@ -6,18 +6,18 @@ export type TelegramDestinationId = (typeof TELEGRAM_DESTINATION_IDS)[number];
 const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; description: string }> = [
   {
     id: 'public',
-    name: 'Публичный канал',
-    description: 'Входной канал «Мафия в Туле»: живой маршрутизатор и публичные анонсы NOVICE/CASUAL.',
+    name: 'Входной канал',
+    description: 'Канал «Мафия в Туле 2LA Noire»: закреплённый маршрутизатор и пригласительные посты вечеров новичков.',
   },
   {
     id: 'novice',
-    name: 'Школа мафии',
-    description: 'Форум-группа новичков. NOVICE публикуется в теме «Анонсы игр».',
+    name: 'Игры для новичков',
+    description: 'Группа новичков. Сюда публикуется обычный анонс вечера новичков.',
   },
   {
     id: 'club',
     name: 'Основной клуб',
-    description: 'Основная форум-группа. CASUAL публикуется в теме «Запись на игровой вечер».',
+    description: 'Группа «2LA Noire мафия в Туле». Сюда публикуется анонс клубного вечера.',
   },
   {
     id: 'rating',

@@ -93,9 +93,9 @@ router.post('/split-vote-progress', async (req, res) => {
     await ensureSplitVoteProgressSchema(req.db);
     const track = TRACKS.find((items) => items.includes(level))!;
     if (track.indexOf(level) > 0) {
-      const prerequisite = track[track.indexOf(level) - 1];
-      const prior = await req.db.get('SELECT 1 AS passed FROM player_split_vote_progress WHERE player_id = ? AND level = ?', [playerId, prerequisite]);
-      if (!prior) return res.status(403).json({ error: 'Сначала сдайте предыдущий экзамен.' });
+      // A level once passed stays open for retakes, even if a level was added before it later.
+      const hasPassed = async (value: Level) => Boolean(await req.db.get('SELECT 1 AS passed FROM player_split_vote_progress WHERE player_id = ? AND level = ?', [playerId, value]));
+      if (!(await hasPassed(level)) && !(await hasPassed(track[track.indexOf(level) - 1]))) return res.status(403).json({ error: 'Сначала сдайте предыдущий экзамен.' });
     }
     await req.db.run('INSERT OR IGNORE INTO player_split_vote_progress (player_id, level) VALUES (?, ?)', [playerId, level]);
     // «Нулевой пациент» is earned right away, not at the next achievement sweep.

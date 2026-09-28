@@ -96,6 +96,9 @@ describe('player split-vote progression', () => {
     const passed = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: hard });
     expect(passed.status).toBe(200);
     expect(passed.body.passed).toContain('three_hard');
+    // Passed before «Кого пилить» existed: a retake stays allowed.
+    rows.set('fred2', new Set(['three_easy', 'three_medium', 'three_hard']));
+    expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred2')).send({ level: 'three_hard', answers: hard })).status).toBe(200);
     // A task without the sheriff claims is not a hard-level task.
     const stripped = hard.map((entry, index) => (index === 0 ? { ...entry, scenario: { ...entry.scenario, sheriffs: undefined } } : entry));
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: stripped })).status).toBe(400);

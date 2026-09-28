@@ -4,6 +4,7 @@ import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts
 import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
+import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 
 interface EveningOverviewViewProps {
   eveningId: string;
@@ -17,6 +18,15 @@ type EveningData = GameEvening & {
   games?: Array<{ id: number | string; status?: string | null; protocol_status?: string | null; winner_team?: string | null }>;
 };
 
+
+/** When the automatic Telegram/VK announcement goes out, from the same rule the server uses. */
+const announcementTiming = (startsAt?: string | null) => {
+  if (!startsAt) return '';
+  const due = weeklyAnnouncementDueMs(startsAt);
+  if (due <= Date.now()) return 'Анонсы в Telegram и ВК уйдут сами в ближайшие полчаса.';
+  const when = new Date(due).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+  return `Анонсы в Telegram и ВК уйдут сами: ${when}.`;
+};
 
 export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onStatusChange, hideStatusActions = false }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
@@ -48,7 +58,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     try {
       const updated = await api.updateEvening(eveningId, { status });
       setEvening((current) => current ? { ...current, ...updated } : current);
-      setMessage(status === 'published' ? 'Вечер опубликован.' : 'Вечер переведён в активный режим.');
+      setMessage(status === 'published' ? `Запись открыта: вечер виден игрокам в календаре. ${announcementTiming(updated.starts_at || evening?.starts_at)}` : 'Вечер переведён в активный режим.');
       onStatusChange?.();
     } catch (err: any) {
       setError(err?.message || 'Не удалось изменить статус вечера');
@@ -74,7 +84,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     <div className="space-y-3.5 pb-4">
       {(!hideStatusActions && !readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         {!hideStatusActions && !readonly && evening.status !== 'cancelled' ? <div>
-          {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
+          {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Открыть запись</button> : null}
           {evening.status === 'published' ? (() => {
             // Days ahead, starting is not the next step: keep the button available but quiet.
             const hoursToStart = (new Date(evening.starts_at).getTime() - clock) / 3_600_000;

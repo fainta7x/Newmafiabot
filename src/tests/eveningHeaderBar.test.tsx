@@ -14,7 +14,7 @@ describe('EveningHeaderBar', () => {
   it('shows Moscow time, venue and status, and navigates back', async () => {
     const onBack = vi.fn();
     render(<EveningHeaderBar eveningId="e1" onBack={onBack} />);
-    await waitFor(() => expect(screen.getByText('Опубликован')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Запись открыта')).toBeTruthy());
     expect(screen.getByText(/25 сент\..*19:00 · Суп с Котом/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Назад к событиям' }));
     expect(onBack).toHaveBeenCalledOnce();

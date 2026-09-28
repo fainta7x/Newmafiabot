@@ -203,7 +203,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
           {evening && (
             <div className="flex flex-wrap gap-2 text-xs text-white/45">
               <span className="rounded-full bg-black/25 px-2.5 py-1">{EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)]}</span>
-              <span className="rounded-full bg-black/25 px-2.5 py-1">{evening.status === 'active' ? 'Идёт сейчас' : 'Опубликован'}</span>
+              <span className="rounded-full bg-black/25 px-2.5 py-1">{evening.status === 'active' ? 'Идёт сейчас' : 'Запись открыта'}</span>
               <span className="rounded-full bg-black/25 px-2.5 py-1">Игр: {evening.games_count}</span>
               {evening.venue && <span className="rounded-full bg-black/25 px-2.5 py-1">📍 {evening.venue}</span>}
             </div>

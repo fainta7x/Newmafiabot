@@ -6,7 +6,7 @@ type HeaderEvening = { title: string; starts_at: string; venue?: string | null; 
 
 const STATUS: Record<string, { label: string; className: string }> = {
   draft: { label: 'Черновик', className: 'bg-surface-2 text-text-secondary' },
-  published: { label: 'Опубликован', className: 'bg-accent-soft text-accent' },
+  published: { label: 'Запись открыта', className: 'bg-accent-soft text-accent' },
   active: { label: 'Идёт', className: 'bg-success-soft text-success' },
   completed: { label: 'Завершён', className: 'bg-surface-2 text-text-secondary' },
   cancelled: { label: 'Отменён', className: 'bg-danger-soft text-danger' },

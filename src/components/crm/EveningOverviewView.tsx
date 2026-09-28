@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Play, RefreshCw, Settings2 } from 'lucide-react
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
 import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 import EveningPersonalInvites from './EveningPersonalInvites.tsx';
+import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
 
 interface EveningOverviewViewProps {
   eveningId: string;
@@ -92,6 +93,10 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
       </section> : null}
 
+      {!readonly && ['draft', 'published'].includes(evening.status) ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
+        <EveningStartTimeEditor eveningId={eveningId} startsAt={evening.starts_at}
+          onMoved={(moved) => setEvening((value) => value ? { ...value, ...moved } : value)} />
+      </section> : null}
 
       <EveningPersonalInvites eveningId={eveningId} />
 

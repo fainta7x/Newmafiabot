@@ -52,3 +52,10 @@ def test_my_signups_without_a_profile_points_to_registration():
 def test_payment_answer_says_novice_prepayment_is_required():
     text, _ = bot_home.faq_answer_view("pay")
     assert "нужно передать до первой игры" in text
+
+
+def test_novice_answer_asks_for_a_nickname_and_links_rules_and_an_example_game():
+    text, markup = bot_home.faq_answer_view("novice")
+    assert "никнейм" in text
+    flat = [button.text for row in markup.inline_keyboard for button in row]
+    assert "📖 Правила игры" in flat and "🎬 Пример игры — «Мафия с Левшой»" in flat

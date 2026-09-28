@@ -311,6 +311,8 @@ On 2026-09-25 an evening auto-cancelled for shortfall was recreated by the rolli
 
 On the first weekly automation run after deploy, `src/server/services/oneTimeEveningPlans.ts` moves the 2 October club evening from 20:00 to 21:00 (with its games) and opens a novice evening «Вечер для новичков» (rules 18:30, two games 19:00–21:00). It runs once (key `one-time:2026-10-02-novice-friday` in `club_weekly_automation_runs`), never after 18:00 Moscow on 2 October, and keeps anything the organizer already did by hand. Both evenings are announced by the weekly automation (Monday 19:00 Moscow, or at once if that time has passed). Remove the plan after 2 October.
 
+The same runner moves upcoming club evenings still at 20:00 to 21:00 once (key `one-time:club-evenings-start-21`); new club Fridays are created at 21:00 (owner decision 2026-09-28).
+
 ## Current queue (organizer flow, approved 2026-09-24)
 
 Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».

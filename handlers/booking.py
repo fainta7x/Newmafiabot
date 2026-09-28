@@ -169,7 +169,7 @@ def get_tokens_for_booking(status: str) -> int:
 @router.message(F.text == "🕵️ Записаться на игру", F.chat.type == "private")
 async def book(message: Message):
     await message.answer(
-        f"Запись на {get_next_friday()} в 20:00:",
+        f"Запись на {get_next_friday()} в 21:00:",
         reply_markup=keyboards.booking_kb(),
     )
 

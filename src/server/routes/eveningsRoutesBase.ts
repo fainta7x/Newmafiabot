@@ -40,7 +40,7 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
     const yearStr = nextFriday.getFullYear();
     const monthStr = String(nextFriday.getMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
-    const startsAtIso = `${yearStr}-${monthStr}-${dayStr}T20:00:00+03:00`;
+    const startsAtIso = `${yearStr}-${monthStr}-${dayStr}T21:00:00+03:00`;
     const title = `Игровой вечер — ${day} ${monthName}`;
 
     const lastEvening = await db.get('SELECT default_price FROM game_evenings ORDER BY starts_at DESC LIMIT 1');

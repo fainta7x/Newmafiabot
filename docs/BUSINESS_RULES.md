@@ -345,7 +345,7 @@ An existing player from the player database may be added to a current in-progres
 
 The regular club cadence is automatic rather than organizer-maintained by hand.
 
-- The player calendar should continuously expose regular **Friday 20:00 Moscow** club evenings roughly **35 days ahead**, so players can register several weeks in advance.
+- The player calendar should continuously expose regular **Friday 21:00 Moscow** club evenings roughly **35 days ahead**, so players can register several weeks in advance. Club evenings start at 21:00, after the novice evening (rules 18:30, games from 19:00) — owner decision 2026-09-28, replacing the earlier 20:00.
 - Calendar visibility and external announcement are separate states: making a future evening available for registration must **not** immediately publish a Telegram/VK post.
 - For the upcoming Friday, the weekly external announcement becomes due on **Monday at 19:00 Moscow**, whatever time that Friday starts (e.g. a club evening moved to 21:00 after a novice evening, user-approved 2026-09-28).
 - That weekly announcement should use the existing connected flow: Telegram channel/group publication, VK publication, and the initial eligible personal Telegram invitations.

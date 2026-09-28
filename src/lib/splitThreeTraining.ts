@@ -28,7 +28,13 @@
  * Example: 10 killed, sheriffs 1 and 4, the town trusts 4 less, 4 checked 2 black, 1 checked 6 red;
  * nominated 4, 2, 7 → 127 vote for 4, 345 for 2, 689 for 7.
  */
-export type SplitThreeLevel = 'three_easy' | 'three_medium' | 'three_hard';
+/**
+ * Level ids stay stable (people's passed exams are stored by id); the order and titles are in
+ * SPLIT_THREE_ORDER below. 'three_hard' is the two-sheriffs level, shown as «Экспертный».
+ */
+export type SplitThreeLevel = 'three_easy' | 'three_medium' | 'three_break' | 'three_choose' | 'three_hard';
+/** User-approved order (2026-09-28): easy → medium → hard (a broken split, 15 s) → «Кого пилить» → expert (two sheriffs). */
+export const SPLIT_THREE_ORDER: SplitThreeLevel[] = ['three_easy', 'three_medium', 'three_break', 'three_choose', 'three_hard'];
 
 /** Hard level: the two sheriff claims. */
 export type SplitThreeSheriffs = {
@@ -158,8 +164,8 @@ export const isCorrectSplitThreeAssignment = (scenario: SplitThreeScenario, answ
   });
 };
 
-const pick = <T>(items: T[], random: () => number): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))];
-const shuffle = <T>(items: T[], random: () => number) => {
+export const pick = <T>(items: T[], random: () => number): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))];
+export const shuffle = <T>(items: T[], random: () => number) => {
   const copy = [...items];
   for (let index = copy.length - 1; index > 0; index -= 1) {
     const swap = Math.min(index, Math.floor(random() * (index + 1)));
@@ -169,11 +175,11 @@ const shuffle = <T>(items: T[], random: () => number) => {
 };
 
 /** Hard level: the split the town makes from the sheriff claims (the third player only when it is free). */
-const hardSplitSeats = ({ trusted, doubted }: SplitThreeSheriffs) => (trusted.black && doubted.black
+export const hardSplitSeats = ({ trusted, doubted }: SplitThreeSheriffs) => (trusted.black && doubted.black
   ? [trusted.check, doubted.check, doubted.seat]
   : [doubted.seat, trusted.black ? trusted.check : doubted.check]);
 
-const generateHardScenario = (random: () => number): SplitThreeScenario => {
+export const generateHardScenario = (random: () => number): SplitThreeScenario => {
   const killed = pick(SEATS, random);
   const [trusted, doubted, doubtedCheck, trustedCheck, ...others] = shuffle(aliveSeats(killed), random);
   // Only the doubted sheriff, both, or only the trusted sheriff have a black check.
@@ -216,7 +222,7 @@ export const generateSplitThreeScenario = (
   return scenario!;
 };
 
-const isValidHardClaims = (value: unknown, killed: number, split: number[]) => {
+export const isValidHardClaims = (value: unknown, killed: number, split: number[]) => {
   if (!value || typeof value !== 'object') return false;
   const { trusted, doubted } = value as SplitThreeSheriffs;
   if (!trusted || !doubted || typeof trusted.black !== 'boolean' || typeof doubted.black !== 'boolean' || (!trusted.black && !doubted.black)) return false;

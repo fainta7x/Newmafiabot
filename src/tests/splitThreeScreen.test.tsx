@@ -64,10 +64,10 @@ describe('three-way split trainer screen', () => {
       killed: 10, candidates: [4, 2, 7], split: [4, 2, 7], seat: 3,
       sheriffs: { trusted: { seat: 1, check: 6, black: false }, doubted: { seat: 4, check: 2, black: true } },
     };
-    progress(['three_easy', 'three_medium']);
+    progress(['three_easy', 'three_medium', 'three_break', 'three_choose']);
     render(<SplitThreeTraining initial={[hard, hard]} />);
     await waitFor(() => expect(screen.getByTestId('split-three-level-three_hard').querySelector('button')!.hasAttribute('disabled')).toBe(false));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[2]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[4]);
     const claims = screen.getByTestId('split-three-sheriffs').textContent || '';
     expect(claims).toContain('Город меньше верит шерифу 4');
     expect(claims).toContain('Шериф 4 проверил 2 — чёрный');
@@ -90,5 +90,46 @@ describe('three-way split trainer screen', () => {
     pick(3, 4, 5); fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
     fireEvent.click(screen.getByRole('button', { name: 'Проверить голосование' }));
     expect(screen.getByRole('status').textContent).toContain('Верно!');
+  });
+
+  it('hard level: the breaker gets every hand that is still free', async () => {
+    // Split 1, 2, 3 and 3 does not raise his hand for 1: 1 and 2 are already up, everyone else votes for 3.
+    const broken = { killed: 10, candidates: [1, 2, 3], split: [1, 2, 3] as [number, number, number], seat: 4, breaker: 3 };
+    progress(['three_easy', 'three_medium']);
+    render(<SplitThreeTraining initial={[broken, broken]} />);
+    await waitFor(() => expect(screen.getByTestId('split-three-level-three_break').querySelector('button')!.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[2]);
+    expect(screen.getByTestId('split-three-break').textContent).toContain('3 не поставил руку');
+    expect(screen.getByTestId('split-three-timer').textContent).toContain('15 с');
+    // 1 and 2 cannot vote again.
+    expect(screen.queryByRole('button', { name: '1', exact: true } as never)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Пропустить' })); // nobody else for 1
+    fireEvent.click(screen.getByRole('button', { name: 'Пропустить' })); // nobody for 2 → the rest go to 3
+    expect(screen.getByRole('status').textContent).toContain('Верно!');
+    expect(screen.getByRole('status').textContent).toContain('все, кто ещё не голосовал, голосуют в 3: 456789');
+    expect(screen.getByRole('status').textContent).toContain('поэтому с ним никто не голосует');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
+    fireEvent.click(screen.getByRole('button', { name: '4' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Пропустить' }));
+    expect(screen.getByRole('status').textContent).toContain('Неверно');
+  });
+
+  it('«Кого пилить»: the town splits the doubted sheriff with the black checks', async () => {
+    const choose: SplitThreeScenario = {
+      killed: 10, candidates: [3, 7, 5, 9], split: [3, 7, 5], seat: 1,
+      sheriffs: { trusted: { seat: 9, check: 3, black: true }, doubted: { seat: 5, check: 7, black: true } },
+    };
+    progress(['three_easy', 'three_medium', 'three_break']);
+    render(<SplitThreeTraining initial={[choose, choose]} />);
+    await waitFor(() => expect(screen.getByTestId('split-three-level-three_choose').querySelector('button')!.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[3]);
+    // The split is the question, so it is not shown.
+    expect(screen.queryByTestId('split-three-split')).toBeNull();
+    for (const seat of [3, 7, 9]) fireEvent.click(screen.getByRole('button', { name: String(seat) }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
+    expect(screen.getByRole('status').textContent).toContain('Неверно');
+    expect(screen.getByRole('status').textContent).toContain('пилим обе чёрные проверки и шерифа, которому город верит меньше: 3, 7, 5');
   });
 });

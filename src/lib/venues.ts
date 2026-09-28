@@ -1,14 +1,14 @@
+import KNOWN_VENUES_JSON from '../shared/venues.json';
+
 /**
  * Known club venues: the address and a map link shown next to the venue name in announcements and
- * evening cards. The Python bot keeps the same list in `handlers/telegram_evening_copy.py`.
+ * evening cards. The list is `src/shared/venues.json`, shared with the Python bot.
  */
 export type VenueDetails = { name: string; address: string | null; mapUrl: string | null };
 
 const mapUrl = (query: string) => `https://yandex.ru/maps/?text=${encodeURIComponent(query)}`;
 
-const KNOWN_VENUES: Record<string, { address: string; mapQuery: string }> = {
-  'суп с котом': { address: 'Пушкинский проезд, 4А', mapQuery: 'Тула, Пушкинский проезд, 4А, Суп с Котом' },
-};
+const KNOWN_VENUES: Record<string, { address: string; mapQuery: string }> = KNOWN_VENUES_JSON;
 
 export const venueDetails = (venue: string | null | undefined): VenueDetails => {
   const name = String(venue || '').trim() || 'Суп с Котом';

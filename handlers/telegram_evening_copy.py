@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from html import escape
 from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -18,10 +20,18 @@ _MONTHS_RU = (
 _CLUB_GAME_PRICE = 100
 _CLUB_EVENING_MAX_PRICE = 400
 _DEFAULT_TIMEZONE = "Europe/Moscow"
-# Known club venues: address and map query. The web app keeps the same list in src/lib/venues.ts.
-_KNOWN_VENUES = {
-    "суп с котом": ("Пушкинский проезд, 4А", "Тула, Пушкинский проезд, 4А, Суп с Котом"),
-}
+# Known club venues (address and map query), shared with the web app.
+_VENUES_FILE = Path(__file__).resolve().parent.parent / "src" / "shared" / "venues.json"
+
+
+def _load_known_venues() -> dict:
+    try:
+        return json.loads(_VENUES_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_KNOWN_VENUES = _load_known_venues()
 
 
 def venue_html(venue: object) -> str:
@@ -30,7 +40,9 @@ def venue_html(venue: object) -> str:
     known = _KNOWN_VENUES.get(name.lower().replace("«", "").replace("»", "").replace('"', "").strip())
     if not known:
         return escape(name)
-    address, map_query = known
+    address, map_query = str(known.get("address") or ""), str(known.get("mapQuery") or "")
+    if not address or not map_query:
+        return escape(name)
     url = f"https://yandex.ru/maps/?text={quote(map_query)}"
     return f'{escape(name)}, {escape(address)} · <a href="{escape(url)}">на карте</a>'
 

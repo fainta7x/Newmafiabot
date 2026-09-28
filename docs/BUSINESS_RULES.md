@@ -347,7 +347,7 @@ The regular club cadence is automatic rather than organizer-maintained by hand.
 
 - The player calendar should continuously expose regular **Friday 20:00 Moscow** club evenings roughly **35 days ahead**, so players can register several weeks in advance.
 - Calendar visibility and external announcement are separate states: making a future evening available for registration must **not** immediately publish a Telegram/VK post.
-- For the upcoming Friday, the weekly external announcement becomes due on **Monday at 19:00 Moscow**.
+- For the upcoming Friday, the weekly external announcement becomes due on **Monday at 19:00 Moscow**, whatever time that Friday starts (e.g. a club evening moved to 21:00 after a novice evening, user-approved 2026-09-28).
 - That weekly announcement should use the existing connected flow: Telegram channel/group publication, VK publication, and the initial eligible personal Telegram invitations.
 - The automation must be idempotent: refreshes, retries, restarts or delayed wake-ups must not create duplicate posts or duplicate personal invitations.
 - If the service was asleep at the exact due time, the next safe reconciliation should catch up the still-upcoming Friday instead of silently skipping the week.

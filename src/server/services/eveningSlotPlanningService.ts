@@ -275,6 +275,11 @@ export async function updateEveningSlotSettings(
     : Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
   const nextDuration = Math.max(15, Math.min(180, Math.round(Number(input.slot_duration_minutes ?? settings.slot_duration_minutes ?? 60))));
   const nextStartsAt = normalizeStartsAt(input.starts_at, evening.starts_at);
+  // Players and announcements already count on the start once the evening is running.
+  const startMoved = new Date(nextStartsAt).getTime() !== new Date(evening.starts_at).getTime();
+  if (startMoved && !['draft', 'published'].includes(String(evening.status || ''))) {
+    throw Object.assign(new Error('Время начала можно перенести только до начала вечера'), { statusCode: 409 });
+  }
   if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice) || !Number.isFinite(nextDuration)) {
     throw Object.assign(new Error('Неверные настройки игр вечера'), { statusCode: 400 });
   }
@@ -318,6 +323,11 @@ export async function updateEveningSlotSettings(
       [nextStartsAt, plusMinutes(nextStartsAt, nextCount * nextDuration), nextPrice, now, eveningId],
     );
   });
+  // A published evening already has posts in Telegram and VK: they show the new times at once.
+  if (String(evening.status || '') === 'published') {
+    await enqueueTelegramEveningSync(db, eveningId).catch((error) => console.warn('[SLOTS] Telegram evening sync failed:', error));
+    kickVkLiveEveningSync(db);
+  }
   return loadEveningSlotPlan(db, eveningId);
 }
 

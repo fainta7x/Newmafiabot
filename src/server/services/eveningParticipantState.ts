@@ -8,6 +8,7 @@ import {
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
+import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 
 export class EveningParticipantStateError extends Error {
   status: number;
@@ -41,7 +42,15 @@ export const serializeEveningParticipant = <T extends Record<string, any>>(row: 
   attendance_fact: getEveningAttendanceFact(row),
 });
 
-export async function setParticipantResponse(db: DatabaseWrapper, participantId: string, status: EveningResponseStatus) {
+export async function setParticipantResponse(
+  db: DatabaseWrapper,
+  participantId: string,
+  status: EveningResponseStatus,
+  options: { byPlayer?: boolean } = {},
+) {
+  const previous = options.byPlayer
+    ? (await db.get<{ response_status: string | null }>('SELECT response_status FROM evening_participants WHERE id = ?', [participantId]))?.response_status
+    : null;
   const now = new Date().toISOString();
   const confirmedAt = status === 'going' || status === 'late' ? now : null;
   await db.run(
@@ -61,6 +70,15 @@ export async function setParticipantResponse(db: DatabaseWrapper, participantId:
           AND slot_id IN (SELECT id FROM evening_game_slots WHERE evening_id = (SELECT evening_id FROM evening_participants WHERE id = ?))`,
       [participantId, participantId],
     );
+  }
+
+  if (options.byPlayer) {
+    try {
+      await notifyOrganizerAboutResponse(db, participantId, previous, status);
+    } catch (error) {
+      // A player's answer must never fail because the organizer alert could not be queued.
+      console.warn('[EVENING RESPONSE] organizer notification failed:', error instanceof Error ? error.message : String(error));
+    }
   }
 }
 

@@ -11,7 +11,7 @@ describe('Telegram evening RSVP contracts', () => {
     expect(source).toContain("if (responseStatus === 'going')");
     expect(source).toContain('plan.slots.map((slot) => slot.id)');
     expect(source).toContain("await replacePlayerSlotSelection(db, String(evening.id), String(player.id), []);");
-    expect(source).toContain('await setParticipantResponse(db, String(participant.id), responseStatus as any);');
+    expect(source).toContain('await setParticipantResponse(db, String(participant.id), responseStatus as any, { byPlayer: true });');
   });
 
   it('uses the actual player slot PUT endpoint when saving exact games', () => {

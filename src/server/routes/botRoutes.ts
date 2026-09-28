@@ -270,7 +270,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       );
     } else {
       await replacePlayerSlotSelection(db, String(evening.id), String(player.id), []);
-      await setParticipantResponse(db, String(participant.id), responseStatus as any);
+      await setParticipantResponse(db, String(participant.id), responseStatus as any, { byPlayer: true });
     }
 
     res.json({

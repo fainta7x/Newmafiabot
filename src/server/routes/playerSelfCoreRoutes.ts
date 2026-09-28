@@ -398,7 +398,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     );
     if (!participant) return res.status(500).json({ error: 'Не удалось создать участника вечера' });
 
-    await setParticipantResponse(db, String(participant.id), responseStatus as any);
+    await setParticipantResponse(db, String(participant.id), responseStatus as any, { byPlayer: true });
 
     return res.json({
       success: true,

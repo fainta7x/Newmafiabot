@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isAttendingResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
+import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
 
 const router = Router();
 
@@ -245,10 +246,24 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
           WHERE id = ?`,
         [now, `Использовано на вечер: ${String(participant.title || participant.evening_id)}`, String(credit.id)],
       );
-      return { participant_id: participantId, purchase_id: String(credit.id) };
+      return { participant_id: participantId, purchase_id: String(credit.id), evening_title: String(participant.title || '') };
     });
 
-    return res.json({ success: true, ...result });
+    // The organizer sees at once that this evening is paid with a free-evening credit, not with money.
+    try {
+      const player = await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [playerId]);
+      const nick = String(player?.nickname || 'Игрок').replace(/[<>&]/g, '');
+      await enqueueOrganizerNotification(db, {
+        messageKey: `free-evening-used:${result.purchase_id}`,
+        eventType: 'free_evening_used',
+        entityId: participantId,
+        text: `🎟 ${nick} оплатил «${result.evening_title.replace(/[<>&]/g, '')}» бесплатным вечером из магазина — деньги за этот вечер не ждём.`,
+      });
+    } catch (error) {
+      console.warn('[PAYMENTS] organizer notification failed:', error instanceof Error ? error.message : String(error));
+    }
+
+    return res.json({ success: true, participant_id: result.participant_id, purchase_id: result.purchase_id });
   } catch (error: any) {
     return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось применить бесплатный вечер' });
   }

@@ -406,7 +406,7 @@ export async function resolveVkUserEveningResponse(db: DatabaseWrapper, eveningI
     return { status: 'superseded', current_status: currentStatus };
   }
 
-  if (currentStatus !== resolution.status) await setParticipantResponse(db, String(ensured.participant.id), resolution.status);
+  if (currentStatus !== resolution.status) await setParticipantResponse(db, String(ensured.participant.id), resolution.status, { byPlayer: true });
   await db.run(`
     UPDATE vk_poll_votes
        SET player_id=?, applied_response_status=?, sync_status='applied', updated_at=?

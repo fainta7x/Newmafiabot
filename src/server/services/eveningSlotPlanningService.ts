@@ -491,7 +491,7 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
       await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [estimate, paymentStatus, now, participant.id]);
     }
-    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined');
+    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined', { byPlayer: true });
   });
   await enqueueTelegramEveningSync(db, eveningId);
   // Keep the existing VK announcement current immediately after a player changes

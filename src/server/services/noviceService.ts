@@ -24,7 +24,7 @@ async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string
     [id(), eveningId, playerId, stamp, stamp, stamp]);
   const participant = await db.get<any>('SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?', [eveningId, playerId]);
   if (!participant || String(participant.attendance_status) !== 'pending') return false;
-  await setParticipantResponse(db, String(participant.id), 'going');
+  await setParticipantResponse(db, String(participant.id), 'going', { byPlayer: true });
   return true;
 }
 

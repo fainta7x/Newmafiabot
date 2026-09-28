@@ -434,7 +434,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - an alert when a Telegram or VK announcement fails;
      - the evening digest on a schedule (morning and 3 hours before) instead of on every change.
 19. Bot home card built (2026-09-28), split by audience at the owner's request: newcomers get a short friendly menu (what the game is, novice evenings, frequent questions, write to the organizer); club players get a three-row card (app, «Расписание», «Мои записи», «Составы», «☰ Ещё» with stats, rating, tokens and shop, learning, groups, questions). Owner rule: menus stay short — at most two buttons per row, no full-screen button walls. Next ideas for the bot, to agree: reminders on the evening day with «Всё в силе?», a result card after each game, «Пригласить друга» with a personal link.
-20. «Ещё → Уровни и роли» built (2026-09-28): the organizer marks several players and sets the playing level, the club role and the judge level at once. Organizer cabinet access is not changed there — only in the player card. Next step with the owner: go through the player list together and set levels and roles.
+20. «Ещё → Уровни и роли» built (2026-09-28): the organizer marks several players and sets «Уровень игры», «Как часто ходит» (incl. «Перестал ходить» — no personal announcements), «Роль в клубе» and «Ведёт игры» at once; each choice shows what it changes. Organizer cabinet access is not changed there — only in the player card. Next step with the owner: go through the player list together and set levels and roles.
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner

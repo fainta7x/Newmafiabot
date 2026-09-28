@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
+import { STOPPED_REASON, clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -192,13 +192,14 @@ const bulkAccessSchema = z.object({
   player_ids: z.array(z.string().min(1)).min(1).max(500),
   game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(),
   // club_role holds two answers, so they change separately (as in the player card):
-  // membership guest/member and organization none/team/organizer. Changing one keeps the other.
-  membership: z.enum(['guest', 'member']).optional(),
+  // how often the player comes and the organization role. Changing one keeps the other.
+  // «stopped» pauses announcements and invitations instead of touching club_role.
+  activity: z.enum(['regular', 'sometimes', 'stopped']).optional(),
   organization: z.enum(['none', 'team', 'organizer']).optional(),
   judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
-}).refine((data) => data.game_level || data.membership || data.organization || data.judge_level, { message: 'Выберите, что поменять' });
+}).refine((data) => data.game_level || data.activity || data.organization || data.judge_level, { message: 'Выберите, что поменять' });
 
-// POST /api/players/access/bulk - set level, club membership/organization and judge level for many players at once.
+// POST /api/players/access/bulk - set level, how often the player comes, club role and judge level for many players at once.
 // Access to the organizer cabinet is never changed here; it stays a deliberate per-player action.
 router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
   try {
@@ -210,15 +211,29 @@ router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT game_level, club_role, judge_level FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT game_level, club_role, judge_level, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
         const role = normalizeClubRole(current.club_role);
-        const clubRole = clubRoleFrom(data.membership ?? membershipOf(role), data.organization ?? organizationOf(role));
+        const membership = data.activity === 'regular' ? 'member' : data.activity === 'sometimes' ? 'guest' : membershipOf(role);
+        const clubRole = clubRoleFrom(membership, data.organization ?? organizationOf(role));
+        // Blocked players stay blocked. «Перестал ходить» pauses mailing; coming back lifts only that pause.
+        const contact = String(current.contact_status || current.lifecycle_status || 'normal');
+        let contactStatus = contact;
+        let pauseReason = current.pause_reason ?? null;
+        if (data.activity === 'stopped' && contact === 'normal') {
+          contactStatus = 'paused';
+          pauseReason = STOPPED_REASON;
+        } else if (data.activity && data.activity !== 'stopped' && contact === 'paused' && pauseReason === STOPPED_REASON) {
+          contactStatus = 'normal';
+          pauseReason = null;
+        }
+        const statusChanged = contactStatus !== contact;
         const result = await tx.run(
-          'UPDATE players SET game_level = ?, club_role = ?, judge_level = ?, updated_at = ? WHERE id = ?',
-          [data.game_level ?? current.game_level, clubRole, data.judge_level ?? current.judge_level, now, id],
+          `UPDATE players SET game_level = ?, club_role = ?, judge_level = ?${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
+          [data.game_level ?? current.game_level, clubRole, data.judge_level ?? current.judge_level,
+            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), now, id],
         );
         updated += Number(result.changes || 0);
       }

@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { RefreshCw, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import {
-  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, JUDGE_LEVELS, accessLabel, membershipOf, normalizeClubRole, normalizeGameLevel,
-  normalizeJudgeLevel, organizationOf, type ClubMembership, type ClubOrganization, type GameLevel, type JudgeLevel,
+  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, JUDGE_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
+  normalizeClubRole, normalizeGameLevel, normalizeJudgeLevel, organizationOf,
+  type ClubOrganization, type GameLevel, type JudgeLevel, type PlayerActivity,
 } from '../../lib/playerAccess.ts';
 
-type Row = Player & { game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null };
+type Row = Player & { game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
+
+const stopped = (row: Row) => row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON;
 type LevelFilter = GameLevel | 'all';
 
 const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) => (
@@ -14,22 +17,26 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
     className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-semibold ${active ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.04] text-white/65'}`}>{children}</button>
 );
 
+// One choice in the bottom panel; the line under it says what the picked option changes.
 const Select = <T extends string>({ label, value, onChange, options }: {
-  label: string; value: T | ''; onChange: (value: T | '') => void; options: Array<{ value: T; label: string }>;
+  label: string; value: T | ''; onChange: (value: T | '') => void; options: Array<{ value: T; label: string; hint: string }>;
 }) => (
   <label className="block min-w-0">
-    <span className="mb-1 block text-[11px] text-white/50">{label}</span>
+    <span className="mb-1 block text-[11px] font-semibold text-white/70">{label}</span>
     <select value={value} onChange={(event) => onChange(event.target.value as T | '')}
       className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-2 text-[13px] text-white">
       <option value="">Не менять</option>
       {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select>
+    <span className="mt-1 block min-h-[28px] text-[10px] leading-[14px] text-white/45">
+      {value ? options.find((option) => option.value === value)?.hint : 'У каждого остаётся как было'}
+    </span>
   </label>
 );
 
 /**
- * «Уровни и роли»: go through all players and set the playing level, the club role and the judge level
- * for many at once. The organizer cabinet access is not here on purpose — it stays a per-player action.
+ * «Уровни и роли»: go through all players and set the playing level, how often they come, the club role
+ * and whether they host games — for many at once. The organizer cabinet access is not here on purpose — it stays a per-player action.
  */
 export function PlayerAccessBulkCRM() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -40,7 +47,7 @@ export function PlayerAccessBulkCRM() {
   const [level, setLevel] = useState<LevelFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
-  const [membership, setMembership] = useState<ClubMembership | ''>('');
+  const [activity, setActivity] = useState<PlayerActivity | ''>('');
   const [organization, setOrganization] = useState<ClubOrganization | ''>('');
   const [judgeLevel, setJudgeLevel] = useState<JudgeLevel | ''>('');
   const [saving, setSaving] = useState(false);
@@ -81,7 +88,7 @@ export function PlayerAccessBulkCRM() {
   });
 
   const apply = async () => {
-    if (saving || !selected.size || !(gameLevel || membership || organization || judgeLevel)) return;
+    if (saving || !selected.size || !(gameLevel || activity || organization || judgeLevel)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -89,14 +96,14 @@ export function PlayerAccessBulkCRM() {
       const body = await api.bulkUpdatePlayerAccess({
         player_ids: Array.from(selected),
         ...(gameLevel ? { game_level: gameLevel } : {}),
-        ...(membership ? { membership } : {}),
+        ...(activity ? { activity } : {}),
         ...(organization ? { organization } : {}),
         ...(judgeLevel ? { judge_level: judgeLevel } : {}),
       });
       setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
       setSelected(new Set());
       setGameLevel('');
-      setMembership('');
+      setActivity('');
       setOrganization('');
       setJudgeLevel('');
       await load();
@@ -108,12 +115,12 @@ export function PlayerAccessBulkCRM() {
   };
 
   return (
-    <div className="space-y-3 pb-56" data-testid="crm-access-bulk">
+    <div className="space-y-3 pb-80" data-testid="crm-access-bulk">
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-[15px] font-semibold text-white">Уровни и роли</h3>
-            <p className="mt-0.5 text-[12px] leading-5 text-white/50">Отметь игроков и поставь им уровень, участие в клубе, роль в клубе или ведение игр — сразу всем. Что не выбрано, у каждого остаётся как было. Доступ к кабинету организатора выдаётся только в карточке игрока.</p>
+            <p className="mt-0.5 text-[12px] leading-5 text-white/50">Отметь игроков и выбери, что поменять, — сразу всем. Под каждым выбором написано, на что он влияет. Доступ в кабинет организатора выдаётся только в карточке игрока.</p>
           </div>
           <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
@@ -148,7 +155,7 @@ export function PlayerAccessBulkCRM() {
               <span className="min-w-0 flex-1">
                 <strong className="block truncate text-[14px] text-white">{row.nickname}</strong>
                 <span className="mt-0.5 block truncate text-[11px] text-white/50">
-                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
+                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {stopped(row) ? 'Перестал ходить' : accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {normalizeJudgeLevel(row.judge_level) !== 'none' ? ` · ${accessLabel(JUDGE_LEVELS, normalizeJudgeLevel(row.judge_level))}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
@@ -163,14 +170,14 @@ export function PlayerAccessBulkCRM() {
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
           <p className="text-[13px] font-semibold text-white">Отмечено: {selected.size}</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <Select label="Уровень" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
-            <Select label="В клубе" value={membership} onChange={setMembership} options={CLUB_MEMBERSHIPS} />
+            <Select label="Уровень игры" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
+            <Select label="Как часто ходит" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
             <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={CLUB_ORGANIZATION} />
-            <Select label="Ведение игр" value={judgeLevel} onChange={setJudgeLevel} options={JUDGE_LEVELS} />
+            <Select label="Ведёт игры" value={judgeLevel} onChange={setJudgeLevel} options={JUDGE_LEVELS} />
           </div>
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(gameLevel || membership || organization || judgeLevel)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(gameLevel || activity || organization || judgeLevel)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
         </div>

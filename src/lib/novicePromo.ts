@@ -6,7 +6,7 @@ import NOVICE_PROMO from '../shared/novicePromo.json';
  */
 type NovicePromo = {
   title?: string; intro?: string; reasonsTitle?: string; reasons?: string[];
-  firstTimeTitle?: string; firstTimeText?: string; contacts?: { telegram?: string; vk?: string };
+  firstTimeTitle?: string; firstTimeText?: string; contacts?: { telegram?: string; vk?: string }; groups?: { vk?: string };
 };
 
 const promo = NOVICE_PROMO as NovicePromo;
@@ -31,4 +31,10 @@ export const organizerContactLinks = (): Array<{ label: 'Telegram' | 'VK'; url: 
   const vk = String(promo.contacts?.vk ?? '').trim();
   if (/^https:\/\/(vk\.com|vk\.me)\//.test(vk)) links.push({ label: 'VK', url: vk });
   return links;
+};
+
+/** The club VK group link for novice invitations, when it is filled in. */
+export const clubVkGroupUrl = (): string | null => {
+  const url = String(promo.groups?.vk ?? '').trim();
+  return /^https:\/\/(vk\.com|vk\.ru)\//.test(url) ? url : null;
 };

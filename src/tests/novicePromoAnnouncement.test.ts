@@ -26,15 +26,16 @@ describe('novice evening promo in announcements', () => {
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text.startsWith(novicePromoText())).toBe(true);
     expect(text).toContain('Почему затягивает:');
-    expect(text).toContain('💬 Чат для новичков в Telegram:\nhttps://t.me/+novice');
+    expect(text).toContain('👥 Наши группы:\nTelegram: https://t.me/+novice\nVK: https://vk.com/2lanoiremafia');
     expect(text).toContain('https://example.test/join/ev');
+    expect(text).toContain('✉️ Остались вопросы? Пишите:\nTelegram: https://t.me/Chagina7x\nVK: https://vk.com/m1kesh1noda');
   });
 
   it('keeps club evening posts without the promo', async () => {
     const row = await evening('CASUAL');
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text).not.toContain('Почему затягивает');
-    expect(text).not.toContain('Чат для новичков');
+    expect(text).not.toContain('Наши группы');
   });
 
   it('shows only valid organizer contacts', () => {

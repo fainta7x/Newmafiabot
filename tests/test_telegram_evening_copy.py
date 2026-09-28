@@ -57,15 +57,27 @@ def test_announcement_shows_venue_address_and_map_link():
     assert "📍 Антикафе &lt;Лофт&gt;" in other and "<a href" not in other
 
 
-def test_novice_group_post_opens_with_the_promo():
-    from handlers.telegram_evening_copy import novice_promo_html, thematic_event_text
+def test_novice_invitation_is_the_promo_with_when_where_and_links():
+    from handlers.telegram_evening_copy import novice_invitation_text, novice_promo_html, thematic_event_text
 
-    novice = thematic_event_text(
-        {"id": "ev-1", "format": "NOVICE", "title": "Школа", "starts_at": "2026-10-02T16:00:00Z"}, [], [],
-        signup_url="https://t.me/club_bot?start=event_ev-1",
+    evening = {"id": "ev-1", "format": "NOVICE", "title": "Школа", "venue": "Суп с Котом", "starts_at": "2026-10-02T16:00:00Z"}
+    text = novice_invitation_text(
+        evening, [], signup_url="https://t.me/club_bot?start=event_ev-1", novice_chat_url="https://t.me/+novice",
     )
-    assert novice.startswith(novice_promo_html())
-    assert '<a href="https://t.me/club_bot?start=event_ev-1">Записаться в приложении</a>' in novice
-    assert "<b>Почему затягивает:</b>" in novice
-    club = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-10-02T17:00:00Z"}, [], [])
-    assert "Почему затягивает" not in club and "Остались вопросы" not in club
+    assert text.startswith(novice_promo_html())
+    assert "🎓 Рассказываем правила — 18:30, первая игра — 19:00" in text
+    assert '<a href="https://t.me/club_bot?start=event_ev-1">Записаться в приложении</a>' in text
+    assert '👥 Наши группы: <a href="https://t.me/+novice">Telegram</a> · <a href="https://vk.com/2lanoiremafia">VK</a>' in text
+    assert '✉️ Остались вопросы? Пишите: <a href="https://t.me/Chagina7x">Telegram</a>' in text
+    # The novice chat itself gets the ordinary announcement.
+    assert "Почему затягивает" not in thematic_event_text(evening, [], [])
+
+
+def test_novice_invitation_fits_one_telegram_message():
+    from handlers.telegram_evening_copy import novice_invitation_text
+
+    evening = {"id": "ev-1", "format": "NOVICE", "title": "Т" * 5000, "venue": "В" * 5000, "notes": "Н" * 5000,
+               "starts_at": "2026-10-02T16:00:00Z"}
+    text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
+    assert len(text) <= 4096
+    assert "Почему затягивает" in text

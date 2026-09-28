@@ -6,18 +6,18 @@ export type TelegramDestinationId = (typeof TELEGRAM_DESTINATION_IDS)[number];
 const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; description: string }> = [
   {
     id: 'public',
-    name: 'Публичный канал',
-    description: 'Входной канал «Мафия в Туле»: живой маршрутизатор и публичные анонсы NOVICE/CASUAL.',
+    name: 'Входной канал',
+    description: 'Канал «Мафия в Туле 2LA Noire»: закреплённый маршрутизатор и пригласительные посты вечеров новичков.',
   },
   {
     id: 'novice',
-    name: 'Школа мафии',
-    description: 'Форум-группа новичков. NOVICE публикуется в теме «Анонсы игр».',
+    name: 'Игры для новичков',
+    description: 'Группа новичков. Сюда публикуется обычный анонс вечера новичков.',
   },
   {
     id: 'club',
     name: 'Основной клуб',
-    description: 'Основная форум-группа. CASUAL публикуется в теме «Запись на игровой вечер».',
+    description: 'Группа «2LA Noire мафия в Туле». Сюда публикуется анонс клубного вечера.',
   },
   {
     id: 'rating',
@@ -327,6 +327,23 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
         )`,
   );
 
+  // Novice evenings announced before the entry channel carried invitations: sync them once so
+  // the invitation appears there. Only evenings already announced in the novice group qualify,
+  // so nothing new is published early, and only while the entry channel is connected.
+  await db.run(
+    `INSERT INTO telegram_sync_outbox
+       (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+     SELECT 'evening:' || e.id, 'evening', e.id, 1, 0, ?, NULL, NULL, NULL
+       FROM game_evenings e
+      WHERE UPPER(COALESCE(e.format, '')) = 'NOVICE'
+        AND e.status IN ('published', 'active')
+        AND e.settled_at IS NULL
+        AND EXISTS (SELECT 1 FROM evening_telegram_publications p WHERE p.evening_id = e.id AND p.destination_id = 'novice')
+        AND NOT EXISTS (SELECT 1 FROM evening_telegram_publications p WHERE p.evening_id = e.id AND p.destination_id = 'public')
+        AND EXISTS (SELECT 1 FROM telegram_destinations d WHERE d.id = 'public' AND d.active = 1 AND TRIM(COALESCE(d.chat_id, '')) <> '')
+     ON CONFLICT(sync_key) DO NOTHING`,
+    [now],
+  );
 }
 
 export function isTelegramDestinationId(value: unknown): value is TelegramDestinationId {

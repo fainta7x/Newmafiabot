@@ -1,5 +1,8 @@
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from html import escape
+from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _FORMAT_LABELS = {
@@ -17,6 +20,31 @@ _MONTHS_RU = (
 _CLUB_GAME_PRICE = 100
 _CLUB_EVENING_MAX_PRICE = 400
 _DEFAULT_TIMEZONE = "Europe/Moscow"
+# Known club venues (address and map query), shared with the web app.
+_VENUES_FILE = Path(__file__).resolve().parent.parent / "src" / "shared" / "venues.json"
+
+
+def _load_known_venues() -> dict:
+    try:
+        return json.loads(_VENUES_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_KNOWN_VENUES = _load_known_venues()
+
+
+def venue_html(venue: object) -> str:
+    """«Суп с Котом, Пушкинский проезд, 4А · на карте» for known venues, the plain name otherwise."""
+    name = str(venue or "").strip() or "Суп с Котом"
+    known = _KNOWN_VENUES.get(name.lower().replace("«", "").replace("»", "").replace('"', "").strip())
+    if not known:
+        return escape(name)
+    address, map_query = str(known.get("address") or ""), str(known.get("mapQuery") or "")
+    if not address or not map_query:
+        return escape(name)
+    url = f"https://yandex.ru/maps/?text={quote(map_query)}"
+    return f'{escape(name)}, {escape(address)} · <a href="{escape(url)}">на карте</a>'
 
 
 def _local_datetime(value: object, timezone_name: object = _DEFAULT_TIMEZONE) -> datetime:
@@ -104,7 +132,7 @@ def _novice_briefing_line(canonical_format: str, starts_at: object, timezone_nam
 def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     title = escape(str(evening.get("title") or _FORMAT_LABELS.get(canonical_format, "Игровой вечер")))
-    venue = escape(str(evening.get("venue") or "Суп с Котом"))
+    venue = venue_html(evening.get("venue"))
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     price = _price_text(evening, slots)
     notes = str(evening.get("notes") or "").strip()

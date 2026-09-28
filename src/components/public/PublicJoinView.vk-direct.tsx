@@ -2,6 +2,7 @@ import { countGames, countPlayers } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Check, ExternalLink, MapPin, Sparkles } from 'lucide-react';
 import { api } from '../../lib/api.ts';
+import VenueAddress from './VenueAddress.tsx';
 
 interface PublicJoinViewProps { eveningId: string; }
 
@@ -140,7 +141,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
 
     <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><div className="space-y-2">
       <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><Calendar className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Дата и начало</div><div className="mt-0.5 text-sm font-medium capitalize">{formattedDate}, {formattedTime}</div></div></div>
-      <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><MapPin className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Место</div><div className="mt-0.5 text-sm font-medium">{evening.venue || 'Суп с Котом'}</div></div></div>
+      <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><MapPin className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Место</div><VenueAddress venue={evening.venue} className="mt-0.5 block text-sm font-medium" /></div></div>
     </div><div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${price.toLocaleString('ru-RU')} ₽ / игра` : 'Без оплаты'}</strong></div></section>
 
     {slotPlan ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">

@@ -12,7 +12,8 @@ export type InvitationContext = {
   recipient_state: string;
   evenings: Array<{ id: string; title: string; starts_at: string | null; venue: string | null; format: string; state: InvitationEveningState; existing_invitation: any | null }>;
 };
-const unavailableStatuses = new Set(['blocked', 'archived', 'inactive', 'disabled', 'deleted']);
+// «paused» covers «Перестал ходить» and players the organizer excluded from mailing.
+const unavailableStatuses = new Set(['blocked', 'paused', 'archived', 'inactive', 'disabled', 'deleted']);
 const unavailableRecipient = (status: unknown) => unavailableStatuses.has(String(status || '').trim().toLowerCase());
 const placeholders = (items: string[]) => items.map(() => '?').join(',');
 

@@ -15,9 +15,50 @@ const LAST_RUN_AT = Date.parse('2026-10-02T15:00:00Z'); // 18:00 Moscow
 
 const moscowClock = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
+const CLUB_21_KEY = 'one-time:club-evenings-start-21';
+
+/**
+ * Club evenings start at 21:00 from 2026-09-28 (owner decision). Upcoming club evenings already in the
+ * calendar at 20:00 move to 21:00 once, with their games; evenings that have games are left alone.
+ */
+export async function moveUpcomingClubEveningsTo21(db: DatabaseWrapper, now: Date = new Date(), options: { inTests?: boolean } = {}) {
+  if (process.env.NODE_ENV === 'test' && !options.inTests) return { ran: false, moved: 0 };
+  await ensureWeeklyEveningAutomationSchema(db);
+  if (await db.get('SELECT 1 FROM club_weekly_automation_runs WHERE automation_key = ?', [CLUB_21_KEY])) return { ran: false, moved: 0 };
+  const rows = await db.all<any>(
+    `SELECT e.id, e.starts_at, (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id) AS games
+       FROM game_evenings e
+      WHERE UPPER(COALESCE(e.format, '')) IN ('CASUAL', 'STANDARD')
+        AND e.status IN ('draft', 'published') AND e.settled_at IS NULL`,
+  );
+  let moved = 0;
+  for (const row of rows) {
+    const startMs = Date.parse(String(row.starts_at));
+    if (!Number.isFinite(startMs) || startMs <= now.getTime() || Number(row.games) || moscowClock(row.starts_at) !== '20:00') continue;
+    const day = new Date(startMs + 3 * 3600_000).toISOString().slice(0, 10);
+    const plan = await ensureSlotsForEvening(db, String(row.id));
+    await updateEveningSlotSettings(db, String(row.id), {
+      planned_slots: plan.slots.length || Number(plan.settings.planned_slots || 6),
+      slot_duration_minutes: Number(plan.settings.slot_duration_minutes || 60),
+      price_per_game: Number(plan.settings.price_per_game || 100),
+      starts_at: `${day}T21:00:00+03:00`,
+    });
+    moved += 1;
+  }
+  const stamp = new Date().toISOString();
+  await db.run(
+    `INSERT OR IGNORE INTO club_weekly_automation_runs (automation_key, evening_id, kind, status, completed_at, last_error, created_at, updated_at)
+     VALUES (?, NULL, 'one_time_plan', 'done', ?, NULL, ?, ?)`,
+    [CLUB_21_KEY, stamp, stamp, stamp],
+  );
+  console.log(`[ONE-TIME PLAN] ${CLUB_21_KEY}: moved ${moved} club evening(s) to 21:00`);
+  return { ran: true, moved };
+}
+
 export async function runOneTimeEveningPlans(db: DatabaseWrapper, now: Date = new Date(), options: { inTests?: boolean } = {}) {
   // Test databases run the weekly automation with the real clock; the plan is for the club's own data.
   if (process.env.NODE_ENV === 'test' && !options.inTests) return { ran: false, reason: 'test_run' as const };
+  await moveUpcomingClubEveningsTo21(db, now, options);
   if (now.getTime() >= LAST_RUN_AT) return { ran: false, reason: 'too_late' as const };
   await ensureWeeklyEveningAutomationSchema(db);
   const done = await db.get('SELECT 1 FROM club_weekly_automation_runs WHERE automation_key = ?', [PLAN_KEY]);

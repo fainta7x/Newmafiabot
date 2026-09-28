@@ -1,4 +1,6 @@
 from datetime import datetime
+from html import escape
+from zoneinfo import ZoneInfo
 
 from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, Message
@@ -28,7 +30,10 @@ _LEGACY_BOOK_TO_RESPONSE = {
 def _format_start(value: object) -> str:
     raw = str(value or "")
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%d.%m.%Y в %H:%M")
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(ZoneInfo("Europe/Moscow"))
+        return parsed.strftime("%d.%m.%Y в %H:%M")
     except (TypeError, ValueError):
         return raw or "Время уточняется"
 
@@ -61,11 +66,11 @@ async def build_crm_evening_stats_text(evening_id: str) -> str | None:
         status = str(participant.get("response_status") or "")
         if status not in grouped:
             continue
-        nickname = str(participant.get("nickname") or "Игрок без профиля")
+        nickname = escape(str(participant.get("nickname") or "Игрок без профиля"))
         grouped[status].append(nickname)
 
     active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
-    title = str(evening.get("title") or "Игровой вечер")
+    title = escape(str(evening.get("title") or "Игровой вечер"))
     starts = _format_start(evening.get("starts_at"))
 
     sections = [f"📊 <b>{title}</b>\n🕗 {starts}\nИдут / думают: <b>{active_total}</b>"]

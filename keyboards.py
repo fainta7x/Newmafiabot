@@ -155,7 +155,7 @@ def judge_menu():
 def booking_kb():
     """Кнопки записи — вертикальные."""
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Вовремя (20:00)", callback_data="book_ontime")
+    builder.button(text="✅ Вовремя (21:00)", callback_data="book_ontime")
     builder.button(text="⏳ Позже", callback_data="book_late")
     builder.button(text="❌ Не смогу", callback_data="book_no")
     builder.adjust(1)

@@ -65,7 +65,8 @@ const dateKey = (date: Date) => [
 
 const addCivilDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
 
-const fridayStartsAt = (date: Date) => `${dateKey(date)}T20:00:00+03:00`;
+// Club evenings start at 21:00 after the novice evening (owner decision 2026-09-28).
+const fridayStartsAt = (date: Date) => `${dateKey(date)}T21:00:00+03:00`;
 const fridayEndsAt = (date: Date) => `${dateKey(addCivilDays(date, 1))}T02:00:00+03:00`;
 const titleForFriday = (date: Date) => `Игровой вечер — ${date.getUTCDate()} ${MONTHS_RU[date.getUTCMonth()]}`;
 

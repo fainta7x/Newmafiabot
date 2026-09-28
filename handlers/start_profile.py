@@ -186,7 +186,7 @@ async def start(m: Message, command: CommandObject):
 
     date = get_next_friday()
     await m.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 20:00",
+        f"🎭 Привет! Ближайшая игра {date} в 21:00",
         reply_markup=kb
     )
 
@@ -288,7 +288,7 @@ async def back_to_main_menu(message: Message):
 
     date = get_next_friday()
     await message.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 20:00",
+        f"🎭 Привет! Ближайшая игра {date} в 21:00",
         reply_markup=kb
     )
 
@@ -555,7 +555,7 @@ async def close_search(callback: CallbackQuery, state: FSMContext):
 
     date = get_next_friday()
     await callback.message.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 20:00",
+        f"🎭 Привет! Ближайшая игра {date} в 21:00",
         reply_markup=kb
     )
     await callback.answer()

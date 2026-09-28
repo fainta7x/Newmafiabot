@@ -321,7 +321,7 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
   try {
     const db = req.db;
     const player = await db.get<any>(
-      'SELECT id, nickname, tokens FROM players WHERE telegram_user_id = ? LIMIT 1',
+      "SELECT id, nickname, tokens, COALESCE(game_level, 'unrated') AS game_level FROM players WHERE telegram_user_id = ? LIMIT 1",
       [String(req.params.telegramUserId)],
     );
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
@@ -341,7 +341,12 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
     );
     return res.json({
       success: true,
-      player: { id: String(player.id), nickname: String(player.nickname || ''), tokens: Number(player.tokens || 0) },
+      player: {
+        id: String(player.id),
+        nickname: String(player.nickname || ''),
+        tokens: Number(player.tokens || 0),
+        game_level: String(player.game_level || 'unrated'),
+      },
       evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0) })),
     });
   } catch (error: any) {

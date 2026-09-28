@@ -23,7 +23,8 @@ describe('one-time plan for 2 October', () => {
   it('moves the club evening to 21:00 and opens a novice evening at 19:00, once', async () => {
     await clubFriday();
     const first = await runOneTimeEveningPlans(db!, new Date('2026-09-28T12:00:00Z'), { inTests: true });
-    expect(first).toEqual({ ran: true, actions: ['club_moved_to_21', 'novice_created'] });
+    // The general «club evenings at 21:00» plan moves the club evening first; the 2 October plan then only opens the novice evening.
+    expect(first).toEqual({ ran: true, actions: ['novice_created'] });
 
     const club = await db!.get<any>("SELECT starts_at FROM game_evenings WHERE id = 'club'");
     expect(new Date(club.starts_at).toISOString()).toBe('2026-10-02T18:00:00.000Z');
@@ -52,5 +53,27 @@ describe('one-time plan for 2 October', () => {
     expect(await runOneTimeEveningPlans(db!, new Date('2026-10-02T16:00:00Z'), { inTests: true })).toEqual({ ran: false, reason: 'too_late' });
     expect(await runOneTimeEveningPlans(db!, new Date('2026-09-29T10:00:00Z'), { inTests: true })).toEqual({ ran: true, actions: ['novice_opened'] });
     expect(Number((await db!.get<any>("SELECT COUNT(*) AS count FROM game_evenings WHERE format = 'NOVICE'")).count)).toBe(1);
+  });
+});
+
+describe('club evenings start at 21:00', () => {
+  it('moves upcoming club evenings from 20:00 to 21:00 once and leaves started ones alone', async () => {
+    const { moveUpcomingClubEveningsTo21 } = await import('../server/services/oneTimeEveningPlans.ts');
+    db = createDatabaseConnection(':memory:');
+    await createApp(db);
+    const now = new Date().toISOString();
+    for (const [id, startsAt] of [['future', '2026-10-09T20:00:00+03:00'], ['past', '2026-09-25T20:00:00+03:00'], ['late', '2026-10-16T21:00:00+03:00']]) {
+      await db.run(
+        `INSERT INTO game_evenings (id, title, starts_at, ends_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+         VALUES (?, 'Игровой вечер', ?, NULL, 'Europe/Moscow', 'Суп с Котом', 'CASUAL', 'published', 20, 100, ?, ?)`,
+        [id, startsAt, now, now],
+      );
+    }
+    expect(await moveUpcomingClubEveningsTo21(db, new Date('2026-09-28T12:00:00Z'), { inTests: true })).toEqual({ ran: true, moved: 1 });
+    const starts = await db.all<any>('SELECT id, starts_at FROM game_evenings ORDER BY id');
+    expect(Object.fromEntries(starts.map((row: any) => [row.id, new Date(row.starts_at).toISOString()]))).toEqual({
+      future: '2026-10-09T18:00:00.000Z', late: '2026-10-16T18:00:00.000Z', past: '2026-09-25T17:00:00.000Z',
+    });
+    expect(await moveUpcomingClubEveningsTo21(db, new Date('2026-09-28T12:00:00Z'), { inTests: true })).toEqual({ ran: false, moved: 0 });
   });
 });

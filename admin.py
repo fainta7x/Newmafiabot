@@ -401,7 +401,7 @@ async def admin_announce_evening(message: types.Message, bot: Bot):
     if not users: return await message.answer("База пуста.")
     date_str = get_next_friday()
     me = await bot.get_me()
-    text = f"📣 Анонс мафии!\nЖдем в пятницу {date_str} в 20:00.\nПридёшь?\n\n📋 Список: https://t.me/{me.username}?start=players"
+    text = f"📣 Анонс мафии!\nЖдем в пятницу {date_str} в 21:00.\nПридёшь?\n\n📋 Список: https://t.me/{me.username}?start=players"
     sent = 0
     for (u_id,) in users:
         try:

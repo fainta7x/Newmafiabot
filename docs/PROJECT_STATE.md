@@ -311,6 +311,8 @@ On 2026-09-25 an evening auto-cancelled for shortfall was recreated by the rolli
 
 On the first weekly automation run after deploy, `src/server/services/oneTimeEveningPlans.ts` moves the 2 October club evening from 20:00 to 21:00 (with its games) and opens a novice evening «Вечер для новичков» (rules 18:30, two games 19:00–21:00). It runs once (key `one-time:2026-10-02-novice-friday` in `club_weekly_automation_runs`), never after 18:00 Moscow on 2 October, and keeps anything the organizer already did by hand. Both evenings are announced by the weekly automation (Monday 19:00 Moscow, or at once if that time has passed). Remove the plan after 2 October.
 
+The same runner moves upcoming club evenings still at 20:00 to 21:00 once (key `one-time:club-evenings-start-21`); new club Fridays are created at 21:00 (owner decision 2026-09-28).
+
 ## Current queue (organizer flow, approved 2026-09-24)
 
 Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
@@ -431,11 +433,11 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - a separate alert for «Приду позже» or a cancellation in the last 3 hours before an evening;
      - an alert when a Telegram or VK announcement fails;
      - the evening digest on a schedule (morning and 3 hours before) instead of on every change.
-19. Bot home card built (2026-09-28): /start shows an inline card with nearest evenings (answer buttons, games, map), «Мои записи», frequent questions, learning, our groups and «Написать организатору». Next ideas for the bot, to agree: reminders on the evening day with «Всё в силе?», a result card after each game, «Пригласить друга» with a personal link.
+19. Bot home card built (2026-09-28), split by audience at the owner's request: newcomers get a short friendly menu (what the game is, novice evenings, frequent questions, write to the organizer); club players get the full menu (schedule, «Мои записи», «Составы», stats, rating, tokens and shop, learning, groups). Next ideas for the bot, to agree: reminders on the evening day with «Всё в силе?», a result card after each game, «Пригласить друга» with a personal link.
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner
-- Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), especially «Можно прийти с другом?» and «Как оплатить?», which were written from the rules without the owner's own wording.
+- Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.
 - Video links for the lessons; shop items and prices; texts of new articles and lessons (written only from the owner's explanations); split-vote trainers for other game stages (the owner explains how they work).
 - The cafe «Суп с Котом» is listed as open until 22:00, while club evenings end at 02:00 — confirm with the cafe.
 

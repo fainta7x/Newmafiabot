@@ -28,7 +28,7 @@ afterEach(() => {
 describe('weekly Friday evening automation', () => {
   it('cannot alternate creation and shortfall cancellation of the same Friday', async () => {
     const db = createDb();
-    const now = new Date('2026-08-28T16:10:00.000Z'); // Friday, 19:10 Moscow
+    const now = new Date('2026-08-28T17:10:00.000Z'); // Friday, 20:10 Moscow — under an hour before the 21:00 start
     await ensureRollingFridayCalendar(db, now);
     const evening = await db.get<any>("SELECT id FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
     expect(evening?.id).toBeTruthy();

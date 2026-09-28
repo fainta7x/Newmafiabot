@@ -1,5 +1,6 @@
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { randomUUID } from 'node:crypto';
+import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
 import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishingSchema.ts';
@@ -239,7 +240,7 @@ export async function runDueWeeklyAnnouncements(
     const startMs = new Date(String(evening.starts_at)).getTime();
     if (!Number.isFinite(startMs) || startMs <= nowMs) continue;
     // Monday 19:00 Moscow of the evening's week, whatever time the evening starts (a Friday moved to 21:00 too).
-    const dueMs = civilDate(new Date(startMs)).getTime() - 4 * DAY_MS + 16 * 60 * 60 * 1000;
+    const dueMs = weeklyAnnouncementDueMs(startMs);
     if (nowMs < dueMs) continue;
 
     const key = `weekly-announcement:${String(evening.id)}`;

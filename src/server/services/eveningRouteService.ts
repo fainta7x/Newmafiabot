@@ -4,6 +4,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
+import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 
 /**
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
@@ -118,14 +119,22 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const stageNow = currentRouteStage(evening, { total: games.length, unfinished: unfinishedGames }, now);
   const published = evening.status !== 'draft';
   const steps: Record<RouteStageId, RouteStep[]> = { prepare: [], gather: [], day: [], live: [], closeout: [], after: [] };
+  // Until the weekly announcement is due, «not sent» is the expected state, not a problem.
+  const announcementDueMs = weeklyAnnouncementDueMs(evening.starts_at);
+  const announcementPending = !telegramPosts && !vkPosts && now < announcementDueMs;
+  const postsDetail = telegramPosts || vkPosts
+    ? [telegramPosts ? 'Telegram ✓' : 'Telegram —', vkPosts ? 'ВК ✓' : 'ВК —'].join(' · ')
+    : announcementPending
+      ? `Ещё не отправлен. Уйдёт сам ${new Date(announcementDueMs).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
+      : 'Ещё не отправлен';
 
   steps.prepare.push(
     { id: 'created', title: 'Вечер создан', status: 'done' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
-      ? { id: 'publish', title: 'Вечер опубликован', status: 'done' }
-      : { id: 'publish', title: 'Опубликовать вечер', detail: 'Игроки увидят его и смогут записаться', status: 'todo', action: 'publish' },
-    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: [telegramPosts ? 'Telegram ✓' : 'Telegram —', vkPosts ? 'ВК ✓' : 'ВК —'].join(' · '), status: telegramPosts || vkPosts ? 'done' : published ? 'attention' : 'todo', target: 'overview' },
+      ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
+      : { id: 'publish', title: 'Открыть запись', detail: 'Игроки увидят вечер в календаре и смогут записаться. Анонсы в Telegram и ВК — отдельный шаг', status: 'todo', action: 'publish' },
+    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: postsDetail, status: telegramPosts || vkPosts ? 'done' : published && !announcementPending ? 'attention' : 'todo', target: 'overview' },
     { id: 'invites', title: 'Личные приглашения', detail: invitesSent ? `Отправлено: ${invitesSent}` : 'Ещё не отправлены', status: invitesSent ? 'done' : published ? 'attention' : 'todo', target: 'overview' },
   );
 

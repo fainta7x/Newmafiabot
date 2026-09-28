@@ -410,6 +410,15 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - a streak for coming to evenings.
    - To agree before building: which activities, what they give (tokens, achievements), and that nothing affects Elo or the game itself.
 
+15. «Новости бота» in the club Telegram group (user idea 2026-09-28).
+   - A topic in the main club group for release notes about new features, written for players.
+   - Each post can invite players to try an activity (a trainer, a quiz) for a reward.
+   - To agree before building: posted by the bot or by hand, how often, and which rewards (tokens, achievements).
+16. Tournaments of club players on gomafia (user idea 2026-09-28).
+   - Collect from gomafia.pro the federation tournaments that club players took part in or registered for.
+   - Post a call in the group to support them, and possibly show results on the player profile.
+   - To check before building: whether gomafia has an API or allows reading its pages, and how to match a gomafia profile to a club player (the player links it themselves).
+
 ## Intentionally incomplete / deferred
 
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.

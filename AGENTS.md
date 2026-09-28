@@ -60,6 +60,7 @@ Other docs should link to the owner instead of restating mutable facts.
 - If a branch head moves unexpectedly, stop and reconcile before writing again.
 - Never delegate implementation back to AI Studio when repository access is available.
 - Do not substitute prompt-writing for requested repository work.
+- Record every new idea, request or open question from the owner in `docs/PROJECT_STATE.md` (current queue or «Waiting on the owner») in the same session, even if it is not built now. Ideas that live only in chat get lost.
 
 ## 5. PR budget — hard rule
 

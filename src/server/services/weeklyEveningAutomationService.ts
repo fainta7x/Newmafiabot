@@ -1,6 +1,7 @@
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import { randomUUID } from 'node:crypto';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
+import { runOneTimeEveningPlans } from './oneTimeEveningPlans.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
 import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishingSchema.ts';
@@ -292,6 +293,11 @@ export async function reconcileWeeklyEveningAutomation(
   }
   const now = options.now || new Date();
   const calendar = await ensureRollingFridayCalendar(db, now);
+  try {
+    await runOneTimeEveningPlans(db, now);
+  } catch (error) {
+    console.error('[ONE-TIME PLAN] failed:', error instanceof Error ? error.message : String(error));
+  }
   const announcements = await runDueWeeklyAnnouncements(db, { ...options, now });
   return { success: announcements.every((item) => item.status !== 'error'), calendar, announcements };
 }

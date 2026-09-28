@@ -71,7 +71,7 @@ def _install_plan(monkeypatch, store):
             "desired_destination_ids": ["club"],
         }}
     monkeypatch.setattr(publishing, "get_evening_telegram_plan", plan)
-    monkeypatch.setattr(publishing, "thematic_event_text", lambda *args: "Анонс")
+    monkeypatch.setattr(publishing, "thematic_event_text", lambda *args, **kwargs: "Анонс")
 
 
 def test_parallel_runs_publish_one_post(monkeypatch):

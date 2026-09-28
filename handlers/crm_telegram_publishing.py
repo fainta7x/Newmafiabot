@@ -242,7 +242,7 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
         publication = publications.get(destination_id)
-        text = thematic_event_text(evening, slots, participants)
+        text = thematic_event_text(evening, slots, participants, signup_url=event_url)
 
         if publication:
             edit_status = await _edit_message_status(

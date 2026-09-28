@@ -3,7 +3,7 @@ import { noviceScheduleLine, noviceStartsAt } from '../lib/eveningFormat.ts';
 
 describe('novice evening schedule', () => {
   it('puts the briefing 30 minutes before the first game in Moscow time', () => {
-    expect(noviceScheduleLine('2026-09-25T16:00:00.000Z')).toBe('Брифинг для новичков — 18:30, первая игра — 19:00');
+    expect(noviceScheduleLine('2026-09-25T16:00:00.000Z')).toBe('Рассказываем правила — 18:30, первая игра — 19:00');
     expect(noviceScheduleLine('')).toBeNull();
   });
 

@@ -31,11 +31,11 @@ export const NOVICE_FIRST_GAME_TIME = '19:00';
 
 const moscowClock = (value: number) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
-/** «Брифинг для новичков — 18:30, первая игра — 19:00» for a novice evening's first game time. */
+/** «Рассказываем правила — 18:30, первая игра — 19:00» for a novice evening's first game time. */
 export const noviceScheduleLine = (firstGameAt: string | null | undefined): string | null => {
   const time = new Date(String(firstGameAt || '')).getTime();
   if (!Number.isFinite(time)) return null;
-  return `Брифинг для новичков — ${moscowClock(time - NOVICE_BRIEFING_LEAD_MINUTES * 60000)}, первая игра — ${moscowClock(time)}`;
+  return `Рассказываем правила — ${moscowClock(time - NOVICE_BRIEFING_LEAD_MINUTES * 60000)}, первая игра — ${moscowClock(time)}`;
 };
 
 // Novice evenings default to the first game at 19:00 (briefing 18:30); keep a chosen date, else take the coming Friday.
@@ -51,7 +51,7 @@ export const noviceStartsAt = (current: string, today = new Date()): string => {
 };
 
 export const EVENING_FORMAT_DESCRIPTIONS: Record<EveningFormat, string> = {
-  NOVICE: 'Школа мафии: брифинг за 30 минут до первой игры (обычно 18:30, игры с 19:00). Первые два посещения бесплатно, дальше 200 ₽ за игру. Elo не меняется.',
+  NOVICE: 'Школа мафии: за 30 минут до первой игры рассказываем правила (обычно 18:30, игры с 19:00). Первые два посещения бесплатно, дальше 200 ₽ за игру. Elo не меняется.',
   CASUAL: 'Обычный клубный вечер. Elo считается, но без акцента на жёсткий рейтинг.',
   RATING: 'Рейтинговые игры с баллами сезона. Записаться могут только турнирные игроки. Elo считается.',
   TOURNAMENT: 'Турнирный формат с максимальным спортивным акцентом. Elo считается.',

@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from html import escape
@@ -32,6 +33,48 @@ def _load_known_venues() -> dict:
 
 
 _KNOWN_VENUES = _load_known_venues()
+# The novice evening promo and the organizer contacts, shared with the web app (VK posts).
+_NOVICE_PROMO_FILE = _VENUES_FILE.parent / "novicePromo.json"
+
+
+def _load_novice_promo() -> dict:
+    try:
+        data = json.loads(_NOVICE_PROMO_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+_NOVICE_PROMO = _load_novice_promo()
+
+
+def novice_promo_html() -> str:
+    """The novice evening promo: headline, why the game hooks, and the first-time note."""
+    promo = _NOVICE_PROMO
+    if not promo.get("title"):
+        return ""
+    parts = [f"🎩 <b>{escape(str(promo['title']))}</b>"]
+    if promo.get("intro"):
+        parts.append(escape(str(promo["intro"])))
+    reasons = [escape(str(item)) for item in promo.get("reasons") or [] if str(item).strip()]
+    if reasons:
+        parts.append("\n".join([f"<b>{escape(str(promo.get('reasonsTitle') or ''))}</b>", *reasons]).strip())
+    if promo.get("firstTimeTitle"):
+        parts.append(f"<b>{escape(str(promo['firstTimeTitle']))}</b> {escape(str(promo.get('firstTimeText') or ''))}".strip())
+    return "\n\n".join(parts)
+
+
+def organizer_contacts_html() -> str:
+    """«✉️ Остались вопросы? Пишите: Telegram · VK» — only the contacts that are filled in."""
+    contacts = _NOVICE_PROMO.get("contacts") or {}
+    links = []
+    telegram = str(contacts.get("telegram") or "").strip().lstrip("@")
+    if re.fullmatch(r"[A-Za-z0-9_]{4,32}", telegram):
+        links.append(f'<a href="https://t.me/{escape(telegram)}">Telegram</a>')
+    vk = str(contacts.get("vk") or "").strip()
+    if vk.startswith("https://vk.com/") or vk.startswith("https://vk.me/"):
+        links.append(f'<a href="{escape(vk)}">VK</a>')
+    return f"✉️ Остались вопросы? Пишите: {' · '.join(links)}" if links else ""
 
 
 def venue_html(venue: object) -> str:
@@ -349,14 +392,27 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
     people = participants or []
     skip = _without_games(people)
 
+    novice = canonical_format == "NOVICE"
+    promo = novice_promo_html() if novice else ""
+    signup = ""
+    if novice and evening.get("id"):
+        from config import PLAYER_APP_URL
+
+        join_url = f"{PLAYER_APP_URL}/join/{quote(str(evening['id']))}"
+        signup = f'📲 <a href="{escape(join_url)}">Записаться в приложении</a> — там же видно, кто уже идёт.'
+    contacts = organizer_contacts_html() if novice else ""
+
     def compose(max_players: int, names: bool) -> str:
         sections = [
+            promo,
             f"{label} · <b>2LA Noire</b>",
             event_base_text(evening, slot_rows),
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),
             "\n".join(_arrival_lines(slot_rows, timezone_name, skip, max_players)),
             "\n".join(_response_lines(people, names=names)),
             "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
+            signup,
+            contacts,
         ]
         return "\n\n".join(section for section in sections if section)
 

@@ -10,6 +10,7 @@ import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails, venueLine } from '../../lib/venues.ts';
+import { novicePromoText, organizerContactLinks } from '../../lib/novicePromo.ts';
 
 type EveningRow = {
   id: string;
@@ -83,19 +84,32 @@ export const announcementPriceLine = (format: unknown, pricePerGame: number) => 
   return `💳 ${pricePerGame.toLocaleString('ru-RU')} ₽ за игру`;
 };
 
+/** The invite link of the Telegram novice chat, as set in the organizer's Telegram settings. */
+const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> => {
+  try {
+    const row = await db.get<{ invite_url: string | null }>("SELECT invite_url FROM telegram_destinations WHERE id = 'novice' AND active = 1");
+    const url = String(row?.invite_url || '').trim();
+    return url.startsWith('https://t.me/') ? url : null;
+  } catch {
+    return null;
+  }
+};
+
 export const buildDirectVkEveningAnnouncement = async (
   db: DatabaseWrapper,
   evening: EveningRow,
   baseUrl: string,
 ) => {
   const plan = await loadEveningSlotPlan(db, evening.id);
-  const lines = [`🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
+  const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
+  const promo = novice ? novicePromoText() : '';
+  const lines = [...(promo ? [promo, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) {
     lines.push(`📍 ${venueLine(evening.venue)}`);
     const map = venueDetails(evening.venue).mapUrl;
     if (map) lines.push(`🗺 Как добраться: ${map}`);
   }
-  const briefing = normalizeEveningFormat(plan.event.format) === 'NOVICE' ? noviceScheduleLine(evening.starts_at) : null;
+  const briefing = novice ? noviceScheduleLine(evening.starts_at) : null;
   if (briefing) lines.push(`🎓 ${briefing}`);
   lines.push(
     announcementPriceLine(plan.event.format, Number(plan.event.price_per_game || 0)),
@@ -106,6 +120,12 @@ export const buildDirectVkEveningAnnouncement = async (
     '👤 Открыть личный кабинет:',
     playerCabinetUrlForVk(baseUrl, '/player'),
   );
+  if (novice) {
+    const chat = await noviceChatInviteUrl(db);
+    if (chat) lines.push('', '💬 Чат для новичков в Telegram:', chat);
+    const contacts = organizerContactLinks();
+    if (contacts.length) lines.push('', '✉️ Остались вопросы? Пишите:', ...contacts.map((contact) => `${contact.label}: ${contact.url}`));
+  }
   return lines.join('\n');
 };
 

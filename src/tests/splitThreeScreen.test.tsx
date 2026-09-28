@@ -107,6 +107,7 @@ describe('three-way split trainer screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Пропустить' })); // nobody for 2 → the rest go to 3
     expect(screen.getByRole('status').textContent).toContain('Верно!');
     expect(screen.getByRole('status').textContent).toContain('все, кто ещё не голосовал, голосуют в 3: 456789');
+    expect(screen.getByRole('status').textContent).toContain('поэтому с ним никто не голосует');
 
     fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
     fireEvent.click(screen.getByRole('button', { name: '4' }));

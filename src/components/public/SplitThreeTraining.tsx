@@ -163,7 +163,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
             <p className="mt-2 leading-6 text-white/60">Пример: убит 10, выставлены 7, 2, 5, 9, 4, пилим 2, 9, 4. В 2 голосуют 249, в 9 — 135, в 4 — 678, в 7 и 5 — никто.</p>
             <p className="mt-3 font-semibold text-white">Сложный уровень: попил сломан</p>
-            <p className="mt-2 leading-6">Пилящиеся первыми ставят руки в первого пилящегося. Если кто-то из них руку не поставил — попил сломан: все, кто ещё не голосовал, голосуют в того, кто сломал. Кто уже поднял руку, переголосовать не может.</p>
+            <p className="mt-2 leading-6">Пилящиеся первыми ставят руки в первого пилящегося. Если кто-то из них руку не поставил — попил сломан: все, кто ещё не голосовал, голосуют в того, кто сломал. Сломавший хочет вывести не себя, а другого, поэтому с ним никто не голосует. Кто уже поднял руку, переголосовать не может.</p>
             <p className="mt-2 leading-6 text-white/60">Пример: пилим 1, 2, 3, и 3 не поставил руку в 1. 1 и 2 уже проголосовали в 1, все остальные голосуют в 3.</p>
             <p className="mt-3 font-semibold text-white">«Кого пилить» и экспертный уровень: два шерифа</p>
             <ul className="mt-2 list-disc space-y-2 pl-5 leading-6">{SPLIT_THREE_HARD_RULES.map((rule) => <li key={rule}>{rule}</li>)}</ul>
@@ -271,6 +271,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
               <p className="font-semibold text-white">{checked.right ? 'Верно!' : 'Неверно.'}</p>
               <p>{broken.breaker} сломал попил — все, кто ещё не голосовал, голосуют в {broken.breaker}: <strong className="text-white">{seatList(breakState.pool)}</strong>.</p>
+              <p className="text-white/70">Сломавший хочет вывести не себя, а другого, поэтому с ним никто не голосует.</p>
               {breakState.voted.length ? <p>{seatList(breakState.voted)} уже подняли руки за {breakState.first} — переголосовать не могут.</p> : null}
             </div>
           ) : null}

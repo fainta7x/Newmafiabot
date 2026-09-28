@@ -10,7 +10,14 @@
       "WebFetch",
       "WebSearch",
       "mcp__github",
-      "mcp__Claude_Code_Remote"
+      "mcp__Claude_Code_Remote",
+      "mcp__github__*",
+      "mcp__Claude_Code_Remote__*",
+      "mcp__Claude_Code_Remote__delete_trigger",
+      "mcp__Claude_Code_Remote__send_later",
+      "mcp__Claude_Code_Remote__subscribe_pr_activity",
+      "mcp__Claude_Code_Remote__unsubscribe_pr_activity",
+      "mcp__github__merge_pull_request"
     ],
     "deny": [
       "Bash(rm -rf *)",

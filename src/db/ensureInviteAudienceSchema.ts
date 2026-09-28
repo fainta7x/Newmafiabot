@@ -64,7 +64,7 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
   await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice
     AFTER INSERT ON players
-    WHEN NEW.source IN ('crm_manual', 'manual') AND NEW.game_level = 'club'
+    WHEN NEW.source IN ('crm_manual', 'manual', 'walk_in') AND NEW.game_level = 'club'
     BEGIN
       UPDATE players SET game_level = 'novice' WHERE id = NEW.id;
     END;

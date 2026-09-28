@@ -153,6 +153,7 @@ export async function addEveningWalkIn(
     else {
       playerId = randomUUID();
       await db.run(
+        // Starts as «Новичок» via trg_players_crm_manual_default_novice (ensureInviteAudienceSchema).
         `INSERT INTO players (id, nickname, lifecycle_status, contact_status, source, created_at, updated_at)
          VALUES (?, ?, 'normal', 'normal', 'walk_in', ?, ?)`,
         [playerId, nickname, now, now],

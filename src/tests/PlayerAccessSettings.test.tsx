@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlayerAccessSettings } from '../components/crm/PlayerAccessSettings.tsx';
+import { ClubOwnerContext } from '../components/crm/useClubOwner.ts';
 
 const player = {
   id: 'player-1',
@@ -102,5 +103,16 @@ describe('PlayerAccessSettings', () => {
 
     expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
     expect(within(screen.getByTestId('crm-player-access-summary')).getByText('Кабинет организатора')).toBeDefined();
+  });
+
+  it('hides the cabinet switch and the organizer role from organizers who are not the owner', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => response(player)));
+    render(<ClubOwnerContext.Provider value={false}><PlayerAccessSettings player={player} /></ClubOwnerContext.Provider>);
+    fireEvent.click(screen.getByTestId('crm-player-access-edit'));
+    expect(screen.getByTestId('crm-player-access-owner-only').textContent).toContain('только владелец');
+    expect(screen.queryByRole('button', { name: /кабинету организатора/ })).toBeNull();
+    const roleSelect = screen.getAllByRole('combobox')[2] as HTMLSelectElement;
+    const organizerOption = Array.from(roleSelect.options).find((option) => option.value === 'organizer');
+    expect(organizerOption?.disabled).toBe(true);
   });
 });

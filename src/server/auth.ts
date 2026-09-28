@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
 import { canHostEveningFormat } from '../lib/hostFormats.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
 dotenv.config();
 
@@ -281,6 +282,21 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
   req.delegatedOrganizerAccess = true;
   req.delegatedPlayerId = playerId;
   return true;
+}
+
+/**
+ * «Владелец» (owner decision 2026-09-28): the club owner's own player account or the root password session.
+ * Only the owner grants and removes club organizers, sees club money and deletes players.
+ */
+export function isClubOwner(req: AuthenticatedRequest): boolean {
+  if (req.userRole !== 'ORGANIZER' || req.delegatedOrganizerAccess) return false;
+  if (req.organizerPlayerId) return req.organizerPlayerId === PRIMARY_ORGANIZER_PLAYER_ID;
+  return Boolean(req.organizerActorId);
+}
+
+export function requireClubOwner(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (isClubOwner(req)) return next();
+  return res.status(403).json({ error: 'Это может сделать только владелец клуба', code: 'club_owner_required' });
 }
 
 export async function requireOrganizerAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {

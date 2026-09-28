@@ -7,6 +7,7 @@ import {
   type ClubOrganization, type GameLevel, type PlayerActivity,
 } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
+import { useClubOwner } from './useClubOwner.ts';
 
 type HostChoice = '' | 'yes' | 'no';
 
@@ -42,6 +43,8 @@ const Select = <T extends string>({ label, value, onChange, options }: {
  * and whether they host games — for many at once. The organizer cabinet access is not here on purpose — it stays a per-player action.
  */
 export function PlayerAccessBulkCRM() {
+  // Only the owner gives «Организатор клуба» (it opens the cabinet).
+  const clubOwner = useClubOwner();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -108,7 +111,7 @@ export function PlayerAccessBulkCRM() {
         ...(hostAdd.length ? { host_formats_add: hostAdd } : {}),
         ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
       });
-      setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
+      setMessage(`Сохранено. Изменено игроков: ${body.updated}.${body.warnings?.length ? ` ${body.warnings.join(' ')}` : ''}`);
       setSelected(new Set());
       setGameLevel('');
       setActivity('');
@@ -180,7 +183,7 @@ export function PlayerAccessBulkCRM() {
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Select label="Уровень игры" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
             <Select label="Как часто ходит" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
-            <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={CLUB_ORGANIZATION} />
+            <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.filter((item) => item.value !== 'organizer') : CLUB_ORGANIZATION} />
           </div>
           <div className="mt-1">
             <span className="mb-1 block text-[11px] font-semibold text-white/70">Может вести</span>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ClubOwnerContext } from './crm/useClubOwner.ts';
 import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
 import { api, type GameEvening } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
@@ -62,6 +63,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   const {
     isOrganizer,
+    isClubOwner,
     showLoginModal,
     setShowLoginModal,
     loginError,
@@ -253,6 +255,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   } satisfies Record<OrganizerPrimaryTab, { icon: React.ComponentType<{ className?: string }> }>;
 
   return (
+    <ClubOwnerContext.Provider value={isClubOwner}>
     <div className="crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
       <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
@@ -446,6 +449,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
         onSelectTheme={setCurrentTheme}
       />
     </div>
+    </ClubOwnerContext.Provider>
   );
 };
 

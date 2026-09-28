@@ -13,7 +13,7 @@ export const CLUB_ROLES: Array<{ value: ClubRole; label: string; hint: string }>
   { value: 'guest', label: 'Ходит иногда', hint: 'Играет время от времени или из другого клуба' },
   { value: 'member', label: 'Ходит постоянно', hint: 'Постоянный игрок клуба' },
   { value: 'team', label: 'Помогает клубу', hint: 'Команда клуба: помогает проводить вечера' },
-  { value: 'organizer', label: 'Организатор', hint: 'Можно назначить организатором вечера или турнира' },
+  { value: 'organizer', label: 'Организатор клуба', hint: 'Сразу получает кабинет организатора · назначает только владелец' },
 ];
 
 export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: string }> = [
@@ -49,7 +49,7 @@ export const CLUB_MEMBERSHIPS: Array<{ value: ClubMembership; label: string; hin
 export const CLUB_ORGANIZATION: Array<{ value: ClubOrganization; label: string; hint: string }> = [
   { value: 'none', label: 'Просто игрок', hint: 'Обычный игрок клуба' },
   { value: 'team', label: 'Помогает клубу', hint: 'Команда клуба: помогает проводить вечера' },
-  { value: 'organizer', label: 'Организатор', hint: 'Можно назначить организатором вечера или турнира · кабинет не открывает' },
+  { value: 'organizer', label: 'Организатор клуба', hint: 'Сразу получает кабинет организатора · назначает только владелец' },
 ];
 
 /*

@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDb } from '../../db/index.ts';
-import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, isClubOwner, requireClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { HOST_FORMATS, legacyJudgeLevelFor, normalizeHostFormats } from '../../lib/hostFormats.ts';
 import {
   hasOrganizerPlayerAccess,
   LastOrganizerAccessError,
+  PrimaryOrganizerAccessError,
   setOrganizerPlayerAccess,
 } from '../services/organizerPlayerAccessService.ts';
 
@@ -64,9 +65,20 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     const parsed = classificationSchema.parse(req.body);
     const db = req.db || (await getDb());
     const playerId = String(req.params.id);
-    const current = await db.get<any>('SELECT id, source FROM players WHERE id = ? LIMIT 1', [playerId]);
+    const current = await db.get<any>('SELECT id, source, club_role FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!current || String(current.source || '') === MIGRATED_GUEST_SOURCE) {
       return res.status(404).json({ error: 'Игрок не найден' });
+    }
+
+    // «Организатор клуба» opens the cabinet, so only the owner gives or takes this role.
+    const wasOrganizer = String(current.club_role || '') === 'organizer';
+    const willBeOrganizer = parsed.club_role === undefined ? wasOrganizer : parsed.club_role === 'organizer';
+    if (wasOrganizer !== willBeOrganizer) {
+      if (!isClubOwner(req as AuthenticatedRequest)) {
+        return res.status(403).json({ error: 'Назначить или снять организатора клуба может только владелец', code: 'club_owner_required' });
+      }
+      const actorId = getAuthenticatedOrganizerActorId(req as AuthenticatedRequest) || 'organizer:unknown-session';
+      await setOrganizerPlayerAccess(db, { playerId, enabled: willBeOrganizer, actorId });
     }
 
     const stored: Record<string, string | null> = {};
@@ -108,11 +120,14 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     if (error?.name === 'ZodError') {
       return res.status(400).json({ error: 'Validation error', details: error.errors || error.message });
     }
+    if (error instanceof LastOrganizerAccessError || error instanceof PrimaryOrganizerAccessError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
     return res.status(500).json({ error: 'Не удалось сохранить игровой статус', message: error?.message || String(error) });
   }
 });
 
-router.patch('/:id/organizer-access', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/:id/organizer-access', requireOrganizerAuth, requireClubOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { enabled } = organizerAccessSchema.parse(req.body);
     const db = req.db || (await getDb());

@@ -129,12 +129,12 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
 
         <section className={card}>
           <div className="flex items-center gap-2"><CircleDollarSign className="h-4 w-4 text-success" /><h3 className="text-[14px] font-black">Финансы за период</h3></div>
-          <div className="mt-3 space-y-2 text-[11px]">
+          {!data.financials ? <p className="mt-3 rounded-[11px] bg-surface-2 p-3 text-[11px] leading-4 text-text-secondary" data-testid="crm-finance-owner-only">Деньги клуба видит только владелец.</p> : <div className="mt-3 space-y-2 text-[11px]">
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Начислено</span><strong>{formatMoney(data.financials.accrued)}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-success-soft p-3"><span className="text-text-secondary">Оплачено</span><strong className="text-success">{formatMoney(data.financials.incomePaid)}</strong></div>
             <div className={`flex justify-between rounded-[11px] p-3 ${data.financials.outstandingDebt ? 'bg-danger-soft' : 'bg-surface-2'}`}><span className="text-text-secondary">Открытые долги</span><strong className={data.financials.outstandingDebt ? 'text-danger' : ''}>{formatMoney(data.financials.outstandingDebt)}</strong></div>
             <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Средний доход / вечер</span><strong>{formatMoney(data.financials.avgRevenuePerEvening)}</strong></div>
-          </div>
+          </div>}
         </section>
       </div>
 

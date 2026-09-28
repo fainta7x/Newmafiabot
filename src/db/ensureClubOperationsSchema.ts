@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
-import { PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
+import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
 
 const ensuredDatabases = new WeakSet<object>();
 export const CRM_PAY_003_HISTORICAL_MIGRATION = 'crm_pay_003_historical_casual_pricing_v1';
@@ -543,12 +543,45 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   await ensureCanonicalRegularTablePricing(db, now);
   await clearRegularPlannedCharges(db, now);
 
-  // Canonical current club roles requested by the organizer. Access to the CRM itself
-  // remains a separate entitlement in organizer_player_access.
+  // The club owner is always «Организатор клуба». Nobody else gets the role automatically
+  // (owner decision 2026-09-28): only the owner gives it, and it opens the cabinet.
   await db.run(
     `UPDATE players
         SET club_role = 'organizer', updated_at = ?
-      WHERE id = ? OR lower(trim(nickname)) IN ('матроскина', 'гриня')`,
+      WHERE id = ?`,
+    [now, PRIMARY_ORGANIZER_PLAYER_ID],
+  );
+  // One-time: «Матроскина» and «Гриня» were made organizers by nickname; they are ordinary players now.
+  await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const nicknameOrganizers = await db.get<{ id: string }>('SELECT id FROM app_data_migrations WHERE id = ?', ['2026-09-nickname-organizers-to-players']);
+  if (!nicknameOrganizers) {
+    const hasAccessTable = await db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'organizer_player_access'");
+    await db.run(
+      `UPDATE players
+          SET club_role = 'member', updated_at = ?
+        WHERE trim(nickname) IN ('Матроскина', 'матроскина', 'МАТРОСКИНА', 'Гриня', 'гриня', 'ГРИНЯ') -- SQLite lower() is ASCII-only
+          AND id <> ?
+          AND club_role = 'organizer'
+          ${hasAccessTable ? 'AND id NOT IN (SELECT player_id FROM organizer_player_access)' : ''}`,
+      [now, PRIMARY_ORGANIZER_PLAYER_ID],
+    );
+    await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', ['2026-09-nickname-organizers-to-players', now]);
+  }
+
+  // «Организатор клуба» and the cabinet are one setting: the cabinet is the source of truth.
+  // Earlier releases managed them separately, so bring every existing row in step on each start.
+  await ensureOrganizerPlayerAccessSchema(db);
+  await db.run(
+    `UPDATE players SET club_role = 'organizer', updated_at = ?
+      WHERE COALESCE(club_role, 'member') <> 'organizer'
+        AND id IN (SELECT player_id FROM organizer_player_access)`,
+    [now],
+  );
+  await db.run(
+    `UPDATE players SET club_role = 'member', updated_at = ?
+      WHERE club_role = 'organizer'
+        AND id <> ?
+        AND id NOT IN (SELECT player_id FROM organizer_player_access)`,
     [now, PRIMARY_ORGANIZER_PLAYER_ID],
   );
 

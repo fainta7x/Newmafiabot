@@ -66,7 +66,7 @@ describe('CRM player access profile', () => {
     expect(persisted.game_level).toBe('unrated');
   });
 
-  it('manages CRM authorization separately, audits changes, and protects the last access', async () => {
+  it('keeps the organizer role and the cabinet in step, audits changes, and protects the last access', async () => {
     await insertPlayer('admin-one');
     await insertPlayer('admin-two');
 
@@ -89,8 +89,9 @@ describe('CRM player access profile', () => {
     expect(lastAdmin.status).toBe(409);
     expect(lastAdmin.body.code).toBe('last_organizer_access');
 
+    // «Организатор клуба» and the cabinet are one setting: closing the cabinet ends the organizer role.
     const row = await db.get<any>('SELECT club_role FROM players WHERE id = ?', ['admin-two']);
-    expect(row.club_role).toBe('organizer');
+    expect(row.club_role).toBe('member');
     const audit = await db.all<any>('SELECT action, player_id, actor_id FROM organizer_player_access_audit ORDER BY occurred_at ASC');
     expect(audit.map((item) => [item.action, item.player_id])).toEqual([
       ['grant', 'admin-one'],
@@ -288,5 +289,55 @@ describe('CRM player access profile', () => {
       { id: 'gone', club_role: 'member', contact_status: 'normal', pause_reason: null },
       { id: 'paused-by-hand', club_role: 'member', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
     ]);
+  });
+
+  it('lets only the club owner give or take the organizer role, delete players and see club money', async () => {
+    await insertPlayer('club-admin');
+    await insertPlayer('target');
+    // The owner (root session) makes «club-admin» an organizer through the role: the cabinet follows.
+    const promote = await request(app).patch('/api/players/club-admin').set('Cookie', organizerCookie()).send({ club_role: 'organizer' });
+    expect(promote.status, JSON.stringify(promote.body)).toBe(200);
+    expect(promote.body.organizer_player_access).toBe(true);
+
+    const adminCookie = `organizer_token=${generateOrganizerToken('club-admin')}`;
+    const me = await request(app).get('/api/auth/me').set('Cookie', adminCookie);
+    expect(me.body).toMatchObject({ isOrganizer: true, isClubOwner: false });
+
+    const grant = await request(app).patch('/api/players/target/organizer-access').set('Cookie', adminCookie).send({ enabled: true });
+    expect(grant.status).toBe(403);
+    const role = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ club_role: 'organizer' });
+    expect(role.status).toBe(403);
+    const bulk = await request(app).post('/api/players/access/bulk').set('Cookie', adminCookie).send({ player_ids: ['target'], organization: 'organizer' });
+    expect(bulk.status).toBe(403);
+    const remove = await request(app).delete('/api/players/target').set('Cookie', adminCookie);
+    expect(remove.status).toBe(403);
+    const block = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'blocked' });
+    expect(block.status).toBe(403);
+    const pause = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'paused' });
+    expect(pause.status, JSON.stringify(pause.body)).toBe(200);
+    await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'normal' });
+    expect(await db.get<any>("SELECT club_role, contact_status FROM players WHERE id='target'")).toEqual({ club_role: 'member', contact_status: 'normal' });
+
+    // Everything else in the cabinet still works for a club organizer.
+    const level = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ game_level: 'club' });
+    expect(level.status, JSON.stringify(level.body)).toBe(200);
+
+    const analyticsAdmin = await request(app).get('/api/analytics').set('Cookie', adminCookie);
+    expect(analyticsAdmin.status).toBe(200);
+    expect(analyticsAdmin.body.financials).toBeNull();
+    const analyticsOwner = await request(app).get('/api/analytics').set('Cookie', organizerCookie());
+    expect(analyticsOwner.body.financials).toMatchObject({ incomePaid: expect.any(Number) });
+
+    // The last cabinet holder keeps it: the role comes back and the owner sees why.
+    const keepLast = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send({ player_ids: ['club-admin'], organization: 'none' });
+    expect(keepLast.body.warnings?.[0]).toContain('последнему');
+    expect(await db.get<any>("SELECT club_role FROM players WHERE id='club-admin'")).toEqual({ club_role: 'organizer' });
+
+    // With another organizer the owner can take the role away in bulk; the cabinet closes with it.
+    expect((await request(app).patch('/api/players/target/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
+    const demote = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send({ player_ids: ['club-admin'], organization: 'none' });
+    expect(demote.status, JSON.stringify(demote.body)).toBe(200);
+    const after = await request(app).get('/api/players/club-admin').set('Cookie', organizerCookie());
+    expect(after.body.organizer_player_access).toBe(false);
   });
 });

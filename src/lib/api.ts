@@ -372,6 +372,7 @@ export interface AnalyticsData {
   cancellationRate: number;
   noShowRate: number;
   avgAttendance: string | number;
+  /** Null unless the viewer is the club owner. */
   financials: {
     accrued: number;
     incomePaid: number;
@@ -379,7 +380,7 @@ export interface AnalyticsData {
     refunds: number;
     expenses: number;
     avgRevenuePerEvening: number;
-  };
+  } | null;
   sourceBreakdown: Record<string, number>;
 }
 
@@ -705,7 +706,7 @@ export const api = {
     }
     return res;
   },
-  getMe: () => request<{ role: string; isOrganizer: boolean }>('/api/auth/me'),
+  getMe: () => request<{ role: string; isOrganizer: boolean; isClubOwner?: boolean }>('/api/auth/me'),
   logout: async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('organizer_token');
@@ -813,7 +814,7 @@ export const api = {
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   bulkUpdatePlayerAccess: (data: { player_ids: string[]; game_level?: string; activity?: string; organization?: string; host_formats_add?: string[]; host_formats_remove?: string[] }) =>
-    request<{ success: boolean; updated: number }>('/api/players/access/bulk', { method: 'POST', body: JSON.stringify(data) }),
+    request<{ success: boolean; updated: number; warnings?: string[] }>('/api/players/access/bulk', { method: 'POST', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
   getPlayerAvatar: (playerId: string) => request<{
     data_url: string;

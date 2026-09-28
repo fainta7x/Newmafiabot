@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -183,6 +184,38 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     res.json(filtered);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+const bulkAccessSchema = z.object({
+  player_ids: z.array(z.string().min(1)).min(1).max(500),
+  game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(),
+  club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(),
+  judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
+}).refine((data) => data.game_level || data.club_role || data.judge_level, { message: 'Выберите, что поменять' });
+
+// POST /api/players/access/bulk - set level, club role and judge level for many players at once.
+// Access to the organizer cabinet is never changed here; it stays a deliberate per-player action.
+router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
+  try {
+    const data = bulkAccessSchema.parse(req.body);
+    const db = req.db || (await getDb());
+    const fields = (['game_level', 'club_role', 'judge_level'] as const).filter((key) => data[key] !== undefined);
+    const ids = Array.from(new Set(data.player_ids));
+    const now = new Date().toISOString();
+    let updated = 0;
+    await db.transaction(async (tx) => {
+      for (const id of ids) {
+        const result = await tx.run(
+          `UPDATE players SET ${fields.map((key) => `${key} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated'`,
+          [...fields.map((key) => data[key]), now, id],
+        );
+        updated += Number(result.changes || 0);
+      }
+    });
+    return res.json({ success: true, updated, fields });
+  } catch (err: any) {
+    return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
   }
 });
 

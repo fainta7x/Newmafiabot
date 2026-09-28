@@ -221,4 +221,34 @@ describe('CRM player access profile', () => {
     const response = await request(app).patch('/api/players/guest-placeholder').set('Cookie', organizerCookie()).send({ game_level: 'club' });
     expect(response.status).toBe(404);
   });
+
+  it('sets level, club role and judge level for many players at once without touching cabinet access', async () => {
+    await insertPlayer('bulk-a');
+    await insertPlayer('bulk-b');
+    await insertPlayer('bulk-c');
+    await insertPlayer('bulk-guest', 'Гость', 'legacy_guest_migrated');
+
+    const unauthorized = await request(app).post('/api/players/access/bulk').send({ player_ids: ['bulk-a'], game_level: 'club' });
+    expect(unauthorized.status).toBe(401);
+    const nothing = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send({ player_ids: ['bulk-a'] });
+    expect(nothing.status).toBe(400);
+    const invalid = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send({ player_ids: ['bulk-a'], game_level: 'legend' });
+    expect(invalid.status).toBe(400);
+
+    const response = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
+      .send({ player_ids: ['bulk-a', 'bulk-b', 'bulk-a', 'bulk-guest', 'missing'], game_level: 'club', club_role: 'organizer' });
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.updated).toBe(2);
+
+    const rows = await db.all<any>("SELECT id, game_level, club_role, judge_level FROM players WHERE id LIKE 'bulk-%' ORDER BY id");
+    expect(rows).toEqual([
+      { id: 'bulk-a', game_level: 'club', club_role: 'organizer', judge_level: 'none' },
+      { id: 'bulk-b', game_level: 'club', club_role: 'organizer', judge_level: 'none' },
+      { id: 'bulk-c', game_level: 'unrated', club_role: 'member', judge_level: 'none' },
+      { id: 'bulk-guest', game_level: 'unrated', club_role: 'member', judge_level: 'none' },
+    ]);
+    const card = await request(app).get('/api/players/bulk-a').set('Cookie', organizerCookie());
+    expect(card.status, JSON.stringify(card.body)).toBe(200);
+    expect(card.body.organizer_player_access).toBe(false);
+  });
 });

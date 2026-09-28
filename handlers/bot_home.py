@@ -35,32 +35,32 @@ _WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 
 # Frequent questions: (key, button, answer). Friendly, for newcomers; facts follow docs/BUSINESS_RULES.md.
 FAQ: tuple[tuple[str, str, str], ...] = (
-    ("signup", "📝 Как записаться?",
-     "Проще простого 🙂 Загляни в «📅 Ближайшие вечера», выбери подходящий вечер и нажми «✅ Буду» — всё, ты в списке!\n\n"
+    ("signup", "📝 Как записаться",
+     "Проще простого 🙂 Открой в меню список вечеров, выбери подходящий вечер и нажми «✅ Буду» — всё, ты в списке!\n\n"
      "Сможешь только на часть вечера? Нажми «🎯 Выбрать игры» и отметь нужные. "
      "А если планы поменяются, просто нажми «❌ Не буду» — так место достанется кому-то ещё."),
-    ("price", "💳 Сколько стоит?",
+    ("price", "💳 Сколько стоит",
      "На клубном вечере одна игра стоит 100 ₽, но за весь вечер ты заплатишь не больше 400 ₽ — сколько бы ни сыграл.\n\n"
      "Если ты новичок, первые два вечера для тебя бесплатные 🎁 Дальше — 200 ₽ за игру.\n\n"
      "Считать самому ничего не нужно: приложение всё посчитает за тебя."),
-    ("place", "📍 Где и во сколько?",
+    ("place", "📍 Где и когда",
      "Мы собираемся в «Суп с Котом» — Пушкинский проезд, 4А.\n\n"
      "Клубные вечера начинаются в 21:00. Вечер для новичков — раньше: в 18:30 спокойно рассказываем правила, "
      "а с 19:00 уже играем.\n\n"
-     "Точное время всегда есть в карточке вечера — загляни в «📅 Ближайшие вечера»."),
-    ("novice", "🌱 Я новичок, что нужно?",
+     "Точное время всегда есть в карточке вечера в меню."),
+    ("novice", "🌱 Я новичок",
      "Только ты сам, хорошее настроение и никнейм 🙂 Придумай заранее, как тебя будут звать за столом — "
      "так к тебе будут обращаться всю игру.\n\n"
      "Опыт не нужен — мы всё объясним с нуля, а за столом будут такие же новички, как ты.\n\n"
      "Хочешь подготовиться? Загляни в правила ниже и посмотри, как играют сильные игроки на канале «Мафия с Левшой»."),
-    ("friend", "👥 Можно прийти с другом?",
+    ("friend", "👥 С другом",
      "Конечно, с другом даже веселее! Попроси его тоже записаться через бота — "
      "так мы будем знать, сколько столов подготовить."),
-    ("pay", "💰 Как оплатить?",
+    ("pay", "💰 Как оплатить",
      "Оплатить можно прямо на вечере — организатору. На вечере для новичков, когда бесплатные вечера "
      "уже закончились, оплату нужно передать до первой игры — без неё игру не начнём.\n\n"
      "Сколько с тебя, всегда видно в приложении, в разделе «Оплата»."),
-    ("tokens", "🪙 Что такое жетоны?",
+    ("tokens", "🪙 Жетоны",
      "Жетоны — это наша клубная валюта, и копятся они сами 🪙 Приходишь на вечер — получаешь жетоны. "
      "А если записался заранее и пришёл вовремя, их будет больше.\n\n"
      "Потратить их можно в магазине в приложении."),
@@ -71,10 +71,22 @@ FAQ: tuple[tuple[str, str, str], ...] = (
 GAME_EXAMPLE_URL = "https://www.youtube.com/@lebwamafia"  # «Мафия с Левшой»: how classic mafia is played
 
 _FAQ_BY_KEY = {key: (button, answer) for key, button, answer in FAQ}
+# The full question heads the answer; the buttons stay short so they fit two per row.
+_FAQ_TITLES = {
+    "signup": "📝 Как записаться?", "price": "💳 Сколько стоит?", "place": "📍 Где и во сколько?",
+    "novice": "🌱 Я новичок, что нужно?", "friend": "👥 Можно прийти с другом?", "pay": "💰 Как оплатить?",
+    "tokens": "🪙 Что такое жетоны?", "cancel": "🙅 Не могу прийти",
+}
 
 
 def _back(target: str = "home", text: str = "⬅️ Назад") -> list[InlineKeyboardButton]:
     return [InlineKeyboardButton(text=text, callback_data=f"home:{target}")]
+
+
+def _pairs(buttons: list[InlineKeyboardButton | None]) -> list[list[InlineKeyboardButton]]:
+    """Two buttons per row: a short menu instead of a wall of full-width buttons."""
+    present = [button for button in buttons if button]
+    return [present[index:index + 2] for index in range(0, len(present), 2)]
 
 
 def _app_button(text: str, path: str) -> InlineKeyboardButton | None:
@@ -112,13 +124,10 @@ def newcomer_home(first_name: str | None, evenings: list[dict]) -> tuple[str, In
         "С чего начнём? 👇"
     )
     rows = [
-        [InlineKeyboardButton(text="🎭 Что это за игра?", callback_data="home:game")],
         [InlineKeyboardButton(text="📅 Записаться на вечер", callback_data="home:events")],
-        [InlineKeyboardButton(text="❓ Частые вопросы", callback_data="home:faq")],
+        [InlineKeyboardButton(text="🎭 Что за игра?", callback_data="home:game"),
+         InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq")],
     ]
-    contact = club_links().get("organizer_telegram")
-    if contact:
-        rows.append([InlineKeyboardButton(text="✉️ Написать организатору", url=contact)])
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -142,22 +151,28 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
         InlineKeyboardButton(text="📅 Расписание", callback_data="home:events"),
         InlineKeyboardButton(text="👤 Мои записи", callback_data="home:mine"),
     ])
-    rows.append([InlineKeyboardButton(text="👥 Составы", callback_data="home:lineups")])
-    for pair in ((("📊 Моя статистика", "/player/games"), ("🏆 Рейтинг", "/player/rating")),
-                 (("🪙 Жетоны и магазин", "/player/wallet"), ("🎭 Клуб", "/player/club"))):
-        row = [button for button in (_app_button(text, path) for text, path in pair) if button]
-        if row:
-            rows.append(row)
     rows.append([
+        InlineKeyboardButton(text="👥 Составы", callback_data="home:lineups"),
+        InlineKeyboardButton(text="☰ Ещё", callback_data="home:more"),
+    ])
+    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def more_view() -> tuple[str, InlineKeyboardMarkup]:
+    """Everything a club player needs less often, one tap away from the home card."""
+    contact = club_links().get("organizer_telegram")
+    rows = _pairs([
+        _app_button("📊 Статистика", "/player/games"),
+        _app_button("🏆 Рейтинг", "/player/rating"),
+        _app_button("🪙 Жетоны и магазин", "/player/wallet"),
         InlineKeyboardButton(text="📚 Обучение", callback_data="home:learn"),
         InlineKeyboardButton(text="💬 Группы", callback_data="home:groups"),
+        InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq"),
     ])
-    last = [InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq")]
-    contact = club_links().get("organizer_telegram")
     if contact:
-        last.append(InlineKeyboardButton(text="✉️ Организатору", url=contact))
-    rows.append(last)
-    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+        rows.append([InlineKeyboardButton(text="✉️ Написать организатору", url=contact)])
+    rows.append(_back())
+    return "☰ <b>Ещё</b>\n\nСтатистика, рейтинг, жетоны, обучение и наши группы 👇", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def game_view() -> tuple[str, InlineKeyboardMarkup]:
@@ -170,11 +185,10 @@ def game_view() -> tuple[str, InlineKeyboardMarkup]:
         "Мирные побеждают, когда вычислят всю мафию. Мафия — когда её станет столько же, сколько мирных.\n\n"
         "Звучит сложно? На деле уже после первой игры всё понятно — судья ведёт игру и всё подсказывает 🙂"
     )
-    rows = []
-    rules = _app_button("📖 Правила простыми словами", "/guide")
-    if rules:
-        rows.append([rules])
-    rows.append([InlineKeyboardButton(text="🎬 Как это выглядит — «Мафия с Левшой»", url=GAME_EXAMPLE_URL)])
+    rows = _pairs([
+        _app_button("📖 Правила", "/guide"),
+        InlineKeyboardButton(text="🎬 Как играют", url=GAME_EXAMPLE_URL),
+    ])
     rows.append([InlineKeyboardButton(text="📅 Записаться на вечер", callback_data="home:events")])
     rows.append(_back())
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
@@ -236,12 +250,11 @@ def evening_view(evening: dict) -> tuple[str, InlineKeyboardMarkup]:
         [InlineKeyboardButton(text="🤔 Пока думаю", callback_data=f"evr:{evening_id}:thinking"),
          InlineKeyboardButton(text="❌ Не буду", callback_data=f"evr:{evening_id}:declined")],
     ]
-    games = _app_button("🎯 Выбрать игры", bot_menu.event_app_path(evening_id))
-    if games:
-        rows.append([games])
     map_url = venue_map_url(evening.get("venue"))
-    if map_url:
-        rows.append([InlineKeyboardButton(text="🗺 Как добраться", url=map_url)])
+    rows += _pairs([
+        _app_button("🎯 Выбрать игры", bot_menu.event_app_path(evening_id)),
+        InlineKeyboardButton(text="🗺 Как добраться", url=map_url) if map_url else None,
+    ])
     rows.append(_back("events", "⬅️ К списку вечеров"))
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -282,37 +295,38 @@ def lineups_view(evenings: list[dict]) -> tuple[str, InlineKeyboardMarkup]:
 
 
 def faq_view() -> tuple[str, InlineKeyboardMarkup]:
-    rows = [[InlineKeyboardButton(text=button, callback_data=f"home:faq:{key}")] for key, button, _ in FAQ]
+    rows = _pairs([InlineKeyboardButton(text=button, callback_data=f"home:faq:{key}") for key, button, _ in FAQ])
+    contact = club_links().get("organizer_telegram")
+    if contact:
+        rows.append([InlineKeyboardButton(text="✉️ Написать организатору", url=contact)])
     rows.append(_back())
     return "❓ <b>Частые вопросы</b>\n\nВыбери вопрос 👇", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def faq_answer_view(key: str) -> tuple[str, InlineKeyboardMarkup]:
-    button, answer = _FAQ_BY_KEY.get(key, ("❓ Вопрос", "Ответ не найден."))
+    _, answer = _FAQ_BY_KEY.get(key, ("❓ Вопрос", "Ответ не найден."))
+    title = _FAQ_TITLES.get(key, "❓ Вопрос")
     rows = []
     map_url = venue_map_url(None) if key == "place" else None
     if map_url:
         rows.append([InlineKeyboardButton(text="🗺 Как добраться", url=map_url)])
     if key == "novice":
-        rules = _app_button("📖 Правила игры", "/guide?tab=reference")
-        if rules:
-            rows.append([rules])
-        rows.append([InlineKeyboardButton(text="🎬 Пример игры — «Мафия с Левшой»", url=GAME_EXAMPLE_URL)])
-    contact = club_links().get("organizer_telegram")
-    if contact:
-        rows.append([InlineKeyboardButton(text="✉️ Остались вопросы? Написать", url=contact)])
+        rows += _pairs([
+            _app_button("📖 Правила игры", "/guide?tab=reference"),
+            InlineKeyboardButton(text="🎬 Пример игры", url=GAME_EXAMPLE_URL),
+        ])
     rows.append(_back("faq", "⬅️ К вопросам"))
-    return f"<b>{escape(button)}</b>\n\n{escape(answer)}", InlineKeyboardMarkup(inline_keyboard=rows)
+    return f"<b>{escape(title)}</b>\n\n{escape(answer)}", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def learn_view() -> tuple[str, InlineKeyboardMarkup]:
-    rows = []
-    for text, path in (("🎓 Школа мафии", "/guide"), ("🧠 Тренажёры", "/guide?tab=trainers"), ("📖 Словарь и правила", "/guide?tab=reference")):
-        button = _app_button(text, path)
-        if button:
-            rows.append([button])
-    rows.append([InlineKeyboardButton(text="🎬 Пример игры — «Мафия с Левшой»", url=GAME_EXAMPLE_URL)])
-    rows.append(_back())
+    rows = _pairs([
+        _app_button("🎓 Школа мафии", "/guide"),
+        _app_button("🧠 Тренажёры", "/guide?tab=trainers"),
+        _app_button("📖 Правила", "/guide?tab=reference"),
+        InlineKeyboardButton(text="🎬 Пример игры", url=GAME_EXAMPLE_URL),
+    ])
+    rows.append(_back("more"))
     return (
         "📚 <b>Обучение</b>\n\nПравила простыми словами, словарь мафиозных слов и тренажёры — "
         "чтобы спокойно разобраться до вечера или потренироваться между играми.",
@@ -331,7 +345,7 @@ def groups_view(destinations: list[dict]) -> tuple[str, InlineKeyboardMarkup]:
     if vk:
         rows.append([InlineKeyboardButton(text="💙 Группа VK", url=vk)])
     rows.append([InlineKeyboardButton(text="🎟 Доступ в основной клуб", callback_data="home:access")])
-    rows.append(_back())
+    rows.append(_back("more"))
     return (
         "👥 <b>Наши группы</b>\n\n"
         "В канале — анонсы и новости клуба. Новички играют в группе «Игры для новичков», "
@@ -407,6 +421,8 @@ async def home_callback(callback: CallbackQuery) -> None:
         await _show(callback, *await _home_for(callback.from_user.id, callback.from_user.first_name))
     elif section == "game":
         await _show(callback, *game_view())
+    elif section == "more":
+        await _show(callback, *more_view())
     elif section == "events":
         evenings = await _open_evenings()
         if evenings is None:

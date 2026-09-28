@@ -266,7 +266,7 @@ After registration/preparation, continue through the existing tournament seating
 - Worker: `src/server/services/telegramSyncOutboxService.ts`.
 - Python: `main.py`, `bot_api.py`, `bot_announcement_api.py`, `bot_profile_link_api.py`, `bot_telegram_api.py`, `handlers/`.
 - Runtime docs: `docs/telegram-runtime-health.md`, `docs/telegram-webapp-integration.md`.
-- Bot home card (/start, «📋 Меню», /events, /faq): `handlers/bot_home.py`. Two menus chosen by `audience_for` (player `game_level` from `GET /api/bot/players/by-telegram/:id/home`): newcomers (no profile, unrated, novice) get «Что это за игра?», novice evenings, frequent questions and «Написать организатору»; club players (club/tournament/rating) get the schedule, «Мои записи», «Составы», stats, rating, tokens and shop, learning, groups. Command list and bot description: `commands.py`.
+- Bot home card (/start, «📋 Меню», /events, /faq): `handlers/bot_home.py`. Two menus chosen by `audience_for` (player `game_level` from `GET /api/bot/players/by-telegram/:id/home`): newcomers (no profile, unrated, novice) get «Записаться на вечер» (novice evenings), «Что за игра?» and «Вопросы»; club players (club/tournament/rating) get the app, «Расписание», «Мои записи», «Составы» and «☰ Ещё» (`more_view`: stats, rating, tokens and shop, learning, groups, questions). Keep menus short: two buttons per row (`_pairs`). Command list and bot description: `commands.py`.
 - Green CI does not prove live token/webhook/deployed SHA.
 
 ## Runtime health / outage alerts

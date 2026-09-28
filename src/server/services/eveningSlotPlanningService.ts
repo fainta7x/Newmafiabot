@@ -459,7 +459,13 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   };
 }
 
-export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId: string, playerId: string, raw: unknown) {
+export async function replacePlayerSlotSelection(
+  db: DatabaseWrapper,
+  eveningId: string,
+  playerId: string,
+  raw: unknown,
+  options: { notifyOrganizer?: boolean } = {},
+) {
   const { evening } = await ensureSlotsForEvening(db, eveningId);
   if (!['published','active'].includes(String(evening.status || '')) || evening.settled_at) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
   const available = await db.all<any>("SELECT id, price_rub FROM evening_game_slots WHERE evening_id = ? AND status = 'open'", [eveningId]);
@@ -491,7 +497,7 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
       await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [estimate, paymentStatus, now, participant.id]);
     }
-    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined');
+    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined', { byPlayer: options.notifyOrganizer !== false });
   });
   await enqueueTelegramEveningSync(db, eveningId);
   // Keep the existing VK announcement current immediately after a player changes

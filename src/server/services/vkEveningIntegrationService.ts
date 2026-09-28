@@ -6,6 +6,7 @@ import {
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
+import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 import {
   createVkPoll,
   createVkWallPost,
@@ -367,6 +368,9 @@ const ensureParticipantForVk = async (db: DatabaseWrapper, evening: EveningRow, 
       now,
     ]);
     participant = await db.get<any>('SELECT * FROM evening_participants WHERE id = ?', [id]);
+    // A first VK answer is a sign-up too.
+    await notifyOrganizerAboutResponse(db, id, null, responseStatus)
+      .catch((error) => console.warn('[VK POLL] organizer notification failed:', error instanceof Error ? error.message : String(error)));
   }
   return { participant, blocked: null };
 };
@@ -406,7 +410,7 @@ export async function resolveVkUserEveningResponse(db: DatabaseWrapper, eveningI
     return { status: 'superseded', current_status: currentStatus };
   }
 
-  if (currentStatus !== resolution.status) await setParticipantResponse(db, String(ensured.participant.id), resolution.status);
+  if (currentStatus !== resolution.status) await setParticipantResponse(db, String(ensured.participant.id), resolution.status, { byPlayer: true });
   await db.run(`
     UPDATE vk_poll_votes
        SET player_id=?, applied_response_status=?, sync_status='applied', updated_at=?

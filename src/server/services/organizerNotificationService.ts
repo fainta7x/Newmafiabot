@@ -66,7 +66,7 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
   eventType: string;
   entityId: string;
   text: string;
-}) {
+}, options: { kick?: boolean } = {}) {
   const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   for (const chatId of config.recipients) {
     await enqueueTelegramMessage(db, {
@@ -78,7 +78,8 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
       text: input.text,
     });
   }
-  if (config.recipients.length) kickTelegramMessageOutbox(db);
+  // Inside a transaction the outbox worker (every few seconds) sends it instead of an immediate kick.
+  if (config.recipients.length && options.kick !== false) kickTelegramMessageOutbox(db);
   return { queued: config.recipients.length, recipient_source: config.source };
 }
 

@@ -10,7 +10,7 @@ describe('Telegram evening RSVP contracts', () => {
     expect(source).toContain("import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';");
     expect(source).toContain("if (responseStatus === 'going')");
     expect(source).toContain('plan.slots.map((slot) => slot.id)');
-    expect(source).toContain("await replacePlayerSlotSelection(db, String(evening.id), String(player.id), []);");
+    expect(source).toContain("await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false });");
     expect(source).toContain('await setParticipantResponse(db, String(participant.id), responseStatus as any);');
   });
 

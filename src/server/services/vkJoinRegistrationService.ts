@@ -4,6 +4,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { findPlayersByNickname } from './playerRegistrationService.ts';
 import { parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
+import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 
 export type VkJoinParticipants = {
   going: string[];
@@ -123,8 +124,13 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
       crypto.randomUUID(), eveningId, playerId, responseStatus, responseStatus, amountDue, now,
       ['going', 'late'].includes(responseStatus) ? now : null, now, now,
     ]);
+    const created = await db.get<{ id: string }>('SELECT id FROM evening_participants WHERE evening_id=? AND player_id=? LIMIT 1', [eveningId, playerId]);
+    if (created) {
+      await notifyOrganizerAboutResponse(db, String(created.id), null, responseStatus)
+        .catch((error) => console.warn('[VK JOIN] organizer notification failed:', error instanceof Error ? error.message : String(error)));
+    }
   } else {
-    await setParticipantResponse(db, String(participant.id), responseStatus);
+    await setParticipantResponse(db, String(participant.id), responseStatus, { byPlayer: true });
     if (Number(participant.amount_paid || 0) === 0 && String(participant.payment_status || 'unpaid') === 'unpaid') {
       await db.run('UPDATE evening_participants SET amount_due=?, updated_at=? WHERE id=?', [amountDue, now, participant.id]);
     }

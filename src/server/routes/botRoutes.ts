@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotificationService.ts';
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import {
@@ -219,7 +220,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     }
 
     const existingParticipant = await db.get(
-      'SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
+      'SELECT id, attendance_status, response_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
       [evening.id, player.id],
     );
     if (existingParticipant && String(existingParticipant.attendance_status || 'pending') !== 'pending') {
@@ -269,8 +270,11 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
         plan.slots.map((slot) => slot.id),
       );
     } else {
-      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), []);
+      // Clearing the games is a step towards the chosen answer; only that answer alerts the organizer.
+      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false });
       await setParticipantResponse(db, String(participant.id), responseStatus as any);
+      await notifyOrganizerAboutResponse(db, String(participant.id), existingParticipant?.response_status ?? null, responseStatus)
+        .catch((error) => console.warn('[BOT RSVP] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     }
 
     res.json({

@@ -4,6 +4,9 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../server/services/judgeAssignmentService.ts';
+import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema.ts';
+import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { canHostEveningFormat, hostFormatsOf, legacyJudgeLevelFor } from '../lib/hostFormats.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -59,5 +62,18 @@ describe('«Может вести» marks', () => {
     const legacy = await request(app).patch('/api/players/host-1').set('Cookie', cookie).send({ judge_level: 'judge' });
     expect(legacy.status).toBe(200);
     expect(await db.get<any>("SELECT host_formats, judge_level FROM players WHERE id='host-1'")).toEqual({ host_formats: null, judge_level: 'judge' });
+  });
+
+  it('restores the club owner to every evening type on startup', async () => {
+    const db = createDatabaseConnection(':memory:');
+    opened.push(db);
+    // A fresh database: ensureClubOperationsSchema runs once per connection.
+    await ensureJudgeAuthoritySchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT OR IGNORE INTO players (id,nickname,lifecycle_status,source,created_at,updated_at) VALUES (?, 'Владелец', 'normal', 'crm_manual', ?, ?)`, [PRIMARY_ORGANIZER_PLAYER_ID, now, now]);
+    await db.run("UPDATE players SET host_formats = 'CASUAL', judge_level = 'host' WHERE id = ?", [PRIMARY_ORGANIZER_PLAYER_ID]);
+    await ensureClubOperationsSchema(db);
+    const owner = await db.get<any>('SELECT host_formats, judge_level FROM players WHERE id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+    expect(hostFormatsOf(owner)).toEqual(['NOVICE', 'CASUAL', 'RATING']);
   });
 });

@@ -560,6 +560,11 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
       WHERE id = ?`,
     [now, PRIMARY_ORGANIZER_PLAYER_ID],
   );
+  // «Может вести» marks: NULL means «derived from judge_level», i.e. every evening type for the owner.
+  const ownerColumns = await db.all<{ name: string }>('PRAGMA table_info(players)');
+  if (ownerColumns.some((column) => column.name === 'host_formats')) {
+    await db.run('UPDATE players SET host_formats = NULL WHERE id = ? AND host_formats IS NOT NULL', [PRIMARY_ORGANIZER_PLAYER_ID]);
+  }
 
   // Preserve the legacy organizer exemption for open non-regular events only.
   // Regular evenings use evening_staff_assignments / evening_fee_waivers and never

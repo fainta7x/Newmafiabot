@@ -13,7 +13,7 @@ async function syncSelectedEvening(db: DatabaseWrapper, eveningId: string) {
 }
 
 /** A selected evening becomes an actual «Иду», not an indefinite application-only hold. */
-async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string, playerId: string) {
+async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string, playerId: string, byPlayer: boolean) {
   const evening = await db.get<any>("SELECT id, status, settled_at FROM game_evenings WHERE id = ?", [eveningId]);
   if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) return false;
   const stamp = now();
@@ -24,7 +24,8 @@ async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string
     [id(), eveningId, playerId, stamp, stamp, stamp]);
   const participant = await db.get<any>('SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?', [eveningId, playerId]);
   if (!participant || String(participant.attendance_status) !== 'pending') return false;
-  await setParticipantResponse(db, String(participant.id), 'going', { byPlayer: true });
+  // Only the player's own choice alerts the organizer, not the organizer approving an application.
+  await setParticipantResponse(db, String(participant.id), 'going', { byPlayer });
   return true;
 }
 
@@ -156,7 +157,7 @@ export async function createNoviceApplication(
         await tx.run("UPDATE novice_applications SET status = 'CONFIRMED', evening_id = ?, decided_at = ?, updated_at = ? WHERE id = ?", [input.eveningId ?? null, timestamp, timestamp, existing.id]);
         await tx.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = CASE WHEN COALESCE(game_level, 'unrated') = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?", [input.playerId]);
         await completeFirstRouteTask(tx, input.playerId, timestamp);
-        if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId);
+        if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId, true);
       }
       result = {
         id: String(existing.id),
@@ -197,7 +198,7 @@ export async function createNoviceApplication(
       await tx.run("UPDATE players SET club_stage = 'NOVICE_ACTIVE', game_level = CASE WHEN COALESCE(game_level, 'unrated') = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?", [input.playerId]);
       await completeFirstRouteTask(tx, input.playerId, timestamp);
       await tx.run('UPDATE novice_applications SET decided_at = ? WHERE id = ?', [timestamp, applicationId]);
-      if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId);
+      if (input.eveningId) await registerForSelectedEvening(tx, input.eveningId, input.playerId, true);
     }
     result = {
       id: applicationId,
@@ -246,7 +247,7 @@ export async function updateNoviceApplicationStatus(
       `UPDATE players SET club_stage = ?, game_level = CASE WHEN ? = 'NOVICE' AND game_level = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?`,
       [route === 'NOVICE' ? 'NOVICE_ACTIVE' : 'CLUB_PLAYER', route, application.player_id],
     );
-    if (application.evening_id && await registerForSelectedEvening(db, String(application.evening_id), String(application.player_id)))
+    if (application.evening_id && await registerForSelectedEvening(db, String(application.evening_id), String(application.player_id), false))
       await syncSelectedEvening(db, String(application.evening_id));
   }
   if (application.player_id && ['CONFIRMED', 'CANCELLED'].includes(status)) {

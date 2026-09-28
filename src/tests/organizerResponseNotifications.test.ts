@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { setParticipantResponse } from '../server/services/eveningParticipantState.ts';
+import { replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { notifyOrganizerAboutResponse } from '../server/services/organizerResponseNotificationService.ts';
 
 let db: DatabaseWrapper | null = null;
 const saved = { ...process.env };
@@ -52,6 +54,17 @@ describe('organizer alerts about sign-ups and cancellations', () => {
     await setup();
     await setParticipantResponse(db!, 'ep', 'going');
     await setParticipantResponse(db!, 'ep', 'thinking', { byPlayer: true });
+    expect(await organizerTexts()).toEqual([]);
+  });
+
+  it('a Telegram switch from «Иду» to «Думаю» or «Приду позже» sends no cancellation', async () => {
+    await setup();
+    await setParticipantResponse(db!, 'ep', 'going');
+    // botRoutes clears the games quietly, then records the chosen answer.
+    await replacePlayerSlotSelection(db!, 'ev', 'p', [], { notifyOrganizer: false });
+    await setParticipantResponse(db!, 'ep', 'late');
+    await notifyOrganizerAboutResponse(db!, 'ep', 'going', 'late');
+    await notifyOrganizerAboutResponse(db!, 'ep', 'going', 'thinking');
     expect(await organizerTexts()).toEqual([]);
   });
 });

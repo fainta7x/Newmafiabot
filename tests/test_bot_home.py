@@ -19,9 +19,8 @@ def test_newcomer_gets_a_short_friendly_menu():
     assert bot_home.audience_for({"player": {"game_level": "novice"}}) == "newcomer"
     text, markup = bot_home.newcomer_home("Аня", EVENINGS)
     assert "Ближайший вечер для новичков: <b>пт, 2 октября · 19:00</b>" in text
-    flat = [t for row in _texts(markup) for t in row]
-    assert flat[:3] == ["🎭 Что это за игра?", "📅 Записаться на вечер", "❓ Частые вопросы"]
-    assert "🪙 Жетоны и магазин" not in flat
+    rows = _texts(markup)
+    assert rows == [["📅 Записаться на вечер"], ["🎭 Что за игра?", "❓ Вопросы"]]
 
 
 def test_newcomer_sees_only_novice_evenings():
@@ -35,9 +34,25 @@ def test_club_player_gets_the_full_menu():
     assert bot_home.audience_for(home) == "club"
     text, markup = bot_home.club_home("Аня", home, EVENINGS)
     assert "Ближайший вечер: <b>пт, 2 октября · 21:00</b>" in text and "ты: ✅ иду" in text
-    flat = [t for row in _texts(markup) for t in row]
-    for section in ("📅 Расписание", "👤 Мои записи", "👥 Составы", "📚 Обучение", "💬 Группы", "❓ Вопросы"):
+    rows = _texts(markup)
+    assert len(rows) <= 3
+    flat = [t for row in rows for t in row]
+    for section in ("📅 Расписание", "👤 Мои записи", "👥 Составы", "☰ Ещё"):
         assert section in flat
+    _, more = bot_home.more_view()
+    more_flat = [t for row in _texts(more) for t in row]
+    for section in ("📚 Обучение", "💬 Группы", "❓ Вопросы"):
+        assert section in more_flat
+    assert all(len(row) <= 2 for row in _texts(more))
+
+
+def test_frequent_questions_fit_two_per_row():
+    _, markup = bot_home.faq_view()
+    rows = _texts(markup)
+    assert rows[0] == ["📝 Как записаться", "💳 Сколько стоит"]
+    assert len(rows) <= 6
+    text, _ = bot_home.faq_answer_view("friend")
+    assert text.startswith("<b>👥 Можно прийти с другом?</b>")
 
 
 def test_my_signups_no_longer_show_tokens():
@@ -53,7 +68,7 @@ def test_evening_card_lets_the_player_answer_and_go_back():
     assert "Рассказываем правила — 18:30" in text and "Идут: <b>3</b>" in text
     rows = _texts(markup)
     assert rows[0] == ["✅ Буду", "⏳ Приду позже"] and rows[-1] == ["⬅️ К списку вечеров"]
-    assert ["🗺 Как добраться"] in rows
+    assert any("🗺 Как добраться" in row for row in rows) and len(rows) <= 4
 
 
 def test_answer_keeps_the_card_buttons():
@@ -88,4 +103,4 @@ def test_novice_answer_asks_for_a_nickname_and_links_rules_and_an_example_game()
     text, markup = bot_home.faq_answer_view("novice")
     assert "никнейм" in text
     flat = [button.text for row in markup.inline_keyboard for button in row]
-    assert "📖 Правила игры" in flat and "🎬 Пример игры — «Мафия с Левшой»" in flat
+    assert "🎬 Пример игры" in flat

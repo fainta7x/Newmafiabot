@@ -190,7 +190,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
 const bulkAccessSchema = z.object({
   player_ids: z.array(z.string().min(1)).min(1).max(500),
-  game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(),
+  game_level: z.enum(['novice', 'club', 'tournament']).optional(),
   // club_role holds two answers, so they change separately (as in the player card):
   // how often the player comes and the organization role. Changing one keeps the other.
   // «stopped» pauses announcements and invitations instead of touching club_role.

@@ -12,7 +12,7 @@ const router = Router();
 const MIGRATED_GUEST_SOURCE = 'legacy_guest_migrated';
 
 const classificationSchema = z.object({
-  game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(),
+  game_level: z.enum(['novice', 'club', 'tournament']).optional(), // «unrated» is retired
   club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(),
   judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
 }).strict().refine(

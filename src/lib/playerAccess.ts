@@ -4,8 +4,7 @@ export type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
 // Labels are plain words; each hint says what the choice changes in the app and the bot.
 export const GAME_LEVELS: Array<{ value: GameLevel; label: string; hint: string }> = [
-  { value: 'unrated', label: 'Пока не знаем', hint: 'Зовём на вечера для новичков и клубные' },
-  { value: 'novice', label: 'Новичок', hint: 'Зовём только на вечера для новичков' },
+  { value: 'novice', label: 'Новичок', hint: 'Зовём только на вечера для новичков · так начинает каждый новый игрок' },
   { value: 'club', label: 'Играет в клубе', hint: 'Клубные вечера и вечера для новичков · в боте полное меню клуба' },
   { value: 'tournament', label: 'Турнирный игрок', hint: 'Клубные, рейтинговые вечера и турниры · в боте полное меню клуба' },
 ];
@@ -24,8 +23,9 @@ export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: strin
   { value: 'judge', label: 'Судья', hint: 'Может вести любые игры, включая рейтинг и турниры' },
 ];
 
+// «unrated» is a retired legacy value and reads as «Новичок».
 export const normalizeGameLevel = (value: unknown): GameLevel =>
-  value === 'unrated' || value === 'novice' || value === 'tournament' ? value : 'club';
+  value === 'unrated' || value === 'novice' ? 'novice' : value === 'tournament' ? 'tournament' : 'club';
 export const normalizeClubRole = (value: unknown): ClubRole => value === 'guest' || value === 'team' || value === 'organizer' ? value : 'member';
 export const normalizeJudgeLevel = (value: unknown): JudgeLevel => value === 'trainee' || value === 'host' || value === 'judge' ? value : 'none';
 

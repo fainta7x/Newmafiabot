@@ -29,11 +29,11 @@ Keep these concepts independent:
 - `club_role` describes membership/organizational role;
 - Telegram/VK identity describes account ownership only.
 
-Every genuinely new profile created through verified Telegram or VK onboarding starts with `game_level = unrated` (**Не определён**), not `novice`. The same default is used for a normal organizer-created manual profile unless the organizer explicitly supplies another level.
+Every genuinely new profile created through verified Telegram or VK onboarding starts with `game_level = novice` (**Новичок**); the former `unrated` level is retired (see `BUSINESS_RULES.md`). The same default is used for a normal organizer-created manual profile unless the organizer explicitly supplies another level. An organizer-confirmed «Я уже умею играть» sets `club` (**Играет в клубе**).
 
-While `game_level` is `unrated`, the safe self-service path is limited to `NOVICE` and `CASUAL`. `RATING` and `TOURNAMENT` remain unavailable until the organizer assigns the appropriate skill/access level. `novice` means an actual beginner by playing level, not merely a person who is new to the club.
+A `novice` is invited only to `NOVICE` evenings until the organizer raises the level.
 
-The organizer can change the level at any time in the player card: **Игроки → профиль → Доступ и роли → Настроить → Игровой допуск**.
+The organizer can change the level at any time in the player card or for many players at once in **Ещё → Уровни и роли**.
 
 ## Onboarding state and browser security
 
@@ -85,6 +85,6 @@ Repository verification must include focused onboarding/access tests plus the no
 
 `entry -> channel verification -> existing/new choice -> nickname -> success/pending -> Player Cabinet`.
 
-Access verification must also cover new Telegram and VK profiles starting as `unrated`, organizer reassignment, `unrated` visibility of `NOVICE` + `CASUAL`, and blocking `RATING` + `TOURNAMENT` until classification.
+Access verification must also cover new Telegram and VK profiles starting as `novice`, organizer reassignment, and novices seeing only `NOVICE` evenings.
 
 After deployment, runtime verification is separate from green CI. Verify at least one existing and one new Telegram path, one existing and one new VK path, organizer pending-link approve/reject, skill assignment, event-access filtering, and the deployed SHA before describing the feature as live.

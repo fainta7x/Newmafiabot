@@ -39,7 +39,7 @@ describe('VK-ACCESS-004 onboarding completion', () => {
     const rows = await db.all<any>('SELECT id, telegram_user_id, nickname, game_level FROM players WHERE nickname=?', ['Новый в клубе']);
     expect(rows).toHaveLength(1);
     expect(String(rows[0].telegram_user_id)).toBe('101');
-    expect(rows[0].game_level).toBe('unrated');
+    expect(rows[0].game_level).toBe('novice');
     const task = await db.get<any>('SELECT title, description FROM organizer_tasks WHERE player_id=?', [first.playerId]);
     expect(task?.title).toBe('Определить игровой уровень: Новый в клубе');
     expect(task?.description).toContain('Игровой уровень пока не определён');
@@ -58,7 +58,7 @@ describe('VK-ACCESS-004 onboarding completion', () => {
     const identity = await db.get<any>(`SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id=?`, ['202']);
     expect(player?.telegram_user_id).toBeNull();
     expect(player?.nickname).toBe('Гость из другого клуба');
-    expect(player?.game_level).toBe('unrated');
+    expect(player?.game_level).toBe('novice');
     expect(identity?.player_id).toBe(result.playerId);
   });
 

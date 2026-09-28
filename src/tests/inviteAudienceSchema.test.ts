@@ -22,7 +22,7 @@ describe('invite audience schema', () => {
     };
 
     await expect(ensureInviteAudienceSchema(db)).resolves.toBeUndefined();
-    expect(runSql.some((sql) => sql.includes('CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_unrated'))).toBe(true);
+    expect(runSql.some((sql) => sql.includes('CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice'))).toBe(true);
     expect(execSql.some((sql) => sql.includes('CREATE TRIGGER'))).toBe(false);
   });
 

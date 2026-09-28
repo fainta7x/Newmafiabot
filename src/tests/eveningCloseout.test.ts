@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import {
   addEveningWalkIn,
   closeoutTaskDueAt,
@@ -152,6 +153,16 @@ describe('evening closeout workflow', () => {
     const state = await loadEveningCloseout(db, eveningId);
     expect(state.pending_expected).toHaveLength(0);
     expect(state.unplanned_attended.map((item: any) => item.nickname)).toContain('Вид');
+  });
+
+  it('creates a brand-new walk-in player as a novice', async () => {
+    const db = createDb();
+    await ensureInviteAudienceSchema(db);
+    const eveningId = await seedEvening(db);
+    const participant = await addEveningWalkIn(db, eveningId, { nickname: 'Пришёл впервые' });
+    expect(participant?.attendance_status).toBe('attended');
+    const created = await db.get<any>("SELECT game_level, source FROM players WHERE nickname = 'Пришёл впервые'");
+    expect(created).toMatchObject({ game_level: 'novice', source: 'walk_in' });
   });
 
   it('archives unfinished game drafts only after explicit missing-stats confirmation', async () => {

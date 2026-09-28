@@ -144,7 +144,7 @@ export async function registerVerifiedPlayerIdentity(
         phone, contact_status, lifecycle_status, source, notes,
         game_level, judge_level, elo, elo_seed, elo_seed_reason, elo_seed_set_at,
         tokens, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'unrated', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'novice', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
       [playerId, telegramUserId, nickname, fullName, telegramUsername, source, 'Новый игрок', now, now, now],
     );
 

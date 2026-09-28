@@ -244,7 +244,8 @@ export async function updateNoviceApplicationStatus(
   if (application.player_id && status === 'CONFIRMED') {
     const route = normalizeRoute(application.entry_route);
     await db.run(
-      `UPDATE players SET club_stage = ?, game_level = CASE WHEN ? = 'NOVICE' AND game_level = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?`,
+      // Every new player starts as «Новичок»; confirming «Я уже умею играть» is the organizer's assessment → «Играет в клубе».
+      `UPDATE players SET club_stage = ?, game_level = CASE WHEN COALESCE(game_level, 'unrated') IN ('unrated', 'novice') THEN (CASE WHEN ? = 'NOVICE' THEN 'novice' ELSE 'club' END) ELSE game_level END WHERE id = ?`,
       [route === 'NOVICE' ? 'NOVICE_ACTIVE' : 'CLUB_PLAYER', route, application.player_id],
     );
     if (application.evening_id && await registerForSelectedEvening(db, String(application.evening_id), String(application.player_id), false))

@@ -25,7 +25,7 @@ describe('NOVICE-001 funnel', () => {
     const id = registered.player.id;
     const initial = await request(app).get('/api/player/novice').set('Cookie', playerCookie(id));
     expect(initial.status).toBe(200);
-    expect(initial.body.player).toMatchObject({ club_stage: 'NEW', game_level: 'unrated' });
+    expect(initial.body.player).toMatchObject({ club_stage: 'NEW', game_level: 'novice' });
     expect(initial.body.can_self_register).toBe(false);
 
     const applied = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(id)).send({ entry_route: 'NOVICE' });
@@ -205,7 +205,7 @@ describe('NOVICE-001 funnel', () => {
     const switchRoute = await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(registered.player.id)).send({ entry_route: 'NOVICE' });
     expect(switchRoute.status).toBe(409);
     const confirmed = await request(app).patch(`/api/novice/applications/${applied.body.id}`).set('Cookie', organizerCookie()).send({ status: 'CONFIRMED' });
-    expect(confirmed.body.state.player).toMatchObject({ club_stage: 'CLUB_PLAYER', game_level: 'unrated' });
+    expect(confirmed.body.state.player).toMatchObject({ club_stage: 'CLUB_PLAYER', game_level: 'club' });
     expect(await db.get<any>("SELECT response_status FROM evening_participants WHERE evening_id='experienced-evening' AND player_id=?", [registered.player.id]))
       .toMatchObject({ response_status: 'going' });
   });

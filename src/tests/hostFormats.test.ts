@@ -7,7 +7,7 @@ import { JudgeAssignmentError, resolveJudgeAssignment } from '../server/services
 import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema.ts';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
-import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
+import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { canHostEveningFormat, hostFormatsOf, legacyJudgeLevelFor } from '../lib/hostFormats.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -78,7 +78,7 @@ describe('«Может вести» marks', () => {
     expect(hostFormatsOf(owner)).toEqual(['NOVICE', 'CASUAL', 'RATING']);
   });
 
-  it('no longer makes players organizers by nickname and returns «Матроскина» and «Гриня» to ordinary players once', async () => {
+  it('keeps the organizer role in step with the cabinet and returns «Матроскина» and «Гриня» to ordinary players', async () => {
     const db = createDatabaseConnection(':memory:');
     opened.push(db);
     await ensureJudgeAuthoritySchema(db);
@@ -87,11 +87,16 @@ describe('«Может вести» marks', () => {
     for (const [id, nickname] of [['m', 'Матроскина'], ['g', 'Гриня'], ['x', 'Другой']]) {
       await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,club_role,created_at,updated_at) VALUES (?, ?, 'normal', 'crm_manual', 'organizer', ?, ?)`, [id, nickname, now, now]);
     }
+    // «y» has the cabinet but an old non-organizer role: the cabinet wins.
+    await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,club_role,created_at,updated_at) VALUES ('y', 'С кабинетом', 'normal', 'crm_manual', 'member', ?, ?)`, [now, now]);
+    await ensureOrganizerPlayerAccessSchema(db);
+    await db.run("INSERT INTO organizer_player_access (player_id, granted_at) VALUES ('y', ?)", [now]);
     await ensureClubOperationsSchema(db);
-    expect(await db.all<any>("SELECT id, club_role FROM players WHERE id IN ('m','g','x') ORDER BY id")).toEqual([
+    expect(await db.all<any>("SELECT id, club_role FROM players WHERE id IN ('m','g','x','y') ORDER BY id")).toEqual([
       { id: 'g', club_role: 'member' },
       { id: 'm', club_role: 'member' },
-      { id: 'x', club_role: 'organizer' },
+      { id: 'x', club_role: 'member' },
+      { id: 'y', club_role: 'organizer' },
     ]);
   });
 });

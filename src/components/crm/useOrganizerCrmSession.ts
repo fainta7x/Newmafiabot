@@ -41,6 +41,7 @@ export const useOrganizerCrmSession = () => {
   const refreshGenerationRef = useRef(0);
   const overviewAbortRef = useRef<AbortController | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [isClubOwner, setIsClubOwner] = useState<boolean | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
@@ -113,6 +114,7 @@ export const useOrganizerCrmSession = () => {
         return;
       }
       setIsOrganizer(true);
+      setIsClubOwner(typeof me.isClubOwner === 'boolean' ? me.isClubOwner : null);
       setShowLoginModal(false);
       await loadAllData();
     } catch (error: any) {
@@ -211,6 +213,7 @@ export const useOrganizerCrmSession = () => {
 
   return {
     isOrganizer,
+    isClubOwner,
     showLoginModal,
     setShowLoginModal,
     loginError,

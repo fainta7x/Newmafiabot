@@ -790,6 +790,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       patchObj.contact_status = patchObj.lifecycle_status;
     }
 
+    // Blocking (archiving) a player or lifting a block is the owner's call, same as DELETE /api/players/:id.
+    const wasBlocked = String(player.contact_status || player.lifecycle_status || '') === 'blocked';
+    const willBeBlocked = patchObj.contact_status === undefined ? wasBlocked : patchObj.contact_status === 'blocked';
+    if (wasBlocked !== willBeBlocked && !isClubOwner(req as AuthenticatedRequest)) {
+      return res.status(403).json({ error: 'Заблокировать игрока или снять блокировку может только владелец клуба', code: 'club_owner_required' });
+    }
+
     Object.entries(patchObj).forEach(([key, val]) => {
       if (val !== undefined) {
         fields.push(`${key} = ?`);

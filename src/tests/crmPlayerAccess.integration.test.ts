@@ -311,6 +311,11 @@ describe('CRM player access profile', () => {
     expect(bulk.status).toBe(403);
     const remove = await request(app).delete('/api/players/target').set('Cookie', adminCookie);
     expect(remove.status).toBe(403);
+    const block = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'blocked' });
+    expect(block.status).toBe(403);
+    const pause = await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'paused' });
+    expect(pause.status, JSON.stringify(pause.body)).toBe(200);
+    await request(app).patch('/api/players/target').set('Cookie', adminCookie).send({ contact_status: 'normal' });
     expect(await db.get<any>("SELECT club_role, contact_status FROM players WHERE id='target'")).toEqual({ club_role: 'member', contact_status: 'normal' });
 
     // Everything else in the cabinet still works for a club organizer.

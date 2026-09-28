@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
-import { PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
+import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
 
 const ensuredDatabases = new WeakSet<object>();
 export const CRM_PAY_003_HISTORICAL_MIGRATION = 'crm_pay_003_historical_casual_pricing_v1';
@@ -567,6 +567,23 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
     );
     await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', ['2026-09-nickname-organizers-to-players', now]);
   }
+
+  // «Организатор клуба» and the cabinet are one setting: the cabinet is the source of truth.
+  // Earlier releases managed them separately, so bring every existing row in step on each start.
+  await ensureOrganizerPlayerAccessSchema(db);
+  await db.run(
+    `UPDATE players SET club_role = 'organizer', updated_at = ?
+      WHERE COALESCE(club_role, 'member') <> 'organizer'
+        AND id IN (SELECT player_id FROM organizer_player_access)`,
+    [now],
+  );
+  await db.run(
+    `UPDATE players SET club_role = 'member', updated_at = ?
+      WHERE club_role = 'organizer'
+        AND id <> ?
+        AND id NOT IN (SELECT player_id FROM organizer_player_access)`,
+    [now, PRIMARY_ORGANIZER_PLAYER_ID],
+  );
 
   // The canonical owner is also the club's full judge/host. Other organizers keep
   // their independently configured judge level until explicitly changed.

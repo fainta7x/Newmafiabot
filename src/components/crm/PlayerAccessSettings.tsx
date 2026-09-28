@@ -21,6 +21,7 @@ import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, t
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { usePlayerEveningQuickAdd } from './PlayerEveningQuickAdd.tsx';
+import { useClubOwner } from './useClubOwner.ts';
 import { countVisits } from '../../lib/russianPlural';
 
 const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });
@@ -58,6 +59,9 @@ const equalDraft = (left: Draft, right: Draft) =>
 export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetails; onSaved?: () => void | Promise<void> }) {
   const accessPlayer = player as PlayerWithAccess;
   const quickAdd = usePlayerEveningQuickAdd();
+  // Only the owner gives or takes «Организатор клуба» (= the cabinet); false hides those controls.
+  const clubOwner = useClubOwner();
+  const ownerOnlyLocked = clubOwner === false;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => normalize(accessPlayer));
   const [baseline, setBaseline] = useState<Draft>(() => normalize(accessPlayer));
@@ -164,6 +168,13 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         throw new Error('Сервер не подтвердил изменение доступа к кабинету организатора.');
       }
       setOrganizerAccess(enabled);
+      // The role follows the cabinet on the server; keep the draft in step so a later Save does not undo it.
+      const syncRole = (value: Draft): Draft => ({
+        ...value,
+        club_role: enabled ? 'organizer' : (value.club_role === 'organizer' ? 'member' : value.club_role),
+      });
+      setDraft(syncRole);
+      setBaseline(syncRole);
       setSuccess(enabled ? 'Доступ к кабинету организатора выдан.' : 'Доступ к кабинету организатора отозван.');
       if (!dirty) await onSaved?.();
     } catch (accessError: any) {
@@ -227,7 +238,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
             <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и какие вечера может вести. «Организатор» сразу получает кабинет организатора; назначает и снимает организаторов только владелец.</div></div>
-            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} disabled={ownerOnlyLocked && organizationOf(draft.club_role) === 'organizer'} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value} disabled={ownerOnlyLocked && item.value === 'organizer'}>{item.label} — {item.hint}</option>)}</select></label>
             <fieldset className="space-y-1.5" data-testid="crm-player-host-formats">
               <legend className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Может вести</legend>
               {HOST_FORMAT_OPTIONS.map((item) => {
@@ -254,7 +265,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
               </div>
               <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${organizerAccess ? 'bg-success-soft text-success' : 'bg-black/20 text-text-muted'}`}>{organizerAccess ? 'Есть доступ' : 'Нет доступа'}</span>
             </div>
-            <button type="button" disabled={accessSaving} onClick={() => setConfirmation({ kind: 'crm-access', enabled: !organizerAccess })} className={`mt-3 min-h-[44px] w-full rounded-[11px] border px-3 text-[11px] font-semibold disabled:opacity-40 ${organizerAccess ? 'border-danger/30 bg-danger-soft text-danger' : 'border-accent/25 bg-accent-soft text-accent'}`}>{accessSaving ? 'Сохраняем…' : organizerAccess ? 'Закрыть доступ к кабинету организатора' : 'Дать доступ к кабинету организатора'}</button>
+            {ownerOnlyLocked ? <p className="mt-3 text-[11px] leading-4 text-text-muted" data-testid="crm-player-access-owner-only">Выдать или закрыть кабинет может только владелец клуба.</p> : <button type="button" disabled={accessSaving} onClick={() => setConfirmation({ kind: 'crm-access', enabled: !organizerAccess })} className={`mt-3 min-h-[44px] w-full rounded-[11px] border px-3 text-[11px] font-semibold disabled:opacity-40 ${organizerAccess ? 'border-danger/30 bg-danger-soft text-danger' : 'border-accent/25 bg-accent-soft text-accent'}`}>{accessSaving ? 'Сохраняем…' : organizerAccess ? 'Закрыть доступ к кабинету организатора' : 'Дать доступ к кабинету организатора'}</button>}
           </div>
 
           <div className="rounded-[13px] bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">Контактный статус, пауза приглашений, контакты и заметки редактируются отдельно в настройках профиля. Изменение этих полей не меняет игровые или административные права.</div>

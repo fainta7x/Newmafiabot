@@ -28,6 +28,7 @@ describe('novice evening promo in announcements', () => {
     expect(text).toContain('Почему затягивает:');
     expect(text).toContain('💬 Чат для новичков в Telegram:\nhttps://t.me/+novice');
     expect(text).toContain('https://example.test/join/ev');
+    expect(text).toContain('✉️ Остались вопросы? Пишите:\nTelegram: https://t.me/Chagina7x\nVK: https://vk.com/m1kesh1noda');
   });
 
   it('keeps club evening posts without the promo', async () => {

@@ -108,7 +108,7 @@ export function PlayerAccessBulkCRM() {
         ...(hostAdd.length ? { host_formats_add: hostAdd } : {}),
         ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
       });
-      setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
+      setMessage(`Сохранено. Изменено игроков: ${body.updated}.${body.warnings?.length ? ` ${body.warnings.join(' ')}` : ''}`);
       setSelected(new Set());
       setGameLevel('');
       setActivity('');

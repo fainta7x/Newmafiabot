@@ -87,6 +87,14 @@ export async function countOrganizerPlayerAccess(db: DatabaseWrapper): Promise<n
   return Number(row?.count || 0);
 }
 
+// «Организатор клуба» and the cabinet are one setting (owner decision 2026-09-28).
+const syncOrganizerRole = (tx: DatabaseWrapper, playerId: string, enabled: boolean) => tx.run(
+  enabled
+    ? "UPDATE players SET club_role = 'organizer', updated_at = ? WHERE id = ? AND COALESCE(club_role, 'member') <> 'organizer'"
+    : "UPDATE players SET club_role = 'member', updated_at = ? WHERE id = ? AND club_role = 'organizer'",
+  [new Date().toISOString(), playerId],
+);
+
 export async function setOrganizerPlayerAccess(
   db: DatabaseWrapper,
   input: { playerId: string; enabled: boolean; actorId: string },
@@ -109,7 +117,10 @@ export async function setOrganizerPlayerAccess(
       [input.playerId],
     );
     const currentlyEnabled = Boolean(existing?.player_id);
-    if (currentlyEnabled === input.enabled) return { enabled: currentlyEnabled, changed: false };
+    if (currentlyEnabled === input.enabled) {
+      await syncOrganizerRole(tx, input.playerId, input.enabled);
+      return { enabled: currentlyEnabled, changed: false };
+    }
 
     if (!input.enabled) {
       const total = await tx.get<{ count: number }>('SELECT COUNT(*) AS count FROM organizer_player_access');
@@ -122,6 +133,8 @@ export async function setOrganizerPlayerAccess(
         ON CONFLICT(player_id) DO NOTHING
       `, [input.playerId, new Date().toISOString()]);
     }
+
+    await syncOrganizerRole(tx, input.playerId, input.enabled);
 
     await tx.run(`
       INSERT INTO organizer_player_access_audit (id, player_id, action, actor_id, occurred_at)

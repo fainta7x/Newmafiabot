@@ -7,7 +7,9 @@ import {
   AuthenticatedRequest,
   checkLoginRateLimit,
   resetLoginRateLimit,
+  isClubOwner,
 } from '../auth.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
 import {
@@ -342,6 +344,8 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   return res.json({
     role: isOrganizer ? 'ORGANIZER' : 'PLAYER',
     isOrganizer,
+    // «Владелец»: only the owner grants organizers, sees club money and deletes players.
+    isClubOwner: isOrganizer && (organizerAutoAuthorized ? identity?.playerId === PRIMARY_ORGANIZER_PLAYER_ID : isClubOwner(req)),
     linked: Boolean(player),
     player,
     organizerAutoAuthorized,

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
-import { requireOrganizerAuth } from '../auth.ts';
+import { isClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { ensureEveningAnnouncementTrackingSchema } from '../services/eveningAnnouncementTrackingService.ts';
 
 const router = Router();
@@ -184,7 +184,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
     return res.json({
       period:period||'all',totalPlayers,inactive30,inactive60,inactive90,cohortFirstVisits,cohortReturnedIn30Days,cohortRetention30dRate,completedEvenings,totalRegistrations:totalRegs,totalAttended,totalCancelled,totalNoShow,cancellationRate,noShowRate,avgAttendance,
-      financials:{accrued,incomePaid,outstandingDebt,refunds,expenses,avgRevenuePerEvening:avgRevenue},sourceBreakdown,
+      // Club money is for the owner only (owner decision 2026-09-28).
+      financials:isClubOwner(req as AuthenticatedRequest)?{accrued,incomePaid,outstandingDebt,refunds,expenses,avgRevenuePerEvening:avgRevenue}:null,sourceBreakdown,
       playerJourney:{neverPlayed,playedOnce,playedTwoOrThree,playedFourPlus,noviceLevel,clubApproved,tournamentApproved,readyForClubReview},
       communicationFunnel:{delivered,failed:failedDm,answered,positive,attended:attendedFromDm,reminded,answerRate:pct(answered,delivered),positiveRate:pct(positive,delivered),attendanceRate:pct(attendedFromDm,delivered)},
     });

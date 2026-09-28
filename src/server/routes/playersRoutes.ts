@@ -6,7 +6,8 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { getDb } from '../../db/index.ts';
-import { requireOrganizerAuth } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, isClubOwner, requireClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { setOrganizerPlayerAccess } from '../services/organizerPlayerAccessService.ts';
 import { updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
@@ -207,13 +208,27 @@ const bulkAccessSchema = z.object({
 
 // POST /api/players/access/bulk - set level, how often the player comes, club role and «Может вести» for many players at once.
 // Access to the organizer cabinet is never changed here; it stays a deliberate per-player action.
-router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
+router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const data = bulkAccessSchema.parse(req.body);
     const db = req.db || (await getDb());
     const ids = Array.from(new Set(data.player_ids));
     const now = new Date().toISOString();
     let updated = 0;
+    // «Организатор клуба» opens the cabinet: only the owner gives or takes it, and the cabinet follows the role.
+    const organizerChanges: Array<{ id: string; enabled: boolean }> = [];
+    if (data.organization) {
+      const placeholders = ids.map(() => '?').join(',');
+      const rows = await db.all<any>(`SELECT id, club_role FROM players WHERE id IN (${placeholders})`, ids);
+      for (const row of rows) {
+        const was = String(row.club_role || '') === 'organizer';
+        const will = data.organization === 'organizer';
+        if (was !== will) organizerChanges.push({ id: String(row.id), enabled: will });
+      }
+      if (organizerChanges.length && !isClubOwner(req)) {
+        return res.status(403).json({ error: 'Назначить или снять организатора клуба может только владелец', code: 'club_owner_required' });
+      }
+    }
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
@@ -250,7 +265,18 @@ router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
         updated += Number(result.changes || 0);
       }
     });
-    return res.json({ success: true, updated });
+    const actorId = getAuthenticatedOrganizerActorId(req) || 'organizer:unknown-session';
+    const accessErrors: string[] = [];
+    for (const change of organizerChanges) {
+      try {
+        await setOrganizerPlayerAccess(db, { playerId: change.id, enabled: change.enabled, actorId });
+      } catch (error: any) {
+        // The owner and the last cabinet holder keep their access; their role goes back to organizer.
+        await db.run("UPDATE players SET club_role = 'organizer' WHERE id = ?", [change.id]);
+        accessErrors.push(String(error?.message || 'Не удалось изменить доступ'));
+      }
+    }
+    return res.json({ success: true, updated, ...(accessErrors.length ? { warnings: Array.from(new Set(accessErrors)) } : {}) });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
   }
@@ -787,7 +813,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 });
 
 // DELETE /api/players/:id - Soft archive player (Auth required)
-router.delete('/:id', requireOrganizerAuth, async (req, res) => {
+router.delete('/:id', requireOrganizerAuth, requireClubOwner, async (req, res) => {
   try {
     const db = req.db || (await getDb());
     await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), String(req.params.id)]);

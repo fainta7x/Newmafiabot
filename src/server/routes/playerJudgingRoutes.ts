@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import {
-  judgeLevelAllowsEveningFormat,
   normalizeJudgeLevel,
   requiredJudgeLevelForEveningFormat,
   type JudgeLevel,
 } from '../../db/ensureJudgeAuthoritySchema.ts';
+import { canHostEveningFormat, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
 
 const router = Router();
@@ -87,8 +87,8 @@ const requirePlayer = (req: Request, res: Response): string | null => {
   return playerId;
 };
 
-const loadAvailableEvenings = async (db: any, judgeLevel: JudgeLevel) => {
-  if (judgeLevel === 'none') return [];
+const loadAvailableEvenings = async (db: any, formats: HostFormat[]) => {
+  if (!formats.length) return [];
   const evenings = await db.all(`
     SELECT e.*,
            (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
@@ -98,7 +98,7 @@ const loadAvailableEvenings = async (db: any, judgeLevel: JudgeLevel) => {
      LIMIT 20
   `);
 
-  const allowed = evenings.filter((evening: any) => judgeLevelAllowsEveningFormat(judgeLevel, evening.format));
+  const allowed = evenings.filter((evening: any) => canHostEveningFormat({ host_formats: formats.join(',') }, evening.format));
   return Promise.all(allowed.map(async (evening: any) => {
     const [participants, tables] = await Promise.all([
       db.all(`
@@ -151,9 +151,10 @@ router.get('/judging', async (req, res) => {
   if (!playerId) return;
   const db = req.db;
   try {
-    const player = await db.get('SELECT id, nickname, judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
+    const player = await db.get('SELECT id, nickname, judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     const judgeLevel = normalizeJudgeLevel(player.judge_level);
+    const formats = hostFormatsOf(player);
 
     const [clubRows, tournamentRows, availableEvenings] = await Promise.all([
       db.all(`
@@ -175,12 +176,12 @@ router.get('/judging', async (req, res) => {
          ORDER BY COALESCE(tg.started_at, t.date) DESC, tg.game_number DESC
          LIMIT 60
       `, [playerId]),
-      loadAvailableEvenings(db, judgeLevel),
+      loadAvailableEvenings(db, formats),
     ]);
 
     const clubGames = clubRows.map((row: any) => {
       const game = normalizeClubGame(row);
-      return { ...game, can_conduct: judgeLevelAllowsEveningFormat(judgeLevel, row.evening_format) && game.status !== 'completed' };
+      return { ...game, can_conduct: canHostEveningFormat(player, row.evening_format) && game.status !== 'completed' };
     });
     const tournamentGames = await Promise.all(tournamentRows.map((row: any) => loadTournamentGame(db, row)));
 
@@ -189,13 +190,14 @@ router.get('/judging', async (req, res) => {
         id: String(player.id),
         nickname: String(player.nickname),
         judge_level: judgeLevel,
-        judge_level_label: LEVEL_LABELS[judgeLevel],
+        judge_level_label: formats.length ? hostFormatsSummary(formats) : LEVEL_LABELS[judgeLevel],
+        host_formats: formats,
       },
       permissions: {
-        novice: judgeLevel !== 'none',
-        casual: judgeLevel === 'host' || judgeLevel === 'judge',
-        rating: judgeLevel === 'judge',
-        tournament: judgeLevel === 'judge',
+        novice: formats.includes('NOVICE'),
+        casual: formats.includes('CASUAL'),
+        rating: formats.includes('RATING'),
+        tournament: formats.includes('RATING'),
       },
       available_evenings: availableEvenings,
       club_games: clubGames,

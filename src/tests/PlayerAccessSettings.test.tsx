@@ -42,9 +42,9 @@ describe('PlayerAccessSettings', () => {
     const onSaved = vi.fn();
     const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === 'PATCH') {
-        return response({ ...player, game_level: 'club', club_role: 'team', judge_level: 'host' });
+        return response({ ...player, game_level: 'club', club_role: 'team', judge_level: 'host', host_formats: 'NOVICE,CASUAL' });
       }
-      return response({ ...player, game_level: 'club', club_role: 'team', judge_level: 'host', organizer_player_access: false });
+      return response({ ...player, game_level: 'club', club_role: 'team', judge_level: 'host', host_formats: 'NOVICE,CASUAL', organizer_player_access: false });
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<PlayerAccessSettings player={player} onSaved={onSaved} />);
@@ -52,9 +52,11 @@ describe('PlayerAccessSettings', () => {
     fireEvent.click(screen.getByTestId('crm-player-access-edit'));
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'club' } });
-    // Selects: Уровень игры · Как часто ходит · Роль в клубе · Ведёт игры.
+    // Selects: Уровень игры · Как часто ходит · Роль в клубе; «Может вести» is a set of checkboxes.
     fireEvent.change(selects[2], { target: { value: 'team' } });
-    fireEvent.change(selects[3], { target: { value: 'host' } });
+    const hosting = within(screen.getByTestId('crm-player-host-formats'));
+    fireEvent.click(hosting.getByRole('checkbox', { name: /Вечера для новичков/ }));
+    fireEvent.click(hosting.getByRole('checkbox', { name: /Клубные вечера/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));

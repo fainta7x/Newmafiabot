@@ -124,9 +124,11 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const announcementPending = !telegramPosts && !vkPosts && now < announcementDueMs;
   const postsDetail = telegramPosts || vkPosts
     ? [telegramPosts ? 'Telegram ✓' : 'Telegram —', vkPosts ? 'ВК ✓' : 'ВК —'].join(' · ')
-    : announcementPending
-      ? `Ещё не отправлен. Уйдёт сам ${new Date(announcementDueMs).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
-      : 'Ещё не отправлен';
+    : !published
+      ? 'Уйдёт сам после открытия записи'
+      : announcementPending
+        ? `Ещё не отправлен. Уйдёт сам ${new Date(announcementDueMs).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
+        : 'Ещё не отправлен';
 
   steps.prepare.push(
     { id: 'created', title: 'Вечер создан', status: 'done' },

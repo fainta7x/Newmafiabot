@@ -29,5 +29,10 @@ describe('evening route: open registration is not an announcement', () => {
     const after = await loadEveningRoute(db, 'ev', Date.parse('2026-09-28T17:00:00Z'));
     const late = (after.stages.flatMap((stage) => stage.steps) as Array<{ id: string; status: string }>).find((step) => step.id === 'posts');
     expect(late?.status).toBe('attention');
+
+    await db.run("UPDATE game_evenings SET status = 'draft' WHERE id = 'ev'");
+    const draft = await loadEveningRoute(db, 'ev', Date.parse('2026-09-28T11:00:00Z'));
+    const draftPosts = (draft.stages.flatMap((stage) => stage.steps) as Array<{ id: string; detail?: string }>).find((step) => step.id === 'posts');
+    expect(draftPosts?.detail).toBe('Уйдёт сам после открытия записи');
   });
 });

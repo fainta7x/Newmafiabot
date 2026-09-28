@@ -47,3 +47,8 @@ def test_every_faq_answer_opens():
 def test_my_signups_without_a_profile_points_to_registration():
     text, _ = bot_home.mine_view(None, "not_found")
     assert "/start" in text
+
+
+def test_payment_answer_says_novice_prepayment_is_required():
+    text, _ = bot_home.faq_answer_view("pay")
+    assert "нужно передать до первой игры" in text

@@ -56,8 +56,8 @@ FAQ: tuple[tuple[str, str, str], ...] = (
      "Конечно, с другом даже веселее! Попроси его тоже записаться через бота — "
      "так мы будем знать, сколько столов подготовить."),
     ("pay", "💰 Как оплатить?",
-     "Оплатить можно прямо на вечере — организатору. Если пришёл на вечер для новичков, "
-     "оплату лучше передать до начала игры.\n\n"
+     "Оплатить можно прямо на вечере — организатору. На вечере для новичков, когда бесплатные вечера "
+     "уже закончились, оплату нужно передать до первой игры — без неё игру не начнём.\n\n"
      "Сколько с тебя, всегда видно в приложении, в разделе «Оплата»."),
     ("tokens", "🪙 Что такое жетоны?",
      "Жетоны — это наша клубная валюта, и копятся они сами 🪙 Приходишь на вечер — получаешь жетоны. "
@@ -313,7 +313,7 @@ async def home_callback(callback: CallbackQuery) -> None:
         await _show(callback, *mine_view(result.get("data") if result.get("success") else None, result.get("error")))
     elif section == "faq":
         await _show(callback, *(faq_answer_view(arg) if arg else faq_view()))
-    elif section == "learn":
+    elif section in ("learn", "rules"):  # «rules» came from cards sent before the regulations left the menu
         await _show(callback, *learn_view())
     elif section == "groups":
         result = await get_telegram_destinations()

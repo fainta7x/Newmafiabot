@@ -125,13 +125,25 @@ SAMPLE = {
 class BotApiTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
+        # Other test files may have imported the real config and bot_api already; load a fresh
+        # bot_api bound to the stub config and put the originals back afterwards.
+        cls._saved_modules = {name: sys.modules.get(name) for name in ("config", "bot_api")}
         config = types.ModuleType("config")
         config.BOT_API_BASE_URL = "https://backend.example"
         config.BOT_API_SECRET = "secret-value"
         sys.modules["config"] = config
+        sys.modules.pop("bot_api", None)
         base = Path(__file__).resolve().parents[1]
         sys.path.insert(0, str(base))
         cls.bot_api = importlib.import_module("bot_api")
+
+    @classmethod
+    def tearDownClass(cls):
+        for name, module in cls._saved_modules.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
 
     async def _call(self, response=None, get_error=None):
         session = _FakeSession(response=response, get_error=get_error)

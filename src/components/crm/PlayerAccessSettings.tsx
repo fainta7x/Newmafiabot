@@ -190,9 +190,9 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
   const lastVisit = (player as PlayerDetails).stats?.lastVisit as string | null | undefined;
   const visitsText = visitsCount ? `${countVisits(visitsCount)}${lastVisit ? ` · последний ${visitDate(lastVisit)}` : ''}` : 'Ещё не был на вечерах';
   const summaryRows: Array<[string, string, string | null]> = [
-    ['Игра', accessLabel(GAME_LEVELS, draft.game_level), null],
-    ['В клубе', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
-    ['Организация', organizationSummary(draft.club_role, draft.judge_level), null],
+    ['Уровень игры', accessLabel(GAME_LEVELS, draft.game_level), null],
+    ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
+    ['Роль в клубе', organizationSummary(draft.club_role, draft.judge_level), null],
     ['Доступы', organizerAccess ? 'Кабинет организатора' : 'Только кабинет игрока', null],
   ];
 
@@ -222,14 +222,14 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         <div data-testid="crm-player-access-sheet" className="space-y-4 overflow-x-hidden pb-2">
           {error ? <div data-testid="crm-player-access-error" className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
 
-          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Игра</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Насколько хорошо играет. Определяет, в какие форматы можно записаться.</span><select value={draft.game_level} onChange={(event) => setDraft((value) => ({ ...value, game_level: event.target.value as GameLevel }))} className="mobile-field w-full max-w-full">{GAME_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Уровень игры</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Насколько хорошо играет. Определяет, в какие форматы можно записаться.</span><select value={draft.game_level} onChange={(event) => setDraft((value) => ({ ...value, game_level: event.target.value as GameLevel }))} className="mobile-field w-full max-w-full">{GAME_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
-          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">В клубе</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={membershipOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={membershipOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
-            <div><div className="text-[12px] font-semibold text-text-primary">Организация</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и право вести игры. Кабинет организатора не открывает.</div></div>
+            <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и право вести игры. Кабинет организатора не открывает.</div></div>
             <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
-            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Ведение игр</span><select value={draft.judge_level} onChange={(event) => setDraft((value) => ({ ...value, judge_level: event.target.value as JudgeLevel }))} className="mobile-field w-full max-w-full">{JUDGE_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Ведёт игры</span><select value={draft.judge_level} onChange={(event) => setDraft((value) => ({ ...value, judge_level: event.target.value as JudgeLevel }))} className="mobile-field w-full max-w-full">{JUDGE_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
           </div>
 
           <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3">

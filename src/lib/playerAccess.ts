@@ -2,25 +2,26 @@ export type GameLevel = 'unrated' | 'novice' | 'club' | 'tournament';
 export type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
 export type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
+// Labels are plain words; each hint says what the choice changes in the app and the bot.
 export const GAME_LEVELS: Array<{ value: GameLevel; label: string; hint: string }> = [
-  { value: 'unrated', label: 'Не определён', hint: 'Уровень игры ещё не оценён организатором' },
-  { value: 'novice', label: 'Новичок', hint: 'Начальный уровень · новичковые игры' },
-  { value: 'club', label: 'Опытный игрок', hint: 'Регулярные клубные игры' },
-  { value: 'tournament', label: 'Турнирный игрок', hint: 'Рейтинговые игры и турниры' },
+  { value: 'unrated', label: 'Пока не знаем', hint: 'Зовём на вечера для новичков и клубные' },
+  { value: 'novice', label: 'Новичок', hint: 'Зовём только на вечера для новичков' },
+  { value: 'club', label: 'Играет в клубе', hint: 'Клубные вечера и вечера для новичков · в боте полное меню клуба' },
+  { value: 'tournament', label: 'Турнирный игрок', hint: 'Клубные, рейтинговые вечера и турниры · в боте полное меню клуба' },
 ];
 
 export const CLUB_ROLES: Array<{ value: ClubRole; label: string; hint: string }> = [
-  { value: 'guest', label: 'Зарегистрированный игрок', hint: 'Играет эпизодически или представляет другой клуб; это полноценный аккаунт, не гостевой placeholder' },
-  { value: 'member', label: 'Участник клуба', hint: 'Постоянный участник клуба' },
-  { value: 'team', label: 'Команда клуба', hint: 'Входит в команду 2LA noire' },
-  { value: 'organizer', label: 'Организатор клуба', hint: 'Организационная роль в клубе; сама по себе не открывает CRM' },
+  { value: 'guest', label: 'Ходит иногда', hint: 'Играет время от времени или из другого клуба' },
+  { value: 'member', label: 'Ходит постоянно', hint: 'Постоянный игрок клуба' },
+  { value: 'team', label: 'Помогает клубу', hint: 'Команда клуба: помогает проводить вечера' },
+  { value: 'organizer', label: 'Организатор', hint: 'Можно назначить организатором вечера или турнира' },
 ];
 
 export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: string }> = [
-  { value: 'none', label: 'Нет', hint: 'Без полномочий ведущего' },
-  { value: 'trainee', label: 'Стажёр', hint: 'Стажировка на ведение игр' },
-  { value: 'host', label: 'Ведущий', hint: 'Может вести клубные игры' },
-  { value: 'judge', label: 'Судья', hint: 'Полные судейские полномочия' },
+  { value: 'none', label: 'Не ведёт', hint: 'Не ведёт игры' },
+  { value: 'trainee', label: 'Учится вести', hint: 'Может вести вечера для новичков' },
+  { value: 'host', label: 'Ведущий', hint: 'Может вести вечера для новичков и клубные' },
+  { value: 'judge', label: 'Судья', hint: 'Может вести любые игры, включая рейтинг и турниры' },
 ];
 
 export const normalizeGameLevel = (value: unknown): GameLevel =>
@@ -41,14 +42,27 @@ export type ClubMembership = 'guest' | 'member';
 export type ClubOrganization = 'none' | 'team' | 'organizer';
 
 export const CLUB_MEMBERSHIPS: Array<{ value: ClubMembership; label: string; hint: string }> = [
-  { value: 'member', label: 'Участник клуба', hint: 'Постоянно играет в клубе' },
-  { value: 'guest', label: 'Играет иногда', hint: 'Эпизодически или из другого клуба; полноценный аккаунт' },
+  { value: 'member', label: 'Ходит постоянно', hint: 'Получает анонсы и приглашения' },
+  { value: 'guest', label: 'Ходит иногда', hint: 'Получает анонсы и приглашения' },
 ];
 
 export const CLUB_ORGANIZATION: Array<{ value: ClubOrganization; label: string; hint: string }> = [
-  { value: 'none', label: 'Не входит', hint: 'Обычный игрок' },
-  { value: 'team', label: 'Команда клуба', hint: 'Помогает проводить вечера' },
-  { value: 'organizer', label: 'Организатор клуба', hint: 'Организационная роль; сама по себе не открывает CRM' },
+  { value: 'none', label: 'Просто игрок', hint: 'Обычный игрок клуба' },
+  { value: 'team', label: 'Помогает клубу', hint: 'Команда клуба: помогает проводить вечера' },
+  { value: 'organizer', label: 'Организатор', hint: 'Можно назначить организатором вечера или турнира · кабинет не открывает' },
+];
+
+/*
+ * «Как часто ходит» on the bulk screen: the two membership answers plus «Перестал ходить».
+ * «Перестал ходить» pauses announcements and invitations (contact_status=paused with STOPPED_REASON);
+ * choosing «постоянно» or «иногда» again turns them back on.
+ */
+export type PlayerActivity = 'regular' | 'sometimes' | 'stopped';
+export const STOPPED_REASON = 'Перестал ходить';
+export const PLAYER_ACTIVITY: Array<{ value: PlayerActivity; label: string; hint: string }> = [
+  { value: 'regular', label: 'Ходит постоянно', hint: 'Получает анонсы и приглашения' },
+  { value: 'sometimes', label: 'Ходит иногда', hint: 'Получает анонсы и приглашения' },
+  { value: 'stopped', label: 'Перестал ходить', hint: 'Бот не пишет ему лично: ни анонсов, ни приглашений' },
 ];
 
 export const membershipOf = (role: ClubRole): ClubMembership => (role === 'guest' ? 'guest' : 'member');
@@ -68,6 +82,6 @@ export const organizationSummary = (role: ClubRole, judge: JudgeLevel): string =
   const parts: string[] = [];
   const organization = organizationOf(role);
   if (organization !== 'none') parts.push(accessLabel(CLUB_ORGANIZATION, organization));
-  if (judge !== 'none') parts.push(judge === 'trainee' ? 'Стажёр ведущего' : accessLabel(JUDGE_LEVELS, judge));
-  return parts.length ? parts.join(' · ') : 'Не входит';
+  if (judge !== 'none') parts.push(accessLabel(JUDGE_LEVELS, judge));
+  return parts.length ? parts.join(' · ') : 'Просто игрок';
 };

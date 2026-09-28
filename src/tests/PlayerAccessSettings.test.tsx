@@ -52,7 +52,7 @@ describe('PlayerAccessSettings', () => {
     fireEvent.click(screen.getByTestId('crm-player-access-edit'));
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'club' } });
-    // Selects: Игра · В клубе · Организация (роль) · Ведение игр.
+    // Selects: Уровень игры · Как часто ходит · Роль в клубе · Ведёт игры.
     fireEvent.change(selects[2], { target: { value: 'team' } });
     fireEvent.change(selects[3], { target: { value: 'host' } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));

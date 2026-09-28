@@ -267,7 +267,7 @@ export async function cancelTournamentRegistration(db:DatabaseWrapper,tournament
 
 export async function notifyTournamentAudience(db:DatabaseWrapper,tournamentId:string){
   const tournament=await assertManagedTournamentEvening(db,tournamentId);
-  const players=await db.all<any>("SELECT id FROM players WHERE game_level='tournament' AND id <> COALESCE(?, '')",[tournament.judge_player_id]);
+  const players=await db.all<any>("SELECT id FROM players WHERE game_level='tournament' AND id <> COALESCE(?, '') AND COALESCE(contact_status, lifecycle_status, 'normal') NOT IN ('paused','blocked','archived','inactive')",[tournament.judge_player_id]);
   let queued=0; const failedPlayerIds:string[]=[];
   for(const player of players){
     try {

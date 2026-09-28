@@ -53,6 +53,15 @@ describe('evening RSVP nudges', () => {
     expect(outbox.reply_markup_json).toContain('evr:e1:going');
   });
 
+  it('does not invite or nudge a player who stopped coming, but still reminds one who said «иду»', async () => {
+    const { db, byPlayer } = await setup(20);
+    await db.run("UPDATE players SET contact_status='paused', lifecycle_status='paused', pause_reason='Перестал ходить' WHERE id IN ('p-unanswered','p-going')");
+    await queueEveningRsvpNudges(db);
+    const map = await byPlayer();
+    expect(map['p-unanswered']).toBeUndefined();
+    expect(map['p-going']).toEqual(['evening_reminder']);
+  });
+
   it('a «думаю» player can ask to be asked again 3 h before, and is asked then', async () => {
     const { db, app, byPlayer } = await setup(20);
     process.env.BOT_API_SECRET = 'bot-secret-test';

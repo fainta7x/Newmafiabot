@@ -597,6 +597,8 @@ Organizer CRM player profiles keep four independent concepts separate:
 - `judge_level` = hosting/judging qualification;
 - `organizer_player_access` = the separate, actual entitlement to Organizer CRM.
 
+«Как часто ходит» (owner-approved 2026-09-28): «Ходит постоянно» / «Ходит иногда» map to `club_role` member/guest and only describe the player. «Перестал ходить» sets `contact_status=paused` with `pause_reason='Перестал ходить'`, so the bot stops personal announcements, evening invitations and nudges, invitations from other players and tournament announcements (reminders for an evening the player answered «иду»/«позже» themselves still go out); choosing «постоянно» or «иногда» again lifts only that pause. Blocked players and pauses set for other reasons are never changed by this choice. Labels in the CRM are plain words with a one-line hint of what each choice changes: «Уровень игры», «Как часто ходит», «Роль в клубе» (Просто игрок / Помогает клубу / Организатор), «Ведёт игры» (Не ведёт / Учится вести / Ведущий / Судья).
+
 `club_role=organizer` does **not** grant Organizer CRM access. Granting or revoking `organizer_player_access` does not modify `game_level`, `club_role`, or `judge_level`, and password login with a verified player identity must never recreate a revoked entitlement. A deliberately supported password-only root organizer session is separate from player-bound entitlement.
 
 A registered external/occasional player is still a canonical player account, even when the historical stored `club_role` value is `guest`; the UI must not present that account as a guest placeholder. A true guest placeholder has no player account/profile, Elo, tokens, Telegram/VK identity, or editable registered-player profile.

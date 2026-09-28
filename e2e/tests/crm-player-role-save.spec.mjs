@@ -49,8 +49,8 @@ test.describe('CRM player classification persistence', () => {
 
     await expect(sheet).not.toBeVisible();
     await expect(page.getByTestId('crm-player-work-card')).toBeVisible();
-    await expect(summary).toContainText('Опытный игрок');
-    await expect(summary).toContainText('Команда клуба');
+    await expect(summary).toContainText('Играет в клубе');
+    await expect(summary).toContainText('Помогает клубу');
     await expect(summary).toContainText('Ведущий');
     await expect(page.getByTestId('crm-player-access-success')).toContainText('подтверждены повторным чтением');
     await shot(page, testInfo, 'crm-player-role-save-persisted-360x800.png');

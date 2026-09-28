@@ -72,6 +72,7 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
     : '0';
   const rows = await db.all<any>(`
     SELECT ep.id AS participant_id, ep.player_id, ep.response_status, ep.rsvp_followup_at,
+           COALESCE(p.contact_status, p.lifecycle_status, 'normal') AS contact_state,
            e.id AS evening_id, e.title, e.starts_at, e.venue,
            ${announcedSql} AS announced_by_bot,
            ${gamesSql} AS selected_games
@@ -105,6 +106,9 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
     };
 
     if (response === 'unanswered') {
+      // Paused players («Перестал ходить», or excluded from mailing) get no invitations or nudges.
+      // Reminders for evenings they answered themselves still go out.
+      if (String(row.contact_state) === 'paused') continue;
       if (!Number(row.announced_by_bot)) {
         await send(`invite:${eveningId}:${playerId}`, 'invitation',
           `💬 Ты приглашён на игровой вечер\n${header}\nОтветь, пожалуйста, — так мы соберём столы.`,

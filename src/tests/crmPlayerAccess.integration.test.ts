@@ -222,7 +222,7 @@ describe('CRM player access profile', () => {
     expect(response.status).toBe(404);
   });
 
-  it('sets level, club membership, organization and judge level for many players at once without touching cabinet access', async () => {
+  it('sets level, how often players come, club role and judge level for many players at once without touching cabinet access', async () => {
     await insertPlayer('bulk-a');
     await insertPlayer('bulk-b');
     await insertPlayer('bulk-c');
@@ -237,7 +237,7 @@ describe('CRM player access profile', () => {
     expect(invalid.status).toBe(400);
 
     const response = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
-      .send({ player_ids: ['bulk-a', 'bulk-b', 'bulk-a', 'bulk-guest', 'missing'], game_level: 'club', membership: 'guest' });
+      .send({ player_ids: ['bulk-a', 'bulk-b', 'bulk-a', 'bulk-guest', 'missing'], game_level: 'club', activity: 'sometimes' });
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     expect(response.body.updated).toBe(2);
 
@@ -264,5 +264,29 @@ describe('CRM player access profile', () => {
     const card = await request(app).get('/api/players/bulk-a').set('Cookie', organizerCookie());
     expect(card.status, JSON.stringify(card.body)).toBe(200);
     expect(card.body.organizer_player_access).toBe(false);
+  });
+
+  it('«Перестал ходить» pauses announcements and coming back turns them on again, never unblocking', async () => {
+    await insertPlayer('gone');
+    await insertPlayer('blocked');
+    await insertPlayer('paused-by-hand');
+    await db.run("UPDATE players SET contact_status='blocked', lifecycle_status='blocked' WHERE id='blocked'");
+    await db.run("UPDATE players SET contact_status='paused', lifecycle_status='paused', pause_reason='Исключён из рассылки организатором' WHERE id='paused-by-hand'");
+    const post = (body: object) => request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send(body);
+    const status = () => db.all<any>("SELECT id, club_role, contact_status, pause_reason FROM players WHERE id IN ('gone','blocked','paused-by-hand') ORDER BY id");
+
+    expect((await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'stopped' })).status).toBe(200);
+    expect(await status()).toEqual([
+      { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
+      { id: 'gone', club_role: 'member', contact_status: 'paused', pause_reason: 'Перестал ходить' },
+      { id: 'paused-by-hand', club_role: 'member', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
+    ]);
+
+    expect((await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'regular' })).status).toBe(200);
+    expect(await status()).toEqual([
+      { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
+      { id: 'gone', club_role: 'member', contact_status: 'normal', pause_reason: null },
+      { id: 'paused-by-hand', club_role: 'member', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
+    ]);
   });
 });

@@ -63,8 +63,8 @@ test.describe('Organizer players mobile workflow', () => {
 
     const access = page.getByTestId('crm-player-access-summary');
     await expect(access).toContainText('Статус игрока');
-    await expect(access).toContainText('Опытный игрок');
-    await expect(access).toContainText('Участник клуба');
+    await expect(access).toContainText('Играет в клубе');
+    await expect(access).toContainText('Ходит постоянно');
     await expect(access).toContainText('Кабинет организатора');
     await expect(access.getByRole('button', { name: 'Добавить на игровой вечер', exact: true })).toBeVisible();
 
@@ -94,7 +94,7 @@ test.describe('Organizer players mobile workflow', () => {
     await page.getByTestId('crm-player-access-edit').click();
     const accessSheet = page.getByTestId('crm-player-access-sheet');
     await expect(accessSheet).toBeVisible();
-    const gameLevelSelect = accessSheet.locator('label').filter({ hasText: /^Игра/ }).locator('select');
+    const gameLevelSelect = accessSheet.locator('label').filter({ hasText: /^Уровень игры/ }).locator('select');
     await gameLevelSelect.selectOption('club');
     await expect(page.getByRole('button', { name: 'Сохранить и записать', exact: true })).toBeVisible();
     await attachViewport(page, testInfo, 'crm-player-access-settings.png');
@@ -134,9 +134,9 @@ test.describe('CRM-PLAYER-UX-001 visual evidence', () => {
     await page.getByTestId('crm-player-access-edit').click();
     const accessSheet = page.getByTestId('crm-player-access-sheet');
     await expect(accessSheet).toBeVisible();
-    await expect(accessSheet.getByText('Игра', { exact: true })).toBeVisible();
-    await expect(accessSheet.getByText('В клубе', { exact: true })).toBeVisible();
-    await expect(accessSheet.getByText('Ведение игр', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Уровень игры', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Как часто ходит', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Ведёт игры', { exact: true })).toBeVisible();
     await expect(accessSheet.getByText('Доступы · кабинет организатора', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, '360 access editor');
     await attachViewport(page, testInfo, 'crm-player-access-editor-360x800.png');
@@ -147,7 +147,7 @@ test.describe('CRM-PLAYER-UX-001 visual evidence', () => {
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
 
     await page.evaluate(() => { document.body.dataset.failNextPlayerPatch = '1'; });
-    const gameLevel = accessSheet.locator('label').filter({ hasText: /^Игра/ }).locator('select');
+    const gameLevel = accessSheet.locator('label').filter({ hasText: /^Уровень игры/ }).locator('select');
     await gameLevel.selectOption('tournament');
     await page.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
     await expect(page.getByTestId('crm-player-access-error')).toContainText('Тестовая ошибка валидации');

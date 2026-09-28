@@ -60,9 +60,12 @@ def test_announcement_shows_venue_address_and_map_link():
 def test_novice_group_post_opens_with_the_promo():
     from handlers.telegram_evening_copy import novice_promo_html, thematic_event_text
 
-    novice = thematic_event_text({"id": "ev-1", "format": "NOVICE", "title": "Школа", "starts_at": "2026-10-02T16:00:00Z"}, [], [])
+    novice = thematic_event_text(
+        {"id": "ev-1", "format": "NOVICE", "title": "Школа", "starts_at": "2026-10-02T16:00:00Z"}, [], [],
+        signup_url="https://t.me/club_bot?start=event_ev-1",
+    )
     assert novice.startswith(novice_promo_html())
-    assert "/join/ev-1\">Записаться в приложении</a>" in novice
+    assert '<a href="https://t.me/club_bot?start=event_ev-1">Записаться в приложении</a>' in novice
     assert "<b>Почему затягивает:</b>" in novice
     club = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-10-02T17:00:00Z"}, [], [])
     assert "Почему затягивает" not in club and "Остались вопросы" not in club

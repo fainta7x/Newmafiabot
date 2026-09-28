@@ -384,7 +384,12 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
     )
 
 
-def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
+def thematic_event_text(
+    evening: dict,
+    slots: list[dict] | None = None,
+    participants: list[dict] | None = None,
+    signup_url: str | None = None,
+) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -394,12 +399,12 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
 
     novice = canonical_format == "NOVICE"
     promo = novice_promo_html() if novice else ""
-    signup = ""
-    if novice and evening.get("id"):
-        from config import PLAYER_APP_URL
-
-        join_url = f"{PLAYER_APP_URL}/join/{quote(str(evening['id']))}"
-        signup = f'📲 <a href="{escape(join_url)}">Записаться в приложении</a> — там же видно, кто уже идёт.'
+    # The bot link (t.me/<bot>?start=event_<id>) opens the Mini App with the player's Telegram login.
+    signup = (
+        f'📲 <a href="{escape(signup_url)}">Записаться в приложении</a> — там же видно, кто уже идёт.'
+        if novice and signup_url
+        else ""
+    )
     contacts = organizer_contacts_html() if novice else ""
 
     def compose(max_players: int, names: bool) -> str:

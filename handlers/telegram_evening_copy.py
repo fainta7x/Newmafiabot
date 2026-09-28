@@ -126,7 +126,7 @@ def _novice_briefing_line(canonical_format: str, starts_at: object, timezone_nam
     except (TypeError, ValueError):
         return None
     briefing = first_game - timedelta(minutes=NOVICE_BRIEFING_LEAD_MINUTES)
-    return f"Брифинг для новичков — {briefing:%H:%M}, первая игра — {first_game:%H:%M}"
+    return f"Рассказываем правила — {briefing:%H:%M}, первая игра — {first_game:%H:%M}"
 
 
 def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:

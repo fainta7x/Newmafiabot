@@ -120,7 +120,7 @@ export const GlossaryScreen = () => {
           <p className="mt-1 text-[14px] leading-6 text-white/70">{item.meaning}</p>
         </article>
       ))}
-      {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Спросите судью на брифинге.</p> : null}
+      {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Спросите судью перед игрой.</p> : null}
       <p className="text-center text-[12px] text-white/35">В словаре {GLOSSARY.length} {pluralRu(GLOSSARY.length, 'слово', 'слова', 'слов')}.</p>
     </div>
   );

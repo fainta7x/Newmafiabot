@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { RefreshCw, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import {
-  CLUB_ROLES, GAME_LEVELS, JUDGE_LEVELS, accessLabel, normalizeClubRole, normalizeGameLevel, normalizeJudgeLevel,
-  type ClubRole, type GameLevel, type JudgeLevel,
+  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, JUDGE_LEVELS, accessLabel, membershipOf, normalizeClubRole, normalizeGameLevel,
+  normalizeJudgeLevel, organizationOf, type ClubMembership, type ClubOrganization, type GameLevel, type JudgeLevel,
 } from '../../lib/playerAccess.ts';
 
 type Row = Player & { game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null };
@@ -40,7 +40,8 @@ export function PlayerAccessBulkCRM() {
   const [level, setLevel] = useState<LevelFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
-  const [clubRole, setClubRole] = useState<ClubRole | ''>('');
+  const [membership, setMembership] = useState<ClubMembership | ''>('');
+  const [organization, setOrganization] = useState<ClubOrganization | ''>('');
   const [judgeLevel, setJudgeLevel] = useState<JudgeLevel | ''>('');
   const [saving, setSaving] = useState(false);
 
@@ -80,7 +81,7 @@ export function PlayerAccessBulkCRM() {
   });
 
   const apply = async () => {
-    if (saving || !selected.size || !(gameLevel || clubRole || judgeLevel)) return;
+    if (saving || !selected.size || !(gameLevel || membership || organization || judgeLevel)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -88,13 +89,15 @@ export function PlayerAccessBulkCRM() {
       const body = await api.bulkUpdatePlayerAccess({
         player_ids: Array.from(selected),
         ...(gameLevel ? { game_level: gameLevel } : {}),
-        ...(clubRole ? { club_role: clubRole } : {}),
+        ...(membership ? { membership } : {}),
+        ...(organization ? { organization } : {}),
         ...(judgeLevel ? { judge_level: judgeLevel } : {}),
       });
       setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
       setSelected(new Set());
       setGameLevel('');
-      setClubRole('');
+      setMembership('');
+      setOrganization('');
       setJudgeLevel('');
       await load();
     } catch (saveError: any) {
@@ -110,7 +113,7 @@ export function PlayerAccessBulkCRM() {
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-[15px] font-semibold text-white">Уровни и роли</h3>
-            <p className="mt-0.5 text-[12px] leading-5 text-white/50">Отметь игроков и поставь им уровень, роль в клубе или ведение игр — сразу всем. Доступ к кабинету организатора выдаётся только в карточке игрока.</p>
+            <p className="mt-0.5 text-[12px] leading-5 text-white/50">Отметь игроков и поставь им уровень, участие в клубе, роль в клубе или ведение игр — сразу всем. Что не выбрано, у каждого остаётся как было. Доступ к кабинету организатора выдаётся только в карточке игрока.</p>
           </div>
           <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
@@ -145,7 +148,8 @@ export function PlayerAccessBulkCRM() {
               <span className="min-w-0 flex-1">
                 <strong className="block truncate text-[14px] text-white">{row.nickname}</strong>
                 <span className="mt-0.5 block truncate text-[11px] text-white/50">
-                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {accessLabel(CLUB_ROLES, normalizeClubRole(row.club_role))}
+                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
+                  {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {normalizeJudgeLevel(row.judge_level) !== 'none' ? ` · ${accessLabel(JUDGE_LEVELS, normalizeJudgeLevel(row.judge_level))}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
                 </span>
@@ -158,14 +162,15 @@ export function PlayerAccessBulkCRM() {
       {selected.size ? (
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
           <p className="text-[13px] font-semibold text-white">Отмечено: {selected.size}</p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <Select label="Уровень" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
-            <Select label="В клубе" value={clubRole} onChange={setClubRole} options={CLUB_ROLES} />
+            <Select label="В клубе" value={membership} onChange={setMembership} options={CLUB_MEMBERSHIPS} />
+            <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={CLUB_ORGANIZATION} />
             <Select label="Ведение игр" value={judgeLevel} onChange={setJudgeLevel} options={JUDGE_LEVELS} />
           </div>
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(gameLevel || clubRole || judgeLevel)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(gameLevel || membership || organization || judgeLevel)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
         </div>

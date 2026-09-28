@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -190,30 +191,39 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 const bulkAccessSchema = z.object({
   player_ids: z.array(z.string().min(1)).min(1).max(500),
   game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(),
-  club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(),
+  // club_role holds two answers, so they change separately (as in the player card):
+  // membership guest/member and organization none/team/organizer. Changing one keeps the other.
+  membership: z.enum(['guest', 'member']).optional(),
+  organization: z.enum(['none', 'team', 'organizer']).optional(),
   judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
-}).refine((data) => data.game_level || data.club_role || data.judge_level, { message: 'Выберите, что поменять' });
+}).refine((data) => data.game_level || data.membership || data.organization || data.judge_level, { message: 'Выберите, что поменять' });
 
-// POST /api/players/access/bulk - set level, club role and judge level for many players at once.
+// POST /api/players/access/bulk - set level, club membership/organization and judge level for many players at once.
 // Access to the organizer cabinet is never changed here; it stays a deliberate per-player action.
 router.post('/access/bulk', requireOrganizerAuth, async (req, res) => {
   try {
     const data = bulkAccessSchema.parse(req.body);
     const db = req.db || (await getDb());
-    const fields = (['game_level', 'club_role', 'judge_level'] as const).filter((key) => data[key] !== undefined);
     const ids = Array.from(new Set(data.player_ids));
     const now = new Date().toISOString();
     let updated = 0;
     await db.transaction(async (tx) => {
       for (const id of ids) {
+        const current = await tx.get<any>(
+          "SELECT game_level, club_role, judge_level FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          [id],
+        );
+        if (!current) continue;
+        const role = normalizeClubRole(current.club_role);
+        const clubRole = clubRoleFrom(data.membership ?? membershipOf(role), data.organization ?? organizationOf(role));
         const result = await tx.run(
-          `UPDATE players SET ${fields.map((key) => `${key} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated'`,
-          [...fields.map((key) => data[key]), now, id],
+          'UPDATE players SET game_level = ?, club_role = ?, judge_level = ?, updated_at = ? WHERE id = ?',
+          [data.game_level ?? current.game_level, clubRole, data.judge_level ?? current.judge_level, now, id],
         );
         updated += Number(result.changes || 0);
       }
     });
-    return res.json({ success: true, updated, fields });
+    return res.json({ success: true, updated });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
   }

@@ -812,7 +812,7 @@ export const api = {
     request<{ success: boolean; checkpoint_warning?: string }>(`/api/players/${playerId}/historical-awards/${awardId}`, { method: 'DELETE' }),
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  bulkUpdatePlayerAccess: (data: { player_ids: string[]; game_level?: string; club_role?: string; judge_level?: string }) =>
+  bulkUpdatePlayerAccess: (data: { player_ids: string[]; game_level?: string; membership?: string; organization?: string; judge_level?: string }) =>
     request<{ success: boolean; updated: number }>('/api/players/access/bulk', { method: 'POST', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
   getPlayerAvatar: (playerId: string) => request<{

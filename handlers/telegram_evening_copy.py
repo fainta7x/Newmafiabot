@@ -428,14 +428,31 @@ def novice_invitation_text(
     signup_url: str | None = None,
     novice_chat_url: str | None = None,
 ) -> str:
-    """The invitation post of a novice evening for the public entry group: promo, when and where, how to join."""
-    sections = [novice_promo_html(), event_base_text(evening, slots or [])]
+    """The invitation post of a novice evening for the public entry channel: promo, when and where, how to join."""
+    # Organizer-entered fields are capped so the post always fits one Telegram message.
+    bounded = {
+        **evening,
+        "title": str(evening.get("title") or "")[:120],
+        "venue": str(evening.get("venue") or "")[:120] or None,
+        "notes": str(evening.get("notes") or "")[:300],
+    }
+    sections = [novice_promo_html(), event_base_text(bounded, slots or [])]
     links = []
     if signup_url:
         # The bot link (t.me/<bot>?start=event_<id>) opens the Mini App with the player's Telegram login.
         links.append(f'📲 <a href="{escape(signup_url)}">Записаться в приложении</a>')
+    groups = []
     if novice_chat_url:
-        links.append(f'💬 <a href="{escape(novice_chat_url)}">Чат для новичков</a>')
+        groups.append(f'<a href="{escape(novice_chat_url)}">Telegram</a>')
+    vk_group = str((_NOVICE_PROMO.get("groups") or {}).get("vk") or "").strip()
+    if vk_group.startswith("https://vk.com/") or vk_group.startswith("https://vk.ru/"):
+        groups.append(f'<a href="{escape(vk_group)}">VK</a>')
+    if groups:
+        links.append(f"👥 Наши группы: {' · '.join(groups)}")
     sections.append("\n".join(links))
     sections.append(organizer_contacts_html())
-    return "\n\n".join(section for section in sections if section)
+    text = "\n\n".join(section for section in sections if section)
+    # A promo edited to be very long must not break the post: drop it before Telegram refuses the message.
+    if len(text) > _TELEGRAM_TEXT_LIMIT:
+        text = "\n\n".join(section for section in sections[1:] if section)
+    return text

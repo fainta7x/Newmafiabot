@@ -10,7 +10,7 @@ import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails, venueLine } from '../../lib/venues.ts';
-import { novicePromoText, organizerContactLinks } from '../../lib/novicePromo.ts';
+import { clubVkGroupUrl, novicePromoText, organizerContactLinks } from '../../lib/novicePromo.ts';
 
 type EveningRow = {
   id: string;
@@ -122,7 +122,12 @@ export const buildDirectVkEveningAnnouncement = async (
   );
   if (novice) {
     const chat = await noviceChatInviteUrl(db);
-    if (chat) lines.push('', '💬 Чат для новичков в Telegram:', chat);
+    const vkGroup = clubVkGroupUrl();
+    if (chat || vkGroup) {
+      lines.push('', '👥 Наши группы:');
+      if (chat) lines.push(`Telegram: ${chat}`);
+      if (vkGroup) lines.push(`VK: ${vkGroup}`);
+    }
     const contacts = organizerContactLinks();
     if (contacts.length) lines.push('', '✉️ Остались вопросы? Пишите:', ...contacts.map((contact) => `${contact.label}: ${contact.url}`));
   }

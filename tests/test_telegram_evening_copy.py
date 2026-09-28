@@ -67,6 +67,17 @@ def test_novice_invitation_is_the_promo_with_when_where_and_links():
     assert text.startswith(novice_promo_html())
     assert "🎓 Рассказываем правила — 18:30, первая игра — 19:00" in text
     assert '<a href="https://t.me/club_bot?start=event_ev-1">Записаться в приложении</a>' in text
-    assert '<a href="https://t.me/+novice">Чат для новичков</a>' in text
+    assert '👥 Наши группы: <a href="https://t.me/+novice">Telegram</a> · <a href="https://vk.com/2lanoiremafia">VK</a>' in text
+    assert '✉️ Остались вопросы? Пишите: <a href="https://t.me/Chagina7x">Telegram</a>' in text
     # The novice chat itself gets the ordinary announcement.
     assert "Почему затягивает" not in thematic_event_text(evening, [], [])
+
+
+def test_novice_invitation_fits_one_telegram_message():
+    from handlers.telegram_evening_copy import novice_invitation_text
+
+    evening = {"id": "ev-1", "format": "NOVICE", "title": "Т" * 5000, "venue": "В" * 5000, "notes": "Н" * 5000,
+               "starts_at": "2026-10-02T16:00:00Z"}
+    text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
+    assert len(text) <= 4096
+    assert "Почему затягивает" in text

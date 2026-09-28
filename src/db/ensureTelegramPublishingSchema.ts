@@ -327,6 +327,23 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
         )`,
   );
 
+  // Novice evenings announced before the entry channel carried invitations: sync them once so
+  // the invitation appears there. Only evenings already announced in the novice group qualify,
+  // so nothing new is published early, and only while the entry channel is connected.
+  await db.run(
+    `INSERT INTO telegram_sync_outbox
+       (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+     SELECT 'evening:' || e.id, 'evening', e.id, 1, 0, ?, NULL, NULL, NULL
+       FROM game_evenings e
+      WHERE UPPER(COALESCE(e.format, '')) = 'NOVICE'
+        AND e.status IN ('published', 'active')
+        AND e.settled_at IS NULL
+        AND EXISTS (SELECT 1 FROM evening_telegram_publications p WHERE p.evening_id = e.id AND p.destination_id = 'novice')
+        AND NOT EXISTS (SELECT 1 FROM evening_telegram_publications p WHERE p.evening_id = e.id AND p.destination_id = 'public')
+        AND EXISTS (SELECT 1 FROM telegram_destinations d WHERE d.id = 'public' AND d.active = 1 AND TRIM(COALESCE(d.chat_id, '')) <> '')
+     ON CONFLICT(sync_key) DO NOTHING`,
+    [now],
+  );
 }
 
 export function isTelegramDestinationId(value: unknown): value is TelegramDestinationId {

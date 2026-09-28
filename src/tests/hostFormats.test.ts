@@ -6,6 +6,7 @@ import { generateOrganizerToken } from '../server/auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../server/services/judgeAssignmentService.ts';
 import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema.ts';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
+import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { canHostEveningFormat, hostFormatsOf, legacyJudgeLevelFor } from '../lib/hostFormats.ts';
 
@@ -75,5 +76,22 @@ describe('«Может вести» marks', () => {
     await ensureClubOperationsSchema(db);
     const owner = await db.get<any>('SELECT host_formats, judge_level FROM players WHERE id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
     expect(hostFormatsOf(owner)).toEqual(['NOVICE', 'CASUAL', 'RATING']);
+  });
+
+  it('no longer makes players organizers by nickname and returns «Матроскина» and «Гриня» to ordinary players once', async () => {
+    const db = createDatabaseConnection(':memory:');
+    opened.push(db);
+    await ensureJudgeAuthoritySchema(db);
+    await ensureInviteAudienceSchema(db);
+    const now = new Date().toISOString();
+    for (const [id, nickname] of [['m', 'Матроскина'], ['g', 'Гриня'], ['x', 'Другой']]) {
+      await db.run(`INSERT INTO players (id,nickname,lifecycle_status,source,club_role,created_at,updated_at) VALUES (?, ?, 'normal', 'crm_manual', 'organizer', ?, ?)`, [id, nickname, now, now]);
+    }
+    await ensureClubOperationsSchema(db);
+    expect(await db.all<any>("SELECT id, club_role FROM players WHERE id IN ('m','g','x') ORDER BY id")).toEqual([
+      { id: 'g', club_role: 'member' },
+      { id: 'm', club_role: 'member' },
+      { id: 'x', club_role: 'organizer' },
+    ]);
   });
 });

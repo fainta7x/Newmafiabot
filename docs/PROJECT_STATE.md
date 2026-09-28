@@ -431,9 +431,11 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - a separate alert for «Приду позже» or a cancellation in the last 3 hours before an evening;
      - an alert when a Telegram or VK announcement fails;
      - the evening digest on a schedule (morning and 3 hours before) instead of on every change.
+19. Bot home card built (2026-09-28): /start shows an inline card with nearest evenings (answer buttons, games, map), «Мои записи», frequent questions, learning, our groups and «Написать организатору». Next ideas for the bot, to agree: reminders on the evening day with «Всё в силе?», a result card after each game, «Пригласить друга» with a personal link.
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner
+- Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), especially «Можно прийти с другом?» and «Как оплатить?», which were written from the rules without the owner's own wording.
 - Video links for the lessons; shop items and prices; texts of new articles and lessons (written only from the owner's explanations); split-vote trainers for other game stages (the owner explains how they work).
 - The cafe «Суп с Котом» is listed as open until 22:00, while club evenings end at 02:00 — confirm with the cafe.
 

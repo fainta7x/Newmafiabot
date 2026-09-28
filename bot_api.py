@@ -344,3 +344,29 @@ async def check_backend_connection() -> dict:
             "service": None,
             "api_version": None,
         }
+
+
+async def get_player_home(telegram_user_id: int) -> dict[str, Any]:
+    """The player's answers for open evenings and token balance, for the bot's «Мои записи»."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/players/by-telegram/{int(telegram_user_id)}/home"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_base_headers()) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if status == 200 and isinstance(data, dict):
+                    return {"success": True, "data": data}
+                if status == 404:
+                    return {"success": False, "error": "not_found"}
+                return {"success": False, "error": "unavailable", "status": status}
+    except (asyncio.TimeoutError, aiohttp.ClientError):
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Unexpected player home API failure")
+        return {"success": False, "error": "unavailable"}

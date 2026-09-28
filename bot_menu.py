@@ -1,4 +1,3 @@
-from html import escape
 from urllib.parse import quote
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, WebAppInfo
@@ -12,6 +11,7 @@ CLUB_ACCESS_BUTTON_TEXT = "🎟 Доступ в клуб"
 REGULATIONS_BUTTON_TEXT = "📋 РЕГЛАМЕНТ"
 STATUS_BUTTON_TEXT = "🩺 Проверить состояние приложения"
 JUDGE_BUTTON_TEXT = "⚖ Судейство"
+MENU_BUTTON_TEXT = "📋 Меню"
 
 
 def player_app_url(path: str = "/player") -> str | None:
@@ -43,8 +43,8 @@ def main_menu_for_user(*, is_admin: bool, is_judge: bool):
         builder.row(KeyboardButton(text=APP_BUTTON_TEXT))
 
     builder.row(
+        KeyboardButton(text=MENU_BUTTON_TEXT),
         KeyboardButton(text=CLUB_ACCESS_BUTTON_TEXT),
-        KeyboardButton(text=REGULATIONS_BUTTON_TEXT),
     )
 
     if is_admin:
@@ -89,14 +89,9 @@ def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / и
 
 
 def start_text(first_name: str | None = None, *, is_organizer: bool = False) -> str:
-    greeting = f"Привет, <b>{escape(first_name)}</b>.\n\n" if first_name else ""
-    commands = "/cabinet — личный кабинет\n" + ("/crm — кабинет организатора\n" if is_organizer else "")
+    organizer = "\n/crm — кабинет организатора" if is_organizer else ""
     return (
-        "🎭 <b>2LA Noire</b>\n\n"
-        f"{greeting}"
-        "Сюда приходят анонсы вечеров, напоминания и результаты игр. На анонс можно ответить прямо кнопками: "
-        "«Буду», «Приду позже», «Пока думаю», «Не буду».\n\n"
-        "В приложении — запись на конкретные игры, профиль, рейтинг, история, кошелёк и ставки.\n\n"
-        f"Команды:\n{commands}\n"
-        "Открой клуб кнопкой ниже."
+        "Сюда приходят анонсы вечеров, напоминания и результаты игр — отвечай прямо кнопками под ними.\n\n"
+        "Внизу экрана всегда есть «🎭 Открыть 2LA Noire» и «📋 Меню»."
+        f"{organizer}"
     )

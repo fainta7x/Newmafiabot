@@ -435,7 +435,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner
-- Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), especially «Можно прийти с другом?» and «Как оплатить?», which were written from the rules without the owner's own wording.
+- Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.
 - Video links for the lessons; shop items and prices; texts of new articles and lessons (written only from the owner's explanations); split-vote trainers for other game stages (the owner explains how they work).
 - The cafe «Суп с Котом» is listed as open until 22:00, while club evenings end at 02:00 — confirm with the cafe.
 

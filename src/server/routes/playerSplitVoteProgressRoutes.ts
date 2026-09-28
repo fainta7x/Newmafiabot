@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { ensureSplitVoteProgressSchema } from '../../db/ensureSplitVoteProgressSchema.ts';
 import { correctSplitVote, isCorrectSplitVoteAssignment, type SplitVoteScenario } from '../../lib/splitVoteTraining.ts';
 import { checkExpertAnswer, isValidExpertScenario } from '../../lib/splitVoteExpert.ts';
-import { correctSplitThreeVote, isCorrectSplitThreeAssignment, isValidSplitThreeScenario, type SplitThreeLevel } from '../../lib/splitThreeTraining.ts';
+import { SPLIT_THREE_ORDER, correctSplitThreeVote, isCorrectSplitThreeAssignment, isValidSplitThreeScenario, type SplitThreeLevel } from '../../lib/splitThreeTraining.ts';
+import { isCorrectSplitThreeBreak, isCorrectSplitThreeChoice, isValidSplitThreeBreak } from '../../lib/splitThreeBreak.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { evaluatePlayerAchievements } from '../services/playerAchievementsService.ts';
 
@@ -10,7 +11,7 @@ const router = Router();
 type ZeroRoundLevel = 'basic' | 'advanced' | 'interactive' | 'expert';
 type Level = ZeroRoundLevel | SplitThreeLevel;
 /** Each trainer is its own chain: a level opens after the previous level of the same trainer. */
-const TRACKS: Level[][] = [['basic', 'advanced', 'interactive', 'expert'], ['three_easy', 'three_medium', 'three_hard']];
+const TRACKS: Level[][] = [['basic', 'advanced', 'interactive', 'expert'], SPLIT_THREE_ORDER];
 const LEVELS: Level[] = TRACKS.flat();
 
 const validScenario = (value: unknown, level: ZeroRoundLevel): value is SplitVoteScenario => {
@@ -51,6 +52,8 @@ const isPassedSplitThreeExam = (answers: unknown, level: SplitThreeLevel) => {
   return answers.every((entry: unknown) => {
     if (!entry || typeof entry !== 'object') return false;
     const { scenario, answer } = entry as { scenario: unknown; answer: unknown };
+    if (level === 'three_break') return isValidSplitThreeBreak(scenario) && isAssignment(answer) && isCorrectSplitThreeBreak(scenario, answer);
+    if (level === 'three_choose') return isValidSplitThreeScenario(scenario, 'three_hard') && isCorrectSplitThreeChoice(scenario, answer);
     if (!isValidSplitThreeScenario(scenario, level)) return false;
     return level === 'three_easy' ? answer === correctSplitThreeVote(scenario) : isAssignment(answer) && isCorrectSplitThreeAssignment(scenario, answer);
   });
@@ -74,7 +77,7 @@ router.post('/split-vote-progress', async (req, res) => {
   if (!playerId) return res.status(401).json({ error: 'Войдите в кабинет игрока, чтобы сохранить прогресс.' });
   const level = req.body?.level as Level;
   const answers = req.body?.answers;
-  if (level === 'three_easy' || level === 'three_medium' || level === 'three_hard' ? !isPassedSplitThreeExam(answers, level) : level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
+  if ((SPLIT_THREE_ORDER as string[]).includes(level) ? !isPassedSplitThreeExam(answers, level as SplitThreeLevel) : level === 'expert' ? !isPassedExpertExam(answers) : !LEVELS.includes(level) || !Array.isArray(answers) || answers.length !== 5 ||
     new Set(answers.map((entry: { scenario?: unknown }) => JSON.stringify(entry?.scenario))).size !== 5 ||
     !answers.every((entry: unknown) => {
       if (!entry || typeof entry !== 'object') return false;

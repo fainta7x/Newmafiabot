@@ -7,6 +7,7 @@ import { generatePlayerSessionToken } from '../server/auth.ts';
 import { correctSplitVote } from '../lib/splitVoteTraining.ts';
 import { generateExpertExam, solveExpert } from '../lib/splitVoteExpert.ts';
 import { correctSplitThreeVote, generateSplitThreeScenario, splitThreeAssignments } from '../lib/splitThreeTraining.ts';
+import { generateSplitThreeBreak, generateSplitThreeChoice, splitThreeBreakState } from '../lib/splitThreeBreak.ts';
 import { createDatabaseConnection } from '../db/index.ts';
 import { ensureSplitVoteProgressSchema } from '../db/ensureSplitVoteProgressSchema.ts';
 
@@ -87,16 +88,40 @@ describe('player split-vote progression', () => {
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('erin')).send({ level: 'three_medium', answers: wrong })).status).toBe(400);
   });
 
-  it('opens the hard three-way level only after the medium exam', async () => {
+  it('opens the hard three-way level only after the «Кого пилить» exam', async () => {
     const hard = Array.from({ length: 5 }, () => generateSplitThreeScenario('three_hard')).map((scenario) => ({ scenario, answer: splitThreeAssignments(scenario) }));
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: hard })).status).toBe(403);
-    rows.set('fred', new Set(['three_easy', 'three_medium']));
+    // The two-sheriffs level (shown as «Экспертный») now follows «Сложный» and «Кого пилить».
+    rows.set('fred', new Set(['three_easy', 'three_medium', 'three_break', 'three_choose']));
     const passed = await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: hard });
     expect(passed.status).toBe(200);
     expect(passed.body.passed).toContain('three_hard');
     // A task without the sheriff claims is not a hard-level task.
     const stripped = hard.map((entry, index) => (index === 0 ? { ...entry, scenario: { ...entry.scenario, sheriffs: undefined } } : entry));
     expect((await request(app).post('/api/player/split-vote-progress').set('Cookie', cookie('fred')).send({ level: 'three_hard', answers: stripped })).status).toBe(400);
+  });
+
+  it('checks the broken-split exam and opens it after the medium exam', async () => {
+    const post = (playerId: string, answers: unknown) => request(app).post('/api/player/split-vote-progress').set('Cookie', cookie(playerId)).send({ level: 'three_break', answers });
+    const right = Array.from({ length: 5 }, () => generateSplitThreeBreak()).map((scenario) => ({ scenario, answer: { [scenario.breaker]: splitThreeBreakState(scenario).pool } }));
+    expect((await post('gina', right)).status).toBe(403);
+    rows.set('gina', new Set(['three_easy', 'three_medium']));
+    expect((await post('gina', right)).status).toBe(200);
+    // Sending the remaining hands to another split player instead of the breaker fails.
+    const [first] = right;
+    const other = first.scenario.split.find((seat) => seat !== first.scenario.breaker)!;
+    rows.set('gil', new Set(['three_easy', 'three_medium']));
+    expect((await post('gil', [{ ...first, answer: { [other]: splitThreeBreakState(first.scenario).pool } }, ...right.slice(1)])).status).toBe(400);
+  });
+
+  it('checks the «Кого пилить» exam', async () => {
+    const post = (playerId: string, answers: unknown) => request(app).post('/api/player/split-vote-progress').set('Cookie', cookie(playerId)).send({ level: 'three_choose', answers });
+    const tasks = Array.from({ length: 5 }, () => generateSplitThreeChoice());
+    rows.set('hana', new Set(['three_easy', 'three_medium', 'three_break']));
+    expect((await post('hana', tasks.map((scenario) => ({ scenario, answer: scenario.split })))).status).toBe(200);
+    rows.set('ivan', new Set(['three_easy', 'three_medium', 'three_break']));
+    const wrong = tasks.map((scenario, index) => ({ scenario, answer: index === 0 ? [scenario.sheriffs!.trusted.seat, ...scenario.split.slice(1)] : scenario.split }));
+    expect((await post('ivan', wrong)).status).toBe(400);
   });
 });
 

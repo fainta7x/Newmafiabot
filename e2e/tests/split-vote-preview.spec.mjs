@@ -122,7 +122,7 @@ test('three-way split trainer fits a phone at both levels', async ({ page }, tes
 });
 
 test('three-way split hard level shows both sheriffs on a phone', async ({ page }, testInfo) => {
-  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium'] } }));
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium', 'three_break', 'three_choose'] } }));
   await page.goto('/e2e/split-vote.html?tab=split-three');
   await page.getByTestId('split-three-level-three_hard').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
   await expect(page.getByTestId('split-three-sheriffs')).toContainText('Город меньше верит шерифу');
@@ -150,4 +150,14 @@ test('a guide screen opened from the bottom of another starts at its top', async
   await expect(page.getByTestId('split-vote-modes')).toBeVisible();
   await expect(page.getByTestId('guide-place')).toBeInViewport();
   expect(await page.evaluate(() => document.getElementById('root').scrollTop)).toBe(0);
+});
+
+test('three-way broken split: the break, the timer and the table fit a phone', async ({ page }, testInfo) => {
+  await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium'] } }));
+  await page.goto('/e2e/split-vote.html?tab=split-three');
+  await page.getByTestId('split-three-level-three_break').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
+  await expect(page.getByTestId('split-three-break')).toContainText('не поставил руку');
+  await expect(page.getByTestId('split-three-timer')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath('split-three-break-390.png'), fullPage: true });
 });

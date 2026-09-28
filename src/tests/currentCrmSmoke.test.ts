@@ -15,7 +15,7 @@ describe('current CRM smoke flow', () => {
       .set('Cookie', cookie)
       .send({ nickname: 'Smoke_Player' });
     expect(player.status, JSON.stringify(player.body)).toBe(201);
-    expect(player.body.game_level).toBe('unrated');
+    expect(player.body.game_level).toBe('novice');
 
     const evening = await request(app)
       .post('/api/evenings')

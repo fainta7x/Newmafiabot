@@ -57,16 +57,35 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
     }
   }
 
-  // Retire the old trigger that equated a manually created club profile with mafia novice skill.
+  // Owner decision 2026-09-28: there is no «unknown» level. Every new player starts as «Новичок»
+  // (novice) until the organizer raises the level; an organizer-confirmed «Я уже умею играть» is «Играет в клубе».
+  await db.run('DROP TRIGGER IF EXISTS trg_players_crm_manual_default_unrated');
   await db.run('DROP TRIGGER IF EXISTS trg_players_crm_manual_default_novice');
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_unrated
+    CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice
     AFTER INSERT ON players
     WHEN NEW.source IN ('crm_manual', 'manual') AND NEW.game_level = 'club'
     BEGIN
-      UPDATE players SET game_level = 'unrated' WHERE id = NEW.id;
+      UPDATE players SET game_level = 'novice' WHERE id = NEW.id;
     END;
   `);
+
+  // One-time: players still «unrated» become «Играет в клубе» when the organizer confirmed them as experienced
+  // or they already played a club/rating/tournament evening; everyone else becomes «Новичок».
+  const retireUnrated = await db.get<{ id: string }>('SELECT id FROM app_data_migrations WHERE id = ?', ['2026-09-retire-unrated-level']);
+  if (!retireUnrated) {
+    const hasStage = (await tableColumns(db, 'players')).has('club_stage');
+    await db.run(`
+      UPDATE players SET game_level = 'club'
+       WHERE game_level = 'unrated'
+         AND (${hasStage ? "club_stage = 'CLUB_PLAYER' OR " : ''}EXISTS (
+           SELECT 1 FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id
+            WHERE ep.player_id = players.id AND ep.attendance_status = 'attended'
+              AND UPPER(COALESCE(e.format, 'CASUAL')) <> 'NOVICE'))
+    `);
+    await db.run("UPDATE players SET game_level = 'novice' WHERE game_level = 'unrated'");
+    await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', ['2026-09-retire-unrated-level', new Date().toISOString()]);
+  }
 }
 
 export function playerLevelAllowsEveningFormat(level: string | null | undefined, format: string | null | undefined): boolean {
@@ -74,8 +93,8 @@ export function playerLevelAllowsEveningFormat(level: string | null | undefined,
     level === 'unrated' || level === 'novice' || level === 'tournament' ? level : 'club';
   const normalizedFormat = normalizeEveningFormat(format);
 
-  // Unassessed players get a safe, non-competitive path while the organizer determines skill.
-  if (normalizedLevel === 'unrated') return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
+  // Legacy value only (retired 2026-09-28): an unassessed player is treated like a novice.
+  if (normalizedLevel === 'unrated') return normalizedFormat === 'NOVICE';
   if (normalizedLevel === 'novice') return normalizedFormat === 'NOVICE';
   if (normalizedLevel === 'club') return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
   return normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING' || normalizedFormat === 'TOURNAMENT';

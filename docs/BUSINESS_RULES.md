@@ -292,11 +292,12 @@ The current operating default is the established main club and its regular CASUA
 - The external first-visit choice has exactly two routes: **«Я новичок / почти не играл»** and **«Я уже умею играть»**.
 - A first-time novice chooses the novice route independently and immediately receives `NOVICE_ACTIVE` and, if previously unassessed, `game_level=novice`. No organizer approval is required. Choosing the route alone does not book an evening; the player then answers «Иду» and chooses games. A legacy pending novice application can be continued by the player without organizer intervention.
 - An experienced visitor's first application is reviewed manually by an organizer; until confirmation, they may see eligible events but cannot self-register. If their application selected a specific available evening, confirmation also records «Иду» for that evening.
-- Confirming the experienced route moves the player to `CLUB_PLAYER` but leaves `game_level=unrated` until an organizer assesses it. Experience must never be fabricated from club tenure.
+- Every new player starts with `game_level=novice` («Новичок»); there is no «unknown» level (owner decision 2026-09-28, replaces the former `unrated`). The organizer's confirmation of «Я уже умею играть» is the assessment: it moves the player to `CLUB_PLAYER` and `game_level=club` («Играет в клубе»). Experience must never be fabricated from club tenure alone.
+- One-time migration `2026-09-retire-unrated-level`: players still `unrated` become `club` when they are `CLUB_PLAYER` or attended a non-NOVICE evening, otherwise `novice`. The legacy value `unrated`, if it ever appears, is treated as `novice`.
 - Promotion from the novice route to the main club is manual; attendance never auto-promotes or auto-removes a player. The organizer's «Перевести в основной клуб» also raises `game_level` from `novice`/`unrated` to `club`, so CASUAL booking opens at once; a higher level already set by the organizer is kept (user-approved 2026-09-24).
 - The first two factually attended NOVICE evenings are free. Starting with the third attended NOVICE evening, the player price is **200 ₽ per selected game**.
 - The standard Friday operation is briefing at 18:30, rules-aware arrival at 19:00 and CASUAL continuation at 21:00. A NOVICE evening's start time is its first game (default 19:00); the briefing is shown 30 minutes earlier and has no game slot (user-approved 2026-09-24). Organizers check the group on Thursday at 20:00 and decide by Friday at 15:00; the system must not cancel automatically.
-- `game_level=unrated` remains blocked from RATING and TOURNAMENT until organizer assessment. Telegram and VK use the same canonical player/application state.
+- A novice is invited only to NOVICE evenings until the organizer raises the level. Telegram and VK use the same canonical player/application state.
 
 Approved response model for an announced evening includes:
 

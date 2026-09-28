@@ -32,7 +32,7 @@ describe('canonical Telegram player registration', () => {
     expect(result.player.nickname).toBe('Новичок');
     expect(result.player.telegram_user_id).toBe('123456');
     expect(result.player.telegram_username).toBe('new_player');
-    expect(result.player.game_level).toBe('unrated');
+    expect(result.player.game_level).toBe('novice');
     expect(result.player.judge_level).toBe('none');
     expect(result.player.elo).toBe(1000);
     expect(result.player.elo_seed).toBe(1000);

@@ -95,7 +95,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
       {!readonly && ['draft', 'published'].includes(evening.status) ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         <EveningStartTimeEditor eveningId={eveningId} startsAt={evening.starts_at}
-          onMoved={(moved) => setEvening((value) => value ? { ...value, ...moved } : value)} />
+          onMoved={(moved) => { setEvening((value) => value ? { ...value, ...moved } : value); onStatusChange?.(); }} />
       </section> : null}
 
       <EveningPersonalInvites eveningId={eveningId} />

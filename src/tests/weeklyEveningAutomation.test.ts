@@ -113,6 +113,25 @@ describe('weekly Friday evening automation', () => {
     expect(run?.completed_at).toBeTruthy();
   });
 
+  it('keeps the Monday 19:00 announcement when the Friday start is moved to 21:00', async () => {
+    const db = createDb();
+    await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await db.run("UPDATE game_evenings SET starts_at = '2026-08-28T21:00:00+03:00' WHERE substr(starts_at,1,10)='2026-08-28'");
+    const announced: string[] = [];
+    const delivery = {
+      enqueueTelegramChannel: async (_db: DatabaseWrapper, eveningId: string) => { announced.push(eveningId); },
+      enqueueTelegramDm: async () => {},
+      drainTelegram: async () => ({ failed: 0 }),
+      syncVk: async () => {},
+    };
+
+    await runDueWeeklyAnnouncements(db, { now: new Date('2026-08-24T15:59:00.000Z'), baseUrl: 'https://example.test', delivery });
+    expect(announced).toEqual([]);
+    await runDueWeeklyAnnouncements(db, { now: new Date('2026-08-24T16:01:00.000Z'), baseUrl: 'https://example.test', delivery });
+    const target = await db.get<any>("SELECT id FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
+    expect(announced).toEqual([target?.id]);
+  });
+
   it('does not repeat a completed weekly run when the Telegram publication record is missing', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));

@@ -238,7 +238,8 @@ export async function runDueWeeklyAnnouncements(
   for (const evening of rows) {
     const startMs = new Date(String(evening.starts_at)).getTime();
     if (!Number.isFinite(startMs) || startMs <= nowMs) continue;
-    const dueMs = startMs - (4 * DAY_MS + 60 * 60 * 1000);
+    // Monday 19:00 Moscow of the evening's week, whatever time the evening starts (a Friday moved to 21:00 too).
+    const dueMs = civilDate(new Date(startMs)).getTime() - 4 * DAY_MS + 16 * 60 * 60 * 1000;
     if (nowMs < dueMs) continue;
 
     const key = `weekly-announcement:${String(evening.id)}`;

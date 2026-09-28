@@ -23,6 +23,7 @@ describe('bot «Мои записи»', () => {
     const res = await request(app).get('/api/bot/players/by-telegram/555/home').set('X-Bot-Token', 'bot-secret-test');
     expect(res.status).toBe(200);
     expect(res.body.player).toMatchObject({ nickname: 'Лиса', tokens: 900 });
+    expect(typeof res.body.player.game_level).toBe('string');
     expect(res.body.evenings.map((row: any) => [row.id, row.response_status, row.games])).toEqual([['open', 'going', 0]]);
 
     const missing = await request(app).get('/api/bot/players/by-telegram/999/home').set('X-Bot-Token', 'bot-secret-test');

@@ -8,11 +8,41 @@ def _texts(markup):
     return [[button.text for button in row] for row in markup.inline_keyboard]
 
 
-def test_home_card_has_every_section():
-    rows = _texts(bot_home.home_keyboard())
-    flat = [text for row in rows for text in row]
-    for section in ("📅 Ближайшие вечера", "👤 Мои записи", "❓ Частые вопросы", "📚 Обучение", "👥 Наши группы", "✉️ Написать организатору"):
+EVENINGS = [
+    {"id": "n", "format": "NOVICE", "starts_at": "2026-10-02T16:00:00Z", "attending_count": 3},
+    {"id": "c", "format": "CASUAL", "starts_at": "2026-10-02T18:00:00Z", "attending_count": 9},
+]
+
+
+def test_newcomer_gets_a_short_friendly_menu():
+    assert bot_home.audience_for(None) == "newcomer"
+    assert bot_home.audience_for({"player": {"game_level": "novice"}}) == "newcomer"
+    text, markup = bot_home.newcomer_home("Аня", EVENINGS)
+    assert "Ближайший вечер для новичков: <b>пт, 2 октября · 19:00</b>" in text
+    flat = [t for row in _texts(markup) for t in row]
+    assert flat[:3] == ["🎭 Что это за игра?", "📅 Записаться на вечер", "❓ Частые вопросы"]
+    assert "🪙 Жетоны и магазин" not in flat
+
+
+def test_newcomer_sees_only_novice_evenings():
+    text, markup = bot_home.events_view(EVENINGS, "newcomer")
+    assert "Вечера для новичков" in text and "21:00" not in text
+    assert _texts(markup)[0] == ["2 октября · 19:00"]
+
+
+def test_club_player_gets_the_full_menu():
+    home = {"player": {"nickname": "Лиса", "game_level": "club"}, "evenings": [{"id": "c", "response_status": "going"}]}
+    assert bot_home.audience_for(home) == "club"
+    text, markup = bot_home.club_home("Аня", home, EVENINGS)
+    assert "Ближайший вечер: <b>пт, 2 октября · 21:00</b>" in text and "ты: ✅ иду" in text
+    flat = [t for row in _texts(markup) for t in row]
+    for section in ("📅 Расписание", "👤 Мои записи", "👥 Составы", "📚 Обучение", "💬 Группы", "❓ Вопросы"):
         assert section in flat
+
+
+def test_my_signups_no_longer_show_tokens():
+    text, _ = bot_home.mine_view({"player": {"nickname": "Лиса", "tokens": 900}, "evenings": []})
+    assert "жетон" not in text
 
 
 def test_evening_card_lets_the_player_answer_and_go_back():

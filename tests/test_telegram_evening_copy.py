@@ -116,3 +116,15 @@ def test_club_post_is_the_owners_short_text():
     assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
     assert private_event_text(evening) == expected
     assert private_event_text(evening, reminder=True).startswith("🔔")
+
+
+def test_novice_group_post_invites_to_play_and_keeps_who_is_coming():
+    from handlers.telegram_evening_copy import private_event_text, thematic_event_text
+
+    evening = {"format": "NOVICE", "title": "Школа", "venue": "Суп с Котом", "starts_at": "2026-10-02T16:00:00Z"}
+    post = thematic_event_text(evening, [], [{"player_id": "a", "nickname": "Лёша", "response_status": "thinking", "selected_games": 0}])
+    assert post.startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками — приходи 🎭\n"
+                           "Никогда не играл — не страшно: в 18:30 объясним правила, потом сыграем вместе. Можно прийти одному.")
+    assert "Пока думают (1)</b>: Лёша" in post
+    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    assert private_event_text(evening).startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками")

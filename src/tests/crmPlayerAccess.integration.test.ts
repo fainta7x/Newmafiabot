@@ -306,6 +306,8 @@ describe('CRM player access profile', () => {
       expect.stringContaining('«Исключён из рассылки организатором»'),
     ]));
     expect(stoppedResponse.body.warnings).toHaveLength(2);
+    // Only «gone» really changed; the skipped two are not counted as changed.
+    expect(stoppedResponse.body.updated).toBe(1);
     expect(await status()).toEqual([
       { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
       { id: 'gone', club_role: 'member', contact_status: 'paused', pause_reason: 'Перестал ходить' },

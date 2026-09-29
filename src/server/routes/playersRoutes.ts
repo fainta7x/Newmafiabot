@@ -270,6 +270,8 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
           });
         }
         const hostChanged = Boolean(data.host_formats_add?.length || data.host_formats_remove?.length);
+        // Nothing else was asked for this player, so the skipped status leaves them unchanged and uncounted.
+        if (skipped.at(-1)?.id === id && !data.game_level && !data.organization && !hostChanged && !organizeChanged) continue;
         const formats = new Set(hostFormatsOf(current));
         data.host_formats_add?.forEach((format) => formats.add(format));
         data.host_formats_remove?.forEach((format) => formats.delete(format));

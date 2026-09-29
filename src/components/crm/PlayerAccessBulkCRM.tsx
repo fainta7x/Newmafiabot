@@ -329,7 +329,7 @@ export function PlayerAccessBulkCRM() {
         </div>
       ) : message ? (
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] px-4 pb-[calc(12px+env(safe-area-inset-bottom))]" data-testid="crm-access-bulk-toast">
-          <button type="button" onClick={() => { setMessage(''); setWarnings([]); }} className={`w-full rounded-2xl px-4 py-3 text-left text-[13px] font-semibold text-white shadow-2xl ${warnings.length ? 'bg-amber-700' : 'bg-emerald-600'}`}>
+          <button type="button" onClick={() => { setMessage(''); setWarnings([]); }} className={`max-h-[calc(100dvh-24px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full overflow-y-auto rounded-2xl px-4 py-3 text-left text-[13px] font-semibold text-white shadow-2xl ${warnings.length ? 'bg-amber-700' : 'bg-emerald-600'}`}>
             {message}
             {warnings.length ? <ul className="mt-1 space-y-1 text-[12px] font-normal">{warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul> : null}
             <span className="mt-1 block text-[11px] font-normal text-white/70">Нажмите, чтобы закрыть</span>

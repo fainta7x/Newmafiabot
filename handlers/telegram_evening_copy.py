@@ -327,14 +327,12 @@ def _without_games(participants: list[dict]) -> set[str]:
 
 
 def _response_lines(participants: list[dict], *, names: bool = True) -> list[str]:
-    """Players who answered but picked no games: «иду» / «позже» without a plan and «думаю»."""
-    groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": []}
-    declined = 0
+    """Players who answered but picked no games («иду» / «позже» without a plan, «думаю») and who cannot come.
+
+    Owner, 2026-09-29: every post shows a summary of all players, those who cannot come by name too."""
+    groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": [], "declined": []}
     for participant in participants:
         status = str(participant.get("response_status") or "")
-        if status == "declined":
-            declined += 1
-            continue
         if status not in groups:
             continue
         if status in {"going", "late"} and int(participant.get("selected_games") or 0):
@@ -346,6 +344,7 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
         ("going", "✅ Идут на весь вечер, игры не выбрали"),
         ("late", "⏳ Придут позже, игры не выбрали"),
         ("thinking", "🤔 Пока думают"),
+        ("declined", "❌ Не смогут"),
     ):
         people = sorted(groups[status], key=str.casefold)
         if not people:
@@ -360,8 +359,6 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
         rest = len(people) - len(shown)
         body = (", ".join(shown) + (f" и ещё {rest}" if rest else "")) if shown else ""
         lines.append(f"<b>{title} ({len(people)})</b>" + (f": {body}" if body else ""))
-    if declined:
-        lines.append(f"❌ Не смогут: {declined}")
     return lines
 
 
@@ -396,9 +393,42 @@ def club_short_text(evening: dict, slots: list[dict] | None = None, *, action: b
     return "\n".join(lines)
 
 
+def _is_novice_evening(evening: dict) -> bool:
+    return str(evening.get("canonical_format") or evening.get("format") or "").upper() == "NOVICE"
+
+
+def novice_short_text(evening: dict, slots: list[dict] | None = None, *, action: bool = True) -> str:
+    """The novice evening post in the same friendly style as the club one (owner, 2026-09-29): it invites to play."""
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    try:
+        start = _local_datetime(evening.get("starts_at"), timezone_name)
+        when = f"{_WEEKDAYS_ON[start.weekday()].capitalize()}, {start.day} {_MONTHS_RU[start.month - 1]}"
+        clock = f"{start:%H:%M}"
+        briefing = f"{start - timedelta(minutes=NOVICE_BRIEFING_LEAD_MINUTES):%H:%M}"
+    except (TypeError, ValueError):
+        when, clock, briefing = "Скоро", "", ""
+    venue = escape(str(evening.get("venue") or "").strip()[:120])
+    place = ", ".join(part for part in (venue, clock) if part)
+    price = (_price_text(evening, slots) or "").replace("Первые 2 вечера — бесплатно", "первые 2 вечера бесплатно")
+    lines = [
+        f"Привет! {when}, играем в мафию с новичками — приходи 🎭",
+        "Никогда не играл — не страшно: "
+        + (f"в {briefing} объясним правила" if briefing else "объясним правила")
+        + ", потом сыграем вместе. Можно прийти одному.",
+    ]
+    details = " · ".join(part for part in (place, price) if part)
+    if details:
+        lines.append(f"📍 {details}")
+    if action:
+        lines.append(_CLUB_ACTION)
+    return "\n".join(lines)
+
+
 def private_event_text(evening: dict, *, reminder: bool = False) -> str:
     if not reminder and _is_club_evening(evening):
         return club_short_text(evening)
+    if not reminder and _is_novice_evening(evening):
+        return novice_short_text(evening)
     heading = "🔔 <b>Напоминание об игровом вечере</b>" if reminder else "🎭 <b>Игровой вечер 2LA Noire</b>"
     action = (
         "Ты ещё не выбрал игры. Открой вечер и отметь те игры, на которые придёшь."
@@ -472,6 +502,7 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
 
 def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
     club = _is_club_evening(evening)
+    novice = _is_novice_evening(evening)
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -481,8 +512,14 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
 
     def compose(max_players: int, names: bool) -> str:
         # Club evenings open with the owner's short text (2026-09-29) and keep the lists of who is coming.
-        head = [club_short_text(evening, slot_rows, action=False)] if club else [f"{label} · <b>2LA Noire</b>", event_base_text(evening, slot_rows)]
-        action = _CLUB_ACTION if club else "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы."
+        # Club and novice posts open with a short friendly text (owner, 2026-09-29) and keep who is coming.
+        if club:
+            head = [club_short_text(evening, slot_rows, action=False)]
+        elif novice:
+            head = [novice_short_text(evening, slot_rows, action=False)]
+        else:
+            head = [f"{label} · <b>2LA Noire</b>", event_base_text(evening, slot_rows)]
+        action = _CLUB_ACTION if club or novice else "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы."
         sections = [
             *head,
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),

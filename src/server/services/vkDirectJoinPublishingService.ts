@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
+  canEditVkWallPosts,
   createVkWallPost,
   getVkDestinations,
   type VkDestination,
@@ -18,6 +19,7 @@ import {
   noviceTelegramGroupFallback,
   organizerContactLinks,
 } from '../../lib/novicePromo.ts';
+import { pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
 
 type EveningRow = {
   id: string;
@@ -25,6 +27,7 @@ type EveningRow = {
   starts_at: string;
   timezone: string | null;
   venue: string | null;
+  format: string;
   status: string;
   default_price: number;
   settled_at: string | null;
@@ -184,7 +187,7 @@ const buildClosedVkEveningAnnouncement = (evening: EveningRow) => {
 };
 
 const loadEvening = (db: DatabaseWrapper, eveningId: string) => db.get<EveningRow>(`
-  SELECT id, title, starts_at, timezone, venue, status, default_price, settled_at
+  SELECT id, title, starts_at, timezone, venue, format, status, default_price, settled_at
     FROM game_evenings
    WHERE id = ?
    LIMIT 1
@@ -242,6 +245,8 @@ const syncDestination = async (
   destination: VkDestination,
   message: string,
   onlyExisting: boolean,
+  photoId: string | null = null,
+  attachment: string | null = null,
 ): Promise<DestinationSyncResult> => {
   if (!destination.groupId || !destination.supported) {
     return { publication: null, skipped: true, reason: 'destination_unavailable' };
@@ -256,7 +261,7 @@ const syncDestination = async (
     return { publication: existing, skipped: true, reason: 'publication_requires_reconciliation' };
   }
 
-  const hash = messageHash(message);
+  const hash = photoId ? messageHash(`${message}\n[photo:${photoId}]`) : messageHash(message);
   if (
     Number(existing?.post_id || 0) > 0
     && existing?.status === 'published'
@@ -271,10 +276,15 @@ const syncDestination = async (
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
   // Fingerprint of the text actually on VK; it advances only when a write succeeds.
-  let deliveredHash: string | null = hash;
+  let deliveredHash: string | null = photoId && !attachment ? messageHash(message) : hash;
   if (postId > 0) {
     try {
-      await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
+      await editVkWallPostWithPublisher({
+        groupId: destination.groupId,
+        postId,
+        message,
+        attachments: attachment ? [attachment] : undefined,
+      });
     } catch (error: any) {
       // Without an organizer API token the published post simply stays as is;
       // the live state is on the linked public page, so this is not a failure.
@@ -300,7 +310,11 @@ const syncDestination = async (
     }
     let published: Awaited<ReturnType<typeof createVkWallPost>>;
     try {
-      published = await createVkWallPost({ groupId: destination.groupId, message });
+      published = await createVkWallPost({
+        groupId: destination.groupId,
+        message,
+        attachments: attachment ? [attachment] : undefined,
+      });
     } catch (error: any) {
       if (!error?.vkDefinite) {
         // Unknown outcome: keep the claim and let the organizer check the group.
@@ -362,12 +376,30 @@ export async function syncDirectVkEveningPublications(
   }
   const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);
   const onlyExisting = Boolean(options.onlyExisting);
+  const photoId = await pickAnnouncementPhotoId(db, evening.id, evening.format);
+  const publicDestination = getVkDestinations().find((item) => item.key === 'public' && item.groupId);
+  let wallAttachment: string | null = null;
+  if (photoId && publicDestination?.groupId && canEditVkWallPosts()) {
+    try {
+      wallAttachment = await uploadAnnouncementPhotoToVk(db, photoId, publicDestination.groupId);
+    } catch (error) {
+      console.warn('[VK ANNOUNCEMENT PHOTO] Photo upload failed; text post remains available:', error instanceof Error ? error.message : String(error));
+    }
+  }
   const results: Array<{ destination: string; success: boolean; skipped?: boolean; reason?: string; error?: string }> = [];
 
   for (const destination of getVkDestinations()) {
     if (!destination.active || !destination.supported || !destination.groupId) continue;
     try {
-      const synced = await syncDestination(db, evening, destination, message, onlyExisting);
+      const synced = await syncDestination(
+        db,
+        evening,
+        destination,
+        message,
+        onlyExisting,
+        destination.key === 'public' ? photoId : null,
+        destination.key === 'public' ? wallAttachment : null,
+      );
       if (!synced.publication || synced.skipped) {
         results.push({ destination: destination.key, success: true, skipped: true, reason: synced.reason });
       } else {

@@ -180,6 +180,7 @@ Search focused coverage for `manual player add`, `walk-in`, and `active evening`
 - Novice evening invitation (promo text and organizer contacts in `src/shared/novicePromo.json`): VK post via `src/lib/novicePromo.ts`, Telegram public entry group via `novice_invitation_text` in `handlers/telegram_evening_copy.py`. Destination rules: `docs/BUSINESS_RULES.md` → «Where announcements go».
 - Venue address and «Как добраться» map link: one list `src/shared/venues.json`, read by `src/lib/venues.ts` (web, VK text, `VenueAddress.tsx`) and `handlers/telegram_evening_copy.py` (Telegram).
 - «Перенести начало» (draft/published only): `EveningStartTimeEditor.tsx` → `PUT /api/evenings/:id/slots` (`updateEveningSlotSettings`) moves every game with the start and re-syncs the Telegram/VK posts of a published evening.
+- Club announcement photos: `announcementPhotoService.ts` selects the stable photo, stores one reusable VK wall attachment per photo/group and `vkDirectJoinPublishingService.ts` adds it to the existing VK announcement when an API-compatible organizer token is available.
 
 ### Telegram history preservation
 

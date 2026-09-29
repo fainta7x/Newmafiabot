@@ -42,10 +42,17 @@ import {
 } from '../../../lib/tournamentRoleValidation.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
+type TournamentTab = 'organization' | 'games' | 'standings' | 'nominations';
+
 interface TournamentDetailViewProps {
   tournamentId: string;
   onBack: () => void;
+  /** Step screen of a tournament with registration: its own header, and only this step's tabs. */
+  hideHeader?: boolean;
+  tabs?: TournamentTab[];
 }
+
+const ALL_TABS: TournamentTab[] = ['organization', 'games', 'standings', 'nominations'];
 
 const ROLES_LIST = [
   { id: 'citizen', label: 'Мирный', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
@@ -57,12 +64,16 @@ const ROLES_LIST = [
 export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   tournamentId,
   onBack,
+  hideHeader = false,
+  tabs = ALL_TABS,
 }) => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
-  const [activeTab, setActiveTab] = useState<'organization' | 'games' | 'standings' | 'nominations'>('organization');
+  const [activeTab, setActiveTabRaw] = useState<TournamentTab>(tabs[0] || 'organization');
+  // A step screen shows only its own tabs; a jump to another tab (e.g. to games after the start) stays inside them.
+  const setActiveTab = (tab: TournamentTab) => setActiveTabRaw(tabs.includes(tab) ? tab : tabs[0]);
   const [showRoster, setShowRoster] = useState(false);
 
   // Edit draft modals state
@@ -348,6 +359,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   return (
     <div className="space-y-5 text-text-primary">
       {/* Top Header & Navigation */}
+      {!hideHeader ? (
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -412,6 +424,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
         
       </div>
+      ) : null}
 
       {/* Feedback banner */}
       {feedbackMsg && (
@@ -433,8 +446,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       )}
 
       {/* Navigation Tabs */}
-      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden">
-        <button
+      {tabs.length > 1 ? (
+      <div className={`grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden`}>
+        {tabs.includes('organization') ? (<button
           type="button"
           onClick={() => setActiveTab('organization')}
           className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
@@ -445,9 +459,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         >
           <FileText className="w-4 h-4 shrink-0" />
           <span className="line-clamp-2">Организация</span>
-        </button>
+        </button>) : null}
 
-        <button
+        {tabs.includes('games') ? (<button
           type="button"
           onClick={() => setActiveTab('games')}
           className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
@@ -458,9 +472,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         >
           <Users className="w-4 h-4 shrink-0" />
           <span className="line-clamp-2">Игры</span>
-        </button>
+        </button>) : null}
 
-        <button
+        {tabs.includes('standings') ? (<button
           type="button"
           onClick={() => setActiveTab('standings')}
           className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
@@ -471,9 +485,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         >
           <Trophy className="w-4 h-4 shrink-0 text-amber-400" />
           <span className="line-clamp-2">Таблица</span>
-        </button>
+        </button>) : null}
 
-        <button
+        {tabs.includes('nominations') ? (<button
           type="button"
           onClick={() => setActiveTab('nominations')}
           className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
@@ -484,8 +498,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         >
           <Award className="w-4 h-4 shrink-0 text-cyan-400" />
           <span className="line-clamp-2">Номинации</span>
-        </button>
+        </button>) : null}
       </div>
+      ) : null}
 
       {activeTab === 'organization' && (
         <div className="space-y-5">

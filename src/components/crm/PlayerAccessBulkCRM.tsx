@@ -17,16 +17,30 @@ type Row = Player & { organize_formats?: string | null; last_visit?: string | nu
 const stopped = (row: Row) => row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON;
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
-type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'stopped';
-const ROLE_FILTERS: Array<{ value: RoleFilter; label: string }> = [
-  { value: 'all', label: 'Все' },
+type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'paused';
+const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
+  { value: 'regular', label: 'Ходят постоянно' },
+  { value: 'sometimes', label: 'Ходят иногда' },
+  { value: 'stopped', label: 'Перестали ходить' },
+  { value: 'paused', label: 'Рассылка на паузе' },
   { value: 'organizer', label: 'Организаторы' },
   { value: 'team', label: 'Помогают клубу' },
   { value: 'hosts', label: 'Ведут игры' },
   { value: 'organizes', label: 'Проводят вечера' },
-  { value: 'regular', label: 'Ходят постоянно' },
-  { value: 'stopped', label: 'Перестали ходить' },
 ];
+const pausedOther = (row: Row) => (row.contact_status === 'paused' && !stopped(row)) || row.contact_status === 'blocked';
+const role = (row: Row) => organizationOf(normalizeClubRole(row.club_role));
+const matchesRoleFilter = (row: Row, filter: RoleFilter) => {
+  if (filter === 'organizer') return role(row) === 'organizer';
+  if (filter === 'team') return role(row) === 'team';
+  if (filter === 'hosts') return hostFormatsOf(row).length > 0;
+  if (filter === 'organizes') return normalizeOrganizeFormats(row.organize_formats).length > 0;
+  if (filter === 'regular') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'member';
+  if (filter === 'sometimes') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'guest';
+  if (filter === 'stopped') return stopped(row);
+  if (filter === 'paused') return pausedOther(row);
+  return true;
+};
 type SortBy = 'name' | 'visits' | 'recent' | 'new';
 const SORTS: Array<{ value: SortBy; label: string }> = [
   { value: 'name', label: 'По нику' },
@@ -88,6 +102,8 @@ export function PlayerAccessBulkCRM() {
   const hostRemove = HOST_FORMATS.filter((format) => hosting[format] === 'no');
   const hostChanged = hostAdd.length + hostRemove.length > 0;
   const [saving, setSaving] = useState(false);
+  // What the server could not change (for example a pause set for another reason), shown until closed.
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,16 +121,7 @@ export function PlayerAccessBulkCRM() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('ru-RU');
-    const role = (row: Row) => organizationOf(normalizeClubRole(row.club_role));
-    const matchesRole = (row: Row) => {
-      if (roleFilter === 'organizer') return role(row) === 'organizer';
-      if (roleFilter === 'team') return role(row) === 'team';
-      if (roleFilter === 'hosts') return hostFormatsOf(row).length > 0;
-      if (roleFilter === 'organizes') return normalizeOrganizeFormats(row.organize_formats).length > 0;
-      if (roleFilter === 'regular') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'member';
-      if (roleFilter === 'stopped') return stopped(row);
-      return true;
-    };
+    const matchesRole = (row: Row) => matchesRoleFilter(row, roleFilter);
     const time = (value?: string | null) => (value ? new Date(value).getTime() || 0 : 0);
     const byName = (a: Row, b: Row) => String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
     return rows
@@ -160,6 +167,7 @@ export function PlayerAccessBulkCRM() {
     setSaving(true);
     setError('');
     setMessage('');
+    setWarnings([]);
     try {
       const body = await api.bulkUpdatePlayerAccess({
         player_ids: Array.from(selected),
@@ -171,7 +179,8 @@ export function PlayerAccessBulkCRM() {
         ...(organizeAdd.length ? { organize_formats_add: organizeAdd } : {}),
         ...(organizeRemove.length ? { organize_formats_remove: organizeRemove } : {}),
       });
-      setMessage(`Сохранено. Изменено игроков: ${body.updated}.${body.warnings?.length ? ` ${body.warnings.join(' ')}` : ''}`);
+      setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
+      setWarnings(body.warnings || []);
       setSelected(new Set());
       setGameLevel('');
       setActivity('');
@@ -209,13 +218,16 @@ export function PlayerAccessBulkCRM() {
         {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(item.value)}>{item.label} · {counts[item.value] ?? 0}</Chip>)}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block min-w-0"><span className="sr-only">Кто</span>
-          <select aria-label="Кто" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
-            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-2 text-[13px] text-white">
-            {ROLE_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
+      {/* Quick filters as chips with counts, like the level chips above (owner, 2026-09-29). Tap again to clear. */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Кто">
+        {ROLE_FILTERS.map((item) => (
+          <Chip key={item.value} active={roleFilter === item.value} onClick={() => setRoleFilter((current) => (current === item.value ? 'all' : item.value))}>
+            {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
+          </Chip>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
         <label className="block min-w-0"><span className="sr-only">Порядок</span>
           <select aria-label="Порядок" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}
             className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-2 text-[13px] text-white">
@@ -246,6 +258,7 @@ export function PlayerAccessBulkCRM() {
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {hostFormatsOf(row).length ? ` · ${hostFormatsSummary(hostFormatsOf(row))}` : ''}
                   {normalizeOrganizeFormats(row.organize_formats).length ? ` · ${organizeFormatsSummary(normalizeOrganizeFormats(row.organize_formats))}` : ''}
+                  {row.contact_status === 'blocked' ? ' · Заблокирован' : pausedOther(row) ? ` · Рассылка на паузе${row.pause_reason ? `: ${row.pause_reason}` : ''}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
                 </span>
               </span>
@@ -316,7 +329,11 @@ export function PlayerAccessBulkCRM() {
         </div>
       ) : message ? (
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] px-4 pb-[calc(12px+env(safe-area-inset-bottom))]" data-testid="crm-access-bulk-toast">
-          <button type="button" onClick={() => setMessage('')} className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-left text-[13px] font-semibold text-white shadow-2xl">{message}</button>
+          <button type="button" onClick={() => { setMessage(''); setWarnings([]); }} className={`max-h-[calc(100dvh-24px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full overflow-y-auto rounded-2xl px-4 py-3 text-left text-[13px] font-semibold text-white shadow-2xl ${warnings.length ? 'bg-amber-700' : 'bg-emerald-600'}`}>
+            {message}
+            {warnings.length ? <ul className="mt-1 space-y-1 text-[12px] font-normal">{warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul> : null}
+            <span className="mt-1 block text-[11px] font-normal text-white/70">Нажмите, чтобы закрыть</span>
+          </button>
         </div>
       ) : null}
     </div>

@@ -298,7 +298,16 @@ describe('CRM player access profile', () => {
     const post = (body: object) => request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send(body);
     const status = () => db.all<any>("SELECT id, club_role, contact_status, pause_reason FROM players WHERE id IN ('gone','blocked','paused-by-hand') ORDER BY id");
 
-    expect((await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'stopped' })).status).toBe(200);
+    const stoppedResponse = await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'stopped' });
+    expect(stoppedResponse.status).toBe(200);
+    // The ones it could not change are named with the reason, so the screen does not look like nothing happened.
+    expect(stoppedResponse.body.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining('заблокирован'),
+      expect.stringContaining('«Исключён из рассылки организатором»'),
+    ]));
+    expect(stoppedResponse.body.warnings).toHaveLength(2);
+    // Only «gone» really changed; the skipped two are not counted as changed.
+    expect(stoppedResponse.body.updated).toBe(1);
     expect(await status()).toEqual([
       { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
       { id: 'gone', club_role: 'member', contact_status: 'paused', pause_reason: 'Перестал ходить' },

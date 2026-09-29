@@ -9,7 +9,7 @@ const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 20
 
 describe('AnnouncementPhotosCard', () => {
   it('lists the club photos and changes which evenings a photo is for', async () => {
-    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
       if (!init?.method) return reply({ photos: [{ id: 'p1', audience: 'all', url: '/announce-photo/p1.jpg', size: 10 }] });
       return reply({ ok: true });
     });

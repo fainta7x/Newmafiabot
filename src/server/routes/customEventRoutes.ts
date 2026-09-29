@@ -27,7 +27,7 @@ async function manager(req: AuthenticatedRequest) {
 }
 
 async function eventWithCounts(db: any, id: string) {
-  return db.get<any>(`SELECT e.*,
+  return db.get(`SELECT e.*,
     COALESCE(SUM(CASE WHEN r.status='registered' THEN 1+r.guest_count ELSE 0 END),0) AS participant_count,
     COALESCE(SUM(CASE WHEN r.status='registered' THEN 1 ELSE 0 END),0) AS registration_count
     FROM custom_events e LEFT JOIN custom_event_registrations r ON r.event_id=e.id

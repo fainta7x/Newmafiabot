@@ -6,6 +6,7 @@ import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningWorkspace, type EveningSection } from './crm/EveningWorkspace.tsx';
 import { EventHostCabinet } from './crm/EventHostCabinet.tsx';
+import CustomEventsPanel from './crm/CustomEventsPanel.tsx';
 import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
@@ -380,15 +381,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                   initialAddOpen={eveningIntent === 'add'}
                   onInitialAddHandled={() => setEveningIntent(null)}
                 />
-              ) : (
-                <EveningsList
-                  evenings={evenings}
-                  onOpenEvening={handleOpenEvening}
-                  onCreateEvening={handleCreateEvening}
-                  initialCreateOpen={eveningIntent === 'create'}
-                  onInitialCreateHandled={() => setEveningIntent(null)}
-                />
-              )
+              ) : (<div className="space-y-4">
+                <CustomEventsPanel />
+                <EveningsList evenings={evenings} onOpenEvening={handleOpenEvening} onCreateEvening={handleCreateEvening}
+                  initialCreateOpen={eveningIntent === 'create'} onInitialCreateHandled={() => setEveningIntent(null)} />
+              </div>)
             ) : null}
 
             {activeTab === 'players' ? (

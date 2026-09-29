@@ -3,6 +3,7 @@ import { getPlayerSessionId } from '../auth.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { ensureSlotsForEvening, loadEveningSlotPlan, replacePlayerSlotSelection, TABLE_MIN_PLAYERS, TABLE_MIN_READY_SLOTS } from '../services/eveningSlotPlanningService.ts';
 import { getNovicePlayerState } from '../services/noviceService.ts';
+import { canSeeCustomEvent } from './customEventRoutes.ts';
 
 const router = Router();
 const requirePlayer = (req:any,res:any) => { const id=getPlayerSessionId(req); if(!id){res.status(401).json({error:'Player authentication required.'});return null;} return id; };
@@ -12,7 +13,7 @@ router.get('/calendar', async (req,res) => {
   const playerId=requirePlayer(req,res); if(!playerId)return;
   const db=req.db;
   try{
-    const player=await db.get('SELECT id, game_level FROM players WHERE id = ? LIMIT 1',[playerId]);
+    const player=await db.get('SELECT id, game_level, club_stage FROM players WHERE id = ? LIMIT 1',[playerId]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
     const bounds=monthBounds(req.query.month);
     const rows=await db.all("SELECT id, title, starts_at, ends_at, timezone, venue, format, status FROM game_evenings WHERE status IN ('published','active') AND settled_at IS NULL AND starts_at >= ? AND starts_at < ? ORDER BY starts_at",[bounds.start,bounds.end]);
@@ -36,6 +37,16 @@ router.get('/calendar', async (req,res) => {
         const mine=await db.get("SELECT status,queue_order FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1",[item.id,playerId]);
         events.push({...item,event_type:'tournament',format:'TOURNAMENT',badge:'Турнир',participant_count:Number(x?.count||0),player_capacity:Number(item.player_capacity||10),remaining_places:Math.max(0,10-Number(x?.count||0)),prize_allocations:JSON.parse(item.prize_allocations_json||'[]'),registration_status:mine?.status||null,reserve_position:mine?.status==='reserve'?Number(mine.queue_order||0):null,registration_open:item.status==='draft'&&!item.registration_closed_at});
       }
+    }
+    const customRows=await db.all(`SELECT e.*,
+      COALESCE(SUM(CASE WHEN r.status='registered' THEN 1+r.guest_count ELSE 0 END),0) AS participant_count
+      FROM custom_events e LEFT JOIN custom_event_registrations r ON r.event_id=e.id
+      WHERE e.status='published' AND e.starts_at >= ? AND e.starts_at < ? GROUP BY e.id ORDER BY e.starts_at`,[bounds.start,bounds.end]);
+    for(const item of customRows){
+      const invited=Boolean(await db.get('SELECT 1 FROM custom_event_invitations WHERE event_id=? AND player_id=?',[item.id,playerId]));
+      if(!canSeeCustomEvent(item,player,invited,playerId))continue;
+      const mine=await db.get('SELECT status,guest_count FROM custom_event_registrations WHERE event_id=? AND player_id=?',[item.id,playerId]);
+      events.push({...item,event_type:'custom',format:'CUSTOM',badge:'Ивент',registration_status:mine?.status==='registered'?'registered':null,guest_count:mine?.status==='registered'?Number(mine.guest_count||0):0,remaining_places:Math.max(0,Number(item.participant_limit||0)-Number(item.participant_count||0))});
     }
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
     return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events,novice_state:await getNovicePlayerState(db,playerId)});

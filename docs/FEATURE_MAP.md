@@ -18,7 +18,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ## Events / calendar / registration
 
-- Player UI: `src/components/player/PlayerEventsCalendar.tsx`.
+- Player UI: `src/components/player/PlayerEventsCalendar.tsx`; non-Mafia event detail and sign-up: `PlayerCustomEventDetail.tsx`.
 - Organizer: `src/components/crm/EveningsList.tsx`, `src/components/crm/EveningWorkspace.tsx`.
 - API: `src/server/routes/eveningsRoutes.ts`, `participantRoutes.ts`, `playerEveningJourneyRoutes.ts`, `eveningSlotRoutes.ts`.
 - Rolling Friday calendar + Monday 19:00 TG/VK/personal-announcement reconciliation: `src/server/services/weeklyEveningAutomationService.ts`.
@@ -117,7 +117,7 @@ Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` 
 - Profile/self identity: `PlayerProfileHub.tsx`, `PlayerProfileSettings.tsx`, `PlayerIdentityFields.tsx`; canonical read/write is `/api/player/me`.
 - Conduct/staff workspace: `PlayerConductCenter.tsx`.
 - Club discovery: `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`.
-- Organizer player work card: `PlayersCRM.tsx`; access/roles: `PlayerAccessSettings.tsx`; limited cabinet «Проводит вечера»: `EventHostCabinet.tsx` + `canUseEventHostRoute` in `src/server/auth.ts` (marks `src/lib/organizeFormats.ts`); many players at once: `PlayerAccessBulkCRM.tsx` («Ещё → Уровни и роли», `POST /api/players/access/bulk` in `playersRoutes.ts`; organizer cabinet access stays per player); token/Elo/manual-achievement corrections: `PlayerServiceTools.tsx`.
+- Organizer player work card: `PlayersCRM.tsx`; access/roles: `PlayerAccessSettings.tsx`; limited cabinet «Проводит вечера»: `EventHostCabinet.tsx` + `canUseEventHostRoute` in `src/server/auth.ts` (marks `src/lib/organizeFormats.ts`); separate «Свои ивенты»: `CustomEventsPanel.tsx`, `src/server/routes/customEventRoutes.ts`, schema `src/db/ensureCustomEventsSchema.ts`; many players at once: `PlayerAccessBulkCRM.tsx` («Ещё → Уровни и роли», `POST /api/players/access/bulk` in `playersRoutes.ts`; organizer cabinet access stays per player); token/Elo/manual-achievement corrections: `PlayerServiceTools.tsx`.
 - API: `playerSelfCoreRoutes.ts`, `playersRoutes.ts`.
 - Avatars: `src/lib/playerAvatarManifest.ts`, `public/player-avatars/`.
 

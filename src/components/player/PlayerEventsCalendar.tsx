@@ -1,6 +1,7 @@
 import { countGames, countPlayers } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
+import PlayerCustomEventDetail from './PlayerCustomEventDetail.tsx';
 
 type EventSlot = {
   id: string;
@@ -16,16 +17,17 @@ type EventItem = {
   starts_at: string;
   venue?: string | null;
   format: string;
-  event_type: 'evening' | 'tournament';
+  event_type: 'evening' | 'tournament' | 'custom';
   assembled?: boolean;
   assembled_slots?: number;
   required_slots?: number;
   price_per_game?: number;
   participant_count?: number;
+  participant_limit?: number;
   slots?: EventSlot[];
 };
 
-type Filter = 'all' | 'novice' | 'club' | 'rating' | 'tournament';
+type Filter = 'all' | 'novice' | 'club' | 'rating' | 'tournament' | 'custom';
 type View = 'list' | 'calendar';
 
 type NoviceState = {
@@ -43,11 +45,13 @@ const FILTERS: Array<[Filter, string]> = [
   ['club', 'Клуб'],
   ['rating', 'Рейтинг'],
   ['tournament', 'Турниры'],
+  ['custom', 'Ивенты'],
 ];
 
 const SLOT_CAPACITY = 11;
 
 const eventKind = (event: EventItem): Filter => {
+  if (event.event_type === 'custom') return 'custom';
   if (event.event_type === 'tournament') return 'tournament';
   const format = String(event.format || '').toUpperCase();
   if (format.includes('NOV')) return 'novice';
@@ -60,11 +64,13 @@ const kindLabel = (event: EventItem) => ({
   club: 'Клубный',
   rating: 'Рейтинг',
   tournament: 'Турнир',
+  custom: 'Ивент',
   all: 'Все',
 } as const)[eventKind(event)];
 
 const kindTone = (event: EventItem) => {
   if (eventKind(event) === 'tournament') return 'bg-violet-400/15 text-violet-100';
+  if (eventKind(event) === 'custom') return 'bg-fuchsia-400/15 text-fuchsia-100';
   if (eventKind(event) === 'novice') return 'bg-sky-400/15 text-sky-100';
   if (eventKind(event) === 'rating') return 'bg-amber-400/15 text-amber-100';
   return 'bg-emerald-400/15 text-emerald-100';
@@ -113,7 +119,7 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
         </div>
         <div className="shrink-0 text-right">
           <span className={`rounded-full px-2 py-1 text-[12px] ${kindTone(event)}`}>{kindLabel(event)}</span>
-          <div className="mt-1 text-[12px] text-white/45">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${countGames(event.required_slots || 4)}`) : `${countPlayers(event.participant_count || 0)}`}</div>
+          <div className="mt-1 text-[12px] text-white/45">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${countGames(event.required_slots || 4)}`) : event.event_type === 'custom' ? `${event.participant_count || 0}/${event.participant_limit || 0}` : `${countPlayers(event.participant_count || 0)}`}</div>
         </div>
       </div>
       <SlotLoadGrid event={event} compact />
@@ -289,6 +295,7 @@ export default function PlayerEventsCalendar({
     onEventChange?.(null);
   };
 
+  if (selected?.event_type === 'custom') return <PlayerCustomEventDetail eventId={selected.id} onBack={closeEvent} onSaved={() => void load()} />;
   if (selected) return <PlayerEventSlotDetail event={selected} onBack={closeEvent} onSaved={() => void load()} />;
 
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -404,7 +411,7 @@ export default function PlayerEventsCalendar({
                 </div>
                 <SlotLoadGrid event={nearest} />
                 <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3">
-                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${countGames(nearest.required_slots || 4)} собрано · ${nearest.price_per_game || 100} ₽/игра` : `${nearest.participant_count || 0} участников`}</div>
+                  <div className="text-[12px] text-white/50">{nearest.event_type === 'evening' ? `${nearest.assembled_slots || 0}/${countGames(nearest.required_slots || 4)} собрано · ${nearest.price_per_game || 100} ₽/игра` : nearest.event_type === 'custom' ? `${nearest.participant_count || 0}/${nearest.participant_limit || 0} мест` : `${nearest.participant_count || 0} участников`}</div>
                   <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black">{nearest.event_type === 'evening' ? 'Выбрать игры' : 'Открыть'} →</span>
                 </div>
               </button>

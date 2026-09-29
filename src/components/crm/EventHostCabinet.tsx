@@ -4,6 +4,7 @@ import { api, type GameEvening } from '../../lib/api.ts';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat, noviceStartsAt, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { canOrganizeEveningFormat, organizeFormatsSummary, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import MobileSheet from '../ui/MobileSheet.tsx';
+import CustomEventsPanel from './CustomEventsPanel.tsx';
 
 /**
  * Limited cabinet «Проводит вечера» (owner decision 2026-09-29): the player sees every evening,
@@ -30,6 +31,7 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
   const marks = normalizeOrganizeFormats(formats);
   const host = { organize_formats: marks.join(',') };
   const allowedFormats = FORMAT_ORDER.filter((format) => canOrganizeEveningFormat(host, format));
+  const canCreateCustom = marks.includes('CUSTOM');
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<EveningFormat>(allowedFormats[0] || 'CASUAL');
   const [title, setTitle] = useState('');
@@ -90,6 +92,7 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
 
   return (
     <div className="space-y-3" data-testid="event-host-cabinet">
+      {canCreateCustom ? <CustomEventsPanel /> : null}
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
         <h2 className="text-[16px] font-bold text-white">Мои вечера</h2>
         <p className="mt-1 text-[12px] leading-5 text-white/55">

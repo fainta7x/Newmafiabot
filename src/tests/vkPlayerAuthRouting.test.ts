@@ -88,8 +88,7 @@ describe('VK player authentication routing', () => {
 
   it('adds the shared player cabinet entry point to VK evening announcements', () => {
     const publishing = read('src/server/services/vkDirectJoinPublishingService.ts');
-    expect(publishing).toContain("'👤 Открыть личный кабинет:'");
-    expect(publishing).toContain("playerCabinetUrlForVk(baseUrl, '/player')");
+    expect(publishing).toContain('👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}');
     expect(publishing).toContain('cabinet_url:');
     expect(publishing).toContain('/join/${encodeURIComponent(eveningId)}?source=vk_entry');
   });

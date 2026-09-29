@@ -201,6 +201,44 @@ describe('weekly Friday evening automation', () => {
     expect(second[0]?.status).toBe('skipped');
   });
 
+  it('posts to VK even when some personal invitations fail, and retries later without messaging players again', async () => {
+    const db = createDb();
+    await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    const now = new Date('2026-08-24T16:01:00.000Z');
+    await db.run("UPDATE telegram_destinations SET active=0");
+    const calls = { channel: 0, dm: 0, vk: 0 };
+    const delivery = (failed: number) => ({
+      enqueueTelegramChannel: async () => { calls.channel += 1; },
+      enqueueTelegramDm: async () => { calls.dm += 1; },
+      drainTelegram: async () => ({ failed }),
+      syncVk: async () => { calls.vk += 1; },
+    });
+
+    const first = await runDueWeeklyAnnouncements(db, { now, baseUrl: 'https://example.test', delivery: delivery(1) });
+    expect(first[0]?.status).toBe('error');
+    expect(calls).toEqual({ channel: 1, dm: 1, vk: 1 });
+
+    const later = new Date(now.getTime() + 30 * 60 * 1000);
+    const second = await runDueWeeklyAnnouncements(db, { now: later, baseUrl: 'https://example.test', delivery: delivery(0) });
+    expect(second[0]?.status).toBe('done');
+    expect(calls).toEqual({ channel: 2, dm: 1, vk: 2 });
+  });
+
+  it('checks the public entry channel post of a novice evening too', async () => {
+    const db = createDb();
+    await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await db.run("UPDATE game_evenings SET format='NOVICE', starts_at='2026-08-28T19:00:00+03:00' WHERE substr(starts_at,1,10)='2026-08-28'");
+    await db.run("UPDATE telegram_destinations SET active=0");
+    await db.run("UPDATE telegram_destinations SET chat_id='-100555', active=1 WHERE id='public'");
+    const result = await runDueWeeklyAnnouncements(db, {
+      now: new Date('2026-08-24T16:01:00.000Z'),
+      baseUrl: 'https://example.test',
+      delivery: { enqueueTelegramChannel: async () => {}, enqueueTelegramDm: async () => {}, drainTelegram: async () => ({ failed: 0 }), syncVk: async () => {} },
+    });
+    const novice = result.find((item) => item.status === 'error');
+    expect(novice?.error).toContain('public');
+  });
+
   it('never replaces a cancelled Friday on later calendar refreshes', async () => {
     const db = createDb();
     const now = new Date('2026-08-22T10:00:00.000Z');

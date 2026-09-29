@@ -1,3 +1,4 @@
+import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
@@ -88,7 +89,9 @@ async function automaticEveningSyncPolicy(
   if (!Number.isFinite(startMs)) return { deliver: false, reason: 'invalid_start' };
   const delta = startMs - now.getTime();
   if (delta < 0) return { deliver: false, reason: 'evening_started' };
-  if (delta > AUTOMATIC_EVENING_CREATE_WINDOW_MS) {
+  // The weekly announcement goes on Monday 19:00 for any evening of the week, a Friday 21:00 one included.
+  const announcementDue = now.getTime() >= weeklyAnnouncementDueMs(startMs) - 60 * 60 * 1000;
+  if (delta > AUTOMATIC_EVENING_CREATE_WINDOW_MS && !announcementDue) {
     // Do not refresh or create a post for a distant Friday merely because a
     // stale publication row exists from an older deployment.
     return { deliver: false, reason: 'before_announcement_window' };

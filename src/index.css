@@ -305,3 +305,17 @@ body,
     font-size: 16px;
   }
 }
+
+/*
+ * Native dropdown lists (owner report 2026-09-29): every theme is dark, but browsers drew the open
+ * <select> list white while the options kept white text, so the choices were invisible.
+ */
+:root {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #111217;
+  color: #fff;
+}

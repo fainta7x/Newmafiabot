@@ -35,6 +35,10 @@ export const canOrganizeEveningFormat = (player: { organize_formats?: unknown } 
 export const canOrganizeTournaments = (player: { organize_formats?: unknown } | null | undefined): boolean =>
   normalizeOrganizeFormats(player?.organize_formats).includes('TOURNAMENT');
 
+/** Marks that open the limited «Мои вечера» cabinet. «Турниры» only lets the player be chosen as a tournament organizer. */
+export const cabinetOrganizeFormats = (values: unknown): OrganizeFormat[] =>
+  normalizeOrganizeFormats(values).filter((format) => format !== 'TOURNAMENT');
+
 export const canOrganizeCustomEvents = (player: { organize_formats?: unknown } | null | undefined): boolean =>
   normalizeOrganizeFormats(player?.organize_formats).includes('CUSTOM');
 

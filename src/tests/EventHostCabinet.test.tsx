@@ -26,6 +26,18 @@ describe('EventHostCabinet', () => {
     render(<EventHostCabinet playerId="me" formats={['NOVICE', 'RATING']} evenings={[]} onOpenEvening={() => undefined} onChanged={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: /Создать вечер/ }));
     const kinds = Array.from((screen.getByRole('combobox') as HTMLSelectElement).options).map((option) => option.value);
-    expect(kinds).toEqual(['NOVICE', 'RATING', 'TOURNAMENT']);
+    expect(kinds).toEqual(['NOVICE', 'RATING']);
+  });
+
+  it('keeps an old own evening that is not closed yet, hides old closed ones', () => {
+    const old = new Date(Date.now() - 5 * 86400_000).toISOString();
+    render(<EventHostCabinet playerId="me" formats={['CASUAL']} evenings={[
+      { id: 'stuck', title: 'Незакрытый', starts_at: old, format: 'CASUAL', status: 'active', organizer_player_id: 'me' },
+      { id: 'done', title: 'Закрытый', starts_at: old, format: 'CASUAL', status: 'completed', organizer_player_id: 'me' },
+      { id: 'foreign', title: 'Чужой старый', starts_at: old, format: 'CASUAL', status: 'active', organizer_player_id: 'x' },
+    ] as any[]} onOpenEvening={() => undefined} onChanged={() => undefined} />);
+    expect(screen.queryByTestId('event-host-evening-stuck')).not.toBeNull();
+    expect(screen.queryByTestId('event-host-evening-done')).toBeNull();
+    expect(screen.queryByTestId('event-host-evening-foreign')).toBeNull();
   });
 });

@@ -344,6 +344,8 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
     return grant();
   }
   if (method === 'POST' && /^\/api\/evenings\/?$/.test(path)) {
+    // Tournaments have their own flow (tournaments table: registration, judge, fee, prizes).
+    if (String(req.body?.format || '').toUpperCase() === 'TOURNAMENT') return false;
     return canOrganizeEveningFormat(player, req.body?.format) ? grant() : false;
   }
 

@@ -21,7 +21,8 @@ const field = 'w-full min-h-11 rounded-[12px] border border-white/10 bg-black/20
 const label = 'mb-1.5 block text-[12px] font-semibold text-white/60';
 const moscowIso = (value: string) => `${value.length === 16 ? `${value}:00` : value}+03:00`;
 const displayMoscow = (value: string) => new Date(value).toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
-const FORMAT_ORDER: EveningFormat[] = ['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT'];
+// Tournaments have their own flow (registration of exactly ten, judge, fee, prizes), so a host creates evenings only.
+const FORMAT_ORDER: EveningFormat[] = ['NOVICE', 'CASUAL', 'RATING'];
 const DEFAULT_TITLE: Record<EveningFormat, string> = { NOVICE: 'Вечер для новичков', CASUAL: 'Клубный вечер', RATING: 'Рейтинговый вечер', TOURNAMENT: 'Турнир' };
 const DEFAULT_PRICE: Record<EveningFormat, number> = { NOVICE: 200, CASUAL: 100, RATING: 300, TOURNAMENT: 500 };
 
@@ -38,13 +39,17 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const isMine = (evening: GameEvening) => String((evening as any).organizer_player_id || '') === playerId;
+  // Upcoming evenings, plus own evenings that are not closed yet — however old, so they can be finished.
   const upcoming = useMemo(() => {
     const dayAgo = Date.now() - 86_400_000;
     return evenings
-      .filter((evening) => evening.status !== 'cancelled' && new Date(evening.starts_at).getTime() >= dayAgo)
+      .filter((evening) => evening.status !== 'cancelled' && (
+        new Date(evening.starts_at).getTime() >= dayAgo
+        || (String((evening as any).organizer_player_id || '') === playerId && evening.status !== 'completed' && !(evening as any).settled_at)
+      ))
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
-  }, [evenings]);
-  const isMine = (evening: GameEvening) => String((evening as any).organizer_player_id || '') === playerId;
+  }, [evenings, playerId]);
 
   const create = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,14 +74,12 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planned_slots: 6, slot_duration_minutes: 60, price_per_game: fixedPrice, starts_at: start }),
       });
-      if (!slots.ok) {
-        const body = await slots.json().catch(() => ({}));
-        throw new Error(body?.error || 'Вечер создан, но игры не настроились — откройте его и настройте игры');
-      }
+      // The evening exists either way: open it instead of letting a retry create a second draft.
       setOpen(false);
       setTitle('');
       setStartsAt('');
       await onChanged();
+      if (!slots.ok) window.alert('Вечер создан, но игры не настроились. Настройте игры в карточке вечера.');
       onOpenEvening(created.id);
     } catch (createError: any) {
       setError(createError?.message || 'Не удалось создать вечер');

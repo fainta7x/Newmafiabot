@@ -11,7 +11,13 @@ import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loa
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails, venueLine } from '../../lib/venues.ts';
 import { shortCabinetLink, shortEveningLink } from './announcementShortLinks.ts';
-import { clubVkGroupUrl, novicePromoText, organizerContactLinks } from '../../lib/novicePromo.ts';
+import {
+  clubVkGroupUrl,
+  noviceAboutText,
+  noviceHeadlineText,
+  noviceTelegramGroupFallback,
+  organizerContactLinks,
+} from '../../lib/novicePromo.ts';
 
 type EveningRow = {
   id: string;
@@ -88,12 +94,37 @@ export const announcementPriceLine = (format: unknown, pricePerGame: number) => 
 /** The invite link of the Telegram novice chat, as set in the organizer's Telegram settings. */
 const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> => {
   try {
-    const row = await db.get<{ invite_url: string | null }>("SELECT invite_url FROM telegram_destinations WHERE id = 'novice' AND active = 1");
+    // The invite link stays valid even while the bot does not post to that group.
+    const row = await db.get<{ invite_url: string | null }>("SELECT invite_url FROM telegram_destinations WHERE id = 'novice'");
     const url = String(row?.invite_url || '').trim();
-    return url.startsWith('https://t.me/') ? url : null;
+    return url.startsWith('https://t.me/') ? url : noviceTelegramGroupFallback();
   } catch {
-    return null;
+    return noviceTelegramGroupFallback();
   }
+};
+
+const WEEKDAYS_ON = ['В воскресенье', 'В понедельник', 'Во вторник', 'В среду', 'В четверг', 'В пятницу', 'В субботу'];
+
+/** The club evening post in the owner's words (2026-09-29), with the sign-up link instead of a button. */
+const clubShortVkText = (evening: EveningRow, pricePerGame: number, signupUrl: string) => {
+  const date = new Date(evening.starts_at);
+  const zone = evening.timezone || 'Europe/Moscow';
+  let when = 'Скоро';
+  let clock = '';
+  if (!Number.isNaN(date.getTime())) {
+    const part = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('ru-RU', { timeZone: zone, ...options }).format(date);
+    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'short' }).format(date);
+    const index = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+    when = `${WEEKDAYS_ON[index] ?? 'Скоро'}, ${part({ day: 'numeric', month: 'long' })}`;
+    clock = part({ hour: '2-digit', minute: '2-digit' });
+  }
+  const place = [String(evening.venue || '').trim(), clock].filter(Boolean).join(', ');
+  const price = announcementPriceLine('CASUAL', pricePerGame || 100).replace(/^💳 /, '');
+  return [
+    `Привет! ${when}, играем в мафию — ждём тебя 🎭`,
+    `📍 ${[place, price].filter(Boolean).join(' · ')}`,
+    `Отметь, придёшь ли, и выбери игры: ${signupUrl}`,
+  ].join('\n');
 };
 
 export const buildDirectVkEveningAnnouncement = async (
@@ -102,9 +133,13 @@ export const buildDirectVkEveningAnnouncement = async (
   baseUrl: string,
 ) => {
   const plan = await loadEveningSlotPlan(db, evening.id);
+  if (normalizeEveningFormat(plan.event.format) === 'CASUAL') {
+    return clubShortVkText(evening, Number(plan.event.price_per_game || 0), await shortEveningLink(db, baseUrl, evening.id));
+  }
   const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
-  const promo = novice ? novicePromoText() : '';
-  const lines = [...(promo ? [promo, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
+  // A novice post starts with who it is for (owner, 2026-09-29); why the game is fun comes last.
+  const headline = novice ? noviceHeadlineText() : '';
+  const lines = [...(headline ? [headline, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) {
     lines.push(`📍 ${venueLine(evening.venue)}`);
     const map = venueDetails(evening.venue).mapUrl;
@@ -122,12 +157,14 @@ export const buildDirectVkEveningAnnouncement = async (
     const chat = await noviceChatInviteUrl(db);
     const vkGroup = clubVkGroupUrl();
     if (chat || vkGroup) {
-      lines.push('', '👥 Наши группы:');
+      lines.push('', '👥 Группа для новичков:');
       if (chat) lines.push(`Telegram: ${chat}`);
       if (vkGroup) lines.push(`VK: ${vkGroup}`);
     }
     const contacts = organizerContactLinks();
     if (contacts.length) lines.push('', '✉️ Остались вопросы? Пишите:', ...contacts.map((contact) => `${contact.label}: ${contact.url}`));
+    const about = noviceAboutText();
+    if (about) lines.push('', about);
   }
   return lines.join('\n');
 };

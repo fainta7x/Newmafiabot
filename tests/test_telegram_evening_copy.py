@@ -28,7 +28,8 @@ def test_group_post_lists_players_who_answered_but_have_no_games():
         {"player_id": "e", "nickname": "Даня", "response_status": "late", "selected_games": 0},
         {"player_id": "f", "nickname": "Ева", "response_status": "declined", "selected_games": 0},
     ]
-    text = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, participants)
+    # Club posts are short now; the detailed lists stay on rating evenings.
+    text = thematic_event_text({"format": "RATING", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, participants)
     assert "игра 1 — <b>4</b> игрока" in text
     assert "Записались на игры: 2" in text
     assert "Идут на весь вечер, игры не выбрали (1)</b>: Вика" in text
@@ -45,7 +46,7 @@ def test_group_post_stays_within_telegram_limit():
                "response_status": ("going", "late", "thinking")[i % 3], "selected_games": 0} for i in range(150)]
     slots = [{"slot_number": n, "starts_at": "2026-09-25T16:00:00Z", "registered_count": 11,
               "participants": [{"id": f"s{n}-{k}", "nickname": "Игрок-" + "y" * 40 + str(k)} for k in range(11)]} for n in range(1, 7)]
-    text = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, people)
+    text = thematic_event_text({"format": "RATING", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, people)
     assert len(text) <= 4000
     assert "Пока думают (50)" in text
 
@@ -58,16 +59,19 @@ def test_announcement_shows_venue_address_and_map_link():
 
 
 def test_novice_invitation_is_the_promo_with_when_where_and_links():
-    from handlers.telegram_evening_copy import novice_invitation_text, novice_promo_html, thematic_event_text
+    from handlers.telegram_evening_copy import novice_about_html, novice_headline_html, novice_invitation_text, thematic_event_text
 
     evening = {"id": "ev-1", "format": "NOVICE", "title": "Школа", "venue": "Суп с Котом", "starts_at": "2026-10-02T16:00:00Z"}
     text = novice_invitation_text(
         evening, [], signup_url="https://t.me/club_bot?start=event_ev-1", novice_chat_url="https://t.me/+novice",
     )
-    assert text.startswith(novice_promo_html())
+    assert text.startswith(novice_headline_html())
+    assert text.startswith("🎓 <b>Вечер для новичков")
+    assert text.endswith(novice_about_html())
+    assert text.index("Записаться в приложении") < text.index("Почему") if "Почему" in text else True
     assert "🎓 Рассказываем правила — 18:30, первая игра — 19:00" in text
     assert '<a href="https://t.me/club_bot?start=event_ev-1">Записаться в приложении</a>' in text
-    assert '👥 Наши группы: <a href="https://t.me/+novice">Telegram</a> · <a href="https://vk.com/2lanoiremafia">VK</a>' in text
+    assert '👥 Группа для новичков: <a href="https://t.me/+novice">Telegram</a> · <a href="https://vk.com/2lanoiremafia">VK</a>' in text
     assert '✉️ Остались вопросы? Пишите: <a href="https://t.me/Chagina7x">Telegram</a>' in text
     # The novice chat itself gets the ordinary announcement.
     assert "Почему затягивает" not in thematic_event_text(evening, [], [])
@@ -80,7 +84,7 @@ def test_novice_invitation_fits_one_telegram_message():
                "starts_at": "2026-10-02T16:00:00Z"}
     text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
     assert len(text) <= 4096
-    assert "Почему затягивает" in text
+    assert text.startswith("🎓 <b>Вечер для новичков")
 
 
 def test_cover_comes_from_the_club_photo_the_server_picked():
@@ -91,3 +95,17 @@ def test_cover_comes_from_the_club_photo_the_server_picked():
     assert preview.show_above_text and preview.prefer_large_media
     assert cover_preview({}).is_disabled
     assert cover_preview({"cover_url": "http://insecure.example/x.jpg"}).is_disabled
+
+
+def test_club_post_is_the_owners_short_text():
+    from handlers.telegram_evening_copy import private_event_text, thematic_event_text
+
+    evening = {"format": "CASUAL", "title": "Пятница", "venue": "Суп с Котом", "starts_at": "2026-10-02T18:00:00Z", "price_per_game": 100}
+    expected = (
+        "Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭\n"
+        "📍 Суп с Котом, 21:00 · 100 ₽ за игру, не больше 400 ₽ за вечер\n"
+        "Отметь кнопкой ниже, придёшь ли, и выбери игры"
+    )
+    assert thematic_event_text(evening, [], [{"player_id": "a", "nickname": "Аня", "response_status": "going"}]) == expected
+    assert private_event_text(evening) == expected
+    assert private_event_text(evening, reminder=True).startswith("🔔")

@@ -151,7 +151,7 @@ def test_novice_evening_posts_the_invitation_to_the_public_group(monkeypatch):
     bot = _RecordingBot()
     asyncio.run(publishing.sync_evening_telegram(bot, "ev-n", refresh_router=False))
     by_chat = {item["chat_id"]: item["text"] for item in bot.sent}
-    assert "Почему затягивает" in by_chat["-100"] and "Наши группы" in by_chat["-100"]
+    assert "🎓 <b>Вечер для новичков" in by_chat["-100"] and "Группа для новичков" in by_chat["-100"]
     assert "Почему затягивает" not in by_chat["-300"]
 
 

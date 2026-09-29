@@ -64,6 +64,33 @@ def novice_promo_html() -> str:
     return "\n\n".join(parts)
 
 
+def novice_headline_html() -> str:
+    """The first lines of a novice post: that it is a novice evening, before anything else (owner, 2026-09-29)."""
+    headline = str(_NOVICE_PROMO.get("headline") or "").strip()
+    if not headline:
+        return ""
+    text = str(_NOVICE_PROMO.get("firstTimeText") or "").strip()
+    return f"🎓 <b>{escape(headline)}</b>" + (f"\n{escape(text)}" if text else "")
+
+
+def novice_about_html() -> str:
+    """Why the game is fun — at the end of the novice post, after when, where and how to sign up."""
+    promo = _NOVICE_PROMO
+    if not promo.get("title"):
+        return ""
+    reasons = [escape(str(item)) for item in promo.get("reasons") or [] if str(item).strip()]
+    return "\n".join([f"🎩 <b>{escape(str(promo['title']))}</b>", *reasons])
+
+
+def novice_telegram_group_url(configured: str | None = None) -> str | None:
+    """The Telegram novice group: the invite link from the organizer's Telegram settings, else the shared file."""
+    for candidate in (configured, (_NOVICE_PROMO.get("groups") or {}).get("telegram")):
+        url = str(candidate or "").strip()
+        if url.startswith("https://t.me/"):
+            return url
+    return None
+
+
 def club_links() -> dict[str, str]:
     """Organizer Telegram and club VK group links from `src/shared/novicePromo.json`, when valid."""
     links: dict[str, str] = {}
@@ -333,7 +360,36 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
     return lines
 
 
+_WEEKDAYS_ON = ("в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу", "в воскресенье")
+
+
+def _is_club_evening(evening: dict) -> bool:
+    return str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper() in {"CASUAL", "STANDARD"}
+
+
+def club_short_text(evening: dict, slots: list[dict] | None = None) -> str:
+    """The club evening post in the owner's words (2026-09-29): a greeting, where and when, the price, what to press."""
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    try:
+        start = _local_datetime(evening.get("starts_at"), timezone_name)
+        when = f"{_WEEKDAYS_ON[start.weekday()].capitalize()}, {start.day} {_MONTHS_RU[start.month - 1]}"
+        clock = f"{start:%H:%M}"
+    except (TypeError, ValueError):
+        when, clock = "Скоро", ""
+    venue = escape(str(evening.get("venue") or "").strip()[:120])
+    place = ", ".join(part for part in (venue, clock) if part)
+    price = (_price_text(evening, slots) or "").replace(" · максимум ", ", не больше ")
+    details = " · ".join(part for part in (place, price) if part)
+    lines = [f"Привет! {when}, играем в мафию — ждём тебя 🎭"]
+    if details:
+        lines.append(f"📍 {details}")
+    lines.append("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    return "\n".join(lines)
+
+
 def private_event_text(evening: dict, *, reminder: bool = False) -> str:
+    if not reminder and _is_club_evening(evening):
+        return club_short_text(evening)
     heading = "🔔 <b>Напоминание об игровом вечере</b>" if reminder else "🎭 <b>Игровой вечер 2LA Noire</b>"
     action = (
         "Ты ещё не выбрал игры. Открой вечер и отметь те игры, на которые придёшь."
@@ -406,6 +462,9 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
 
 
 def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
+    # Club evenings: the owner's short post for now (2026-09-29); who is coming is in the app.
+    if _is_club_evening(evening):
+        return club_short_text(evening, slots)
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -449,7 +508,10 @@ def novice_invitation_text(
     signup_url: str | None = None,
     novice_chat_url: str | None = None,
 ) -> str:
-    """The invitation post of a novice evening for the public entry channel: promo, when and where, how to join."""
+    """The invitation post of a novice evening for the public entry channel.
+
+    Order (owner, 2026-09-29): that it is for novices, when and where, how to sign up and the groups,
+    and only then why the game is fun — so the essentials are not lost under the promo."""
     # Organizer-entered fields are capped so the post always fits one Telegram message.
     bounded = {
         **evening,
@@ -457,23 +519,23 @@ def novice_invitation_text(
         "venue": str(evening.get("venue") or "")[:120] or None,
         "notes": str(evening.get("notes") or "")[:300],
     }
-    sections = [novice_promo_html(), event_base_text(bounded, slots or [])]
+    sections = [novice_headline_html(), event_base_text(bounded, slots or [])]
     links = []
     if signup_url:
         # The bot link (t.me/<bot>?start=event_<id>) opens the Mini App with the player's Telegram login.
         links.append(f'📲 <a href="{escape(signup_url)}">Записаться в приложении</a>')
     groups = []
-    if novice_chat_url:
-        groups.append(f'<a href="{escape(novice_chat_url)}">Telegram</a>')
+    telegram_group = novice_telegram_group_url(novice_chat_url)
+    if telegram_group:
+        groups.append(f'<a href="{escape(telegram_group)}">Telegram</a>')
     vk_group = str((_NOVICE_PROMO.get("groups") or {}).get("vk") or "").strip()
     if vk_group.startswith("https://vk.com/") or vk_group.startswith("https://vk.ru/"):
         groups.append(f'<a href="{escape(vk_group)}">VK</a>')
     if groups:
-        links.append(f"👥 Наши группы: {' · '.join(groups)}")
+        links.append(f"👥 Группа для новичков: {' · '.join(groups)}")
     sections.append("\n".join(links))
     sections.append(organizer_contacts_html())
     text = "\n\n".join(section for section in sections if section)
-    # A promo edited to be very long must not break the post: drop it before Telegram refuses the message.
-    if len(text) > _TELEGRAM_TEXT_LIMIT:
-        text = "\n\n".join(section for section in sections[1:] if section)
-    return text
+    # The «why it is fun» part goes last and is dropped if the post would not fit one Telegram message.
+    with_about = "\n\n".join(section for section in [*sections, novice_about_html()] if section)
+    return with_about if len(with_about) <= _TELEGRAM_TEXT_LIMIT else text[:_TELEGRAM_TEXT_LIMIT]

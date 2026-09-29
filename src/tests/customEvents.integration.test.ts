@@ -61,4 +61,20 @@ describe('custom events', () => {
     expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(true);
     expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('newbie'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(false);
   });
+
+  it('lets the organizer edit and delete a draft made by mistake, but only cancel a published event', async () => {
+    const { db, app } = await setup();
+    const created = await request(app).post('/api/custom-events').set('Cookie',cookie('host')).send(eventBody());
+    const id = created.body.id;
+    const edited = await request(app).patch(`/api/custom-events/${id}`).set('Cookie',cookie('host')).send({title:'Квиз'});
+    expect(edited.status).toBe(200);
+    expect(edited.body.title).toBe('Квиз');
+    expect((await request(app).delete(`/api/custom-events/${id}`).set('Cookie',cookie('member'))).status).toBe(403);
+    await request(app).delete(`/api/custom-events/${id}`).set('Cookie',cookie('host')).expect(200);
+    expect(await db.get('SELECT id FROM custom_events WHERE id=?',[id])).toBeFalsy();
+
+    const published = await request(app).post('/api/custom-events').set('Cookie',cookie('host')).send(eventBody());
+    await request(app).post(`/api/custom-events/${published.body.id}/status`).set('Cookie',cookie('host')).send({status:'published'}).expect(200);
+    expect((await request(app).delete(`/api/custom-events/${published.body.id}`).set('Cookie',cookie('host'))).status).toBe(409);
+  });
 });

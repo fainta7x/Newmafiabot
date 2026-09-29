@@ -92,7 +92,6 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
 
   return (
     <div className="space-y-3" data-testid="event-host-cabinet">
-      {canCreateCustom ? <CustomEventsPanel /> : null}
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
         <h2 className="text-[16px] font-bold text-white">Мои вечера</h2>
         <p className="mt-1 text-[12px] leading-5 text-white/55">
@@ -168,6 +167,7 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
           </button>
         </form>
       </MobileSheet>
+      {canCreateCustom ? <CustomEventsPanel /> : null}
     </div>
   );
 }

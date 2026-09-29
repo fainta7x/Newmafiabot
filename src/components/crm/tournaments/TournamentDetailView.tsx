@@ -1,11 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Send } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmentFields.tsx';
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
 import { TournamentLifecycleOverview } from './TournamentLifecycleOverview.tsx';
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
+
+type TournamentStep = 'setup' | 'players' | 'games' | 'results';
+const TOURNAMENT_STEPS: Array<{ id: TournamentStep; label: string }> = [
+  { id: 'setup', label: 'Параметры' },
+  { id: 'players', label: 'Участники' },
+  { id: 'games', label: 'Игры' },
+  { id: 'results', label: 'Итоги' },
+];
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -131,17 +139,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     });
   };
 
-  return (
-    <div data-stable-judge-view className="min-w-0 space-y-4 overflow-x-hidden">
-      <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
-
-      {tournament ? (
-        <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
-      ) : null}
-
-      <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
-      <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
-
+  const telegramSection = (
+    <>
       {tournament ? (
         <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
           <div className="flex items-start gap-3">
@@ -157,7 +156,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           </button>
         </section>
       ) : null}
-
+    </>
+  );
+  const judgeSection = (
+    <>
       {tournament && games.length ? (
         <details className="min-w-0 rounded-[18px] border border-border-soft bg-surface-1" data-testid="tournament-judge-assignment">
           <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3">
@@ -196,6 +198,89 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           </div>
         </details>
       ) : null}
+    </>
+  );
+
+  // Tournaments with registration: one screen in four steps instead of the old and new blocks stacked
+  // on each other (owner, 2026-09-29). Tournaments made the old way keep their screen below.
+  const registrationFlow = Number(tournament?.tournament_evening_flow || 0) === 1;
+  const participantsCount = tournament?.participants?.length ?? 0;
+  const stepDone: Record<TournamentStep, boolean> = {
+    setup: Boolean(tournament?.organizer_player_id && tournament?.judge_player_id),
+    players: participantsCount >= 10,
+    games: tournament?.status === 'completed',
+    results: tournament?.status === 'completed',
+  };
+  const defaultStep: TournamentStep = !tournament ? 'setup'
+    : tournament.status === 'completed' ? 'results'
+    : tournament.status === 'active' || tournament.status === 'correction' ? 'games'
+    : !stepDone.setup ? 'setup'
+    : !stepDone.players ? 'players' : 'games';
+  const [step, setStep] = useState<TournamentStep | null>(null);
+  const currentStep = step || defaultStep;
+
+  if (tournament && registrationFlow) {
+    return (
+      <div data-stable-judge-view className="min-w-0 space-y-3 overflow-x-hidden" data-testid="tournament-steps">
+        <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
+        <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
+          <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-surface-2 px-3 text-xs font-semibold text-text-secondary"><ArrowLeft className="h-4 w-4" />Назад</button>
+          <h2 className="mt-2 text-lg font-black leading-tight text-text-primary">{tournament.title}</h2>
+          <p className="mt-0.5 text-[12px] text-text-secondary">
+            {new Date(tournament.date).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}
+            {tournament.venue ? ` · ${tournament.venue}` : ''}
+          </p>
+          <nav className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Шаги турнира">
+            {TOURNAMENT_STEPS.map((item, index) => {
+              const active = item.id === currentStep;
+              return (
+                <button key={item.id} type="button" onClick={() => setStep(item.id)} aria-current={active ? 'step' : undefined}
+                  data-testid={`tournament-step-${item.id}`}
+                  className={`flex min-h-[52px] flex-col items-center justify-center rounded-xl border px-1 text-center text-[11px] font-bold leading-tight ${active ? 'border-accent bg-accent text-white' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>
+                  <span className="text-[10px] opacity-80">{stepDone[item.id] ? '✓' : index + 1}</span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </section>
+
+        {currentStep === 'setup' ? (
+          <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+        ) : null}
+        {currentStep === 'players' ? (
+          <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+        ) : null}
+        {currentStep === 'games' ? (
+          <>
+            <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
+            {judgeSection}
+          </>
+        ) : null}
+        {currentStep === 'results' ? (
+          <>
+            <TournamentDetailViewBase key={`results-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
+            {telegramSection}
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div data-stable-judge-view className="min-w-0 space-y-4 overflow-x-hidden">
+      <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
+
+      {tournament ? (
+        <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
+      ) : null}
+
+      <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+      <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+
+      {telegramSection}
+
+      {judgeSection}
 
       <div id="tournament-workspace" className="scroll-mt-3">
         <TournamentDetailViewBase key={revision} tournamentId={tournamentId} onBack={onBack} />

@@ -238,10 +238,12 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     if (organizeChanged && !isClubOwner(req)) {
       return res.status(403).json({ error: 'Отметки «Может проводить» ставит только владелец', code: 'club_owner_required' });
     }
+    // Players whose «Как часто ходит» could not change, with the reason, so the screen can say so.
+    const skipped: Array<{ id: string; nickname: string; reason: string }> = [];
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -260,6 +262,13 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
           pauseReason = null;
         }
         const statusChanged = contactStatus !== contact;
+        if (data.activity === 'stopped' && !statusChanged && !(contact === 'paused' && pauseReason === STOPPED_REASON)) {
+          skipped.push({
+            id,
+            nickname: String(current.nickname || 'Игрок'),
+            reason: contact === 'blocked' ? 'заблокирован' : `рассылка уже на паузе${current.pause_reason ? ` («${current.pause_reason}»)` : ''}`,
+          });
+        }
         const hostChanged = Boolean(data.host_formats_add?.length || data.host_formats_remove?.length);
         const formats = new Set(hostFormatsOf(current));
         data.host_formats_add?.forEach((format) => formats.add(format));
@@ -290,7 +299,11 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         accessErrors.push(String(error?.message || 'Не удалось изменить доступ'));
       }
     }
-    return res.json({ success: true, updated, ...(accessErrors.length ? { warnings: Array.from(new Set(accessErrors)) } : {}) });
+    const warnings = [
+      ...accessErrors,
+      ...skipped.map((item) => `${item.nickname}: «Перестал ходить» не поставлено — ${item.reason}. Снимите паузу в карточке игрока, если нужно.`),
+    ];
+    return res.json({ success: true, updated, ...(warnings.length ? { warnings: Array.from(new Set(warnings)) } : {}) });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
   }

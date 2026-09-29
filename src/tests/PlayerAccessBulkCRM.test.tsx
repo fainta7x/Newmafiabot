@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const players = [
   { id: 'a', nickname: 'Стаут', game_level: 'club', club_role: 'member', attendance_count: 2, organize_formats: null },
   { id: 'b', nickname: 'Точка', game_level: 'club', club_role: 'team', attendance_count: 9, organize_formats: 'CUSTOM' },
-  { id: 'c', nickname: 'Аня', game_level: 'novice', club_role: 'member', attendance_count: 0, organize_formats: null },
+  { id: 'c', nickname: 'Аня', game_level: 'novice', club_role: 'member', attendance_count: 0, organize_formats: null, contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
 ];
 const bulk = vi.fn(async () => ({ success: true, updated: 1 }));
 vi.mock('../lib/api.ts', () => ({ api: { getPlayers: vi.fn(async () => players), bulkUpdatePlayerAccess: bulk } }));
@@ -22,8 +22,18 @@ describe('«Уровни и роли»', () => {
     expect(names()).toEqual(['Аня', 'Стаут', 'Точка']);
     fireEvent.change(screen.getByLabelText('Порядок'), { target: { value: 'visits' } });
     expect(names()).toEqual(['Точка', 'Стаут', 'Аня']);
-    fireEvent.change(screen.getByLabelText('Кто'), { target: { value: 'organizes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
     expect(names()).toEqual(['Точка']);
+    fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
+    expect(names()).toHaveLength(3);
+  });
+
+  it('marks a pause set for another reason and filters by it', async () => {
+    render(<PlayerAccessBulkCRM />);
+    await screen.findByText('Аня');
+    expect(screen.getByText(/Рассылка на паузе: Исключён из рассылки организатором/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Рассылка на паузе · 1' }));
+    expect(names()).toEqual(['Аня']);
   });
 
   it('shows what will change, saves «Может проводить» and reports the result by the button', async () => {

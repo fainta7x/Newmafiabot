@@ -327,14 +327,12 @@ def _without_games(participants: list[dict]) -> set[str]:
 
 
 def _response_lines(participants: list[dict], *, names: bool = True) -> list[str]:
-    """Players who answered but picked no games: «иду» / «позже» without a plan and «думаю»."""
-    groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": []}
-    declined = 0
+    """Players who answered but picked no games («иду» / «позже» without a plan, «думаю») and who cannot come.
+
+    Owner, 2026-09-29: every post shows a summary of all players, those who cannot come by name too."""
+    groups: dict[str, list[str]] = {"going": [], "late": [], "thinking": [], "declined": []}
     for participant in participants:
         status = str(participant.get("response_status") or "")
-        if status == "declined":
-            declined += 1
-            continue
         if status not in groups:
             continue
         if status in {"going", "late"} and int(participant.get("selected_games") or 0):
@@ -346,6 +344,7 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
         ("going", "✅ Идут на весь вечер, игры не выбрали"),
         ("late", "⏳ Придут позже, игры не выбрали"),
         ("thinking", "🤔 Пока думают"),
+        ("declined", "❌ Не смогут"),
     ):
         people = sorted(groups[status], key=str.casefold)
         if not people:
@@ -360,8 +359,6 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
         rest = len(people) - len(shown)
         body = (", ".join(shown) + (f" и ещё {rest}" if rest else "")) if shown else ""
         lines.append(f"<b>{title} ({len(people)})</b>" + (f": {body}" if body else ""))
-    if declined:
-        lines.append(f"❌ Не смогут: {declined}")
     return lines
 
 

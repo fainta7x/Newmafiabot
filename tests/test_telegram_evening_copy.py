@@ -35,7 +35,7 @@ def test_group_post_lists_players_who_answered_but_have_no_games():
     assert "Идут на весь вечер, игры не выбрали (1)</b>: Вика" in text
     assert "Придут позже, игры не выбрали (1)</b>: Даня" in text
     assert "Пока думают (1)</b>: Гоша" in text
-    assert "Не смогут: 1" in text
+    assert "Не смогут (1)</b>: Ева" in text
     assert text.count("Вика") == 1 and text.count("Даня") == 1
 
 

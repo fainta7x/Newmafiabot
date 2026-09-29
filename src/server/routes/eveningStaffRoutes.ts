@@ -189,9 +189,18 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
        WHERE id = ?
          AND COALESCE(contact_status, 'normal') != 'blocked'
          AND COALESCE(source, '') != 'legacy_guest_migrated'
+         AND (
+           COALESCE(club_role, 'member') = 'organizer'
+           OR id IN (
+             SELECT ep.player_id FROM evening_participants ep
+              WHERE ep.evening_id = ?
+                AND (ep.attendance_status = 'attended' OR ep.response_status IN ('going', 'late') OR ep.registration_status IN ('going', 'late'))
+           )
+         )
        LIMIT 1
-    `, [organizerPlayerId]);
-    if (!organizer) return res.status(400).json({ error: 'Игрок не найден или заблокирован' });
+    `, [organizerPlayerId, eveningId]);
+    // Same set as the picker: club organizers and the players of this evening.
+    if (!organizer) return res.status(400).json({ error: 'Организатором вечера можно назначить организатора клуба или игрока, который идёт на этот вечер' });
 
     const now = new Date().toISOString();
     await db.run(`

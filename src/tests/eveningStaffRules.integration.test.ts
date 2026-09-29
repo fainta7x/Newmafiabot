@@ -41,6 +41,8 @@ describe('evening organizer and game judge', () => {
     expect(assigned.body.organizer).toMatchObject({ player_id: 'p1', nickname: 'Игрок' });
     const refused = await request(app).patch('/api/evenings/s1/staff').set('Cookie', cookie()).send({ organizer_player_id: 'blocked' });
     expect(refused.status).toBe(400);
+    const notComing = await request(app).patch('/api/evenings/s1/staff').set('Cookie', cookie()).send({ organizer_player_id: 'p2' });
+    expect(notComing.status).toBe(400);
   });
 
   it('does not start an evening without its organizer', async () => {

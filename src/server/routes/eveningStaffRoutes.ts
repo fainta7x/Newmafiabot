@@ -23,13 +23,25 @@ async function loadStaff(db: DatabaseWrapper, eveningId: string) {
      LIMIT 1
   `, [eveningId]);
 
+  // «Организатор вечера» can be any player (owner decision 2026-09-28): club organizers first,
+  // then the players of this evening, so the list stays short on a phone.
   const organizers = await db.all<any>(`
-    SELECT id, nickname, club_role, judge_level
-      FROM players
-     WHERE COALESCE(club_role, 'member') = 'organizer'
-       AND COALESCE(contact_status, 'normal') != 'blocked'
-     ORDER BY nickname COLLATE NOCASE
-  `);
+    SELECT p.id, p.nickname, p.club_role, p.judge_level,
+           CASE WHEN COALESCE(p.club_role, 'member') = 'organizer' THEN 1 ELSE 0 END AS is_club_organizer
+      FROM players p
+     WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
+       AND COALESCE(p.source, '') != 'legacy_guest_migrated'
+       AND (
+         COALESCE(p.club_role, 'member') = 'organizer'
+         OR p.id IN (
+           SELECT ep.player_id FROM evening_participants ep
+            WHERE ep.evening_id = ?
+              AND (ep.attendance_status = 'attended' OR ep.response_status IN ('going', 'late') OR ep.registration_status IN ('going', 'late'))
+         )
+         OR p.id = (SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ?)
+       )
+     ORDER BY is_club_organizer DESC, p.nickname COLLATE NOCASE
+  `, [eveningId, eveningId]);
 
   const judges = await db.all<any>(`
     SELECT id, nickname, club_role, judge_level
@@ -174,10 +186,12 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
     const organizer = await db.get<any>(`
       SELECT id, nickname, club_role
         FROM players
-       WHERE id = ? AND COALESCE(club_role, 'member') = 'organizer'
+       WHERE id = ?
+         AND COALESCE(contact_status, 'normal') != 'blocked'
+         AND COALESCE(source, '') != 'legacy_guest_migrated'
        LIMIT 1
     `, [organizerPlayerId]);
-    if (!organizer) return res.status(400).json({ error: 'Организатор вечера должен иметь роль «Организатор» в профиле' });
+    if (!organizer) return res.status(400).json({ error: 'Игрок не найден или заблокирован' });
 
     const now = new Date().toISOString();
     await db.run(`

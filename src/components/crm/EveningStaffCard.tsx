@@ -6,6 +6,7 @@ interface StaffPlayer {
   nickname: string;
   club_role?: string | null;
   judge_level?: string | null;
+  is_club_organizer?: number | boolean;
 }
 
 interface StaffResponse {
@@ -76,12 +77,21 @@ export function EveningStaffCard({ eveningId }: { eveningId: string }) {
           className="mobile-field min-h-[44px]"
         >
           {!data?.organizer?.player_id ? <option value="">Не назначен</option> : null}
-          {(data?.organizers || []).map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}
+          {(data?.organizers || []).some((player) => player.is_club_organizer) ? (
+            <optgroup label="Организаторы клуба">
+              {(data?.organizers || []).filter((player) => player.is_club_organizer).map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}
+            </optgroup>
+          ) : null}
+          {(data?.organizers || []).some((player) => !player.is_club_organizer) ? (
+            <optgroup label="Игроки этого вечера">
+              {(data?.organizers || []).filter((player) => !player.is_club_organizer).map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}
+            </optgroup>
+          ) : null}
         </select>
       </label>
 
       <div className="mt-2.5 rounded-[11px] bg-surface-2 px-3 py-2 text-[10px] leading-4 text-text-muted">
-        Судья назначается отдельно при создании каждой игры. После создания он сохраняется в истории игры и отображается в её карточке.
+        Организатором вечера можно назначить любого игрока, который идёт на этот вечер. На клубном вечере он не платит за игры. Судья назначается отдельно при создании каждой игры. После создания он сохраняется в истории игры и отображается в её карточке.
       </div>
 
       {data?.game_judges?.length ? (

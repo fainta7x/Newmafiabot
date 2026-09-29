@@ -28,6 +28,21 @@ const assignOrganizer = (db: DatabaseWrapper, now: string) => db.run(
 );
 
 describe('evening organizer and game judge', () => {
+  it('lets any player of the evening be its organizer, lists club organizers first and refuses blocked players', async () => {
+    const { db, app, now } = await setup('published');
+    await db.run("INSERT INTO players (id,nickname,club_role,tokens,created_at,updated_at) VALUES ('p1','Игрок','member',0,?,?),('p2','Не идёт','member',0,?,?)", [now, now, now, now]);
+    await db.run("INSERT INTO players (id,nickname,club_role,contact_status,tokens,created_at,updated_at) VALUES ('blocked','Блок','member','blocked',0,?,?)", [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+      VALUES ('ep1','s1','p1','going','going','pending','unpaid',?,?)`, [now, now]);
+    const staff = await request(app).get('/api/evenings/s1/staff').set('Cookie', cookie());
+    expect(staff.body.organizers.map((item: any) => item.id)).toEqual(['org', 'p1']);
+    const assigned = await request(app).patch('/api/evenings/s1/staff').set('Cookie', cookie()).send({ organizer_player_id: 'p1' });
+    expect(assigned.status, JSON.stringify(assigned.body)).toBe(200);
+    expect(assigned.body.organizer).toMatchObject({ player_id: 'p1', nickname: 'Игрок' });
+    const refused = await request(app).patch('/api/evenings/s1/staff').set('Cookie', cookie()).send({ organizer_player_id: 'blocked' });
+    expect(refused.status).toBe(400);
+  });
+
   it('does not start an evening without its organizer', async () => {
     const { db, app, now } = await setup('published');
     const refused = await request(app).patch('/api/evenings/s1').set('Cookie', cookie()).send({ status: 'active' });

@@ -603,6 +603,7 @@ Organizer CRM player profiles keep four independent concepts separate:
 Club roles (owner decision 2026-09-28, replaces «the role does not grant access»):
 - «Организатор клуба» (`club_role=organizer`) and Organizer CRM access (`organizer_player_access`) are one setting: giving the role opens the cabinet, closing the cabinet ends the role (back to «Ходит постоянно»). `game_level` and «Может вести» never change with it.
 - «Владелец» = the owner's own player account (`PRIMARY_ORGANIZER_PLAYER_ID`) or the root password session. Only the owner gives or takes the organizer role / cabinet, deletes (archives) players and sees club money (the finance block of analytics). Every other cabinet action is open to club organizers. Merging players does not exist yet; when it is built it is owner-only too.
+- «Организатор вечера» (owner decision 2026-09-28): any player (not blocked) can be assigned to one evening; the picker lists club organizers first, then the players of that evening. The assigned player does not pay for games on a regular club evening and gets the organizer reward, as before. Giving them rights on their evening (attendance, payment, tables) is the next step.
 - The owner's own cabinet and the last cabinet holder cannot be closed; a bulk change that would do so keeps the role and says why.
 - Password login with a verified player identity must never recreate a revoked entitlement. A deliberately supported password-only root organizer session is separate from player-bound entitlement.
 

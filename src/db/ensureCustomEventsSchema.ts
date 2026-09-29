@@ -47,5 +47,18 @@ export async function ensureCustomEventsSchema(db: DatabaseWrapper): Promise<voi
       created_at TEXT NOT NULL,
       PRIMARY KEY (event_id, player_id)
     );
+
+    CREATE TABLE IF NOT EXISTS custom_event_publications (
+      event_id TEXT NOT NULL REFERENCES custom_events(id) ON DELETE CASCADE,
+      channel TEXT NOT NULL CHECK (channel IN ('telegram_channel','club_group','vk','bot_dm')),
+      target_key TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('sending','sent','failed','uncertain')),
+      external_id TEXT,
+      last_error TEXT,
+      attempted_at TEXT NOT NULL,
+      sent_at TEXT,
+      PRIMARY KEY (event_id, channel, target_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_event_publications_event ON custom_event_publications(event_id, channel);
   `);
 }

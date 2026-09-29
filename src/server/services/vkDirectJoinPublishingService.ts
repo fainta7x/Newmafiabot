@@ -97,7 +97,8 @@ const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> 
     // The invite link stays valid even while the bot does not post to that group.
     const row = await db.get<{ invite_url: string | null }>("SELECT invite_url FROM telegram_destinations WHERE id = 'novice'");
     const url = String(row?.invite_url || '').trim();
-    return url.startsWith('https://t.me/') ? url : noviceTelegramGroupFallback();
+    // A t.me/c/… link opens only for members; a newcomer needs a join link.
+    return url.startsWith('https://t.me/') && !url.startsWith('https://t.me/c/') ? url : noviceTelegramGroupFallback();
   } catch {
     return noviceTelegramGroupFallback();
   }

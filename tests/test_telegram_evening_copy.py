@@ -128,3 +128,11 @@ def test_novice_group_post_invites_to_play_and_keeps_who_is_coming():
     assert "Пока думают (1)</b>: Лёша" in post
     assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
     assert private_event_text(evening).startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками")
+
+
+def test_novice_group_link_is_a_join_link():
+    from handlers.telegram_evening_copy import novice_telegram_group_url
+
+    assert novice_telegram_group_url(None) == "https://t.me/+UBvwCzPMd4c2N2Iy"
+    assert novice_telegram_group_url("https://t.me/c/3925510303/128") == "https://t.me/+UBvwCzPMd4c2N2Iy"
+    assert novice_telegram_group_url("https://t.me/+other") == "https://t.me/+other"

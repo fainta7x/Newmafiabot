@@ -91,7 +91,8 @@ def novice_telegram_group_url(configured: str | None = None) -> str | None:
     """The Telegram novice group: the invite link from the organizer's Telegram settings, else the shared file."""
     for candidate in (configured, (_NOVICE_PROMO.get("groups") or {}).get("telegram")):
         url = str(candidate or "").strip()
-        if url.startswith("https://t.me/"):
+        # A t.me/c/… link opens only for members; a newcomer needs a join link.
+        if url.startswith("https://t.me/") and not url.startswith("https://t.me/c/"):
             return url
     return None
 

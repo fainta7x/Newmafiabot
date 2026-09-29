@@ -40,6 +40,9 @@ describe('novice evening promo in announcements', () => {
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text).toContain('Telegram: https://t.me/+novice');
     expect(noviceHeadlineText()).toContain('Вечер для новичков');
+    await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/c/3925510303/128' WHERE id = 'novice'");
+    const memberOnly = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
+    expect(memberOnly).toContain('Telegram: https://t.me/+UBvwCzPMd4c2N2Iy');
   });
 
   it('keeps club evening posts without the promo', async () => {

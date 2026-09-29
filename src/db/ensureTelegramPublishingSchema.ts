@@ -1,4 +1,9 @@
 import type { DatabaseWrapper } from './index.ts';
+import { weeklyAnnouncementDueMs } from '../lib/weeklyAnnouncementDue.ts';
+
+// The novice group «Игры для новичков», announcements topic (owner, 2026-09-29).
+export const NOVICE_GROUP_CHAT_ID = '-1003925510303';
+export const NOVICE_GROUP_TOPIC_ID = 128;
 
 export const TELEGRAM_DESTINATION_IDS = ['public', 'novice', 'club', 'rating'] as const;
 export type TelegramDestinationId = (typeof TELEGRAM_DESTINATION_IDS)[number];
@@ -301,6 +306,43 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
         WHERE id = ?`,
       [chatId, topicId, now, destinationId],
     );
+  }
+
+  // Owner request 2026-09-29: the novice group «Игры для новичков» (announcements topic). Set once;
+  // later changes in CRM «Ещё → Telegram» are kept. Open novice evenings whose announcement is already
+  // due are then synced once, so the missed post appears in the group.
+  await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const noviceGroupKey = '2026-09-novice-group-destination';
+  if (!(await db.get('SELECT id FROM app_data_migrations WHERE id = ?', [noviceGroupKey]))) {
+    await db.run(
+      `UPDATE telegram_destinations SET chat_id = ?, topic_id = ?, active = 1, updated_at = ? WHERE id = 'novice'`,
+      [NOVICE_GROUP_CHAT_ID, NOVICE_GROUP_TOPIC_ID, now],
+    );
+    // A post of an open evening recorded for another chat or topic would keep being edited there;
+    // forget it so the evening is posted in the new group (the old message stays where it was).
+    await db.run(
+      `DELETE FROM evening_telegram_publications
+        WHERE destination_id = 'novice'
+          AND (chat_id <> ? OR COALESCE(topic_id, 0) <> ?)
+          AND evening_id IN (
+            SELECT id FROM game_evenings
+             WHERE status IN ('published', 'active') AND settled_at IS NULL AND datetime(starts_at) > datetime('now'))`,
+      [NOVICE_GROUP_CHAT_ID, NOVICE_GROUP_TOPIC_ID],
+    );
+    const openNovice = await db.all<{ id: string; starts_at: string }>(
+      `SELECT e.id, e.starts_at FROM game_evenings e
+        WHERE UPPER(COALESCE(e.format, '')) = 'NOVICE'
+          AND e.status IN ('published', 'active')
+          AND e.settled_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM evening_telegram_publications p WHERE p.evening_id = e.id AND p.destination_id = 'novice')`,
+    );
+    const nowMs = Date.now();
+    for (const evening of openNovice) {
+      const startMs = new Date(evening.starts_at).getTime();
+      if (!Number.isFinite(startMs) || startMs <= nowMs || nowMs < weeklyAnnouncementDueMs(startMs)) continue;
+      await db.run(eveningOutboxUpsertSql('?'), [evening.id, evening.id]);
+    }
+    await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', [noviceGroupKey, now]);
   }
 
   // Do not enqueue every open evening here. This schema function is called not only

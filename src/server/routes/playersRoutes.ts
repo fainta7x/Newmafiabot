@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { STOPPED_REASON, clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
+import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -201,8 +202,12 @@ const bulkAccessSchema = z.object({
   // «Может вести»: marks to add and to remove; formats in neither list stay as they are for each player.
   host_formats_add: z.array(z.enum(HOST_FORMATS)).optional(),
   host_formats_remove: z.array(z.enum(HOST_FORMATS)).optional(),
+  // «Может проводить»: owner-only marks to add and to remove, like «Может вести».
+  organize_formats_add: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
+  organize_formats_remove: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
 }).refine(
-  (data) => data.game_level || data.activity || data.organization || data.host_formats_add?.length || data.host_formats_remove?.length,
+  (data) => data.game_level || data.activity || data.organization || data.host_formats_add?.length || data.host_formats_remove?.length
+    || data.organize_formats_add?.length || data.organize_formats_remove?.length,
   { message: 'Выберите, что поменять' },
 );
 
@@ -229,10 +234,14 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         return res.status(403).json({ error: 'Назначить или снять организатора клуба может только владелец', code: 'club_owner_required' });
       }
     }
+    const organizeChanged = Boolean(data.organize_formats_add?.length || data.organize_formats_remove?.length);
+    if (organizeChanged && !isClubOwner(req)) {
+      return res.status(403).json({ error: 'Отметки «Может проводить» ставит только владелец', code: 'club_owner_required' });
+    }
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -256,10 +265,15 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         data.host_formats_add?.forEach((format) => formats.add(format));
         data.host_formats_remove?.forEach((format) => formats.delete(format));
         const nextFormats = HOST_FORMATS.filter((format) => formats.has(format));
+        const organize = new Set(normalizeOrganizeFormats(current.organize_formats));
+        data.organize_formats_add?.forEach((format) => organize.add(format));
+        data.organize_formats_remove?.forEach((format) => organize.delete(format));
+        const nextOrganize = ORGANIZE_FORMATS.filter((format) => organize.has(format));
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
+          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeChanged ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
           [data.game_level ?? current.game_level, clubRole,
             ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
+            ...(organizeChanged ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
             ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), now, id],
         );
         updated += Number(result.changes || 0);

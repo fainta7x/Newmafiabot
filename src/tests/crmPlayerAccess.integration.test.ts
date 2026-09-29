@@ -267,6 +267,28 @@ describe('CRM player access profile', () => {
     expect(card.body.organizer_player_access).toBe(false);
   });
 
+  it('gives «Может проводить» marks to many players at once, owner only, keeping the other marks', async () => {
+    await insertPlayer('org-a');
+    await insertPlayer('org-b');
+    await db.run("UPDATE players SET organize_formats = 'CUSTOM' WHERE id = 'org-b'");
+    const add = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
+      .send({ player_ids: ['org-a', 'org-b'], organize_formats_add: ['RATING', 'NOVICE'] });
+    expect(add.status, JSON.stringify(add.body)).toBe(200);
+    expect(await db.all<any>("SELECT id, organize_formats FROM players WHERE id IN ('org-a','org-b') ORDER BY id")).toEqual([
+      { id: 'org-a', organize_formats: 'NOVICE,RATING' },
+      { id: 'org-b', organize_formats: 'NOVICE,RATING,CUSTOM' },
+    ]);
+    const remove = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
+      .send({ player_ids: ['org-a'], organize_formats_remove: ['NOVICE', 'RATING'] });
+    expect(remove.status).toBe(200);
+    expect((await db.get<any>("SELECT organize_formats FROM players WHERE id = 'org-a'")).organize_formats).toBeNull();
+
+    await request(app).patch('/api/players/org-b').set('Cookie', organizerCookie()).send({ club_role: 'organizer' }).expect(200);
+    const notOwner = await request(app).post('/api/players/access/bulk').set('Cookie', `organizer_token=${generateOrganizerToken('org-b')}`)
+      .send({ player_ids: ['org-a'], organize_formats_add: ['CASUAL'] });
+    expect(notOwner.status).toBe(403);
+  });
+
   it('«Перестал ходить» pauses announcements and coming back turns them on again, never unblocking', async () => {
     await insertPlayer('gone');
     await insertPlayer('blocked');

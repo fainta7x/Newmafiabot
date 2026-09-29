@@ -96,13 +96,6 @@ const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> 
   }
 };
 
-const vkEveningHook = (format: unknown) => {
-  const normalized = normalizeEveningFormat(format);
-  if (normalized === 'RATING') return '🏆 Рейтинговый вечер — каждая игра в зачёт\nДля тех, кто хочет проверить себя всерьёз и подняться в рейтинге клуба.';
-  if (normalized === 'TOURNAMENT') return '🏆 Турнир 2LA Noire\nБольшая игра, судья и призы. Проверь, на что ты способен.';
-  return '🌙 Город засыпает — просыпается мафия\nСобираемся поиграть, пообщаться и выяснить, кто тут мафия. Приходи на пару игр или на весь вечер.';
-};
-
 export const buildDirectVkEveningAnnouncement = async (
   db: DatabaseWrapper,
   evening: EveningRow,
@@ -110,8 +103,7 @@ export const buildDirectVkEveningAnnouncement = async (
 ) => {
   const plan = await loadEveningSlotPlan(db, evening.id);
   const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
-  // Club and rating posts open with a short friendly line instead of a bare list (owner feedback 2026-09-29).
-  const promo = novice ? novicePromoText() : vkEveningHook(plan.event.format);
+  const promo = novice ? novicePromoText() : '';
   const lines = [...(promo ? [promo, ''] : []), `🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) {
     lines.push(`📍 ${venueLine(evening.venue)}`);

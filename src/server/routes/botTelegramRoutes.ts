@@ -4,6 +4,8 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { CLUB_EVENING_MAX_PRICE, loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
 import { reconcileWeeklyEveningAutomation } from '../services/weeklyEveningAutomationService.ts';
+import { announcementCoverUrl } from '../services/announcementPhotoService.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -73,6 +75,7 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
         canonical_format: canonicalFormat,
         price_per_game: Number(slotPlan.event.price_per_game || slotPlan.slots[0]?.price || 0),
         max_price: canonicalFormat === 'CASUAL' ? CLUB_EVENING_MAX_PRICE : null,
+        cover_url: await announcementCoverUrl(db, getPublicAppBaseUrl(), evening.id, evening.format),
       },
       slots: slotPlan.slots,
       participants,

@@ -7,6 +7,8 @@ import {
   recordReminderAttempt,
 } from '../services/eveningAnnouncementTrackingService.ts';
 import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
+import { announcementCoverUrl } from '../services/announcementPhotoService.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -143,7 +145,9 @@ router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
 
     const result = await loadInitialAnnouncementRecipients(db, req.params.eveningId);
     if (!result) return res.status(404).json({ error: 'Вечер не найден' });
-    res.json(result);
+    const evening: any = result.evening;
+    const coverUrl = await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format);
+    res.json({ ...result, evening: { ...evening, cover_url: coverUrl } });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось сформировать список адресатов' });
   }

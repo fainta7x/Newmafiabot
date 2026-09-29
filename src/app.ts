@@ -76,6 +76,8 @@ import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import { resolveEveningShortCode } from './server/services/announcementShortLinks.ts';
+import { loadAnnouncementPhoto } from './server/services/announcementPhotoService.ts';
+import announcementPhotoRoutes from './server/routes/announcementPhotoRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
@@ -192,6 +194,21 @@ export async function createApp(customDb?: DatabaseWrapper) {
     }
   });
 
+  // Club photos above announcements: public, because Telegram fetches them for the post preview.
+  app.get('/announce-photo/:file', async (req, res) => {
+    try {
+      const id = String(req.params.file || '').replace(/\.jpg$/, '');
+      const photo = /^[0-9a-f-]{36}$/.test(id) ? await loadAnnouncementPhoto(req.db, id) : null;
+      if (!photo) return res.status(404).end();
+      res.setHeader('Content-Type', photo.mime);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.send(Buffer.from(photo.bytes));
+    } catch {
+      return res.status(404).end();
+    }
+  });
+
   app.use(parseUserSession);
 
   app.use('/api/test-environment', testEnvironmentRoutes);
@@ -222,6 +239,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
+  app.use('/api/announcement-photos', announcementPhotoRoutes);
   app.use('/api/system-status', systemStatusRoutes);
   app.use('/api/integrations', vkPlayerStartRouter);
   app.use('/api/integrations', vkJoinRegistrationCallbackRouter);

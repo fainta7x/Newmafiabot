@@ -227,8 +227,8 @@ def _players_word(count: int) -> str:
 
 def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
     if not slots:
-        return ["🎲 <b>Игры вечера</b>", "Расписание игр появится чуть позже."]
-    lines = ["🎲 <b>Сколько уже записалось</b>"]
+        return ["🎲 <b>По играм</b>", "Игры вечера пока не настроены."]
+    lines = ["🎲 <b>По играм</b>"]
     for slot in sorted(slots, key=lambda item: int(item.get("slot_number") or 0)):
         count = int(slot.get("registered_count") or len(slot.get("participants") or []))
         target = int(slot.get("target_players") or 11)
@@ -264,7 +264,7 @@ def _arrival_lines(
                 item["first_starts_at"] = starts_at
 
     if not players:
-        return ["👥 <b>Кто и к какому времени</b>", "Пока никто не выбрал игры — стань первым!"]
+        return ["👥 <b>Кто и к какому времени</b>", "Пока никто не выбрал игры."]
 
     ordered = sorted(
         players.values(),
@@ -333,46 +333,18 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
     return lines
 
 
-# A short friendly opening for each kind of evening (owner feedback 2026-09-29: posts read like a dry list).
-_EVENING_HOOKS = {
-    "NOVICE": (
-        "🎓 <b>Первый раз? Самое время начать!</b>",
-        "Правила объясним с нуля, за столом — такие же новички. Можно прийти одному — со всеми познакомим.",
-    ),
-    "CASUAL": (
-        "🌙 <b>Город засыпает — просыпается мафия</b>",
-        "Собираемся поиграть, пообщаться и выяснить, кто тут мафия. Приходи на пару игр или на весь вечер.",
-    ),
-    "RATING": (
-        "🏆 <b>Рейтинговый вечер — каждая игра в зачёт</b>",
-        "Для тех, кто хочет проверить себя всерьёз и подняться в рейтинге клуба.",
-    ),
-    "TOURNAMENT": (
-        "🏆 <b>Турнир 2LA Noire</b>",
-        "Большая игра, судья и призы. Проверь, на что ты способен.",
-    ),
-}
-
-
-def evening_hook_html(evening: dict) -> str:
-    canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
-    heading, text = _EVENING_HOOKS.get(canonical_format, _EVENING_HOOKS["CASUAL"])
-    return f"{heading}\n{text}"
-
-
 def private_event_text(evening: dict, *, reminder: bool = False) -> str:
-    if reminder:
-        return (
-            "🔔 <b>Напоминание об игровом вечере</b>\n\n"
-            f"{event_base_text(evening)}\n\n"
-            "Ты ещё не выбрал игры. Открой вечер и отметь те, на которые придёшь.\n"
-            "Сумма к оплате посчитается сама."
-        )
+    heading = "🔔 <b>Напоминание об игровом вечере</b>" if reminder else "🎭 <b>Игровой вечер 2LA Noire</b>"
+    action = (
+        "Ты ещё не выбрал игры. Открой вечер и отметь те игры, на которые придёшь."
+        if reminder
+        else "Открой вечер и отметь конкретные игры, на которые придёшь."
+    )
     return (
-        "Привет! 👋\n\n"
-        f"{evening_hook_html(evening)}\n\n"
+        f"{heading}\n\n"
         f"{event_base_text(evening)}\n\n"
-        "👇 Отметь кнопкой ниже, придёшь ли, и выбери игры в приложении — сумму посчитаем сами. Ждём тебя!"
+        f"{action}\n"
+        "Сумма к оплате посчитается автоматически по выбранным играм."
     )
 
 
@@ -434,6 +406,8 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
 
 
 def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
+    canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
+    label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     people = participants or []
@@ -441,12 +415,12 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
 
     def compose(max_players: int, names: bool) -> str:
         sections = [
-            evening_hook_html(evening),
+            f"{label} · <b>2LA Noire</b>",
             event_base_text(evening, slot_rows),
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),
             "\n".join(_arrival_lines(slot_rows, timezone_name, skip, max_players)),
             "\n".join(_response_lines(people, names=names)),
-            "👇 Жми «Приду» и выбери игры в приложении — так мы заранее соберём столы. Ждём тебя!",
+            "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
         ]
         return "\n\n".join(section for section in sections if section)
 

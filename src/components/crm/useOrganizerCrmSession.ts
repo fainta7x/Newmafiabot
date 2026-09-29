@@ -42,6 +42,8 @@ export const useOrganizerCrmSession = () => {
   const overviewAbortRef = useRef<AbortController | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isClubOwner, setIsClubOwner] = useState<boolean | null>(null);
+  // «Проводит вечера»: a player without the cabinet who may create and run evenings of these kinds.
+  const [eventHost, setEventHost] = useState<{ playerId: string; formats: string[] } | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
@@ -61,7 +63,15 @@ export const useOrganizerCrmSession = () => {
     }
   };
 
+  const eventHostRef = useRef(false);
+  eventHostRef.current = Boolean(eventHost);
+
   const loadAllData = async (): Promise<boolean> => {
+    // The limited cabinet only needs the evening list.
+    if (eventHostRef.current) {
+      setEvenings(await api.getEvenings());
+      return true;
+    }
     const generation = ++refreshGenerationRef.current;
     overviewAbortRef.current?.abort();
     const controller = new AbortController();
@@ -110,9 +120,19 @@ export const useOrganizerCrmSession = () => {
       const me = await api.getMe();
       if (!me.isOrganizer) {
         setIsOrganizer(false);
+        const formats = Array.isArray(me.eventHostFormats) ? me.eventHostFormats : [];
+        if (formats.length && me.player?.id) {
+          setEventHost({ playerId: String(me.player.id), formats });
+          eventHostRef.current = true;
+          setShowLoginModal(false);
+          setEvenings(await api.getEvenings());
+          return;
+        }
+        setEventHost(null);
         setShowLoginModal(true);
         return;
       }
+      setEventHost(null);
       setIsOrganizer(true);
       setIsClubOwner(typeof me.isClubOwner === 'boolean' ? me.isClubOwner : null);
       setShowLoginModal(false);
@@ -214,6 +234,7 @@ export const useOrganizerCrmSession = () => {
   return {
     isOrganizer,
     isClubOwner,
+    eventHost,
     showLoginModal,
     setShowLoginModal,
     loginError,

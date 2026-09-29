@@ -5,6 +5,7 @@ import { api, type GameEvening } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningWorkspace, type EveningSection } from './crm/EveningWorkspace.tsx';
+import { EventHostCabinet } from './crm/EventHostCabinet.tsx';
 import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
@@ -64,6 +65,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const {
     isOrganizer,
     isClubOwner,
+    eventHost,
     showLoginModal,
     setShowLoginModal,
     loginError,
@@ -231,7 +233,9 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const activeEvening = useMemo(() => evenings.find((item) => item.id === activeEveningId) || null, [evenings, activeEveningId]);
   const activePlayer = useMemo(() => players.find((item) => item.id === activePlayerId) || null, [players, activePlayerId]);
 
-  const screenTitle = activePlayerId
+  const screenTitle = !isOrganizer && eventHost && !activeEveningId
+    ? 'Мои вечера'
+    : activePlayerId
     ? activePlayer?.nickname || 'Профиль игрока'
     : activeEveningId && activeTab === 'evenings'
       ? activeEvening?.title || 'Клубный вечер'
@@ -304,6 +308,32 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <button type="button" onClick={() => void retryLoad()} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white">Повторить</button>
             </div>
           </div>
+        ) : !isOrganizer && eventHost ? (
+          activeEveningId ? (
+            <EveningWorkspace
+              eveningId={activeEveningId}
+              initialSection={activeEveningSection}
+              onSectionChange={(section) => {
+                setActiveEveningSection(section);
+                navigateAdmin(organizerEveningPath(activeEveningId, section));
+              }}
+              onBack={() => {
+                setActiveEveningId(null);
+                setActiveEveningSection('overview');
+                navigateAdmin('/admin/evenings', true);
+                refreshSnapshotAfterEvening();
+              }}
+              onOpenPlayerCard={() => undefined}
+            />
+          ) : (
+            <EventHostCabinet
+              playerId={eventHost.playerId}
+              formats={eventHost.formats}
+              evenings={evenings}
+              onOpenEvening={handleOpenEvening}
+              onChanged={retryLoad}
+            />
+          )
         ) : !isOrganizer ? (
           <div className="mx-auto max-w-md space-y-4 py-16 text-center">
             <Lock className="mx-auto h-12 w-12 text-accent" />

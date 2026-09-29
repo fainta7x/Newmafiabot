@@ -4,7 +4,8 @@ import crypto from 'crypto';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { canUseEventHostRoute, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import {
   addSingleParticipantSchema,
   bulkAddParticipantsSchema,
@@ -118,6 +119,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     const regular = isRegularEvening(data.format);
     if (regular) await ensureEveningSlotsSchema(db);
+    if ((req as AuthenticatedRequest).eventHostPlayerId) await ensureClubOperationsSchema(db);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const defaultPrice = regular ? REGULAR_PRICE : data.default_price;
@@ -129,6 +131,15 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
         [id, data.title, data.starts_at, data.ends_at || null, data.timezone, data.venue || null, data.format, data.status, data.capacity, defaultPrice, data.notes || null, now, now],
       );
       if (regular) await insertRegularSlotSettings(tx, id, now);
+      // «Проводит вечера»: the player who creates the evening in his limited cabinet runs it.
+      const hostId = (req as AuthenticatedRequest).eventHostPlayerId;
+      if (hostId) {
+        await tx.run(
+          `INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at)
+           VALUES (?, ?, ?, ?) ON CONFLICT(evening_id) DO UPDATE SET organizer_player_id = excluded.organizer_player_id, updated_at = excluded.updated_at`,
+          [id, hostId, now, now],
+        );
+      }
     });
 
     const created = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
@@ -275,7 +286,9 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const guestCount = `(SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.replaced_at IS NULL AND gp.${expectedSql})`;
     const regularCount = `(SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND ${expectedSql} AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id))`;
     const pricePerGame = `(SELECT price_per_game FROM evening_slot_settings s WHERE s.evening_id=e.id LIMIT 1)`;
-    if (req.userRole !== 'ORGANIZER') {
+    // «Проводит вечера» sees every evening like an organizer, without the money totals.
+    const eventHost = req.userRole !== 'ORGANIZER' && await canUseEventHostRoute(req);
+    if (req.userRole !== 'ORGANIZER' && !eventHost) {
       const rows = await db.all<any>(`SELECT e.*, ${pricePerGame} AS price_per_game, (${regularCount} + ${guestCount}) AS registered_count FROM game_evenings e WHERE e.status IN ('published','active') ORDER BY e.starts_at ASC`);
       return res.json(rows.map((e) => ({ id:e.id,title:e.title,starts_at:e.starts_at,ends_at:e.ends_at,venue:e.venue,format:normalizeEveningFormat(e.format),status:e.status,capacity:e.capacity,default_price:e.default_price,price_per_game:e.price_per_game,registered_count:e.registered_count,available_spots:Math.max(0,Number(e.capacity||0)-Number(e.registered_count||0)) })));
     }
@@ -287,7 +300,11 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='no_show' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.attendance_status='no_show' AND gp.replaced_at IS NULL)) AS no_show_count,
       ((SELECT COALESCE(SUM(amount_paid),0) FROM evening_participants p WHERE p.evening_id=e.id AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COALESCE(SUM(amount_paid),0) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.replaced_at IS NULL)) AS total_revenue
       FROM game_evenings e ORDER BY e.starts_at DESC`);
-    return res.json(rows.map(withCanonicalFormat));
+    return res.json(rows.map((row) => {
+      const evening = withCanonicalFormat(row);
+      if (eventHost) delete (evening as any).total_revenue;
+      return evening;
+    }));
   } catch (err:any) { return res.status(500).json({error:'Database error',message:err.message}); }
 });
 
@@ -296,8 +313,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const db=req.db || (await getDb());
     const evening=await db.get<any>('SELECT e.*, (SELECT price_per_game FROM evening_slot_settings s WHERE s.evening_id=e.id LIMIT 1) AS price_per_game FROM game_evenings e WHERE e.id=?',[String(req.params.id)]);
     if(!evening) return res.status(404).json({error:'Игровой вечер не найден'});
-    const participants = req.userRole === 'ORGANIZER' ? await loadEveningParticipants(db, String(req.params.id)) : [];
-    const registered_count = req.userRole === 'ORGANIZER'
+    const staffView = req.userRole === 'ORGANIZER' || await canUseEventHostRoute(req);
+    const participants = staffView ? await loadEveningParticipants(db, String(req.params.id)) : [];
+    const registered_count = staffView
       ? participants.filter((p:any) => ['going','late'].includes(String(p.response_status))).length
       : Number((await db.get<any>(`
           SELECT (
@@ -309,7 +327,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
               WHERE gp.evening_id=? AND gp.response_status IN ('going','late') AND gp.replaced_at IS NULL)
           ) AS cnt
         `,[String(req.params.id),String(req.params.id)]))?.cnt||0);
-    if(req.userRole!=='ORGANIZER') return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:normalizeEveningFormat(evening.format),status:evening.status,capacity:evening.capacity,default_price:evening.default_price,price_per_game:evening.price_per_game,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
+    if(!staffView) return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:normalizeEveningFormat(evening.format),status:evening.status,capacity:evening.capacity,default_price:evening.default_price,price_per_game:evening.price_per_game,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
     const [tables, games, announcement] = await Promise.all([
       db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[String(req.params.id)]),
       db.all<any>('SELECT * FROM games WHERE evening_id=? ORDER BY global_game_number ASC',[String(req.params.id)]),

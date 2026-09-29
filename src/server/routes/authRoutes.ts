@@ -10,6 +10,7 @@ import {
   isClubOwner,
 } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
 import {
@@ -341,7 +342,14 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
     organizerAutoAuthorized = true;
   }
 
+  // «Может проводить вечера»: the limited cabinet for this player (read-only list of marks).
+  const hostRow = identity
+    ? await db.get<any>('SELECT organize_formats, contact_status FROM players WHERE id = ? LIMIT 1', [identity.playerId]).catch(() => null)
+    : null;
+  const eventHostFormats = hostRow && String(hostRow.contact_status || '') !== 'blocked' ? normalizeOrganizeFormats(hostRow.organize_formats) : [];
+
   return res.json({
+    eventHostFormats,
     role: isOrganizer ? 'ORGANIZER' : 'PLAYER',
     isOrganizer,
     // «Владелец»: only the owner grants organizers, sees club money and deletes players.

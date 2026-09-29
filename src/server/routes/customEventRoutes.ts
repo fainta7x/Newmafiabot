@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { canOrganizeCustomEvents } from '../../lib/organizeFormats.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { publishCustomEvent } from '../services/customEventPublishingService.ts';
 
 const router = Router();
 const bool = (value: unknown) => value === true || value === 1 || value === '1';
@@ -123,6 +124,20 @@ router.put('/:id/invitations', async (req: AuthenticatedRequest, res) => {
     for (const playerId of ids) await tx.run('INSERT OR IGNORE INTO custom_event_invitations(event_id,player_id,created_at) SELECT ?,id,? FROM players WHERE id=?', [current.id,now,playerId]);
   });
   return res.json({ success: true, player_ids: ids });
+});
+
+router.post('/:id/announce', async (req: AuthenticatedRequest, res) => {
+  try {
+    const access = await manager(req), current = await eventWithCounts(req.db, String(req.params.id));
+    if (!access || !current || (!access.root && current.organizer_player_id !== access.playerId)) return res.status(403).json({ error: 'Можно анонсировать только свои ивенты' });
+    return res.json(await publishCustomEvent(req.db, current.id));
+  } catch (error: any) { return res.status(Number(error.statusCode || 500)).json({ error: error.message || 'Не удалось отправить анонс' }); }
+});
+
+router.get('/:id/announcement-status', async (req: AuthenticatedRequest, res) => {
+  const access = await manager(req), current = await eventWithCounts(req.db, String(req.params.id));
+  if (!access || !current || (!access.root && current.organizer_player_id !== access.playerId)) return res.status(403).json({ error: 'Можно смотреть только свои ивенты' });
+  return res.json(await req.db.all('SELECT channel,target_key,status,external_id,last_error,attempted_at,sent_at FROM custom_event_publications WHERE event_id=? ORDER BY channel,target_key',[current.id]));
 });
 
 router.get('/:id', async (req: AuthenticatedRequest, res) => {

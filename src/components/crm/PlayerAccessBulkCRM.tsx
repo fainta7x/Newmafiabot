@@ -8,13 +8,32 @@ import {
 } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 import { useClubOwner } from './useClubOwner.ts';
+import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, organizeFormatsSummary, type OrganizeFormat } from '../../lib/organizeFormats.ts';
 
 type HostChoice = '' | 'yes' | 'no';
 
-type Row = Player & { host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
+type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
 
 const stopped = (row: Row) => row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON;
 type LevelFilter = GameLevel | 'all';
+// Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
+type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'stopped';
+const ROLE_FILTERS: Array<{ value: RoleFilter; label: string }> = [
+  { value: 'all', label: 'Все' },
+  { value: 'organizer', label: 'Организаторы' },
+  { value: 'team', label: 'Помогают клубу' },
+  { value: 'hosts', label: 'Ведут игры' },
+  { value: 'organizes', label: 'Проводят вечера' },
+  { value: 'regular', label: 'Ходят постоянно' },
+  { value: 'stopped', label: 'Перестали ходить' },
+];
+type SortBy = 'name' | 'visits' | 'recent' | 'new';
+const SORTS: Array<{ value: SortBy; label: string }> = [
+  { value: 'name', label: 'По нику' },
+  { value: 'visits', label: 'Больше вечеров' },
+  { value: 'recent', label: 'Недавно были' },
+  { value: 'new', label: 'Новые сначала' },
+];
 
 const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) => (
   <button type="button" aria-pressed={active} onClick={onClick}
@@ -22,11 +41,12 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
 );
 
 // One choice in the bottom panel; the line under it says what the picked option changes.
-const Select = <T extends string>({ label, value, onChange, options }: {
-  label: string; value: T | ''; onChange: (value: T | '') => void; options: Array<{ value: T; label: string; hint: string }>;
+const Select = <T extends string>({ label, about, value, onChange, options }: {
+  label: string; about: string; value: T | ''; onChange: (value: T | '') => void; options: Array<{ value: T; label: string; hint: string }>;
 }) => (
   <label className="block min-w-0">
-    <span className="mb-1 block text-[11px] font-semibold text-white/70">{label}</span>
+    <span className="block text-[11px] font-semibold text-white/70">{label}</span>
+    <span className="mb-1 block text-[10px] leading-[13px] text-white/40">{about}</span>
     <select value={value} onChange={(event) => onChange(event.target.value as T | '')}
       className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-2 text-[13px] text-white">
       <option value="">Не менять</option>
@@ -51,6 +71,13 @@ export function PlayerAccessBulkCRM() {
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LevelFilter>('all');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('name');
+  // «Может проводить» (owner only): per kind — add, remove, or leave as is.
+  const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', CUSTOM: '' });
+  const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes');
+  const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no');
+  const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
   const [activity, setActivity] = useState<PlayerActivity | ''>('');
@@ -78,11 +105,29 @@ export function PlayerAccessBulkCRM() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('ru-RU');
+    const role = (row: Row) => organizationOf(normalizeClubRole(row.club_role));
+    const matchesRole = (row: Row) => {
+      if (roleFilter === 'organizer') return role(row) === 'organizer';
+      if (roleFilter === 'team') return role(row) === 'team';
+      if (roleFilter === 'hosts') return hostFormatsOf(row).length > 0;
+      if (roleFilter === 'organizes') return normalizeOrganizeFormats(row.organize_formats).length > 0;
+      if (roleFilter === 'regular') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'member';
+      if (roleFilter === 'stopped') return stopped(row);
+      return true;
+    };
+    const time = (value?: string | null) => (value ? new Date(value).getTime() || 0 : 0);
+    const byName = (a: Row, b: Row) => String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
     return rows
       .filter((row) => (!needle || String(row.nickname || '').toLocaleLowerCase('ru-RU').includes(needle))
-        && (level === 'all' || normalizeGameLevel(row.game_level) === level))
-      .sort((a, b) => String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru'));
-  }, [rows, query, level]);
+        && (level === 'all' || normalizeGameLevel(row.game_level) === level)
+        && matchesRole(row))
+      .sort((a, b) => {
+        if (sortBy === 'visits') return Number(b.attendance_count || 0) - Number(a.attendance_count || 0) || byName(a, b);
+        if (sortBy === 'recent') return time(b.last_visit) - time(a.last_visit) || byName(a, b);
+        if (sortBy === 'new') return time(b.created_at) - time(a.created_at) || byName(a, b);
+        return byName(a, b);
+      });
+  }, [rows, query, level, roleFilter, sortBy]);
 
   const counts = useMemo(() => Object.fromEntries(GAME_LEVELS.map((item) => [item.value, rows.filter((row) => normalizeGameLevel(row.game_level) === item.value).length])), [rows]);
   const allVisibleSelected = visible.length > 0 && visible.every((row) => selected.has(row.id));
@@ -97,8 +142,21 @@ export function PlayerAccessBulkCRM() {
     return next;
   });
 
+  // Plain summary of what «Применить» will change, so nothing is picked by mistake.
+  const optionLabel = <T extends string>(options: Array<{ value: T; label: string; hint: string }>, value: T | '') => {
+    const option = options.find((item) => item.value === value);
+    return option ? `${option.label} (${option.hint.toLocaleLowerCase('ru-RU')})` : '';
+  };
+  const changes = [
+    gameLevel ? `уровень игры: ${optionLabel(GAME_LEVELS, gameLevel)}` : '',
+    activity ? `как часто ходит: ${optionLabel(PLAYER_ACTIVITY, activity)}` : '',
+    organization ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organization)}` : '',
+    ...HOST_FORMAT_OPTIONS.filter((option) => hosting[option.value]).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
+    ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizing[option.value]).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
+  ].filter(Boolean);
+
   const apply = async () => {
-    if (saving || !selected.size || !(gameLevel || activity || organization || hostChanged)) return;
+    if (saving || !selected.size || !(gameLevel || activity || organization || hostChanged || organizeChanged)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -110,6 +168,8 @@ export function PlayerAccessBulkCRM() {
         ...(organization ? { organization } : {}),
         ...(hostAdd.length ? { host_formats_add: hostAdd } : {}),
         ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
+        ...(organizeAdd.length ? { organize_formats_add: organizeAdd } : {}),
+        ...(organizeRemove.length ? { organize_formats_remove: organizeRemove } : {}),
       });
       setMessage(`Сохранено. Изменено игроков: ${body.updated}.${body.warnings?.length ? ` ${body.warnings.join(' ')}` : ''}`);
       setSelected(new Set());
@@ -117,6 +177,7 @@ export function PlayerAccessBulkCRM() {
       setActivity('');
       setOrganization('');
       setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
+      setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', CUSTOM: '' });
       await load();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить изменения');
@@ -126,7 +187,7 @@ export function PlayerAccessBulkCRM() {
   };
 
   return (
-    <div className="space-y-3 pb-[440px]" data-testid="crm-access-bulk">
+    <div className="space-y-3 pb-[560px]" data-testid="crm-access-bulk">
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -146,6 +207,21 @@ export function PlayerAccessBulkCRM() {
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Уровень игры">
         <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
         {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(item.value)}>{item.label} · {counts[item.value] ?? 0}</Chip>)}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block min-w-0"><span className="sr-only">Кто</span>
+          <select aria-label="Кто" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
+            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-2 text-[13px] text-white">
+            {ROLE_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
+        <label className="block min-w-0"><span className="sr-only">Порядок</span>
+          <select aria-label="Порядок" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}
+            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-2 text-[13px] text-white">
+            {SORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
       </div>
 
       {error ? <div className="rounded-2xl bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">{error}</div> : null}
@@ -169,6 +245,7 @@ export function PlayerAccessBulkCRM() {
                   {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {stopped(row) ? 'Перестал ходить' : accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {hostFormatsOf(row).length ? ` · ${hostFormatsSummary(hostFormatsOf(row))}` : ''}
+                  {normalizeOrganizeFormats(row.organize_formats).length ? ` · ${organizeFormatsSummary(normalizeOrganizeFormats(row.organize_formats))}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
                 </span>
               </span>
@@ -178,15 +255,16 @@ export function PlayerAccessBulkCRM() {
       </div>
 
       {selected.size ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
+        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
           <p className="text-[13px] font-semibold text-white">Отмечено: {selected.size}</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <Select label="Уровень игры" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
-            <Select label="Как часто ходит" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
-            <Select label="Роль в клубе" value={organization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.filter((item) => item.value !== 'organizer') : CLUB_ORGANIZATION} />
+            <Select label="Уровень игры" about="На какие вечера зовём" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
+            <Select label="Как часто ходит" about="Пишет ли бот ему лично" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
+            <Select label="Роль в клубе" about="«Организатор клуба» — полный кабинет" value={organization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.filter((item) => item.value !== 'organizer') : CLUB_ORGANIZATION} />
           </div>
           <div className="mt-1">
-            <span className="mb-1 block text-[11px] font-semibold text-white/70">Может вести</span>
+            <span className="block text-[11px] font-semibold text-white/70">Может вести</span>
+            <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Может быть ведущим (судьёй) игр на таких вечерах. Вечер сам не создаёт.</span>
             <div className="grid grid-cols-3 gap-2">
               {HOST_FORMAT_OPTIONS.map((option) => (
                 <label key={option.value} className="block min-w-0">
@@ -202,11 +280,43 @@ export function PlayerAccessBulkCRM() {
               ))}
             </div>
           </div>
+          {clubOwner !== false ? (
+            <div className="mt-1">
+              <span className="block text-[11px] font-semibold text-white/70">Может проводить</span>
+              <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Сам создаёт такие вечера в календаре и проводит их в своём кабинете: приход, оплата, столы, закрытие. Ставит только владелец.</span>
+              <div className="grid grid-cols-2 gap-2">
+                {ORGANIZE_FORMAT_OPTIONS.map((option) => (
+                  <label key={option.value} className="block min-w-0">
+                    <span className="mb-1 block truncate text-[10px] text-white/50">{option.label}</span>
+                    <select value={organizing[option.value]} aria-label={`Может проводить: ${option.label}`}
+                      onChange={(event) => setOrganizing((current) => ({ ...current, [option.value]: event.target.value as HostChoice }))}
+                      className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-1 text-[12px] text-white">
+                      <option value="">Не менять</option>
+                      <option value="yes">Может</option>
+                      <option value="no">Не может</option>
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {changes.length ? (
+            <div className="mt-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2" data-testid="crm-access-bulk-summary">
+              <p className="text-[11px] font-semibold text-white/70">Что изменится у {selected.size === 1 ? 'игрока' : `${selected.size} игроков`}:</p>
+              <ul className="mt-1 space-y-0.5 text-[11px] leading-4 text-white/60">{changes.map((line) => <li key={line}>• {line}</li>)}</ul>
+            </div>
+          ) : <p className="mt-2 text-[11px] text-white/40">Выберите, что поменять, — здесь появится итог перед сохранением.</p>}
+          {/* The result shows right by the button: the list above may be scrolled far away. */}
+          {error ? <p className="mt-2 rounded-xl bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200" data-testid="crm-access-bulk-error">{error}</p> : null}
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(gameLevel || activity || organization || hostChanged)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(gameLevel || activity || organization || hostChanged || organizeChanged)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
+        </div>
+      ) : message ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[520px] px-4 pb-[calc(12px+env(safe-area-inset-bottom))]" data-testid="crm-access-bulk-toast">
+          <button type="button" onClick={() => setMessage('')} className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-left text-[13px] font-semibold text-white shadow-2xl">{message}</button>
         </div>
       ) : null}
     </div>

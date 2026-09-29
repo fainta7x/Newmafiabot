@@ -114,6 +114,21 @@ router.post('/:id/status', async (req: AuthenticatedRequest, res) => {
   return res.json(await eventWithCounts(req.db, current.id));
 });
 
+// A draft that was never published has no players or posts yet, so it may be removed outright
+// (owner, 2026-09-29: an event made by mistake could not be removed). Published events are cancelled instead.
+router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+  const access = await manager(req), current = await eventWithCounts(req.db, String(req.params.id));
+  if (!access || !current || (!access.root && current.organizer_player_id !== access.playerId)) return res.status(403).json({ error: 'Можно удалять только свои ивенты' });
+  if (current.status !== 'draft' || current.published_at || Number(current.registration_count || 0) > 0) {
+    return res.status(409).json({ error: 'Опубликованный ивент нельзя удалить — его можно отменить' });
+  }
+  for (const table of ['custom_event_invitations', 'custom_event_registrations', 'custom_event_publications']) {
+    await req.db.run(`DELETE FROM ${table} WHERE event_id = ?`, [current.id]);
+  }
+  await req.db.run('DELETE FROM custom_events WHERE id = ?', [current.id]);
+  return res.json({ ok: true });
+});
+
 router.put('/:id/invitations', async (req: AuthenticatedRequest, res) => {
   const access = await manager(req), current = await eventWithCounts(req.db, String(req.params.id));
   if (!access || !current || (!access.root && current.organizer_player_id !== access.playerId)) return res.status(403).json({ error: 'Можно менять только свои ивенты' });

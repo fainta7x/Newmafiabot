@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
+import { canOrganizeEveningFormat } from '../../../lib/organizeFormats.ts';
 
 type PrizeRow = { place: string; amount_rub: number };
 type TournamentDetail = {
@@ -66,7 +67,9 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       const next = body as TournamentDetail;
       setDetail(next);
       setJudges(players.filter((player) => player.judge_level === 'judge'));
-      setOrganizers(players.filter((player) => player.club_role === 'organizer'));
+      // Club organizers and players the owner marked «Может проводить: рейтинг и турниры» (same rule as the server).
+      setOrganizers(players.filter((player) => (player as any).contact_status !== 'blocked'
+        && (player.club_role === 'organizer' || canOrganizeEveningFormat(player as any, 'TOURNAMENT'))));
       setOrganizerPlayerId(next.organizer_player_id || '');
       setTitle(next.title || ''); setDate(toLocalInput(next.date)); setVenue(next.venue || ''); setJudgePlayerId(next.judge_player_id || '');
       setEntryFee(Number(next.entry_fee_rub || 0)); setPrizeFund(Number(next.prize_fund_rub || 0)); setPrizes(next.prize_allocations || []); setNotes(next.notes || '');
@@ -156,6 +159,13 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       {readinessBlockers.length ? <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[10px] leading-4 text-text-secondary">{readinessBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="mt-1 text-[10px] leading-4 text-text-secondary">10 участников, судья, место и призовой фонд согласованы. Дальше турнир ведётся как обычно.</p>}
     </div>
 
+    {/* Who runs the tournament is always visible: without an organizer the tournament cannot start (owner report 2026-09-29). */}
+    <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border-soft bg-surface-2 p-3 sm:grid-cols-2" data-testid="tournament-people">
+      <label className="text-[11px] font-semibold text-text-secondary">Организатор<select disabled={!editable || busy} value={organizerPlayerId} onChange={(e) => setOrganizerPlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите организатора</option>{organizers.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
+      <label className="text-[11px] font-semibold text-text-secondary">Судья<select disabled={!editable || busy} value={judgePlayerId} onChange={(e) => setJudgePlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите судью</option>{judges.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
+      {editable && (organizerPlayerId !== (detail.organizer_player_id || '') || judgePlayerId !== (detail.judge_player_id || '')) ? <button type="button" disabled={busy} onClick={save} className="sm:col-span-2 min-h-11 rounded-xl bg-accent text-xs font-bold text-white disabled:opacity-50">Сохранить организатора и судью</button> : null}
+    </div>
+
     {error ? <div className="mt-3 rounded-xl border border-danger/25 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</div> : null}
     {message ? <div className="mt-3 rounded-xl border border-success/20 bg-success-soft p-3 text-xs font-semibold text-success">{message}</div> : null}
 
@@ -165,8 +175,6 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
         <label className="text-[11px] font-semibold text-text-secondary">Название<input disabled={!editable || busy} value={title} onChange={(e) => setTitle(e.target.value)} className={`${field} mt-1`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Дата и время<input disabled={!editable || busy} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Место<input disabled={!editable || busy} value={venue} onChange={(e) => setVenue(e.target.value)} className={`${field} mt-1`} /></label>
-        <label className="text-[11px] font-semibold text-text-secondary">Судья<select disabled={!editable || busy} value={judgePlayerId} onChange={(e) => setJudgePlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите судью</option>{judges.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
-        <label className="text-[11px] font-semibold text-text-secondary">Организатор<select disabled={!editable || busy} value={organizerPlayerId} onChange={(e) => setOrganizerPlayerId(e.target.value)} className={`${field} mt-1`}><option value="">Выберите организатора</option>{organizers.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select></label>
         <label className="text-[11px] font-semibold text-text-secondary">Взнос, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={entryFee} onChange={(e) => setEntryFee(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <label className="text-[11px] font-semibold text-text-secondary">Призовой фонд, ₽<input disabled={!editable || busy} type="number" min={0} step={1} value={prizeFund} onChange={(e) => setPrizeFund(Math.max(0, Number(e.target.value) || 0))} className={`${field} mt-1 font-mono`} /></label>
         <div className="sm:col-span-2 rounded-xl border border-border-soft bg-surface-1 p-3">

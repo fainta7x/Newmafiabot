@@ -208,6 +208,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   }
 
   const isDraft = tournament.status === 'draft';
+  // Tournaments with registration get their players one by one in «Участники» and their settings in «Турнирный вечер»
+  // above; the old all-ten-at-once roster form and the old data form stay only for tournaments made the old way.
+  const registrationFlow = Number((tournament as any).tournament_evening_flow || 0) === 1;
   const games = tournament.games || [];
   const currentGame: TournamentGame | undefined = games[selectedGameIdx];
   const seats: TournamentGameSeat[] = currentGame?.seats || [];
@@ -550,23 +553,27 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <span>Загрузить бланк игры</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setShowEditDataModal(true)}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <FileText className="w-3.5 h-3.5 text-accent" />
-                <span>Редактировать данные</span>
-              </button>
+              {!registrationFlow ? (
+                <button
+                  type="button"
+                  onClick={() => setShowEditDataModal(true)}
+                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                >
+                  <FileText className="w-3.5 h-3.5 text-accent" />
+                  <span>Редактировать данные</span>
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => setShowEditRosterModal(true)}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <Users className="w-3.5 h-3.5 text-accent" />
-                <span>Изменить состав</span>
-              </button>
+              {!registrationFlow ? (
+                <button
+                  type="button"
+                  onClick={() => setShowEditRosterModal(true)}
+                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                >
+                  <Users className="w-3.5 h-3.5 text-accent" />
+                  <span>Изменить состав</span>
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -762,7 +769,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <h3 className="text-sm font-bold text-text-primary">Состав участников ({tournament.participants?.length || 0} человек)</h3>
               </div>
               <div className="flex items-center gap-4">
-                {isDraft && (
+                {isDraft && !registrationFlow && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setShowEditRosterModal(true); }}
                     className="text-xs text-accent hover:underline font-bold"

@@ -1,3 +1,4 @@
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../src/db/ensureOrganizerPlayerAccessSchema.ts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../src/db/index.ts';
@@ -28,6 +29,8 @@ describe('TOURNAMENT-EVENING-001', () => {
   const addPlayer=async(id:string,gameLevel='tournament',judgeLevel='none')=>{const now=new Date().toISOString();await db.run(`INSERT INTO players (id,nickname,contact_status,lifecycle_status,elo,tokens,created_at,updated_at,game_level,judge_level) VALUES (?,?,'normal','normal',1000,0,?,?,?,?)`,[id,id,now,now,gameLevel,judgeLevel]);};
   const createEvening=async()=>{await addPlayer('judge','tournament','judge');const r=await request(app).post('/api/tournaments/evenings').set('Authorization',`Bearer ${organizerToken}`).send({title:'Тестовый турнир',date:'2026-10-02T17:00:00.000Z',venue:'Суп с котом',judge_player_id:'judge',player_capacity:10,entry_fee_rub:500,prize_fund_rub:3000,prize_allocations:[{place:'1',amount_rub:1500},{place:'2',amount_rub:1000},{place:'3',amount_rub:500}]});expect(r.status).toBe(201);expect(r.body.tournament_evening_flow).toBe(1);return String(r.body.id);};
   const publish=async(id:string)=>{const r=await request(app).post(`/api/tournaments/evenings/${id}/publish`).set('Authorization',`Bearer ${organizerToken}`);expect(r.status).toBe(200);};
+
+  it('makes the one who creates the tournament its organizer',async()=>{const owner=PRIMARY_ORGANIZER_PLAYER_ID;if(!(await db.get('SELECT id FROM players WHERE id=?',[owner])))await addPlayer(owner,'club','judge');await db.run("UPDATE players SET club_role='organizer' WHERE id=?",[owner]);const id=await createEvening();expect((await db.get<any>('SELECT organizer_player_id FROM tournaments WHERE id=?',[id])).organizer_player_id).toBe(owner);});
 
   it('enforces exact capacity, judge exclusion and real concurrent 10th/11th registration',async()=>{const id=await createEvening();await publish(id);for(let i=1;i<=11;i++)await addPlayer(`p${i}`);const results=await Promise.all(Array.from({length:11},(_,i)=>registerTournamentPlayer(db,id,`p${i+1}`)));expect(results.filter((r:any)=>r.status==='confirmed')).toHaveLength(10);expect(results.filter((r:any)=>r.status==='reserve')).toHaveLength(1);expect((await db.get<any>("SELECT COUNT(*) AS count FROM tournament_registrations WHERE tournament_id=? AND status='confirmed'",[id]))?.count).toBe(10);await expect(registerTournamentPlayer(db,id,'judge')).rejects.toThrow('JUDGE_CANNOT_REGISTER');});
 

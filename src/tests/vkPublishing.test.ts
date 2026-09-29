@@ -4,6 +4,7 @@ import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
 import { finalizeExistingVkEveningPublications, syncDirectVkEveningPublications } from '../server/services/vkDirectJoinPublishingService.ts';
 import { refreshExistingVkEveningPosts } from '../server/services/vkLiveEveningSyncWorker.ts';
 import { getVkEveningIntegrationState } from '../server/services/vkEveningIntegrationService.ts';
+import { addAnnouncementPhoto } from '../server/services/announcementPhotoService.ts';
 import {
   canEditVkWallPosts,
   createVkWallPost,
@@ -39,6 +40,70 @@ afterEach(() => {
 });
 
 describe('VK publishing adapter', () => {
+  it('uploads the selected announcement photo once and attaches it to the VK wall post', async () => {
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === 'https://api.vk.com/method/photos.getWallUploadServer') {
+        return new Response(JSON.stringify({ response: { upload_url: 'https://upload.vk.test/photo' } }), { status: 200 });
+      }
+      if (url === 'https://upload.vk.test/photo') {
+        expect(init?.body).toBeInstanceOf(FormData);
+        return new Response(JSON.stringify({ server: 4, photo: 'photo-json', hash: 'upload-hash' }), { status: 200 });
+      }
+      if (url === 'https://api.vk.com/method/photos.saveWallPhoto') {
+        return new Response(JSON.stringify({ response: [{ owner_id: -212761164, id: 501 }] }), { status: 200 });
+      }
+      if (url === 'https://api.vk.com/method/wall.post') {
+        const body = init?.body as URLSearchParams;
+        expect(body.get('attachments')).toBe('photo-212761164_501');
+        return new Response(JSON.stringify({ response: { post_id: 91 } }), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id, title, starts_at, format, status, default_price, created_at, updated_at)
+      VALUES ('evening-photo', 'Пятница', ?, 'CASUAL', 'published', 100, ?, ?)`, [now, now, now]);
+    await addAnnouncementPhoto(db, { base64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64'), audience: 'CASUAL' });
+
+    await syncDirectVkEveningPublications(db, 'evening-photo', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await syncDirectVkEveningPublications(db, 'evening-photo', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(await db.get<any>('SELECT attachment FROM vk_announcement_photo_uploads')).toEqual({ attachment: 'photo-212761164_501' });
+  });
+
+  it('publishes text first and adds the photo later when the organizer token appears', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === 'https://api.vk.com/method/wall.post') return new Response(JSON.stringify({ response: { post_id: 92 } }), { status: 200 });
+      if (url === 'https://api.vk.com/method/photos.getWallUploadServer') return new Response(JSON.stringify({ response: { upload_url: 'https://upload.vk.test/photo' } }), { status: 200 });
+      if (url === 'https://upload.vk.test/photo') return new Response(JSON.stringify({ server: 4, photo: 'photo-json', hash: 'upload-hash' }), { status: 200 });
+      if (url === 'https://api.vk.com/method/photos.saveWallPhoto') return new Response(JSON.stringify({ response: [{ owner_id: -212761164, id: 502 }] }), { status: 200 });
+      if (url === 'https://api.vk.com/method/wall.edit') {
+        expect((init?.body as URLSearchParams).get('attachments')).toBe('photo-212761164_502');
+        return new Response(JSON.stringify({ response: 1 }), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id, title, starts_at, format, status, default_price, created_at, updated_at)
+      VALUES ('evening-late-photo', 'Пятница', ?, 'CASUAL', 'published', 100, ?, ?)`, [now, now, now]);
+    await addAnnouncementPhoto(db, { base64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64'), audience: 'CASUAL' });
+
+    await syncDirectVkEveningPublications(db, 'evening-late-photo', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    await syncDirectVkEveningPublications(db, 'evening-late-photo', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
   it('does not mistake a public channel URL suffix for an API peer_id', () => {
     delete process.env.VK_CHANNEL_API_PEER_ID;
     process.env.VK_CHANNEL_PEER_ID = '-233806277';

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { vkApi } from './vkPublishingService.ts';
 
 /**
  * Club photos shown above evening announcements (owner request 2026-09-29: the posts looked dry).
@@ -42,6 +43,13 @@ export async function ensureAnnouncementPhotoSchema(db: DatabaseWrapper) {
       size INTEGER NOT NULL,
       created_at TEXT NOT NULL,
       created_by TEXT
+    );
+    CREATE TABLE IF NOT EXISTS vk_announcement_photo_uploads (
+      photo_id TEXT NOT NULL REFERENCES announcement_photos(id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL,
+      attachment TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (photo_id, group_id)
     );
   `);
   schemaReady.add(db as object);
@@ -96,6 +104,52 @@ export async function deleteAnnouncementPhoto(db: DatabaseWrapper, id: string) {
 export async function loadAnnouncementPhoto(db: DatabaseWrapper, id: string) {
   await ensureAnnouncementPhotoSchema(db);
   return db.get<{ mime: string; bytes: Buffer }>('SELECT mime, bytes FROM announcement_photos WHERE id = ?', [id]);
+}
+
+/** Upload once with the organizer's VK user token and reuse the saved wall-photo attachment. */
+export async function uploadAnnouncementPhotoToVk(
+  db: DatabaseWrapper,
+  photoId: string,
+  groupId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  await ensureAnnouncementPhotoSchema(db);
+  const normalizedGroupId = String(groupId || '').trim().replace(/^-/, '');
+  if (!/^\d+$/.test(normalizedGroupId)) throw new Error('Не удалось определить группу VK для фото');
+  const cached = await db.get<{ attachment: string }>(
+    'SELECT attachment FROM vk_announcement_photo_uploads WHERE photo_id = ? AND group_id = ?',
+    [photoId, normalizedGroupId],
+  );
+  if (cached?.attachment) return String(cached.attachment);
+
+  const photo = await loadAnnouncementPhoto(db, photoId);
+  if (!photo?.bytes?.length) throw new Error('Фото для анонса не найдено');
+  const server = await vkApi<{ upload_url: string }>('photos.getWallUploadServer', { group_id: normalizedGroupId });
+  const form = new FormData();
+  form.set('photo', new Blob([new Uint8Array(photo.bytes)], { type: photo.mime }), 'announcement.jpg');
+  const uploadResponse = await fetchImpl(server.upload_url, { method: 'POST', body: form });
+  const uploaded: any = await uploadResponse.json().catch(() => null);
+  if (!uploadResponse.ok || !uploaded?.server || !uploaded?.photo || !uploaded?.hash) {
+    throw new Error('VK не принял фото для анонса');
+  }
+  const saved = await vkApi<Array<{ id: number; owner_id: number }>>('photos.saveWallPhoto', {
+    group_id: normalizedGroupId,
+    server: uploaded.server,
+    photo: uploaded.photo,
+    hash: uploaded.hash,
+  });
+  const item = saved?.[0];
+  if (!item?.id || !item?.owner_id) throw new Error('VK не вернул сохранённое фото');
+  const attachment = `photo${item.owner_id}_${item.id}`;
+  await db.run(
+    `INSERT INTO vk_announcement_photo_uploads (photo_id, group_id, attachment, created_at)
+     VALUES (?, ?, ?, ?) ON CONFLICT(photo_id, group_id) DO NOTHING`,
+    [photoId, normalizedGroupId, attachment, new Date().toISOString()],
+  );
+  return String((await db.get<{ attachment: string }>(
+    'SELECT attachment FROM vk_announcement_photo_uploads WHERE photo_id = ? AND group_id = ?',
+    [photoId, normalizedGroupId],
+  ))?.attachment || attachment);
 }
 
 /**

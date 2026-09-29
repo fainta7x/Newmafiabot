@@ -106,6 +106,13 @@ def test_club_post_is_the_owners_short_text():
         "📍 Суп с Котом, 21:00 · 100 ₽ за игру, не больше 400 ₽ за вечер\n"
         "Отметь кнопкой ниже, придёшь ли, и выбери игры"
     )
-    assert thematic_event_text(evening, [], [{"player_id": "a", "nickname": "Аня", "response_status": "going"}]) == expected
+    post = thematic_event_text(evening, [], [
+        {"player_id": "a", "nickname": "Аня", "response_status": "going", "selected_games": 0},
+        {"player_id": "b", "nickname": "Боря", "response_status": "thinking", "selected_games": 0},
+    ])
+    # The group post starts with the owner's text, keeps who is coming and ends with what to press.
+    assert post.startswith(expected.rsplit("\n", 1)[0])
+    assert "Аня" in post and "Пока думают (1)</b>: Боря" in post
+    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
     assert private_event_text(evening) == expected
     assert private_event_text(evening, reminder=True).startswith("🔔")

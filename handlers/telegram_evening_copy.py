@@ -372,7 +372,10 @@ def _is_club_evening(evening: dict) -> bool:
     return str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper() in {"CASUAL", "STANDARD"}
 
 
-def club_short_text(evening: dict, slots: list[dict] | None = None) -> str:
+_CLUB_ACTION = "Отметь кнопкой ниже, придёшь ли, и выбери игры"
+
+
+def club_short_text(evening: dict, slots: list[dict] | None = None, *, action: bool = True) -> str:
     """The club evening post in the owner's words (2026-09-29): a greeting, where and when, the price, what to press."""
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     try:
@@ -388,7 +391,8 @@ def club_short_text(evening: dict, slots: list[dict] | None = None) -> str:
     lines = [f"Привет! {when}, играем в мафию — ждём тебя 🎭"]
     if details:
         lines.append(f"📍 {details}")
-    lines.append("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    if action:
+        lines.append(_CLUB_ACTION)
     return "\n".join(lines)
 
 
@@ -467,9 +471,7 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
 
 
 def thematic_event_text(evening: dict, slots: list[dict] | None = None, participants: list[dict] | None = None) -> str:
-    # Club evenings: the owner's short post for now (2026-09-29); who is coming is in the app.
-    if _is_club_evening(evening):
-        return club_short_text(evening, slots)
+    club = _is_club_evening(evening)
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
@@ -478,13 +480,15 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
     skip = _without_games(people)
 
     def compose(max_players: int, names: bool) -> str:
+        # Club evenings open with the owner's short text (2026-09-29) and keep the lists of who is coming.
+        head = [club_short_text(evening, slot_rows, action=False)] if club else [f"{label} · <b>2LA Noire</b>", event_base_text(evening, slot_rows)]
+        action = _CLUB_ACTION if club else "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы."
         sections = [
-            f"{label} · <b>2LA Noire</b>",
-            event_base_text(evening, slot_rows),
+            *head,
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),
             "\n".join(_arrival_lines(slot_rows, timezone_name, skip, max_players)),
             "\n".join(_response_lines(people, names=names)),
-            "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы.",
+            action,
         ]
         return "\n\n".join(section for section in sections if section)
 

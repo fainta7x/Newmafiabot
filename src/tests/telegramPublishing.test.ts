@@ -100,9 +100,15 @@ describe('Telegram publishing destinations', () => {
         [id, startsAt, stamp, stamp],
       );
     }
+    await db.run(
+      `INSERT INTO evening_telegram_publications (evening_id, destination_id, chat_id, topic_id, message_id, sent_at, updated_at)
+       VALUES ('nov-soon', 'novice', '-100999', NULL, 7, ?, ?)`,
+      [stamp, stamp],
+    );
     await db.run('DELETE FROM telegram_sync_outbox');
 
     await ensureTelegramPublishingSchema(db);
+    expect(await db.get("SELECT 1 FROM evening_telegram_publications WHERE evening_id='nov-soon'")).toBeFalsy();
     expect(await db.get("SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id='novice'"))
       .toMatchObject({ chat_id: '-1003925510303', topic_id: 128, active: 1 });
     expect((await db.all<any>('SELECT entity_id FROM telegram_sync_outbox')).map((row) => row.entity_id)).toEqual(['nov-soon']);

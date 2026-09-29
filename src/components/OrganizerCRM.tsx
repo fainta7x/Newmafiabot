@@ -382,10 +382,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                   onInitialAddHandled={() => setEveningIntent(null)}
                 />
               ) : (<div className="space-y-4">
+                {/* Non-mafia events sit under the evenings tab only, never under a tournament. */}
                 <EveningsList evenings={evenings} onOpenEvening={handleOpenEvening} onCreateEvening={handleCreateEvening}
-                  initialCreateOpen={eveningIntent === 'create'} onInitialCreateHandled={() => setEveningIntent(null)} />
-                {/* Non-mafia events sit below the evenings so «Создать» at the top is never mistaken for them. */}
-                <CustomEventsPanel />
+                  initialCreateOpen={eveningIntent === 'create'} onInitialCreateHandled={() => setEveningIntent(null)}
+                  eveningsFooter={<CustomEventsPanel />} />
               </div>)
             ) : null}
 

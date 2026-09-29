@@ -23,7 +23,12 @@ export const noviceHeadlineText = (): string => {
 /** Why the game is fun, as plain text — at the end of the novice post. */
 export const noviceAboutText = (): string => {
   if (!promo.title) return '';
-  return [`🎩 ${promo.title}`, ...(promo.reasons ?? []).filter((item) => item.trim())].join('\n');
+  const reasons = (promo.reasons ?? []).filter((item) => item.trim());
+  return [
+    `🎩 ${promo.title}`,
+    promo.intro ?? '',
+    reasons.length ? [promo.reasonsTitle ?? '', ...reasons].join('\n').trim() : '',
+  ].filter(Boolean).join('\n\n');
 };
 
 /** The Telegram novice group from the shared file, used when the Telegram settings have no invite link. */

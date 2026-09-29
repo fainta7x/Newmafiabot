@@ -78,8 +78,13 @@ def novice_about_html() -> str:
     promo = _NOVICE_PROMO
     if not promo.get("title"):
         return ""
+    parts = [f"🎩 <b>{escape(str(promo['title']))}</b>"]
+    if promo.get("intro"):
+        parts.append(escape(str(promo["intro"])))
     reasons = [escape(str(item)) for item in promo.get("reasons") or [] if str(item).strip()]
-    return "\n".join([f"🎩 <b>{escape(str(promo['title']))}</b>", *reasons])
+    if reasons:
+        parts.append("\n".join([f"<b>{escape(str(promo.get('reasonsTitle') or ''))}</b>", *reasons]).strip())
+    return "\n\n".join(parts)
 
 
 def novice_telegram_group_url(configured: str | None = None) -> str | None:

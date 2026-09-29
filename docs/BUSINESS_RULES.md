@@ -314,7 +314,9 @@ Personal evening messages follow the player's answer (user-approved 2026-09-24):
 - **Пока думаю** — from 24 hours before, «Что решил?» with the answer buttons and a choice of when to ask again («утром в день игры» or «за 3 часа»);
 - **Приду позже** — asked to pick the games they will make, until they do.
 
-The Telegram group post lists, besides players by game, those who answered but picked no games («Идут, игры ещё не выбрали», «Придут позже», «Пока думают») and the number who declined.
+Club (CASUAL) evening posts — the Telegram group post, the personal invitation and the VK post — are the owner's short text (owner decision 2026-09-29): «Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭», then place, start time and price on one line, then «Отметь кнопкой ниже, придёшь ли, и выбери игры» (in VK, the sign-up link). Who is coming is seen in the app. Other group posts (rating, tournament, the novice group) list, besides players by game, those who answered but picked no games («Идут, игры ещё не выбрали», «Придут позже», «Пока думают») and the number who declined.
+
+Signing up on the public evening page (`/join/<id>`, from VK) goes step by step (owner decision 2026-09-29): sign in through VK, pick games, confirm with «Записаться»; the choice can be changed later and saved again. Picking a game alone does not register the player.
 
 The event/announcement model is centered on an evening with linked player contacts/statuses. Avoid introducing a CRM model that requires a separate sales “deal” for every player/evening unless explicitly requested.
 
@@ -403,7 +405,7 @@ Do not use a club-wide production announcement as a generic health check.
 - **Telegram club group «2LA Noire мафия в Туле»** gets the club (CASUAL) evening announcement.
 - **Telegram closed rating/tournament channel** is for the narrow circle of tournament players: RATING and TOURNAMENT evenings, later other posts for them.
 - **VK group** gets the invitation post for novice evenings and the ordinary announcement for the others.
-- The invitation post is the approved promo text (`src/shared/novicePromo.json`) followed by date, venue, schedule and price, a sign-up link, the novice chat link and the organizer contacts. The Telegram sign-up link goes through the bot so the Mini App gets the player's Telegram login, and it lets a novice sign up straight from the post without going through the groups first.
+- The invitation post starts by saying it is a novice evening (`headline` and `firstTimeText` in `src/shared/novicePromo.json`), then date, venue, schedule and price, a sign-up link, the novice group links and the organizer contacts, and ends with the approved promo text (owner decision 2026-09-29: the essentials first, the promo last). The Telegram sign-up link goes through the bot so the Mini App gets the player's Telegram login, and it lets a novice sign up straight from the post without going through the groups first.
 
 ## Tournament publication
 

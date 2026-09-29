@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getDb } from '../../db/index.ts';
 import { getAuthenticatedOrganizerActorId, isClubOwner, requireClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { HOST_FORMATS, legacyJudgeLevelFor, normalizeHostFormats } from '../../lib/hostFormats.ts';
+import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import {
   hasOrganizerPlayerAccess,
   LastOrganizerAccessError,
@@ -19,13 +20,15 @@ const classificationSchema = z.object({
   judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
   // «Может вести» marks; they also write the judge_level compatibility summary.
   host_formats: z.array(z.enum(HOST_FORMATS)).optional(),
+  // «Может проводить вечера»: only the owner gives these marks.
+  organize_formats: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
 }).strict().refine(
   (value) => Object.values(value).some((item) => item !== undefined),
   'Не передано ни одного изменяемого поля',
 );
 
 const organizerAccessSchema = z.object({ enabled: z.boolean() }).strict();
-const classificationKeys = ['game_level', 'club_role', 'judge_level', 'host_formats'] as const;
+const classificationKeys = ['game_level', 'club_role', 'judge_level', 'host_formats', 'organize_formats'] as const;
 
 const isExactPlayerGet = (method: string, path: string) =>
   method === 'GET' && /^\/[^/]+\/?$/.test(path);
@@ -81,7 +84,14 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
       await setOrganizerPlayerAccess(db, { playerId, enabled: willBeOrganizer, actorId });
     }
 
+    if (parsed.organize_formats !== undefined && !isClubOwner(req as AuthenticatedRequest)) {
+      return res.status(403).json({ error: 'Дать право проводить вечера может только владелец клуба', code: 'club_owner_required' });
+    }
     const stored: Record<string, string | null> = {};
+    if (parsed.organize_formats !== undefined) {
+      const formats = normalizeOrganizeFormats(parsed.organize_formats);
+      stored.organize_formats = formats.length ? formats.join(',') : null;
+    }
     if (parsed.game_level !== undefined) stored.game_level = parsed.game_level;
     if (parsed.club_role !== undefined) stored.club_role = parsed.club_role;
     if (parsed.host_formats !== undefined) {

@@ -22,6 +22,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { usePlayerEveningQuickAdd } from './PlayerEveningQuickAdd.tsx';
 import { useClubOwner } from './useClubOwner.ts';
+import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, organizeFormatsSummary, type OrganizeFormat } from '../../lib/organizeFormats.ts';
 import { countVisits } from '../../lib/russianPlural';
 
 const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });
@@ -31,6 +32,7 @@ type PlayerWithAccess = PlayerDetails & {
   club_role?: ClubRole | null;
   judge_level?: string | null;
   host_formats?: string | null;
+  organize_formats?: string | null;
   organizer_player_access?: boolean;
 };
 
@@ -38,6 +40,7 @@ type Draft = {
   game_level: GameLevel;
   club_role: ClubRole;
   host_formats: HostFormat[];
+  organize_formats: OrganizeFormat[];
 };
 
 type Confirmation =
@@ -49,12 +52,14 @@ const normalize = (player: PlayerWithAccess): Draft => ({
   game_level: normalizeGameLevel(player.game_level),
   club_role: normalizeClubRole(player.club_role),
   host_formats: hostFormatsOf(player),
+  organize_formats: normalizeOrganizeFormats(player.organize_formats),
 });
 
 const equalDraft = (left: Draft, right: Draft) =>
   left.game_level === right.game_level
   && left.club_role === right.club_role
-  && left.host_formats.join(',') === right.host_formats.join(',');
+  && left.host_formats.join(',') === right.host_formats.join(',')
+  && left.organize_formats.join(',') === right.organize_formats.join(',');
 
 export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetails; onSaved?: () => void | Promise<void> }) {
   const accessPlayer = player as PlayerWithAccess;
@@ -118,7 +123,10 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
+        // «Может проводить вечера» is sent only when changed: only the owner may change it.
+        body: JSON.stringify(draft.organize_formats.join(',') === baseline.organize_formats.join(',')
+          ? { game_level: draft.game_level, club_role: draft.club_role, host_formats: draft.host_formats }
+          : draft),
       });
       await readJson(response);
 
@@ -203,6 +211,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
     ['Роль в клубе', accessLabel(CLUB_ORGANIZATION, organizationOf(draft.club_role)), null],
     ['Может вести', hostFormatsSummary(draft.host_formats), null],
+    ['Проводит вечера', organizeFormatsSummary(draft.organize_formats), null],
     ['Доступы', organizerAccess ? 'Кабинет организатора' : 'Только кабинет игрока', null],
   ];
 
@@ -249,6 +258,23 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
                       onChange={() => setDraft((value) => ({
                         ...value,
                         host_formats: HOST_FORMATS.filter((format) => (format === item.value ? !checked : value.host_formats.includes(format))),
+                      }))} />
+                    <span className="min-w-0"><span className="block text-[13px] text-text-primary">{item.label}</span><span className="block text-[11px] leading-4 text-text-muted">{item.hint}</span></span>
+                  </label>
+                );
+              })}
+            </fieldset>
+            <fieldset className="space-y-1.5" data-testid="crm-player-organize-formats" disabled={ownerOnlyLocked}>
+              <legend className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Может проводить вечера</legend>
+              <p className="mb-1.5 text-[11px] leading-4 text-text-muted">Сам создаёт такие вечера в календаре урезанного кабинета и проводит их: приход, оплата, столы, анонс, закрытие. Даёт только владелец.</p>
+              {ORGANIZE_FORMAT_OPTIONS.map((item) => {
+                const checked = draft.organize_formats.includes(item.value);
+                return (
+                  <label key={item.value} className="flex min-h-11 items-start gap-2.5 rounded-[10px] border border-border-soft px-3 py-2">
+                    <input type="checkbox" checked={checked} className="mt-0.5 h-5 w-5 shrink-0"
+                      onChange={() => setDraft((value) => ({
+                        ...value,
+                        organize_formats: ORGANIZE_FORMATS.filter((format) => (format === item.value ? !checked : value.organize_formats.includes(format))),
                       }))} />
                     <span className="min-w-0"><span className="block text-[13px] text-text-primary">{item.label}</span><span className="block text-[11px] leading-4 text-text-muted">{item.hint}</span></span>
                   </label>

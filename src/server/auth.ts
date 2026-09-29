@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
 import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
+import { canOrganizeEveningFormat, normalizeOrganizeFormats } from '../lib/organizeFormats.ts';
 
 dotenv.config();
 
@@ -119,6 +120,8 @@ export interface AuthenticatedRequest extends Request {
   userRole?: 'PLAYER' | 'ORGANIZER';
   delegatedOrganizerAccess?: boolean;
   delegatedPlayerId?: string;
+  /** Set when a player with «Может проводить вечера» marks acts in his limited cabinet. */
+  eventHostPlayerId?: string;
   organizerActorId?: string;
   organizerPlayerId?: string;
   testEnvironment?: boolean;
@@ -285,6 +288,84 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
 }
 
 /**
+ * Limited cabinet «Проводит вечера» (owner decision 2026-09-29, BUSINESS_RULES «Club roles»).
+ * A player with `organize_formats` marks, signed in with his own player session, may:
+ * - read every evening and game, and the player list (to add people to his evening);
+ * - create an evening of a marked kind (the route makes him its organizer);
+ * - on an evening he organizes (evening_staff_assignments) whose kind is marked: everything the
+ *   evening screens do — attendance, payment, tables and games, announcement, closing —
+ *   except deleting the evening or handing it to another organizer.
+ * Nothing else of the cabinet.
+ */
+const EVENING_PATH_WORDS = new Set(['tables', 'participants', 'create-next-friday', 'duplicate-last']);
+
+async function eveningIdForEventHostPath(db: any, path: string): Promise<{ eveningId: string; rest: string } | null> {
+  const table = path.match(/^\/api\/evenings\/tables\/([^/]+)/);
+  if (table) {
+    const row = await db.get('SELECT evening_id FROM evening_tables WHERE id = ? LIMIT 1', [decodeURIComponent(table[1])]);
+    return row?.evening_id ? { eveningId: String(row.evening_id), rest: '/tables' } : null;
+  }
+  const participant = path.match(/^\/api\/(?:evenings\/participants|participant|evening-participants)\/([^/]+)/);
+  if (participant) {
+    const row = await db.get('SELECT evening_id FROM evening_participants WHERE id = ? LIMIT 1', [decodeURIComponent(participant[1])]);
+    return row?.evening_id ? { eveningId: String(row.evening_id), rest: '/participants' } : null;
+  }
+  const evening = path.match(/^\/api\/evenings\/([^/]+)(\/.*)?$/);
+  if (evening && !EVENING_PATH_WORDS.has(evening[1])) return { eveningId: decodeURIComponent(evening[1]), rest: evening[2] || '' };
+  const newGame = path.match(/^\/api\/games\/evening\/([^/]+)\/?$/);
+  if (newGame) return { eveningId: decodeURIComponent(newGame[1]), rest: '/games' };
+  const game = path.match(/^\/api\/games\/(\d+)(?:\/|$)/);
+  if (game) {
+    const row = await db.get('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [Number(game[1])]);
+    return row?.evening_id ? { eveningId: String(row.evening_id), rest: '/games' } : null;
+  }
+  return null;
+}
+
+export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<boolean> {
+  const db = req.db;
+  const playerId = getPlayerSessionId(req);
+  if (!db || !playerId) return false;
+  const player = await db.get<any>('SELECT id, organize_formats, contact_status FROM players WHERE id = ? LIMIT 1', [playerId])
+    .catch(() => null);
+  if (!player || String(player.contact_status || '') === 'blocked') return false;
+  if (!normalizeOrganizeFormats(player.organize_formats).length) return false;
+
+  const path = requestPath(req);
+  const method = req.method.toUpperCase();
+  const grant = () => {
+    req.delegatedOrganizerAccess = true;
+    req.delegatedPlayerId = playerId;
+    req.eventHostPlayerId = playerId;
+    return true;
+  };
+
+  if ((method === 'GET' || method === 'HEAD') && (/^\/api\/(evenings|games)(\/|$)/.test(path) || path === '/api/players' || path === '/api/players/')) {
+    return grant();
+  }
+  if (method === 'POST' && /^\/api\/evenings\/?$/.test(path)) {
+    return canOrganizeEveningFormat(player, req.body?.format) ? grant() : false;
+  }
+
+  const target = await eveningIdForEventHostPath(db, path);
+  if (!target) return false;
+  // Never delete the evening or hand it to another organizer.
+  if (method === 'DELETE' && target.rest === '') return false;
+  if (target.rest.startsWith('/staff')) return false;
+  if (method === 'PATCH' && target.rest === '' && req.body?.format !== undefined && !canOrganizeEveningFormat(player, req.body.format)) return false;
+
+  const evening = await db.get<any>(`
+    SELECT e.format, s.organizer_player_id
+      FROM game_evenings e
+      LEFT JOIN evening_staff_assignments s ON s.evening_id = e.id
+     WHERE e.id = ? LIMIT 1
+  `, [target.eveningId]).catch(() => null);
+  if (!evening || String(evening.organizer_player_id || '') !== playerId) return false;
+  if (!canOrganizeEveningFormat(player, evening.format)) return false;
+  return grant();
+}
+
+/**
  * «Владелец» (owner decision 2026-09-28): the club owner's own player account or the root password session.
  * Only the owner grants and removes club organizers, sees club money and deletes players.
  */
@@ -304,6 +385,7 @@ export async function requireOrganizerAuth(req: AuthenticatedRequest, res: Respo
 
   try {
     if (await canUseAssignedJudgeRoute(req)) return next();
+    if (await canUseEventHostRoute(req)) return next();
   } catch (error) {
     console.error('[AUTH] Judge delegation check failed:', error);
   }

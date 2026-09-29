@@ -81,3 +81,13 @@ def test_novice_invitation_fits_one_telegram_message():
     text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
     assert len(text) <= 4096
     assert "Почему затягивает" in text
+
+
+def test_cover_comes_from_the_club_photo_the_server_picked():
+    from handlers.announcement_cover import cover_preview
+
+    preview = cover_preview({"cover_url": "https://club.example/announce-photo/abc.jpg"})
+    assert preview.url == "https://club.example/announce-photo/abc.jpg"
+    assert preview.show_above_text and preview.prefer_large_media
+    assert cover_preview({}).is_disabled
+    assert cover_preview({"cover_url": "http://insecure.example/x.jpg"}).is_disabled

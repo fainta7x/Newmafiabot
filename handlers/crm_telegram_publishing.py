@@ -6,7 +6,7 @@ from html import escape
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
 
 from bot_telegram_api import (
     get_evening_telegram_plan,
@@ -16,6 +16,7 @@ from bot_telegram_api import (
     save_public_router_message_id,
 )
 from crm_evening_keyboard import crm_evening_response_kb
+from handlers.announcement_cover import cover_preview
 from handlers.telegram_evening_copy import closed_event_text, format_start, novice_invitation_text, thematic_event_text
 
 
@@ -65,6 +66,7 @@ async def _edit_message_status(
     message_id: int,
     text: str,
     reply_markup: InlineKeyboardMarkup | None,
+    link_preview: LinkPreviewOptions | None = None,
 ) -> str:
     try:
         await bot.edit_message_text(
@@ -73,7 +75,7 @@ async def _edit_message_status(
             text=text,
             parse_mode="HTML",
             reply_markup=reply_markup,
-            disable_web_page_preview=True,
+            link_preview_options=link_preview or LinkPreviewOptions(is_disabled=True),
         )
         return "ok"
     except TelegramBadRequest as exc:
@@ -120,13 +122,14 @@ async def _send_message(
     topic_id: int | None,
     text: str,
     reply_markup: InlineKeyboardMarkup | None,
+    link_preview: LinkPreviewOptions | None = None,
 ):
     kwargs = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML",
         "reply_markup": reply_markup,
-        "disable_web_page_preview": True,
+        "link_preview_options": link_preview or LinkPreviewOptions(is_disabled=True),
     }
     if topic_id:
         kwargs["message_thread_id"] = int(topic_id)
@@ -242,6 +245,7 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
 
     event_url = await _bot_url(bot, f"event_{evening_id}")
     event_keyboard = _event_link_keyboard(evening_id, event_url)
+    cover = cover_preview(evening)
 
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
@@ -264,6 +268,7 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
                 int(publication.get("message_id")),
                 text,
                 event_keyboard,
+                cover,
             )
             if edit_status == "ok":
                 results.append({"destination_id": destination_id, "action": "edited", "success": True})
@@ -283,7 +288,7 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
         chat_id = str(destination.get("chat_id")).strip()
         topic_id = destination.get("topic_id")
         try:
-            message = await _send_message(bot, chat_id, int(topic_id) if topic_id else None, text, event_keyboard)
+            message = await _send_message(bot, chat_id, int(topic_id) if topic_id else None, text, event_keyboard, cover)
             saved = await _save_with_retry(lambda: save_evening_telegram_publication(
                 evening_id,
                 destination_id,

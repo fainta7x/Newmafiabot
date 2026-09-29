@@ -15,6 +15,7 @@ import {
 } from './telegramSyncOutboxService.ts';
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
+import { getVkDestinations } from './vkPublishingService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
@@ -42,6 +43,8 @@ const defaultDelivery: DeliveryAdapters = {
   syncVk: async (db, eveningId, baseUrl) => {
     await ensureVkIntegrationSchema(db);
     await hydrateVkOAuthAccessToken(db);
+    // A club without VK groups set up has nothing to post there; that is not a failed announcement.
+    if (!getVkDestinations().some((item) => item.active && item.supported && item.groupId)) return { results: [] };
     const result = await syncDirectVkEveningPublications(db, eveningId, baseUrl);
     const failures = result.results.filter((item) => !item.success && !item.skipped);
     if (failures.length) {
@@ -158,13 +161,17 @@ export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date
   return { created, existing, horizon_days: HORIZON_DAYS };
 }
 
+// A run that failed is tried again on a later tick (the worker runs every 30 minutes) until the evening starts.
+const RUN_RETRY_AFTER_MS = 25 * 60 * 1000;
+
+/** 'new' — first attempt; 'retry' — an earlier attempt failed; null — done or already running. */
 async function acquireRun(
   db: DatabaseWrapper,
   key: string,
   eveningId: string,
   dueAt: string,
   now: Date,
-) {
+): Promise<'new' | 'retry' | null> {
   const nowIso = now.toISOString();
   const result = await db.run(`
     INSERT INTO club_weekly_automation_runs (
@@ -173,30 +180,41 @@ async function acquireRun(
     ) VALUES (?, ?, 'weekly_announcement', 'running', ?, NULL, NULL, ?, ?)
     ON CONFLICT(automation_key) DO NOTHING
   `, [key, eveningId, dueAt, nowIso, nowIso]);
-  return result.changes > 0;
+  if (result.changes > 0) return 'new';
+  const retried = await db.run(
+    `UPDATE club_weekly_automation_runs
+        SET status='running', updated_at=?
+      WHERE automation_key=? AND status='error' AND updated_at <= ?`,
+    [nowIso, key, new Date(now.getTime() - RUN_RETRY_AFTER_MS).toISOString()],
+  );
+  return retried.changes > 0 ? 'retry' : null;
 }
 
-const channelDestinationForFormat = (format: unknown): 'novice' | 'club' | 'rating' => {
+/** The Telegram channels an evening is posted to: its own channel, and for novices also the public entry channel. */
+const channelDestinationsForFormat = (format: unknown): Array<'public' | 'novice' | 'club' | 'rating'> => {
   const normalized = normalizeEveningFormat(format);
-  if (normalized === 'NOVICE') return 'novice';
-  if (normalized === 'CASUAL') return 'club';
-  return 'rating';
+  if (normalized === 'NOVICE') return ['novice', 'public'];
+  if (normalized === 'CASUAL') return ['club'];
+  return ['rating'];
 };
 
-async function telegramChannelPublicationState(db: DatabaseWrapper, evening: any) {
-  const destinationId = channelDestinationForFormat(evening.format);
-  const destination = await db.get<any>(
-    'SELECT chat_id, active FROM telegram_destinations WHERE id = ? LIMIT 1',
-    [destinationId],
-  );
-  const ready = Boolean(Number(destination?.active || 0) === 1 && String(destination?.chat_id || '').trim());
-  const publication = ready
-    ? await db.get(
-        'SELECT 1 AS ok FROM evening_telegram_publications WHERE evening_id = ? AND destination_id = ? LIMIT 1',
-        [String(evening.id), destinationId],
-      )
-    : null;
-  return { destinationId, ready, published: Boolean(publication) };
+/** Channels that are set up (active with a chat) but have no post of this evening yet. */
+async function missingTelegramChannelPosts(db: DatabaseWrapper, evening: any): Promise<string[]> {
+  const missing: string[] = [];
+  for (const destinationId of channelDestinationsForFormat(evening.format)) {
+    const destination = await db.get<any>(
+      'SELECT chat_id, active FROM telegram_destinations WHERE id = ? LIMIT 1',
+      [destinationId],
+    );
+    const ready = Boolean(Number(destination?.active || 0) === 1 && String(destination?.chat_id || '').trim());
+    if (!ready) continue;
+    const publication = await db.get(
+      'SELECT 1 AS ok FROM evening_telegram_publications WHERE evening_id = ? AND destination_id = ? LIMIT 1',
+      [String(evening.id), destinationId],
+    );
+    if (!publication) missing.push(destinationId);
+  }
+  return missing;
 }
 
 async function finishRun(db: DatabaseWrapper, key: string, now: Date, error?: unknown) {
@@ -246,38 +264,47 @@ export async function runDueWeeklyAnnouncements(
     if (nowMs < dueMs) continue;
 
     const key = `weekly-announcement:${String(evening.id)}`;
-    const channelBefore = await telegramChannelPublicationState(db, evening);
-    const acquired = await acquireRun(
+    const attempt = await acquireRun(
       db,
       key,
       String(evening.id),
       new Date(dueMs).toISOString(),
       now,
     );
-    if (!acquired) {
+    if (!attempt) {
       results.push({ evening_id: String(evening.id), status: 'skipped' });
       continue;
     }
 
+    // Each part is delivered on its own: a player who blocked the bot must not stop the channel post or VK.
+    const errors: string[] = [];
     try {
       await delivery.enqueueTelegramChannel(db, String(evening.id));
-      await delivery.enqueueTelegramDm(db, String(evening.id));
+      // Personal invitations go once; a retry must not message the same players again.
+      if (attempt === 'new') await delivery.enqueueTelegramDm(db, String(evening.id));
       const telegramDrain: any = await delivery.drainTelegram(db);
       if (Number(telegramDrain?.failed || 0) > 0) {
-        throw new Error(`Telegram delivery failed for ${telegramDrain.failed} queued job(s)`);
+        errors.push(`Telegram delivery failed for ${telegramDrain.failed} queued job(s)`);
       }
-      if (channelBefore.ready) {
-        const channelAfter = await telegramChannelPublicationState(db, evening);
-        if (!channelAfter.published) {
-          throw new Error(`Telegram publication missing for destination ${channelBefore.destinationId}`);
-        }
-      }
+      const missing = await missingTelegramChannelPosts(db, evening);
+      if (missing.length) errors.push(`Telegram publication missing for destination ${missing.join(', ')}`);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+    try {
       await delivery.syncVk(db, String(evening.id), baseUrl);
+    } catch (error) {
+      errors.push(`VK: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (errors.length) {
+      const message = errors.join('; ');
+      await finishRun(db, key, now, new Error(message));
+      console.warn('[WEEKLY ANNOUNCEMENT] Will retry', String(evening.id), message);
+      results.push({ evening_id: String(evening.id), status: 'error', error: message });
+    } else {
       await finishRun(db, key, now);
       results.push({ evening_id: String(evening.id), status: 'done' });
-    } catch (error) {
-      await finishRun(db, key, now, error);
-      results.push({ evening_id: String(evening.id), status: 'error', error: error instanceof Error ? error.message : String(error) });
     }
   }
 

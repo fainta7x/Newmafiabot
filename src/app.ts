@@ -75,6 +75,7 @@ import developerReadRoutes from './server/routes/developerReadRoutes.ts';
 import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
+import { resolveEveningShortCode } from './server/services/announcementShortLinks.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
@@ -180,6 +181,16 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
 
   app.use('/api/health', runtimeHealthRoutes);
+
+  // Short evening link from announcement posts: /e/<first characters of the evening id>.
+  app.get('/e/:code', async (req, res) => {
+    try {
+      const eveningId = await resolveEveningShortCode(req.db, String(req.params.code || ''));
+      res.redirect(302, eveningId ? `/join/${encodeURIComponent(eveningId)}?source=vk_entry` : '/');
+    } catch {
+      res.redirect(302, '/');
+    }
+  });
 
   app.use(parseUserSession);
 

@@ -10,6 +10,7 @@ import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { CLUB_EVENING_MAX_PRICE, NOVICE_FREE_VISITS, NOVICE_PAID_GAME_PRICE, loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFormat.ts';
 import { venueDetails, venueLine } from '../../lib/venues.ts';
+import { shortCabinetLink, shortEveningLink } from './announcementShortLinks.ts';
 import { clubVkGroupUrl, novicePromoText, organizerContactLinks } from '../../lib/novicePromo.ts';
 
 type EveningRow = {
@@ -114,11 +115,8 @@ export const buildDirectVkEveningAnnouncement = async (
   lines.push(
     announcementPriceLine(plan.event.format, Number(plan.event.price_per_game || 0)),
     '',
-    '👥 Кто уже записан, свободные места и запись по играм:',
-    joinUrlFor(baseUrl, evening.id),
-    '',
-    '👤 Открыть личный кабинет:',
-    playerCabinetUrlForVk(baseUrl, '/player'),
+    `📝 Записаться и посмотреть, кто идёт: ${await shortEveningLink(db, baseUrl, evening.id)}`,
+    `👤 Личный кабинет: ${await shortCabinetLink(db, baseUrl)}`,
   );
   if (novice) {
     const chat = await noviceChatInviteUrl(db);

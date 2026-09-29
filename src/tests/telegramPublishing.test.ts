@@ -188,6 +188,20 @@ describe('Telegram publishing destinations', () => {
     expect(await db.get("SELECT sync_key FROM telegram_sync_outbox WHERE sync_key='evening:ev-auto-future'")).toBeNull();
   });
 
+  it('delivers the Monday 19:00 announcement of a Friday 21:00 evening, four days and two hours ahead', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    const now = new Date('2026-09-28T16:05:00.000Z'); // Monday 19:05 Moscow
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES ('ev-friday-21', 'Игровой вечер', '2026-10-02T21:00:00+03:00', 'Europe/Moscow', 'Тула', 'CASUAL', 'published', 20, 100, ?, ?)`,
+      [now.toISOString(), now.toISOString()],
+    );
+    let deliveries = 0;
+    await drainTelegramSyncOutbox(db, { now, deliver: async () => { deliveries += 1; return { success: true, status: 200 }; } });
+    expect(deliveries).toBe(1);
+  });
+
   it('does not refresh an existing Telegram publication when the evening is far in the future', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);

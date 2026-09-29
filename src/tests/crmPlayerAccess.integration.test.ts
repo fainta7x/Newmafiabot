@@ -340,4 +340,22 @@ describe('CRM player access profile', () => {
     const after = await request(app).get('/api/players/club-admin').set('Cookie', organizerCookie());
     expect(after.body.organizer_player_access).toBe(false);
   });
+
+  it('lets only the owner give «Может проводить вечера» marks', async () => {
+    await insertPlayer('host-admin');
+    await insertPlayer('runner');
+    expect((await request(app).patch('/api/players/host-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
+    const adminCookie = `organizer_token=${generateOrganizerToken('host-admin')}`;
+
+    const refused = await request(app).patch('/api/players/runner').set('Cookie', adminCookie).send({ organize_formats: ['CASUAL'] });
+    expect(refused.status).toBe(403);
+    const levelOnly = await request(app).patch('/api/players/runner').set('Cookie', adminCookie).send({ game_level: 'club', host_formats: ['CASUAL'] });
+    expect(levelOnly.status, JSON.stringify(levelOnly.body)).toBe(200);
+
+    const given = await request(app).patch('/api/players/runner').set('Cookie', organizerCookie()).send({ organize_formats: ['CASUAL', 'NOVICE'] });
+    expect(given.status, JSON.stringify(given.body)).toBe(200);
+    expect(given.body.organize_formats).toBe('NOVICE,CASUAL');
+    const cleared = await request(app).patch('/api/players/runner').set('Cookie', organizerCookie()).send({ organize_formats: [] });
+    expect(cleared.body.organize_formats).toBeNull();
+  });
 });

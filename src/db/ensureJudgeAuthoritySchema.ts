@@ -42,4 +42,8 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   if (!columns.some((column) => column.name === 'host_formats')) {
     await db.run('ALTER TABLE players ADD COLUMN host_formats TEXT');
   }
+  // «Может проводить вечера» marks (src/lib/organizeFormats.ts); NULL = none.
+  if (!columns.some((column) => column.name === 'organize_formats')) {
+    await db.run('ALTER TABLE players ADD COLUMN organize_formats TEXT');
+  }
 }

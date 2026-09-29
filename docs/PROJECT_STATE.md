@@ -22,7 +22,7 @@ For the next assistant (the owner may continue with another AI for a while):
 - **After that deploy, check with the owner (read-only from our side):** `/api/health` and `/api/health/runtime`; the 2 October novice evening post appeared in the novice group topic 128; the club group post shows who comes / thinks / comes later / cannot come; one pinned router message in the entry channel; no duplicate evenings for one date; photos upload in CRM «Ещё → Telegram» → «Фото для анонсов» works and the picture shows above the next post.
 - **Owner workflow rules:** all messages to the owner in Russian, plain words; ask about game/club rules before changing them (`docs/BUSINESS_RULES.md`); interface wording may be fixed without asking; never touch the production database; each PR goes to green CI, is squash-merged, and the owner gets the `main` SHA to deploy. In this Claude session there was no Amvera access, so the owner deployed; when Amvera access is configured, follow the asynchronous deploy workflow in `AGENTS.md`.
 - **Environment notes:** the owner set `DEVELOPER_READ_KEY` in Amvera (read-only diagnostics at `GET /__developer/status` with header `X-Developer-Read-Key`) and in the Claude cloud environment, but a new Claude session failed in its setup script (cause not yet looked at; likely the environment's allowed-domains list). The routine «Автономный заход после сброса лимитов» fires into the old Claude session.
-- **Next work, in order:** curators with tasks and bonuses; the rest of the queue below.
+- **Next work (propose to the owner and wait for a «да» before starting any of it — `AGENTS.md` §4):** curators with tasks and bonuses; the rest of the queue below.
 
 ## Source-of-truth model
 

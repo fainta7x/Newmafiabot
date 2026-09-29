@@ -60,6 +60,7 @@ Other docs should link to the owner instead of restating mutable facts.
 - If a branch head moves unexpectedly, stop and reconcile before writing again.
 - Never delegate implementation back to AI Studio when repository access is available.
 - Do not substitute prompt-writing for requested repository work.
+- **Ask before starting new product work (owner rule, 2026-09-29).** Without asking you may fix bugs, clarify wording, and finish what the owner asked for in the current conversation. Before starting anything else — a new feature or queue item from `docs/PROJECT_STATE.md`, a new screen, a new integration, even one listed as «next» — tell the owner in one or two plain sentences what you propose and why, and wait for a «да». A queue or a handoff list is a plan to discuss, not permission to build. Autonomous routine runs follow the same rule: fix and verify, but propose new features instead of building them.
 - Record every new idea, request or open question from the owner in `docs/PROJECT_STATE.md` (current queue or «Waiting on the owner») in the same session, even if it is not built now. Ideas that live only in chat get lost.
 
 ## 5. PR budget — hard rule

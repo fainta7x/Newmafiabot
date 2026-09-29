@@ -225,7 +225,7 @@ describe('VK publishing adapter', () => {
     await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    await db.run(`UPDATE game_evenings SET title='Игровой вечер · новый зал' WHERE id='evening-stable'`);
+    await db.run(`UPDATE game_evenings SET venue='Новый зал' WHERE id='evening-stable'`);
     await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1][0])).toBe('https://api.vk.com/method/wall.edit');

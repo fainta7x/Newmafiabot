@@ -6,21 +6,35 @@ import NOVICE_PROMO from '../shared/novicePromo.json';
  */
 type NovicePromo = {
   title?: string; intro?: string; reasonsTitle?: string; reasons?: string[];
-  firstTimeTitle?: string; firstTimeText?: string; contacts?: { telegram?: string; vk?: string }; groups?: { vk?: string };
+  headline?: string; firstTimeTitle?: string; firstTimeText?: string;
+  contacts?: { telegram?: string; vk?: string }; groups?: { telegram?: string; vk?: string };
 };
 
 const promo = NOVICE_PROMO as NovicePromo;
 
-/** The promo as plain text (VK posts have no formatting). */
-export const novicePromoText = (): string => {
+/** The first lines of a novice post: that it is a novice evening, before anything else (owner, 2026-09-29). */
+export const noviceHeadlineText = (): string => {
+  const headline = String(promo.headline ?? '').trim();
+  if (!headline) return '';
+  const text = String(promo.firstTimeText ?? '').trim();
+  return [`🎓 ${headline}`, text].filter(Boolean).join('\n');
+};
+
+/** Why the game is fun, as plain text — at the end of the novice post. */
+export const noviceAboutText = (): string => {
   if (!promo.title) return '';
   const reasons = (promo.reasons ?? []).filter((item) => item.trim());
   return [
     `🎩 ${promo.title}`,
     promo.intro ?? '',
     reasons.length ? [promo.reasonsTitle ?? '', ...reasons].join('\n').trim() : '',
-    promo.firstTimeTitle ? `${promo.firstTimeTitle} ${promo.firstTimeText ?? ''}`.trim() : '',
   ].filter(Boolean).join('\n\n');
+};
+
+/** The Telegram novice group from the shared file, used when the Telegram settings have no invite link. */
+export const noviceTelegramGroupFallback = (): string | null => {
+  const url = String(promo.groups?.telegram ?? '').trim();
+  return url.startsWith('https://t.me/') ? url : null;
 };
 
 /** Links for a private message to the organizer; only the filled-in ones. */

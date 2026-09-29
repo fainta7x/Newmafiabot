@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
-import { novicePromoText, organizerContactLinks } from '../lib/novicePromo.ts';
+import { noviceAboutText, noviceHeadlineText, organizerContactLinks } from '../lib/novicePromo.ts';
 import { eveningShortCode, resetShortLinkPauseForTests, resolveEveningShortCode } from '../server/services/announcementShortLinks.ts';
 import { buildDirectVkEveningAnnouncement } from '../server/services/vkDirectJoinPublishingService.ts';
 
@@ -25,19 +25,31 @@ describe('novice evening promo in announcements', () => {
     const row = await evening('NOVICE');
     await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/+novice', active = 1 WHERE id = 'novice'");
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
-    expect(text.startsWith(novicePromoText())).toBe(true);
-    expect(text).toContain('Почему затягивает:');
-    expect(text).toContain('👥 Наши группы:\nTelegram: https://t.me/+novice\nVK: https://vk.com/2lanoiremafia');
+    expect(text.startsWith('🎓 Вечер для новичков: никогда не играли — приходите, всему научим!\nПравила объясним с нуля')).toBe(true);
+    expect(text.endsWith(noviceAboutText())).toBe(true);
+    expect(text.indexOf('📝 Записаться')).toBeLessThan(text.indexOf(noviceAboutText()));
+    expect(text).toContain('👥 Группа для новичков:\nTelegram: https://t.me/+novice\nVK: https://vk.com/2lanoiremafia');
     expect(text).toContain('📝 Записаться и посмотреть, кто идёт: https://example.test/e/ev');
     expect(text).toContain('👤 Личный кабинет: https://example.test/player');
     expect(text).toContain('✉️ Остались вопросы? Пишите:\nTelegram: https://t.me/Chagina7x\nVK: https://vk.com/m1kesh1noda');
   });
 
+  it('links the novice Telegram group even while the bot does not post there', async () => {
+    const row = await evening('NOVICE');
+    await db!.run("UPDATE telegram_destinations SET invite_url = 'https://t.me/+novice', active = 0 WHERE id = 'novice'");
+    const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
+    expect(text).toContain('Telegram: https://t.me/+novice');
+    expect(noviceHeadlineText()).toContain('Вечер для новичков');
+  });
+
   it('keeps club evening posts without the promo', async () => {
     const row = await evening('CASUAL');
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
-    expect(text).not.toContain('Почему затягивает');
-    expect(text).not.toContain('Наши группы');
+    expect(text).toBe([
+      'Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭',
+      '📍 Суп с Котом, 19:00 · 100 ₽ за игру, не больше 400 ₽ за вечер',
+      'Отметь, придёшь ли, и выбери игры: https://example.test/e/ev',
+    ].join('\n'));
   });
 
   it('opens the evening from its short link and refuses unknown or ambiguous codes', async () => {
@@ -57,7 +69,7 @@ describe('novice evening promo in announcements', () => {
   });
 
   it('uses a remembered vk.cc link when VK can shorten it, and the app link when it cannot', async () => {
-    const row = await evening('CASUAL');
+    const row = await evening('NOVICE');
     const previous = { flag: process.env.VK_SHORT_LINKS, token: process.env.VK_GROUP_ACCESS_TOKEN };
     process.env.VK_SHORT_LINKS = 'on';
     process.env.VK_GROUP_ACCESS_TOKEN = 'test-token';

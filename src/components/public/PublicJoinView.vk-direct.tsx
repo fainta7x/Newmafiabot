@@ -31,6 +31,9 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const [linkPending, setLinkPending] = useState(() => params.get('vk_link_pending') === '1');
   const [linkNickname, setLinkNickname] = useState(() => params.get('vk_link_nickname') || '');
   const [confirmedNickname, setConfirmedNickname] = useState('');
+  // Games picked on this page but not confirmed yet (owner, 2026-09-29: pick games, then confirm with a button).
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const [savedMessage, setSavedMessage] = useState('');
   const oauthError = params.get('vk_error');
 
   const loadSlots = async () => {
@@ -113,17 +116,32 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     }
   };
 
-  const toggleSlot = async (slotId: string) => {
+  const savedIds = slotPlan?.selection.slot_ids ?? [];
+  const pickedIds = draft ?? savedIds;
+  const sameSelection = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
+  const changed = draft !== null && !sameSelection(draft, savedIds);
+
+  const toggleSlot = (slotId: string) => {
     if (!vkReady || busy || !slotPlan) return;
-    const current = new Set(slotPlan.selection.slot_ids);
-    if (current.has(slotId)) current.delete(slotId); else current.add(slotId);
+    const next = new Set(pickedIds);
+    if (next.has(slotId)) next.delete(slotId); else next.add(slotId);
+    setDraft(Array.from(next));
+    setSavedMessage('');
+    setError('');
+  };
+
+  const confirmSelection = async () => {
+    if (!vkReady || busy || !slotPlan || draft === null) return;
+    const hadGames = savedIds.length > 0;
     setBusy(true); setError('');
     try {
-      const body = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/slots`, { method: 'POST', body: JSON.stringify({ slot_ids: Array.from(current) }) });
+      const body = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/slots`, { method: 'POST', body: JSON.stringify({ slot_ids: draft }) });
       setSlotPlan(body as SlotPlan);
+      setDraft(null);
+      setSavedMessage(draft.length ? (hadGames ? 'Изменения сохранены.' : 'Готово, ты записан! Ждём тебя.') : 'Запись отменена.');
     } catch (err: any) {
       if (err?.status === 401) setVkReady(false);
-      setError(err?.message || 'Не удалось сохранить выбор игр');
+      setError(err?.message || 'Не удалось сохранить запись');
     } finally { setBusy(false); }
   };
 
@@ -144,21 +162,26 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
       <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><MapPin className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Место</div><VenueAddress venue={evening.venue} className="mt-0.5 block text-sm font-medium" /></div></div>
     </div><div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${price.toLocaleString('ru-RU')} ₽ / игра` : 'Без оплаты'}</strong></div></section>
 
-    {slotPlan ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-      <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-semibold">Выбери игры</h2><p className="mt-1 text-xs leading-5 text-white/35">{vkReady ? 'Нажимай на игры, в которые приедешь. Изменения сохраняются сразу.' : 'Сколько людей на каждой игре, видно заранее. После входа через VK можно выбрать нужные игры.'}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${slotPlan.event.assembled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[0.06] text-white/45'}`}>{slotPlan.event.assembled ? 'Стол собран' : `${slotPlan.event.assembled_slots}/${slotPlan.event.required_slots} собрано`}</span></div>
-      <div className="mt-3 grid gap-2">{slotPlan.slots.map((slot) => { const ready = slot.registered_count >= slot.target_players; return <button key={slot.id} type="button" disabled={!vkReady || busy} onClick={() => void toggleSlot(slot.id)} className={`rounded-2xl border p-3 text-left transition ${slot.selected ? 'border-[#2688eb]/55 bg-[#2688eb]/[0.12]' : ready ? 'border-emerald-300/20 bg-emerald-400/[0.05]' : 'border-white/[0.08] bg-black/20'} ${!vkReady ? 'cursor-default' : ''}`}>
-        <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}–{slotTime(slot.ends_at)}</div><div className={`mt-1 text-xs ${ready ? 'text-emerald-300/75' : 'text-white/35'}`}>{slot.registered_count}/{countPlayers(slot.target_players)}{ready ? ' · собрано' : ''}</div></div><div className="flex items-center gap-2"><span className="text-xs text-white/35">{slot.price} ₽</span>{slot.selected ? <span className="grid h-7 w-7 place-items-center rounded-full bg-[#2688eb] text-white"><Check className="h-4 w-4" /></span> : null}</div></div>
-        {slot.participants.length ? <div className="mt-2 flex flex-wrap gap-1.5">{slot.participants.map((person) => <span key={person.id} className="rounded-full bg-white/[0.055] px-2 py-1 text-[10px] text-white/55">{person.nickname}</span>)}</div> : <div className="mt-2 text-[10px] text-white/25">Пока никто не записался</div>}
-      </button>; })}</div>
-      {vkReady ? <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3"><div><div className="text-xs text-white/35">Твоя запись</div><div className="mt-0.5 text-sm font-semibold">{slotPlan.selection.games ? `${countGames(slotPlan.selection.games)}` : 'Игры не выбраны'}</div></div><strong className="text-lg">{slotPlan.selection.total.toLocaleString('ru-RU')} ₽</strong></div> : null}
-    </section> : null}
-
     {params.get('vk_linked') === '1' ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-5 text-emerald-100/80">VK успешно связан с игровым профилем.</div> : null}
     {oauthError && !linkPending ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">VK: {oauthError}</div> : null}
     {error && evening ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">{error}</div> : null}
 
     {linkPending ? <section className="rounded-3xl border border-[#2688eb]/25 bg-[#2688eb]/[0.07] p-5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#75baff]">Остался один шаг</div><h2 className="mt-2 text-lg font-semibold">Подтверди профиль в MafiaBot</h2><p className="mt-2 text-sm leading-6 text-white/50">Мы отправили личное сообщение в Telegram владельцу профиля{linkNickname ? ` «${linkNickname}»` : ''}. Нажми там «Это я — связать VK».</p><div className="mt-4 rounded-2xl bg-black/20 px-4 py-3 text-sm leading-5 text-white/45">Эта страница проверяет подтверждение автоматически. Новый игрок и второй профиль созданы не будут.</div><button type="button" onClick={() => window.location.reload()} className="mt-3 min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-semibold text-white/75">Проверить сейчас</button></section>
-    : !vkReady ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-5"><h2 className="text-lg font-semibold">Записаться через VK</h2><p className="mt-1 text-sm leading-6 text-white/45">{vkAuthenticated ? 'VK ID подтверждён. Для существующего профиля осталось подтвердить связь личным сообщением в MafiaBot.' : 'Укажи игровой ник один раз. После подтверждения VK выберешь конкретные игры выше.'}</p><label className="mt-4 block text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Игровой ник</label><input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} placeholder="Например: Чагин" className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base outline-none placeholder:text-white/20 focus:border-white/25" /><button type="button" disabled={busy} onClick={() => void startVk()} className="mt-3 min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50">{busy ? (vkAuthenticated ? 'Отправляем в MafiaBot…' : 'Открываем VK…') : (vkAuthenticated ? 'Подтвердить через MafiaBot' : 'Продолжить через VK ID')}</button><a href={`/player/events?event=${encodeURIComponent(eveningId)}`} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-sm font-semibold text-white">Войти в личный кабинет <ExternalLink className="h-4 w-4" /></a><p className="mt-2 text-center text-[11px] leading-4 text-white/35">Если профиль уже есть в Telegram или VK — вход и запись по играм в кабинете.</p></section>
-    : <section className="rounded-3xl border border-emerald-300/10 bg-emerald-400/[0.045] p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-xs text-white/35">VK ID подтверждён</div><h2 className="mt-1 text-lg font-semibold">{displayNickname}</h2></div><span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-400/10 text-emerald-300"><Check className="h-5 w-5" /></span></div><p className="mt-2 text-xs leading-5 text-white/35">Выбирай нужные игры в расписании выше. Можно менять планы в любой момент, пока запись открыта.</p></section>}
+    : !vkReady ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-5"><h2 className="text-lg font-semibold">Записаться через VK</h2><p className="mt-1 text-sm leading-6 text-white/45">{vkAuthenticated ? 'VK ID подтверждён. Для существующего профиля осталось подтвердить связь личным сообщением в MafiaBot.' : 'Шаг 1: укажи игровой ник и войди через VK. Шаг 2: отметь игры ниже и нажми «Записаться».'}</p><label className="mt-4 block text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Игровой ник</label><input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} placeholder="Например: Чагин" className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base outline-none placeholder:text-white/20 focus:border-white/25" /><button type="button" disabled={busy} onClick={() => void startVk()} className="mt-3 min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50">{busy ? (vkAuthenticated ? 'Отправляем в MafiaBot…' : 'Открываем VK…') : (vkAuthenticated ? 'Подтвердить через MafiaBot' : 'Продолжить через VK ID')}</button><a href={`/player/events?event=${encodeURIComponent(eveningId)}`} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-sm font-semibold text-white">Войти в личный кабинет <ExternalLink className="h-4 w-4" /></a><p className="mt-2 text-center text-[11px] leading-4 text-white/35">Если профиль уже есть в Telegram или VK — вход и запись по играм в кабинете.</p></section>
+    : <section className="rounded-3xl border border-emerald-300/10 bg-emerald-400/[0.045] p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-xs text-white/35">VK ID подтверждён</div><h2 className="mt-1 text-lg font-semibold">{displayNickname}</h2></div><span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-400/10 text-emerald-300"><Check className="h-5 w-5" /></span></div><p className="mt-2 text-xs leading-5 text-white/35">Отметь игры ниже и нажми «Записаться». Потом запись можно изменить, пока она открыта.</p></section>}
+    {slotPlan ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+      <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-semibold">Выбери игры</h2><p className="mt-1 text-xs leading-5 text-white/35">{vkReady ? 'Отметь игры, на которые придёшь, и нажми «Записаться».' : 'Сколько людей на каждой игре, видно заранее. Чтобы записаться, сначала войди через VK.'}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${slotPlan.event.assembled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[0.06] text-white/45'}`}>{slotPlan.event.assembled ? 'Стол собран' : `${slotPlan.event.assembled_slots}/${slotPlan.event.required_slots} собрано`}</span></div>
+      <div className="mt-3 grid gap-2">{slotPlan.slots.map((slot) => { const ready = slot.registered_count >= slot.target_players; return <button key={slot.id} type="button" disabled={!vkReady || busy} onClick={() => toggleSlot(slot.id)} aria-pressed={pickedIds.includes(slot.id)} className={`rounded-2xl border p-3 text-left transition ${pickedIds.includes(slot.id) ? 'border-[#2688eb]/55 bg-[#2688eb]/[0.12]' : ready ? 'border-emerald-300/20 bg-emerald-400/[0.05]' : 'border-white/[0.08] bg-black/20'} ${!vkReady ? 'cursor-default' : ''}`}>
+        <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}–{slotTime(slot.ends_at)}</div><div className={`mt-1 text-xs ${ready ? 'text-emerald-300/75' : 'text-white/35'}`}>{slot.registered_count}/{countPlayers(slot.target_players)}{ready ? ' · собрано' : ''}</div></div><div className="flex items-center gap-2"><span className="text-xs text-white/35">{slot.price} ₽</span>{pickedIds.includes(slot.id) ? <span className="grid h-7 w-7 place-items-center rounded-full bg-[#2688eb] text-white"><Check className="h-4 w-4" /></span> : null}</div></div>
+        {slot.participants.length ? <div className="mt-2 flex flex-wrap gap-1.5">{slot.participants.map((person) => <span key={person.id} className="rounded-full bg-white/[0.055] px-2 py-1 text-[10px] text-white/55">{person.nickname}</span>)}</div> : <div className="mt-2 text-[10px] text-white/25">Пока никто не записался</div>}
+      </button>; })}</div>
+      {vkReady ? <div className="mt-3 space-y-2" data-testid="join-confirm">
+        <div className="flex items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3"><div><div className="text-xs text-white/35">{changed ? 'Выбрано, ещё не сохранено' : 'Твоя запись'}</div><div className="mt-0.5 text-sm font-semibold">{pickedIds.length ? countGames(pickedIds.length) : 'Игры не выбраны'}</div></div>{!changed ? <strong className="text-lg">{slotPlan.selection.total.toLocaleString('ru-RU')} ₽</strong> : null}</div>
+        {changed ? <button type="button" disabled={busy} onClick={() => void confirmSelection()} className="min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d] disabled:opacity-50">{busy ? 'Сохраняем…' : !draft?.length ? 'Отменить запись' : savedIds.length ? 'Сохранить изменения' : `Записаться · ${countGames(draft.length)}`}</button> : null}
+        {changed ? <button type="button" disabled={busy} onClick={() => setDraft(null)} className="min-h-11 w-full rounded-2xl border border-white/10 px-4 text-sm text-white/60">Вернуть как было</button> : null}
+        {savedMessage && !changed ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm text-emerald-100/85">{savedMessage} Чтобы изменить, отметь другие игры и сохрани.</div> : null}
+      </div> : null}
+    </section> : null}
+
   </div></main>;
 };

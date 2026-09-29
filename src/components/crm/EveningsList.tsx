@@ -14,6 +14,8 @@ type Props = {
   onCreateEvening: (data: Partial<GameEvening>) => Promise<void>;
   initialCreateOpen?: boolean;
   onInitialCreateHandled?: () => void;
+  /** Shown only under the evenings tab (not under tournaments): the «Свои ивенты — не мафия» block. */
+  eveningsFooter?: React.ReactNode;
 };
 
 type TimeView = 'current' | 'future' | 'history';
@@ -64,7 +66,7 @@ const EventRow = ({ evening, onOpenEvening, history = false }: { evening: GameEv
   );
 };
 
-export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initialCreateOpen = false, onInitialCreateHandled }) => {
+export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initialCreateOpen = false, onInitialCreateHandled, eveningsFooter }) => {
   const [tab, setTab] = useState<'evenings' | 'tournaments'>('evenings');
   const [timeView, setTimeView] = useState<TimeView>('current');
   const [showCalendar, setShowCalendar] = useState(false);
@@ -193,6 +195,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
 
       {timeView === 'future' ? <section data-testid="crm-events-future" className="space-y-3"><div className="flex items-center justify-between gap-3 px-0.5"><div><h3 className="text-[14px] font-semibold text-white">Будущие вечера</h3><p className="mt-0.5 text-[12px] text-white/40">По времени, без завершённых событий</p></div><button type="button" disabled={quickBusy} onClick={() => void createFriday()} className="min-h-11 shrink-0 rounded-[11px] border border-emerald-200/10 bg-emerald-300/[0.07] px-3 text-[13px] font-semibold text-emerald-100 disabled:opacity-50">{quickBusy ? 'Создаём…' : '+ След. пятница'}</button></div>{clusters.future.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.future.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">После актуального вечера планов пока нет.</div>}</section> : null}
       {timeView === 'history' ? <section data-testid="crm-events-history" className="space-y-3"><div className="px-0.5"><h3 className="text-[14px] font-semibold text-white">История</h3><p className="mt-0.5 text-[12px] text-white/40">Завершённые и отменённые события отдельно от текущей работы</p></div>{clusters.history.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.history.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} history />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">История пока пустая.</div>}</section> : null}
+      {eveningsFooter}
     </>}
 
     <MobileSheet open={open} title="Новый игровой вечер" subtitle="Сразу задай расписание: первую игру, количество, длительность и цену." onClose={() => !saving && setOpen(false)} widthClass="sm:max-w-lg" footer={<div className="grid grid-cols-[auto_1fr] gap-2"><button disabled={saving} onClick={() => setOpen(false)} className="min-h-12 rounded-2xl bg-white/[0.06] px-4 text-[14px] font-medium text-white/60">Отмена</button><button form="new-evening-v2" type="submit" disabled={saving || !startsAt} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{saving ? 'Сохраняем…' : 'Создать черновик'}</button></div>}>

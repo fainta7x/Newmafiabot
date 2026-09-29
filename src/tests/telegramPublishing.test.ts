@@ -73,7 +73,7 @@ describe('Telegram publishing destinations', () => {
     expect(result).toMatchObject({ skipped: true, processed: 0 });
     expect(after?.count).toBe(before?.count);
   });
-  it('seeds all Telegram destinations and bootstraps only the legacy club route by default', async () => {
+  it('seeds all Telegram destinations and bootstraps the club route and the novice group by default', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
 
@@ -81,7 +81,35 @@ describe('Telegram publishing destinations', () => {
     expect(rows.map((row) => row.id).sort()).toEqual(['club', 'novice', 'public', 'rating']);
     const club = rows.find((row) => row.id === 'club');
     expect(club).toMatchObject({ chat_id: '-1001628595679', topic_id: 5912, active: 1 });
-    expect(rows.filter((row) => row.id !== 'club').every((row) => Number(row.active) === 0)).toBe(true);
+    expect(rows.find((row) => row.id === 'novice')).toMatchObject({ chat_id: '-1003925510303', topic_id: 128, active: 1 });
+    expect(rows.filter((row) => !['club', 'novice'].includes(row.id)).every((row) => Number(row.active) === 0)).toBe(true);
+  });
+
+  it('sets the novice group once, keeps later CRM changes, and syncs a due novice evening that missed it', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    await db.run("UPDATE telegram_destinations SET chat_id='-100999', topic_id=NULL, active=0 WHERE id='novice'");
+    await db.run("DELETE FROM app_data_migrations WHERE id='2026-09-novice-group-destination'");
+    const soon = new Date(Date.now() + 2 * 24 * 3600_000).toISOString();
+    const later = new Date(Date.now() + 20 * 24 * 3600_000).toISOString();
+    const stamp = new Date().toISOString();
+    for (const [id, startsAt] of [['nov-soon', soon], ['nov-later', later]]) {
+      await db.run(
+        `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+         VALUES (?, 'Новички', ?, 'Europe/Moscow', 'Тула', 'NOVICE', 'published', 20, 200, ?, ?)`,
+        [id, startsAt, stamp, stamp],
+      );
+    }
+    await db.run('DELETE FROM telegram_sync_outbox');
+
+    await ensureTelegramPublishingSchema(db);
+    expect(await db.get("SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id='novice'"))
+      .toMatchObject({ chat_id: '-1003925510303', topic_id: 128, active: 1 });
+    expect((await db.all<any>('SELECT entity_id FROM telegram_sync_outbox')).map((row) => row.entity_id)).toEqual(['nov-soon']);
+
+    await db.run("UPDATE telegram_destinations SET chat_id='-100777' WHERE id='novice'");
+    await ensureTelegramPublishingSchema(db);
+    expect(await db.get("SELECT chat_id FROM telegram_destinations WHERE id='novice'")).toMatchObject({ chat_id: '-100777' });
   });
 
   it('falls back to the Python bot club chat/topic defaults when env is absent', async () => {

@@ -15,7 +15,7 @@ import type { PlayerMeResponse } from "./types/player.ts";
 
 type RootState =
   | { status: 'loading' }
-  | { status: 'player'; data: PlayerMeResponse; canOpenAdmin: boolean }
+  | { status: 'player'; data: PlayerMeResponse; canOpenAdmin: boolean; canOpenEventHost?: boolean }
   | { status: 'unlinked'; canOpenAdmin: boolean }
   | { status: 'error' };
 
@@ -147,12 +147,14 @@ export default function App() {
       if (!sessionResponse.ok) throw new Error('session');
       const session = await sessionResponse.json();
       const canOpenAdmin = session?.isOrganizer === true;
+      // «Проводит вечера»: only the switch to the limited cabinet, none of the organizer powers.
+      const canOpenEventHost = !canOpenAdmin && Array.isArray(session?.eventHostFormats) && session.eventHostFormats.length > 0;
 
       if (session?.linked === true) {
         const profileResponse = await fetch('/api/player/me', { credentials: 'same-origin', cache: 'no-store' });
         if (!profileResponse.ok) throw new Error('player-profile');
         const data = await profileResponse.json() as PlayerMeResponse;
-        setRootState({ status: 'player', data, canOpenAdmin });
+        setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });
         return;
       }
 
@@ -227,6 +229,7 @@ export default function App() {
     <PlayerCabinetShell
       data={rootState.data}
       canOpenAdmin={rootState.canOpenAdmin}
+      canOpenEventHost={rootState.canOpenEventHost}
       onOpenAdmin={() => navigatePath('/admin')}
       initialSection={initialSection}
       initialTarget={initialTarget}

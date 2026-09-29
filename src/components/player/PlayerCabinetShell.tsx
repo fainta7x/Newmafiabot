@@ -26,6 +26,8 @@ export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
 type Props = {
   data: PlayerMeResponse;
   canOpenAdmin?: boolean;
+  /** «Проводит вечера»: shows the switch to the limited cabinet only. */
+  canOpenEventHost?: boolean;
   onOpenAdmin?: () => void;
   initialSection?: PlayerCabinetSection;
   initialTarget?: string | null;
@@ -34,7 +36,7 @@ type Props = {
 
 const profilePlayerIdFromTarget = (target: string | null | undefined) => target?.startsWith('player:') ? target.slice('player:'.length) || null : null;
 
-export default function PlayerCabinetShell({ data, canOpenAdmin = false, onOpenAdmin, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
+export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpenEventHost = false, onOpenAdmin, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
   const initialProfilePlayerId = profilePlayerIdFromTarget(initialTarget);
   const [section, setSection] = useState<PlayerCabinetSection>(() => initialProfilePlayerId ? 'club' : normalizePlayerCabinetSection(initialSection));
   const [player, setPlayer] = useState(data.player);
@@ -65,7 +67,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, onOpenA
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
       {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}

@@ -299,6 +299,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='attended' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.attendance_status='attended' AND gp.replaced_at IS NULL)) AS attended_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='no_show' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.attendance_status='no_show' AND gp.replaced_at IS NULL)) AS no_show_count,
       ((SELECT COALESCE(SUM(amount_paid),0) FROM evening_participants p WHERE p.evening_id=e.id AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COALESCE(SUM(amount_paid),0) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.replaced_at IS NULL)) AS total_revenue
+      ,(SELECT s.organizer_player_id FROM evening_staff_assignments s WHERE s.evening_id=e.id) AS organizer_player_id
+      ,(SELECT p.nickname FROM evening_staff_assignments s JOIN players p ON p.id=s.organizer_player_id WHERE s.evening_id=e.id) AS organizer_nickname
       FROM game_evenings e ORDER BY e.starts_at DESC`);
     return res.json(rows.map((row) => {
       const evening = withCanonicalFormat(row);

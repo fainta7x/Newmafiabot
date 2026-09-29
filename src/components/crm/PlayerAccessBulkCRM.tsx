@@ -88,7 +88,7 @@ export function PlayerAccessBulkCRM() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
-  const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', CUSTOM: '' });
+  const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
   const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes');
   const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no');
   const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
@@ -186,7 +186,7 @@ export function PlayerAccessBulkCRM() {
       setActivity('');
       setOrganization('');
       setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
-      setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', CUSTOM: '' });
+      setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
       await load();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить изменения');
@@ -296,7 +296,7 @@ export function PlayerAccessBulkCRM() {
           {clubOwner !== false ? (
             <div className="mt-1">
               <span className="block text-[11px] font-semibold text-white/70">Может проводить</span>
-              <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Сам создаёт такие вечера в календаре и проводит их в своём кабинете: приход, оплата, столы, закрытие. Ставит только владелец.</span>
+              <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Сам создаёт такие вечера в календаре и проводит их в своём кабинете: приход, оплата, столы, закрытие. «Турниры» — можно быть организатором турнира. Ставит только владелец.</span>
               <div className="grid grid-cols-2 gap-2">
                 {ORGANIZE_FORMAT_OPTIONS.map((option) => (
                   <label key={option.value} className="block min-w-0">

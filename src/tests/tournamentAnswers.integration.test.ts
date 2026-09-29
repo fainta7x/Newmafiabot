@@ -127,11 +127,13 @@ describe('tournament answers', () => {
     expect(card.body.staff_stats.organized).toEqual({ total: 1, by_format: [{ format: 'TOURNAMENT', label: 'турнирных', count: 1 }] });
   });
 
-  it('also accepts a player marked «Может проводить: рейтинг и турниры» as the tournament organizer', async () => {
+  it('also accepts a player marked «Может проводить: турниры», not «рейтинговые вечера», as the tournament organizer', async () => {
     const { db, app, players } = await setup(3);
     await db.run("UPDATE tournaments SET judge_player_id = ?, chief_judge_name = 'Судья' WHERE id = 't1'", [players[1]]);
     const cookie = `organizer_token=${generateOrganizerToken()}`;
-    await db.run("UPDATE players SET organize_formats = 'RATING' WHERE id = ?", [players[2]]);
+    await db.run("UPDATE players SET organize_formats = 'CASUAL,RATING' WHERE id = ?", [players[2]]);
+    expect((await request(app).put('/api/tournaments/evenings/t1').set('Cookie', cookie).send({ organizer_player_id: players[2] })).status).toBe(400);
+    await db.run("UPDATE players SET organize_formats = 'TOURNAMENT' WHERE id = ?", [players[2]]);
     expect((await request(app).put('/api/tournaments/evenings/t1').set('Cookie', cookie).send({ organizer_player_id: players[2] })).status).toBe(200);
     expect((await db.get<any>("SELECT organizer_player_id FROM tournaments WHERE id = 't1'")).organizer_player_id).toBe(players[2]);
   });

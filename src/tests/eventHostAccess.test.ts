@@ -45,7 +45,7 @@ describe('limited cabinet «Проводит вечера»', () => {
     const refused = await request(app).post('/api/evenings').set('Cookie', host)
       .send({ title: 'Рейтинг', starts_at: later, format: 'RATING', status: 'draft', capacity: 20 });
     expect(refused.status).toBe(401);
-    await db.run("UPDATE players SET organize_formats = 'CASUAL,RATING' WHERE id = 'host'");
+    await db.run("UPDATE players SET organize_formats = 'CASUAL,RATING,TOURNAMENT' WHERE id = 'host'");
     const tournament = await request(app).post('/api/evenings').set('Cookie', host)
       .send({ title: 'Турнир', starts_at: later, format: 'TOURNAMENT', status: 'draft', capacity: 10 });
     expect(tournament.status).toBe(401);
@@ -77,6 +77,10 @@ describe('limited cabinet «Проводит вечера»', () => {
     const mine = String(created.body.id);
     await db.run("UPDATE players SET organize_formats = 'NOVICE' WHERE id = 'host'");
     expect((await request(app).patch(`/api/evenings/${mine}`).set('Cookie', host).send({ title: 'Ещё' })).status).toBe(401);
+    // «Турниры» alone does not open the evening cabinet (it only allows being a tournament organizer).
+    await db.run("UPDATE players SET organize_formats = 'TOURNAMENT' WHERE id = 'host'");
+    expect((await request(app).get('/api/players').set('Cookie', host)).status).toBe(401);
+    expect((await request(app).get('/api/auth/me').set('Cookie', host)).body.eventHostFormats ?? []).toEqual([]);
     await db.run("UPDATE players SET organize_formats = 'CASUAL', contact_status = 'blocked' WHERE id = 'host'");
     expect((await request(app).get('/api/players').set('Cookie', host)).status).toBe(401);
   });

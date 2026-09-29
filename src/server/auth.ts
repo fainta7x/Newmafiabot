@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { normalizeJudgeLevel } from '../db/ensureJudgeAuthoritySchema.ts';
 import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
-import { canOrganizeEveningFormat, normalizeOrganizeFormats } from '../lib/organizeFormats.ts';
+import { cabinetOrganizeFormats, canOrganizeEveningFormat } from '../lib/organizeFormats.ts';
 
 dotenv.config();
 
@@ -329,7 +329,7 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
   const player = await db.get<any>('SELECT id, organize_formats, contact_status FROM players WHERE id = ? LIMIT 1', [playerId])
     .catch(() => null);
   if (!player || String(player.contact_status || '') === 'blocked') return false;
-  if (!normalizeOrganizeFormats(player.organize_formats).length) return false;
+  if (!cabinetOrganizeFormats(player.organize_formats).length) return false;
 
   const path = requestPath(req);
   const method = req.method.toUpperCase();

@@ -39,10 +39,10 @@ describe('«Уровни и роли»', () => {
   it('shows what will change, saves «Может проводить» and reports the result by the button', async () => {
     render(<PlayerAccessBulkCRM />);
     fireEvent.click(await screen.findByText('Стаут'));
-    fireEvent.change(screen.getByLabelText('Может проводить: Рейтинг и турниры'), { target: { value: 'yes' } });
-    expect(screen.getByTestId('crm-access-bulk-summary').textContent).toContain('может проводить: рейтинг и турниры');
+    fireEvent.change(screen.getByLabelText('Может проводить: Турниры'), { target: { value: 'yes' } });
+    expect(screen.getByTestId('crm-access-bulk-summary').textContent).toContain('может проводить: турниры');
     fireEvent.click(screen.getByRole('button', { name: 'Применить к 1' }));
-    await waitFor(() => expect(bulk).toHaveBeenCalledWith({ player_ids: ['a'], organize_formats_add: ['RATING'] }));
+    await waitFor(() => expect(bulk).toHaveBeenCalledWith({ player_ids: ['a'], organize_formats_add: ['TOURNAMENT'] }));
     expect((await screen.findByTestId('crm-access-bulk-toast')).textContent).toContain('Сохранено');
   });
 });

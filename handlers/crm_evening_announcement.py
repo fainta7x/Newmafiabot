@@ -16,6 +16,7 @@ from bot_announcement_api import (
     save_evening_reminder_attempt,
 )
 from crm_evening_keyboard import crm_evening_response_kb
+from handlers.announcement_cover import cover_preview
 from handlers.crm_telegram_publishing import sync_evening_telegram
 from handlers.telegram_evening_copy import private_event_text, recruitment_private_text
 
@@ -67,6 +68,7 @@ async def _send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
     recipients = payload.get("recipients") or []
     response_keyboard = _response_keyboard(evening_id)
     invitation_text = private_event_text(evening)
+    invitation_cover = cover_preview(evening)
     sent = failed = state_failures = 0
     failed_players = []
 
@@ -77,7 +79,7 @@ async def _send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
         if not player_id or not telegram_user_id:
             continue
         try:
-            message = await bot.send_message(int(telegram_user_id), invitation_text, parse_mode="HTML", reply_markup=response_keyboard)
+            message = await bot.send_message(int(telegram_user_id), invitation_text, parse_mode="HTML", reply_markup=response_keyboard, link_preview_options=invitation_cover)
         except Exception as exc:
             failed += 1
             failed_players.append(nickname)

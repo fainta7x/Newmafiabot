@@ -37,6 +37,7 @@ describe('novice evening promo in announcements', () => {
     const row = await evening('CASUAL');
     const text = await buildDirectVkEveningAnnouncement(db!, row, 'https://example.test');
     expect(text).not.toContain('Почему затягивает');
+    expect(text.startsWith('🌙 Город засыпает — просыпается мафия')).toBe(true);
     expect(text).not.toContain('Наши группы');
   });
 

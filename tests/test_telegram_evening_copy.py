@@ -30,6 +30,8 @@ def test_group_post_lists_players_who_answered_but_have_no_games():
     ]
     text = thematic_event_text({"format": "CASUAL", "title": "Пятница", "starts_at": "2026-09-25T16:00:00Z"}, slots, participants)
     assert "игра 1 — <b>4</b> игрока" in text
+    assert text.startswith("🌙 <b>Город засыпает — просыпается мафия</b>")
+    assert "Жми «Приду»" in text
     assert "Записались на игры: 2" in text
     assert "Идут на весь вечер, игры не выбрали (1)</b>: Вика" in text
     assert "Придут позже, игры не выбрали (1)</b>: Даня" in text
@@ -81,3 +83,28 @@ def test_novice_invitation_fits_one_telegram_message():
     text = novice_invitation_text(evening, [], signup_url="https://t.me/club_bot?start=event_ev-1")
     assert len(text) <= 4096
     assert "Почему затягивает" in text
+
+
+def test_announcements_open_with_a_friendly_line_for_their_kind():
+    from handlers.telegram_evening_copy import private_event_text, thematic_event_text
+
+    novice = {"format": "NOVICE", "title": "Школа", "starts_at": "2026-09-25T16:00:00Z"}
+    assert thematic_event_text(novice, [], []).startswith("🎓 <b>Первый раз? Самое время начать!</b>")
+    assert "стань первым" in thematic_event_text(novice, [], [])
+    invitation = private_event_text({"format": "RATING", "title": "Рейтинг", "starts_at": "2026-09-25T16:00:00Z"})
+    assert invitation.startswith("Привет! 👋\n\n🏆 <b>Рейтинговый вечер")
+    assert private_event_text(novice, reminder=True).startswith("🔔 <b>Напоминание")
+
+
+def test_cover_follows_the_evening_kind(monkeypatch):
+    import config
+    from handlers.announcement_cover import cover_preview, evening_cover_url
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example")
+    assert evening_cover_url({"format": "NOVICE"}) == "https://club.example/announce/novice.jpg?v=1"
+    assert evening_cover_url({"canonical_format": "CASUAL"}) == "https://club.example/announce/club.jpg?v=1"
+    assert evening_cover_url({"format": "TOURNAMENT"}) == "https://club.example/announce/rating.jpg?v=1"
+    preview = cover_preview({"format": "RATING"})
+    assert preview.show_above_text and preview.prefer_large_media
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "")
+    assert cover_preview({"format": "RATING"}).is_disabled

@@ -272,14 +272,14 @@ describe('CRM player access profile', () => {
     await insertPlayer('org-b');
     await db.run("UPDATE players SET organize_formats = 'CUSTOM' WHERE id = 'org-b'");
     const add = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
-      .send({ player_ids: ['org-a', 'org-b'], organize_formats_add: ['RATING', 'NOVICE'] });
+      .send({ player_ids: ['org-a', 'org-b'], organize_formats_add: ['TOURNAMENT', 'NOVICE'] });
     expect(add.status, JSON.stringify(add.body)).toBe(200);
     expect(await db.all<any>("SELECT id, organize_formats FROM players WHERE id IN ('org-a','org-b') ORDER BY id")).toEqual([
-      { id: 'org-a', organize_formats: 'NOVICE,RATING' },
-      { id: 'org-b', organize_formats: 'NOVICE,RATING,CUSTOM' },
+      { id: 'org-a', organize_formats: 'NOVICE,TOURNAMENT' },
+      { id: 'org-b', organize_formats: 'NOVICE,TOURNAMENT,CUSTOM' },
     ]);
     const remove = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie())
-      .send({ player_ids: ['org-a'], organize_formats_remove: ['NOVICE', 'RATING'] });
+      .send({ player_ids: ['org-a'], organize_formats_remove: ['NOVICE', 'TOURNAMENT'] });
     expect(remove.status).toBe(200);
     expect((await db.get<any>("SELECT organize_formats FROM players WHERE id = 'org-a'")).organize_formats).toBeNull();
 

@@ -45,7 +45,7 @@ describe('limited cabinet «Проводит вечера»', () => {
     const refused = await request(app).post('/api/evenings').set('Cookie', host)
       .send({ title: 'Рейтинг', starts_at: later, format: 'RATING', status: 'draft', capacity: 20 });
     expect(refused.status).toBe(401);
-    await db.run("UPDATE players SET organize_formats = 'CASUAL,RATING' WHERE id = 'host'");
+    await db.run("UPDATE players SET organize_formats = 'CASUAL,RATING,TOURNAMENT' WHERE id = 'host'");
     const tournament = await request(app).post('/api/evenings').set('Cookie', host)
       .send({ title: 'Турнир', starts_at: later, format: 'TOURNAMENT', status: 'draft', capacity: 10 });
     expect(tournament.status).toBe(401);

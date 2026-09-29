@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
-import { canOrganizeEveningFormat } from '../../../lib/organizeFormats.ts';
+import { canOrganizeTournaments } from '../../../lib/organizeFormats.ts';
 
 type PrizeRow = { place: string; amount_rub: number };
 type TournamentDetail = {
@@ -67,9 +67,9 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       const next = body as TournamentDetail;
       setDetail(next);
       setJudges(players.filter((player) => player.judge_level === 'judge'));
-      // Club organizers and players the owner marked «Может проводить: рейтинг и турниры» (same rule as the server).
+      // Club organizers and players the owner marked «Может проводить: турниры» (same rule as the server).
       setOrganizers(players.filter((player) => (player as any).contact_status !== 'blocked'
-        && (player.club_role === 'organizer' || canOrganizeEveningFormat(player as any, 'TOURNAMENT'))));
+        && (player.club_role === 'organizer' || canOrganizeTournaments(player as any))));
       setOrganizerPlayerId(next.organizer_player_id || '');
       setTitle(next.title || ''); setDate(toLocalInput(next.date)); setVenue(next.venue || ''); setJudgePlayerId(next.judge_player_id || '');
       setEntryFee(Number(next.entry_fee_rub || 0)); setPrizeFund(Number(next.prize_fund_rub || 0)); setPrizes(next.prize_allocations || []); setNotes(next.notes || '');

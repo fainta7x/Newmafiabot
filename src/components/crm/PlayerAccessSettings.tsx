@@ -266,7 +266,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
             </fieldset>
             <fieldset className="space-y-1.5" data-testid="crm-player-organize-formats" disabled={ownerOnlyLocked}>
               <legend className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Может проводить вечера</legend>
-              <p className="mb-1.5 text-[11px] leading-4 text-text-muted">Сам создаёт такие вечера в календаре урезанного кабинета и проводит их: приход, оплата, столы, анонс, закрытие. Даёт только владелец.</p>
+              <p className="mb-1.5 text-[11px] leading-4 text-text-muted">Сам создаёт такие вечера в календаре урезанного кабинета и проводит их: приход, оплата, столы, анонс, закрытие. Турниры — отдельные события: отметка позволяет быть организатором турнира. Даёт только владелец.</p>
               {ORGANIZE_FORMAT_OPTIONS.map((item) => {
                 const checked = draft.organize_formats.includes(item.value);
                 return (

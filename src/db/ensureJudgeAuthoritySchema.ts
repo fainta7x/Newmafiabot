@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
+import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../lib/organizeFormats.ts';
 
 export type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
@@ -45,5 +46,21 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   // «Может проводить вечера» marks (src/lib/organizeFormats.ts); NULL = none.
   if (!columns.some((column) => column.name === 'organize_formats')) {
     await db.run('ALTER TABLE players ADD COLUMN organize_formats TEXT');
+  }
+  // Owner decision 2026-09-29: «Турниры» became a mark of its own, apart from «Рейтинговые вечера».
+  // Players who had the old «Рейтинг и турниры» mark (stored as RATING) keep both rights. Runs once.
+  await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const tournamentMarkKey = '2026-09-organize-tournament-mark';
+  if (!(await db.get('SELECT id FROM app_data_migrations WHERE id = ?', [tournamentMarkKey]))) {
+    const marked = await db.all<{ id: string; organize_formats: string }>(
+      "SELECT id, organize_formats FROM players WHERE ',' || REPLACE(UPPER(COALESCE(organize_formats, '')), ' ', '') || ',' LIKE '%,RATING,%'",
+    );
+    for (const player of marked) {
+      const formats = normalizeOrganizeFormats(player.organize_formats);
+      if (formats.includes('TOURNAMENT')) continue;
+      const next = ORGANIZE_FORMATS.filter((format) => format === 'TOURNAMENT' || formats.includes(format));
+      await db.run('UPDATE players SET organize_formats = ? WHERE id = ?', [next.join(','), player.id]);
+    }
+    await db.run('INSERT OR IGNORE INTO app_data_migrations (id, applied_at) VALUES (?, ?)', [tournamentMarkKey, new Date().toISOString()]);
   }
 }

@@ -16,7 +16,7 @@ export type StartupMutationEntry = {
 
 export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 10, name: 'ensureInviteAudienceSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
-  { order: 20, name: 'ensureJudgeAuthoritySchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
+  { order: 20, name: 'ensureJudgeAuthoritySchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed', notes: 'one-time app_data_migrations marker adds the «Турниры» mark to old «Рейтинг и турниры» holders' },
   { order: 30, name: 'ensureEveningSlotsSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 40, name: 'ensureLegacyRegularWaiverProtection', kind: 'compatibility', idempotency: 'guarded compatibility repair', notes: 'must precede club operations migration' },
   { order: 50, name: 'ensureClubOperationsSchema', kind: 'data_migration', idempotency: 'application migration markers + schema guards' },

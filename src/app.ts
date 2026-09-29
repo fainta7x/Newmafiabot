@@ -7,6 +7,7 @@ import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
+import { ensureCustomEventsSchema } from './db/ensureCustomEventsSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureEveningSlotsSchema } from './db/ensureEveningSlotsSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
@@ -94,6 +95,7 @@ import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
 import botOrganizerAlertsRoutes from './server/routes/botOrganizerAlertsRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
+import customEventRoutes from './server/routes/customEventRoutes.ts';
 import { noviceOrganizerRoutes, novicePlayerRoutes } from './server/routes/noviceRoutes.ts';
 import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
@@ -159,6 +161,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkJoinSchema(db);
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
+  await ensureCustomEventsSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
@@ -241,6 +244,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/announcement-photos', announcementPhotoRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/custom-events', customEventRoutes);
   app.use('/api/integrations', vkPlayerStartRouter);
   app.use('/api/integrations', vkJoinRegistrationCallbackRouter);
   app.use('/api/integrations', vkDirectIntegrationRouter);

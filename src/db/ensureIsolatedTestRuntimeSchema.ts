@@ -3,6 +3,7 @@ import { ensureAdminDataSchema } from './ensureAdminDataSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './ensureCanonicalEveningParticipantState.ts';
 import { ensureClubOperationsSchema } from './ensureClubOperationsSchema.ts';
 import { ensureCommerceSchema } from './ensureCommerceSchema.ts';
+import { ensureCustomEventsSchema } from './ensureCustomEventsSchema.ts';
 import { ensureEloSeedSchema } from './ensureEloSeedSchema.ts';
 import { ensureEveningSlotsSchema } from './ensureEveningSlotsSchema.ts';
 import { ensureInviteAudienceSchema } from './ensureInviteAudienceSchema.ts';
@@ -49,4 +50,5 @@ export async function ensureIsolatedTestRuntimeSchema(db: DatabaseWrapper): Prom
   await ensureVkJoinSchema(db);
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
+  await ensureCustomEventsSchema(db);
 }

@@ -18,11 +18,14 @@ const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.c
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
 type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'paused';
-const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
+// Two separate rows (owner, 2026-09-30): how the player comes, and what they do in the club; they combine.
+const ACTIVITY_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'regular', label: 'Ходят постоянно' },
   { value: 'sometimes', label: 'Ходят иногда' },
   { value: 'stopped', label: 'Перестали ходить' },
   { value: 'paused', label: 'Рассылка на паузе' },
+];
+const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'organizer', label: 'Организаторы' },
   { value: 'team', label: 'Помогают клубу' },
   { value: 'hosts', label: 'Ведут игры' },
@@ -55,22 +58,47 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
 );
 
 // One choice in the bottom panel; the line under it says what the picked option changes.
-const Select = <T extends string>({ label, about, value, onChange, options }: {
-  label: string; about: string; value: T | ''; onChange: (value: T | '') => void; options: Array<{ value: T; label: string; hint: string }>;
+// The field shows what the marked players have now (owner, 2026-09-30: no «Не менять»); only a different
+// choice is a change. When the marked players differ, the field reads «Разное» until something is picked.
+const Select = <T extends string>({ label, about, value, current, onChange, options }: {
+  label: string; about: string; value: T | ''; current: T | null; onChange: (value: T | '') => void; options: Array<{ value: T; label: string; hint: string; disabled?: boolean }>;
+}) => {
+  const shown = value || current || '';
+  return (
+    <label className="block min-w-0">
+      <span className="block text-[11px] font-semibold text-white/70">{label}</span>
+      <span className="mb-1 block text-[10px] leading-[13px] text-white/40">{about}</span>
+      <select value={shown} onChange={(event) => { const next = event.target.value as T | ''; onChange(next === current ? '' : next); }}
+        className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-2 text-[13px] text-white">
+        {current ? null : <option value="">Разное</option>}
+        {options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+      </select>
+      <span className="mt-1 block min-h-[28px] text-[10px] leading-[14px] text-white/45">
+        {shown ? options.find((option) => option.value === shown)?.hint : 'У отмеченных по-разному — останется как было'}
+      </span>
+    </label>
+  );
+};
+
+// A yes/no mark shown as it is now for the marked players; «Разное» when they differ.
+const MarkSelect = ({ label, ariaLabel, value, current, onChange }: {
+  label: string; ariaLabel: string; value: HostChoice; current: 'yes' | 'no' | null; onChange: (value: HostChoice) => void;
 }) => (
   <label className="block min-w-0">
-    <span className="block text-[11px] font-semibold text-white/70">{label}</span>
-    <span className="mb-1 block text-[10px] leading-[13px] text-white/40">{about}</span>
-    <select value={value} onChange={(event) => onChange(event.target.value as T | '')}
-      className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-2 text-[13px] text-white">
-      <option value="">Не менять</option>
-      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    <span className="mb-1 block truncate text-[10px] text-white/50">{label}</span>
+    <select value={value || current || ''} aria-label={ariaLabel}
+      onChange={(event) => { const next = event.target.value as HostChoice; onChange(next === current ? '' : next); }}
+      className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-1 text-[12px] text-white">
+      {current ? null : <option value="">Разное</option>}
+      <option value="yes">Может</option>
+      <option value="no">Не может</option>
     </select>
-    <span className="mt-1 block min-h-[28px] text-[10px] leading-[14px] text-white/45">
-      {value ? options.find((option) => option.value === value)?.hint : 'У каждого остаётся как было'}
-    </span>
   </label>
 );
+
+/** The one value every marked player shares, or null when they differ. */
+const common = <T,>(values: T[]): T | null => (values.length && values.every((value) => value === values[0]) ? values[0] : null);
+const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped' : membershipOf(normalizeClubRole(row.club_role)) === 'member' ? 'regular' : 'sometimes');
 
 /**
  * «Уровни и роли»: go through all players and set the playing level, how often they come, the club role
@@ -85,22 +113,17 @@ export function PlayerAccessBulkCRM() {
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LevelFilter>('all');
+  const [activityFilter, setActivityFilter] = useState<RoleFilter>('all');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
   const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
-  const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes');
-  const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no');
-  const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
   const [activity, setActivity] = useState<PlayerActivity | ''>('');
   const [organization, setOrganization] = useState<ClubOrganization | ''>('');
   // «Может вести»: per evening type — add the mark, remove it, or leave each player as is.
   const [hosting, setHosting] = useState<Record<HostFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '' });
-  const hostAdd = HOST_FORMATS.filter((format) => hosting[format] === 'yes');
-  const hostRemove = HOST_FORMATS.filter((format) => hosting[format] === 'no');
-  const hostChanged = hostAdd.length + hostRemove.length > 0;
   const [saving, setSaving] = useState(false);
   // What the server could not change (for example a pause set for another reason), shown until closed.
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -121,7 +144,7 @@ export function PlayerAccessBulkCRM() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('ru-RU');
-    const matchesRole = (row: Row) => matchesRoleFilter(row, roleFilter);
+    const matchesRole = (row: Row) => matchesRoleFilter(row, activityFilter) && matchesRoleFilter(row, roleFilter);
     const time = (value?: string | null) => (value ? new Date(value).getTime() || 0 : 0);
     const byName = (a: Row, b: Row) => String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
     return rows
@@ -134,7 +157,7 @@ export function PlayerAccessBulkCRM() {
         if (sortBy === 'new') return time(b.created_at) - time(a.created_at) || byName(a, b);
         return byName(a, b);
       });
-  }, [rows, query, level, roleFilter, sortBy]);
+  }, [rows, query, level, activityFilter, roleFilter, sortBy]);
 
   const counts = useMemo(() => Object.fromEntries(GAME_LEVELS.map((item) => [item.value, rows.filter((row) => normalizeGameLevel(row.game_level) === item.value).length])), [rows]);
   const allVisibleSelected = visible.length > 0 && visible.every((row) => selected.has(row.id));
@@ -149,21 +172,47 @@ export function PlayerAccessBulkCRM() {
     return next;
   });
 
+  const selectedRows = useMemo(() => rows.filter((row) => selected.has(row.id)), [rows, selected]);
+  const currentLevel = common(selectedRows.map((row) => normalizeGameLevel(row.game_level) as GameLevel));
+  const currentActivity = common(selectedRows.map(activityOf));
+  const currentOrganization = common(selectedRows.map((row) => organizationOf(normalizeClubRole(row.club_role))));
+  const currentHosting = (format: HostFormat) => common(selectedRows.map((row) => (hostFormatsOf(row).includes(format) ? 'yes' as const : 'no' as const)));
+  const currentOrganizing = (format: OrganizeFormat) => common(selectedRows.map((row) => (normalizeOrganizeFormats(row.organize_formats).includes(format) ? 'yes' as const : 'no' as const)));
+  // Only a pick that differs from what the marked players already have is a change.
+  const levelPick = gameLevel && gameLevel !== currentLevel ? gameLevel : '';
+  const activityPick = activity && activity !== currentActivity ? activity : '';
+  const organizationPick = organization && organization !== currentOrganization ? organization : '';
+  const hostAdd = HOST_FORMATS.filter((format) => hosting[format] === 'yes' && currentHosting(format) !== 'yes');
+  const hostRemove = HOST_FORMATS.filter((format) => hosting[format] === 'no' && currentHosting(format) !== 'no');
+  const hostChanged = hostAdd.length + hostRemove.length > 0;
+  const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes' && currentOrganizing(format) !== 'yes');
+  const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no' && currentOrganizing(format) !== 'no');
+  const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
+
+  // With nobody marked the picks are dropped, so the next players start from what they have now.
+  const nobodyMarked = selected.size === 0;
+  useEffect(() => {
+    if (!nobodyMarked) return;
+    setGameLevel(''); setActivity(''); setOrganization('');
+    setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
+    setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
+  }, [nobodyMarked]);
+
   // Plain summary of what «Применить» will change, so nothing is picked by mistake.
   const optionLabel = <T extends string>(options: Array<{ value: T; label: string; hint: string }>, value: T | '') => {
     const option = options.find((item) => item.value === value);
     return option ? `${option.label} (${option.hint.toLocaleLowerCase('ru-RU')})` : '';
   };
   const changes = [
-    gameLevel ? `уровень игры: ${optionLabel(GAME_LEVELS, gameLevel)}` : '',
-    activity ? `как часто ходит: ${optionLabel(PLAYER_ACTIVITY, activity)}` : '',
-    organization ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organization)}` : '',
-    ...HOST_FORMAT_OPTIONS.filter((option) => hosting[option.value]).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
-    ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizing[option.value]).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
+    levelPick ? `уровень игры: ${optionLabel(GAME_LEVELS, levelPick)}` : '',
+    activityPick ? `как часто ходит: ${optionLabel(PLAYER_ACTIVITY, activityPick)}` : '',
+    organizationPick ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organizationPick)}` : '',
+    ...HOST_FORMAT_OPTIONS.filter((option) => hostAdd.includes(option.value) || hostRemove.includes(option.value)).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
+    ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizeAdd.includes(option.value) || organizeRemove.includes(option.value)).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
   ].filter(Boolean);
 
   const apply = async () => {
-    if (saving || !selected.size || !(gameLevel || activity || organization || hostChanged || organizeChanged)) return;
+    if (saving || !selected.size || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -171,9 +220,9 @@ export function PlayerAccessBulkCRM() {
     try {
       const body = await api.bulkUpdatePlayerAccess({
         player_ids: Array.from(selected),
-        ...(gameLevel ? { game_level: gameLevel } : {}),
-        ...(activity ? { activity } : {}),
-        ...(organization ? { organization } : {}),
+        ...(levelPick ? { game_level: levelPick } : {}),
+        ...(activityPick ? { activity: activityPick } : {}),
+        ...(organizationPick ? { organization: organizationPick } : {}),
         ...(hostAdd.length ? { host_formats_add: hostAdd } : {}),
         ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
         ...(organizeAdd.length ? { organize_formats_add: organizeAdd } : {}),
@@ -214,18 +263,27 @@ export function PlayerAccessBulkCRM() {
       </label>
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Уровень игры">
-        <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
         {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(item.value)}>{item.label} · {counts[item.value] ?? 0}</Chip>)}
+        {/* «Все» last: the levels of the active base come first (owner, 2026-09-30). */}
+        <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
       </div>
 
       {/* Quick filters as chips with counts, like the level chips above (owner, 2026-09-29). Tap again to clear. */}
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Кто">
-        {ROLE_FILTERS.map((item) => (
-          <Chip key={item.value} active={roleFilter === item.value} onClick={() => setRoleFilter((current) => (current === item.value ? 'all' : item.value))}>
-            {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
-          </Chip>
-        ))}
-      </div>
+      {([
+        ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
+        ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
+      ] as const).map(([title, filters, value, setValue]) => (
+        <div key={title}>
+          <span className="mb-1 block px-1 text-[11px] font-semibold text-white/45">{title}</span>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label={title}>
+            {filters.map((item) => (
+              <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => (current === item.value ? 'all' : item.value))}>
+                {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <div className="grid grid-cols-1 gap-2">
         <label className="block min-w-0"><span className="sr-only">Порядок</span>
@@ -271,25 +329,17 @@ export function PlayerAccessBulkCRM() {
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
           <p className="text-[13px] font-semibold text-white">Отмечено: {selected.size}</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <Select label="Уровень игры" about="На какие вечера зовём" value={gameLevel} onChange={setGameLevel} options={GAME_LEVELS} />
-            <Select label="Как часто ходит" about="Пишет ли бот ему лично" value={activity} onChange={setActivity} options={PLAYER_ACTIVITY} />
-            <Select label="Роль в клубе" about="«Организатор клуба» — полный кабинет" value={organization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.filter((item) => item.value !== 'organizer') : CLUB_ORGANIZATION} />
+            <Select label="Уровень игры" about="На какие вечера зовём" value={gameLevel} current={currentLevel} onChange={setGameLevel} options={GAME_LEVELS} />
+            <Select label="Как часто ходит" about="Пишет ли бот ему лично" value={activity} current={currentActivity} onChange={setActivity} options={PLAYER_ACTIVITY} />
+            <Select label="Роль в клубе" about="«Организатор клуба» — полный кабинет" value={organization} current={currentOrganization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.map((item) => (item.value === 'organizer' ? { ...item, disabled: true } : item)) : CLUB_ORGANIZATION} />
           </div>
           <div className="mt-1">
             <span className="block text-[11px] font-semibold text-white/70">Может вести</span>
             <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Может быть ведущим (судьёй) игр на таких вечерах. Вечер сам не создаёт.</span>
             <div className="grid grid-cols-3 gap-2">
               {HOST_FORMAT_OPTIONS.map((option) => (
-                <label key={option.value} className="block min-w-0">
-                  <span className="mb-1 block truncate text-[10px] text-white/50">{option.label}</span>
-                  <select value={hosting[option.value]} aria-label={`Может вести: ${option.label}`}
-                    onChange={(event) => setHosting((current) => ({ ...current, [option.value]: event.target.value as HostChoice }))}
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-1 text-[12px] text-white">
-                    <option value="">Не менять</option>
-                    <option value="yes">Может</option>
-                    <option value="no">Не может</option>
-                  </select>
-                </label>
+                <MarkSelect key={option.value} label={option.label} ariaLabel={`Может вести: ${option.label}`} value={hosting[option.value]} current={currentHosting(option.value)}
+                  onChange={(next) => setHosting((current) => ({ ...current, [option.value]: next }))} />
               ))}
             </div>
           </div>
@@ -299,16 +349,8 @@ export function PlayerAccessBulkCRM() {
               <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Сам создаёт такие вечера в календаре и проводит их в своём кабинете: приход, оплата, столы, закрытие. «Турниры» — можно быть организатором турнира. Ставит только владелец.</span>
               <div className="grid grid-cols-2 gap-2">
                 {ORGANIZE_FORMAT_OPTIONS.map((option) => (
-                  <label key={option.value} className="block min-w-0">
-                    <span className="mb-1 block truncate text-[10px] text-white/50">{option.label}</span>
-                    <select value={organizing[option.value]} aria-label={`Может проводить: ${option.label}`}
-                      onChange={(event) => setOrganizing((current) => ({ ...current, [option.value]: event.target.value as HostChoice }))}
-                      className="min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-1 text-[12px] text-white">
-                      <option value="">Не менять</option>
-                      <option value="yes">Может</option>
-                      <option value="no">Не может</option>
-                    </select>
-                  </label>
+                  <MarkSelect key={option.value} label={option.label} ariaLabel={`Может проводить: ${option.label}`} value={organizing[option.value]} current={currentOrganizing(option.value)}
+                    onChange={(next) => setOrganizing((current) => ({ ...current, [option.value]: next }))} />
                 ))}
               </div>
             </div>
@@ -318,12 +360,12 @@ export function PlayerAccessBulkCRM() {
               <p className="text-[11px] font-semibold text-white/70">Что изменится у {selected.size === 1 ? 'игрока' : `${selected.size} игроков`}:</p>
               <ul className="mt-1 space-y-0.5 text-[11px] leading-4 text-white/60">{changes.map((line) => <li key={line}>• {line}</li>)}</ul>
             </div>
-          ) : <p className="mt-2 text-[11px] text-white/40">Выберите, что поменять, — здесь появится итог перед сохранением.</p>}
+          ) : <p className="mt-2 text-[11px] text-white/40">В полях — то, что стоит сейчас. Поменяйте нужное — здесь появится итог перед сохранением.</p>}
           {/* The result shows right by the button: the list above may be scrolled far away. */}
           {error ? <p className="mt-2 rounded-xl bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200" data-testid="crm-access-bulk-error">{error}</p> : null}
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(gameLevel || activity || organization || hostChanged || organizeChanged)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
         </div>

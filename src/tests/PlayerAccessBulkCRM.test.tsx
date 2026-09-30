@@ -45,4 +45,31 @@ describe('«Уровни и роли»', () => {
     await waitFor(() => expect(bulk).toHaveBeenCalledWith({ player_ids: ['a'], organize_formats_add: ['TOURNAMENT'] }));
     expect((await screen.findByTestId('crm-access-bulk-toast')).textContent).toContain('Сохранено');
   });
+
+  it('shows what the marked players have now instead of «Не менять»', async () => {
+    render(<PlayerAccessBulkCRM />);
+    fireEvent.click(await screen.findByText('Точка'));
+    const panel = screen.getByTestId('crm-access-bulk-panel');
+    expect(panel.textContent).not.toContain('Не менять');
+    expect((screen.getByLabelText('Может проводить: Свои ивенты') as HTMLSelectElement).value).toBe('yes');
+    expect((screen.getByLabelText('Может проводить: Турниры') as HTMLSelectElement).value).toBe('no');
+    // Picking the value the player already has is not a change.
+    fireEvent.change(screen.getByLabelText('Может проводить: Свои ивенты'), { target: { value: 'yes' } });
+    expect(screen.queryByTestId('crm-access-bulk-summary')).toBeNull();
+    // Players who differ show «Разное».
+    fireEvent.click(screen.getByText('Стаут'));
+    expect((screen.getByLabelText('Может проводить: Свои ивенты') as HTMLSelectElement).value).toBe('');
+    expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('Разное');
+  });
+
+  it('puts «Все» last and combines «Как ходят» with «Роль в клубе»', async () => {
+    render(<PlayerAccessBulkCRM />);
+    await screen.findByText('Стаут');
+    const levelChips = screen.getByLabelText('Уровень игры').querySelectorAll('button');
+    expect(levelChips[levelChips.length - 1].textContent).toContain('Все');
+    fireEvent.click(screen.getByRole('button', { name: 'Ходят постоянно · 3' }));
+    expect(names()).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Помогают клубу · 1' }));
+    expect(names()).toEqual(['Точка']);
+  });
 });

@@ -1,26 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Cake, ChevronRight, Filter, Plus, Search, UserRound } from 'lucide-react';
 import { api, type GameEvening, type Player } from '../../lib/api.ts';
-import { getRussianEngagementStageLabel } from '../../lib/playerUtils.ts';
-import { getPlayerActivitySegment, sortPlayersForActivity } from '../../lib/playerActivitySegments.ts';
+import { STATUS_SEGMENT_LABELS, getPlayerStatusSegment, isClubPlayer, type PlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { PlayersCRM } from './PlayersCRM.tsx';
 
-type QuickFilter = 'active' | 'loyal' | 'attention' | 'lapsed' | 'all';
+type QuickFilter = PlayerStatusSegment | 'all';
 type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
 type ProfileFilter = '' | 'incomplete' | 'missing_avatar' | 'missing_birthday' | 'missing_contact';
 type Completeness = { percentage: number; complete: boolean; missing_fields: string[]; fields: Record<string, { label: string; state: string }> };
 type Birthday = { id: string; nickname: string; days_until: number; birth_day: number; birth_month: number };
 
-const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
-  { id: 'active', label: 'Активные' }, { id: 'loyal', label: 'Лояльные' }, { id: 'attention', label: 'Внимание' }, { id: 'lapsed', label: 'Давно не были' }, { id: 'all', label: 'Вся база' },
+// Tabs = the organizer's own statuses from «Роли» (owner, 2026-09-30); «Вся база» last.
+const QUICK_FILTERS: Array<{ id: QuickFilter; label: string; caption: string }> = [
+  { id: 'regular', label: 'Постоянные', caption: 'ходят постоянно' }, { id: 'sometimes', label: 'Иногда', caption: 'ходят иногда' }, { id: 'novice', label: 'Новички', caption: 'уровень «Новичок»' },
+  { id: 'stopped', label: 'Перестали', caption: 'перестали ходить' }, { id: 'all', label: 'Вся база', caption: 'все записи' },
 ];
+const SEGMENT_TONE: Record<PlayerStatusSegment, string> = { regular: 'bg-success-soft text-success', sometimes: 'bg-white/[0.07] text-text-secondary', novice: 'bg-accent-soft text-accent', stopped: 'bg-warning-soft text-warning' };
 
 interface PlayersActivityCRMProps { evenings: GameEvening[]; onOpenEvening: (id: string) => void; selectedPlayerId?: string | null; onClosePlayerCard?: () => void; onCrmChanged?: () => void; }
 
-const uniquePlayers = (groups: Player[][]): Player[] => { const byId = new Map<string, Player>(); for (const group of groups) for (const player of group) byId.set(player.id, player); return [...byId.values()]; };
-const playerSegmentLabel = (player: Player) => { const segment = getPlayerActivitySegment(player); if (segment === 'loyal') return 'Лояльный'; if (segment === 'active') return getRussianEngagementStageLabel(player.engagement_stage); if (segment === 'inactive') return 'Неактивный'; return getRussianEngagementStageLabel(player.engagement_stage); };
+// Who came most recently first; those who never came go last.
+const byLastVisit = (left: Player, right: Player) => {
+  const leftDays = left.days_since_last_visit == null ? Number.POSITIVE_INFINITY : Number(left.days_since_last_visit);
+  const rightDays = right.days_since_last_visit == null ? Number.POSITIVE_INFINITY : Number(right.days_since_last_visit);
+  return leftDays - rightDays || Number(right.attendance_count || 0) - Number(left.attendance_count || 0) || String(left.nickname || '').localeCompare(String(right.nickname || ''), 'ru');
+};
 
 export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings, onOpenEvening, selectedPlayerId, onClosePlayerCard, onCrmChanged }) => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -30,10 +36,9 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('active');
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('regular');
   const [showFilters, setShowFilters] = useState(false);
   const [contactStatusFilter, setContactStatusFilter] = useState('');
-  const [lifecycleStatus, setLifecycleStatus] = useState('');
   const [advancedSegment, setAdvancedSegment] = useState<AdvancedSegment>('');
   const [profileFilter, setProfileFilter] = useState<ProfileFilter>('');
   const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
@@ -44,16 +49,15 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
   useEffect(() => { const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250); return () => window.clearTimeout(timer); }, [search]);
 
-  const buildParams = useCallback((stage?: string) => {
+  const buildParams = useCallback(() => {
     const params: Record<string, string | number | boolean> = {};
     if (debouncedSearch) params.search = debouncedSearch;
     if (contactStatusFilter) params.contact_status = contactStatusFilter;
-    if (stage) params.lifecycle_status = stage; else if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
     if (advancedSegment === 'never') params.never_attended = true;
     if (advancedSegment === 'absent60') params.inactive_days = 60;
     if (advancedSegment === 'open_tasks') params.has_open_tasks = true;
     return params;
-  }, [advancedSegment, contactStatusFilter, debouncedSearch, lifecycleStatus]);
+  }, [advancedSegment, contactStatusFilter, debouncedSearch]);
 
   const loadProfileSummary = useCallback(async () => {
     try {
@@ -75,23 +79,24 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   const loadPlayers = useCallback(async () => {
     const requestId = ++requestSeq.current; setLoading(true); setListError(null);
     try {
-      let result: Player[];
-      if (lifecycleStatus) result = await api.getPlayers(buildParams());
-      else if (activeQuickFilter === 'active' || activeQuickFilter === 'attention') result = uniquePlayers(await Promise.all([api.getPlayers(buildParams('newcomer')), api.getPlayers(buildParams('returning')), api.getPlayers(buildParams('regular'))]));
-      else if (activeQuickFilter === 'loyal') result = await api.getPlayers(buildParams('regular'));
-      else if (activeQuickFilter === 'lapsed') result = await api.getPlayers(buildParams('inactive'));
-      else result = await api.getPlayers(buildParams());
+      const result = await api.getPlayers(buildParams());
       if (requestId !== requestSeq.current) return;
-      if (activeQuickFilter === 'attention' && !lifecycleStatus) result = result.filter((player) => Number(player.open_tasks_count || 0) > 0 || player.contact_status !== 'normal' || Number(player.outstanding_debt || 0) > 0 || Number(player.attendance_count || 0) === 1 || (player.days_since_last_visit != null && player.days_since_last_visit >= 30));
-      setPlayers(sortPlayersForActivity(result));
+      setPlayers([...result].sort(byLastVisit));
       void loadProfileSummary();
     } catch (error: any) { if (requestId !== requestSeq.current) return; setListError(error?.message || 'Не удалось загрузить игроков'); }
     finally { if (requestId === requestSeq.current) setLoading(false); }
-  }, [activeQuickFilter, buildParams, lifecycleStatus, loadProfileSummary]);
+  }, [buildParams, loadProfileSummary]);
 
   useEffect(() => { void loadPlayers(); }, [loadPlayers]);
 
+  const segmentCounts = useMemo(() => {
+    const counts: Record<QuickFilter, number> = { regular: 0, sometimes: 0, novice: 0, stopped: 0, all: players.length };
+    for (const player of players) if (isClubPlayer(player)) counts[getPlayerStatusSegment(player)] += 1;
+    return counts;
+  }, [players]);
+
   const filteredPlayers = useMemo(() => players.filter((player) => {
+    if (activeQuickFilter !== 'all' && (!isClubPlayer(player) || getPlayerStatusSegment(player) !== activeQuickFilter)) return false;
     const completion = profileMap[player.id];
     if (!profileFilter) return true;
     if (!completion) return false;
@@ -100,11 +105,11 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     if (profileFilter === 'missing_birthday') return completion.missing_fields.includes('birthday');
     if (profileFilter === 'missing_contact') return completion.missing_fields.includes('phone') && completion.missing_fields.includes('telegram');
     return true;
-  }), [players, profileFilter, profileMap]);
+  }), [activeQuickFilter, players, profileFilter, profileMap]);
 
   const selectedCardPlayerId = selectedPlayerId || localPlayerId;
-  const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(lifecycleStatus)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
-  const segmentCaption = useMemo(() => { if (lifecycleStatus) return getRussianEngagementStageLabel(lifecycleStatus); if (activeQuickFilter === 'active') return 'играют сейчас'; if (activeQuickFilter === 'loyal') return 'самые постоянные'; if (activeQuickFilter === 'attention') return 'нужно внимание'; if (activeQuickFilter === 'lapsed') return 'нужно вернуть'; return 'вся история'; }, [activeQuickFilter, lifecycleStatus]);
+  const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
+  const segmentCaption = QUICK_FILTERS.find((item) => item.id === activeQuickFilter)?.caption || '';
 
   const handleCreatePlayer = async (event: React.FormEvent) => {
     event.preventDefault(); if (!newNickname.trim() || addSaving) return; setAddSaving(true); setAddError(null);
@@ -115,7 +120,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   };
 
   const handleCardClose = () => { setLocalPlayerId(null); onClosePlayerCard?.(); };
-  const handleQuickFilterChange = (filter: QuickFilter) => { setLifecycleStatus(''); setActiveQuickFilter(filter); };
+  const handleQuickFilterChange = (filter: QuickFilter) => setActiveQuickFilter(filter);
 
   return (
     <div className="min-w-0 space-y-3.5 sm:space-y-4">
@@ -125,15 +130,16 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
       <div className="flex gap-2"><label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label><button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">{activeFilterCount}</span> : null}</button></div>
 
-      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item, index) => { const isActive = !lifecycleStatus && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} onClick={() => handleQuickFilterChange(item.id)} className={`${index < 3 ? 'col-span-2' : 'col-span-3'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>; })}</div>
+      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item, index) => { const isActive = activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} aria-label={item.label} onClick={() => handleQuickFilterChange(item.id)} className={`${index < 3 ? 'col-span-2' : 'col-span-3'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}{loading ? null : <span className="ml-1 text-text-muted">{segmentCounts[item.id]}</span>}</button>; })}</div>
+      <p className="-mt-1 px-0.5 text-[11px] leading-4 text-text-muted">Вкладки — по статусам, которые вы ставите в «Ролях». Визит — отметка «пришёл» или место за столом в игре.</p>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
-      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : filteredPlayers.length === 0 ? <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">В этом сегменте игроков нет</p></div> : (
+      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : filteredPlayers.length === 0 ? <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">Здесь пока никого</p><p className="mx-auto mt-1 max-w-[260px] text-[12px] text-text-muted">Статус игроку ставится в «Игроки → Роли» или в его карточке.</p></div> : (
         <div data-testid="crm-active-player-list" className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
           {filteredPlayers.map((player, index) => {
-            const visits = Number(player.attendance_count || 0); const visitText = player.days_since_last_visit == null ? 'Нет визитов' : player.days_since_last_visit === 0 ? 'Был сегодня' : `Был ${player.days_since_last_visit} дн. назад`; const taskText = Number(player.open_tasks_count || 0) > 0 ? ` · задач ${player.open_tasks_count}` : ''; const segment = getPlayerActivitySegment(player); const completion = profileMap[player.id];
+            const visits = Number(player.attendance_count || 0); const visitText = player.days_since_last_visit == null ? 'Нет визитов' : player.days_since_last_visit === 0 ? 'Был сегодня' : `Был ${player.days_since_last_visit} дн. назад`; const taskText = Number(player.open_tasks_count || 0) > 0 ? ` · задач ${player.open_tasks_count}` : ''; const segment = getPlayerStatusSegment(player); const completion = profileMap[player.id];
             const missing = completion?.missing_fields.slice(0, 2).map((key) => completion.fields[key]?.label).filter(Boolean).join(', ');
-            return <button key={player.id} type="button" onClick={() => setLocalPlayerId(player.id)} className={`flex min-h-[82px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors active:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}><PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" /><span className="min-w-0 flex-1"><span className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${segment === 'loyal' ? 'bg-success-soft text-success' : segment === 'inactive' ? 'bg-warning-soft text-warning' : 'bg-white/[0.07] text-text-secondary'}`}>{playerSegmentLabel(player)}</span>{completion ? <span className={`ml-auto shrink-0 text-[11px] font-bold ${completion.complete ? 'text-success' : 'text-warning'}`}>{completion.percentage}%</span> : null}</span>{player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}<span className="mt-1 block text-[11px] text-text-muted">{missing ? `Не хватает: ${missing}` : `${visitText} · визитов ${visits}${taskText}`}</span></span><ChevronRight className="h-5 w-5 shrink-0 text-text-muted" /></button>;
+            return <button key={player.id} type="button" onClick={() => setLocalPlayerId(player.id)} className={`flex min-h-[82px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors active:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}><PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" /><span className="min-w-0 flex-1"><span className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${SEGMENT_TONE[segment]}`}>{Number(player.from_other_city || 0) === 1 && segment === 'sometimes' ? 'Из другого города' : STATUS_SEGMENT_LABELS[segment]}</span>{completion ? <span className={`ml-auto shrink-0 text-[11px] font-bold ${completion.complete ? 'text-success' : 'text-warning'}`}>{completion.percentage}%</span> : null}</span>{player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}<span className="mt-1 block text-[11px] text-text-muted">{missing ? `Не хватает: ${missing}` : `${visitText} · визитов ${visits}${taskText}`}</span></span><ChevronRight className="h-5 w-5 shrink-0 text-text-muted" /></button>;
           })}
         </div>
       )}
@@ -141,9 +147,8 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
       <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" widthClass="sm:max-w-md"><div className="space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Заполненность профиля</span><select value={profileFilter} onChange={(event) => setProfileFilter(event.target.value as ProfileFilter)} className="mobile-field"><option value="">Все профили</option><option value="incomplete">Незаполненные</option><option value="missing_avatar">Без аватара</option><option value="missing_birthday">Без дня рождения</option><option value="missing_contact">Нет контактов</option></select></label>
         <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
-        <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Активность</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">По быстрому сегменту</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option><option value="lead">Ещё не играл</option></select></label>
         <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, label]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{label}</button>)}</div></div>
-        <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); setProfileFilter(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить точные фильтры</button>
+        <button type="button" onClick={() => { setContactStatusFilter(''); setAdvancedSegment(''); setProfileFilter(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить точные фильтры</button>
       </div></MobileSheet>
 
       <MobileSheet open={showAddModal} onClose={() => setShowAddModal(false)} title="Новый игрок" subtitle="Для начала достаточно никнейма. Остальное можно заполнить позже." widthClass="sm:max-w-md" footer={<button type="submit" form="focused-new-player-form" disabled={!newNickname.trim() || addSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{addSaving ? 'Сохраняем…' : 'Добавить игрока'}</button>}><form id="focused-new-player-form" onSubmit={handleCreatePlayer} className="space-y-3">{addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}<input value={newNickname} onChange={(event) => setNewNickname(event.target.value)} placeholder="Никнейм *" className="mobile-field" /><input value={newFullName} onChange={(event) => setNewFullName(event.target.value)} placeholder="Имя — необязательно" className="mobile-field" /><input value={newTgUsername} onChange={(event) => setNewTgUsername(event.target.value)} placeholder="Telegram" className="mobile-field" /><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Телефон" className="mobile-field" /></form></MobileSheet>

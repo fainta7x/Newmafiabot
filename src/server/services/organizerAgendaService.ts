@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadClubOrder, type ClubOrderAction, type ClubOrderItem } from './clubOrderService.ts';
 import { calculateProfileCompleteness } from './playerProfileIntegrityService.ts';
 import { closeTasksOfEndedEvenings } from './eveningCloseoutService.ts';
+import { PLAYER_VISITS_SQL, PLAYER_VISIT_STATS_SQL } from './playerVisitsService.ts';
 import { membershipOfPlayer } from '../../lib/playerAccess.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 
@@ -128,13 +129,11 @@ async function recentlyContacted(db: DatabaseWrapper, reason: ContactReason, now
 async function absenceItems(db: DatabaseWrapper, now: number): Promise<AgendaItem[]> {
   const rows = await db.all<any>(`
     SELECT p.id, p.nickname, p.club_role, p.attends_sometimes, p.stopped_attending, p.from_other_city, p.contact_status, p.pause_reason,
-           MAX(e.starts_at) AS last_visit
+           v.last_visit
       FROM players p
-      JOIN evening_participants ep ON ep.player_id = p.id AND ep.attendance_status = 'attended'
-      JOIN game_evenings e ON e.id = ep.evening_id
+      JOIN (${PLAYER_VISIT_STATS_SQL}) v ON v.player_id = CAST(p.id AS TEXT)
      WHERE ${MEMBER_SQL} AND COALESCE(p.contact_status, 'normal') <> 'blocked'
-     GROUP BY p.id
-    HAVING datetime(MAX(e.starts_at)) < datetime(?)`, [iso(now - ABSENCE_DAYS.regular * DAY)]);
+       AND datetime(v.last_visit) < datetime(?)`, [iso(now - ABSENCE_DAYS.regular * DAY)]);
   // Someone already signed up for a coming evening needs no message.
   const coming = new Set((await db.all<any>(
     `SELECT DISTINCT ep.player_id FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id
@@ -183,8 +182,7 @@ async function profileItem(db: DatabaseWrapper, now: number): Promise<AgendaItem
            EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
       FROM players p
      WHERE ${MEMBER_SQL} AND COALESCE(p.contact_status, 'normal') NOT IN ('blocked', 'paused')
-       AND EXISTS (SELECT 1 FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id
-                    WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND datetime(e.starts_at) >= datetime(?))
+       AND EXISTS (SELECT 1 FROM (${PLAYER_VISITS_SQL}) v WHERE v.player_id = CAST(p.id AS TEXT) AND datetime(v.starts_at) >= datetime(?))
      ORDER BY p.nickname COLLATE NOCASE`, [iso(now - 120 * DAY)]);
   const quiet = await recentlyContacted(db, 'profile', now);
   const people: AgendaPerson[] = [];
@@ -295,24 +293,54 @@ const PEOPLE_RANK: Record<string, number> = { novice_feedback: 35, absent_regula
 
 export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   await ensureAgendaSchema(db);
-  await closeTasksOfEndedEvenings(db);
-  const order = await loadClubOrder(db, nowMs);
-  const candidates: Array<AgendaItem & { rank: number }> = [
-    // «Не приходят 90 дней» is replaced by the owner's finer absence lists.
-    ...order.items.filter((item) => item.id !== 'inactive').map(fromClubOrder),
-    ...await taskItems(db, nowMs),
-    ...(await absenceItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK[item.kind] ?? 60 })),
-    ...(await profileItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.profile })),
-    ...(await noviceFeedbackItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.novice_feedback })),
-  ];
-  const snoozed = new Set((await db.all<any>('SELECT item_id FROM organizer_agenda_snoozes WHERE datetime(until) > datetime(?)', [iso(nowMs)]))
+  // Each source stands on its own: one failing check must not empty the whole list (owner report 2026-09-30).
+  const errors: string[] = [];
+  const safely = async <T,>(label: string, work: () => Promise<T[]>): Promise<T[]> => {
+    try { return await work(); } catch (error: any) {
+      console.error(`[AGENDA] ${label} failed:`, error);
+      errors.push(`${label}: ${String(error?.message || error).slice(0, 200)}`);
+      return [];
+    }
+  };
+  await safely('закрытие вечеров', async () => { await closeTasksOfEndedEvenings(db); return []; });
+  const sources = {
+    checks: await safely('проверки клуба', async () => (await loadClubOrder(db, nowMs)).items
+      // «Не приходят 90 дней» is replaced by the owner's finer absence lists.
+      .filter((item) => item.id !== 'inactive').map(fromClubOrder)),
+    tasks: await safely('задачи', () => taskItems(db, nowMs)),
+    absence: await safely('давно не были', async () => (await absenceItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK[item.kind] ?? 60 }))),
+    profiles: await safely('профили', async () => (await profileItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.profile }))),
+    novices: await safely('новички', async () => (await noviceFeedbackItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.novice_feedback }))),
+  };
+  const candidates: Array<AgendaItem & { rank: number }> = Object.values(sources).flat();
+  const snoozed = new Set((await safely('отложенные', () => db.all<any>('SELECT item_id FROM organizer_agenda_snoozes WHERE datetime(until) > datetime(?)', [iso(nowMs)])))
     .map((row: any) => String(row.item_id)));
   const visible = candidates.filter((item) => !snoozed.has(item.id));
   visible.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) || a.rank - b.rank
     || String(a.due_at || '').localeCompare(String(b.due_at || '')));
   const items: AgendaItem[] = visible.map(({ rank: _rank, ...item }) => item);
   const counts = Object.fromEntries(GROUP_ORDER.map((group) => [group, items.filter((item) => item.group === group).length])) as Record<AgendaGroup, number>;
-  return { items, counts, total: items.length, snoozed: snoozed.size, groups: AGENDA_GROUP_LABELS, generated_at: iso(nowMs) };
+  return {
+    items, counts, total: items.length, snoozed: snoozed.size, groups: AGENDA_GROUP_LABELS, generated_at: iso(nowMs),
+    errors,
+    checked: await safely('сводка', async () => [await agendaCoverage(db)]).then((rows) => rows[0] || null),
+  };
+}
+
+/** What the list was built from, shown under an empty list so «нет дел» can be trusted or questioned. */
+async function agendaCoverage(db: DatabaseWrapper) {
+  const visits = await db.get<any>(`
+    SELECT COUNT(DISTINCT player_id) AS players, MAX(starts_at) AS last_visit, COUNT(*) AS marks
+      FROM (${PLAYER_VISITS_SQL})`);
+  const members = await db.get<any>(`SELECT COUNT(*) AS count FROM players p WHERE ${MEMBER_SQL}`);
+  const openTasks = await db.get<any>("SELECT COUNT(*) AS count FROM organizer_tasks WHERE status NOT IN ('done', 'cancelled')");
+  return {
+    players: Number(members?.count || 0),
+    players_with_visits: Number(visits?.players || 0),
+    visit_marks: Number(visits?.marks || 0),
+    last_visit: visits?.last_visit || null,
+    open_tasks: Number(openTasks?.count || 0),
+  };
 }
 
 /** «Отложить»: the item leaves the list for a day or a week and then comes back if still true. */

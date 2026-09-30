@@ -15,7 +15,8 @@ type Item = {
   action?: Action; action_label?: string; people?: Person[]; people_total?: number;
   contact_reason?: string; task_id?: string; can_complete?: boolean; dismiss_label?: string;
 };
-type Payload = { items: Item[]; counts: Record<Group, number>; total: number; snoozed: number; groups: Record<Group, string> };
+type Coverage = { players: number; players_with_visits: number; visit_marks: number; last_visit: string | null; open_tasks: number };
+type Payload = { items: Item[]; counts: Record<Group, number>; total: number; snoozed: number; groups: Record<Group, string>; errors?: string[]; checked?: Coverage | null };
 
 const GROUPS: Group[] = ['now', 'week', 'later'];
 const GROUP_HINT: Record<Group, string> = {
@@ -190,6 +191,12 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
           ))}
           {data.snoozed ? <p className="px-0.5 text-[11px] text-text-muted">Отложено: {data.snoozed}. Вернутся сами, если ещё будут нужны.</p> : null}
         </div>
+      ) : null}
+      {data && (mode === 'full' || !data.items.length) ? (
+        <p data-testid="agenda-coverage" className="mt-3 px-0.5 text-[11px] leading-4 text-text-muted">
+          {data.checked ? `Проверено: игроков ${data.checked.players}, были на вечерах ${data.checked.players_with_visits}${data.checked.last_visit ? `, последний визит ${new Date(data.checked.last_visit).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })}` : ''}, открытых задач ${data.checked.open_tasks}.` : null}
+          {data.errors?.length ? <span className="mt-1 block text-danger">Не получилось проверить: {data.errors.join('; ')}</span> : null}
+        </p>
       ) : null}
       {mode === 'full' && onOpenTaskList ? (
         <button type="button" onClick={onOpenTaskList} className="mt-3 min-h-10 w-full rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">Свои задачи и выполненные</button>

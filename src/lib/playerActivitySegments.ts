@@ -39,3 +39,40 @@ export const sortPlayersForActivity = <T extends ActivityPlayer>(players: T[]): 
     return String(left.nickname || '').localeCompare(String(right.nickname || ''), 'ru');
   })
 );
+
+/*
+ * «Игроки → База» tabs follow the organizer's own statuses from «Роли» (owner decision 2026-09-30),
+ * not visit counting: «Перестал ходить» wins, then the «Новичок» game level, then «Как часто ходит».
+ * A guest from another city sits with «Ходят иногда». Visits are only shown next to the name.
+ */
+export type PlayerStatusSegment = 'regular' | 'sometimes' | 'novice' | 'stopped';
+
+type StatusPlayer = {
+  game_level?: string | null;
+  club_role?: string | null;
+  attends_sometimes?: number | boolean | null;
+  stopped_attending?: number | boolean | null;
+  from_other_city?: number | boolean | null;
+  contact_status?: string | null;
+  pause_reason?: string | null;
+  stored_lifecycle_status?: string | null;
+  source?: string | null;
+};
+
+export const STATUS_SEGMENT_LABELS: Record<PlayerStatusSegment, string> = {
+  regular: 'Ходит постоянно', sometimes: 'Ходит иногда', novice: 'Новичок', stopped: 'Перестал ходить',
+};
+
+const STOPPED = 'Перестал ходить';
+
+/** Service rows (merged guests, placeholders, archive) are not club players and stay only in «Вся база». */
+export const isClubPlayer = (player: StatusPlayer) =>
+  !['archived', 'guest_placeholder', 'legacy_guest_migrated'].includes(String(player.stored_lifecycle_status || ''))
+  && String(player.source || '') !== 'legacy_guest_migrated';
+
+export const getPlayerStatusSegment = (player: StatusPlayer): PlayerStatusSegment => {
+  if (Number(player.stopped_attending || 0) === 1 || (player.contact_status === 'paused' && player.pause_reason === STOPPED)) return 'stopped';
+  if (player.game_level === 'novice' || player.game_level === 'unrated') return 'novice';
+  if (Number(player.from_other_city || 0) === 1 || player.club_role === 'guest' || Number(player.attends_sometimes || 0) === 1) return 'sometimes';
+  return 'regular';
+};

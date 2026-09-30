@@ -19,6 +19,11 @@ export interface Player {
   game_level?: 'novice' | 'club' | 'tournament';
   club_role?: 'guest' | 'member' | 'team' | 'organizer';
   judge_level?: 'none' | 'trainee' | 'host' | 'judge';
+  attends_sometimes?: number | null;
+  stopped_attending?: number | null;
+  from_other_city?: number | null;
+  /** The stored row status (archive, merged guest); `lifecycle_status` in the list is the computed stage. */
+  stored_lifecycle_status?: string | null;
   elo: number;
   tokens: number;
   created_at: string;

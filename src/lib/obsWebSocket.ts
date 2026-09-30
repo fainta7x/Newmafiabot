@@ -4,7 +4,15 @@ export type ObsConnectionSnapshot = {
   currentScene: string | null;
   streamActive: boolean;
   recordingActive: boolean;
+  scenes: string[];
+  audioInputs: Array<{ name: string; muted: boolean }>;
 };
+
+export type ObsRemoteCommand =
+  | { type: 'scene'; scene: string }
+  | { type: 'stream'; action: 'start' | 'stop' }
+  | { type: 'record'; action: 'start' | 'stop' }
+  | { type: 'mute'; input: string; muted: boolean };
 
 type ObsMessage = { op: number; d?: Record<string, any> };
 type PendingRequest = { resolve: (value: Record<string, any>) => void; reject: (error: Error) => void };
@@ -98,19 +106,44 @@ export class ObsWebSocketClient {
   }
 
   async readSnapshot(): Promise<ObsConnectionSnapshot> {
-    const [version, scene, stream, recording] = await Promise.all([
+    const [version, scene, stream, recording, sceneList, inputList] = await Promise.all([
       this.request('GetVersion'),
       this.request('GetCurrentProgramScene'),
       this.request('GetStreamStatus'),
       this.request('GetRecordStatus'),
+      this.request('GetSceneList'),
+      this.request('GetInputList'),
     ]);
+    // OBS lists scenes bottom-up; show them the way they appear in OBS.
+    const scenes = (Array.isArray(sceneList.scenes) ? sceneList.scenes : [])
+      .map((item: any) => String(item?.sceneName || '')).filter(Boolean).reverse();
+    // Only inputs that carry sound answer GetInputMute; the rest (cameras, pictures) are skipped.
+    const audioInputs: Array<{ name: string; muted: boolean }> = [];
+    for (const input of (Array.isArray(inputList.inputs) ? inputList.inputs : []).slice(0, 30)) {
+      const name = String(input?.inputName || '');
+      if (!name) continue;
+      try {
+        const mute = await this.request('GetInputMute', { inputName: name });
+        audioInputs.push({ name, muted: mute.inputMuted === true });
+      } catch { /* not an audio input */ }
+    }
     return {
       obsVersion: typeof version.obsVersion === 'string' ? version.obsVersion : null,
       websocketVersion: typeof version.obsWebSocketVersion === 'string' ? version.obsWebSocketVersion : null,
       currentScene: typeof scene.currentProgramSceneName === 'string' ? scene.currentProgramSceneName : null,
       streamActive: stream.outputActive === true,
       recordingActive: recording.outputActive === true,
+      scenes,
+      audioInputs,
     };
+  }
+
+  /** A button pressed on the phone, carried here by the heartbeat. */
+  async run(command: ObsRemoteCommand) {
+    if (command.type === 'scene') return this.request('SetCurrentProgramScene', { sceneName: command.scene });
+    if (command.type === 'mute') return this.request('SetInputMute', { inputName: command.input, inputMuted: command.muted });
+    if (command.type === 'stream') return this.request(command.action === 'start' ? 'StartStream' : 'StopStream');
+    return this.request(command.action === 'start' ? 'StartRecord' : 'StopRecord');
   }
 
   disconnect() {
@@ -119,12 +152,12 @@ export class ObsWebSocketClient {
     if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
   }
 
-  private request(requestType: string): Promise<Record<string, any>> {
+  private request(requestType: string, requestData: Record<string, unknown> = {}): Promise<Record<string, any>> {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Нет соединения с OBS'));
     const requestId = `obs-${Date.now()}-${++this.requestCounter}`;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.socket!.send(JSON.stringify({ op: 6, d: { requestType, requestId, requestData: {} } }));
+      this.socket!.send(JSON.stringify({ op: 6, d: { requestType, requestId, requestData } }));
     });
   }
 }

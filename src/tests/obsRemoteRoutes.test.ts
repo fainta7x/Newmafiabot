@@ -56,8 +56,10 @@ describe('OBS remote bridge routes', () => {
         current_scene: 'Стол',
         stream_active: true,
         recording_active: false,
+        scenes: ['Заставка', 'Стол', 'Комментаторы'],
+        audio_inputs: [{ name: 'Микрофон зала', muted: false }],
       })
-      .expect(204);
+      .expect(200, { commands: [] });
 
     const status = await request(app)
       .get('/api/obs-remote/status')
@@ -74,6 +76,35 @@ describe('OBS remote bridge routes', () => {
       stream_active: true,
       recording_active: false,
     });
+  });
+
+  it('carries phone buttons to the laptop on its next heartbeat', async () => {
+    const code = await request(app).post('/api/obs-remote/pairing-code').set('Cookie', cookie);
+    const { body: { bridge_token: token } } = await request(app).post('/api/public/obs-bridge/pair').send({ code: code.body.code });
+    // Nothing is queued while OBS is not connected.
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'scene', scene: 'Стол' }).expect(409);
+    const beat = (extra: Record<string, unknown> = {}) => request(app).post('/api/public/obs-bridge/heartbeat').set('Authorization', `Bearer ${token}`)
+      .send({ obs_connected: true, current_scene: 'Заставка', scenes: ['Заставка', 'Стол'], audio_inputs: [{ name: 'Микрофон зала', muted: false }], ...extra });
+    await beat().expect(200, { commands: [] });
+
+    await request(app).post('/api/obs-remote/command').send({ type: 'scene', scene: 'Стол' }).expect(401);
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'scene', scene: 'Нет такой' }).expect(409);
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'delete-everything' }).expect(400);
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'scene', scene: 'Стол' }).expect(202);
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'mute', input: 'Микрофон зала', muted: true }).expect(202);
+    await request(app).post('/api/obs-remote/command').set('Cookie', cookie).send({ type: 'stream', action: 'start' }).expect(202);
+
+    const taken = await beat().expect(200);
+    expect(taken.body.commands).toEqual([
+      expect.objectContaining({ type: 'scene', scene: 'Стол' }),
+      expect.objectContaining({ type: 'mute', input: 'Микрофон зала', muted: true }),
+      expect.objectContaining({ type: 'stream', action: 'start' }),
+    ]);
+    // Each command is handed over once.
+    await beat().expect(200, { commands: [] });
+    const status = await request(app).get('/api/obs-remote/status').set('Cookie', cookie);
+    expect(status.body.scenes).toEqual(['Заставка', 'Стол']);
+    expect(status.body.audio_inputs).toEqual([{ name: 'Микрофон зала', muted: false }]);
   });
 
   it('expires pairing codes and revokes the bridge token', async () => {

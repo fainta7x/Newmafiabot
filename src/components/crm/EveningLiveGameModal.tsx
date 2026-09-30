@@ -15,6 +15,8 @@ interface EveningLiveGameModalProps {
   game: ClubGameRecord;
   onClose: () => void;
   onUpdated: (game: ClubGameRecord) => void;
+  /** OBS remote control is an organizer tool; an assigned judge only gets the overlay link. */
+  obsRemote?: boolean;
 }
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
@@ -163,7 +165,7 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated }) => {
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated, obsRemote = false }) => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
     getPendingClubGameProtocolSave(game.id)
@@ -421,13 +423,13 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               </button>
             </div>
 
-            <div className="mt-4">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">1. Подключение OBS Studio</div>
+            {obsRemote ? <div className="mt-4">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">1. OBS Studio: сцены, звук, эфир</div>
               <ObsRemoteCRM />
-            </div>
+            </div> : null}
 
             <div className="mt-5 border-t border-white/10 pt-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">2. Игровая графика</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">{obsRemote ? '2. ' : ''}Игровая графика</div>
               <p className="mt-2 text-sm leading-6 text-white/55">
                 Добавь эту ссылку в OBS один раз как «Источник браузера». Размер: 1920 × 1080, фон прозрачный. Во всех следующих играх ссылка останется той же.
               </p>

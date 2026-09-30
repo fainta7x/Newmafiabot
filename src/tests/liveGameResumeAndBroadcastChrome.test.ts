@@ -47,6 +47,8 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
 
     expect(liveGame).toContain("import ObsRemoteCRM from './ObsRemoteCRM.tsx'");
     expect(liveGame).toContain('<ObsRemoteCRM />');
+    // Only the organizer's games view turns the remote on; an assigned judge gets the overlay link only.
+    expect(read('src/components/crm/EveningGamesView.tsx')).toContain('<EveningLiveGameModal game={activeLiveGame} obsRemote');
     expect(liveGame).toContain('OBS и трансляция');
     expect(more).not.toContain("id: 'obs'");
     expect(bridge).toContain('откройте активную игру, нажмите кнопку с монитором');

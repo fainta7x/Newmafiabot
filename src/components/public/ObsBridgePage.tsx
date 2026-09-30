@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, KeyRound, Laptop, Loader2, Radio, Unplug } from 'lucide-react';
-import { ObsWebSocketClient, type ObsConnectionSnapshot } from '../../lib/obsWebSocket.ts';
+import { ObsWebSocketClient, type ObsConnectionSnapshot, type ObsRemoteCommand } from '../../lib/obsWebSocket.ts';
 
 const TOKEN_KEY = '2la-obs-bridge-token-v1';
 const EMPTY_SNAPSHOT: ObsConnectionSnapshot = {
@@ -9,6 +9,8 @@ const EMPTY_SNAPSHOT: ObsConnectionSnapshot = {
   currentScene: null,
   streamActive: false,
   recordingActive: false,
+  scenes: [],
+  audioInputs: [],
 };
 
 const heartbeat = async (token: string, snapshot: ObsConnectionSnapshot, connected: boolean, error: string | null = null) => {
@@ -24,10 +26,14 @@ const heartbeat = async (token: string, snapshot: ObsConnectionSnapshot, connect
       stream_active: snapshot.streamActive,
       recording_active: snapshot.recordingActive,
       last_error: error,
+      scenes: snapshot.scenes,
+      audio_inputs: snapshot.audioInputs,
     }),
   });
   if (response.status === 401) throw new Error('pairing-revoked');
   if (!response.ok) throw new Error('Не удалось передать статус в приложение');
+  const body = await response.json().catch(() => ({}));
+  return (Array.isArray(body?.commands) ? body.commands : []) as ObsRemoteCommand[];
 };
 
 export const ObsBridgePage: React.FC = () => {
@@ -39,6 +45,8 @@ export const ObsBridgePage: React.FC = () => {
   const [obsConnected, setObsConnected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const commandError = useRef<string | null>(null);
+  const ticking = useRef(false);
 
   const forgetPairing = () => {
     clientRef.current.disconnect();
@@ -89,12 +97,22 @@ export const ObsBridgePage: React.FC = () => {
   useEffect(() => {
     if (!token) return undefined;
     const tick = async () => {
+      // A slow OBS answer must not start a second tick that runs the same commands twice.
+      if (ticking.current) return;
+      ticking.current = true;
       try {
         if (clientRef.current.isConnected()) {
           const next = await clientRef.current.readSnapshot();
           setSnapshot(next);
           setObsConnected(true);
-          await heartbeat(token, next, true);
+          const commands = await heartbeat(token, next, true, commandError.current);
+          commandError.current = null;
+          // Buttons pressed on the phone; the next heartbeat reports the new scene/state (or the error).
+          for (const command of commands) {
+            try { await clientRef.current.run(command); } catch (err) {
+              commandError.current = err instanceof Error ? `OBS не выполнил команду: ${err.message}` : 'OBS не выполнил команду';
+            }
+          }
         } else {
           setObsConnected(false);
           await heartbeat(token, EMPTY_SNAPSHOT, false);
@@ -106,10 +124,12 @@ export const ObsBridgePage: React.FC = () => {
         } else {
           setObsConnected(false);
         }
+      } finally {
+        ticking.current = false;
       }
     };
     void tick();
-    const timer = window.setInterval(() => void tick(), 3_000);
+    const timer = window.setInterval(() => void tick(), 2_000);
     return () => window.clearInterval(timer);
   }, [token]);
 
@@ -117,7 +137,7 @@ export const ObsBridgePage: React.FC = () => {
 
   return <main className="min-h-screen bg-[#090a0d] px-4 py-8 text-white" data-testid="obs-bridge-page">
     <div className="mx-auto w-full max-w-lg space-y-4">
-      <header className="text-center"><div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-2 text-[26px] font-semibold">Мост к OBS Studio</h1><p className="mt-2 text-[14px] leading-6 text-white/50">Оставьте эту страницу открытой на ноутбуке, где запущен OBS.</p></header>
+      <header className="text-center"><div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-2 text-[26px] font-semibold">Мост к OBS Studio</h1><p className="mt-2 text-[14px] leading-6 text-white/50">Откройте один раз на ноутбуке с OBS (в комментаторской) и не закрывайте: через неё OBS слушается кнопок сцен, звука и эфира на телефоне организатора.</p></header>
 
       {!token ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
         <div className="flex items-center gap-2"><Laptop className="h-5 w-5 text-sky-200" /><h2 className="text-[16px] font-semibold">1. Привяжите ноутбук</h2></div>

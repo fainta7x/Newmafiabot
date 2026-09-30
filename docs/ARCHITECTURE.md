@@ -217,7 +217,7 @@ Remote control uses a separate laptop-side bridge and does not expose OBS WebSoc
 - `src/server/routes/obsRemoteRoutes.ts` and `src/server/services/obsRemoteService.ts` own one-time pairing, hashed bridge tokens and the status heartbeat.
 - The OBS password exists only in the laptop page's memory. It is not sent to or stored by the application server.
 - Only the hashed laptop pairing is durable. Frequent live status heartbeats stay in process memory and never create a continuous SQLite write loop.
-- The bridge currently reports OBS/WebSocket versions, the current program scene and stream/recording state. Scene commands are deliberately deferred until the broadcast scene contract is agreed.
+- The bridge reports OBS/WebSocket versions, the scene list and current program scene, sound inputs with mute state, and stream/recording state. Phone buttons (`POST /api/obs-remote/command`: scene, mute, stream start/stop, record start/stop) wait in process memory and ride back on the laptop's next heartbeat (~2 s); a command not taken within 20 s is dropped. Scene names agreed with the owner live in `src/lib/obsScenes.ts`. All OBS routes use `express-rate-limit`. Only the organizer's games view turns the remote on (`EveningLiveGameModal obsRemote`); an assigned judge gets the overlay link only.
 
 ## 11. Server route ownership
 

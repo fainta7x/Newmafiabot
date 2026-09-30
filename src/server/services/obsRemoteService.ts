@@ -17,6 +17,21 @@ type LiveObsStatus = Required<ObsBridgeHeartbeat> & { last_seen_at: string };
 
 const liveStatuses = new WeakMap<DatabaseWrapper, LiveObsStatus>();
 
+/**
+ * Commands from the phone wait in memory until the laptop's next heartbeat (every ~3 s) picks them up.
+ * A command the laptop has not taken within COMMAND_TTL_MS is dropped, so a stale tap never fires later.
+ */
+export type ObsCommand =
+  | { type: 'scene'; scene: string }
+  | { type: 'stream'; action: 'start' | 'stop' }
+  | { type: 'record'; action: 'start' | 'stop' }
+  | { type: 'mute'; input: string; muted: boolean };
+export type ObsAudioInput = { name: string; muted: boolean };
+type QueuedCommand = ObsCommand & { id: string; queued_at: number };
+const COMMAND_TTL_MS = 20 * 1000;
+const MAX_QUEUED_COMMANDS = 10;
+const commandQueues = new WeakMap<DatabaseWrapper, QueuedCommand[]>();
+
 export type ObsBridgeHeartbeat = {
   obs_connected: boolean;
   obs_version?: string | null;
@@ -25,6 +40,8 @@ export type ObsBridgeHeartbeat = {
   stream_active?: boolean;
   recording_active?: boolean;
   last_error?: string | null;
+  scenes?: string[] | null;
+  audio_inputs?: ObsAudioInput[] | null;
 };
 
 const digest = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
@@ -100,8 +117,40 @@ export async function updateObsBridgeHeartbeat(db: DatabaseWrapper, heartbeat: O
     stream_active: heartbeat.stream_active === true,
     recording_active: heartbeat.recording_active === true,
     last_error: cleanText(heartbeat.last_error, 300),
+    scenes: Array.isArray(heartbeat.scenes)
+      ? heartbeat.scenes.map((scene) => cleanText(scene, 160)).filter((scene): scene is string => Boolean(scene)).slice(0, 40)
+      : [],
+    audio_inputs: Array.isArray(heartbeat.audio_inputs)
+      ? heartbeat.audio_inputs
+        .map((input) => ({ name: cleanText(input?.name, 160), muted: input?.muted === true }))
+        .filter((input): input is ObsAudioInput => Boolean(input.name)).slice(0, 20)
+      : [],
     last_seen_at: now,
   });
+}
+
+/** Queue a command for the laptop. Scene names must be one the laptop reported. */
+export function queueObsCommand(db: DatabaseWrapper, command: ObsCommand): { id: string } | { error: string } {
+  const live = liveStatuses.get(db);
+  const online = Boolean(live?.last_seen_at && Date.now() - Date.parse(live.last_seen_at) <= ONLINE_TTL_MS && live.obs_connected);
+  if (!online) return { error: 'OBS сейчас не подключён — проверьте ноутбук' };
+  if (command.type === 'scene' && !(live?.scenes || []).includes(command.scene)) return { error: 'Такой сцены в OBS нет' };
+  if (command.type === 'mute' && !(live?.audio_inputs || []).some((input) => input.name === command.input)) return { error: 'Такого звука в OBS нет' };
+  const now = Date.now();
+  const queue = (commandQueues.get(db) || []).filter((item) => now - item.queued_at <= COMMAND_TTL_MS);
+  if (queue.length >= MAX_QUEUED_COMMANDS) return { error: 'Слишком много команд подряд — подождите пару секунд' };
+  const id = crypto.randomUUID();
+  queue.push({ ...command, id, queued_at: now });
+  commandQueues.set(db, queue);
+  return { id };
+}
+
+/** The laptop takes every fresh command at once; they are removed from the queue. */
+export function takeObsCommands(db: DatabaseWrapper): ObsCommand[] {
+  const now = Date.now();
+  const queue = (commandQueues.get(db) || []).filter((item) => now - item.queued_at <= COMMAND_TTL_MS);
+  commandQueues.delete(db);
+  return queue.map(({ queued_at: _queuedAt, ...command }) => command);
 }
 
 export async function getObsRemoteStatus(db: DatabaseWrapper) {
@@ -119,6 +168,8 @@ export async function getObsRemoteStatus(db: DatabaseWrapper) {
     stream_active: bridgeOnline && live?.stream_active === true,
     recording_active: bridgeOnline && live?.recording_active === true,
     last_error: bridgeOnline ? live?.last_error || null : null,
+    scenes: bridgeOnline ? live?.scenes || [] : [],
+    audio_inputs: bridgeOnline ? live?.audio_inputs || [] : [],
     paired_at: row?.paired_at || null,
     last_seen_at: live?.last_seen_at || null,
   };
@@ -134,4 +185,5 @@ export async function revokeObsBridge(db: DatabaseWrapper) {
     [now, CONNECTION_ID],
   );
   liveStatuses.delete(db);
+  commandQueues.delete(db);
 }

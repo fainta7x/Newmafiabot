@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PLAYER_VISIT_STATS_SQL } from '../services/playerVisitsService.ts';
 import { z } from 'zod';
 import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
@@ -93,10 +94,10 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     const players = await db.all(`
       SELECT p.*,
         (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
-        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as attendance_count,
+        COALESCE(visits.visits, 0) as attendance_count,
         (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'no_show' AND e.status = 'completed') as no_show_count,
-        (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as last_visit,
-        (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status IN ('completed', 'active')) as first_visit,
+        visits.last_visit as last_visit,
+        visits.first_visit as first_visit,
         (SELECT COUNT(*) FROM organizer_tasks t WHERE t.player_id = p.id AND t.status != 'done' AND t.status != 'cancelled') as open_tasks_count,
         (SELECT COALESCE(SUM(ep.amount_due - ep.amount_paid), 0)
            FROM evening_participants ep
@@ -107,6 +108,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
             AND ep.payment_status != 'waived'
             AND ep.amount_due > ep.amount_paid) as outstanding_debt
       FROM players p
+      -- A visit = marked «пришёл» or seated in a game of that evening (owner, 2026-09-30).
+      LEFT JOIN (${PLAYER_VISIT_STATS_SQL}) visits ON visits.player_id = CAST(p.id AS TEXT)
       ORDER BY p.nickname ASC
     `);
 
@@ -128,6 +131,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         engagement_stage: eStage,
         calculated_stage: eStage,
         lifecycle_status: cStatus === 'blocked' ? 'blocked' : eStage,
+        stored_lifecycle_status: p.lifecycle_status || null,
         days_since_last_visit,
       };
     });

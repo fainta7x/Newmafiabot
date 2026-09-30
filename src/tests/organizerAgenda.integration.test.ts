@@ -50,6 +50,30 @@ describe('«Дела»', () => {
     expect(await people('people:stopped')).toEqual(['stopped']);
   });
 
+  it('counts a seat at a game table as a visit when nobody marked «пришёл» (owner, 2026-09-30)', async () => {
+    const { db, app, player, people, cookie } = await setup();
+    await player('seated'); await player('by-participant'); await player('never');
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('old-open','Незакрытый вечер',?,'Europe/Moscow','CASUAL','active',20,100,?,?)`, [ago(20), stamp, stamp]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('ep-by','old-open','by-participant','going','pending','pending',0,0,?,?)`, [stamp, stamp]);
+    await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,slots_json,created_at)
+      VALUES ('old-open',1,?,'red','Победа красных','Судья',?,?)`,
+      [ago(20), JSON.stringify([{ slot_num: 1, player_id: 'seated', participant_id: null }, { slot_num: 2, participant_id: 'ep-by' }]), stamp]);
+    expect(await people('people:absent_regular')).toEqual(['by-participant', 'seated']);
+    const list = await request(app).get('/api/players').set('Cookie', cookie);
+    const seated = list.body.find((row: any) => row.id === 'seated');
+    expect(seated.attendance_count).toBe(1);
+    expect(seated.days_since_last_visit).toBe(20);
+    expect(list.body.find((row: any) => row.id === 'never').attendance_count).toBe(0);
+    await db.run("UPDATE players SET lifecycle_status = 'archived' WHERE id = 'by-participant'");
+    const agenda = await loadAgenda(db);
+    // Archived players are not checked, so their visits are not counted either.
+    expect(agenda.checked?.players_with_visits).toBe(1);
+    expect(agenda.errors).toEqual([]);
+  });
+
   it('«Написал» takes the person off the list, and «Отложить» the whole item', async () => {
     const { app, player, attended, people, cookie } = await setup();
     await player('a'); await attended('a', 20);

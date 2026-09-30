@@ -21,9 +21,14 @@ vi.mock('../components/crm/PlayersCRM.tsx', () => ({
   PlayersCRM: () => null,
 }));
 
-describe('PlayersActivityCRM filter source switching', () => {
+describe('PlayersActivityCRM status tabs', () => {
   beforeEach(() => {
-    vi.mocked(api.getPlayers).mockResolvedValue([]);
+    vi.mocked(api.getPlayers).mockResolvedValue([
+      { id: 'a', nickname: 'Постоянный', game_level: 'club', club_role: 'member', contact_status: 'normal', attendance_count: 5, days_since_last_visit: 3 },
+      { id: 'b', nickname: 'Редкий', game_level: 'club', attends_sometimes: 1, contact_status: 'normal', attendance_count: 0, days_since_last_visit: null },
+      { id: 'c', nickname: 'Ушедший', game_level: 'club', stopped_attending: 1, contact_status: 'normal' },
+      { id: 'd', nickname: 'Склеенный', game_level: 'club', source: 'legacy_guest_migrated', contact_status: 'normal' },
+    ] as any);
   });
 
   afterEach(() => {
@@ -31,30 +36,31 @@ describe('PlayersActivityCRM filter source switching', () => {
     vi.clearAllMocks();
   });
 
-  it('clears an exact activity filter when a quick segment is selected', async () => {
+  it('splits one list into the organizer status tabs without extra requests', async () => {
     render(<PlayersActivityCRM evenings={[]} onOpenEvening={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Постоянный')).toBeTruthy());
+    expect(api.getPlayers).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Редкий')).toBeNull();
+    expect(screen.getByText(/ходят постоянно/)).toBeTruthy();
 
-    await waitFor(() => expect(api.getPlayers).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Иногда' }));
+    expect(screen.getByText('Редкий')).toBeTruthy();
+    expect(screen.queryByText('Постоянный')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
-    const activitySelect = screen.getByRole('combobox', { name: 'Активность' }) as HTMLSelectElement;
-    fireEvent.change(activitySelect, { target: { value: 'newcomer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Перестали' }));
+    expect(screen.getByText('Ушедший')).toBeTruthy();
 
-    await waitFor(() => expect(api.getPlayers).toHaveBeenCalledWith({ lifecycle_status: 'newcomer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Вся база' }));
+    expect(screen.getByText('Склеенный')).toBeTruthy();
+    expect(api.getPlayers).toHaveBeenCalledTimes(1);
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Фильтры игроков' })).toBeNull());
-    expect(screen.getByRole('button', { name: 'Активные' }).getAttribute('aria-pressed')).toBe('false');
-
-    vi.mocked(api.getPlayers).mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Лояльные' }));
-
-    await waitFor(() => expect(api.getPlayers).toHaveBeenCalledWith({ lifecycle_status: 'regular' }));
-    expect(screen.getByRole('button', { name: 'Лояльные' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/самые постоянные/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
-    const resetActivitySelect = screen.getByRole('combobox', { name: 'Активность' }) as HTMLSelectElement;
-    expect(resetActivitySelect.value).toBe('');
+  it('searches the whole base whatever tab is open', async () => {
+    render(<PlayersActivityCRM evenings={[]} onOpenEvening={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Постоянный')).toBeTruthy());
+    vi.mocked(api.getPlayers).mockResolvedValue([{ id: 'c', nickname: 'Ушедший', game_level: 'club', stopped_attending: 1, contact_status: 'normal' }] as any);
+    fireEvent.change(screen.getByPlaceholderText('Ник, имя, телефон или Telegram'), { target: { value: 'Уш' } });
+    await waitFor(() => expect(screen.getByText('Ушедший')).toBeTruthy());
+    expect(screen.getByText(/поиск по всей базе/)).toBeTruthy();
   });
 });

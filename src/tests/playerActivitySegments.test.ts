@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getPlayerActivitySegment, sortPlayersForActivity } from '../lib/playerActivitySegments.ts';
+import { getPlayerActivitySegment, getPlayerStatusSegment, isClubPlayer, sortPlayersForActivity } from '../lib/playerActivitySegments.ts';
 
 const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 
@@ -36,27 +36,27 @@ describe('CRM player activity segmentation', () => {
     expect(sorted.map((item) => item.id)).toEqual(['loyal', 'loyal-old', 'returning']);
   });
 
-  it('defaults the players hub to active clients and exposes loyalty / archive quick filters', () => {
-    const source = read('src/components/crm/PlayersActivityCRM.tsx');
-    const hub = read('src/components/crm/PlayersHubCRM.tsx');
-    expect(source).toContain("type QuickFilter = 'active' | 'loyal' | 'attention' | 'lapsed' | 'all'");
-    expect(source).toContain("useState<QuickFilter>('active')");
-    expect(source).toContain("{ id: 'active', label: 'Активные' }");
-    expect(source).toContain("{ id: 'loyal', label: 'Лояльные' }");
-    expect(source).toContain("{ id: 'all', label: 'Вся база' }");
-    expect(source).toContain("api.getPlayers(buildParams('newcomer'))");
-    expect(source).toContain("api.getPlayers(buildParams('returning'))");
-    expect(source).toContain("api.getPlayers(buildParams('regular'))");
-    expect(hub).toContain('<PlayersActivityCRM');
+  it('splits the base by the organizer statuses from «Роли»', () => {
+    expect(getPlayerStatusSegment({ game_level: 'club', club_role: 'member' })).toBe('regular');
+    expect(getPlayerStatusSegment({ game_level: 'club', attends_sometimes: 1 })).toBe('sometimes');
+    expect(getPlayerStatusSegment({ game_level: 'tournament', from_other_city: 1 })).toBe('sometimes');
+    expect(getPlayerStatusSegment({ game_level: 'novice', club_role: 'member' })).toBe('novice');
+    expect(getPlayerStatusSegment({ game_level: 'novice', stopped_attending: 1 })).toBe('stopped');
+    expect(getPlayerStatusSegment({ game_level: 'club', contact_status: 'paused', pause_reason: 'Перестал ходить' })).toBe('stopped');
+    expect(isClubPlayer({ stored_lifecycle_status: 'archived' })).toBe(false);
+    expect(isClubPlayer({ source: 'legacy_guest_migrated' })).toBe(false);
+    expect(isClubPlayer({ stored_lifecycle_status: 'normal' })).toBe(true);
   });
 
-  it('keeps detailed lifecycle filters in the sheet and protects mobile sheets from bottom navigation overlap', () => {
-    const playersSource = read('src/components/crm/PlayersActivityCRM.tsx');
+  it('shows the status tabs with «Вся база» last and protects mobile sheets from bottom navigation overlap', () => {
+    const source = read('src/components/crm/PlayersActivityCRM.tsx');
+    const hub = read('src/components/crm/PlayersHubCRM.tsx');
     const sheetSource = read('src/components/ui/MobileSheet.tsx');
-    expect(playersSource).toContain('<option value="newcomer">Новичок</option>');
-    expect(playersSource).toContain('<option value="returning">Вернувшийся</option>');
-    expect(playersSource).toContain('<option value="regular">Постоянный</option>');
-    expect(playersSource).not.toContain('Точные сегменты сохранены, но не занимают основной экран.');
+    expect(source).toContain("useState<QuickFilter>('regular')");
+    expect(source.indexOf("label: 'Постоянные'")).toBeLessThan(source.indexOf("label: 'Вся база'"));
+    expect(source).toContain("label: 'Перестали'");
+    expect(source).not.toContain("label: 'Активные'");
+    expect(hub).toContain('<PlayersActivityCRM');
     expect(sheetSource).toContain('pb-[max(1rem,env(safe-area-inset-bottom))]');
   });
 });

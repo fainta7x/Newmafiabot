@@ -311,7 +311,8 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
  * Curators (owner, 2026-09-30): a direction is quiet when nothing of it happened in the app and nobody talked
  * with its curator for CURATOR_QUIET_DAYS. What the app can see: novice evenings run or judged («Новички»),
  * tournaments organized («Турниры»), own events organized («Ивенты»). Learning, discipline and SMM leave no
- * trace in the app yet, so for them only the last talk («Написал») counts.
+ * trace in the app yet, so for them only the last talk («Написал») counts. A curator task marked done
+ * counts for its direction in every case.
  */
 async function curatorItems(db: DatabaseWrapper, now: number): Promise<AgendaItem[]> {
   const curators = (await db.all<any>(`SELECT p.id, p.nickname, p.curator_areas FROM players p
@@ -344,13 +345,18 @@ async function curatorItems(db: DatabaseWrapper, now: number): Promise<AgendaIte
     }
     return null;
   };
+  // A curator task marked done counts for its direction (or for every direction when it has none).
+  const taskTable = await tableExists('curator_tasks');
+  const lastTask = async (area: CuratorArea, playerId: string): Promise<string | null> => (taskTable
+    ? (await db.get<any>(`SELECT MAX(completed_at) AS at FROM curator_tasks WHERE curator_player_id = ? AND status = 'done' AND (area = ? OR area IS NULL)`, [playerId, area]))?.at || null
+    : null);
   const people: AgendaPerson[] = [];
   for (const curator of curators) {
     const id = String(curator.id);
     if (talked.has(id)) continue;
     const quiet: string[] = [];
     for (const area of CURATOR_AREAS.filter((item) => curator.areas.includes(item))) {
-      const done = await lastDone(area, id);
+      const done = [await lastDone(area, id), await lastTask(area, id)].filter(Boolean).sort().pop() || null;
       if (done && String(done) >= since) continue;
       quiet.push(`${curatorAreaLabel(area).toLowerCase()}: ${done ? `последнее ${dayLabel(done)}` : 'в приложении нет следов'}`);
     }

@@ -258,7 +258,8 @@ describe('CRM player access profile', () => {
       .send({ player_ids: ['bulk-a'], organization: 'none' });
     expect(leave.status, JSON.stringify(leave.body)).toBe(200);
     expect(await db.all<any>("SELECT id, game_level, club_role, judge_level FROM players WHERE id IN ('bulk-a','bulk-b') ORDER BY id")).toEqual([
-      { id: 'bulk-a', game_level: 'club', club_role: 'member', judge_level: 'host' },
+      // «Ходит иногда» survives being an organizer for a while (owner report 2026-09-30).
+      { id: 'bulk-a', game_level: 'club', club_role: 'guest', judge_level: 'host' },
       { id: 'bulk-b', game_level: 'club', club_role: 'organizer', judge_level: 'host' },
     ]);
 

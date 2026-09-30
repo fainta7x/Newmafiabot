@@ -58,7 +58,8 @@ const ERROR_TEXT: Record<string, string> = {
   ACTOR_REQUIRED: 'Нужен вход организатора',
 };
 const errorText = (code: unknown) => ERROR_TEXT[String(code || '')] || String(code || 'Не удалось выполнить действие');
-const organizerReason = (req: AuthenticatedRequest) => String(req.body?.reason || '').trim();
+// The comment is optional (owner, 2026-09-30); the audit then says the organizer did it by hand.
+const organizerReason = (req: AuthenticatedRequest) => String(req.body?.reason || '').trim() || 'Изменено организатором';
 
 router.post('/evenings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db=req.db as DatabaseWrapper, body=req.body||{}, title=String(body.title||'').trim(), venue=String(body.venue||'').trim(), date=new Date(body.date), entryFee=intRub(body.entry_fee_rub), capacity=body.player_capacity==null?TOURNAMENT_PLAYER_CAPACITY:Number(body.player_capacity), prize=validatePrizeConfiguration(body.prize_fund_rub,body.prize_allocations||[]);

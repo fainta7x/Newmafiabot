@@ -17,6 +17,8 @@ const MIGRATED_GUEST_SOURCE = 'legacy_guest_migrated';
 const classificationSchema = z.object({
   game_level: z.enum(['novice', 'club', 'tournament']).optional(), // «unrated» is retired
   club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(),
+  // «Ходит иногда» apart from the role, so a helper or an organizer keeps it too.
+  attends_sometimes: z.boolean().optional(),
   judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
   // «Может вести» marks; they also write the judge_level compatibility summary.
   host_formats: z.array(z.enum(HOST_FORMATS)).optional(),
@@ -28,7 +30,7 @@ const classificationSchema = z.object({
 );
 
 const organizerAccessSchema = z.object({ enabled: z.boolean() }).strict();
-const classificationKeys = ['game_level', 'club_role', 'judge_level', 'host_formats', 'organize_formats'] as const;
+const classificationKeys = ['game_level', 'club_role', 'attends_sometimes', 'judge_level', 'host_formats', 'organize_formats'] as const;
 
 const isExactPlayerGet = (method: string, path: string) =>
   method === 'GET' && /^\/[^/]+\/?$/.test(path);
@@ -87,13 +89,15 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     if (parsed.organize_formats !== undefined && !isClubOwner(req as AuthenticatedRequest)) {
       return res.status(403).json({ error: 'Дать право проводить вечера может только владелец клуба', code: 'club_owner_required' });
     }
-    const stored: Record<string, string | null> = {};
+    const stored: Record<string, string | number | null> = {};
     if (parsed.organize_formats !== undefined) {
       const formats = normalizeOrganizeFormats(parsed.organize_formats);
       stored.organize_formats = formats.length ? formats.join(',') : null;
     }
     if (parsed.game_level !== undefined) stored.game_level = parsed.game_level;
     if (parsed.club_role !== undefined) stored.club_role = parsed.club_role;
+    if (parsed.attends_sometimes !== undefined) stored.attends_sometimes = parsed.attends_sometimes ? 1 : 0;
+    else if (parsed.club_role === 'guest' || parsed.club_role === 'member') stored.attends_sometimes = parsed.club_role === 'guest' ? 1 : 0;
     if (parsed.host_formats !== undefined) {
       const formats = normalizeHostFormats(parsed.host_formats);
       stored.host_formats = formats.join(',');

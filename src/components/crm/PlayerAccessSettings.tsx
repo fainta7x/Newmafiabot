@@ -8,7 +8,7 @@ import {
   clubRoleFrom,
   clubStageNote,
   GAME_LEVELS,
-  membershipOf,
+  membershipOfPlayer,
   normalizeClubRole,
   normalizeGameLevel,
   organizationOf,
@@ -30,6 +30,7 @@ const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU',
 type PlayerWithAccess = PlayerDetails & {
   game_level?: GameLevel | null;
   club_role?: ClubRole | null;
+  attends_sometimes?: number | null;
   judge_level?: string | null;
   host_formats?: string | null;
   organize_formats?: string | null;
@@ -39,6 +40,7 @@ type PlayerWithAccess = PlayerDetails & {
 type Draft = {
   game_level: GameLevel;
   club_role: ClubRole;
+  attends_sometimes: boolean;
   host_formats: HostFormat[];
   organize_formats: OrganizeFormat[];
 };
@@ -51,6 +53,7 @@ type Confirmation =
 const normalize = (player: PlayerWithAccess): Draft => ({
   game_level: normalizeGameLevel(player.game_level),
   club_role: normalizeClubRole(player.club_role),
+  attends_sometimes: membershipOfPlayer(player) === 'guest',
   host_formats: hostFormatsOf(player),
   organize_formats: normalizeOrganizeFormats(player.organize_formats),
 });
@@ -58,6 +61,7 @@ const normalize = (player: PlayerWithAccess): Draft => ({
 const equalDraft = (left: Draft, right: Draft) =>
   left.game_level === right.game_level
   && left.club_role === right.club_role
+  && left.attends_sometimes === right.attends_sometimes
   && left.host_formats.join(',') === right.host_formats.join(',')
   && left.organize_formats.join(',') === right.organize_formats.join(',');
 
@@ -125,7 +129,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         headers: { 'Content-Type': 'application/json' },
         // «Может проводить вечера» is sent only when changed: only the owner may change it.
         body: JSON.stringify(draft.organize_formats.join(',') === baseline.organize_formats.join(',')
-          ? { game_level: draft.game_level, club_role: draft.club_role, host_formats: draft.host_formats }
+          ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats }
           : draft),
       });
       await readJson(response);
@@ -179,7 +183,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       // The role follows the cabinet on the server; keep the draft in step so a later Save does not undo it.
       const syncRole = (value: Draft): Draft => ({
         ...value,
-        club_role: enabled ? 'organizer' : (value.club_role === 'organizer' ? 'member' : value.club_role),
+        club_role: enabled ? 'organizer' : (value.club_role === 'organizer' ? (value.attends_sometimes ? 'guest' : 'member') : value.club_role),
       });
       setDraft(syncRole);
       setBaseline(syncRole);
@@ -208,7 +212,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
   const visitsText = visitsCount ? `${countVisits(visitsCount)}${lastVisit ? ` · последний ${visitDate(lastVisit)}` : ''}` : 'Ещё не был на вечерах';
   const summaryRows: Array<[string, string, string | null]> = [
     ['Уровень игры', accessLabel(GAME_LEVELS, draft.game_level), null],
-    ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, membershipOf(draft.club_role)), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
+    ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, draft.attends_sometimes ? 'guest' : 'member'), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
     ['Роль в клубе', accessLabel(CLUB_ORGANIZATION, organizationOf(draft.club_role)), null],
     ['Может вести', hostFormatsSummary(draft.host_formats), null],
     ['Проводит вечера', organizeFormatsSummary(draft.organize_formats), null],
@@ -243,11 +247,11 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
 
           <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Уровень игры</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Насколько хорошо играет. Определяет, в какие форматы можно записаться.</span><select value={draft.game_level} onChange={(event) => setDraft((value) => ({ ...value, game_level: event.target.value as GameLevel }))} className="mobile-field w-full max-w-full">{GAME_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
-          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={membershipOf(draft.club_role)} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={draft.attends_sometimes ? 'guest' : 'member'} onChange={(event) => setDraft((value) => ({ ...value, attends_sometimes: event.target.value === 'guest', club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
             <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и какие вечера может вести. «Организатор» сразу получает кабинет организатора; назначает и снимает организаторов только владелец.</div></div>
-            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} disabled={ownerOnlyLocked && organizationOf(draft.club_role) === 'organizer'} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(membershipOf(value.club_role), event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value} disabled={ownerOnlyLocked && item.value === 'organizer'}>{item.label} — {item.hint}</option>)}</select></label>
+            <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Роль в клубе</span><select value={organizationOf(draft.club_role)} disabled={ownerOnlyLocked && organizationOf(draft.club_role) === 'organizer'} onChange={(event) => setDraft((value) => ({ ...value, club_role: clubRoleFrom(value.attends_sometimes ? 'guest' : 'member', event.target.value as ClubOrganization) }))} className="mobile-field w-full max-w-full">{CLUB_ORGANIZATION.map((item) => <option key={item.value} value={item.value} disabled={ownerOnlyLocked && item.value === 'organizer'}>{item.label} — {item.hint}</option>)}</select></label>
             <fieldset className="space-y-1.5" data-testid="crm-player-host-formats">
               <legend className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Может вести</legend>
               {HOST_FORMAT_OPTIONS.map((item) => {

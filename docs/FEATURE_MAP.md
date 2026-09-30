@@ -290,6 +290,7 @@ After registration/preparation, continue through the existing tournament seating
 - Organizer client: `src/components/OrganizerCRM.tsx`.
 - Player-bound organizer sessions require an existing active `organizer_player_access`; successful password verification does not grant or restore that entitlement.
 - If reads work but mutation gets 401/403, verify middleware on the exact route first.
+- Claiming a profile the organizer made: verified Telegram/VK sign-in → `playerOnboardingService.ts` (nickname request, `completeClaimPlayerOnboarding`), organizer approval `playerOnboardingOrganizerService.ts` (`attachExternalIdentity`), personal links `playerClaimLinkService.ts` (bot `/start claim_<code>` in `handlers/registration.py`), VK page field `vkProfileLinkService.ts`; card UI `PlayerAccountLinks.tsx`, player UI `VerifiedPlayerOnboarding.tsx`.
 
 ## DB / schema / checkpoints
 

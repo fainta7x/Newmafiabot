@@ -7,6 +7,7 @@ import {
   registerVerifiedPlayerIdentity,
 } from './playerRegistrationService.ts';
 import { createVkPlayerIdentityClaim } from './vkPlayerAuthService.ts';
+import { redeemPlayerClaimLink } from './playerClaimLinkService.ts';
 
 export type VerifiedOnboardingPlatform = 'telegram' | 'vk';
 
@@ -180,6 +181,75 @@ export async function completeVerifiedNewPlayerOnboarding(db: DatabaseWrapper, r
   return { status: 'created' as const, playerId: result.player.id, created: result.created, returnTo };
 }
 
+/**
+ * A profile that already has its own Telegram or VK belongs to a real player (owner, 2026-09-30: «Чагин»).
+ * A newcomer typing that nickname is asked for another one; the organizer gets no request (no spam).
+ */
+const LINKED_NICKNAME_MESSAGE = 'Этот ник уже занят игроком со своим аккаунтом. Если вы новый игрок — вернитесь и придумайте другой ник.';
+async function profileHasAccount(db: DatabaseWrapper, player: { id: string; telegram_user_id?: unknown }) {
+  if (String(player.telegram_user_id || '').trim()) return true;
+  await ensureVkIntegrationSchema(db);
+  return Boolean(await db.get("SELECT 1 AS present FROM player_external_identities WHERE platform='vk' AND player_id=? LIMIT 1", [player.id]));
+}
+
+/** Whether a taken nickname may still be claimed: exactly one profile, and it has no Telegram or VK yet. */
+export async function isNicknameClaimable(db: DatabaseWrapper, nickname: unknown) {
+  const matches = await findPlayersByNickname(db, String(nickname || '').trim().replace(/\s+/g, ' '));
+  return matches.length === 1 && !(await profileHasAccount(db, matches[0]));
+}
+
+/** A verified Telegram/VK account opened the organizer's personal link: link it to that profile at once. */
+export async function completeClaimPlayerOnboarding(db: DatabaseWrapper, rawTokenInput: unknown, code: unknown) {
+  const rawToken = String(rawTokenInput || '').trim();
+  const row = await loadOnboardingRow(db, rawToken);
+  if (!row || row.consumed_at || new Date(row.expires_at).getTime() <= Date.now()) {
+    throw onboardingError('onboarding_expired', 'Сессия входа устарела. Откройте ссылку ещё раз.', 410);
+  }
+  const platform = String(row.platform) as VerifiedOnboardingPlatform;
+  const result = await redeemPlayerClaimLink(db, { code, platform, externalUserId: String(row.external_user_id) });
+  await markOnboardingComplete(db, rawToken, { kind: 'claim_link', playerId: result.playerId });
+  return { ...result, returnTo: validatePlayerOnboardingReturnPath(row.return_to) };
+}
+
+/**
+ * The bot's «Это мой профиль» (owner, 2026-09-30): a Telegram user whose nickname is already taken asks to be
+ * linked to that profile. The same organizer request as «Я уже играл в клубе» in the app.
+ */
+export async function requestTelegramProfileLinkByNickname(db: DatabaseWrapper, input: { telegramUserId: unknown; nickname: unknown }) {
+  await ensurePlayerOnboardingSchema(db);
+  const externalUserId = normalizeExternalUserId('telegram', input.telegramUserId);
+  const linked = await resolveVerifiedExternalIdentity(db, { platform: 'telegram', externalUserId });
+  if (linked) return { status: 'linked' as const, playerId: linked };
+  const nickname = String(input.nickname || '').trim().replace(/\s+/g, ' ');
+  const matches = await findPlayersByNickname(db, nickname);
+  if (matches.length === 0) throw onboardingError('nickname_not_found', 'Игрок с таким ником не найден.', 404);
+  if (matches.length > 1) throw onboardingError('nickname_ambiguous', 'Найдено несколько профилей с таким ником. Нужна проверка организатора.', 409);
+  const target = matches[0];
+  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
+  const existing = await db.get<{ id: string; target_player_id: string }>(
+    "SELECT id, target_player_id FROM player_onboarding_link_requests WHERE platform='telegram' AND external_user_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",
+    [externalUserId],
+  );
+  const now = new Date().toISOString();
+  if (existing?.id) {
+    // One pending request per account: asking for another profile moves the request to it.
+    if (String(existing.target_player_id) !== String(target.id)) {
+      await db.run(
+        'UPDATE player_onboarding_link_requests SET target_player_id = ?, nickname = ?, updated_at = ? WHERE id = ? AND status = \'pending\'',
+        [target.id, target.nickname, now, existing.id],
+      );
+    }
+    return { status: 'pending_organizer' as const, requestId: String(existing.id), nickname: target.nickname };
+  }
+  const requestId = crypto.randomUUID();
+  await db.run(`
+    INSERT INTO player_onboarding_link_requests (
+      id, platform, external_user_id, target_player_id, nickname, return_to, status, created_at, updated_at
+    ) VALUES (?, 'telegram', ?, ?, ?, '/player', 'pending', ?, ?)
+  `, [requestId, externalUserId, target.id, target.nickname, now, now]);
+  return { status: 'pending_organizer' as const, requestId, nickname: target.nickname };
+}
+
 export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, rawTokenInput: unknown, nicknameInput: unknown, options: { baseUrl?: string } = {}) {
   const rawToken = String(rawTokenInput || '').trim();
   const row = await loadOnboardingRow(db, rawToken);
@@ -228,6 +298,9 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
       }
     }
   }
+
+  // Only a profile without its own account (made by the organizer) goes to the organizer for review.
+  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
 
   const existing = await db.get<{ id: string }>(`
     SELECT id FROM player_onboarding_link_requests

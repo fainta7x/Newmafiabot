@@ -30,6 +30,7 @@ import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
+import playerClaimRoutes from './server/routes/playerClaimRoutes.ts';
 import testEnvironmentRoutes from './server/routes/testEnvironmentRoutes.ts';
 import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
@@ -216,6 +217,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   app.use('/api/test-environment', testEnvironmentRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/auth', playerClaimRoutes);
   app.use('/api/player', playerJudgingRoutes);
   app.use('/api/player', playerJudgeMusicRoutes);
   app.use('/api/player', musicLibraryRoutes);

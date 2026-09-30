@@ -76,6 +76,8 @@ describe('VK-ACCESS-004 onboarding completion', () => {
   it('creates one organizer-reviewable link request for an existing nickname and never auto-merges', async () => {
     const db = makeDb();
     const existing = await registerNewPlayer(db, { telegramUserId: '999', nickname: 'Старый игрок' });
+    // As if the organizer made it: no Telegram or VK yet.
+    await db.run('UPDATE players SET telegram_user_id = NULL WHERE id = ?', [existing.player.id]);
     const started = await beginVerifiedPlayerOnboarding(db, { platform: 'telegram', externalUserId: '303' }, '/player/games');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
 
@@ -106,19 +108,17 @@ describe('VK-ACCESS-004 onboarding completion', () => {
     expect(claim?.player_id).toBe(existing.player.id);
   });
 
-  it('falls back to one organizer-reviewable request when private Telegram confirmation is unavailable', async () => {
+  it('asks for another nickname, with no organizer request, when the profile already has its own account', async () => {
     const db = makeDb();
-    const existing = await registerNewPlayer(db, { telegramUserId: '999', nickname: 'Ветеран без бота' });
+    await registerNewPlayer(db, { telegramUserId: '999', nickname: 'Чагин' });
     vi.stubEnv('TELEGRAM_BOT_TOKEN', '');
     const started = await beginVerifiedPlayerOnboarding(db, { platform: 'vk', externalUserId: '405' }, '/player/profile');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
-
-    const result = await requestExistingPlayerOnboardingLink(db, started.token, 'Ветеран без бота', { baseUrl: 'https://club.example' });
-    expect(result).toMatchObject({ status: 'pending_organizer', targetPlayerId: existing.player.id, returnTo: '/player/profile' });
-    expect(await db.get<any>(`SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id='405'`)).toBeNull();
-    expect(await db.get<any>('SELECT player_id FROM vk_player_identity_claims WHERE player_id=?', [existing.player.id])).toBeNull();
-    const requests = await db.all<any>(`SELECT * FROM player_onboarding_link_requests WHERE platform='vk' AND external_user_id='405'`);
-    expect(requests).toHaveLength(1);
-    expect(requests[0].target_player_id).toBe(existing.player.id);
+    await expect(requestExistingPlayerOnboardingLink(db, started.token, 'Чагин', { baseUrl: 'https://club.example' }))
+      .rejects.toMatchObject({ code: 'nickname_linked_elsewhere' });
+    const telegramStart = await beginVerifiedPlayerOnboarding(db, { platform: 'telegram', externalUserId: '406' }, '/player');
+    if (telegramStart.status !== 'onboarding') throw new Error('expected onboarding');
+    await expect(requestExistingPlayerOnboardingLink(db, telegramStart.token, 'Чагин')).rejects.toMatchObject({ code: 'nickname_linked_elsewhere' });
+    expect(await db.all<any>('SELECT * FROM player_onboarding_link_requests')).toHaveLength(0);
   });
 });

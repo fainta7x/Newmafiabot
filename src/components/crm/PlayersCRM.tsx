@@ -42,6 +42,7 @@ import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
+import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -590,6 +591,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <StaffWorkStats stats={(playerDetails as any).staff_stats} variant="crm" testId="crm-player-staff-stats" />
             <PlayerLearningBlock playerId={String((playerDetails as any).id)} />
+            <PlayerAccountLinks playerId={String((playerDetails as any).id)} />
 
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">
               <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><History className="h-4 w-4 text-accent" /> История <span className="ml-auto text-[11px] font-medium text-text-muted">{unifiedTimeline.length}</span><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>

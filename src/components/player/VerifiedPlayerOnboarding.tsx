@@ -13,6 +13,19 @@ type Flow = 'choice' | 'new' | 'existing' | 'pending';
 
 const channelLabel = (platform?: 'telegram' | 'vk') => platform === 'vk' ? 'VK' : 'Telegram';
 
+// «Ссылка для привязки» (owner, 2026-09-30): /player?claim=<code> from the organizer.
+const CLAIM_STORAGE_KEY = 'player_claim_code';
+const readClaimCode = () => {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('claim');
+    if (fromUrl) { window.sessionStorage.setItem(CLAIM_STORAGE_KEY, fromUrl); return fromUrl; }
+    return window.sessionStorage.getItem(CLAIM_STORAGE_KEY);
+  } catch {
+    return new URLSearchParams(window.location.search).get('claim');
+  }
+};
+const forgetClaimCode = () => { try { window.sessionStorage.removeItem(CLAIM_STORAGE_KEY); } catch { /* storage may be off */ } };
+
 export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { canOpenAdmin?: boolean }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [flow, setFlow] = useState<Flow>('choice');
@@ -20,6 +33,42 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingText, setPendingText] = useState('');
+  const [claimCode] = useState(() => readClaimCode());
+  const [claim, setClaim] = useState<{ nickname?: string; error?: string } | null>(null);
+  const [claimDeclined, setClaimDeclined] = useState(false);
+
+  useEffect(() => {
+    if (!claimCode) return;
+    let active = true;
+    void fetch(`/api/auth/claim/${encodeURIComponent(claimCode)}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (active) setClaim(response.ok ? { nickname: String(body.nickname || '') } : { error: String(body.error || 'Ссылка недоступна') });
+      })
+      .catch(() => { if (active) setClaim({ error: 'Не удалось проверить ссылку' }); });
+    return () => { active = false; };
+  }, [claimCode]);
+
+  const acceptClaim = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/auth/onboarding/claim', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: claimCode }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось привязать профиль');
+      forgetClaimCode();
+      const next = new URL(String(body?.return_to || '/player'), window.location.origin);
+      next.searchParams.delete('claim');
+      window.location.assign(`${next.pathname}${next.search}${next.hash}`);
+    } catch (claimError: any) {
+      setError(claimError?.message || 'Не удалось привязать профиль');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -85,7 +134,9 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
       <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
         <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
           <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
-          <h1 className="mt-3 text-2xl font-semibold">Войти в кабинет игрока</h1>
+          <h1 className="mt-3 text-2xl font-semibold">{claim?.nickname ? `Ваш профиль «${claim.nickname}»` : 'Войти в кабинет игрока'}</h1>
+          {claim?.nickname ? <p className="mt-2 rounded-2xl border border-emerald-200/15 bg-emerald-300/[0.06] px-3 py-3 text-sm leading-6 text-emerald-50/80" data-testid="claim-signin-hint">Организатор клуба приготовил для вас профиль. Войдите через VK кнопкой ниже — и он станет вашим. В Telegram просто откройте ссылку из сообщения организатора.</p> : null}
+          {claim?.error ? <p className="mt-2 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{claim.error}</p> : null}
           <p className="mt-2 text-sm leading-6 text-white/50">
             Сначала подтвердите аккаунт. Если вы уже связаны с игровым профилем, кабинет откроется сразу. Новый ник понадобится только при создании нового профиля.
           </p>
@@ -114,6 +165,26 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
 
   const platform = channelLabel(status.platform);
   const choosingNickname = flow === 'new' || flow === 'existing';
+
+  if (claim && !claimDeclined && flow === 'choice') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
+        <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5" data-testid="claim-onboarding">
+          <div className="text-xs uppercase tracking-[0.2em] text-emerald-200/50">{platform} подтверждён</div>
+          {claim.nickname ? <>
+            <h1 className="mt-3 text-2xl font-semibold">Это ваш профиль «{claim.nickname}»?</h1>
+            <p className="mt-2 text-sm leading-6 text-white/50">Организатор клуба приготовил его для вас: игры, визиты и жетоны уже там. Нажмите «Да» — и он будет связан с вашим {platform}.</p>
+            {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{error}</div>}
+            <button type="button" disabled={busy} onClick={() => void acceptClaim()} className="mt-5 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{busy ? 'Привязываем…' : 'Да, это я'}</button>
+          </> : <>
+            <h1 className="mt-3 text-2xl font-semibold">Ссылка не сработала</h1>
+            <p className="mt-2 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{claim.error}</p>
+          </>}
+          <button type="button" disabled={busy} onClick={() => { setClaimDeclined(true); forgetClaimCode(); }} className="mt-3 min-h-12 w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 text-sm font-semibold text-white">{claim.nickname ? 'Нет, это не мой профиль' : 'Продолжить без ссылки'}</button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">

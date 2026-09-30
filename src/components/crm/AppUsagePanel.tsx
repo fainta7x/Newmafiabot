@@ -1,32 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { MousePointerClick } from 'lucide-react';
 import { api, type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
+import { SCREEN_LABELS } from '../../lib/screenLabels.ts';
 
-const SCREEN_LABELS: Record<string, string> = {
-  '/player': 'Главная',
-  '/player/events': 'События',
-  '/player/events/:id': 'Карточка события',
-  '/player/games': 'Игры',
-  '/player/rating': 'Рейтинг · Elo',
-  '/player/rating/periods': 'Рейтинг · Сезон',
-  '/player/rating/tournaments': 'Рейтинг · Турниры',
-  '/player/club': 'Клуб',
-  '/player/profile': 'Профиль',
-  '/player/wallet': 'Жетоны',
-  '/player/payments': 'Оплаты',
-  '/player/conduct': 'Ведение игры',
-  '/player/conduct/music': 'Музыка ведущего',
-  '/admin': 'Сегодня',
-  '/admin/evenings': 'События',
-  '/admin/evenings/:id': 'Вечер · Анонс',
-  '/admin/evenings/:id/participants': 'Вечер · Ответы',
-  '/admin/evenings/:id/management': 'Вечер · Вечер',
-  '/admin/evenings/:id/games': 'Вечер · Игры',
-  '/admin/players': 'Игроки',
-  '/admin/more': 'Ещё',
-  '/admin/tasks': 'Дела',
-  '/admin/analytics': 'Аналитика',
-};
+// Screen names are shared with «Сейчас в приложении» (src/lib/screenLabels.ts).
+
 
 const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы', public: 'Публичные' } as const;
 

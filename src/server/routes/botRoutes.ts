@@ -6,6 +6,8 @@ import { setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotificationService.ts';
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
+import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
+import { requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
@@ -53,6 +55,30 @@ router.post('/players/register', async (req, res) => {
       return res.status(error.status).json({ error: error.message, code: error.code });
     }
     return res.status(500).json({ error: error?.message || 'Не удалось зарегистрировать игрока' });
+  }
+});
+
+// «Ссылка для привязки» opened in Telegram: /start claim_<code> links this Telegram to the organizer's profile.
+router.post('/players/claim', async (req, res) => {
+  try {
+    const result = await redeemPlayerClaimLink(req.db, {
+      code: req.body?.code, platform: 'telegram', externalUserId: String(req.body?.telegram_user_id ?? '').trim(),
+    });
+    return res.json({ success: true, player: { id: result.playerId, nickname: result.nickname } });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ success: false, error: error?.message || 'Не удалось привязать профиль', code: error?.code || 'claim_failed' });
+  }
+});
+
+// «Это мой профиль» after a taken nickname: an organizer request, like «Я уже играл в клубе» in the app.
+router.post('/players/link-request', async (req, res) => {
+  try {
+    const result = await requestTelegramProfileLinkByNickname(req.db, {
+      telegramUserId: req.body?.telegram_user_id, nickname: req.body?.nickname,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ success: false, error: error?.message || 'Не удалось отправить запрос', code: error?.code || 'link_request_failed' });
   }
 });
 

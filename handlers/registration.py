@@ -2,12 +2,18 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 import bot_menu
 import config
 import database
-from bot_profile_link_api import get_canonical_profile, link_legacy_profile, register_canonical_profile
+from bot_profile_link_api import (
+    claim_profile_by_link,
+    get_canonical_profile,
+    link_legacy_profile,
+    register_canonical_profile,
+    request_profile_link,
+)
 from bot_telegram_api import get_telegram_destinations
 from handlers.booking import build_stats_text, get_next_friday
 
@@ -220,6 +226,30 @@ async def start_with_registration(message: Message, command: CommandObject, stat
     # only for one-time recovery of an existing historical nickname.
     args = (command.args or "").strip()
     canonical = await get_canonical_profile(message.from_user.id)
+
+    # «Ссылка для привязки» from the organizer (owner, 2026-09-30): link this Telegram to that profile at once.
+    if args.startswith(CLAIM_START_PREFIX):
+        await state.clear()
+        if canonical.get("success"):
+            player = (canonical.get("data") or {}).get("player") or {}
+            await message.answer(
+                f"Твой Telegram уже привязан к профилю «{player.get('nickname') or 'игрок'}». "
+                "Если это ошибка — напиши организатору."
+            )
+            await _send_normal_start(message, args_override="")
+            return
+        claimed = await claim_profile_by_link(message.from_user.id, args[len(CLAIM_START_PREFIX):])
+        if claimed.get("success"):
+            player = (claimed.get("data") or {}).get("player") or {}
+            await message.answer(f"✅ Готово! Профиль «{player.get('nickname') or 'игрок'}» привязан к твоему Telegram.")
+            await _send_normal_start(message, args_override="")
+            return
+        await message.answer(
+            f"⚠️ {claimed.get('message') or 'Не получилось привязать профиль по этой ссылке.'}\n"
+            "Попроси у организатора новую ссылку."
+        )
+        return
+
     if canonical.get("success"):
         await state.clear()
         await _send_normal_start(message, command)
@@ -298,10 +328,15 @@ async def finish_registration(message: Message, state: FSMContext):
 
     error = result.get("error")
     if error == "nickname_taken":
-        await state.clear()
+        # Keep the nickname: «Это мой профиль» sends it to the organizer as a link request.
+        await state.set_state(None)
+        await state.update_data(taken_nickname=nickname)
         await message.answer(
-            "Игрок с таким ником уже есть в клубе. Новый профиль я не создаю, чтобы не сделать дубль. "
-            "Если это твой старый профиль — напиши организатору, он привяжет его к Telegram."
+            f"В клубе уже есть игрок «{nickname}». Это твой профиль?",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Да, это я", callback_data="profile_claim:yes")],
+                [InlineKeyboardButton(text="Нет, выберу другой ник", callback_data="profile_claim:no")],
+            ]),
         )
         return
     if error in {"nickname_required", "nickname_too_long", "nickname_invalid", "invalid"}:
@@ -310,3 +345,39 @@ async def finish_registration(message: Message, state: FSMContext):
         return
 
     await message.answer("Не удалось завершить регистрацию. Попробуй отправить ник ещё раз через минуту.")
+
+
+CLAIM_START_PREFIX = "claim_"
+
+
+@router.callback_query(F.data.in_({"profile_claim:yes", "profile_claim:no"}))
+async def answer_taken_nickname(callback: CallbackQuery, state: FSMContext):
+    """The nickname is taken: link request to the organizer, or pick another nickname."""
+    if not callback.from_user or not callback.message:
+        return
+    await callback.answer()
+    if callback.data == "profile_claim:no":
+        await state.set_state(RegistrationForm.waiting_for_nickname)
+        await callback.message.answer("Хорошо. Пришли другой игровой ник одним сообщением.")
+        return
+    data = await state.get_data()
+    nickname = str(data.get("taken_nickname") or "").strip()
+    if not nickname:
+        await state.set_state(RegistrationForm.waiting_for_nickname)
+        await callback.message.answer("Пришли свой игровой ник ещё раз одним сообщением.")
+        return
+    result = await request_profile_link(callback.from_user.id, nickname)
+    await state.clear()
+    if result.get("success"):
+        payload = result.get("data") or {}
+        if payload.get("status") == "linked":
+            await callback.message.answer("✅ Твой Telegram уже привязан к профилю. Открой /start.")
+            return
+        await callback.message.answer(
+            f"📨 Отправил организатору запрос: привязать профиль «{payload.get('nickname') or nickname}» к твоему Telegram. "
+            "Как только он подтвердит, профиль откроется здесь и в приложении."
+        )
+        return
+    await callback.message.answer(
+        f"⚠️ {result.get('message') or 'Не получилось отправить запрос.'} Напиши организатору — он привяжет профиль сам."
+    )

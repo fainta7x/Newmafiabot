@@ -71,6 +71,51 @@ export async function listPendingPlayerOnboardingLinks(db: DatabaseWrapper): Pro
   }));
 }
 
+/**
+ * Links a verified Telegram or VK account to a game profile. Refuses when the account belongs to another
+ * profile or the profile already has a different account. Shared by organizer approval and claim links.
+ */
+export async function attachExternalIdentity(tx: DatabaseWrapper, input: {
+  platform: OrganizerOnboardingPlatform; externalUserId: string; playerId: string; telegramUserIdOnPlayer: string | null; now: string;
+}) {
+  const { platform, externalUserId, playerId, telegramUserIdOnPlayer, now } = input;
+  if (platform === 'telegram') {
+    const owner = await tx.get<{ id: string }>('SELECT id FROM players WHERE telegram_user_id=? LIMIT 1', [externalUserId]);
+    if (owner?.id && String(owner.id) !== playerId) {
+      throw organizerOnboardingError('telegram_identity_conflict', 'Этот Telegram уже связан с другим игровым профилем', 409);
+    }
+    if (telegramUserIdOnPlayer && String(telegramUserIdOnPlayer) !== externalUserId) {
+      throw organizerOnboardingError('target_telegram_conflict', 'Выбранный игровой профиль уже связан с другим Telegram', 409);
+    }
+    if (!telegramUserIdOnPlayer) {
+      await tx.run('UPDATE players SET telegram_user_id=?, updated_at=? WHERE id=? AND telegram_user_id IS NULL', [externalUserId, now, playerId]);
+    }
+  } else {
+    await ensureVkIntegrationSchema(tx);
+    const owner = await tx.get<{ player_id: string }>(`
+      SELECT player_id FROM player_external_identities
+       WHERE platform='vk' AND external_user_id=? LIMIT 1
+    `, [externalUserId]);
+    if (owner?.player_id && String(owner.player_id) !== playerId) {
+      throw organizerOnboardingError('vk_identity_conflict', 'Этот VK уже связан с другим игровым профилем', 409);
+    }
+    const targetVk = await tx.get<{ external_user_id: string }>(`
+      SELECT external_user_id FROM player_external_identities
+       WHERE platform='vk' AND player_id=? LIMIT 1
+    `, [playerId]);
+    if (targetVk?.external_user_id && String(targetVk.external_user_id) !== externalUserId) {
+      throw organizerOnboardingError('target_vk_conflict', 'Выбранный игровой профиль уже связан с другим VK', 409);
+    }
+    if (!owner?.player_id) {
+      await tx.run(`
+        INSERT INTO player_external_identities (
+          platform, external_user_id, player_id, screen_name, display_name, linked_at, updated_at
+        ) VALUES ('vk', ?, ?, NULL, NULL, ?, ?)
+      `, [externalUserId, playerId, now, now]);
+    }
+  }
+}
+
 export async function resolvePendingPlayerOnboardingLink(
   db: DatabaseWrapper,
   requestIdInput: unknown,
@@ -115,41 +160,7 @@ export async function resolvePendingPlayerOnboardingLink(
     );
     if (!target) throw organizerOnboardingError('link_target_missing', 'Игровой профиль больше не существует', 409);
 
-    if (platform === 'telegram') {
-      const owner = await tx.get<{ id: string }>('SELECT id FROM players WHERE telegram_user_id=? LIMIT 1', [externalUserId]);
-      if (owner?.id && String(owner.id) !== targetPlayerId) {
-        throw organizerOnboardingError('telegram_identity_conflict', 'Этот Telegram уже связан с другим игровым профилем', 409);
-      }
-      if (target.telegram_user_id && String(target.telegram_user_id) !== externalUserId) {
-        throw organizerOnboardingError('target_telegram_conflict', 'Выбранный игровой профиль уже связан с другим Telegram', 409);
-      }
-      if (!target.telegram_user_id) {
-        await tx.run('UPDATE players SET telegram_user_id=?, updated_at=? WHERE id=? AND telegram_user_id IS NULL', [externalUserId, now, targetPlayerId]);
-      }
-    } else {
-      await ensureVkIntegrationSchema(tx);
-      const owner = await tx.get<{ player_id: string }>(`
-        SELECT player_id FROM player_external_identities
-         WHERE platform='vk' AND external_user_id=? LIMIT 1
-      `, [externalUserId]);
-      if (owner?.player_id && String(owner.player_id) !== targetPlayerId) {
-        throw organizerOnboardingError('vk_identity_conflict', 'Этот VK уже связан с другим игровым профилем', 409);
-      }
-      const targetVk = await tx.get<{ external_user_id: string }>(`
-        SELECT external_user_id FROM player_external_identities
-         WHERE platform='vk' AND player_id=? LIMIT 1
-      `, [targetPlayerId]);
-      if (targetVk?.external_user_id && String(targetVk.external_user_id) !== externalUserId) {
-        throw organizerOnboardingError('target_vk_conflict', 'Выбранный игровой профиль уже связан с другим VK', 409);
-      }
-      if (!owner?.player_id) {
-        await tx.run(`
-          INSERT INTO player_external_identities (
-            platform, external_user_id, player_id, screen_name, display_name, linked_at, updated_at
-          ) VALUES ('vk', ?, ?, NULL, NULL, ?, ?)
-        `, [externalUserId, targetPlayerId, now, now]);
-      }
-    }
+    await attachExternalIdentity(tx, { platform, externalUserId, playerId: targetPlayerId, telegramUserIdOnPlayer: target.telegram_user_id, now });
 
     await tx.run(`
       UPDATE player_onboarding_link_requests

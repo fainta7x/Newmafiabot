@@ -10,6 +10,9 @@ import { getDb } from '../../db/index.ts';
 import { getAuthenticatedOrganizerActorId, isClubOwner, requireClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { setOrganizerPlayerAccess } from '../services/organizerPlayerAccessService.ts';
 import { updatePlayerSchema } from '../validation.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
+import { createPlayerClaimLink, ensurePlayerClaimLinkSchema } from '../services/playerClaimLinkService.ts';
+import { linkPlayerVkByProfileLink, loadPlayerVkIdentity } from '../services/vkProfileLinkService.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -319,6 +322,51 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     return res.json({ success: true, updated, ...(warnings.length ? { warnings: Array.from(new Set(warnings)) } : {}) });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
+  }
+});
+
+// Account links of a profile the organizer made (owner, 2026-09-30): which Telegram/VK is linked,
+// and a live personal claim link, if any.
+router.get('/:id/account-links', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    const player = await db.get<any>('SELECT id, telegram_user_id, telegram_username FROM players WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    await ensurePlayerClaimLinkSchema(db);
+    const claim = await db.get<any>(
+      'SELECT expires_at FROM player_claim_links WHERE player_id = ? AND used_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1',
+      [player.id, new Date().toISOString()],
+    );
+    return res.json({
+      telegram: { linked: Boolean(player.telegram_user_id), username: player.telegram_username || null },
+      vk: await loadPlayerVkIdentity(db, String(player.id)),
+      claim_link: claim ? { expires_at: claim.expires_at } : null,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить привязки' });
+  }
+});
+
+// «Ссылка для привязки»: a one-time personal link; a new one replaces the previous one.
+router.post('/:id/claim-link', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const db = req.db || (await getDb());
+    const link = await createPlayerClaimLink(db, {
+      playerId: String(req.params.id), actorId: getAuthenticatedOrganizerActorId(req), baseUrl: getPublicAppBaseUrl(),
+    });
+    return res.status(201).json(link);
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось создать ссылку' });
+  }
+});
+
+// Поле «VK»: link the profile to a VK page the organizer pasted.
+router.post('/:id/vk-link', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    return res.json(await linkPlayerVkByProfileLink(db, { playerId: String(req.params.id), vk: req.body?.vk }));
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось привязать VK' });
   }
 });
 

@@ -134,3 +134,39 @@ async def link_legacy_profile(
     except Exception:
         logger.exception("[Backend API] Failed to link legacy player profile")
         return {"success": False, "error": "unavailable"}
+
+
+async def _post_profile_api(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}{path}"
+    try:
+        timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_headers(), json=payload) as response:
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if response.status == 200 and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data, "status": response.status}
+                message = data.get("error") if isinstance(data, dict) else None
+                code = data.get("code") if isinstance(data, dict) else None
+                return {"success": False, "error": code or "unavailable", "message": message, "status": response.status}
+    except asyncio.TimeoutError:
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError:
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Profile link request failed: %s", path)
+        return {"success": False, "error": "unavailable"}
+
+
+async def claim_profile_by_link(telegram_user_id: int, code: str) -> dict[str, Any]:
+    """«Ссылка для привязки» from the organizer: /start claim_<code>."""
+    return await _post_profile_api("/api/bot/players/claim", {"telegram_user_id": int(telegram_user_id), "code": code})
+
+
+async def request_profile_link(telegram_user_id: int, nickname: str) -> dict[str, Any]:
+    """«Это мой профиль» after a taken nickname: an organizer request."""
+    return await _post_profile_api("/api/bot/players/link-request", {"telegram_user_id": int(telegram_user_id), "nickname": nickname})

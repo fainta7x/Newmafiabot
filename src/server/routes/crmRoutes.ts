@@ -12,6 +12,7 @@ import {
   resolvePendingPlayerOnboardingLink,
 } from '../services/playerOnboardingOrganizerService.ts';
 import { dismissClubOrderItem, loadClubOrder } from '../services/clubOrderService.ts';
+import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
 
 const router = Router();
 
@@ -96,6 +97,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
       expectedToPayAmount = unpaidNow.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
       expectedToPayCount = unpaidNow.length;
     }
+    await closeTasksOfEndedEvenings(db);
     const activeTasks = await db.all<any>(`SELECT t.*,p.nickname AS player_nickname,p.telegram_username,p.phone FROM organizer_tasks t LEFT JOIN players p ON p.id=t.player_id WHERE t.status NOT IN ('done','cancelled') AND (t.automation_key IS NULL OR (t.automation_key NOT LIKE 'clarify-participation:%' AND t.automation_key NOT LIKE 'invite-followup:%' AND t.automation_key NOT LIKE 'reminder-confirmed:%' AND t.automation_key NOT LIKE 'reinvite-second-visit:%')) ORDER BY t.due_at ASC,t.created_at DESC`);
     const today = getMoscowDateStr(nowIso)!; const overdueTasks: any[] = []; const todayTasks: any[] = []; const noDeadlineTasks: any[] = [];
     for (const task of activeTasks) { const day = getMoscowDateStr(task.due_at); if (!day) noDeadlineTasks.push(task); else if (day < today) overdueTasks.push(task); else if (day === today) todayTasks.push(task); }

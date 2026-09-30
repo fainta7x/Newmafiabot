@@ -71,6 +71,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   const [timeView, setTimeView] = useState<TimeView>('current');
   const [showCalendar, setShowCalendar] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showCancelled, setShowCancelled] = useState(false);
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const tournamentScroll = useRef(0);
@@ -108,7 +109,9 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
       currentAttention: currentCandidates.filter((evening) => !highlightedIds.has(evening.id)),
       future: upcoming.filter((evening) => !highlightedIds.has(evening.id)),
       staleAttention: staleDrafts.filter((evening) => !highlightedIds.has(evening.id)),
-      history: filteredEvenings.filter(isClosed).sort((a, b) => startTimestamp(b) - startTimestamp(a)),
+      history: filteredEvenings.filter((evening) => isClosed(evening) && evening.status !== 'cancelled').sort((a, b) => startTimestamp(b) - startTimestamp(a)),
+      // Cancelled evenings (incl. the repeated copies of 2026-09-25) stay out of the way, one tap away.
+      cancelled: filteredEvenings.filter((evening) => evening.status === 'cancelled').sort((a, b) => startTimestamp(b) - startTimestamp(a)),
     };
   }, [filteredEvenings]);
 
@@ -194,7 +197,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
       </div> : null}
 
       {timeView === 'future' ? <section data-testid="crm-events-future" className="space-y-3"><div className="flex items-center justify-between gap-3 px-0.5"><div><h3 className="text-[14px] font-semibold text-white">Будущие вечера</h3><p className="mt-0.5 text-[12px] text-white/40">По времени, без завершённых событий</p></div><button type="button" disabled={quickBusy} onClick={() => void createFriday()} className="min-h-11 shrink-0 rounded-[11px] border border-emerald-200/10 bg-emerald-300/[0.07] px-3 text-[13px] font-semibold text-emerald-100 disabled:opacity-50">{quickBusy ? 'Создаём…' : '+ След. пятница'}</button></div>{clusters.future.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.future.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">После актуального вечера планов пока нет.</div>}</section> : null}
-      {timeView === 'history' ? <section data-testid="crm-events-history" className="space-y-3"><div className="px-0.5"><h3 className="text-[14px] font-semibold text-white">История</h3><p className="mt-0.5 text-[12px] text-white/40">Завершённые и отменённые события отдельно от текущей работы</p></div>{clusters.history.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.history.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} history />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">История пока пустая.</div>}</section> : null}
+      {timeView === 'history' ? <section data-testid="crm-events-history" className="space-y-3"><div className="px-0.5"><h3 className="text-[14px] font-semibold text-white">История</h3><p className="mt-0.5 text-[12px] text-white/40">Завершённые события; отменённые — отдельным списком ниже</p></div>{clusters.history.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.history.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} history />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">История пока пустая.</div>}{clusters.cancelled.length ? <><button type="button" data-testid="crm-events-cancelled-toggle" onClick={() => setShowCancelled((value) => !value)} className="flex min-h-11 w-full items-center justify-between rounded-[14px] border border-white/[0.08] bg-white/[0.03] px-3.5 text-left text-[13px] font-semibold text-white/60"><span>Отменённые · {clusters.cancelled.length}</span><span className="text-[12px] text-white/40">{showCancelled ? 'Скрыть' : 'Показать'}</span></button>{showCancelled ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.cancelled.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} history />)}</div> : null}</> : null}</section> : null}
       {eveningsFooter}
     </>}
 

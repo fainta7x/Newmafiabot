@@ -9,6 +9,7 @@ import TestEnvironmentGate from "./components/TestEnvironmentGate.tsx";
 import { initializeCrmPrimaryTitleOwnership } from "./lib/crmPrimaryTitleOwnership.ts";
 import { initializeTelegramWebAppViewport } from "./lib/telegramWebAppViewport.ts";
 import { installUiTelemetry } from "./lib/uiTelemetry.ts";
+import { installPresence } from "./lib/presence.ts";
 import "./index.css";
 import "./styles/design-system.css";
 import "./styles/telegram-viewport.css";
@@ -27,6 +28,7 @@ import "./components/public/liveBroadcastCompact.css";
 initializeTelegramWebAppViewport();
 initializeCrmPrimaryTitleOwnership();
 installUiTelemetry();
+installPresence();
 
 // While the server restarts, the service worker shows «Приложение перезапускается» instead of a bare 503.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

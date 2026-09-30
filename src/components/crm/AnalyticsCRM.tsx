@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign, Se
 import { api, type AnalyticsData } from '../../lib/api.ts';
 import { AppUsagePanel } from './AppUsagePanel.tsx';
 import { StaffReportPanel } from './StaffReportPanel.tsx';
+import { OnlineNowPanel } from './OnlineNowPanel.tsx';
 
 type AnalyticsViewData = AnalyticsData & {
   playerJourney?: {
@@ -60,6 +61,7 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
+      <OnlineNowPanel />
       <section className={`${card} flex flex-col gap-4 md:flex-row md:items-center md:justify-between`}>
         <div>
           <h2 className="text-[20px] font-black tracking-tight text-text-primary">Аналитика клуба</h2>

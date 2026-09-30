@@ -3,9 +3,10 @@ import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
   ClipboardList, Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
-import { api, type CrmOverview } from '../../lib/api.ts';
+import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import ClubOrderPanel from './ClubOrderPanel.tsx';
+import WeekEventsPanel from './WeekEventsPanel.tsx';
 
 type OpsPlayer = {
   participant_id: string;
@@ -78,6 +79,9 @@ interface Props {
   onCompleteTask?: (taskId: string) => void | Promise<void>;
   onRefresh?: () => void | Promise<void>;
   showTitle?: boolean;
+  /** For «На этой неделе»: all loaded evenings and how to open a tournament. */
+  evenings?: GameEvening[];
+  onOpenTournament?: (id: string) => void;
 }
 
 const formatDateTime = (value: string | null) => {
@@ -108,6 +112,8 @@ export default function OrganizerCommandCenter({
   onNavigateTab,
   onRefresh,
   showTitle = true,
+  evenings,
+  onOpenTournament,
 }: Props) {
   const requestGenerationRef = useRef(0);
   const requestAbortRef = useRef<AbortController | null>(null);
@@ -375,6 +381,8 @@ export default function OrganizerCommandCenter({
         </div>
       </section> : null}
     </>}
+
+    {evenings && onOpenTournament ? <WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /> : null}
 
     {overview?.summary ? (() => {
       const overdue = Number(overview.summary.overdueTasksCount || 0);

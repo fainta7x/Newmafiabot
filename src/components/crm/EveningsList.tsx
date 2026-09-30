@@ -14,6 +14,9 @@ type Props = {
   onCreateEvening: (data: Partial<GameEvening>) => Promise<void>;
   initialCreateOpen?: boolean;
   onInitialCreateHandled?: () => void;
+  /** Open this tournament at once (from «На этой неделе» on «Сегодня»). */
+  initialTournamentId?: string | null;
+  onInitialTournamentHandled?: () => void;
   /** Shown only under the evenings tab (not under tournaments): the «Свои ивенты — не мафия» block. */
   eveningsFooter?: React.ReactNode;
 };
@@ -66,7 +69,7 @@ const EventRow = ({ evening, onOpenEvening, history = false }: { evening: GameEv
   );
 };
 
-export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initialCreateOpen = false, onInitialCreateHandled, eveningsFooter }) => {
+export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initialCreateOpen = false, onInitialCreateHandled, initialTournamentId = null, onInitialTournamentHandled, eveningsFooter }) => {
   const [tab, setTab] = useState<'evenings' | 'tournaments'>('evenings');
   const [timeView, setTimeView] = useState<TimeView>('current');
   const [showCalendar, setShowCalendar] = useState(false);
@@ -121,6 +124,11 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
 
   const reset = () => { setTitle(''); setStartsAt(''); setFormat('CASUAL'); setSlotCount(6); setDuration(60); setPrice(100); setVenue('Суп с Котом'); setNotes(''); setError(''); };
   const showCreate = () => { reset(); setOpen(true); };
+
+  useEffect(() => {
+    if (!initialTournamentId) return;
+    openTournament(initialTournamentId); onInitialTournamentHandled?.();
+  }, [initialTournamentId]);
 
   useEffect(() => {
     if (!initialCreateOpen) return;

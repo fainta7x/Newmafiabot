@@ -67,8 +67,10 @@ describe('«Дела»', () => {
     expect(seated.attendance_count).toBe(1);
     expect(seated.days_since_last_visit).toBe(20);
     expect(list.body.find((row: any) => row.id === 'never').attendance_count).toBe(0);
+    await db.run("UPDATE players SET lifecycle_status = 'archived' WHERE id = 'by-participant'");
     const agenda = await loadAgenda(db);
-    expect(agenda.checked?.players_with_visits).toBe(2);
+    // Archived players are not checked, so their visits are not counted either.
+    expect(agenda.checked?.players_with_visits).toBe(1);
     expect(agenda.errors).toEqual([]);
   });
 

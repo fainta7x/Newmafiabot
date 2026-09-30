@@ -330,8 +330,10 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
 /** What the list was built from, shown under an empty list so «нет дел» can be trusted or questioned. */
 async function agendaCoverage(db: DatabaseWrapper) {
   const visits = await db.get<any>(`
-    SELECT COUNT(DISTINCT player_id) AS players, MAX(starts_at) AS last_visit, COUNT(*) AS marks
-      FROM (${PLAYER_VISITS_SQL})`);
+    SELECT COUNT(DISTINCT v.player_id) AS players, MAX(v.starts_at) AS last_visit, COUNT(*) AS marks
+      FROM (${PLAYER_VISITS_SQL}) v
+      JOIN players p ON CAST(p.id AS TEXT) = v.player_id
+     WHERE ${MEMBER_SQL}`);
   const members = await db.get<any>(`SELECT COUNT(*) AS count FROM players p WHERE ${MEMBER_SQL}`);
   const openTasks = await db.get<any>("SELECT COUNT(*) AS count FROM organizer_tasks WHERE status NOT IN ('done', 'cancelled')");
   return {

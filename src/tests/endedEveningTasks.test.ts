@@ -46,8 +46,10 @@ describe('tasks of evenings that no longer happen', () => {
   });
 
   it('a cancelled evening does not keep or get back its closeout task', async () => {
-    const { db, evening } = await setup();
-    await evening('e1', 'published');
+    const { db } = await setup();
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('e1','Вечер e1',?,'Europe/Moscow','CASUAL','published',20,100,?,?)`, [new Date(Date.now() - 3_600_000).toISOString(), stamp, stamp]);
     await ensureEveningCloseoutTask(db, 'e1');
     await db.run("UPDATE game_evenings SET status = 'cancelled' WHERE id = 'e1'");
     await ensureEveningCloseoutTask(db, 'e1');
@@ -64,5 +66,26 @@ describe('tasks of evenings that no longer happen', () => {
     const response = await request(app).get('/api/tasks?active=true').set('Authorization', `Bearer ${generateOrganizerToken()}`);
     expect(response.status).toBe(200);
     expect(response.body.map((item: any) => item.id)).toEqual(['live-close']);
+  });
+
+  it('«Закрыть вечер» appears only once the evening has started', async () => {
+    const { db } = await setup();
+    const stamp = new Date().toISOString();
+    const at = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
+    const evening = (id: string, startsAt: string) => db.run(
+      `INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+       VALUES (?,?,?,'Europe/Moscow','CASUAL','published',20,100,?,?)`, [id, `Вечер ${id}`, startsAt, stamp, stamp]);
+    await evening('future', at(24 * 20));
+    await evening('past', at(-3));
+    // A task left from before: a far-away Friday with an open «Закрыть вечер».
+    await db.run(`INSERT INTO organizer_tasks (id,title,type,status,priority,automation_key,evening_id,created_at,updated_at)
+      VALUES ('old','Закрыть вечер · Вечер future','reminder','todo','high','evening-close:future','future',?,?)`, [stamp, stamp]);
+    expect(await ensureEveningCloseoutTask(db, 'future')).toBeNull();
+
+    await closeTasksOfEndedEvenings(db);
+
+    const status = async (key: string) => (await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key = ?', [key]))?.status;
+    expect(await status('evening-close:future')).toBe('cancelled');
+    expect(await status('evening-close:past')).toBe('todo');
   });
 });

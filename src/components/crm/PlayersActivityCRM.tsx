@@ -96,7 +96,8 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   }, [players]);
 
   const filteredPlayers = useMemo(() => players.filter((player) => {
-    if (activeQuickFilter !== 'all' && (!isClubPlayer(player) || getPlayerStatusSegment(player) !== activeQuickFilter)) return false;
+    // A search looks through the whole base, whatever tab is open.
+    if (!debouncedSearch && activeQuickFilter !== 'all' && (!isClubPlayer(player) || getPlayerStatusSegment(player) !== activeQuickFilter)) return false;
     const completion = profileMap[player.id];
     if (!profileFilter) return true;
     if (!completion) return false;
@@ -105,11 +106,11 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
     if (profileFilter === 'missing_birthday') return completion.missing_fields.includes('birthday');
     if (profileFilter === 'missing_contact') return completion.missing_fields.includes('phone') && completion.missing_fields.includes('telegram');
     return true;
-  }), [activeQuickFilter, players, profileFilter, profileMap]);
+  }), [activeQuickFilter, debouncedSearch, players, profileFilter, profileMap]);
 
   const selectedCardPlayerId = selectedPlayerId || localPlayerId;
   const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
-  const segmentCaption = QUICK_FILTERS.find((item) => item.id === activeQuickFilter)?.caption || '';
+  const segmentCaption = debouncedSearch ? 'поиск по всей базе' : QUICK_FILTERS.find((item) => item.id === activeQuickFilter)?.caption || '';
 
   const handleCreatePlayer = async (event: React.FormEvent) => {
     event.preventDefault(); if (!newNickname.trim() || addSaving) return; setAddSaving(true); setAddError(null);
@@ -130,7 +131,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
       <div className="flex gap-2"><label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label><button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">{activeFilterCount}</span> : null}</button></div>
 
-      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item, index) => { const isActive = activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} aria-label={item.label} onClick={() => handleQuickFilterChange(item.id)} className={`${index < 3 ? 'col-span-2' : 'col-span-3'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}{loading ? null : <span className="ml-1 text-text-muted">{segmentCounts[item.id]}</span>}</button>; })}</div>
+      <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item, index) => { const isActive = !debouncedSearch && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} aria-label={item.label} onClick={() => handleQuickFilterChange(item.id)} className={`${index < 3 ? 'col-span-2' : 'col-span-3'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}{loading ? null : <span className="ml-1 text-text-muted">{segmentCounts[item.id]}</span>}</button>; })}</div>
       <p className="-mt-1 px-0.5 text-[11px] leading-4 text-text-muted">Вкладки — по статусам, которые вы ставите в «Ролях». Визит — отметка «пришёл» или место за столом в игре.</p>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}

@@ -54,4 +54,13 @@ describe('PlayersActivityCRM status tabs', () => {
     expect(screen.getByText('Склеенный')).toBeTruthy();
     expect(api.getPlayers).toHaveBeenCalledTimes(1);
   });
+
+  it('searches the whole base whatever tab is open', async () => {
+    render(<PlayersActivityCRM evenings={[]} onOpenEvening={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Постоянный')).toBeTruthy());
+    vi.mocked(api.getPlayers).mockResolvedValue([{ id: 'c', nickname: 'Ушедший', game_level: 'club', stopped_attending: 1, contact_status: 'normal' }] as any);
+    fireEvent.change(screen.getByPlaceholderText('Ник, имя, телефон или Telegram'), { target: { value: 'Уш' } });
+    await waitFor(() => expect(screen.getByText('Ушедший')).toBeTruthy());
+    expect(screen.getByText(/поиск по всей базе/)).toBeTruthy();
+  });
 });

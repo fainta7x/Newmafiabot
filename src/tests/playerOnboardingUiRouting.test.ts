@@ -5,7 +5,7 @@ const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), 
 describe('VK-ACCESS-004 shared onboarding UI routing', () => {
   it('moves new Telegram identities onto the shared verified onboarding flow', () => {
     const app = read('src/App.tsx'); const auth = read('src/server/routes/authRoutes.ts');
-    expect(app).toContain('VerifiedPlayerOnboarding'); expect(app).toContain("fetch('/api/auth/telegram'"); expect(app).toContain('return_to: currentPlayerReturnPath()'); expect(app).not.toContain("fetch('/api/auth/register'"); expect(auth).toContain('beginVerifiedPlayerOnboarding'); expect(auth).toContain("platform: 'telegram'"); expect(auth).toContain('setPlayerOnboardingCookie(res, onboarding.token)');
+    expect(app).toContain('VerifiedPlayerOnboarding'); expect(app).toContain("fetchOrRestarting('/api/auth/telegram'"); expect(app).toContain('return_to: currentPlayerReturnPath()'); expect(app).not.toContain("fetch('/api/auth/register'"); expect(auth).toContain('beginVerifiedPlayerOnboarding'); expect(auth).toContain("platform: 'telegram'"); expect(auth).toContain('setPlayerOnboardingCookie(res, onboarding.token)');
   });
   it('verifies VK before requesting any nickname', () => {
     const access = read('src/components/player/VkPlayerAccess.tsx'); const start = read('src/server/services/vkPlayerStartRouter.ts'); const callback = read('src/server/services/vkJoinRegistrationCallbackRouter.ts');

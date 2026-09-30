@@ -10,6 +10,8 @@ import CustomEventsPanel from './crm/CustomEventsPanel.tsx';
 import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
+import OrganizerAgenda from './crm/OrganizerAgenda.tsx';
+import { navigateEveningSection } from './crm/CRMOverview.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
 import {
@@ -233,7 +235,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     moveWindowScroll(0);
   };
 
+  // «Дела» shows the grouped list; «Свои задачи и выполненные» opens the old task list.
+  const [showTaskList, setShowTaskList] = useState(false);
   const openSecondaryTab = (tab: 'tasks' | 'analytics') => {
+    setShowTaskList(false);
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(null);
@@ -262,7 +267,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
           : activeTab === 'players'
             ? 'Игроки'
             : activeTab === 'tasks'
-              ? 'Все задачи'
+              ? 'Дела'
               : activeTab === 'analytics'
                 ? 'Аналитика'
                 : 'Ещё';
@@ -417,7 +422,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               />
             ) : null}
 
-            {activeTab === 'tasks' ? <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} /> : null}
+            {activeTab === 'tasks' ? (showTaskList ? <div className="space-y-3">
+              <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
+              <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
+            </div> : <OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} />) : null}
             {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
             {activeTab === 'more' ? (
               <MoreCRM

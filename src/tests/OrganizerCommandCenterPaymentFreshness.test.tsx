@@ -68,7 +68,9 @@ afterEach(() => {
 // The home screen also loads «Порядок в клубе»; these tests only look at the command-center payload.
 const clubOrder = { items: [], count: 0, categories: {} };
 const withClubOrder = (handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) =>
-  vi.fn((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('/api/crm/club-order') ? jsonResponse(clubOrder) : handler(input, init)));
+  vi.fn((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('/api/crm/club-order') ? jsonResponse(clubOrder)
+    : String(input).includes('/api/crm/agenda') ? jsonResponse({ items: [], counts: { now: 0, week: 0, later: 0 }, total: 0, snoozed: 0, groups: { now: 'Сейчас', week: 'На этой неделе', later: 'Когда будет время' } })
+      : handler(input, init)));
 
 describe('OrganizerCommandCenter payment freshness', () => {
   it('uses no-store and lets only the latest parallel response update CRM payments', async () => {

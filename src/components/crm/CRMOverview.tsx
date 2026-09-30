@@ -16,7 +16,7 @@ interface CRMOverviewProps {
   onOpenTournament?: (id: string) => void;
 }
 
-const navigateEveningSection = (eveningId: string, section: EveningSection) => {
+export const navigateEveningSection = (eveningId: string, section: EveningSection) => {
   const base = `/admin/evenings/${encodeURIComponent(eveningId)}`;
   const path = section === 'overview' ? base : `${base}/${section}`;
   if (typeof window === 'undefined') return;

@@ -156,6 +156,7 @@ When music behaves incorrectly, trace `library/pool selection -> controller stat
 - Routing/path model: `src/components/crm/organizerRouting.ts`; coverage: `src/tests/organizerRouting.test.ts`.
 - Auth/session/overview/evening/player refresh: `src/components/crm/useOrganizerCrmSession.ts`.
 - UI: `CRMOverview.tsx`, `EveningsList.tsx`, `EveningWorkspace.tsx`, `PlayersCRM.tsx`, `TasksCRM.tsx`, `AnalyticsCRM.tsx`, `MoreCRM.tsx`.
+- «Дела» (organizer to-do, replaces «Задачи» + «Порядок в клубе» on screen): `organizerAgendaService.ts` (uses `clubOrderService.ts` checks and open `organizer_tasks`), UI `OrganizerAgenda.tsx`.
 - API: `crmRoutes.ts`, `tasksRoutes.ts`, `analyticsRoutes.ts`, `adminDataRoutes.ts`.
 - «Порядок в клубе» on the home screen (evenings, statuses, profiles, games and money that need the organizer): service `src/server/services/clubOrderService.ts`, API `GET /api/crm/club-order` in `crmRoutes.ts`, UI `ClubOrderPanel.tsx` inside `OrganizerCommandCenter.tsx`; coverage `src/tests/clubOrder.integration.test.ts`.
 - Anonymous app-usage tracking (screens opened, buttons pressed; no player ids or text): client `src/lib/uiTelemetry.ts` (installed in `main.tsx`; actions come only from `data-track`/`data-testid`), API `uiUsageRoutes.ts` (`POST /api/ui-events`, `GET /api/ui-events/summary`), storage `uiUsageService.ts` (`ui_usage_events`, 180-day retention), CRM view `AppUsagePanel.tsx` in Аналитика.

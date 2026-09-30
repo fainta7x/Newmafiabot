@@ -13,6 +13,7 @@ import {
 } from '../services/playerOnboardingOrganizerService.ts';
 import { dismissClubOrderItem, loadClubOrder } from '../services/clubOrderService.ts';
 import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
+import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
 
 const router = Router();
 
@@ -43,6 +44,35 @@ router.post('/club-order/dismiss', requireOrganizerAuth, async (req: Authenticat
     return res.json({ ok: true });
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось скрыть пункт' });
+  }
+});
+
+// «Дела»: one list of what needs the organizer (owner, 2026-09-30); replaces «Задачи» + «Порядок в клубе» on screen.
+router.get('/agenda', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader('Cache-Control', CRM_READ_CACHE_CONTROL);
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await loadAgenda(db));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать дела' });
+  }
+});
+
+router.post('/agenda/snooze', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await snoozeAgendaItem(db, req.body?.item_id, req.body?.days));
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отложить' });
+  }
+});
+
+router.post('/agenda/contacted', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    return res.json(await recordAgendaContact(db, { playerId: req.body?.player_id, reason: req.body?.reason }));
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось отметить' });
   }
 });
 

@@ -1,4 +1,4 @@
-import type { CrmOverview } from '../../lib/api.ts';
+import type { CrmOverview, GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import OrganizerCommandCenter from './OrganizerCommandCenter.tsx';
 import './crmOverviewCanonical.css';
@@ -12,6 +12,8 @@ interface CRMOverviewProps {
   onCreateEvening: () => void;
   onCompleteTask?: (taskId: string) => void | Promise<void>;
   onRefresh?: () => void | Promise<void>;
+  evenings?: GameEvening[];
+  onOpenTournament?: (id: string) => void;
 }
 
 const navigateEveningSection = (eveningId: string, section: EveningSection) => {
@@ -30,6 +32,8 @@ export const CRMOverview = ({
   onCreateEvening,
   onCompleteTask,
   onRefresh,
+  evenings,
+  onOpenTournament,
 }: CRMOverviewProps) => (
   <div className="crm-overview-canonical">
     <OrganizerCommandCenter
@@ -42,6 +46,8 @@ export const CRMOverview = ({
       onCreateEvening={onCreateEvening}
       onCompleteTask={onCompleteTask}
       onRefresh={onRefresh}
+      evenings={evenings}
+      onOpenTournament={onOpenTournament}
     />
   </div>
 );

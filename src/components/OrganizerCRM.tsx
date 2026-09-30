@@ -218,6 +218,21 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     if (opensNewRoot) moveWindowScroll(0);
   };
 
+  // «На этой неделе» on «Сегодня» opens a tournament inside «События».
+  const [tournamentIntent, setTournamentIntent] = useState<string | null>(null);
+  const openTournament = (id: string) => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
+    setActiveEveningId(null);
+    setActiveEveningSection('overview');
+    setEveningIntent(null);
+    setTournamentIntent(id);
+    setActiveTab('evenings');
+    setActiveMoreScreen(null);
+    navigateAdmin('/admin/evenings');
+    moveWindowScroll(0);
+  };
+
   const openSecondaryTab = (tab: 'tasks' | 'analytics') => {
     setActivePlayerId(null);
     setPlayerReturnContext(null);
@@ -353,6 +368,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onNavigateTab={(tab) => openSecondaryTab(tab as 'tasks' | 'analytics')}
                 onCreateEvening={openCreateEvening}
                 onRefresh={retryLoad}
+                evenings={evenings}
+                onOpenTournament={openTournament}
                 onCompleteTask={async (taskId) => {
                   await api.completeTask(taskId);
                   await retryLoad();
@@ -385,6 +402,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 {/* Non-mafia events sit under the evenings tab only, never under a tournament. */}
                 <EveningsList evenings={evenings} onOpenEvening={handleOpenEvening} onCreateEvening={handleCreateEvening}
                   initialCreateOpen={eveningIntent === 'create'} onInitialCreateHandled={() => setEveningIntent(null)}
+                  initialTournamentId={tournamentIntent} onInitialTournamentHandled={() => setTournamentIntent(null)}
                   eveningsFooter={<CustomEventsPanel />} />
               </div>)
             ) : null}

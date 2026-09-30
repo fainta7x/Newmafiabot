@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
+import { canHostEveningFormat } from '../lib/hostFormats.ts';
 import { ensureOrganizerPlayerAccessSchema, PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
 
 const ensuredDatabases = new WeakSet<object>();
@@ -397,6 +398,41 @@ async function verifyRegularEveningPaymentIntegrity(db: DatabaseWrapper): Promis
   }
 }
 
+/**
+ * Owner decision 2026-09-30: novice and club evenings have the owner as organizer and «Судья вечера»
+ * by default. Upcoming open evenings made before this rule get the owner in empty places, once.
+ */
+async function fillUpcomingEveningStaffOnce(db: DatabaseWrapper) {
+  await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const migrationId = '2026-09-default-evening-staff';
+  if (await db.get('SELECT id FROM app_data_migrations WHERE id = ?', [migrationId])) return;
+  const owner = await db.get<any>(
+    "SELECT * FROM players WHERE id = ? AND COALESCE(contact_status, 'normal') != 'blocked' LIMIT 1",
+    [PRIMARY_ORGANIZER_PLAYER_ID],
+  );
+  if (owner) {
+    const evenings = await db.all<any>(`
+      SELECT id, format FROM game_evenings
+       WHERE status IN ('draft', 'published') AND settled_at IS NULL
+         AND datetime(starts_at) > datetime('now')
+    `);
+    const now = new Date().toISOString();
+    for (const evening of evenings) {
+      const format = normalizeEveningFormat(evening.format);
+      if (format !== 'NOVICE' && format !== 'CASUAL') continue;
+      await db.run(
+        `INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, judge_player_id, assigned_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(evening_id) DO UPDATE SET
+           organizer_player_id = COALESCE(evening_staff_assignments.organizer_player_id, excluded.organizer_player_id),
+           judge_player_id = COALESCE(evening_staff_assignments.judge_player_id, excluded.judge_player_id)`,
+        [evening.id, owner.id, canHostEveningFormat(owner, format) ? owner.id : null, now, now],
+      );
+    }
+  }
+  await db.run('INSERT OR IGNORE INTO app_data_migrations (id, applied_at) VALUES (?, ?)', [migrationId, new Date().toISOString()]);
+}
+
 export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<void> {
   if (ensuredDatabases.has(db as object)) return;
 
@@ -416,6 +452,12 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
     CREATE INDEX IF NOT EXISTS idx_evening_staff_organizer
       ON evening_staff_assignments(organizer_player_id)
   `);
+  // «Судья вечера» (owner decision 2026-09-30): the judge who runs the evening; new games start with them.
+  const staffColumns = await db.all<{ name: string }>('PRAGMA table_info(evening_staff_assignments)');
+  if (!staffColumns.some((column) => column.name === 'judge_player_id')) {
+    await db.run('ALTER TABLE evening_staff_assignments ADD COLUMN judge_player_id TEXT REFERENCES players(id) ON DELETE SET NULL');
+  }
+  await fillUpcomingEveningStaffOnce(db);
   await ensureEveningFeeEvidenceSchema(db);
 
   // Legacy organizer-role triggers were global and could rewrite regular-evening

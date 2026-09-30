@@ -4,7 +4,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { allowedTableSizes, isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
-import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
+import { autoAssignEveningOrganizer, eveningJudgeId, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
@@ -155,7 +155,9 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     const tableId = req.body?.evening_table_id ? String(req.body.evening_table_id) : null;
     if (tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [tableId, eveningId])) return res.status(400).json({ error: 'Выбранный стол не относится к этому вечеру' });
     const delegatedJudgeId = req.delegatedPlayerId ? String(req.delegatedPlayerId) : null;
-    const requestedJudgeId = delegatedJudgeId || (req.body?.judge_player_id ? String(req.body.judge_player_id) : null);
+    // No judge chosen for this game: the «Судья вечера» runs it (owner decision 2026-09-30).
+    const fallbackJudgeId = !req.body?.judge_player_id && !req.body?.judge_guest && !req.body?.judge_name ? await eveningJudgeId(db, eveningId) : null;
+    const requestedJudgeId = delegatedJudgeId || (req.body?.judge_player_id ? String(req.body.judge_player_id) : fallbackJudgeId);
     const judge = await resolveJudgeAssignment(db, {
       judge_player_id: requestedJudgeId,
       judge_name: delegatedJudgeId ? null : (req.body?.judge_name ?? null),

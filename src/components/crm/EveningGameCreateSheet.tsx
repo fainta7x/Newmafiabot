@@ -157,6 +157,15 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     void api.getPlayers()
       .then((items) => setCrmPlayers(items.slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru'))))
       .catch(() => setCrmPlayers([]));
+    // The «Судья вечера» is suggested for every new game; it can be changed right here.
+    void fetch(`/api/evenings/${encodeURIComponent(evening.id)}/staff`, { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((staff) => {
+        const judgeId = staff?.judge?.player_id ? String(staff.judge.player_id) : '';
+        if (!judgeId || tables[0]?.host_name) return;
+        setJudgePlayerId((current) => current || judgeId);
+      })
+      .catch(() => undefined);
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 

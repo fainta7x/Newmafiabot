@@ -12,9 +12,9 @@ import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, or
 
 type HostChoice = '' | 'yes' | 'no';
 
-type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null };
+type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null };
 
-const stopped = (row: Row) => row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON;
+const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
 type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'paused';
@@ -28,7 +28,7 @@ const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> 
   { value: 'hosts', label: 'Ведут игры' },
   { value: 'organizes', label: 'Проводят вечера' },
 ];
-const pausedOther = (row: Row) => (row.contact_status === 'paused' && !stopped(row)) || row.contact_status === 'blocked';
+const pausedOther = (row: Row) => (row.contact_status === 'paused' && row.pause_reason !== STOPPED_REASON) || row.contact_status === 'blocked';
 const role = (row: Row) => organizationOf(normalizeClubRole(row.club_role));
 const matchesRoleFilter = (row: Row, filter: RoleFilter) => {
   if (filter === 'organizer') return role(row) === 'organizer';

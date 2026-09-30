@@ -23,6 +23,9 @@ const eventBody = (visibility='everyone') => ({
   signup_deadline:new Date(Date.now()+82800000).toISOString(),venue:'Клуб',participant_limit:2,price_rub:300,visibility,allow_guest:true,registration_open:true,
 });
 
+// Events are tomorrow; on the last day of a month that is next month's calendar page.
+const eventMonth = () => new Date(Date.now() + 86400000).toISOString().slice(0, 7);
+
 describe('custom events', () => {
   it('requires the fourth mark and keeps the event outside Mafia tables', async () => {
     const { db, app } = await setup();
@@ -32,9 +35,9 @@ describe('custom events', () => {
     expect(created.body).toMatchObject({title:'Киновечер',status:'draft',organizer_player_id:'host'});
     expect(await db.get('SELECT id FROM game_evenings WHERE id=?',[created.body.id])).toBeNull();
     expect(await db.get('SELECT id FROM games WHERE evening_id=?',[created.body.id])).toBeNull();
-    expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(false);
+    expect((await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(false);
     await request(app).post(`/api/custom-events/${created.body.id}/status`).set('Cookie',cookie('host')).send({status:'published'}).expect(200);
-    const calendar = await request(app).get('/api/player/calendar').set('Cookie',cookie('member'));
+    const calendar = await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('member'));
     expect(calendar.body.events.find((x:any)=>x.id===created.body.id)).toMatchObject({event_type:'custom',format:'CUSTOM',participant_count:0});
   });
 
@@ -43,9 +46,9 @@ describe('custom events', () => {
     const created = await request(app).post('/api/custom-events').set('Cookie',cookie('host')).send(eventBody('invite'));
     const id = created.body.id;
     await request(app).post(`/api/custom-events/${id}/status`).set('Cookie',cookie('host')).send({status:'published'}).expect(200);
-    expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===id)).toBe(false);
+    expect((await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===id)).toBe(false);
     await request(app).put(`/api/custom-events/${id}/invitations`).set('Cookie',cookie('host')).send({player_ids:['member']}).expect(200);
-    expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===id)).toBe(true);
+    expect((await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===id)).toBe(true);
     const registered = await request(app).post(`/api/custom-events/${id}/register`).set('Cookie',cookie('member')).send({with_guest:true});
     expect(registered.status,JSON.stringify(registered.body)).toBe(200);
     expect(registered.body.event.participant_count).toBe(2);
@@ -58,8 +61,8 @@ describe('custom events', () => {
     const { app } = await setup();
     const created = await request(app).post('/api/custom-events').set('Cookie',cookie('host')).send(eventBody('club'));
     await request(app).post(`/api/custom-events/${created.body.id}/status`).set('Cookie',cookie('host')).send({status:'published'}).expect(200);
-    expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(true);
-    expect((await request(app).get('/api/player/calendar').set('Cookie',cookie('newbie'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(false);
+    expect((await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('member'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(true);
+    expect((await request(app).get(`/api/player/calendar?month=${eventMonth()}`).set('Cookie',cookie('newbie'))).body.events.some((x:any)=>x.id===created.body.id)).toBe(false);
   });
 
   it('lets the organizer edit and delete a draft made by mistake, but only cancel a published event', async () => {

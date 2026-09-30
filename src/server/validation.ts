@@ -1,19 +1,30 @@
 import { z } from 'zod';
 
-export const createEveningSchema = z.object({
+// Update schemas are built from fields without defaults: with zod 4 `.partial()` keeps `.default()`,
+// so a PATCH that did not mention a field would silently overwrite it (a renamed draft got published,
+// a player edit reset Elo and tokens). Defaults belong to creation only.
+const eveningFields = {
   title: z.string().min(2, 'Заголовок должен содержать минимум 2 символа'),
   starts_at: z.string().min(10, 'Укажите дату и время начала'),
   ends_at: z.string().nullable().optional(),
-  timezone: z.string().default('Europe/Moscow'),
+  timezone: z.string(),
   venue: z.string().nullable().optional(),
   // STANDARD remains accepted only for backwards compatibility with pre-cutover clients/data.
-  format: z.enum(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT', 'STANDARD']).default('CASUAL'),
-  status: z.enum(['draft', 'published', 'active', 'completed', 'cancelled']).default('published'),
-  capacity: z.number().int().positive().default(20),
-  default_price: z.number().int().min(0).default(400),
+  format: z.enum(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT', 'STANDARD']),
+  status: z.enum(['draft', 'published', 'active', 'completed', 'cancelled']),
+  capacity: z.number().int().positive(),
+  default_price: z.number().int().min(0),
   notes: z.string().nullable().optional(),
+};
+export const createEveningSchema = z.object({
+  ...eveningFields,
+  timezone: eveningFields.timezone.default('Europe/Moscow'),
+  format: eveningFields.format.default('CASUAL'),
+  status: eveningFields.status.default('published'),
+  capacity: eveningFields.capacity.default(20),
+  default_price: eveningFields.default_price.default(400),
 });
-export const updateEveningSchema = createEveningSchema.partial();
+export const updateEveningSchema = z.object(eveningFields).partial();
 
 export const eveningResponseStatusSchema = z.enum(['going', 'late', 'thinking', 'declined', 'unanswered']);
 export const eveningAttendanceFactSchema = z.enum(['pending', 'attended_on_time', 'attended_late', 'no_show']);
@@ -52,22 +63,30 @@ const playerPhoneSchema = z.string().nullable().optional().refine((value) => {
   return /^[+\d][\d\s().-]{6,24}$/.test(text) && digits.length >= 7 && digits.length <= 15;
 }, 'Некорректный номер телефона');
 
-export const createPlayerSchema = z.object({
+const playerFields = {
   nickname: z.string().min(1, 'Введите никнейм игрока'), full_name: z.string().nullable().optional(), telegram_user_id: z.string().nullable().optional(),
   telegram_username: z.string().nullable().optional(), phone: playerPhoneSchema, contact_status: z.enum(['normal', 'paused', 'blocked']).optional(),
   lifecycle_status: z.string().optional(), source: z.string().nullable().optional(), preferred_format: z.string().nullable().optional(),
   game_level: z.enum(['novice', 'club', 'tournament']).optional(), club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(), judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
   referred_by: z.string().nullable().optional(), do_not_invite_until: z.string().nullable().optional(), pause_reason: z.string().nullable().optional(), notes: z.string().nullable().optional(),
   birth_day: z.number().int().min(1).max(31).nullable().optional(), birth_month: z.number().int().min(1).max(12).nullable().optional(), birth_year: z.number().int().min(1900).max(new Date().getFullYear()).nullable().optional(),
-  birthday_visibility: z.enum(['private', 'day_month', 'full']).optional(), elo: z.number().int().default(1000), tokens: z.number().int().default(0),
-});
-export const updatePlayerSchema = createPlayerSchema.partial();
+  birthday_visibility: z.enum(['private', 'day_month', 'full']).optional(),
+};
+export const createPlayerSchema = z.object({ ...playerFields, elo: z.number().int().default(1000), tokens: z.number().int().default(0) });
+// Elo comes from games and tokens from the token ledger: a player edit never writes them.
+export const updatePlayerSchema = z.object(playerFields).partial();
 
+const taskFields = {
+  title: z.string().min(2, 'Введите название задачи'), description: z.string().nullable().optional(), type: z.enum(['call', 'invite', 'reminder', 'feedback', 'preparation', 'payment', 'other']),
+  status: z.enum(['todo', 'in_progress', 'done', 'cancelled']), priority: z.enum(['low', 'medium', 'high']), due_at: z.string().nullable().optional(), player_id: z.string().min(1).nullable().optional(), evening_id: z.string().min(1).nullable().optional(),
+};
 export const createTaskSchema = z.object({
-  title: z.string().min(2, 'Введите название задачи'), description: z.string().nullable().optional(), type: z.enum(['call', 'invite', 'reminder', 'feedback', 'preparation', 'payment', 'other']).default('other'),
-  status: z.enum(['todo', 'in_progress', 'done', 'cancelled']).default('todo'), priority: z.enum(['low', 'medium', 'high']).default('medium'), due_at: z.string().nullable().optional(), player_id: z.string().min(1).nullable().optional(), evening_id: z.string().min(1).nullable().optional(),
+  ...taskFields,
+  type: taskFields.type.default('other'),
+  status: taskFields.status.default('todo'),
+  priority: taskFields.priority.default('medium'),
 });
-export const updateTaskSchema = createTaskSchema.partial();
+export const updateTaskSchema = z.object(taskFields).partial();
 
 export const gameSlotSchema = z.object({ slot: z.number().int().min(1).max(10), player_id: z.string().min(1).optional(), nickname: z.string().min(1, 'Укажите никнейм игрока'), role: z.enum(['Мирный', 'Шериф', 'Мафия', 'Дон']), fouls: z.number().int().min(0).default(0), is_alive: z.boolean().optional(), notes: z.string().optional() });
 export const createGameSchema = z.object({

@@ -26,7 +26,7 @@ import {
 import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
 import { finalizeExistingVkEveningPublications } from '../services/vkDirectJoinPublishingService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
-import { autoAssignEveningOrganizer, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
+import { assignDefaultEveningStaff, autoAssignEveningOrganizer, eveningOrganizerAssigned, eveningPublishProblem } from '../services/eveningStaffService.ts';
 
 const router = Router();
 const expectedSql = "response_status IN ('going','late')";
@@ -105,6 +105,7 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
       );
       await insertRegularSlotSettings(tx, eveningId, nowIso);
     });
+    await assignDefaultEveningStaff(db, eveningId);
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
     return res.status(201).json({ ...withCanonicalFormat(evening), price_per_game: REGULAR_PRICE, tables: [] });
   } catch (err: any) {
@@ -142,6 +143,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
       }
     });
 
+    await assignDefaultEveningStaff(db, id);
     const created = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
     return res.status(201).json({
       ...withCanonicalFormat(created),
@@ -195,6 +197,7 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
       }
     });
 
+    await assignDefaultEveningStaff(db, newEveningId);
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [newEveningId]);
     return res.status(201).json({
       ...withCanonicalFormat(evening),
@@ -224,6 +227,14 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       if (organizerMissing) {
         return res.status(409).json({ error: 'Назначьте организатора вечера — без него вечер не начать.', code: 'organizer_required' });
       }
+    }
+
+    // Owner decision 2026-09-30: a draft may be incomplete, but publishing needs an organizer and a
+    // «Судья вечера» who may run this kind of evening. Novice and club evenings get the owner by default.
+    if (data.status === 'published' && evening.status === 'draft') {
+      await assignDefaultEveningStaff(db, eveningId);
+      const problem = await eveningPublishProblem(db, eveningId);
+      if (problem) return res.status(409).json({ error: problem, code: 'evening_staff_required' });
     }
 
     const nextFormat = data.format ?? evening.format;

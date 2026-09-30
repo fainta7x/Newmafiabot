@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
+import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
@@ -11,14 +13,15 @@ const router = Router();
 
 async function loadStaff(db: DatabaseWrapper, eveningId: string) {
   await ensureClubOperationsSchema(db);
-  const evening = await db.get<any>('SELECT id, title, status FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  const evening = await db.get<any>('SELECT id, title, status, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;
 
   const assignment = await db.get<any>(`
-    SELECT s.evening_id, s.organizer_player_id, s.assigned_at, s.updated_at,
-           p.nickname AS organizer_nickname
+    SELECT s.evening_id, s.organizer_player_id, s.judge_player_id, s.assigned_at, s.updated_at,
+           p.nickname AS organizer_nickname, j.nickname AS judge_nickname
       FROM evening_staff_assignments s
       LEFT JOIN players p ON p.id = s.organizer_player_id
+      LEFT JOIN players j ON j.id = s.judge_player_id
      WHERE s.evening_id = ?
      LIMIT 1
   `, [eveningId]);
@@ -43,13 +46,15 @@ async function loadStaff(db: DatabaseWrapper, eveningId: string) {
      ORDER BY is_club_organizer DESC, p.nickname COLLATE NOCASE
   `, [eveningId, eveningId]);
 
-  const judges = await db.all<any>(`
-    SELECT id, nickname, club_role, judge_level
+  // «Судья вечера» choices: players who may host this kind of evening («Может вести»).
+  const judges = (await db.all<any>(`
+    SELECT id, nickname, club_role, judge_level, host_formats
       FROM players
-     WHERE COALESCE(judge_level, 'none') != 'none'
-       AND COALESCE(contact_status, 'normal') != 'blocked'
+     WHERE COALESCE(contact_status, 'normal') != 'blocked'
+       AND COALESCE(source, '') != 'legacy_guest_migrated'
      ORDER BY nickname COLLATE NOCASE
-  `);
+  `)).filter((player: any) => canHostEveningFormat(player, evening.format))
+    .map(({ host_formats: _hostFormats, ...player }: any) => player);
 
   const gameJudges = await db.all<any>(`
     SELECT g.id AS game_id, g.global_game_number, g.judge_player_id, g.judge_name,
@@ -62,11 +67,15 @@ async function loadStaff(db: DatabaseWrapper, eveningId: string) {
 
   return {
     evening,
-    organizer: assignment ? {
-      player_id: assignment.organizer_player_id || null,
+    organizer: assignment?.organizer_player_id ? {
+      player_id: assignment.organizer_player_id,
       nickname: assignment.organizer_nickname || null,
       assigned_at: assignment.assigned_at,
       updated_at: assignment.updated_at,
+    } : null,
+    judge: assignment?.judge_player_id ? {
+      player_id: assignment.judge_player_id,
+      nickname: assignment.judge_nickname || null,
     } : null,
     organizers,
     judges,
@@ -171,9 +180,31 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get<any>('SELECT id, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
+    // «Судья вечера» (owner decision 2026-09-30): set or change at any time before a game; null clears it.
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_player_id')) {
+      const requestedJudge = req.body.judge_player_id === null ? '' : String(req.body.judge_player_id || '').trim();
+      let judgeId: string | null = null;
+      if (requestedJudge) {
+        try {
+          judgeId = (await resolveJudgeAssignment(db, { judge_player_id: requestedJudge, required_format: String(evening.format || 'CASUAL') })).judge_player_id;
+        } catch (error) {
+          if (error instanceof JudgeAssignmentError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const stamp = new Date().toISOString();
+      await db.run(`
+        INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, judge_player_id, assigned_at, updated_at)
+        VALUES (?, NULL, ?, ?, ?)
+        ON CONFLICT(evening_id) DO UPDATE SET judge_player_id = excluded.judge_player_id, updated_at = excluded.updated_at
+      `, [eveningId, judgeId, stamp, stamp]);
+      if (req.body?.organizer_player_id === undefined) return res.json(await loadStaff(db, eveningId));
+    }
+
     const requestedOrganizer = req.body?.organizer_player_id;
     if (requestedOrganizer === null) {
-      await db.run('DELETE FROM evening_staff_assignments WHERE evening_id = ?', [eveningId]);
+      // Only the organizer is removed; the evening judge stays.
+      await db.run('UPDATE evening_staff_assignments SET organizer_player_id = NULL, updated_at = ? WHERE evening_id = ?', [new Date().toISOString(), eveningId]);
       if (normalizeEveningFormat(evening.format) === 'CASUAL') {
         await reconcileRegularEveningPayments(db, eveningId);
       }

@@ -23,6 +23,7 @@ import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { usePlayerEveningQuickAdd } from './PlayerEveningQuickAdd.tsx';
 import { useClubOwner } from './useClubOwner.ts';
 import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, organizeFormatsSummary, type OrganizeFormat } from '../../lib/organizeFormats.ts';
+import { CURATOR_AREAS, CURATOR_AREA_OPTIONS, curatorAreasSummary, normalizeCuratorAreas, type CuratorArea } from '../../lib/curatorAreas.ts';
 import { countVisits } from '../../lib/russianPlural';
 
 const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });
@@ -34,6 +35,7 @@ type PlayerWithAccess = PlayerDetails & {
   judge_level?: string | null;
   host_formats?: string | null;
   organize_formats?: string | null;
+  curator_areas?: string | null;
   organizer_player_access?: boolean;
 };
 
@@ -43,6 +45,7 @@ type Draft = {
   attends_sometimes: boolean;
   host_formats: HostFormat[];
   organize_formats: OrganizeFormat[];
+  curator_areas: CuratorArea[];
 };
 
 type Confirmation =
@@ -56,6 +59,7 @@ const normalize = (player: PlayerWithAccess): Draft => ({
   attends_sometimes: membershipOfPlayer(player) === 'guest',
   host_formats: hostFormatsOf(player),
   organize_formats: normalizeOrganizeFormats(player.organize_formats),
+  curator_areas: normalizeCuratorAreas(player.curator_areas),
 });
 
 const equalDraft = (left: Draft, right: Draft) =>
@@ -63,7 +67,8 @@ const equalDraft = (left: Draft, right: Draft) =>
   && left.club_role === right.club_role
   && left.attends_sometimes === right.attends_sometimes
   && left.host_formats.join(',') === right.host_formats.join(',')
-  && left.organize_formats.join(',') === right.organize_formats.join(',');
+  && left.organize_formats.join(',') === right.organize_formats.join(',')
+  && left.curator_areas.join(',') === right.curator_areas.join(',');
 
 export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetails; onSaved?: () => void | Promise<void> }) {
   const accessPlayer = player as PlayerWithAccess;
@@ -129,7 +134,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         headers: { 'Content-Type': 'application/json' },
         // «Может проводить вечера» is sent only when changed: only the owner may change it.
         body: JSON.stringify(draft.organize_formats.join(',') === baseline.organize_formats.join(',')
-          ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats }
+          ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats, curator_areas: draft.curator_areas }
           : draft),
       });
       await readJson(response);
@@ -216,6 +221,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     ['Роль в клубе', accessLabel(CLUB_ORGANIZATION, organizationOf(draft.club_role)), null],
     ['Может вести', hostFormatsSummary(draft.host_formats), null],
     ['Проводит вечера', organizeFormatsSummary(draft.organize_formats), null],
+    ['Куратор', curatorAreasSummary(draft.curator_areas), null],
     ['Доступы', organizerAccess ? 'Кабинет организатора' : 'Только кабинет игрока', null],
   ];
 
@@ -286,6 +292,24 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
               })}
             </fieldset>
           </div>
+
+          <fieldset className="space-y-1.5 rounded-[13px] border border-border-soft p-3" data-testid="crm-player-curator-areas">
+            <legend className="px-1 text-[12px] font-semibold text-text-primary">Куратор направления</legend>
+            <p className="mb-1.5 text-[11px] leading-4 text-text-muted">За что отвечает в клубе. Прав в приложении не даёт; если направление давно стоит без дел, в «Делах» появится напоминание написать куратору.</p>
+            {CURATOR_AREA_OPTIONS.map((item) => {
+              const checked = draft.curator_areas.includes(item.value);
+              return (
+                <label key={item.value} className="flex min-h-11 items-start gap-2.5 rounded-[10px] border border-border-soft px-3 py-2">
+                  <input type="checkbox" checked={checked} className="mt-0.5 h-5 w-5 shrink-0"
+                    onChange={() => setDraft((value) => ({
+                      ...value,
+                      curator_areas: CURATOR_AREAS.filter((area) => (area === item.value ? !checked : value.curator_areas.includes(area))),
+                    }))} />
+                  <span className="min-w-0"><span className="block text-[13px] text-text-primary">{item.label}</span><span className="block text-[11px] leading-4 text-text-muted">{item.hint}</span></span>
+                </label>
+              );
+            })}
+          </fieldset>
 
           <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3">
             <div className="flex items-start justify-between gap-3">

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
 import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
+import { CURATOR_AREAS, normalizeCuratorAreas } from '../../lib/curatorAreas.ts';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -114,6 +115,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     `);
 
     const nowMs = Date.now();
+    // Whether the player signed in to the bot or the app (owner, 2026-09-30): shown as Telegram / VK marks in the list.
+    const vkTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'player_external_identities'");
+    const vkLinked = new Set(vkTable
+      ? (await db.all<any>("SELECT DISTINCT player_id FROM player_external_identities WHERE platform = 'vk'")).map((row: any) => String(row.player_id))
+      : []);
 
     const mapped = players.map((p: any) => {
       const cStatus = p.contact_status || (p.lifecycle_status === 'blocked' ? 'blocked' : p.lifecycle_status === 'paused' ? 'paused' : 'normal');
@@ -132,6 +138,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         calculated_stage: eStage,
         lifecycle_status: cStatus === 'blocked' ? 'blocked' : eStage,
         stored_lifecycle_status: p.lifecycle_status || null,
+        telegram_linked: Boolean(p.telegram_user_id),
+        vk_linked: vkLinked.has(String(p.id)),
         days_since_last_visit,
       };
     });
@@ -212,9 +220,13 @@ const bulkAccessSchema = z.object({
   // «Может проводить»: owner-only marks to add and to remove, like «Может вести».
   organize_formats_add: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
   organize_formats_remove: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
+  // «Куратор направления»: no rights, any organizer sets it.
+  curator_areas_add: z.array(z.enum(CURATOR_AREAS)).optional(),
+  curator_areas_remove: z.array(z.enum(CURATOR_AREAS)).optional(),
 }).refine(
   (data) => data.game_level || data.activity || data.organization || data.host_formats_add?.length || data.host_formats_remove?.length
-    || data.organize_formats_add?.length || data.organize_formats_remove?.length,
+    || data.organize_formats_add?.length || data.organize_formats_remove?.length
+    || data.curator_areas_add?.length || data.curator_areas_remove?.length,
   { message: 'Выберите, что поменять' },
 );
 
@@ -250,7 +262,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city, attends_sometimes FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT nickname, organize_formats, curator_areas, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city, attends_sometimes FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -301,9 +313,18 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         }
         const nextOrganize = ORGANIZE_FORMATS.filter((format) => organize.has(format));
         const organizeWritten = organizeChanged || nextOrganize.join(',') !== normalizeOrganizeFormats(current.organize_formats).join(',');
+        const curator = new Set(normalizeCuratorAreas(current.curator_areas));
+        data.curator_areas_add?.forEach((area) => curator.add(area));
+        data.curator_areas_remove?.forEach((area) => curator.delete(area));
+        if (otherCity && curator.size) {
+          if (data.curator_areas_add?.length) otherCityWarnings.push(`${current.nickname}: игрок из другого города не бывает куратором`);
+          curator.clear();
+        }
+        const nextCurator = CURATOR_AREAS.filter((area) => curator.has(area));
+        const curatorWritten = nextCurator.join(',') !== normalizeCuratorAreas(current.curator_areas).join(',');
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeWritten ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, from_other_city = ?, attends_sometimes = ?, updated_at = ? WHERE id = ?`,
-          [data.game_level ?? current.game_level, clubRole,
+          `UPDATE players SET game_level = ?, club_role = ?${curatorWritten ? ', curator_areas = ?' : ''}${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeWritten ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, from_other_city = ?, attends_sometimes = ?, updated_at = ? WHERE id = ?`,
+          [data.game_level ?? current.game_level, clubRole, ...(curatorWritten ? [nextCurator.length ? nextCurator.join(',') : null] : []),
             ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
             ...(organizeWritten ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
             ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, otherCity ? 1 : 0, membership === 'guest' ? 1 : 0, now, id],

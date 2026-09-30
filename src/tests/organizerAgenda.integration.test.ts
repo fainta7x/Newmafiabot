@@ -115,4 +115,66 @@ describe('«Дела»', () => {
     expect(evenings.map((item) => [item.id, item.group])).toEqual([['check:unclosed:past', 'now']]);
     expect(agenda.items[0].group).toBe('now');
   });
+
+  it('lists who to call when an evening in 3 days is short, and who is still thinking', async () => {
+    const { db, app, player, people, cookie } = await setup();
+    await player('going'); await player('thinking'); await player('silent'); await player('sometimes', { sometimes: 1 });
+    await player('declined'); await player('stopped', { stopped: 1 }); await player('guest', { otherCity: 1 });
+    await db.run("UPDATE players SET game_level = 'novice' WHERE id = 'silent'");
+    await player('regular-silent');
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('fri','Пятница',?,'Europe/Moscow','CASUAL','published',20,100,?,?)`, [new Date(Date.now() + 2 * DAY).toISOString(), stamp, stamp]);
+    for (const [id, answer] of [['going', 'going'], ['thinking', 'thinking'], ['declined', 'declined']]) {
+      await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+        VALUES (?,?,?,?,'pending','pending',0,0,?,?)`, [`fri:${id}`, 'fri', id, answer, stamp, stamp]);
+    }
+    const agenda = await loadAgenda(db);
+    const fill = agenda.items.find((item) => item.id === 'people:fill:fri');
+    expect(fill?.group).toBe('now');
+    expect(fill?.title).toContain('1 из 10');
+    // Not answered, the level fits a club evening, not stopped, not from another city; regulars first.
+    expect(fill?.people?.map((person) => person.player_id)).toEqual(['regular-silent', 'sometimes']);
+    expect(await people('people:thinking:fri')).toEqual(['thinking']);
+    const contacted = await request(app).post('/api/crm/agenda/contacted').set('Cookie', cookie).send({ player_id: 'regular-silent', reason: 'fill' });
+    expect(contacted.status, JSON.stringify(contacted.body)).toBe(200);
+    expect(await people('people:fill:fri')).toEqual(['sometimes']);
+  });
+
+  it('asks every club player to fill the profile, not only those who came, and skips who stopped coming', async () => {
+    const { player, people } = await setup();
+    await player('never-came', { fullName: '' });
+    await player('stopped-empty', { fullName: '', stopped: 1 });
+    expect(await people('people:profile')).toContain('never-came');
+    expect(await people('people:profile')).not.toContain('stopped-empty');
+  });
+
+  it('reminds about a curator whose direction has been quiet, until the organizer talks to them', async () => {
+    const { db, app, player, people, cookie } = await setup();
+    await player('smm'); await player('novices'); await player('plain');
+    await db.run("UPDATE players SET curator_areas = 'SMM' WHERE id = 'smm'");
+    await db.run("UPDATE players SET curator_areas = 'NOVICES' WHERE id = 'novices'");
+    const stamp = new Date().toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('nov','Новички',?,'Europe/Moscow','NOVICE','completed',20,100,?,?)`, [ago(3), stamp, stamp]);
+    await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,judge_player_id,slots_json,created_at)
+      VALUES ('nov',1,?,'red','Победа красных','Судья','novices','[]',?)`, [ago(3), stamp]);
+    expect(await people('people:curators')).toEqual(['smm']);
+    const agenda = await loadAgenda(db);
+    expect(agenda.items.find((item) => item.id === 'people:curators')?.people?.[0].detail).toContain('смм: в приложении нет следов');
+    await request(app).post('/api/crm/agenda/contacted').set('Cookie', cookie).send({ player_id: 'smm', reason: 'curator' });
+    expect(await people('people:curators')).toEqual([]);
+  });
+
+  it('saves curator marks for one player and for many', async () => {
+    const { db, app, player, cookie } = await setup();
+    await player('a'); await player('b');
+    const one = await request(app).patch('/api/players/a').set('Cookie', cookie).send({ curator_areas: ['SMM', 'NOVICES'] });
+    expect(one.status, JSON.stringify(one.body)).toBe(200);
+    expect(one.body.curator_areas).toBe('NOVICES,SMM');
+    const many = await request(app).post('/api/players/access/bulk').set('Cookie', cookie).send({ player_ids: ['a', 'b'], curator_areas_add: ['EVENTS'], curator_areas_remove: ['SMM'] });
+    expect(many.status, JSON.stringify(many.body)).toBe(200);
+    expect((await db.get<any>("SELECT curator_areas FROM players WHERE id = 'a'")).curator_areas).toBe('NOVICES,EVENTS');
+    expect((await db.get<any>("SELECT curator_areas FROM players WHERE id = 'b'")).curator_areas).toBe('EVENTS');
+  });
 });

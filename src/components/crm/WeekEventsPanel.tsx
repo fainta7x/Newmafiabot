@@ -17,11 +17,14 @@ const when = (value: string) => new Date(value).toLocaleString('ru-RU', {
  * «На этой неделе» on «Сегодня» (owner, 2026-09-30): every event of the next 7 days — novice, club, rating
  * evenings and tournaments — each one tap away, so the organizer does not have to go through «События».
  */
-export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournament, now = Date.now() }: {
+export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournament, now = Date.now(), excludeIds = [], title = 'На этой неделе' }: {
   evenings: GameEvening[];
   onOpenEvening: (id: string) => void;
   onOpenTournament: (id: string) => void;
   now?: number;
+  /** Evenings already shown above (on «События» the nearest evening has its own card). */
+  excludeIds?: string[];
+  title?: string;
 }) {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   useEffect(() => {
@@ -39,7 +42,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
     const result: Item[] = [];
     for (const evening of evenings) {
       // A running evening stays until it is closed, however long it goes on.
-      if (['cancelled', 'completed'].includes(String(evening.status)) || evening.settled_at) continue;
+      if (['cancelled', 'completed'].includes(String(evening.status)) || evening.settled_at || excludeIds.includes(evening.id)) continue;
       if (evening.status !== 'active' && !inWeek(evening.starts_at)) continue;
       result.push({
         key: `evening-${evening.id}`, id: evening.id, title: evening.title, startsAt: evening.starts_at,
@@ -56,12 +59,12 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       });
     }
     return result.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  }, [evenings, tournaments, now]);
+  }, [evenings, tournaments, now, excludeIds]);
 
   if (!items.length) return null;
   return (
     <section data-testid="crm-week-events" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
-      <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary"><CalendarDays className="h-4 w-4 text-accent" /> На этой неделе · {items.length}</div>
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary"><CalendarDays className="h-4 w-4 text-accent" /> {title} · {items.length}</div>
       <div className="mt-2 space-y-1.5">
         {items.map((item) => (
           <button key={item.key} type="button" data-testid="crm-week-event" onClick={() => (item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id))}

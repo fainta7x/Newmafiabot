@@ -10,6 +10,7 @@ import {
 } from '../services/eveningAnnouncementTrackingService.ts';
 import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
 import { isEveningPublishingPaused } from '../services/eveningPublishingPause.ts';
+import { loadEveningAutoReminder } from '../services/eveningAutoReminderService.ts';
 import { requestBotEveningRecruitment } from '../services/botTelegramSyncService.ts';
 import {
   drainTelegramSyncOutbox,
@@ -63,7 +64,7 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
   try {
     const overview = await loadAnnouncementOverview(req.db, String(req.params.id));
     if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    return res.json({ ...overview, publishing_paused: isEveningPublishingPaused() });
+    return res.json({ ...overview, publishing_paused: isEveningPublishingPaused(), auto_reminder: await loadEveningAutoReminder(req.db, String(req.params.id)) });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние рассылки' });
   }

@@ -378,6 +378,15 @@ async def answer_taken_nickname(callback: CallbackQuery, state: FSMContext):
             "Как только он подтвердит, профиль откроется здесь и в приложении."
         )
         return
+    if result.get("error") == "target_telegram_conflict":
+        # The profile already belongs to someone with their own Telegram: this is a different player.
+        await state.set_state(RegistrationForm.waiting_for_nickname)
+        await callback.message.answer(
+            f"Профиль «{nickname}» уже привязан к Telegram другого игрока. "
+            "Значит, это не твой профиль — придумай другой ник и пришли его одним сообщением. "
+            "Если уверен, что профиль твой, напиши организатору."
+        )
+        return
     await callback.message.answer(
         f"⚠️ {result.get('message') or 'Не получилось отправить запрос.'} Напиши организатору — он привяжет профиль сам."
     )

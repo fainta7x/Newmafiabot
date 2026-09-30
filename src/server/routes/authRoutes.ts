@@ -18,7 +18,6 @@ import {
   completeVerifiedNewPlayerOnboarding,
   loadVerifiedPlayerOnboarding,
   requestExistingPlayerOnboardingLink,
-  completeClaimPlayerOnboarding,
 } from '../services/playerOnboardingService.ts';
 import {
   PLAYER_ONBOARDING_COOKIE,
@@ -26,7 +25,6 @@ import {
   setPlayerOnboardingCookie,
 } from '../services/playerOnboardingCookie.ts';
 import { resolveTrustedPublicAppOrigin } from '../services/publicAppOriginService.ts';
-import { previewPlayerClaimLink } from '../services/playerClaimLinkService.ts';
 import {
   hasOrganizerPlayerAccess,
   resolveVerifiedPlayerIdentity,
@@ -182,31 +180,6 @@ router.post('/onboarding/new', async (req, res) => {
     return res.status(Number(error?.statusCode || error?.status || 400)).json({
       error: String(error?.message || 'Не удалось создать профиль'),
       code: String(error?.code || 'onboarding_failed'),
-    });
-  }
-});
-
-// «Ссылка для привязки»: whose profile a personal link opens (shown before sign-in).
-router.get('/claim/:code', async (req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  try {
-    return res.json(await previewPlayerClaimLink(req.db, req.params.code));
-  } catch (error: any) {
-    return res.status(Number(error?.statusCode || 400)).json({ error: String(error?.message || 'Ссылка недоступна'), code: String(error?.code || 'claim_invalid') });
-  }
-});
-
-router.post('/onboarding/claim', async (req, res) => {
-  try {
-    const rawToken = String(req.cookies?.[PLAYER_ONBOARDING_COOKIE] || '');
-    const result = await completeClaimPlayerOnboarding(req.db, rawToken, req.body?.code);
-    setPlayerCookie(res, result.playerId);
-    clearPlayerOnboardingCookie(res);
-    return res.json({ success: true, status: 'linked', nickname: result.nickname, return_to: result.returnTo });
-  } catch (error: any) {
-    return res.status(Number(error?.statusCode || 400)).json({
-      error: String(error?.message || 'Не удалось привязать профиль'),
-      code: String(error?.code || 'claim_failed'),
     });
   }
 });

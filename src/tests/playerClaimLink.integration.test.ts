@@ -88,6 +88,16 @@ describe('the bot when a nickname is taken', () => {
   });
 });
 
+describe('a profile that already belongs to another player', () => {
+  it('the bot request is refused with a code the bot turns into «pick another nickname»', async () => {
+    const { player, bot } = await setup();
+    await player('taken', 'Вася', '111');
+    const response = await bot('link-request', { telegram_user_id: 555, nickname: 'Вася' });
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('target_telegram_conflict');
+  });
+});
+
 describe('VK page links', () => {
   it('understands the usual ways to write a VK page', () => {
     expect(parseVkProfileInput('https://vk.com/id123')).toBe('123');

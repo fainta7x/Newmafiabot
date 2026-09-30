@@ -18,11 +18,14 @@ const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.c
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
 type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'paused';
-const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
+// Two separate rows (owner, 2026-09-30): how the player comes, and what they do in the club; they combine.
+const ACTIVITY_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'regular', label: 'Ходят постоянно' },
   { value: 'sometimes', label: 'Ходят иногда' },
   { value: 'stopped', label: 'Перестали ходить' },
   { value: 'paused', label: 'Рассылка на паузе' },
+];
+const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'organizer', label: 'Организаторы' },
   { value: 'team', label: 'Помогают клубу' },
   { value: 'hosts', label: 'Ведут игры' },
@@ -110,6 +113,7 @@ export function PlayerAccessBulkCRM() {
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LevelFilter>('all');
+  const [activityFilter, setActivityFilter] = useState<RoleFilter>('all');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
@@ -140,7 +144,7 @@ export function PlayerAccessBulkCRM() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('ru-RU');
-    const matchesRole = (row: Row) => matchesRoleFilter(row, roleFilter);
+    const matchesRole = (row: Row) => matchesRoleFilter(row, activityFilter) && matchesRoleFilter(row, roleFilter);
     const time = (value?: string | null) => (value ? new Date(value).getTime() || 0 : 0);
     const byName = (a: Row, b: Row) => String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
     return rows
@@ -153,7 +157,7 @@ export function PlayerAccessBulkCRM() {
         if (sortBy === 'new') return time(b.created_at) - time(a.created_at) || byName(a, b);
         return byName(a, b);
       });
-  }, [rows, query, level, roleFilter, sortBy]);
+  }, [rows, query, level, activityFilter, roleFilter, sortBy]);
 
   const counts = useMemo(() => Object.fromEntries(GAME_LEVELS.map((item) => [item.value, rows.filter((row) => normalizeGameLevel(row.game_level) === item.value).length])), [rows]);
   const allVisibleSelected = visible.length > 0 && visible.every((row) => selected.has(row.id));
@@ -259,18 +263,27 @@ export function PlayerAccessBulkCRM() {
       </label>
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Уровень игры">
-        <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
         {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(item.value)}>{item.label} · {counts[item.value] ?? 0}</Chip>)}
+        {/* «Все» last: the levels of the active base come first (owner, 2026-09-30). */}
+        <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
       </div>
 
       {/* Quick filters as chips with counts, like the level chips above (owner, 2026-09-29). Tap again to clear. */}
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Кто">
-        {ROLE_FILTERS.map((item) => (
-          <Chip key={item.value} active={roleFilter === item.value} onClick={() => setRoleFilter((current) => (current === item.value ? 'all' : item.value))}>
-            {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
-          </Chip>
-        ))}
-      </div>
+      {([
+        ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
+        ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
+      ] as const).map(([title, filters, value, setValue]) => (
+        <div key={title}>
+          <span className="mb-1 block px-1 text-[11px] font-semibold text-white/45">{title}</span>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label={title}>
+            {filters.map((item) => (
+              <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => (current === item.value ? 'all' : item.value))}>
+                {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <div className="grid grid-cols-1 gap-2">
         <label className="block min-w-0"><span className="sr-only">Порядок</span>

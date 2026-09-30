@@ -61,4 +61,15 @@ describe('«Уровни и роли»', () => {
     expect((screen.getByLabelText('Может проводить: Свои ивенты') as HTMLSelectElement).value).toBe('');
     expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('Разное');
   });
+
+  it('puts «Все» last and combines «Как ходят» with «Роль в клубе»', async () => {
+    render(<PlayerAccessBulkCRM />);
+    await screen.findByText('Стаут');
+    const levelChips = screen.getByLabelText('Уровень игры').querySelectorAll('button');
+    expect(levelChips[levelChips.length - 1].textContent).toContain('Все');
+    fireEvent.click(screen.getByRole('button', { name: 'Ходят постоянно · 3' }));
+    expect(names()).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Помогают клубу · 1' }));
+    expect(names()).toEqual(['Точка']);
+  });
 });

@@ -4,6 +4,7 @@ import { getDb } from '../../db/index.ts';
 import { getAuthenticatedOrganizerActorId, isClubOwner, requireClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { HOST_FORMATS, legacyJudgeLevelFor, normalizeHostFormats } from '../../lib/hostFormats.ts';
 import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
+import { CURATOR_AREAS, normalizeCuratorAreas } from '../../lib/curatorAreas.ts';
 import {
   hasOrganizerPlayerAccess,
   LastOrganizerAccessError,
@@ -24,13 +25,15 @@ const classificationSchema = z.object({
   host_formats: z.array(z.enum(HOST_FORMATS)).optional(),
   // «Может проводить вечера»: only the owner gives these marks.
   organize_formats: z.array(z.enum(ORGANIZE_FORMATS)).optional(),
+  // «Куратор направления»: gives no rights, so any organizer may set it.
+  curator_areas: z.array(z.enum(CURATOR_AREAS)).optional(),
 }).strict().refine(
   (value) => Object.values(value).some((item) => item !== undefined),
   'Не передано ни одного изменяемого поля',
 );
 
 const organizerAccessSchema = z.object({ enabled: z.boolean() }).strict();
-const classificationKeys = ['game_level', 'club_role', 'attends_sometimes', 'judge_level', 'host_formats', 'organize_formats'] as const;
+const classificationKeys = ['game_level', 'club_role', 'attends_sometimes', 'judge_level', 'host_formats', 'organize_formats', 'curator_areas'] as const;
 
 const isExactPlayerGet = (method: string, path: string) =>
   method === 'GET' && /^\/[^/]+\/?$/.test(path);
@@ -70,7 +73,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     const parsed = classificationSchema.parse(req.body);
     const db = req.db || (await getDb());
     const playerId = String(req.params.id);
-    const current = await db.get<any>('SELECT id, source, club_role FROM players WHERE id = ? LIMIT 1', [playerId]);
+    const current = await db.get<any>('SELECT id, source, club_role, from_other_city FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!current || String(current.source || '') === MIGRATED_GUEST_SOURCE) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -93,6 +96,14 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     if (parsed.organize_formats !== undefined) {
       const formats = normalizeOrganizeFormats(parsed.organize_formats);
       stored.organize_formats = formats.length ? formats.join(',') : null;
+    }
+    if (parsed.curator_areas !== undefined) {
+      // A player from another city is not a curator (BUSINESS_RULES «Куратор направления»).
+      if (Number(current.from_other_city || 0) === 1 && normalizeCuratorAreas(parsed.curator_areas).length) {
+        return res.status(400).json({ error: 'Игрок из другого города не бывает куратором', code: 'other_city_curator' });
+      }
+      const areas = normalizeCuratorAreas(parsed.curator_areas);
+      stored.curator_areas = areas.length ? areas.join(',') : null;
     }
     if (parsed.game_level !== undefined) stored.game_level = parsed.game_level;
     if (parsed.club_role !== undefined) stored.club_role = parsed.club_role;

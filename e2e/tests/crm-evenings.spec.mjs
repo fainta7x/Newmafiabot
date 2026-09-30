@@ -40,7 +40,8 @@ test.describe('Organizer events mobile workflow', () => {
     await expect(current).toBeVisible();
     await expect(current.getByTestId('crm-evening-active')).toBeVisible();
     await expect(current.getByTestId('crm-evening-active')).toContainText('Идёт сейчас');
-    await expect(current.getByTestId('crm-events-next')).toContainText('Вечер для новичков');
+    // The rest of the week is one list under the nearest evening.
+    await expect(current.getByTestId('crm-week-events')).toContainText('Вечер для новичков');
     await expect(current.getByTestId('crm-events-stale-drafts')).toContainText('Черновики требуют решения');
     await expect(page.getByTestId('crm-evening-later')).toHaveCount(0);
     await expect(page.getByTestId('crm-evening-completed')).toHaveCount(0);
@@ -92,7 +93,7 @@ test.describe('Organizer events mobile workflow', () => {
 
     const current = page.getByTestId('crm-events-current');
     await expect(current.getByTestId('crm-evening-active')).toBeVisible();
-    await expect(current.getByTestId('crm-events-next').getByTestId('crm-evening-active-old')).toBeVisible();
+    await expect(current.getByTestId('crm-week-events')).toContainText('Незакрытый предыдущий вечер');
 
     const attention = current.getByTestId('crm-events-attention');
     await expect(attention.getByTestId('crm-evening-overdue')).toBeVisible();

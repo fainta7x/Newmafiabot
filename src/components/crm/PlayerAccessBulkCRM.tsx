@@ -9,10 +9,11 @@ import {
 import { HOST_FORMATS, HOST_FORMAT_OPTIONS, hostFormatsOf, hostFormatsSummary, type HostFormat } from '../../lib/hostFormats.ts';
 import { useClubOwner } from './useClubOwner.ts';
 import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, organizeFormatsSummary, type OrganizeFormat } from '../../lib/organizeFormats.ts';
+import { CURATOR_AREAS, CURATOR_AREA_OPTIONS, curatorAreasSummary, normalizeCuratorAreas, type CuratorArea } from '../../lib/curatorAreas.ts';
 
 type HostChoice = '' | 'yes' | 'no';
 
-type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null; attends_sometimes?: number | null };
+type Row = Player & { organize_formats?: string | null; curator_areas?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null; attends_sometimes?: number | null };
 
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
 const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
@@ -20,7 +21,7 @@ const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
     : membershipOfPlayer(row) === 'member' ? 'regular' : 'sometimes');
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
-type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'other_city' | 'paused';
+type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'curators' | 'regular' | 'sometimes' | 'stopped' | 'other_city' | 'paused';
 // Two separate rows (owner, 2026-09-30): how the player comes, and what they do in the club; they combine.
 const ACTIVITY_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'regular', label: 'Ходят постоянно' },
@@ -34,6 +35,7 @@ const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> 
   { value: 'team', label: 'Помогают клубу' },
   { value: 'hosts', label: 'Ведут игры' },
   { value: 'organizes', label: 'Проводят вечера' },
+  { value: 'curators', label: 'Кураторы' },
 ];
 const pausedOther = (row: Row) => (row.contact_status === 'paused' && row.pause_reason !== STOPPED_REASON) || row.contact_status === 'blocked';
 const role = (row: Row) => organizationOf(normalizeClubRole(row.club_role));
@@ -42,6 +44,7 @@ const matchesRoleFilter = (row: Row, filter: RoleFilter) => {
   if (filter === 'team') return role(row) === 'team';
   if (filter === 'hosts') return hostFormatsOf(row).length > 0;
   if (filter === 'organizes') return normalizeOrganizeFormats(row.organize_formats).length > 0;
+  if (filter === 'curators') return normalizeCuratorAreas(row.curator_areas).length > 0;
   if (filter === 'regular') return activityOf(row) === 'regular';
   if (filter === 'sometimes') return activityOf(row) === 'sometimes';
   if (filter === 'stopped') return stopped(row);
@@ -123,6 +126,7 @@ export function PlayerAccessBulkCRM() {
   const [sortBy, setSortBy] = useState<SortBy>('name');
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
   const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
+  const [curating, setCurating] = useState<Record<CuratorArea, HostChoice>>({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [gameLevel, setGameLevel] = useState<GameLevel | ''>('');
   const [activity, setActivity] = useState<PlayerActivity | ''>('');
@@ -182,6 +186,7 @@ export function PlayerAccessBulkCRM() {
   const currentActivity = common(selectedRows.map(activityOf));
   const currentOrganization = common(selectedRows.map((row) => organizationOf(normalizeClubRole(row.club_role))));
   const currentHosting = (format: HostFormat) => common(selectedRows.map((row) => (hostFormatsOf(row).includes(format) ? 'yes' as const : 'no' as const)));
+  const currentCurating = (area: CuratorArea) => common(selectedRows.map((row) => (normalizeCuratorAreas(row.curator_areas).includes(area) ? 'yes' as const : 'no' as const)));
   const currentOrganizing = (format: OrganizeFormat) => common(selectedRows.map((row) => (normalizeOrganizeFormats(row.organize_formats).includes(format) ? 'yes' as const : 'no' as const)));
   // Every marked player is (or is being made) «Из другого города»: only the level and rating/tournament judging stay.
   const otherCityPanel = (activity || currentActivity) === 'other_city';
@@ -195,6 +200,9 @@ export function PlayerAccessBulkCRM() {
   const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes' && currentOrganizing(format) !== 'yes' && !otherCityPanel);
   const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no' && currentOrganizing(format) !== 'no');
   const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
+  const curatorAdd = CURATOR_AREAS.filter((area) => curating[area] === 'yes' && currentCurating(area) !== 'yes' && !otherCityPanel);
+  const curatorRemove = CURATOR_AREAS.filter((area) => curating[area] === 'no' && currentCurating(area) !== 'no');
+  const curatorChanged = curatorAdd.length + curatorRemove.length > 0;
 
   // With nobody marked the picks are dropped, so the next players start from what they have now.
   const nobodyMarked = selected.size === 0;
@@ -202,7 +210,7 @@ export function PlayerAccessBulkCRM() {
     if (!nobodyMarked) return;
     setGameLevel(''); setActivity(''); setOrganization('');
     setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
-    setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
+    setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' }); setCurating({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
   }, [nobodyMarked]);
 
   // Plain summary of what «Применить» will change, so nothing is picked by mistake.
@@ -216,10 +224,11 @@ export function PlayerAccessBulkCRM() {
     organizationPick ? `роль в клубе: ${optionLabel(CLUB_ORGANIZATION, organizationPick)}` : '',
     ...HOST_FORMAT_OPTIONS.filter((option) => hostAdd.includes(option.value) || hostRemove.includes(option.value)).map((option) => `${hosting[option.value] === 'yes' ? 'может' : 'не может'} вести: ${option.label.toLocaleLowerCase('ru-RU')}`),
     ...ORGANIZE_FORMAT_OPTIONS.filter((option) => organizeAdd.includes(option.value) || organizeRemove.includes(option.value)).map((option) => `${organizing[option.value] === 'yes' ? 'может' : 'не может'} проводить: ${option.label.toLocaleLowerCase('ru-RU')}`),
+    ...CURATOR_AREA_OPTIONS.filter((option) => curatorAdd.includes(option.value) || curatorRemove.includes(option.value)).map((option) => `${curating[option.value] === 'yes' ? 'куратор' : 'больше не куратор'}: ${option.label.toLocaleLowerCase('ru-RU')}`),
   ].filter(Boolean);
 
   const apply = async () => {
-    if (saving || !selected.size || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged)) return;
+    if (saving || !selected.size || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged || curatorChanged)) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -234,6 +243,8 @@ export function PlayerAccessBulkCRM() {
         ...(hostRemove.length ? { host_formats_remove: hostRemove } : {}),
         ...(organizeAdd.length ? { organize_formats_add: organizeAdd } : {}),
         ...(organizeRemove.length ? { organize_formats_remove: organizeRemove } : {}),
+        ...(curatorAdd.length ? { curator_areas_add: curatorAdd } : {}),
+        ...(curatorRemove.length ? { curator_areas_remove: curatorRemove } : {}),
       });
       setMessage(`Сохранено. Изменено игроков: ${body.updated}.`);
       setWarnings(body.warnings || []);
@@ -242,7 +253,7 @@ export function PlayerAccessBulkCRM() {
       setActivity('');
       setOrganization('');
       setHosting({ NOVICE: '', CASUAL: '', RATING: '' });
-      setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
+      setOrganizing({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' }); setCurating({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
       await load();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить изменения');
@@ -323,6 +334,7 @@ export function PlayerAccessBulkCRM() {
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {hostFormatsOf(row).length ? ` · ${hostFormatsSummary(hostFormatsOf(row))}` : ''}
                   {normalizeOrganizeFormats(row.organize_formats).length ? ` · ${organizeFormatsSummary(normalizeOrganizeFormats(row.organize_formats))}` : ''}
+                  {normalizeCuratorAreas(row.curator_areas).length ? ` · Куратор: ${curatorAreasSummary(normalizeCuratorAreas(row.curator_areas))}` : ''}
                   {row.contact_status === 'blocked' ? ' · Заблокирован' : pausedOther(row) ? ` · Рассылка на паузе${row.pause_reason ? `: ${row.pause_reason}` : ''}` : ''}
                   {Number(row.attendance_count || 0) ? ` · вечеров: ${Number(row.attendance_count)}` : ''}
                 </span>
@@ -363,6 +375,18 @@ export function PlayerAccessBulkCRM() {
               </div>
             </div>
           ) : null}
+          {otherCityPanel ? null : (
+            <div className="mt-1">
+              <span className="block text-[11px] font-semibold text-white/70">Куратор направления</span>
+              <span className="mb-1 block text-[10px] leading-[13px] text-white/40">За что отвечает в клубе. Прав не даёт; если направление давно без дел, в «Делах» появится напоминание.</span>
+              <div className="grid grid-cols-2 gap-2">
+                {CURATOR_AREA_OPTIONS.map((option) => (
+                  <MarkSelect key={option.value} label={option.label} ariaLabel={`Куратор: ${option.label}`} value={curating[option.value]} current={currentCurating(option.value)}
+                    onChange={(next) => setCurating((current) => ({ ...current, [option.value]: next }))} />
+                ))}
+              </div>
+            </div>
+          )}
           {changes.length ? (
             <div className="mt-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2" data-testid="crm-access-bulk-summary">
               <p className="text-[11px] font-semibold text-white/70">Что изменится у {selected.size === 1 ? 'игрока' : `${selected.size} игроков`}:</p>
@@ -373,7 +397,7 @@ export function PlayerAccessBulkCRM() {
           {error ? <p className="mt-2 rounded-xl bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200" data-testid="crm-access-bulk-error">{error}</p> : null}
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
             <button type="button" onClick={() => setSelected(new Set())} className="min-h-12 rounded-xl border border-white/15 px-3 text-[13px] text-white/70">Отмена</button>
-            <button type="button" disabled={saving || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged)} onClick={() => void apply()}
+            <button type="button" disabled={saving || !(levelPick || activityPick || organizationPick || hostChanged || organizeChanged || curatorChanged)} onClick={() => void apply()}
               className="min-h-12 rounded-xl bg-white px-3 text-[13px] font-bold text-black disabled:opacity-40">{saving ? 'Сохраняем…' : `Применить к ${selected.size}`}</button>
           </div>
         </div>

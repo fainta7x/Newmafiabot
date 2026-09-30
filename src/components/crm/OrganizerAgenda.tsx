@@ -20,9 +20,9 @@ type Payload = { items: Item[]; counts: Record<Group, number>; total: number; sn
 
 const GROUPS: Group[] = ['now', 'week', 'later'];
 const GROUP_HINT: Record<Group, string> = {
-  now: 'Сегодня и то, что уже горит',
+  now: 'Ближайший вечер, оплата, то, что уже горит',
   week: 'Сделать до конца недели',
-  later: 'Порядок в клубе и общение с игроками',
+  later: 'Профили, общение с игроками, кураторы, порядок в базе',
 };
 const SNOOZE: Array<[number, string]> = [[1, 'До завтра'], [3, 'На 3 дня'], [7, 'На неделю'], [30, 'На месяц']];
 
@@ -154,7 +154,9 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   };
 
   const nowItems = data?.items.filter((item) => item.group === 'now') || [];
-  const previewItems = nowItems.length ? nowItems.slice(0, 4) : (data?.items || []).slice(0, 3);
+  // The home screen shows what is urgent and a little of the club upkeep, so both are always in sight.
+  const restItems = data?.items.filter((item) => item.group !== 'now') || [];
+  const previewItems = [...nowItems.slice(0, 3), ...restItems.slice(0, nowItems.length ? 1 : 3)];
 
   return (
     <section data-testid={mode === 'preview' ? 'agenda-preview' : 'agenda'} aria-label="Дела" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
@@ -162,7 +164,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent/10 text-accent"><ClipboardCheck className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-bold text-text-primary">Дела{data?.total ? <span data-testid="agenda-count" className="ml-2 rounded-full bg-warning-soft px-2 py-0.5 align-middle text-[12px] font-bold text-warning">{data.total}</span> : null}</h3>
-          <p className="text-[12px] leading-4 text-text-muted">{mode === 'preview' ? 'Самое срочное. Дело уходит само, когда сделано.' : 'Дело уходит само, когда сделано. Людей из списка отмечай «Написал».'}</p>
+          <p className="text-[12px] leading-4 text-text-muted">{mode === 'preview' ? 'Срочное и гигиена клуба. Дело уходит само, когда сделано.' : 'Дело уходит само, когда сделано. Людей из списка отмечай «Написал».'}</p>
         </div>
         <button type="button" onClick={() => void load()} aria-label="Обновить дела" className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-text-muted"><RefreshCw className={`h-4 w-4 ${!data && !error ? 'animate-spin' : ''}`} /></button>
       </div>

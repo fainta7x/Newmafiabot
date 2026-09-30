@@ -633,6 +633,52 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </details>
           </div>
         ) : null}
+        {/* The card's own sheets are nested inside it: a sibling sheet would close the card, and the card closing unmounts them (owner report 2026-09-30: «Данные и фото» did nothing). */}
+        <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
+          <div className="space-y-2">
+            <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
+            <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
+            {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
+          </div>
+        </MobileSheet>
+
+        <MobileSheet open={showEditSheet} onClose={() => setShowEditSheet(false)} title="Редактировать игрока" widthClass="sm:max-w-lg" footer={<button type="button" disabled={editSaving || !editForm.nickname.trim()} onClick={() => void handleSaveEdit()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{editSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
+          <div className="space-y-5">
+            {editError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{editError}</div> : null}
+            <section className="space-y-3">
+              <div><h3 className="text-[13px] font-bold text-text-primary">Основной профиль</h3><p className="mt-0.5 text-[11px] text-text-muted">Те же личные данные, которые игрок видит в своём кабинете.</p></div>
+              <PlayerIdentityFields
+                value={{ nickname: editForm.nickname, fullName: editForm.full_name, phone: editForm.phone }}
+                onChange={(identity) => setEditForm((value) => ({ ...value, nickname: identity.nickname, full_name: identity.fullName, phone: identity.phone }))}
+              />
+            </section>
+            <section className="space-y-3 border-t border-border-soft pt-4">
+              <div><h3 className="text-[13px] font-bold text-text-primary">Работа клуба</h3><p className="mt-0.5 text-[11px] text-text-muted">Служебные заметки клуба — отдельный профиль игрока они не создают.</p></div>
+              <input value={editForm.telegram_username} onChange={(e) => setEditForm((v) => ({ ...v, telegram_username: e.target.value }))} placeholder="Telegram" className="mobile-field" />
+              <select value={editForm.contact_status} onChange={(e) => setEditForm((v) => ({ ...v, contact_status: e.target.value as ContactStatus }))} className="mobile-field"><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select>
+              <input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm((v) => ({ ...v, do_not_invite_until: e.target.value }))} className="mobile-field" aria-label="Не приглашать до" />
+              <input value={editForm.pause_reason} onChange={(e) => setEditForm((v) => ({ ...v, pause_reason: e.target.value }))} placeholder="Причина паузы" className="mobile-field" />
+              <input value={editForm.preferred_format} onChange={(e) => setEditForm((v) => ({ ...v, preferred_format: e.target.value }))} placeholder="Предпочтительный формат" className="mobile-field" />
+              <input value={editForm.referred_by} onChange={(e) => setEditForm((v) => ({ ...v, referred_by: e.target.value }))} placeholder="Кто пригласил" className="mobile-field" />
+              <input value={editForm.source} onChange={(e) => setEditForm((v) => ({ ...v, source: e.target.value }))} placeholder="Источник" className="mobile-field" />
+              <textarea value={editForm.notes} onChange={(e) => setEditForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Заметки" className="mobile-field min-h-[96px] resize-y" />
+            </section>
+          </div>
+        </MobileSheet>
+
+        <MobileSheet open={showTaskSheet} onClose={() => setShowTaskSheet(false)} title="Новая задача" widthClass="sm:max-w-md" footer={<button type="button" disabled={!taskTitle.trim() || taskSaving} onClick={() => void handleCreateTask()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{taskSaving ? 'Создаём…' : 'Создать задачу'}</button>}>
+          <div className="space-y-3">{taskError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{taskError}</div> : null}<input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Что сделать" className="mobile-field" /><input type="datetime-local" value={taskDueAt} onChange={(e) => setTaskDueAt(e.target.value)} className="mobile-field" /></div>
+        </MobileSheet>
+
+        <MobileSheet open={showCommSheet} onClose={() => setShowCommSheet(false)} title="Результат общения" widthClass="sm:max-w-md" footer={<button type="button" disabled={commSaving} onClick={() => void handleRecordCommunication()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{commSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
+          <div className="space-y-3">{commError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{commError}</div> : null}<select value={commChannel} onChange={(e) => setCommChannel(e.target.value as typeof commChannel)} className="mobile-field"><option value="telegram">Telegram</option><option value="phone">Телефон</option><option value="in_person">Лично</option><option value="other">Другое</option></select><select value={commOutcome} onChange={(e) => setCommOutcome(e.target.value as typeof commOutcome)} className="mobile-field"><option value="answered">Ответил</option><option value="no_answer">Не ответил</option><option value="interested">Заинтересован</option><option value="declined">Отказался</option><option value="call_later">Связаться позже</option></select><textarea value={commComment} onChange={(e) => setCommComment(e.target.value)} placeholder="Комментарий — необязательно" className="mobile-field min-h-[96px] resize-y" /></div>
+        </MobileSheet>
+
+        <MobileSheet open={showInviteSheet} onClose={() => setShowInviteSheet(false)} title="Приглашение" subtitle="Подробный сценарий для выбора другого вечера, стола и текста сообщения." widthClass="sm:max-w-lg" footer={<button type="button" disabled={!selectedEveningId || inviteSaving || inviteLoading} onClick={() => void sendDetailedInvite()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{inviteSaving ? 'Сохраняем…' : 'Записать приглашение'}</button>}>
+          <div className="space-y-3">{inviteError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{inviteError}</div> : null}{inviteLoading ? <div className="py-8 text-center text-[12px] text-text-secondary">Загрузка вечеров…</div> : <><select value={selectedEveningId} onChange={(e) => void selectInviteEvening(e.target.value)} className="mobile-field"><option value="">Выберите вечер</option>{futureEvenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at, true)}</option>)}</select><select value={selectedTableId} onChange={(e) => selectInviteTable(e.target.value)} className="mobile-field"><option value="">Без предварительного стола</option>{eveningTables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select><label className="flex min-h-[44px] items-center gap-3 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><input type="checkbox" checked={createFollowupTask} onChange={(e) => setCreateFollowupTask(e.target.checked)} /> Напомнить связаться позже</label><textarea value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className="mobile-field min-h-[150px] resize-y" /><button type="button" disabled={!inviteMessage} onClick={async () => { try { await navigator.clipboard.writeText(inviteMessage); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { setInviteError('Не удалось скопировать сообщение'); } }} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-primary"><Copy className="h-4 w-4" /> {copied ? 'Скопировано' : 'Скопировать текст'}</button></>}</div>
+        </MobileSheet>
+
+        <ConfirmDialog open={confirmDeleteAvatar} title="Удалить фото игрока?" description="Будет использоваться инициала никнейма. Остальные данные игрока не изменятся." tone="danger" busy={avatarBusy} confirmLabel="Удалить фото" onCancel={() => setConfirmDeleteAvatar(false)} onConfirm={deleteAvatar} />
       </MobileSheet>
 
       <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" subtitle="Точные сегменты сохранены, но не занимают основной экран." widthClass="sm:max-w-md">
@@ -650,51 +696,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
       <input id="player-avatar-file" type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
 
-      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
-        <div className="space-y-2">
-          <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
-          <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
-          {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
-        </div>
-      </MobileSheet>
-
-      <MobileSheet open={showEditSheet} onClose={() => setShowEditSheet(false)} title="Редактировать игрока" widthClass="sm:max-w-lg" footer={<button type="button" disabled={editSaving || !editForm.nickname.trim()} onClick={() => void handleSaveEdit()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{editSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
-        <div className="space-y-5">
-          {editError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{editError}</div> : null}
-          <section className="space-y-3">
-            <div><h3 className="text-[13px] font-bold text-text-primary">Основной профиль</h3><p className="mt-0.5 text-[11px] text-text-muted">Те же личные данные, которые игрок видит в своём кабинете.</p></div>
-            <PlayerIdentityFields
-              value={{ nickname: editForm.nickname, fullName: editForm.full_name, phone: editForm.phone }}
-              onChange={(identity) => setEditForm((value) => ({ ...value, nickname: identity.nickname, full_name: identity.fullName, phone: identity.phone }))}
-            />
-          </section>
-          <section className="space-y-3 border-t border-border-soft pt-4">
-            <div><h3 className="text-[13px] font-bold text-text-primary">Работа клуба</h3><p className="mt-0.5 text-[11px] text-text-muted">Служебные заметки клуба — отдельный профиль игрока они не создают.</p></div>
-            <input value={editForm.telegram_username} onChange={(e) => setEditForm((v) => ({ ...v, telegram_username: e.target.value }))} placeholder="Telegram" className="mobile-field" />
-            <select value={editForm.contact_status} onChange={(e) => setEditForm((v) => ({ ...v, contact_status: e.target.value as ContactStatus }))} className="mobile-field"><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select>
-            <input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm((v) => ({ ...v, do_not_invite_until: e.target.value }))} className="mobile-field" aria-label="Не приглашать до" />
-            <input value={editForm.pause_reason} onChange={(e) => setEditForm((v) => ({ ...v, pause_reason: e.target.value }))} placeholder="Причина паузы" className="mobile-field" />
-            <input value={editForm.preferred_format} onChange={(e) => setEditForm((v) => ({ ...v, preferred_format: e.target.value }))} placeholder="Предпочтительный формат" className="mobile-field" />
-            <input value={editForm.referred_by} onChange={(e) => setEditForm((v) => ({ ...v, referred_by: e.target.value }))} placeholder="Кто пригласил" className="mobile-field" />
-            <input value={editForm.source} onChange={(e) => setEditForm((v) => ({ ...v, source: e.target.value }))} placeholder="Источник" className="mobile-field" />
-            <textarea value={editForm.notes} onChange={(e) => setEditForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Заметки" className="mobile-field min-h-[96px] resize-y" />
-          </section>
-        </div>
-      </MobileSheet>
-
-      <MobileSheet open={showTaskSheet} onClose={() => setShowTaskSheet(false)} title="Новая задача" widthClass="sm:max-w-md" footer={<button type="button" disabled={!taskTitle.trim() || taskSaving} onClick={() => void handleCreateTask()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{taskSaving ? 'Создаём…' : 'Создать задачу'}</button>}>
-        <div className="space-y-3">{taskError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{taskError}</div> : null}<input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Что сделать" className="mobile-field" /><input type="datetime-local" value={taskDueAt} onChange={(e) => setTaskDueAt(e.target.value)} className="mobile-field" /></div>
-      </MobileSheet>
-
-      <MobileSheet open={showCommSheet} onClose={() => setShowCommSheet(false)} title="Результат общения" widthClass="sm:max-w-md" footer={<button type="button" disabled={commSaving} onClick={() => void handleRecordCommunication()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{commSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
-        <div className="space-y-3">{commError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{commError}</div> : null}<select value={commChannel} onChange={(e) => setCommChannel(e.target.value as typeof commChannel)} className="mobile-field"><option value="telegram">Telegram</option><option value="phone">Телефон</option><option value="in_person">Лично</option><option value="other">Другое</option></select><select value={commOutcome} onChange={(e) => setCommOutcome(e.target.value as typeof commOutcome)} className="mobile-field"><option value="answered">Ответил</option><option value="no_answer">Не ответил</option><option value="interested">Заинтересован</option><option value="declined">Отказался</option><option value="call_later">Связаться позже</option></select><textarea value={commComment} onChange={(e) => setCommComment(e.target.value)} placeholder="Комментарий — необязательно" className="mobile-field min-h-[96px] resize-y" /></div>
-      </MobileSheet>
-
-      <MobileSheet open={showInviteSheet} onClose={() => setShowInviteSheet(false)} title="Приглашение" subtitle="Подробный сценарий для выбора другого вечера, стола и текста сообщения." widthClass="sm:max-w-lg" footer={<button type="button" disabled={!selectedEveningId || inviteSaving || inviteLoading} onClick={() => void sendDetailedInvite()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{inviteSaving ? 'Сохраняем…' : 'Записать приглашение'}</button>}>
-        <div className="space-y-3">{inviteError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{inviteError}</div> : null}{inviteLoading ? <div className="py-8 text-center text-[12px] text-text-secondary">Загрузка вечеров…</div> : <><select value={selectedEveningId} onChange={(e) => void selectInviteEvening(e.target.value)} className="mobile-field"><option value="">Выберите вечер</option>{futureEvenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at, true)}</option>)}</select><select value={selectedTableId} onChange={(e) => selectInviteTable(e.target.value)} className="mobile-field"><option value="">Без предварительного стола</option>{eveningTables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select><label className="flex min-h-[44px] items-center gap-3 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><input type="checkbox" checked={createFollowupTask} onChange={(e) => setCreateFollowupTask(e.target.checked)} /> Напомнить связаться позже</label><textarea value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className="mobile-field min-h-[150px] resize-y" /><button type="button" disabled={!inviteMessage} onClick={async () => { try { await navigator.clipboard.writeText(inviteMessage); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { setInviteError('Не удалось скопировать сообщение'); } }} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-primary"><Copy className="h-4 w-4" /> {copied ? 'Скопировано' : 'Скопировать текст'}</button></>}</div>
-      </MobileSheet>
-
-      <ConfirmDialog open={confirmDeleteAvatar} title="Удалить фото игрока?" description="Будет использоваться инициала никнейма. Остальные данные игрока не изменятся." tone="danger" busy={avatarBusy} confirmLabel="Удалить фото" onCancel={() => setConfirmDeleteAvatar(false)} onConfirm={deleteAvatar} />
     </div>
   );
 };

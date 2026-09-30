@@ -4,6 +4,10 @@ import { loadClubOrder, type ClubOrderAction, type ClubOrderItem } from './clubO
 import { calculateProfileCompleteness } from './playerProfileIntegrityService.ts';
 import { closeTasksOfEndedEvenings } from './eveningCloseoutService.ts';
 import { PLAYER_VISITS_SQL, PLAYER_VISIT_STATS_SQL } from './playerVisitsService.ts';
+import { loadEveningShortfall } from './eveningShortfallService.ts';
+import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import { CURATOR_AREAS, curatorAreaLabel, normalizeCuratorAreas, type CuratorArea } from '../../lib/curatorAreas.ts';
+import { STATUS_SEGMENT_LABELS, getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
 import { membershipOfPlayer } from '../../lib/playerAccess.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 
@@ -44,23 +48,30 @@ export type AgendaItem = {
   can_complete?: boolean;
   dismiss_label?: string;
 };
-export type ContactReason = 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback';
+export type ContactReason = 'absent_regular' | 'absent_sometimes' | 'stopped' | 'profile' | 'novice_feedback' | 'fill' | 'thinking' | 'curator';
 
 export const AGENDA_GROUP_LABELS: Record<AgendaGroup, string> = {
-  now: 'Сейчас',
+  now: 'Срочно',
   week: 'На этой неделе',
-  later: 'Когда будет время',
+  later: 'Гигиена клуба',
 };
 
 const DAY = 86_400_000;
 const PEOPLE_LIMIT = 30;
 export const ABSENCE_DAYS = { regular: 14, sometimes: 28, stopped: 60 } as const;
+/** «Добор» starts this many days before the evening (owner, 2026-09-30). */
+export const FILL_DAYS = 3;
+/** A curator's direction counts as quiet after this many days without anything done or a talk. */
+export const CURATOR_QUIET_DAYS = 14;
 const CONTACT_QUIET_DAYS: Record<ContactReason, number> = {
   absent_regular: ABSENCE_DAYS.regular,
   absent_sometimes: ABSENCE_DAYS.sometimes,
   stopped: ABSENCE_DAYS.stopped,
   profile: 14,
   novice_feedback: 365,
+  fill: 3,
+  thinking: 2,
+  curator: CURATOR_QUIET_DAYS,
 };
 const iso = (ms: number) => new Date(ms).toISOString();
 const plural = (n: number, one: string, few: string, many: string) => {
@@ -182,8 +193,10 @@ async function profileItem(db: DatabaseWrapper, now: number): Promise<AgendaItem
            EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
       FROM players p
      WHERE ${MEMBER_SQL} AND COALESCE(p.contact_status, 'normal') NOT IN ('blocked', 'paused')
-       AND EXISTS (SELECT 1 FROM (${PLAYER_VISITS_SQL}) v WHERE v.player_id = CAST(p.id AS TEXT) AND datetime(v.starts_at) >= datetime(?))
-     ORDER BY p.nickname COLLATE NOCASE`, [iso(now - 120 * DAY)]);
+       AND COALESCE(p.stopped_attending, 0) = 0
+     ORDER BY p.nickname COLLATE NOCASE`);
+  // Every club player (owner, 2026-09-30), regular players first.
+  rows.sort((left: any, right: any) => (SEGMENT_ORDER[getPlayerStatusSegment(left)] ?? 9) - (SEGMENT_ORDER[getPlayerStatusSegment(right)] ?? 9));
   const quiet = await recentlyContacted(db, 'profile', now);
   const people: AgendaPerson[] = [];
   for (const row of rows) {
@@ -225,10 +238,138 @@ async function noviceFeedbackItem(db: DatabaseWrapper, now: number): Promise<Age
   }];
 }
 
+const SEGMENT_ORDER: Record<string, number> = { regular: 0, sometimes: 1, novice: 2, other_city: 3, stopped: 4 };
+const eveningLabel = (row: any) => `${String(row.title || 'Игровой вечер')}${dayLabel(row.starts_at) ? ` · ${dayLabel(row.starts_at)}` : ''}`;
+
+/**
+ * «Добор» and «Думают» (owner, 2026-09-30: few players answer the announcement). From FILL_DAYS before a published
+ * evening: when fewer than the minimum said «Иду», list club players who may come and have not answered;
+ * separately list those who answered «Думаю». Regular players first.
+ */
+async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<AgendaItem & { rank: number }>> {
+  const evenings = await db.all<any>(
+    `SELECT id, title, starts_at, format FROM game_evenings
+      WHERE status = 'published' AND settled_at IS NULL AND UPPER(COALESCE(format, '')) <> 'TOURNAMENT'
+        AND datetime(starts_at) > datetime(?) AND datetime(starts_at) <= datetime(?)
+      ORDER BY starts_at`,
+    [iso(now), iso(now + FILL_DAYS * DAY)],
+  );
+  if (!evenings.length) return [];
+  const quietFill = await recentlyContacted(db, 'fill', now);
+  const quietThinking = await recentlyContacted(db, 'thinking', now);
+  const club = await db.all<any>(`
+    SELECT p.id, p.nickname, p.game_level, p.club_role, p.attends_sometimes, p.stopped_attending, p.from_other_city,
+           p.contact_status, p.pause_reason, v.last_visit
+      FROM players p
+      LEFT JOIN (${PLAYER_VISIT_STATS_SQL}) v ON v.player_id = CAST(p.id AS TEXT)
+     WHERE ${MEMBER_SQL} AND COALESCE(p.contact_status, 'normal') = 'normal'
+       AND COALESCE(p.stopped_attending, 0) = 0`);
+  const items: Array<AgendaItem & { rank: number }> = [];
+  for (const evening of evenings) {
+    const eveningId = String(evening.id);
+    const answers = await db.all<any>(
+      'SELECT player_id, response_status FROM evening_participants WHERE evening_id = ? AND player_id IS NOT NULL', [eveningId]);
+    // A row without an answer (e.g. «unanswered», added by the organizer) still counts as not answered.
+    const answered = new Map(answers.filter((row: any) => ['going', 'late', 'thinking', 'declined'].includes(String(row.response_status || '')))
+      .map((row: any) => [String(row.player_id), String(row.response_status || '')]));
+    const thinking = club.filter((row: any) => answered.get(String(row.id)) === 'thinking' && !quietThinking.has(String(row.id)));
+    if (thinking.length) {
+      items.push({
+        id: `people:thinking:${eveningId}`, group: 'now', rank: 16, kind: 'thinking',
+        title: `Думают · ${thinking.length} · ${eveningLabel(evening)}`,
+        why: 'Ответили «Думаю». Короткое личное сообщение — главный способ превратить «думаю» в «иду».',
+        people: await withLinks(db, thinking.slice(0, PEOPLE_LIMIT).map((row: any) => ({ player_id: String(row.id), nickname: String(row.nickname || 'Без ника') }))),
+        people_total: thinking.length, contact_reason: 'thinking',
+        action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть вечер',
+      });
+    }
+    const shortfall = await loadEveningShortfall(db, eveningId);
+    if (!shortfall?.short) continue;
+    const invite = club
+      .filter((row: any) => !answered.has(String(row.id)) && !quietFill.has(String(row.id)))
+      .filter((row: any) => Number(row.from_other_city || 0) !== 1 || String(evening.format || '').toUpperCase() === 'RATING')
+      .filter((row: any) => playerLevelAllowsEveningFormat(row.game_level, evening.format))
+      .sort((left: any, right: any) => (SEGMENT_ORDER[getPlayerStatusSegment(left)] ?? 9) - (SEGMENT_ORDER[getPlayerStatusSegment(right)] ?? 9)
+        || String(right.last_visit || '').localeCompare(String(left.last_visit || '')));
+    items.push({
+      id: `people:fill:${eveningId}`, group: 'now', rank: 15, kind: 'fill',
+      title: `Добор: ${shortfall.confirmed} из ${shortfall.minimum} · ${eveningLabel(evening)}`,
+      why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных. Через час до начала вечер с недобором предложит отменить.`,
+      people: await withLinks(db, invite.slice(0, PEOPLE_LIMIT).map((row: any) => ({
+        player_id: String(row.id), nickname: String(row.nickname || 'Без ника'),
+        detail: [STATUS_SEGMENT_LABELS[getPlayerStatusSegment(row)].toLowerCase(),
+          row.last_visit ? `был ${dayLabel(row.last_visit)}` : ''].filter(Boolean).join(' · '),
+      }))),
+      people_total: invite.length, contact_reason: 'fill',
+      action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть вечер',
+    });
+  }
+  return items;
+}
+
+/**
+ * Curators (owner, 2026-09-30): a direction is quiet when nothing of it happened in the app and nobody talked
+ * with its curator for CURATOR_QUIET_DAYS. What the app can see: novice evenings run or judged («Новички»),
+ * tournaments organized («Турниры»), own events organized («Ивенты»). Learning, discipline and SMM leave no
+ * trace in the app yet, so for them only the last talk («Написал») counts.
+ */
+async function curatorItems(db: DatabaseWrapper, now: number): Promise<AgendaItem[]> {
+  const curators = (await db.all<any>(`SELECT p.id, p.nickname, p.curator_areas FROM players p
+    WHERE ${MEMBER_SQL} AND COALESCE(p.curator_areas, '') <> '' ORDER BY p.nickname COLLATE NOCASE`))
+    .map((row: any) => ({ ...row, areas: normalizeCuratorAreas(row.curator_areas) }))
+    .filter((row: any) => row.areas.length);
+  if (!curators.length) return [];
+  const since = iso(now - CURATOR_QUIET_DAYS * DAY);
+  const talked = await recentlyContacted(db, 'curator', now);
+  const lastTalk = new Map((await db.all<any>(
+    "SELECT player_id, MAX(occurred_at) AS at FROM player_activities WHERE type = 'contact' AND outcome = 'agenda:curator' GROUP BY player_id",
+  )).map((row: any) => [String(row.player_id), String(row.at)]));
+  const tableExists = async (name: string) => Boolean(await db.get("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?", [name]));
+  const hasColumn = async (table: string, column: string) => (await db.all<any>(`PRAGMA table_info(${table})`)).some((row: any) => row.name === column);
+  const lastDone = async (area: CuratorArea, playerId: string): Promise<string | null> => {
+    if (area === 'NOVICES') {
+      const staff = await tableExists('evening_staff_assignments')
+        ? await db.get<any>(`SELECT MAX(e.starts_at) AS at FROM evening_staff_assignments s JOIN game_evenings e ON e.id = s.evening_id
+            WHERE (s.organizer_player_id = ? OR s.judge_player_id = ?) AND UPPER(COALESCE(e.format, '')) = 'NOVICE' AND e.status NOT IN ('cancelled', 'draft') AND datetime(e.starts_at) <= datetime(?)`, [playerId, playerId, iso(now)])
+        : null;
+      const judged = await db.get<any>(`SELECT MAX(e.starts_at) AS at FROM games g JOIN game_evenings e ON e.id = g.evening_id
+          WHERE g.judge_player_id = ? AND g.archived_at IS NULL AND UPPER(COALESCE(e.format, '')) = 'NOVICE'`, [playerId]);
+      return [staff?.at, judged?.at].filter(Boolean).sort().pop() || null;
+    }
+    if (area === 'TOURNAMENTS' && await tableExists('tournaments') && await hasColumn('tournaments', 'organizer_player_id')) {
+      return (await db.get<any>("SELECT MAX(COALESCE(date, created_at)) AS at FROM tournaments WHERE organizer_player_id = ? AND COALESCE(status, '') <> 'cancelled'", [playerId]))?.at || null;
+    }
+    if (area === 'EVENTS' && await tableExists('custom_events')) {
+      return (await db.get<any>("SELECT MAX(created_at) AS at FROM custom_events WHERE organizer_player_id = ? AND status <> 'cancelled'", [playerId]))?.at || null;
+    }
+    return null;
+  };
+  const people: AgendaPerson[] = [];
+  for (const curator of curators) {
+    const id = String(curator.id);
+    if (talked.has(id)) continue;
+    const quiet: string[] = [];
+    for (const area of CURATOR_AREAS.filter((item) => curator.areas.includes(item))) {
+      const done = await lastDone(area, id);
+      if (done && String(done) >= since) continue;
+      quiet.push(`${curatorAreaLabel(area).toLowerCase()}: ${done ? `последнее ${dayLabel(done)}` : 'в приложении нет следов'}`);
+    }
+    if (!quiet.length) continue;
+    const talk = lastTalk.get(id);
+    people.push({ player_id: id, nickname: String(curator.nickname || 'Без ника'), detail: `${quiet.join('; ')}${talk ? ` · говорили ${dayLabel(talk)}` : ' · ещё не говорили'}` });
+  }
+  if (!people.length) return [];
+  return [{
+    id: 'people:curators', group: 'later', kind: 'curator', title: `Кураторы: узнать, как дела · ${people.length}`,
+    why: `По направлению ничего не было больше ${CURATOR_QUIET_DAYS} дней. Спроси, что сделано и нужна ли помощь; после «Написал» куратор уйдёт из списка на ${CURATOR_QUIET_DAYS} дней.`,
+    people: await withLinks(db, people.slice(0, PEOPLE_LIMIT)), people_total: people.length, contact_reason: 'curator',
+  }];
+}
+
 // Where each «Порядок в клубе» check goes, and in which order inside its group.
 const ORDER_PLACE: Array<[RegExp, AgendaGroup, number]> = [
-  [/^shortfall:/, 'now', 10], [/^unclosed:/, 'now', 20], [/^gathered:/, 'now', 25], [/^organizer:/, 'now', 30],
-  [/^draft:/, 'week', 10], [/^no-evening$/, 'week', 15], [/^debts:/, 'week', 20], [/^protocols:/, 'week', 25],
+  [/^shortfall:/, 'now', 10], [/^unclosed:/, 'now', 20], [/^gathered:/, 'now', 25], [/^debts:/, 'now', 26], [/^protocols:/, 'now', 27], [/^organizer:/, 'now', 30],
+  [/^draft:/, 'week', 10], [/^no-evening$/, 'week', 15],
   [/^level-missing$/, 'later', 10], [/^no-contact$/, 'later', 30], [/^duplicates:/, 'later', 40],
 ];
 const orderPlace = (id: string): [AgendaGroup, number] => {
@@ -289,7 +430,7 @@ async function taskItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
 }
 
 const GROUP_ORDER: AgendaGroup[] = ['now', 'week', 'later'];
-const PEOPLE_RANK: Record<string, number> = { novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 50 };
+const PEOPLE_RANK: Record<string, number> = { novice_feedback: 35, absent_regular: 40, absent_sometimes: 20, stopped: 25, profile: 10, curator: 5 };
 
 export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
   await ensureAgendaSchema(db);
@@ -311,6 +452,8 @@ export async function loadAgenda(db: DatabaseWrapper, nowMs = Date.now()) {
     absence: await safely('давно не были', async () => (await absenceItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK[item.kind] ?? 60 }))),
     profiles: await safely('профили', async () => (await profileItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.profile }))),
     novices: await safely('новички', async () => (await noviceFeedbackItem(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.novice_feedback }))),
+    fill: await safely('добор на вечер', () => fillItems(db, nowMs)),
+    curators: await safely('кураторы', async () => (await curatorItems(db, nowMs)).map((item) => ({ ...item, rank: PEOPLE_RANK.curator }))),
   };
   const candidates: Array<AgendaItem & { rank: number }> = Object.values(sources).flat();
   const snoozed = new Set((await safely('отложенные', () => db.all<any>('SELECT item_id FROM organizer_agenda_snoozes WHERE datetime(until) > datetime(?)', [iso(nowMs)])))
@@ -367,6 +510,9 @@ const CONTACT_LABELS: Record<ContactReason, string> = {
   stopped: 'позвал вернуться (перестал ходить)',
   profile: 'попросил дозаполнить профиль',
   novice_feedback: 'спросил о первом вечере',
+  fill: 'позвал на ближайший вечер (добор)',
+  thinking: 'уточнил, придёт ли на вечер',
+  curator: 'поговорил с куратором о его направлении',
 };
 
 /** «Написал»: recorded in the player's history; the person leaves this list for its quiet period. */

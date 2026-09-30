@@ -93,6 +93,15 @@ test.describe('CRM player classification persistence', () => {
     await shot(page, testInfo, 'crm-player-telegram-keyboard-constrained-360.png');
   });
 
+  test('«Данные и фото» opens over the player card and keeps the card open (owner report 2026-09-30)', async ({ page }) => {
+    await openKinder(page);
+    await page.getByRole('button', { name: 'Данные и фото' }).click();
+    await expect(page.getByRole('button', { name: 'Редактировать данные' })).toBeVisible();
+    await page.getByRole('button', { name: 'Редактировать данные' }).click();
+    await expect(page.getByRole('heading', { name: 'Редактировать игрока' }).or(page.getByText('Редактировать игрока'))).toBeVisible();
+    await expect(page.getByTestId('crm-player-work-card')).toBeAttached();
+  });
+
   test('handles long player text without horizontal overflow at supported mobile widths', async ({ page }, testInfo) => {
     for (const width of [320, 360, 390, 430]) {
       await page.setViewportSize({ width, height: 800 });

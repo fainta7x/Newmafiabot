@@ -43,9 +43,9 @@ export const sortPlayersForActivity = <T extends ActivityPlayer>(players: T[]): 
 /*
  * «Игроки → База» tabs follow the organizer's own statuses from «Роли» (owner decision 2026-09-30),
  * not visit counting: «Перестал ходить» wins, then the «Новичок» game level, then «Как часто ходит».
- * A guest from another city sits with «Ходят иногда». Visits are only shown next to the name.
+ * A guest from another city has a tab of their own (owner, 2026-09-30). Visits are only shown next to the name.
  */
-export type PlayerStatusSegment = 'regular' | 'sometimes' | 'novice' | 'stopped';
+export type PlayerStatusSegment = 'regular' | 'sometimes' | 'other_city' | 'novice' | 'stopped';
 
 type StatusPlayer = {
   game_level?: string | null;
@@ -60,7 +60,7 @@ type StatusPlayer = {
 };
 
 export const STATUS_SEGMENT_LABELS: Record<PlayerStatusSegment, string> = {
-  regular: 'Ходит постоянно', sometimes: 'Ходит иногда', novice: 'Новичок', stopped: 'Перестал ходить',
+  regular: 'Ходит постоянно', sometimes: 'Ходит иногда', other_city: 'Из другого города', novice: 'Новичок', stopped: 'Перестал ходить',
 };
 
 const STOPPED = 'Перестал ходить';
@@ -73,6 +73,7 @@ export const isClubPlayer = (player: StatusPlayer) =>
 export const getPlayerStatusSegment = (player: StatusPlayer): PlayerStatusSegment => {
   if (Number(player.stopped_attending || 0) === 1 || (player.contact_status === 'paused' && player.pause_reason === STOPPED)) return 'stopped';
   if (player.game_level === 'novice' || player.game_level === 'unrated') return 'novice';
-  if (Number(player.from_other_city || 0) === 1 || player.club_role === 'guest' || Number(player.attends_sometimes || 0) === 1) return 'sometimes';
+  if (Number(player.from_other_city || 0) === 1) return 'other_city';
+  if (player.club_role === 'guest' || Number(player.attends_sometimes || 0) === 1) return 'sometimes';
   return 'regular';
 };

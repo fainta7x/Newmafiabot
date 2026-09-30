@@ -47,6 +47,10 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   if (!columns.some((column) => column.name === 'organize_formats')) {
     await db.run('ALTER TABLE players ADD COLUMN organize_formats TEXT');
   }
+  // «Куратор направления» marks (src/lib/curatorAreas.ts); NULL = none.
+  if (!columns.some((column) => column.name === 'curator_areas')) {
+    await db.run('ALTER TABLE players ADD COLUMN curator_areas TEXT');
+  }
   // «Перестал ходить» (owner decision 2026-09-30) is kept on its own, so it can be set even when the
   // mailing is already paused for another reason or the player is blocked. 1 = stopped coming.
   if (!columns.some((column) => column.name === 'stopped_attending')) {

@@ -276,6 +276,8 @@ export interface CrmOverview {
     unpaidParticipants: any[];
   };
   summary: {
+    /** Every open task, due later included. */
+    openTasksCount?: number;
     overdueTasksCount: number;
     todayTasksCount: number;
     noDeadlineTasksCount: number;

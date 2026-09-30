@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { RefreshCw, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import {
-  CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
+  CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOfPlayer,
   normalizeClubRole, normalizeGameLevel, organizationOf,
   type ClubOrganization, type GameLevel, type PlayerActivity,
 } from '../../lib/playerAccess.ts';
@@ -12,12 +12,12 @@ import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, or
 
 type HostChoice = '' | 'yes' | 'no';
 
-type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null };
+type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null; attends_sometimes?: number | null };
 
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
 const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
   : Number(row.from_other_city || 0) === 1 ? 'other_city'
-    : membershipOf(normalizeClubRole(row.club_role)) === 'member' ? 'regular' : 'sometimes');
+    : membershipOfPlayer(row) === 'member' ? 'regular' : 'sometimes');
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
 type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'other_city' | 'paused';

@@ -57,6 +57,23 @@ export async function closeTasksOfEndedEvenings(db: DatabaseWrapper) {
         AND evening_id IN (SELECT id FROM game_evenings WHERE status = 'completed' OR settled_at IS NOT NULL)`,
     [now, now],
   );
+  // «Закрыть вечер» is work only once the evening has started (owner, 2026-09-30: far-away Fridays were
+  // topping the list). A task made earlier for a future evening waits hidden and comes back at the start.
+  await db.run(
+    `UPDATE organizer_tasks SET status = 'cancelled', updated_at = ?
+      WHERE status NOT IN ('done', 'cancelled')
+        AND automation_key LIKE '${CLOSEOUT_TASK_PREFIX}%'
+        AND evening_id IN (SELECT id FROM game_evenings WHERE status IN ('draft', 'published') AND datetime(starts_at) > datetime(?))`,
+    [now, now],
+  );
+  const started = await db.all<{ id: string }>(
+    `SELECT id FROM game_evenings
+      WHERE settled_at IS NULL
+        AND (status = 'active' OR (status = 'published' AND datetime(starts_at) <= datetime(?)))
+        AND datetime(starts_at) >= datetime(?)`,
+    [now, new Date(Date.now() - 60 * 86_400_000).toISOString()],
+  );
+  for (const row of started) await ensureEveningCloseoutTask(db, String(row.id));
 }
 
 export async function ensureEveningCloseoutTask(db: DatabaseWrapper, eveningId: string) {
@@ -77,6 +94,9 @@ export async function ensureEveningCloseoutTask(db: DatabaseWrapper, eveningId: 
 
   const key = `${CLOSEOUT_TASK_PREFIX}${evening.id}`;
   const now = new Date().toISOString();
+  // Not yet: the task appears when the evening starts (closeTasksOfEndedEvenings creates it then).
+  const startMs = new Date(String(evening.starts_at)).getTime();
+  if (Number.isFinite(startMs) && startMs > Date.now() && evening.status !== 'active') return null;
   const dueAt = closeoutTaskDueAt(String(evening.starts_at));
   if (!dueAt) return null;
 

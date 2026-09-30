@@ -52,6 +52,11 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   if (!columns.some((column) => column.name === 'stopped_attending')) {
     await db.run('ALTER TABLE players ADD COLUMN stopped_attending INTEGER NOT NULL DEFAULT 0');
   }
+  // «Ходит иногда» on its own (src/lib/playerAccess.ts membershipOfPlayer); the old «guest» role means it too.
+  if (!columns.some((column) => column.name === 'attends_sometimes')) {
+    await db.run('ALTER TABLE players ADD COLUMN attends_sometimes INTEGER NOT NULL DEFAULT 0');
+    if (columns.some((column) => column.name === 'club_role')) await db.run("UPDATE players SET attends_sometimes = 1 WHERE club_role = 'guest'");
+  }
   // «Из другого города» (owner decision 2026-09-30, src/lib/playerAccess.ts). 1 = a guest from another city.
   if (!columns.some((column) => column.name === 'from_other_city')) {
     await db.run('ALTER TABLE players ADD COLUMN from_other_city INTEGER NOT NULL DEFAULT 0');

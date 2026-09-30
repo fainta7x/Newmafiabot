@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { STOPPED_REASON, clubRoleFrom, membershipOf, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
+import { STOPPED_REASON, clubRoleFrom, membershipOfPlayer, normalizeClubRole, organizationOf } from '../../lib/playerAccess.ts';
 import { HOST_FORMATS, hostFormatsOf, legacyJudgeLevelFor } from '../../lib/hostFormats.ts';
 import { ORGANIZE_FORMATS, normalizeOrganizeFormats } from '../../lib/organizeFormats.ts';
 import crypto from 'crypto';
@@ -246,7 +246,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city, attends_sometimes FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -257,7 +257,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
           activity = undefined;
         }
         const otherCity = activity ? activity === 'other_city' : Number(current.from_other_city || 0) === 1;
-        const membership = activity === 'regular' ? 'member' : activity === 'sometimes' || activity === 'other_city' ? 'guest' : membershipOf(role);
+        const membership = activity === 'regular' ? 'member' : activity === 'sometimes' || activity === 'other_city' ? 'guest' : membershipOfPlayer(current);
         let organization = data.organization ?? organizationOf(role);
         if (otherCity && organization !== 'none') {
           if (data.organization && data.organization !== 'none') otherCityWarnings.push(`${current.nickname}: игроку из другого города роль в клубе не ставится`);
@@ -298,11 +298,11 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         const nextOrganize = ORGANIZE_FORMATS.filter((format) => organize.has(format));
         const organizeWritten = organizeChanged || nextOrganize.join(',') !== normalizeOrganizeFormats(current.organize_formats).join(',');
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeWritten ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, from_other_city = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeWritten ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, from_other_city = ?, attends_sometimes = ?, updated_at = ? WHERE id = ?`,
           [data.game_level ?? current.game_level, clubRole,
             ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
             ...(organizeWritten ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
-            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, otherCity ? 1 : 0, now, id],
+            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, otherCity ? 1 : 0, membership === 'guest' ? 1 : 0, now, id],
         );
         updated += Number(result.changes || 0);
       }

@@ -121,11 +121,8 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     }
   };
 
-  const requireReason = () => {
-    if (reason.trim()) return true;
-    setError('Для ручного изменения состава укажите причину.');
-    return false;
-  };
+  // The comment is optional (owner, 2026-09-30): the organizer just puts players into the roster.
+  const requireReason = () => true;
 
   const addPlayer = async () => {
     if (!selectedPlayerId || !requireReason()) return;
@@ -221,7 +218,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
 
       {!locked ? (
         <div className="mt-3 space-y-2 rounded-xl border border-border-soft bg-surface-2 p-3">
-          <label className="block text-[10px] font-black uppercase tracking-wide text-text-muted">Причина ручного изменения состава</label>
+          <label className="block text-[10px] font-black uppercase tracking-wide text-text-muted">Комментарий к изменению (необязательно)</label>
           <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Например: регистрация по телефону / замена игрока" className="min-h-[42px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary" />
           <div className="flex gap-2">
             <select value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(event.target.value)} className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary">

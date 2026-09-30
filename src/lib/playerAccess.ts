@@ -75,6 +75,12 @@ export const OTHER_CITY_ANNOUNCED_FORMATS = ['RATING', 'TOURNAMENT'] as const;
 export const isFromOtherCity = (player: { from_other_city?: unknown } | null | undefined) => Number(player?.from_other_city || 0) === 1;
 
 export const membershipOf = (role: ClubRole): ClubMembership => (role === 'guest' ? 'guest' : 'member');
+/*
+ * club_role holds one value, so a helper or an organizer used to lose «Ходит иногда» (owner report 2026-09-30,
+ * «Спящий»). players.attends_sometimes keeps it for everyone; the old «guest» value still reads as «иногда».
+ */
+export const membershipOfPlayer = (player: { club_role?: unknown; attends_sometimes?: unknown }): ClubMembership =>
+  (String(player.club_role || '') === 'guest' || Number(player.attends_sometimes || 0) === 1 ? 'guest' : 'member');
 export const organizationOf = (role: ClubRole): ClubOrganization => (role === 'team' || role === 'organizer' ? role : 'none');
 export const clubRoleFrom = (membership: ClubMembership, organization: ClubOrganization): ClubRole =>
   organization !== 'none' ? organization : membership;

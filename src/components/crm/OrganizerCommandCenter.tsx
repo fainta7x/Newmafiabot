@@ -387,12 +387,15 @@ export default function OrganizerCommandCenter({
     {overview?.summary ? (() => {
       const overdue = Number(overview.summary.overdueTasksCount || 0);
       const today = Number(overview.summary.todayTasksCount || 0);
-      const detail = overdue || today
-        ? [overdue ? `просрочено ${overdue}` : '', today ? `на сегодня ${today}` : ''].filter(Boolean).join(' · ')
-        : 'На сегодня задач нет';
+      const noDeadline = Number(overview.summary.noDeadlineTasksCount || 0);
+      const open = Math.max(Number(overview.summary.openTasksCount ?? 0), overdue + today + noDeadline);
+      const later = open - overdue - today - noDeadline;
+      const detail = open
+        ? [overdue ? `просрочено ${overdue}` : '', today ? `на сегодня ${today}` : '', later ? `позже ${later}` : '', noDeadline ? `без срока ${noDeadline}` : ''].filter(Boolean).join(' · ')
+        : 'Открытых задач нет';
       return <button type="button" data-testid="crm-today-tasks" onClick={() => onNavigateTab('tasks')} className="flex min-h-14 w-full items-center gap-3 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-left active:bg-surface-hover">
         <ClipboardList className={`h-4 w-4 shrink-0 ${overdue ? 'text-warning' : 'text-text-secondary'}`} />
-        <span className="min-w-0 flex-1"><strong className="block text-[13px] text-text-primary">Мои задачи{overdue + today ? ` · ${overdue + today}` : ''}</strong><span className="block truncate text-[12px] text-text-muted">{detail}</span></span>
+        <span className="min-w-0 flex-1"><strong className="block text-[13px] text-text-primary">Мои задачи{open ? ` · ${open}` : ''}</strong><span className="block truncate text-[12px] text-text-muted">{detail}</span></span>
         <span className="shrink-0 text-[12px] font-semibold text-accent">Все задачи</span>
         <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
       </button>;

@@ -158,7 +158,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
         completedGamesCount,
       } : null,
       actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants, pendingOnboardingLinks, levelDecisions },
-      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length, levelDecisionsCount: levelDecisions.length },
+      summary: { openTasksCount: activeTasks.length, overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length, levelDecisionsCount: levelDecisions.length },
     });
   } catch (err: any) {
     console.error('[CRM] Overview database error:', err);

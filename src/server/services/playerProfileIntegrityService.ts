@@ -210,19 +210,7 @@ export async function reconcileProfileIntegrityTasks(db: DatabaseWrapper, now = 
   let created = 0;
   for (const player of players) {
     if (player.last_visit && now.getTime() - new Date(player.last_visit).getTime() > 120 * 86_400_000) continue;
-    player.has_repository_avatar = !Number(player.avatar_suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(String(player.id)));
-    const completeness = calculateProfileCompleteness(player);
-    for (const field of completeness.important_missing_fields) {
-      if (completeness.fields[field].state === 'declined') continue;
-      const didCreate = await ensureTask(db, {
-        automationKey: `profile-missing:${player.id}:${field}`,
-        playerId: String(player.id),
-        title: `Профиль: ${completeness.fields[field].label.toLowerCase()} — ${player.nickname}`,
-        description: `Профиль заполнен на ${completeness.percentage}%. Нужно уточнить: ${completeness.fields[field].label}.`,
-        priority: field === 'telegram' ? 'high' : 'medium',
-      });
-      if (didCreate) created += 1;
-    }
+    // Missing profile fields are one grouped «Дела» item now (organizerAgendaService.ts), not a task per field.
     const checkedAt = player.profile_checked_at ? new Date(player.profile_checked_at).getTime() : null;
     if (checkedAt && now.getTime() - checkedAt > 365 * 86_400_000) {
       if (await ensureTask(db, {

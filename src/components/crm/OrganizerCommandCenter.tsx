@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  ClipboardList, Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
+  Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
-import ClubOrderPanel from './ClubOrderPanel.tsx';
+import OrganizerAgenda from './OrganizerAgenda.tsx';
 import WeekEventsPanel from './WeekEventsPanel.tsx';
 
 type OpsPlayer = {
@@ -384,24 +384,8 @@ export default function OrganizerCommandCenter({
 
     {evenings && onOpenTournament ? <WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /> : null}
 
-    {overview?.summary ? (() => {
-      const overdue = Number(overview.summary.overdueTasksCount || 0);
-      const today = Number(overview.summary.todayTasksCount || 0);
-      const noDeadline = Number(overview.summary.noDeadlineTasksCount || 0);
-      const open = Math.max(Number(overview.summary.openTasksCount ?? 0), overdue + today + noDeadline);
-      const later = open - overdue - today - noDeadline;
-      const detail = open
-        ? [overdue ? `просрочено ${overdue}` : '', today ? `на сегодня ${today}` : '', later ? `позже ${later}` : '', noDeadline ? `без срока ${noDeadline}` : ''].filter(Boolean).join(' · ')
-        : 'Открытых задач нет';
-      return <button type="button" data-testid="crm-today-tasks" onClick={() => onNavigateTab('tasks')} className="flex min-h-14 w-full items-center gap-3 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-left active:bg-surface-hover">
-        <ClipboardList className={`h-4 w-4 shrink-0 ${overdue ? 'text-warning' : 'text-text-secondary'}`} />
-        <span className="min-w-0 flex-1"><strong className="block text-[13px] text-text-primary">Мои задачи{open ? ` · ${open}` : ''}</strong><span className="block truncate text-[12px] text-text-muted">{detail}</span></span>
-        <span className="shrink-0 text-[12px] font-semibold text-accent">Все задачи</span>
-        <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
-      </button>;
-    })() : null}
-
-    <ClubOrderPanel refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} />
+    {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
+    <OrganizerAgenda mode="preview" refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} />
 
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>

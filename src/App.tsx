@@ -12,12 +12,14 @@ import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboardi
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
+import { MAINTENANCE_TEXT, MAINTENANCE_TITLE, ServerRestartingError, isRestartingStatus, maintenanceContacts } from './lib/maintenance.ts';
 
 type RootState =
   | { status: 'loading' }
   | { status: 'player'; data: PlayerMeResponse; canOpenAdmin: boolean; canOpenEventHost?: boolean }
   | { status: 'unlinked'; canOpenAdmin: boolean }
-  | { status: 'error' };
+  | { status: 'error' }
+  | { status: 'restarting' };
 
 function getTelegramInitData(): string {
   const telegramWebApp = (window as any).Telegram?.WebApp;
@@ -28,6 +30,23 @@ function currentPlayerReturnPath() {
   const url = new URL(window.location.href);
   if (url.pathname !== '/player' && !url.pathname.startsWith('/player/')) return '/player';
   return `${url.pathname}${url.search}${url.hash}` || '/player';
+}
+
+function MaintenanceScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <main data-testid="maintenance-screen" className="flex min-h-screen items-center justify-center bg-[#090a0d] px-5 text-white">
+      <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+        <div className="text-xs uppercase tracking-[0.2em] text-white/40">2LA Noire</div>
+        <h1 className="mt-2 text-[22px] font-semibold">{MAINTENANCE_TITLE}</h1>
+        <p className="mt-2 text-sm leading-6 text-white/65">{MAINTENANCE_TEXT}</p>
+        <button type="button" onClick={onRetry} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-bold text-black">Попробовать снова</button>
+        <p className="mt-4 text-sm text-white/55">По всем вопросам пишите организатору:</p>
+        {maintenanceContacts().map((contact) => (
+          <a key={contact.url} href={contact.url} target="_blank" rel="noreferrer" className="mt-2 block min-h-11 rounded-2xl bg-white/[0.08] px-4 py-3 text-center text-sm font-semibold text-white">{contact.label}</a>
+        ))}
+      </div>
+    </main>
+  );
 }
 
 function RootMessage({
@@ -140,10 +159,12 @@ export default function App() {
           cache: 'no-store',
           body: JSON.stringify({ initData, return_to: currentPlayerReturnPath() }),
         });
+        if (isRestartingStatus(telegramResponse.status)) throw new ServerRestartingError();
         if (!telegramResponse.ok) throw new Error('telegram-auth');
       }
 
       const sessionResponse = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+      if (isRestartingStatus(sessionResponse.status)) throw new ServerRestartingError();
       if (!sessionResponse.ok) throw new Error('session');
       const session = await sessionResponse.json();
       const canOpenAdmin = session?.isOrganizer === true;
@@ -159,10 +180,18 @@ export default function App() {
       }
 
       setRootState({ status: 'unlinked', canOpenAdmin });
-    } catch {
-      setRootState({ status: 'error' });
+    } catch (error) {
+      // No answer at all (TypeError from fetch) or a gateway error: the server is restarting.
+      setRootState({ status: error instanceof ServerRestartingError || error instanceof TypeError ? 'restarting' : 'error' });
     }
   }, [isAdminRoute, isPlayerContext, isPublicRoute]);
+
+  // While restarting, try again every 20 seconds by itself.
+  useEffect(() => {
+    if (rootState.status !== 'restarting') return undefined;
+    const timer = window.setInterval(() => { void bootstrapPlayer(); }, 20_000);
+    return () => window.clearInterval(timer);
+  }, [bootstrapPlayer, rootState.status]);
 
   useEffect(() => {
     void bootstrapPlayer();
@@ -209,6 +238,8 @@ export default function App() {
   if (rootState.status === 'unlinked') {
     return <VerifiedPlayerOnboarding canOpenAdmin={rootState.canOpenAdmin} />;
   }
+
+  if (rootState.status === 'restarting') return <MaintenanceScreen onRetry={() => void bootstrapPlayer()} />;
 
   if (rootState.status === 'error') {
     return <RootMessage kind="error" title="Не удалось войти" text="Не получилось подтвердить вход или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;

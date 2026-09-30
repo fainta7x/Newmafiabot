@@ -28,6 +28,11 @@ initializeTelegramWebAppViewport();
 initializeCrmPrimaryTitleOwnership();
 installUiTelemetry();
 
+// While the server restarts, the service worker shows «Приложение перезапускается» instead of a bare 503.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js').catch(() => undefined); });
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AppErrorBoundary>

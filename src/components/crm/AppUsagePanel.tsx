@@ -24,7 +24,7 @@ const SCREEN_LABELS: Record<string, string> = {
   '/admin/evenings/:id/games': 'Вечер · Игры',
   '/admin/players': 'Игроки',
   '/admin/more': 'Ещё',
-  '/admin/tasks': 'Задачи',
+  '/admin/tasks': 'Дела',
   '/admin/analytics': 'Аналитика',
 };
 

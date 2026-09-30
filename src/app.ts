@@ -71,6 +71,7 @@ import ratingPeriodStandingsRoutes from './server/routes/ratingPeriodStandingsRo
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import uiUsageRoutes from './server/routes/uiUsageRoutes.ts';
+import presenceRoutes from './server/routes/presenceRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
 import developerTestModeRoutes from './server/routes/developerTestModeRoutes.ts';
@@ -280,6 +281,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/ui-events', uiUsageRoutes);
+  app.use('/api/presence', presenceRoutes);
   app.post('/api/games', requireOrganizerAuth, (_req, res) => {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });

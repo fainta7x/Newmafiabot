@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createTaskSchema, updateTaskSchema } from '../validation.ts';
+import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
     const { today, overdue, active, player_id, evening_id, status } = req.query;
     const db = req.db || (await getDb());
+    await closeTasksOfEndedEvenings(db);
 
     let query = `
       SELECT t.*, p.nickname as player_nickname, e.title as evening_title

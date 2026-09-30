@@ -4,7 +4,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Single planning document:** maintain the current development queue in this file. Other documentation describes rules, architecture, or operating procedures; Git history preserves completed and superseded plans. Before treating a queue item as unfinished, compare it with the latest `main` implementation.
 
-**Status date:** 2026-09-29
+**Status date:** 2026-09-30
 
 **Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. CRM-PAY-003 / PR #292 implements factual regular-evening pricing at 100 ₽ per actually completed game with a 400 ₽ cap, debt-free RSVP/slot planning and application-level historical reconciliation; it remains subject to review, merge, deployment and runtime/data verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
@@ -471,12 +471,18 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Fixed — a tournament with registration no longer shows the old «Изменить состав» (all ten at once) and «Редактировать данные» forms; players are added one by one in «Участники», settings live in «Турнирный вечер».
    - Fixed — «Свои ивенты»: a draft can be edited or deleted (published ones can be edited or cancelled); the block is named «Свои ивенты — не мафия» and sits below the evenings so it is not mistaken for evening or tournament creation.
    - Done (owner approved 2026-09-29, before the 3 October tournament) — one tournament screen in four steps for tournaments with registration: «Параметры» (settings, organizer, judge) → «Участники» (players and payments) → «Игры» (start, seating, games, per-game judge) → «Итоги» (standings, nominations, Telegram). The screen opens on the next unfinished step; finished steps are marked ✓. Tournaments made the old way keep their old screen (`TournamentDetailView.tsx`, `TournamentDetailViewBase.tsx` `hideHeader`/`tabs`).
+24. Tasks and the 2026-09-25 evening copies (owner report 2026-09-30):
+   - Fixed — every cancelled copy of the repeated 25 September evening kept an open «Закрыть вечер» task, so «Все задачи» was full of them. Open tasks of cancelled or deleted evenings are now cancelled and a closed evening's closeout task is done (`closeTasksOfEndedEvenings` in `eveningCloseoutService.ts`, run on every task list and home load). Nothing is deleted.
+   - Fixed — «Сегодня» shows «Мои задачи» (overdue and today, the rest one tap away in «Все задачи»); before there was no link to tasks on the home screen.
+   - Fixed — «События → История» keeps cancelled evenings in a folded «Отменённые · N» list, so the copies no longer fill the history. The owner may still ask to delete them from the database (not done: production data).
+   - Next, to agree with the owner — automatic organizer tasks for club upkeep (owner idea 2026-09-30): write to players with an incomplete profile, to players absent for a long time, and to curators (learning, events and so on) who have done nothing for a while; a periodic «check profile cleanliness» task when the owner has not checked for some time. Together with curators (item 21) — the owner noticed the curator roles are not in «Уровни и роли» yet (they were agreed, not built).
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner
 - Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.
 - Video links for the lessons; shop items and prices; texts of new articles and lessons (written only from the owner's explanations); split-vote trainers for other game stages (the owner explains how they work).
 - Deploy the latest `main` and do the post-deploy checks in «Handoff» above; upload club photos for announcements.
+- VK channel (owner, 2026-09-30): announcements reach the VK wall but not the VK community channel. VK gives no API for channels (checked 2026-09-23, see `docs/vk-runtime-health.md`); the CRM «В канал» button copies the text for manual posting. The community chat «Классическая мафия в Туле» (peer 2000000001) is reachable by the community key — auto-posting there is possible if the owner wants it.
 - The cafe «Суп с Котом» is listed as open until 22:00, while club evenings end at 02:00 — confirm with the cafe.
 
 ## Intentionally incomplete / deferred

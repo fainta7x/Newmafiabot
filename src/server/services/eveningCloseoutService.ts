@@ -33,6 +33,32 @@ export const closeoutTaskDueAt = (startsAt: string): string | null => {
   return new Date(startMs + 23 * HOUR_MS).toISOString();
 };
 
+/**
+ * Tasks of an evening that no longer happens are not work: a cancelled or deleted evening's open
+ * tasks are cancelled, and a closed evening's «Закрыть вечер» task is done. Safe to run on every read.
+ * (After the 2026-09-25 repeated-evening incident every cancelled copy kept its «Закрыть вечер» task.)
+ */
+export async function closeTasksOfEndedEvenings(db: DatabaseWrapper) {
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE organizer_tasks SET status = 'cancelled', updated_at = ?
+      WHERE status NOT IN ('done', 'cancelled')
+        AND (
+          evening_id IN (SELECT id FROM game_evenings WHERE status = 'cancelled')
+          OR (automation_key LIKE '${CLOSEOUT_TASK_PREFIX}%'
+              AND NOT EXISTS (SELECT 1 FROM game_evenings e WHERE e.id = substr(organizer_tasks.automation_key, ${CLOSEOUT_TASK_PREFIX.length + 1})))
+        )`,
+    [now],
+  );
+  await db.run(
+    `UPDATE organizer_tasks SET status = 'done', completed_at = COALESCE(completed_at, ?), updated_at = ?
+      WHERE status NOT IN ('done', 'cancelled')
+        AND automation_key LIKE '${CLOSEOUT_TASK_PREFIX}%'
+        AND evening_id IN (SELECT id FROM game_evenings WHERE status = 'completed' OR settled_at IS NOT NULL)`,
+    [now, now],
+  );
+}
+
 export async function ensureEveningCloseoutTask(db: DatabaseWrapper, eveningId: string) {
   const evening = await db.get<any>(
     `SELECT id, title, starts_at, status, settled_at
@@ -40,7 +66,14 @@ export async function ensureEveningCloseoutTask(db: DatabaseWrapper, eveningId: 
       WHERE id = ? LIMIT 1`,
     [eveningId],
   );
-  if (!evening || evening.status === 'cancelled') return null;
+  if (!evening) return null;
+  if (evening.status === 'cancelled') {
+    await db.run(
+      "UPDATE organizer_tasks SET status = 'cancelled', updated_at = ? WHERE automation_key = ? AND status NOT IN ('done', 'cancelled')",
+      [new Date().toISOString(), `${CLOSEOUT_TASK_PREFIX}${evening.id}`],
+    );
+    return null;
+  }
 
   const key = `${CLOSEOUT_TASK_PREFIX}${evening.id}`;
   const now = new Date().toISOString();

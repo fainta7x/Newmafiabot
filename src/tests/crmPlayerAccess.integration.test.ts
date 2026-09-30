@@ -289,36 +289,36 @@ describe('CRM player access profile', () => {
     expect(notOwner.status).toBe(403);
   });
 
-  it('«Перестал ходить» pauses announcements and coming back turns them on again, never unblocking', async () => {
+  it('«Перестал ходить» is saved for everyone; it pauses mailing only where it was on, never unblocking', async () => {
     await insertPlayer('gone');
     await insertPlayer('blocked');
     await insertPlayer('paused-by-hand');
     await db.run("UPDATE players SET contact_status='blocked', lifecycle_status='blocked' WHERE id='blocked'");
     await db.run("UPDATE players SET contact_status='paused', lifecycle_status='paused', pause_reason='Исключён из рассылки организатором' WHERE id='paused-by-hand'");
     const post = (body: object) => request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send(body);
-    const status = () => db.all<any>("SELECT id, club_role, contact_status, pause_reason FROM players WHERE id IN ('gone','blocked','paused-by-hand') ORDER BY id");
+    const status = () => db.all<any>("SELECT id, contact_status, pause_reason, stopped_attending FROM players WHERE id IN ('gone','blocked','paused-by-hand') ORDER BY id");
 
+    // Owner, 2026-09-30: a player who already gets no mailing is still marked «Перестал ходить», with no warning.
     const stoppedResponse = await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'stopped' });
     expect(stoppedResponse.status).toBe(200);
-    // The ones it could not change are named with the reason, so the screen does not look like nothing happened.
-    expect(stoppedResponse.body.warnings).toEqual(expect.arrayContaining([
-      expect.stringContaining('заблокирован'),
-      expect.stringContaining('«Исключён из рассылки организатором»'),
-    ]));
-    expect(stoppedResponse.body.warnings).toHaveLength(2);
-    // Only «gone» really changed; the skipped two are not counted as changed.
-    expect(stoppedResponse.body.updated).toBe(1);
+    expect(stoppedResponse.body.warnings).toBeUndefined();
+    expect(stoppedResponse.body.updated).toBe(3);
     expect(await status()).toEqual([
-      { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
-      { id: 'gone', club_role: 'member', contact_status: 'paused', pause_reason: 'Перестал ходить' },
-      { id: 'paused-by-hand', club_role: 'member', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
+      { id: 'blocked', contact_status: 'blocked', pause_reason: null, stopped_attending: 1 },
+      { id: 'gone', contact_status: 'paused', pause_reason: 'Перестал ходить', stopped_attending: 1 },
+      { id: 'paused-by-hand', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором', stopped_attending: 1 },
     ]);
+
+    // Lifting the other pause in the player card keeps the bot quiet: the player still stopped coming.
+    await request(app).patch('/api/players/paused-by-hand').set('Cookie', organizerCookie()).send({ contact_status: 'normal', pause_reason: null }).expect(200);
+    expect((await status())[2]).toEqual({ id: 'paused-by-hand', contact_status: 'paused', pause_reason: 'Перестал ходить', stopped_attending: 1 });
+    await db.run("UPDATE players SET pause_reason='Исключён из рассылки организатором' WHERE id='paused-by-hand'");
 
     expect((await post({ player_ids: ['gone', 'blocked', 'paused-by-hand'], activity: 'regular' })).status).toBe(200);
     expect(await status()).toEqual([
-      { id: 'blocked', club_role: 'member', contact_status: 'blocked', pause_reason: null },
-      { id: 'gone', club_role: 'member', contact_status: 'normal', pause_reason: null },
-      { id: 'paused-by-hand', club_role: 'member', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
+      { id: 'blocked', contact_status: 'blocked', pause_reason: null, stopped_attending: 0 },
+      { id: 'gone', contact_status: 'normal', pause_reason: null, stopped_attending: 0 },
+      { id: 'paused-by-hand', contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором', stopped_attending: 0 },
     ]);
   });
 

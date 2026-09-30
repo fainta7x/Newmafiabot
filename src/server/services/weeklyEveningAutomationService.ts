@@ -8,6 +8,7 @@ import { ensureTelegramPublishingSchema } from '../../db/ensureTelegramPublishin
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensureSlotsForEvening, SLOT_PRICE } from './eveningSlotPlanningService.ts';
 import { ensureEveningCloseoutTask } from './eveningCloseoutService.ts';
+import { assignDefaultEveningStaff } from './eveningStaffService.ts';
 import {
   drainTelegramSyncOutbox,
   enqueueTelegramAnnouncement,
@@ -100,6 +101,8 @@ async function createPublishedFridayEvening(db: DatabaseWrapper, date: Date) {
       });
     }
     await ensureSlotsForEvening(db, String(existing.id));
+    // The owner is the default organizer and «Судья вечера» (owner decision 2026-09-30); empty places only.
+    await assignDefaultEveningStaff(db, String(existing.id));
     return {
       evening: await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [existing.id]),
       created: false,
@@ -139,6 +142,7 @@ async function createPublishedFridayEvening(db: DatabaseWrapper, date: Date) {
   });
 
   await ensureSlotsForEvening(db, id);
+  await assignDefaultEveningStaff(db, id);
   return { evening: await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]), created: true };
 }
 

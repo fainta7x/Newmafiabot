@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureWeeklyEveningAutomationSchema } from '../../db/ensureWeeklyEveningAutomationSchema.ts';
 import { ensureSlotsForEvening, updateEveningSlotSettings } from './eveningSlotPlanningService.ts';
+import { assignDefaultEveningStaff } from './eveningStaffService.ts';
 
 /**
  * One-time evening plans the owner asked to run automatically (2026-09-28): on 2 October the novice
@@ -100,9 +101,11 @@ export async function runOneTimeEveningPlans(db: DatabaseWrapper, now: Date = ne
     await updateEveningSlotSettings(db, id, {
       planned_slots: 2, slot_duration_minutes: 60, price_per_game: 200, starts_at: `${DATE}T19:00:00+03:00`,
     });
+    await assignDefaultEveningStaff(db, id);
     actions.push('novice_created');
   } else if (String(novice.status) === 'draft') {
     await db.run("UPDATE game_evenings SET status = 'published', updated_at = ? WHERE id = ? AND status = 'draft'", [new Date().toISOString(), novice.id]);
+    await assignDefaultEveningStaff(db, String(novice.id));
     actions.push('novice_opened');
   }
 

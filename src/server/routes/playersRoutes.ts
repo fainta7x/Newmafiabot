@@ -238,12 +238,10 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     if (organizeChanged && !isClubOwner(req)) {
       return res.status(403).json({ error: 'Отметки «Может проводить» ставит только владелец', code: 'club_owner_required' });
     }
-    // Players whose «Как часто ходит» could not change, with the reason, so the screen can say so.
-    const skipped: Array<{ id: string; nickname: string; reason: string }> = [];
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
@@ -262,16 +260,10 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
           pauseReason = null;
         }
         const statusChanged = contactStatus !== contact;
-        if (data.activity === 'stopped' && !statusChanged && !(contact === 'paused' && pauseReason === STOPPED_REASON)) {
-          skipped.push({
-            id,
-            nickname: String(current.nickname || 'Игрок'),
-            reason: contact === 'blocked' ? 'заблокирован' : `рассылка уже на паузе${current.pause_reason ? ` («${current.pause_reason}»)` : ''}`,
-          });
-        }
+        // «Перестал ходить» is saved even when the mailing is already off for another reason (owner, 2026-09-30):
+        // that other pause or a block stays as it is.
+        const stoppedAttending = data.activity ? (data.activity === 'stopped' ? 1 : 0) : Number(current.stopped_attending || 0);
         const hostChanged = Boolean(data.host_formats_add?.length || data.host_formats_remove?.length);
-        // Nothing else was asked for this player, so the skipped status leaves them unchanged and uncounted.
-        if (skipped.at(-1)?.id === id && !data.game_level && !data.organization && !hostChanged && !organizeChanged) continue;
         const formats = new Set(hostFormatsOf(current));
         data.host_formats_add?.forEach((format) => formats.add(format));
         data.host_formats_remove?.forEach((format) => formats.delete(format));
@@ -281,11 +273,11 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         data.organize_formats_remove?.forEach((format) => organize.delete(format));
         const nextOrganize = ORGANIZE_FORMATS.filter((format) => organize.has(format));
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeChanged ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, updated_at = ? WHERE id = ?`,
+          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeChanged ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, updated_at = ? WHERE id = ?`,
           [data.game_level ?? current.game_level, clubRole,
             ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
             ...(organizeChanged ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
-            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), now, id],
+            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, now, id],
         );
         updated += Number(result.changes || 0);
       }
@@ -301,10 +293,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         accessErrors.push(String(error?.message || 'Не удалось изменить доступ'));
       }
     }
-    const warnings = [
-      ...accessErrors,
-      ...skipped.map((item) => `${item.nickname}: «Перестал ходить» не поставлено — ${item.reason}. Снимите паузу в карточке игрока, если нужно.`),
-    ];
+    const warnings = accessErrors;
     return res.json({ success: true, updated, ...(warnings.length ? { warnings: Array.from(new Set(warnings)) } : {}) });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });
@@ -817,6 +806,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       patchObj.lifecycle_status = patchObj.contact_status;
     } else if (patchObj.lifecycle_status !== undefined && ['normal', 'paused', 'blocked'].includes(patchObj.lifecycle_status)) {
       patchObj.contact_status = patchObj.lifecycle_status;
+    }
+
+    // A player marked «Перестал ходить» keeps that pause when another pause is lifted: the bot still does not write.
+    if (patchObj.contact_status === 'normal' && Number(player.stopped_attending || 0) === 1) {
+      patchObj.contact_status = 'paused';
+      patchObj.lifecycle_status = 'paused';
+      patchObj.pause_reason = STOPPED_REASON;
     }
 
     // Blocking (archiving) a player or lifting a block is the owner's call, same as DELETE /api/players/:id.

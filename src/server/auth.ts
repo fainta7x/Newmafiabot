@@ -353,7 +353,10 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
   if (!target) return false;
   // Never delete the evening or hand it to another organizer.
   if (method === 'DELETE' && target.rest === '') return false;
-  if (target.rest.startsWith('/staff')) return false;
+  // The host may set or change the «Судья вечера» of his own evening, never the organizer.
+  const judgeOnly = method === 'PATCH' && target.rest === '/staff'
+    && Object.keys(req.body || {}).length > 0 && Object.keys(req.body || {}).every((key) => key === 'judge_player_id');
+  if (target.rest.startsWith('/staff') && !judgeOnly) return false;
   if (method === 'PATCH' && target.rest === '' && req.body?.format !== undefined && !canOrganizeEveningFormat(player, req.body.format)) return false;
 
   const evening = await db.get<any>(`

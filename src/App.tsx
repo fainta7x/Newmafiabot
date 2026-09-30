@@ -12,7 +12,7 @@ import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboardi
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
-import { MAINTENANCE_TEXT, MAINTENANCE_TITLE, ServerRestartingError, isRestartingStatus, maintenanceContacts } from './lib/maintenance.ts';
+import { MAINTENANCE_TEXT, MAINTENANCE_TITLE, ServerRestartingError, fetchOrRestarting, isRestartingStatus, maintenanceContacts } from './lib/maintenance.ts';
 
 type RootState =
   | { status: 'loading' }
@@ -152,7 +152,7 @@ export default function App() {
 
     try {
       if (initData) {
-        const telegramResponse = await fetch('/api/auth/telegram', {
+        const telegramResponse = await fetchOrRestarting('/api/auth/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
@@ -163,7 +163,7 @@ export default function App() {
         if (!telegramResponse.ok) throw new Error('telegram-auth');
       }
 
-      const sessionResponse = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+      const sessionResponse = await fetchOrRestarting('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
       if (isRestartingStatus(sessionResponse.status)) throw new ServerRestartingError();
       if (!sessionResponse.ok) throw new Error('session');
       const session = await sessionResponse.json();
@@ -172,7 +172,8 @@ export default function App() {
       const canOpenEventHost = !canOpenAdmin && Array.isArray(session?.eventHostFormats) && session.eventHostFormats.length > 0;
 
       if (session?.linked === true) {
-        const profileResponse = await fetch('/api/player/me', { credentials: 'same-origin', cache: 'no-store' });
+        const profileResponse = await fetchOrRestarting('/api/player/me', { credentials: 'same-origin', cache: 'no-store' });
+        if (isRestartingStatus(profileResponse.status)) throw new ServerRestartingError();
         if (!profileResponse.ok) throw new Error('player-profile');
         const data = await profileResponse.json() as PlayerMeResponse;
         setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });

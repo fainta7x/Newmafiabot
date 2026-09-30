@@ -57,7 +57,10 @@ async function page(request) {
   } catch {
     // No answer at all: the server is restarting.
   }
-  return (await cache.match(SHELL)) || maintenance();
+  // Only the player app knows how to show the restart note itself; links such as /e/… or /join/… get the note page.
+  const path = new URL(request.url).pathname;
+  if (path === '/' || path === '/player' || path.startsWith('/player/')) return (await cache.match(SHELL)) || maintenance();
+  return maintenance();
 }
 
 async function asset(request) {

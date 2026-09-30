@@ -20,3 +20,16 @@ export class ServerRestartingError extends Error {
   constructor() { super('server-restarting'); }
 }
 export const isRestartingStatus = (status: number) => status === 502 || status === 503 || status === 504;
+
+/** A request that hangs without an answer counts as a restart too, so the automatic retry keeps going. */
+export async function fetchOrRestarting(input: string, init: RequestInit = {}, timeoutMs = 15_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch {
+    throw new ServerRestartingError();
+  } finally {
+    clearTimeout(timer);
+  }
+}

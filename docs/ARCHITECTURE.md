@@ -206,6 +206,19 @@ The broadcast path is deliberately separate from final protocol persistence:
 
 The phone/local scoped session remains authoritative for in-progress recovery. The relay does not write timer ticks or temporary game state to the canonical product database. Database game/seat identity is used only to canonicalize the published display. The ordinary `/live` route stays role-safe and is not a substitute for the secret broadcast route.
 
+### OBS Studio remote bridge
+
+Remote control uses a separate laptop-side bridge and does not expose OBS WebSocket to the internet:
+
+`organizer phone -> authenticated /api/obs-remote pairing/status -> server -> /obs-bridge on laptop -> ws://127.0.0.1:4455 -> OBS Studio`
+
+- `src/components/crm/ObsRemoteCRM.tsx` owns pairing and connection status inside the active-game OBS panel.
+- `src/components/public/ObsBridgePage.tsx` and `src/lib/obsWebSocket.ts` own the browser-to-local-OBS connection.
+- `src/server/routes/obsRemoteRoutes.ts` and `src/server/services/obsRemoteService.ts` own one-time pairing, hashed bridge tokens and the status heartbeat.
+- The OBS password exists only in the laptop page's memory. It is not sent to or stored by the application server.
+- Only the hashed laptop pairing is durable. Frequent live status heartbeats stay in process memory and never create a continuous SQLite write loop.
+- The bridge reports OBS/WebSocket versions, the scene list and current program scene, sound inputs with mute state, and stream/recording state. Phone buttons (`POST /api/obs-remote/command`: scene, mute, stream start/stop, record start/stop) wait in process memory and ride back on the laptop's next heartbeat (~2 s); a command not taken within 20 s is dropped. Scene names agreed with the owner live in `src/lib/obsScenes.ts`. All OBS routes use `express-rate-limit`. Only the organizer's games view turns the remote on (`EveningLiveGameModal obsRemote`); an assigned judge gets the overlay link only.
+
 ## 11. Server route ownership
 
 ### Organizer/club

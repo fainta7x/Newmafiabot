@@ -17,6 +17,7 @@ import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTelegramPublishingSchema } from './db/ensureTelegramPublishingSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
+import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -61,6 +62,7 @@ import crmRoutes from './server/routes/crmRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
+import { obsRemoteBridgeRoutes, obsRemoteOrganizerRoutes } from './server/routes/obsRemoteRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
 import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
 import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.ts';
@@ -116,6 +118,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
+  await ensureObsRemoteSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   if (!process.env.VITEST && process.env.NODE_ENV !== 'test') startTelegramSyncOutboxWorker(db);
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
@@ -152,6 +155,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/obs-remote', obsRemoteOrganizerRoutes);
   app.use('/api/integrations', vkJoinRegistrationCallbackRouter);
   app.use('/api/integrations', vkDirectIntegrationRouter);
   app.use('/api/integrations', integrationRoutes);
@@ -164,6 +168,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateGetRouter);
   app.use('/api/public', publicLiveRoutes);
+  app.use('/api/public/obs-bridge', obsRemoteBridgeRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
   app.use('/api/evenings', eveningsRoutes);

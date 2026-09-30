@@ -26,6 +26,7 @@ import { ensureVkIntegrationSchema } from './db/ensureVkIntegrationSchema.ts';
 import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
 import { ensureVkPersonalMessageSchema } from './db/ensureVkPersonalMessageSchema.ts';
 import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
+import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -82,6 +83,7 @@ import { loadAnnouncementPhoto } from './server/services/announcementPhotoServic
 import announcementPhotoRoutes from './server/routes/announcementPhotoRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
+import { obsRemoteBridgeRoutes, obsRemoteOrganizerRoutes } from './server/routes/obsRemoteRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
 import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
 import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.ts';
@@ -163,6 +165,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
   await ensureCustomEventsSchema(db);
+  await ensureObsRemoteSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
@@ -246,6 +249,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/announcement-photos', announcementPhotoRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/obs-remote', obsRemoteOrganizerRoutes);
   app.use('/api/custom-events', customEventRoutes);
   app.use('/api/integrations', vkPlayerStartRouter);
   app.use('/api/integrations', vkJoinRegistrationCallbackRouter);
@@ -262,6 +266,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);
   app.use('/api/public', liveBroadcastPublicRoutes);
+  app.use('/api/public/obs-bridge', obsRemoteBridgeRoutes);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);

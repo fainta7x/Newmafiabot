@@ -4,6 +4,7 @@ import { queuePersonalNotification } from './personalNotificationRouterService.t
 import { queueEveningRsvpNudges } from './eveningRsvpNudgeService.ts';
 import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts';
 import { runEveningShortfallChecks } from './eveningShortfallService.ts';
+import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -23,7 +24,9 @@ const teamForRole = (role: unknown): 'red' | 'black' | null => {
 
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
 // Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.
-const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db)) + (await runEveningShortfallChecks(db));
+// «Напомнить неответившим» goes out by itself two days before (eveningAutoReminderService).
+const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db))
+  + (await runEveningShortfallChecks(db)) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }));
 
 async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   let queued = 0;

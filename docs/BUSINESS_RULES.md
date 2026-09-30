@@ -308,7 +308,7 @@ Approved response model for an announced evening includes:
 
 Personal evening messages follow the player's answer (user-approved 2026-09-24):
 
-- no answer — an invitation with the answer buttons (skipped when the bot announcement already reached the player), and one more nudge within 24 hours of the start;
+- no answer — an invitation with the answer buttons (skipped when the bot announcement already reached the player); **48 hours before** the start (owner, 2026-10-01) the organizer's «Напомнить неответившим» goes out by itself once, to everyone who got the bot's invitation and has not answered — only between 10:00 and 21:00 Moscow time (at night it waits for the morning while the evening is still more than a day away), not for tournaments, not while publishing is paused, and not when the organizer already reminded by hand in the last 24 hours; and one more nudge within 24 hours of the start;
 - **Иду** — only a reminder 24 hours before;
 - **Не иду** — nothing until the next announcement;
 - **Пока думаю** — from 24 hours before, «Что решил?» with the answer buttons and a choice of when to ask again («утром в день игры» or «за 3 часа»);

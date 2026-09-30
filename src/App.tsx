@@ -3,6 +3,7 @@ import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import LiveBroadcastOverlay from "./components/public/LiveBroadcastOverlay.tsx";
+import BroadcastLobbyScreen from "./components/public/BroadcastLobbyScreen.tsx";
 import ObsBridgePage from "./components/public/ObsBridgePage.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
@@ -220,6 +221,8 @@ export default function App() {
 
   if (isBroadcastRoute) {
     const parts = pathname.split('/').filter(Boolean);
+    // «Заставка» and «Итоги» scenes live next to the game overlay under the same secret link.
+    if (parts[2] === 'lobby' || parts[2] === 'standings') return <BroadcastLobbyScreen token={parts[1] || ''} view={parts[2]} />;
     return <LiveBroadcastOverlay token={parts[1] || ''} />;
   }
 

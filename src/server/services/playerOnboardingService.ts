@@ -226,13 +226,22 @@ export async function requestTelegramProfileLinkByNickname(db: DatabaseWrapper, 
   if (matches.length > 1) throw onboardingError('nickname_ambiguous', 'Найдено несколько профилей с таким ником. Нужна проверка организатора.', 409);
   const target = matches[0];
   if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
-  const existing = await db.get<{ id: string }>(
-    "SELECT id FROM player_onboarding_link_requests WHERE platform='telegram' AND external_user_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",
+  const existing = await db.get<{ id: string; target_player_id: string }>(
+    "SELECT id, target_player_id FROM player_onboarding_link_requests WHERE platform='telegram' AND external_user_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",
     [externalUserId],
   );
-  if (existing?.id) return { status: 'pending_organizer' as const, requestId: String(existing.id), nickname: target.nickname };
-  const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
+  if (existing?.id) {
+    // One pending request per account: asking for another profile moves the request to it.
+    if (String(existing.target_player_id) !== String(target.id)) {
+      await db.run(
+        'UPDATE player_onboarding_link_requests SET target_player_id = ?, nickname = ?, updated_at = ? WHERE id = ? AND status = \'pending\'',
+        [target.id, target.nickname, now, existing.id],
+      );
+    }
+    return { status: 'pending_organizer' as const, requestId: String(existing.id), nickname: target.nickname };
+  }
+  const requestId = crypto.randomUUID();
   await db.run(`
     INSERT INTO player_onboarding_link_requests (
       id, platform, external_user_id, target_player_id, nickname, return_to, status, created_at, updated_at

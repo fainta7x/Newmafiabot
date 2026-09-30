@@ -82,9 +82,13 @@ describe('the bot when a nickname is taken', () => {
     expect(response.body).toMatchObject({ status: 'pending_organizer', nickname: 'Вася' });
     const repeat = await bot('link-request', { telegram_user_id: 555, nickname: 'Вася' });
     expect(repeat.body.requestId).toBe(response.body.requestId);
+    // Asking for another profile moves the same request to it.
+    await player('other', 'Петя');
+    const moved = await bot('link-request', { telegram_user_id: 555, nickname: 'Петя' });
+    expect(moved.body).toMatchObject({ requestId: response.body.requestId, nickname: 'Петя' });
     const overview = await request(app).get('/api/crm/overview').set('Cookie', organizer);
     const pending = overview.body?.actionLists?.pendingOnboardingLinks || [];
-    expect(pending.map((item: any) => item.target_player_id)).toContain('made');
+    expect(pending.map((item: any) => item.target_player_id)).toEqual(['other']);
   });
 });
 

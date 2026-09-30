@@ -10,7 +10,7 @@ import {
 } from '../services/eveningAnnouncementTrackingService.ts';
 import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
 import { isEveningPublishingPaused } from '../services/eveningPublishingPause.ts';
-import { ensureEveningAutoReminderSchema } from '../services/eveningAutoReminderService.ts';
+import { loadEveningAutoReminder } from '../services/eveningAutoReminderService.ts';
 import { requestBotEveningRecruitment } from '../services/botTelegramSyncService.ts';
 import {
   drainTelegramSyncOutbox,
@@ -64,9 +64,7 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
   try {
     const overview = await loadAnnouncementOverview(req.db, String(req.params.id));
     if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    await ensureEveningAutoReminderSchema(req.db);
-    const autoReminder = await req.db.get('SELECT decided_at, outcome FROM evening_auto_reminders WHERE evening_id = ?', [String(req.params.id)]);
-    return res.json({ ...overview, publishing_paused: isEveningPublishingPaused(), auto_reminder: autoReminder || null });
+    return res.json({ ...overview, publishing_paused: isEveningPublishingPaused(), auto_reminder: await loadEveningAutoReminder(req.db, String(req.params.id)) });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние рассылки' });
   }

@@ -26,7 +26,7 @@ type AnnouncementPlayer = {
 
 type AnnouncementOverview = {
   publishing_paused?: boolean;
-  auto_reminder?: { decided_at: string; outcome: string } | null;
+  auto_reminder?: { decided_at: string; outcome: string; recipients: number; delivered: number } | null;
   summary: {
     audience: number;
     sent: number;
@@ -235,8 +235,8 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
           </div>
 
           <div className="mt-2 text-[10px] text-text-muted">Аудитория этого формата: {overview.summary.audience} · ещё не отправлено: {overview.summary.not_sent}</div>
-          <div data-testid="evening-auto-reminder" className="mt-1 text-[10px] leading-4 text-text-muted">{overview.auto_reminder?.outcome.startsWith('sent_to_')
-            ? `Бот сам напомнил неответившим ${new Date(overview.auto_reminder.decided_at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })} (${overview.auto_reminder.outcome.replace('sent_to_', '')} чел.).`
+          <div data-testid="evening-auto-reminder" className="mt-1 text-[10px] leading-4 text-text-muted">{overview.auto_reminder?.outcome === 'queued'
+            ? `Бот сам напомнил неответившим ${new Date(overview.auto_reminder.decided_at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}: доставлено ${overview.auto_reminder.delivered} из ${overview.auto_reminder.recipients}.`
             : overview.auto_reminder ? 'Автонапоминание не понадобилось: все ответили или вы напомнили сами.'
               : 'Бот сам напомнит неответившим за 2 дня до вечера (днём, с 10 до 21). Кнопка ниже — напомнить сейчас.'}</div>
 

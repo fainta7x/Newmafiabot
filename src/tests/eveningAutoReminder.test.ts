@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { beginReminderCampaign, recordInitialAnnouncementAttempt } from '../server/services/eveningAnnouncementTrackingService.ts';
-import { runAutomaticUnansweredReminders } from '../server/services/eveningAutoReminderService.ts';
+import { beginReminderCampaign, recordInitialAnnouncementAttempt, recordReminderAttempt } from '../server/services/eveningAnnouncementTrackingService.ts';
+import { loadEveningAutoReminder, runAutomaticUnansweredReminders } from '../server/services/eveningAutoReminderService.ts';
 import { getTelegramDispatchJob } from '../server/services/telegramSyncOutboxService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -36,7 +36,7 @@ describe('automatic «Напомнить неответившим» two days bef
     expect(await runAutomaticUnansweredReminders(db, NOON - 4 * HOUR)).toBe(0); // 08:00 Moscow — waits for the day
     expect(await outcome(db)).toBeNull();
     expect(await runAutomaticUnansweredReminders(db, NOON)).toBe(1);
-    expect(await outcome(db)).toBe('sent_to_1');
+    expect(await outcome(db)).toBe('queued');
     expect(await getTelegramDispatchJob(db, 'reminder', 'fri')).toBeTruthy();
     expect(await runAutomaticUnansweredReminders(db, NOON + HOUR)).toBe(0); // only once
   });
@@ -56,5 +56,18 @@ describe('automatic «Напомнить неответившим» two days bef
     await byHand.run("UPDATE evening_reminder_campaign_state SET updated_at = ? WHERE evening_id = 'fri'", [new Date(NOON - 2 * HOUR).toISOString()]);
     expect(await runAutomaticUnansweredReminders(byHand, NOON)).toBe(0);
     expect(await outcome(byHand)).toBe('reminded_by_hand');
+  });
+
+  it('reminds again when the organizer\'s hand reminder was more than a day ago, and counts real deliveries', async () => {
+    const db = await setup(40);
+    const old = await beginReminderCampaign(db, 'fri');
+    await recordReminderAttempt(db, { eveningId: 'fri', playerId: 'silent', telegramUserId: '5551', success: true, telegramMessageId: 8 });
+    expect(old).toBe(1);
+    await db.run("UPDATE evening_reminder_campaign_state SET updated_at = ? WHERE evening_id = 'fri'", [new Date(NOON - 30 * HOUR).toISOString()]);
+    expect(await runAutomaticUnansweredReminders(db, NOON)).toBe(1);
+    expect(await loadEveningAutoReminder(db, 'fri')).toMatchObject({ outcome: 'queued', recipients: 1, delivered: 0 });
+    // The bot reports the delivery of the new campaign.
+    await recordReminderAttempt(db, { eveningId: 'fri', playerId: 'silent', telegramUserId: '5551', success: true, telegramMessageId: 9 });
+    expect(await loadEveningAutoReminder(db, 'fri')).toMatchObject({ delivered: 1 });
   });
 });

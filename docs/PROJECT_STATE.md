@@ -14,15 +14,15 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
-## Handoff (2026-09-29, end of the Claude session)
+## Handoff (2026-09-30, end of the Claude session)
 
-For the next assistant (the owner may continue with another AI for a while):
+For the next assistant:
 
-- **Merged and waiting for the owner's deploy on Amvera:** PRs #538–#543 (announcements reliability, VK short links, club photos for announcements, the owner's short club/novice texts with the full player summary, VK sign-up with confirmation, the novice Telegram group). Read the exact SHA from remote `main`. No open PRs from this session.
-- **After that deploy, check with the owner (read-only from our side):** `/api/health` and `/api/health/runtime`; the 2 October novice evening post appeared in the novice group topic 128; the club group post shows who comes / thinks / comes later / cannot come; one pinned router message in the entry channel; no duplicate evenings for one date; photos upload in CRM «Ещё → Telegram» → «Фото для анонсов» works and the picture shows above the next post.
-- **Owner workflow rules:** all messages to the owner in Russian, plain words; ask about game/club rules before changing them (`docs/BUSINESS_RULES.md`); interface wording may be fixed without asking; never touch the production database; each PR goes to green CI, is squash-merged, and the owner gets the `main` SHA to deploy. In this Claude session there was no Amvera access, so the owner deployed; when Amvera access is configured, follow the asynchronous deploy workflow in `AGENTS.md`.
-- **Environment notes:** the owner set `DEVELOPER_READ_KEY` in Amvera (read-only diagnostics at `GET /__developer/status` with header `X-Developer-Read-Key`) and in the Claude cloud environment, but a new Claude session failed in its setup script (cause not yet looked at; likely the environment's allowed-domains list). The routine «Автономный заход после сброса лимитов» fires into the old Claude session.
-- **Next work (propose to the owner and wait for a «да» before starting any of it — `AGENTS.md` §4):** curators with tasks and bonuses; the rest of the queue below.
+- **Deployed and live (checked 2026-09-30 by `/api/health/runtime` and the served bundle):** PRs #556–#560 — tasks of cancelled evenings close themselves and «Мои задачи» on «Сегодня»; «Уровни и роли» shows current values and split quick filters; «Из другого города»; «На этой неделе» on «Сегодня»; organizer-made profiles claimed by players (personal link, VK field, bot «Это мой профиль»). Amvera reports its own build SHA (its git mirror), not the GitHub SHA — compare the served bundle instead. No open PRs from this session.
+- **Owner decisions 2026-09-30:** a nickname whose profile already has its own Telegram/VK is simply taken (the person picks another one, no organizer request); the private Telegram confirmation for a VK sign-in to a Telegram-linked profile stays as it is; VK community channel posting stays manual (no API).
+- **Owner workflow rules:** all messages to the owner in Russian, plain words; ask about game/club rules before changing them (`docs/BUSINESS_RULES.md`); interface wording and bugs may be fixed without asking; never touch the production database; each PR goes to green CI (CodeQL included), is squash-merged, and the owner gets the `main` SHA to deploy. There was no Amvera access in this session.
+- **Environment notes:** `DEVELOPER_READ_KEY` was not present in this Claude cloud environment, so production data could not be read (the token-balance check from the 2026-09-30 PATCH fix is still to do, read-only, with the owner's «да» before any repair).
+- **Next work (propose and wait for a «да» — `AGENTS.md` §4):** curators and automatic upkeep tasks (item 24, questions parked by the owner); evening-organizer rights on their own evening (item 21); optional auto-posting to the VK community chat; a «merge two profiles» tool if duplicates show up.
 
 ## Source-of-truth model
 

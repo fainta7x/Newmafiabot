@@ -716,7 +716,7 @@ export const api = {
     }
     return res;
   },
-  getMe: () => request<{ role: string; isOrganizer: boolean; isClubOwner?: boolean; eventHostFormats?: string[]; player?: { id: string } | null }>('/api/auth/me'),
+  getMe: () => request<{ role: string; isOrganizer: boolean; isClubOwner?: boolean; eventHostFormats?: string[]; eventOrganizer?: boolean; player?: { id: string } | null }>('/api/auth/me'),
   logout: async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('organizer_token');

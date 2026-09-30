@@ -8,6 +8,7 @@ import {
   checkLoginRateLimit,
   resetLoginRateLimit,
   isClubOwner,
+  assignedOpenEveningCount,
 } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { cabinetOrganizeFormats } from '../../lib/organizeFormats.ts';
@@ -348,8 +349,13 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
     : null;
   const eventHostFormats = hostRow && String(hostRow.contact_status || '') !== 'blocked' ? cabinetOrganizeFormats(hostRow.organize_formats) : [];
 
+  // «Организатор вечера» without marks still gets the cabinet for the evenings he runs.
+  const eventOrganizer = Boolean(identity && hostRow && String(hostRow.contact_status || '') !== 'blocked'
+    && await assignedOpenEveningCount(db, identity.playerId));
+
   return res.json({
     eventHostFormats,
+    eventOrganizer,
     role: isOrganizer ? 'ORGANIZER' : 'PLAYER',
     isOrganizer,
     // «Владелец»: only the owner grants organizers, sees club money and deletes players.

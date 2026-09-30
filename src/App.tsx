@@ -171,7 +171,7 @@ export default function App() {
       const session = await sessionResponse.json();
       const canOpenAdmin = session?.isOrganizer === true;
       // «Проводит вечера»: only the switch to the limited cabinet, none of the organizer powers.
-      const canOpenEventHost = !canOpenAdmin && Array.isArray(session?.eventHostFormats) && session.eventHostFormats.length > 0;
+      const canOpenEventHost = !canOpenAdmin && ((Array.isArray(session?.eventHostFormats) && session.eventHostFormats.length > 0) || session?.eventOrganizer === true);
 
       if (session?.linked === true) {
         const profileResponse = await fetchOrRestarting('/api/player/me', { credentials: 'same-origin', cache: 'no-store' });

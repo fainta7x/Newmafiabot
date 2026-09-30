@@ -488,7 +488,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
    - Next: curators get their share of «Дела» when curators exist (item 21).
 29. Music section — work on it and improve it (owner, 2026-09-30; details to agree).
 30. Online games inside the app, if possible — for example online poker for club tokens (owner idea 2026-09-30; to research and agree: legal limits of games with tokens, rules, who plays when).
-31. Integration with the club website (owner, 2026-09-30): today the app and the site are two separate things built apart. To agree: which site (address, who hosts it, how it is edited), what it should show from the app (calendar, sign-up, rating, player profiles, tournament results), and whether the site links into the app or the app publishes to the site. Related: item 8 already plans announcements «later on the website».
+31. Integration with the club website (owner, 2026-09-30; much later): the site is https://fainta7x.github.io/2la-noire-site/ (GitHub Pages, a separate repository `fainta7x/2la-noire-site`, built apart from the app). The owner wants a business-card site with what the club needs: the calendar of evenings, possibly ratings, photos, contacts. Not started; when it comes up, agree what the site shows from the app and whether it reads app data or links into the app (item 8 also plans announcements «later on the website»).
 18. Live content in the Telegram entry channel (idea 2026-09-28): evening results, photos and funny moments between announcements, so the channel does not look empty to a newcomer.
 
 ### Waiting on the owner

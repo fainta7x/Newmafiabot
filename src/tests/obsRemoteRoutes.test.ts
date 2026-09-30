@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
+import { resetObsRemoteRateLimitsForTests } from '../server/routes/obsRemoteRoutes.ts';
 
 describe('OBS remote bridge routes', () => {
   let app: Awaited<ReturnType<typeof createApp>>;
@@ -10,6 +11,7 @@ describe('OBS remote bridge routes', () => {
   let cookie: string;
 
   beforeEach(async () => {
+    resetObsRemoteRateLimitsForTests();
     db = createDatabaseConnection(':memory:');
     app = await createApp(db);
     cookie = `organizer_token=${generateOrganizerToken()}`;
@@ -93,5 +95,21 @@ describe('OBS remote bridge routes', () => {
 
     const status = await request(app).get('/api/obs-remote/status').set('Cookie', cookie);
     expect(status.body).toMatchObject({ paired: false, bridge_online: false, obs_connected: false });
+  });
+
+  it('rate-limits repeated public pairing attempts', async () => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await request(app)
+        .post('/api/public/obs-bridge/pair')
+        .set('X-Forwarded-For', '203.0.113.50')
+        .send({ code: 'AAAAAAAA' })
+        .expect(400);
+    }
+
+    await request(app)
+      .post('/api/public/obs-bridge/pair')
+      .set('X-Forwarded-For', '203.0.113.50')
+      .send({ code: 'AAAAAAAA' })
+      .expect(429, { error: 'Слишком много попыток подключения. Попробуйте позже.' });
   });
 });

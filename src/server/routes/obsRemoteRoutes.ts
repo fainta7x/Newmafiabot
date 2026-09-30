@@ -12,6 +12,43 @@ import {
 
 const organizerRouter = express.Router();
 const bridgeRouter = express.Router();
+type RateBucket = { count: number; resetAt: number };
+
+const pairAttempts = new Map<string, RateBucket>();
+const heartbeatAttempts = new Map<string, RateBucket>();
+
+export const resetObsRemoteRateLimitsForTests = () => {
+  pairAttempts.clear();
+  heartbeatAttempts.clear();
+};
+
+const withinRateLimit = (buckets: Map<string, RateBucket>, key: string, max: number, windowMs: number) => {
+  const now = Date.now();
+  const current = buckets.get(key);
+  if (!current || current.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (current.count >= max) return false;
+  current.count += 1;
+  return true;
+};
+
+const requestAddress = (req: express.Request) => req.ip || req.socket.remoteAddress || 'unknown';
+
+const limitObsPairing: express.RequestHandler = (req, res, next) => {
+  if (!withinRateLimit(pairAttempts, requestAddress(req), 20, 10 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Слишком много попыток подключения. Попробуйте позже.' });
+  }
+  next();
+};
+
+const limitObsHeartbeat: express.RequestHandler = (req, res, next) => {
+  if (!withinRateLimit(heartbeatAttempts, requestAddress(req), 120, 60 * 1000)) {
+    return res.status(429).json({ error: 'Слишком много запросов от OBS-моста. Попробуйте позже.' });
+  }
+  next();
+};
 
 const bearerToken = (req: express.Request) => {
   const value = req.headers.authorization;
@@ -33,14 +70,14 @@ organizerRouter.post('/revoke', requireOrganizerAuth, async (req: AuthenticatedR
   return res.status(204).end();
 });
 
-bridgeRouter.post('/pair', async (req: AuthenticatedRequest, res) => {
+bridgeRouter.post('/pair', limitObsPairing, async (req: AuthenticatedRequest, res) => {
   const paired = await pairObsBridge(req.db, req.body?.code);
   if (!paired) return res.status(400).json({ error: 'Код неверный или уже истёк' });
   res.setHeader('Cache-Control', 'no-store');
   return res.json(paired);
 });
 
-bridgeRouter.post('/heartbeat', async (req: AuthenticatedRequest, res) => {
+bridgeRouter.post('/heartbeat', limitObsHeartbeat, async (req: AuthenticatedRequest, res) => {
   const token = bearerToken(req);
   if (!await authenticateObsBridge(req.db, token)) {
     return res.status(401).json({ error: 'Ноутбук больше не привязан. Получите новый код в приложении.' });

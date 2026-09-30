@@ -176,6 +176,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
+  const [sceneCopied, setSceneCopied] = useState<string | null>(null);
   const [broadcastConfig, setBroadcastConfig] = useState<LiveBroadcastConfig | null>(null);
   const [broadcastConfigLoading, setBroadcastConfigLoading] = useState(false);
   const [broadcastConfigError, setBroadcastConfigError] = useState<string | null>(null);
@@ -461,6 +462,18 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                     <ExternalLink className="h-4 w-4" />
                     Предпросмотр
                   </a>
+                </div>
+                {/* Full-frame scenes for «Заставка» and «Итоги» (owner, 2026-10-01): same secret link + /lobby, /standings. */}
+                <div className="mt-4 space-y-2" data-testid="broadcast-scene-links">
+                  {([['lobby', 'Заставка: готовимся к игре + рассадка'], ['standings', 'Итоги: таблица турнира']] as const).map(([view, label]) => {
+                    const url = `${broadcastConfig.overlay_url.replace(/\/$/, '')}/${view}`;
+                    return <div key={view} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                      <span className="min-w-0 flex-1 text-xs leading-4 text-white/60">{label}<span className="block truncate font-mono text-[10px] text-white/35">{url}</span></span>
+                      <button type="button" onClick={() => { void navigator.clipboard.writeText(url).then(() => setSceneCopied(view)).catch(() => setBroadcastConfigError('Не удалось скопировать ссылку. Выдели её вручную.')); window.setTimeout(() => setSceneCopied(null), 1800); }}
+                        className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-semibold text-white/80"><Copy className="h-3.5 w-3.5" />{sceneCopied === view ? 'Готово' : 'Копировать'}</button>
+                    </div>;
+                  })}
+                  <p className="text-[11px] leading-4 text-white/35">Добавьте в OBS как «Источник браузера» 1920 × 1080 в сцены «Заставка» и «Итоги».</p>
                 </div>
               </>
             )}

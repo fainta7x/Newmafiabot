@@ -11,6 +11,7 @@ import {
   readLiveBroadcastEnvelope,
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
+import { loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
 
 const gameRouter = Router();
 const publicRouter = Router();
@@ -122,6 +123,16 @@ publicRouter.get('/broadcast/:token', (req, res) => {
   }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   return res.json(readLiveBroadcastEnvelope());
+});
+
+// «Заставка» / «Итоги» scenes: the next game's seating and the tournament table, by the same secret link.
+publicRouter.get('/broadcast/:token/lobby', async (req: AuthenticatedRequest, res) => {
+  if (!isValidLiveBroadcastToken(String(req.params.token || ''))) {
+    return res.status(404).json({ error: 'Трансляция не найдена' });
+  }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const db = req.db || (await getDb());
+  return res.json(await loadBroadcastLobby(db));
 });
 
 publicRouter.get('/broadcast/:token/avatar/:playerId', async (req: AuthenticatedRequest, res) => {

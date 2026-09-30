@@ -94,13 +94,17 @@ export function EventHostCabinet({ playerId, formats, evenings, onOpenEvening, o
     <div className="space-y-3" data-testid="event-host-cabinet">
       <section className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
         <h2 className="text-[16px] font-bold text-white">Мои вечера</h2>
-        <p className="mt-1 text-[12px] leading-5 text-white/55">
-          Создавайте вечера и проводите их: приход, оплата, столы и игры, анонс, закрытие. {organizeFormatsSummary(marks)}.
-        </p>
-        <button type="button" onClick={() => { setError(''); setOpen(true); }} disabled={!allowedFormats.length}
-          className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-white text-[14px] font-semibold text-[#090a0d] disabled:opacity-40">
-          <CalendarPlus className="h-4 w-4" /> Создать вечер
-        </button>
+        {marks.length ? <>
+          <p className="mt-1 text-[12px] leading-5 text-white/55">
+            Создавайте вечера и проводите их: приход, оплата, столы и игры, анонс, закрытие. {organizeFormatsSummary(marks)}.
+          </p>
+          <button type="button" onClick={() => { setError(''); setOpen(true); }} disabled={!allowedFormats.length}
+            className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-white text-[14px] font-semibold text-[#090a0d] disabled:opacity-40">
+            <CalendarPlus className="h-4 w-4" /> Создать вечер
+          </button>
+        </> : <p data-testid="event-organizer-note" className="mt-1 text-[12px] leading-5 text-white/55">
+          Вас назначили организатором вечера. На своём вечере отмечайте приход и оплату, собирайте столы и игры, начните и закройте вечер. Название, время и цену меняет владелец клуба.
+        </p>}
       </section>
 
       <section className="overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.03]">

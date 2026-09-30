@@ -322,6 +322,16 @@ async function eveningIdForEventHostPath(db: any, path: string): Promise<{ eveni
   return null;
 }
 
+/** «Организатор вечера» (owner, 2026-10-01): assigned to an evening that is not over yet. */
+export async function assignedOpenEveningCount(db: any, playerId: string): Promise<number> {
+  const row = await db.get(
+    `SELECT COUNT(*) AS count FROM evening_staff_assignments s JOIN game_evenings e ON e.id = s.evening_id
+      WHERE s.organizer_player_id = ? AND e.status NOT IN ('cancelled', 'completed') AND e.settled_at IS NULL`,
+    [playerId],
+  ).catch(() => null);
+  return Number(row?.count || 0);
+}
+
 export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<boolean> {
   const db = req.db;
   const playerId = getPlayerSessionId(req);
@@ -329,7 +339,10 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
   const player = await db.get<any>('SELECT id, organize_formats, contact_status FROM players WHERE id = ? LIMIT 1', [playerId])
     .catch(() => null);
   if (!player || String(player.contact_status || '') === 'blocked') return false;
-  if (!cabinetOrganizeFormats(player.organize_formats).length) return false;
+  // With «Может проводить» marks: the full limited cabinet. Without them, a player assigned as «Организатор
+  // вечера» runs only that evening — arrivals, payment, tables, games, start and closeout (owner, 2026-10-01).
+  const hasMarks = cabinetOrganizeFormats(player.organize_formats).length > 0;
+  if (!hasMarks && !(await assignedOpenEveningCount(db, playerId))) return false;
 
   const path = requestPath(req);
   const method = req.method.toUpperCase();
@@ -344,6 +357,7 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
     return grant();
   }
   if (method === 'POST' && /^\/api\/evenings\/?$/.test(path)) {
+    if (!hasMarks) return false;
     // Tournaments have their own flow (tournaments table: registration, judge, fee, prizes).
     if (String(req.body?.format || '').toUpperCase() === 'TOURNAMENT') return false;
     return canOrganizeEveningFormat(player, req.body?.format) ? grant() : false;
@@ -357,6 +371,13 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
   const judgeOnly = method === 'PATCH' && target.rest === '/staff'
     && Object.keys(req.body || {}).length > 0 && Object.keys(req.body || {}).every((key) => key === 'judge_player_id');
   if (target.rest.startsWith('/staff') && !judgeOnly) return false;
+  // An assigned organizer without marks does not change the evening itself (title, time, price, publication);
+  // the only exception is starting it.
+  if (!hasMarks && target.rest === '' && method !== 'GET' && method !== 'HEAD') {
+    const body = req.body || {};
+    const startsOnly = method === 'PATCH' && Object.keys(body).length === 1 && body.status === 'active';
+    if (!startsOnly) return false;
+  }
   if (method === 'PATCH' && target.rest === '' && req.body?.format !== undefined && !canOrganizeEveningFormat(player, req.body.format)) return false;
 
   const evening = await db.get<any>(`
@@ -366,7 +387,7 @@ export async function canUseEventHostRoute(req: AuthenticatedRequest): Promise<b
      WHERE e.id = ? LIMIT 1
   `, [target.eveningId]).catch(() => null);
   if (!evening || String(evening.organizer_player_id || '') !== playerId) return false;
-  if (!canOrganizeEveningFormat(player, evening.format)) return false;
+  if (hasMarks && !canOrganizeEveningFormat(player, evening.format)) return false;
   return grant();
 }
 

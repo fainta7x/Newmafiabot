@@ -121,7 +121,8 @@ export const useOrganizerCrmSession = () => {
       if (!me.isOrganizer) {
         setIsOrganizer(false);
         const formats = Array.isArray(me.eventHostFormats) ? me.eventHostFormats : [];
-        if (formats.length && me.player?.id) {
+        // «Организатор вечера» without marks gets the same cabinet, limited to the evenings he runs.
+        if ((formats.length || me.eventOrganizer) && me.player?.id) {
           setEventHost({ playerId: String(me.player.id), formats });
           eventHostRef.current = true;
           setShowLoginModal(false);

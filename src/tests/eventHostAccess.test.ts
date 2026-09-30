@@ -79,9 +79,40 @@ describe('limited cabinet «Проводит вечера»', () => {
     expect((await request(app).patch(`/api/evenings/${mine}`).set('Cookie', host).send({ title: 'Ещё' })).status).toBe(401);
     // «Турниры» alone does not open the evening cabinet (it only allows being a tournament organizer).
     await db.run("UPDATE players SET organize_formats = 'TOURNAMENT' WHERE id = 'host'");
-    expect((await request(app).get('/api/players').set('Cookie', host)).status).toBe(401);
     expect((await request(app).get('/api/auth/me').set('Cookie', host)).body.eventHostFormats ?? []).toEqual([]);
+    // Still the organizer of the evening she made: she runs it, but no longer edits it (owner, 2026-10-01).
+    expect((await request(app).get('/api/auth/me').set('Cookie', host)).body.eventOrganizer).toBe(true);
+    expect((await request(app).patch(`/api/evenings/${mine}`).set('Cookie', host).send({ title: 'Ещё раз' })).status).toBe(401);
+    await db.run('UPDATE evening_staff_assignments SET organizer_player_id = NULL WHERE evening_id = ?', [mine]);
+    expect((await request(app).get('/api/players').set('Cookie', host)).status).toBe(401);
     await db.run("UPDATE players SET organize_formats = 'CASUAL', contact_status = 'blocked' WHERE id = 'host'");
     expect((await request(app).get('/api/players').set('Cookie', host)).status).toBe(401);
+  });
+
+  it('an assigned «Организатор вечера» without marks runs only that evening (owner, 2026-10-01)', async () => {
+    const { db, app, plain } = await setup();
+    const now = new Date().toISOString();
+    // Not assigned anywhere: no cabinet.
+    expect((await request(app).get('/api/auth/me').set('Cookie', plain)).body.eventOrganizer).toBe(false);
+    await db.run(`INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES ('other', 'plain', ?, ?)
+      ON CONFLICT(evening_id) DO UPDATE SET organizer_player_id = 'plain'`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('ep-host','other','host','going','pending','pending',100,0,?,?)`, [now, now]);
+    expect((await request(app).get('/api/auth/me').set('Cookie', plain)).body).toMatchObject({ eventOrganizer: true, eventHostFormats: [] });
+    expect((await request(app).get('/api/evenings').set('Cookie', plain)).status).toBe(200);
+    expect((await request(app).get('/api/evenings/other/participants').set('Cookie', plain)).status).toBe(200);
+
+    // Runs his evening: start it, mark an arrival.
+    const started = await request(app).patch('/api/evenings/other').set('Cookie', plain).send({ status: 'active' });
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    const arrived = await request(app).patch('/api/evenings/participants/ep-host').set('Cookie', plain).send({ attendance_status: 'attended' });
+    expect(arrived.status, JSON.stringify(arrived.body)).not.toBe(401);
+
+    // Does not change the evening itself, create evenings or touch another evening.
+    expect((await request(app).patch('/api/evenings/other').set('Cookie', plain).send({ title: 'Другое' })).status).toBe(401);
+    expect((await request(app).patch('/api/evenings/other').set('Cookie', plain).send({ default_price: 0 })).status).toBe(401);
+    expect((await request(app).patch('/api/evenings/other/staff').set('Cookie', plain).send({ organizer_player_id: null })).status).toBe(401);
+    expect((await request(app).post('/api/evenings').set('Cookie', plain).send({ title: 'Новый', starts_at: now, format: 'CASUAL', status: 'draft', capacity: 20 })).status).toBe(401);
+    expect((await request(app).patch('/api/evenings/novice').set('Cookie', plain).send({ status: 'active' })).status).toBe(401);
   });
 });

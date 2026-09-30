@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
+import CuratorTasksCard from './CuratorTasksCard.tsx';
 
 type PlayerEvening = {
   id: string;
@@ -147,6 +148,8 @@ export default function PlayerHomeDashboard({
           <h1 className="text-2xl font-semibold">Главная</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Привет, {data.player.nickname}</p>
         </header>
+
+        <CuratorTasksCard />
 
         {awaitingFirstApplication ? (
           <section data-testid="player-home-first-application" className="rounded-[28px] border border-emerald-300/20 bg-emerald-300/[0.07] p-4">

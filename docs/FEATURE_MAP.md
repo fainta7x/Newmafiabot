@@ -233,7 +233,7 @@ Current contract: one stable secret main-channel URL, one streamed game at a tim
 
 ### OBS Studio remote connection
 
-- Organizer setup/status: `src/components/crm/ObsRemoteCRM.tsx`, route `Ещё -> OBS и трансляция`.
+- Organizer setup/status: `src/components/crm/ObsRemoteCRM.tsx`, opened with the monitor button inside the active game.
 - Laptop bridge: `src/components/public/ObsBridgePage.tsx`, public route `/obs-bridge`.
 - Local OBS WebSocket v5 client: `src/lib/obsWebSocket.ts`.
 - Pairing/status API: `src/server/routes/obsRemoteRoutes.ts` + `src/server/services/obsRemoteService.ts`.

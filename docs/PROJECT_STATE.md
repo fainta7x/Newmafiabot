@@ -262,7 +262,7 @@ Connected through the Live Game modal and `/broadcast/<secret>` Browser Source r
 
 The current relay is intentionally one main in-memory broadcast channel for one streamed table. A Node restart or phone connection loss leaves the last frame visible; the phone heartbeat republishes the current local snapshot after connectivity returns.
 
-The OBS Studio remote bridge foundation is implemented: the organizer cabinet creates a short-lived pairing code, `/obs-bridge` on the laptop connects locally to OBS WebSocket, and the phone sees connection, version, current scene, stream and recording status. Pairing tokens are stored only as hashes; the OBS password stays in laptop browser memory and never reaches the server. Scene-control buttons and phone-to-laptop video transport remain separate follow-up work after the scene contract and the physical camera path are tested.
+The OBS Studio remote bridge foundation is implemented inside the active Live Game screen: its monitor button creates a short-lived pairing code, `/obs-bridge` on the laptop connects locally to OBS WebSocket, and the phone sees connection, version, current scene, stream and recording status. Pairing tokens are stored only as hashes; the OBS password stays in laptop browser memory and never reaches the server. The owner wants the same phone to run Live Game while an external USB camera and microphone feed the laptop; that phone-to-laptop video transport is not implemented or hardware-verified yet. It requires an in-screen WebRTC/camera proof on the owner's Android device before it may be promised. Scene-control buttons remain separate follow-up work after the scene contract is agreed.
 
 ### Telegram
 

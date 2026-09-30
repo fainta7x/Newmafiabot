@@ -9,6 +9,7 @@ import { buildLiveBroadcastState } from '../../lib/liveBroadcast';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { MUSIC_EVENING_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
+import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -404,11 +405,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
       {broadcastSetupOpen && (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111319] p-5 shadow-2xl">
+          <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/10 bg-[#111319] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/70">OBS Browser Source</div>
-                <div className="mt-1 text-xl font-semibold text-white">Трансляционный экран</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/70">Активная игра</div>
+                <div className="mt-1 text-xl font-semibold text-white">OBS и трансляция</div>
               </div>
               <button
                 type="button"
@@ -420,9 +421,16 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               </button>
             </div>
 
-            <p className="mt-3 text-sm leading-6 text-white/55">
-              Добавь эту ссылку в OBS один раз как «Источник браузера». Размер: 1920 × 1080, фон прозрачный. Во всех следующих играх ссылка останется той же.
-            </p>
+            <div className="mt-4">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">1. Подключение OBS Studio</div>
+              <ObsRemoteCRM />
+            </div>
+
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">2. Игровая графика</div>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                Добавь эту ссылку в OBS один раз как «Источник браузера». Размер: 1920 × 1080, фон прозрачный. Во всех следующих играх ссылка останется той же.
+              </p>
 
             {broadcastConfigLoading && (
               <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-4 text-sm text-white/45">Готовим защищённую ссылку…</div>
@@ -469,6 +477,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                   : broadcastConnection === 'offline'
                     ? 'Нет связи с сервером. Игра на телефоне продолжается; OBS догонит состояние после восстановления интернета.'
                     : 'Подключаем телефон к трансляции…'}
+            </div>
             </div>
           </div>
         </div>

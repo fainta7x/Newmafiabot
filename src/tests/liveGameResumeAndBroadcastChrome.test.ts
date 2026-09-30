@@ -39,4 +39,16 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
     expect(css).toContain('min-height: var(--broadcast-header-height)');
     expect(main).toContain('liveBroadcastCompact.css');
   });
+
+  it('keeps OBS pairing and status inside the active game instead of the More menu', () => {
+    const liveGame = read('src/components/crm/EveningLiveGameModal.tsx');
+    const more = read('src/components/crm/MoreCRM.tsx');
+    const bridge = read('src/components/public/ObsBridgePage.tsx');
+
+    expect(liveGame).toContain("import ObsRemoteCRM from './ObsRemoteCRM.tsx'");
+    expect(liveGame).toContain('<ObsRemoteCRM />');
+    expect(liveGame).toContain('OBS и трансляция');
+    expect(more).not.toContain("id: 'obs'");
+    expect(bridge).toContain('откройте активную игру, нажмите кнопку с монитором');
+  });
 });

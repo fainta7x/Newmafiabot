@@ -212,7 +212,7 @@ Remote control uses a separate laptop-side bridge and does not expose OBS WebSoc
 
 `organizer phone -> authenticated /api/obs-remote pairing/status -> server -> /obs-bridge on laptop -> ws://127.0.0.1:4455 -> OBS Studio`
 
-- `src/components/crm/ObsRemoteCRM.tsx` owns pairing and connection status in the organizer cabinet.
+- `src/components/crm/ObsRemoteCRM.tsx` owns pairing and connection status inside the active-game OBS panel.
 - `src/components/public/ObsBridgePage.tsx` and `src/lib/obsWebSocket.ts` own the browser-to-local-OBS connection.
 - `src/server/routes/obsRemoteRoutes.ts` and `src/server/services/obsRemoteService.ts` own one-time pairing, hashed bridge tokens and the status heartbeat.
 - The OBS password exists only in the laptop page's memory. It is not sent to or stored by the application server.

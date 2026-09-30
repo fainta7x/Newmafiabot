@@ -82,7 +82,7 @@ export const ObsRemoteCRM: React.FC = () => {
 
   const connected = status?.obs_connected === true;
 
-  return <div className="space-y-3" data-testid="obs-remote-crm">
+  return <div className="space-y-3" data-testid="live-game-obs-remote">
     <section className={`rounded-[22px] border p-4 ${connected ? 'border-emerald-300/20 bg-emerald-300/[0.07]' : 'border-white/10 bg-white/[0.04]'}`}>
       <div className="flex items-start gap-3">
         <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${connected ? 'bg-emerald-300/15 text-emerald-200' : 'bg-white/[0.07] text-white/45'}`}>

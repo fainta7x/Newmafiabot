@@ -121,7 +121,7 @@ export const ObsBridgePage: React.FC = () => {
 
       {!token ? <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
         <div className="flex items-center gap-2"><Laptop className="h-5 w-5 text-sky-200" /><h2 className="text-[16px] font-semibold">1. Привяжите ноутбук</h2></div>
-        <p className="mt-2 text-[13px] leading-5 text-white/50">В приложении откройте «Ещё → OBS и трансляция», создайте код и введите его здесь.</p>
+        <p className="mt-2 text-[13px] leading-5 text-white/50">В приложении откройте активную игру, нажмите кнопку с монитором, создайте код и введите его здесь.</p>
         <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 8))} autoCapitalize="characters" autoComplete="one-time-code" placeholder="КОД ИЗ ПРИЛОЖЕНИЯ" className="mt-4 min-h-14 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-center font-mono text-[20px] tracking-[0.14em] text-white outline-none placeholder:text-[13px] placeholder:tracking-normal placeholder:text-white/25" />
         <button type="button" disabled={busy || code.length !== 8} onClick={() => void pair()} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-[14px] font-bold text-black disabled:opacity-40">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}Привязать ноутбук</button>
       </section> : <>

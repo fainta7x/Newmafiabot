@@ -94,7 +94,18 @@ describe('a profile that already belongs to another player', () => {
     await player('taken', 'Вася', '111');
     const response = await bot('link-request', { telegram_user_id: 555, nickname: 'Вася' });
     expect(response.status).toBe(409);
-    expect(response.body.code).toBe('target_telegram_conflict');
+    expect(response.body.code).toBe('nickname_linked_elsewhere');
+  });
+
+  it('registration tells the bot whether a taken nickname may still be claimed', async () => {
+    const { player, bot } = await setup();
+    await player('taken', 'Чагин', '111');
+    await player('made', 'Вася');
+    const linked = await bot('register', { telegram_user_id: 555, nickname: 'Чагин' });
+    expect(linked.status).toBe(409);
+    expect(linked.body).toMatchObject({ code: 'nickname_taken', claimable: false });
+    const made = await bot('register', { telegram_user_id: 555, nickname: 'Вася' });
+    expect(made.body).toMatchObject({ code: 'nickname_taken', claimable: true });
   });
 });
 

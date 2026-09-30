@@ -327,6 +327,12 @@ async def finish_registration(message: Message, state: FSMContext):
         return
 
     error = result.get("error")
+    if error == "nickname_taken" and (result.get("data") or {}).get("claimable") is False:
+        # The profile already has its own Telegram or VK: a different player, no request to the organizer.
+        await message.answer(
+            f"Ник «{nickname}» уже занят игроком со своим аккаунтом. Придумай другой ник и пришли его одним сообщением."
+        )
+        return
     if error == "nickname_taken":
         # Keep the nickname: «Это мой профиль» sends it to the organizer as a link request.
         await state.set_state(None)
@@ -378,13 +384,12 @@ async def answer_taken_nickname(callback: CallbackQuery, state: FSMContext):
             "Как только он подтвердит, профиль откроется здесь и в приложении."
         )
         return
-    if result.get("error") == "target_telegram_conflict":
+    if result.get("error") in {"nickname_linked_elsewhere", "target_telegram_conflict"}:
         # The profile already belongs to someone with their own Telegram: this is a different player.
         await state.set_state(RegistrationForm.waiting_for_nickname)
         await callback.message.answer(
-            f"Профиль «{nickname}» уже привязан к Telegram другого игрока. "
-            "Значит, это не твой профиль — придумай другой ник и пришли его одним сообщением. "
-            "Если уверен, что профиль твой, напиши организатору."
+            f"Ник «{nickname}» уже занят игроком со своим аккаунтом. "
+            "Придумай другой ник и пришли его одним сообщением."
         )
         return
     await callback.message.answer(

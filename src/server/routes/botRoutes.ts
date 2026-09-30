@@ -7,7 +7,7 @@ import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotif
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
-import { requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
+import { isNicknameClaimable, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
@@ -52,7 +52,11 @@ router.post('/players/register', async (req, res) => {
     });
   } catch (error: any) {
     if (error instanceof PlayerRegistrationError) {
-      return res.status(error.status).json({ error: error.message, code: error.code });
+      // A taken nickname of a profile with its own account is simply taken: the bot asks for another one.
+      const claimable = error.code === 'nickname_taken'
+        ? await isNicknameClaimable(req.db, req.body?.nickname).catch(() => false)
+        : undefined;
+      return res.status(error.status).json({ error: error.message, code: error.code, ...(claimable === undefined ? {} : { claimable }) });
     }
     return res.status(500).json({ error: error?.message || 'Не удалось зарегистрировать игрока' });
   }

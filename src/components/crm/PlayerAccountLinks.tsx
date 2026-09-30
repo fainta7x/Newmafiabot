@@ -27,8 +27,12 @@ export default function PlayerAccountLinks({ playerId }: { playerId: string }) {
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/players/${encodeURIComponent(playerId)}/account-links`, { credentials: 'include', cache: 'no-store' });
-    if (response.ok) setLinks(await response.json());
+    try {
+      const response = await fetch(`/api/players/${encodeURIComponent(playerId)}/account-links`, { credentials: 'include', cache: 'no-store' });
+      if (response.ok) setLinks(await response.json());
+    } catch {
+      // The block is optional: without the answer the card simply shows no «Привязка профиля».
+    }
   }, [playerId]);
   useEffect(() => { setClaim(null); setNote(''); setError(''); void load(); }, [load]);
 

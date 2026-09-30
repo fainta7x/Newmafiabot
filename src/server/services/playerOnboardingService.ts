@@ -181,6 +181,23 @@ export async function completeVerifiedNewPlayerOnboarding(db: DatabaseWrapper, r
   return { status: 'created' as const, playerId: result.player.id, created: result.created, returnTo };
 }
 
+/**
+ * A profile that already has its own Telegram or VK belongs to a real player (owner, 2026-09-30: «Чагин»).
+ * A newcomer typing that nickname is asked for another one; the organizer gets no request (no spam).
+ */
+const LINKED_NICKNAME_MESSAGE = 'Этот ник уже занят игроком со своим аккаунтом. Если вы новый игрок — вернитесь и придумайте другой ник.';
+async function profileHasAccount(db: DatabaseWrapper, player: { id: string; telegram_user_id?: unknown }) {
+  if (String(player.telegram_user_id || '').trim()) return true;
+  await ensureVkIntegrationSchema(db);
+  return Boolean(await db.get("SELECT 1 AS present FROM player_external_identities WHERE platform='vk' AND player_id=? LIMIT 1", [player.id]));
+}
+
+/** Whether a taken nickname may still be claimed: exactly one profile, and it has no Telegram or VK yet. */
+export async function isNicknameClaimable(db: DatabaseWrapper, nickname: unknown) {
+  const matches = await findPlayersByNickname(db, String(nickname || '').trim().replace(/\s+/g, ' '));
+  return matches.length === 1 && !(await profileHasAccount(db, matches[0]));
+}
+
 /** A verified Telegram/VK account opened the organizer's personal link: link it to that profile at once. */
 export async function completeClaimPlayerOnboarding(db: DatabaseWrapper, rawTokenInput: unknown, code: unknown) {
   const rawToken = String(rawTokenInput || '').trim();
@@ -208,7 +225,7 @@ export async function requestTelegramProfileLinkByNickname(db: DatabaseWrapper, 
   if (matches.length === 0) throw onboardingError('nickname_not_found', 'Игрок с таким ником не найден.', 404);
   if (matches.length > 1) throw onboardingError('nickname_ambiguous', 'Найдено несколько профилей с таким ником. Нужна проверка организатора.', 409);
   const target = matches[0];
-  if (target.telegram_user_id) throw onboardingError('target_telegram_conflict', 'Этот профиль уже привязан к другому Telegram.', 409);
+  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
   const existing = await db.get<{ id: string }>(
     "SELECT id FROM player_onboarding_link_requests WHERE platform='telegram' AND external_user_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",
     [externalUserId],
@@ -272,6 +289,9 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
       }
     }
   }
+
+  // Only a profile without its own account (made by the organizer) goes to the organizer for review.
+  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
 
   const existing = await db.get<{ id: string }>(`
     SELECT id FROM player_onboarding_link_requests

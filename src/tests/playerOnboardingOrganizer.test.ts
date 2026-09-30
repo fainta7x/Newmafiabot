@@ -18,6 +18,13 @@ const makeDb = () => {
   return db;
 };
 
+// A profile the organizer made has no Telegram or VK yet; only such a profile goes to the organizer for review.
+const organizerMadeProfile = async (db: DatabaseWrapper, telegramUserId: string, nickname: string) => {
+  const created = await registerNewPlayer(db, { telegramUserId, nickname });
+  await db.run('UPDATE players SET telegram_user_id = NULL WHERE id = ?', [created.player.id]);
+  return created;
+};
+
 afterEach(() => {
   while (opened.length) {
     try { opened.pop()?.sqlite.close(); } catch {}
@@ -48,7 +55,7 @@ describe('VK-ACCESS-004 organizer visibility', () => {
 
   it('lists a pending link without exposing raw external identity and approves it idempotently', async () => {
     const db = makeDb();
-    const existing = await registerNewPlayer(db, { telegramUserId: '900', nickname: 'Старый профиль' });
+    const existing = await organizerMadeProfile(db, '900', 'Старый профиль');
     const started = await beginVerifiedPlayerOnboarding(db, { platform: 'vk', externalUserId: '777' }, '/player/games');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
 
@@ -81,12 +88,14 @@ describe('VK-ACCESS-004 organizer visibility', () => {
 
   it('rejects organizer approval when the verified identity or target profile conflicts', async () => {
     const db = makeDb();
-    const existing = await registerNewPlayer(db, { telegramUserId: '901', nickname: 'Профиль с Telegram' });
+    const existing = await organizerMadeProfile(db, '901', 'Профиль с Telegram');
     const started = await beginVerifiedPlayerOnboarding(db, { platform: 'telegram', externalUserId: '902' }, '/player');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
 
     const pending = await requestExistingPlayerOnboardingLink(db, started.token, 'Профиль с Telegram');
     if (pending.status !== 'pending_organizer') throw new Error('expected organizer review');
+    // Before the organizer decides, the profile gets its own Telegram.
+    await db.run("UPDATE players SET telegram_user_id = '901' WHERE id = ?", [existing.player.id]);
 
     await expect(resolvePendingPlayerOnboardingLink(db, pending.requestId, 'approve')).rejects.toMatchObject({
       code: 'target_telegram_conflict',
@@ -95,12 +104,12 @@ describe('VK-ACCESS-004 organizer visibility', () => {
     const request = await db.get<any>('SELECT status FROM player_onboarding_link_requests WHERE id=?', [pending.requestId]);
     expect(request?.status).toBe('pending');
     expect(await db.get<any>('SELECT id FROM players WHERE telegram_user_id=?', ['902'])).toBeNull();
-    expect(existing.player.telegram_user_id).toBe('901');
+    expect((await db.get<any>('SELECT telegram_user_id FROM players WHERE id = ?', [existing.player.id])).telegram_user_id).toBe('901');
   });
 
   it('lets the organizer reject a pending link without linking the identity', async () => {
     const db = makeDb();
-    const existing = await registerNewPlayer(db, { telegramUserId: '903', nickname: 'Не связывать' });
+    const existing = await organizerMadeProfile(db, '903', 'Не связывать');
     const started = await beginVerifiedPlayerOnboarding(db, { platform: 'vk', externalUserId: '904' }, '/player/profile');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
     const pending = await requestExistingPlayerOnboardingLink(db, started.token, 'Не связывать');

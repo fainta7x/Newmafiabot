@@ -17,7 +17,7 @@ const when = (value: string) => new Date(value).toLocaleString('ru-RU', {
  * «На этой неделе» on «Сегодня» (owner, 2026-09-30): every event of the next 7 days — novice, club, rating
  * evenings and tournaments — each one tap away, so the organizer does not have to go through «События».
  */
-export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournament, now = Date.now(), excludeIds = [], title = 'На этой неделе' }: {
+export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournament, now = Date.now(), excludeIds = [], title = 'На этой неделе', includeTournaments = true }: {
   evenings: GameEvening[];
   onOpenEvening: (id: string) => void;
   onOpenTournament: (id: string) => void;
@@ -25,6 +25,8 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
   /** Evenings already shown above (on «События» the nearest evening has its own card). */
   excludeIds?: string[];
   title?: string;
+  /** False when «События» is filtered to one evening format. */
+  includeTournaments?: boolean;
 }) {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
         label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false,
       });
     }
-    for (const tournament of tournaments) {
+    for (const tournament of includeTournaments ? tournaments : []) {
       const status = String(tournament.status || '').toLowerCase();
       if (['completed', 'cancelled'].includes(status)) continue;
       if (status !== 'active' && !inWeek(tournament.date)) continue;
@@ -59,7 +61,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       });
     }
     return result.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  }, [evenings, tournaments, now, excludeIds]);
+  }, [evenings, tournaments, now, excludeIds, includeTournaments]);
 
   if (!items.length) return null;
   return (

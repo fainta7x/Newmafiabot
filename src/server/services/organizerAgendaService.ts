@@ -269,7 +269,9 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
     const eveningId = String(evening.id);
     const answers = await db.all<any>(
       'SELECT player_id, response_status FROM evening_participants WHERE evening_id = ? AND player_id IS NOT NULL', [eveningId]);
-    const answered = new Map(answers.map((row: any) => [String(row.player_id), String(row.response_status || '')]));
+    // A row without an answer (e.g. «unanswered», added by the organizer) still counts as not answered.
+    const answered = new Map(answers.filter((row: any) => ['going', 'late', 'thinking', 'declined'].includes(String(row.response_status || '')))
+      .map((row: any) => [String(row.player_id), String(row.response_status || '')]));
     const thinking = club.filter((row: any) => answered.get(String(row.id)) === 'thinking' && !quietThinking.has(String(row.id)));
     if (thinking.length) {
       items.push({
@@ -328,7 +330,7 @@ async function curatorItems(db: DatabaseWrapper, now: number): Promise<AgendaIte
     if (area === 'NOVICES') {
       const staff = await tableExists('evening_staff_assignments')
         ? await db.get<any>(`SELECT MAX(e.starts_at) AS at FROM evening_staff_assignments s JOIN game_evenings e ON e.id = s.evening_id
-            WHERE s.organizer_player_id = ? AND UPPER(COALESCE(e.format, '')) = 'NOVICE' AND e.status NOT IN ('cancelled', 'draft') AND datetime(e.starts_at) <= datetime(?)`, [playerId, iso(now)])
+            WHERE (s.organizer_player_id = ? OR s.judge_player_id = ?) AND UPPER(COALESCE(e.format, '')) = 'NOVICE' AND e.status NOT IN ('cancelled', 'draft') AND datetime(e.starts_at) <= datetime(?)`, [playerId, playerId, iso(now)])
         : null;
       const judged = await db.get<any>(`SELECT MAX(e.starts_at) AS at FROM games g JOIN game_evenings e ON e.id = g.evening_id
           WHERE g.judge_player_id = ? AND g.archived_at IS NULL AND UPPER(COALESCE(e.format, '')) = 'NOVICE'`, [playerId]);

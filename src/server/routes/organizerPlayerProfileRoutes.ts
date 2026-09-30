@@ -73,7 +73,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
     const parsed = classificationSchema.parse(req.body);
     const db = req.db || (await getDb());
     const playerId = String(req.params.id);
-    const current = await db.get<any>('SELECT id, source, club_role FROM players WHERE id = ? LIMIT 1', [playerId]);
+    const current = await db.get<any>('SELECT id, source, club_role, from_other_city FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!current || String(current.source || '') === MIGRATED_GUEST_SOURCE) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -98,6 +98,10 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
       stored.organize_formats = formats.length ? formats.join(',') : null;
     }
     if (parsed.curator_areas !== undefined) {
+      // A player from another city is not a curator (BUSINESS_RULES «Куратор направления»).
+      if (Number(current.from_other_city || 0) === 1 && normalizeCuratorAreas(parsed.curator_areas).length) {
+        return res.status(400).json({ error: 'Игрок из другого города не бывает куратором', code: 'other_city_curator' });
+      }
       const areas = normalizeCuratorAreas(parsed.curator_areas);
       stored.curator_areas = areas.length ? areas.join(',') : null;
     }

@@ -125,7 +125,7 @@ describe('«Дела»', () => {
     const stamp = new Date().toISOString();
     await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
       VALUES ('fri','Пятница',?,'Europe/Moscow','CASUAL','published',20,100,?,?)`, [new Date(Date.now() + 2 * DAY).toISOString(), stamp, stamp]);
-    for (const [id, answer] of [['going', 'going'], ['thinking', 'thinking'], ['declined', 'declined']]) {
+    for (const [id, answer] of [['going', 'going'], ['thinking', 'thinking'], ['declined', 'declined'], ['sometimes', 'unanswered']]) {
       await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,attendance_status,payment_status,amount_due,amount_paid,created_at,updated_at)
         VALUES (?,?,?,?,'pending','pending',0,0,?,?)`, [`fri:${id}`, 'fri', id, answer, stamp, stamp]);
     }
@@ -157,8 +157,8 @@ describe('«Дела»', () => {
     const stamp = new Date().toISOString();
     await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
       VALUES ('nov','Новички',?,'Europe/Moscow','NOVICE','completed',20,100,?,?)`, [ago(3), stamp, stamp]);
-    await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,judge_player_id,slots_json,created_at)
-      VALUES ('nov',1,?,'red','Победа красных','Судья','novices','[]',?)`, [ago(3), stamp]);
+    // Judge of the whole novice evening, with no game recorded yet.
+    await db.run(`INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, judge_player_id, assigned_at, updated_at) VALUES ('nov', NULL, 'novices', ?, ?)`, [stamp, stamp]);
     expect(await people('people:curators')).toEqual(['smm']);
     const agenda = await loadAgenda(db);
     expect(agenda.items.find((item) => item.id === 'people:curators')?.people?.[0].detail).toContain('смм: в приложении нет следов');
@@ -176,5 +176,8 @@ describe('«Дела»', () => {
     expect(many.status, JSON.stringify(many.body)).toBe(200);
     expect((await db.get<any>("SELECT curator_areas FROM players WHERE id = 'a'")).curator_areas).toBe('NOVICES,EVENTS');
     expect((await db.get<any>("SELECT curator_areas FROM players WHERE id = 'b'")).curator_areas).toBe('EVENTS');
+    await db.run("UPDATE players SET from_other_city = 1 WHERE id = 'b'");
+    const guest = await request(app).patch('/api/players/b').set('Cookie', cookie).send({ curator_areas: ['SMM'] });
+    expect(guest.status).toBe(400);
   });
 });

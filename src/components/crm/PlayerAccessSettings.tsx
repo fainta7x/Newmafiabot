@@ -293,7 +293,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
             </fieldset>
           </div>
 
-          <fieldset className="space-y-1.5 rounded-[13px] border border-border-soft p-3" data-testid="crm-player-curator-areas">
+          {Number((player as { from_other_city?: number | null }).from_other_city || 0) === 1 ? null : <fieldset className="space-y-1.5 rounded-[13px] border border-border-soft p-3" data-testid="crm-player-curator-areas">
             <legend className="px-1 text-[12px] font-semibold text-text-primary">Куратор направления</legend>
             <p className="mb-1.5 text-[11px] leading-4 text-text-muted">За что отвечает в клубе. Прав в приложении не даёт; если направление давно стоит без дел, в «Делах» появится напоминание написать куратору.</p>
             {CURATOR_AREA_OPTIONS.map((item) => {
@@ -309,7 +309,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
                 </label>
               );
             })}
-          </fieldset>
+          </fieldset>}
 
           <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3">
             <div className="flex items-start justify-between gap-3">

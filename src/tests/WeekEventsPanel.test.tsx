@@ -10,6 +10,7 @@ vi.mock('../lib/api.ts', () => ({
       { id: 't1', title: 'Турнир Богдана', date: at(3), status: 'draft' },
       { id: 't-old', title: 'Прошлый турнир', date: at(-5), status: 'completed' },
       { id: 't-far', title: 'Далёкий турнир', date: at(20), status: 'draft' },
+      { id: 't-running', title: 'Идущий турнир', date: at(-0.5), status: 'active' },
     ]),
   },
 }));
@@ -30,10 +31,12 @@ describe('«На этой неделе» on «Сегодня»', () => {
       evening('draft', 'RATING', 5, 'draft'),
       evening('gone', 'CASUAL', 1, 'cancelled'),
       evening('later', 'CASUAL', 9),
+      evening('late-night', 'CASUAL', -0.4, 'active'),
     ]} />);
-    await waitFor(() => expect(screen.getAllByTestId('crm-week-event')).toHaveLength(4));
+    await waitFor(() => expect(screen.getAllByTestId('crm-week-event')).toHaveLength(6));
     const titles = screen.getAllByTestId('crm-week-event').map((row) => row.querySelector('strong')?.textContent);
-    expect(titles).toEqual(['Вечер novice', 'Вечер club', 'Турнир Богдана', 'Вечер draft']);
+    // Running events stay even when they started more than six hours ago.
+    expect(titles).toEqual(['Идущий турнир', 'Вечер late-night', 'Вечер novice', 'Вечер club', 'Турнир Богдана', 'Вечер draft']);
     expect(screen.getByText(/черновик/)).toBeTruthy();
     fireEvent.click(screen.getByText('Турнир Богдана'));
     expect(openTournament).toHaveBeenCalledWith('t1');

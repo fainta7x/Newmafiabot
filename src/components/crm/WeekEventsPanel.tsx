@@ -38,14 +38,18 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
     };
     const result: Item[] = [];
     for (const evening of evenings) {
-      if (['cancelled', 'completed'].includes(String(evening.status)) || evening.settled_at || !inWeek(evening.starts_at)) continue;
+      // A running evening stays until it is closed, however long it goes on.
+      if (['cancelled', 'completed'].includes(String(evening.status)) || evening.settled_at) continue;
+      if (evening.status !== 'active' && !inWeek(evening.starts_at)) continue;
       result.push({
         key: `evening-${evening.id}`, id: evening.id, title: evening.title, startsAt: evening.starts_at,
         label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false,
       });
     }
     for (const tournament of tournaments) {
-      if (['completed', 'cancelled'].includes(String(tournament.status || '').toLowerCase()) || !inWeek(tournament.date)) continue;
+      const status = String(tournament.status || '').toLowerCase();
+      if (['completed', 'cancelled'].includes(status)) continue;
+      if (status !== 'active' && !inWeek(tournament.date)) continue;
       result.push({
         key: `tournament-${tournament.id}`, id: tournament.id, title: tournament.title, startsAt: tournament.date,
         label: 'Турнир', draft: false, tournament: true,

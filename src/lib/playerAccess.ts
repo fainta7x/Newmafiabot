@@ -57,13 +57,22 @@ export const CLUB_ORGANIZATION: Array<{ value: ClubOrganization; label: string; 
  * «Перестал ходить» pauses announcements and invitations (contact_status=paused with STOPPED_REASON);
  * choosing «постоянно» or «иногда» again turns them back on.
  */
-export type PlayerActivity = 'regular' | 'sometimes' | 'stopped';
+export type PlayerActivity = 'regular' | 'sometimes' | 'stopped' | 'other_city';
 export const STOPPED_REASON = 'Перестал ходить';
 export const PLAYER_ACTIVITY: Array<{ value: PlayerActivity; label: string; hint: string }> = [
   { value: 'regular', label: 'Ходит постоянно', hint: 'Получает анонсы и приглашения' },
   { value: 'sometimes', label: 'Ходит иногда', hint: 'Получает анонсы и приглашения' },
   { value: 'stopped', label: 'Перестал ходить', hint: 'Бот не пишет ему лично: ни анонсов, ни приглашений' },
+  { value: 'other_city', label: 'Из другого города', hint: 'Бот пишет лично только о рейтинговых вечерах и турнирах' },
 ];
+
+/*
+ * «Из другого города» (owner decision 2026-09-30): players.from_other_city = 1. Only the game level is set for
+ * such a player; they may judge rating games and tournaments, but take no other club role. Personal
+ * announcements go to them only for rating evenings and tournaments. They may still sign up anywhere.
+ */
+export const OTHER_CITY_ANNOUNCED_FORMATS = ['RATING', 'TOURNAMENT'] as const;
+export const isFromOtherCity = (player: { from_other_city?: unknown } | null | undefined) => Number(player?.from_other_city || 0) === 1;
 
 export const membershipOf = (role: ClubRole): ClubMembership => (role === 'guest' ? 'guest' : 'member');
 export const organizationOf = (role: ClubRole): ClubOrganization => (role === 'team' || role === 'organizer' ? role : 'none');

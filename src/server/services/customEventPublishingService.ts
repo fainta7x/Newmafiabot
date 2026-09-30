@@ -58,8 +58,9 @@ async function sendTelegram(event:any,destination:any,channel:string,db:Database
 
 async function audience(db:DatabaseWrapper,event:any){
   if(event.visibility==='invite')return db.all<any>(`SELECT p.id FROM players p JOIN custom_event_invitations i ON i.player_id=p.id WHERE i.event_id=? AND COALESCE(p.contact_status,'')<>'blocked'`,[event.id]);
-  if(event.visibility==='club')return db.all<any>("SELECT id FROM players WHERE club_stage='CLUB_PLAYER' AND COALESCE(contact_status,'')<>'blocked'");
-  return db.all<any>("SELECT id FROM players WHERE COALESCE(contact_status,'')<>'blocked'");
+  // Guests from another city get personal announcements only for rating evenings and tournaments (owner, 2026-09-30).
+  if(event.visibility==='club')return db.all<any>("SELECT id FROM players WHERE club_stage='CLUB_PLAYER' AND COALESCE(contact_status,'')<>'blocked' AND COALESCE(from_other_city,0)=0");
+  return db.all<any>("SELECT id FROM players WHERE COALESCE(contact_status,'')<>'blocked' AND COALESCE(from_other_city,0)=0");
 }
 
 export async function publishCustomEvent(db:DatabaseWrapper,eventId:string,deps:Dependencies={}){

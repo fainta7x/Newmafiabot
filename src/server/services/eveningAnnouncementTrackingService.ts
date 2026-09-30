@@ -1,5 +1,7 @@
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { OTHER_CITY_ANNOUNCED_FORMATS, isFromOtherCity } from '../../lib/playerAccess.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type Db = DatabaseWrapper;
@@ -18,6 +20,8 @@ const isCurrentlyEligible = (player: any, evening: any, nowMs = Date.now()) => {
     const until = new Date(String(player.do_not_invite_until)).getTime();
     if (Number.isFinite(until) && until > nowMs) return false;
   }
+  // A guest from another city is written to only about rating evenings and tournaments.
+  if (isFromOtherCity(player) && !(OTHER_CITY_ANNOUNCED_FORMATS as readonly string[]).includes(normalizeEveningFormat(evening.format))) return false;
   return playerLevelAllowsEveningFormat(player.game_level, evening.format);
 };
 
@@ -126,7 +130,7 @@ const loadEvening = async (db: Db, eveningId: string) => db.get(
 const loadAudienceRows = async (db: Db, eveningId: string) => db.all(
   `SELECT
       p.id, p.nickname, p.telegram_user_id, p.telegram_username, p.phone,
-      p.contact_status, p.lifecycle_status, p.do_not_invite_until, p.game_level,
+      p.contact_status, p.lifecycle_status, p.do_not_invite_until, p.game_level, p.from_other_city,
       ep.response_status, ep.registration_status,
       t.first_message_id, t.first_sent_at, t.delivery_status,
       t.last_attempt_at, t.last_error, t.reminder_count,

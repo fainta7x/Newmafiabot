@@ -5,7 +5,7 @@ type Application = {
   id: string;
   player_id: string | null;
   nickname: string | null;
-  entry_route: 'NOVICE' | 'EXPERIENCED';
+  entry_route: 'NOVICE' | 'EXPERIENCED' | 'OTHER_CITY';
   status: string;
   notes: string | null;
   organizer_notes: string | null;
@@ -163,7 +163,7 @@ export function NoviceDevelopmentCRM({ onOpenPlayer }: { onOpenPlayer?: (playerI
     <div className="space-y-2">
       {visible.map((application) => <article key={application.id} className="rounded-[20px] border border-white/10 bg-white/[0.035] p-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0"><h3 className="truncate text-[15px] font-semibold">{application.nickname || 'Игрок без профиля'}</h3><p className="mt-1 text-[12px] text-white/45">{application.entry_route === 'NOVICE' ? 'Новичок в мафии' : 'Уже умеет играть'} · {application.novice_visits || 0} посещений</p></div>
+          <div className="min-w-0"><h3 className="truncate text-[15px] font-semibold">{application.nickname || 'Игрок без профиля'}</h3><p className="mt-1 text-[12px] text-white/45">{application.entry_route === 'NOVICE' ? 'Новичок в мафии' : application.entry_route === 'OTHER_CITY' ? 'Гость из другого города' : 'Уже умеет играть'} · {application.novice_visits || 0} посещений</p></div>
           <span className="shrink-0 rounded-full bg-sky-300/10 px-2 py-1 text-[11px] text-sky-100">{statusLabel[application.status] || application.status}</span>
         </div>
         <div className="mt-3 rounded-xl bg-black/20 p-2.5 text-[12px] leading-5 text-white/60"><div>{application.evening_title || 'Первая заявка без выбранного вечера'}</div><div className="text-white/35">{dateLabel(application.evening_starts_at || application.created_at)}</div>{application.notes ? <div className="mt-1 text-white/75">«{application.notes}»</div> : null}</div>

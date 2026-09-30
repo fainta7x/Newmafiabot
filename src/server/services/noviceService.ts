@@ -86,8 +86,10 @@ async function getEveningReservationInfo(db: DatabaseWrapper, eveningId: string,
   };
 }
 
-const normalizeRoute = (value: unknown): NoviceEntryRoute =>
-  String(value || '').toUpperCase() === 'EXPERIENCED' ? 'EXPERIENCED' : 'NOVICE';
+const normalizeRoute = (value: unknown): NoviceEntryRoute => {
+  const route = String(value || '').toUpperCase();
+  return route === 'EXPERIENCED' || route === 'OTHER_CITY' ? route : 'NOVICE';
+};
 
 export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string) {
   const player = await db.get<any>(
@@ -221,7 +223,7 @@ export async function createNoviceApplication(
     messageKey: `novice-application:${applicationId}`,
     eventType: 'novice_application_created',
     entityId: applicationId,
-    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · уже умеет играть${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
+    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'OTHER_CITY' ? 'гость из другого города' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
   });
   return result!;
 }
@@ -248,6 +250,7 @@ export async function updateNoviceApplicationStatus(
       `UPDATE players SET club_stage = ?, game_level = CASE WHEN COALESCE(game_level, 'unrated') IN ('unrated', 'novice') THEN (CASE WHEN ? = 'NOVICE' THEN 'novice' ELSE 'club' END) ELSE game_level END WHERE id = ?`,
       [route === 'NOVICE' ? 'NOVICE_ACTIVE' : 'CLUB_PLAYER', route, application.player_id],
     );
+    if (route === 'OTHER_CITY') await db.run('UPDATE players SET from_other_city = 1 WHERE id = ?', [application.player_id]);
     if (application.evening_id && await registerForSelectedEvening(db, String(application.evening_id), String(application.player_id), false))
       await syncSelectedEvening(db, String(application.evening_id));
   }
@@ -267,7 +270,9 @@ export async function updateNoviceApplicationStatus(
     const text = status === 'CONFIRMED'
       ? (normalizeRoute(application.entry_route) === 'NOVICE'
         ? 'Ваша заявка в 2LA Noire подтверждена — добро пожаловать в Школу мафии! Записывайтесь на ближайший новичковый вечер в «Событиях»: первые два вечера бесплатно.'
-        : 'Ваша первая заявка в 2LA Noire подтверждена. Теперь можно самостоятельно записываться на клубные вечера в «Событиях».')
+        : normalizeRoute(application.entry_route) === 'OTHER_CITY'
+          ? 'Ваша заявка в 2LA Noire подтверждена — рады гостю из другого города! Записывайтесь на вечера в «Событиях»; о рейтинговых вечерах и турнирах мы напишем вам сами.'
+          : 'Ваша первая заявка в 2LA Noire подтверждена. Теперь можно самостоятельно записываться на клубные вечера в «Событиях».')
       : status === 'COMPLETED'
         ? 'Новичковый этап завершён. Организатор свяжется с вами по следующему шагу.'
         : 'Заявка отменена. Если планы изменятся, можно подать новую заявку в календаре.';

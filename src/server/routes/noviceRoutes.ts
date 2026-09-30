@@ -12,7 +12,7 @@ import {
   listPlayersAwaitingFirstDecision,
   updateNoviceApplicationStatus,
 } from '../services/noviceService.ts';
-import { CLUB_STAGES, NOVICE_APPLICATION_STATUSES, NOVICE_ENTRY_ROUTES } from '../../shared/novice.ts';
+import { CLUB_STAGES, NOVICE_APPLICATION_STATUSES, NOVICE_ENTRY_ROUTES, type NoviceEntryRoute } from '../../shared/novice.ts';
 
 const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000; // Europe/Moscow has no DST since 2014.
 
@@ -169,13 +169,13 @@ organizerRouter.post('/players/:playerId/convert', async (req, res) => {
 
 organizerRouter.post('/players/:playerId/admit', async (req, res) => {
   const entryRoute = String(req.body?.entry_route || '').toUpperCase();
-  if (!NOVICE_ENTRY_ROUTES.includes(entryRoute as any)) return res.status(400).json({ error: 'Укажите: новичок или опытный игрок' });
+  if (!NOVICE_ENTRY_ROUTES.includes(entryRoute as any)) return res.status(400).json({ error: 'Укажите: новичок, гость из другого города или опытный игрок' });
   await ensureNoviceSystemSchema(req.db);
   const player = await req.db.get<any>(`SELECT id, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1`, [String(req.params.playerId)]);
   if (!player) return res.status(404).json({ error: 'Игрок не найден' });
   if (player.club_stage !== 'NEW') return res.status(409).json({ error: 'Уровень этого игрока уже определён' });
   try {
-    const state = await admitPlayerWithoutApplication(req.db, String(player.id), entryRoute as 'NOVICE' | 'EXPERIENCED');
+    const state = await admitPlayerWithoutApplication(req.db, String(player.id), entryRoute as NoviceEntryRoute);
     return res.json({ success: true, state });
   } catch (error: any) {
     if (error?.code === 'application_exists') return res.status(409).json({ error: error.message, code: error.code });

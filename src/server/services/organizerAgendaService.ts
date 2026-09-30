@@ -7,7 +7,7 @@ import { PLAYER_VISITS_SQL, PLAYER_VISIT_STATS_SQL } from './playerVisitsService
 import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { CURATOR_AREAS, curatorAreaLabel, normalizeCuratorAreas, type CuratorArea } from '../../lib/curatorAreas.ts';
-import { getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
+import { STATUS_SEGMENT_LABELS, getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
 import { membershipOfPlayer } from '../../lib/playerAccess.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 
@@ -238,7 +238,7 @@ async function noviceFeedbackItem(db: DatabaseWrapper, now: number): Promise<Age
   }];
 }
 
-const SEGMENT_ORDER: Record<string, number> = { regular: 0, sometimes: 1, novice: 2, stopped: 3 };
+const SEGMENT_ORDER: Record<string, number> = { regular: 0, sometimes: 1, novice: 2, other_city: 3, stopped: 4 };
 const eveningLabel = (row: any) => `${String(row.title || 'Игровой вечер')}${dayLabel(row.starts_at) ? ` · ${dayLabel(row.starts_at)}` : ''}`;
 
 /**
@@ -295,7 +295,7 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
       why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных. Через час до начала вечер с недобором предложит отменить.`,
       people: await withLinks(db, invite.slice(0, PEOPLE_LIMIT).map((row: any) => ({
         player_id: String(row.id), nickname: String(row.nickname || 'Без ника'),
-        detail: [getPlayerStatusSegment(row) === 'regular' ? 'ходит постоянно' : getPlayerStatusSegment(row) === 'sometimes' ? 'ходит иногда' : 'новичок',
+        detail: [STATUS_SEGMENT_LABELS[getPlayerStatusSegment(row)].toLowerCase(),
           row.last_visit ? `был ${dayLabel(row.last_visit)}` : ''].filter(Boolean).join(' · '),
       }))),
       people_total: invite.length, contact_reason: 'fill',

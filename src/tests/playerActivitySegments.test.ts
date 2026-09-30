@@ -39,7 +39,7 @@ describe('CRM player activity segmentation', () => {
   it('splits the base by the organizer statuses from «Роли»', () => {
     expect(getPlayerStatusSegment({ game_level: 'club', club_role: 'member' })).toBe('regular');
     expect(getPlayerStatusSegment({ game_level: 'club', attends_sometimes: 1 })).toBe('sometimes');
-    expect(getPlayerStatusSegment({ game_level: 'tournament', from_other_city: 1 })).toBe('sometimes');
+    expect(getPlayerStatusSegment({ game_level: 'tournament', from_other_city: 1 })).toBe('other_city');
     expect(getPlayerStatusSegment({ game_level: 'novice', club_role: 'member' })).toBe('novice');
     expect(getPlayerStatusSegment({ game_level: 'novice', stopped_attending: 1 })).toBe('stopped');
     expect(getPlayerStatusSegment({ game_level: 'club', contact_status: 'paused', pause_reason: 'Перестал ходить' })).toBe('stopped');

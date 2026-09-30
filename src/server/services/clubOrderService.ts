@@ -247,6 +247,7 @@ async function profileItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
       JOIN game_evenings e ON e.id = ep.evening_id
      WHERE ${MEMBER_SQL} AND COALESCE(p.contact_status, 'normal') NOT IN ('inactive', 'paused', 'blocked', 'archived')
        AND COALESCE(p.lifecycle_status, 'normal') NOT IN ('inactive', 'paused')
+       AND COALESCE(p.from_other_city, 0) = 0 -- a guest from another city comes rarely by nature
      GROUP BY p.id, p.nickname
     HAVING datetime(MAX(e.starts_at)) < datetime(?)
      ORDER BY last_visit DESC`, [iso(now - INACTIVE_DAYS * DAY)]);

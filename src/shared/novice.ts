@@ -38,5 +38,6 @@ export const NOVICE_APPLICATION_SOURCES = [
 
 export type NoviceApplicationSource = typeof NOVICE_APPLICATION_SOURCES[number];
 
-export const NOVICE_ENTRY_ROUTES = ['NOVICE', 'EXPERIENCED'] as const;
+// OTHER_CITY — «Я гость из другого города» (owner, 2026-09-30): confirmed like EXPERIENCED, and the player is marked «Из другого города».
+export const NOVICE_ENTRY_ROUTES = ['NOVICE', 'EXPERIENCED', 'OTHER_CITY'] as const;
 export type NoviceEntryRoute = typeof NOVICE_ENTRY_ROUTES[number];

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { RefreshCw, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import {
-  CLUB_MEMBERSHIPS, CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
+  CLUB_ORGANIZATION, GAME_LEVELS, PLAYER_ACTIVITY, STOPPED_REASON, accessLabel, membershipOf,
   normalizeClubRole, normalizeGameLevel, organizationOf,
   type ClubOrganization, type GameLevel, type PlayerActivity,
 } from '../../lib/playerAccess.ts';
@@ -12,17 +12,21 @@ import { ORGANIZE_FORMATS, ORGANIZE_FORMAT_OPTIONS, normalizeOrganizeFormats, or
 
 type HostChoice = '' | 'yes' | 'no';
 
-type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null };
+type Row = Player & { organize_formats?: string | null; last_visit?: string | null; created_at?: string | null; host_formats?: string | null; game_level?: string | null; club_role?: string | null; judge_level?: string | null; attendance_count?: number | null; contact_status?: string | null; pause_reason?: string | null; stopped_attending?: number | null; from_other_city?: number | null };
 
 const stopped = (row: Row) => Number(row.stopped_attending || 0) === 1 || (row.contact_status === 'paused' && row.pause_reason === STOPPED_REASON);
+const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
+  : Number(row.from_other_city || 0) === 1 ? 'other_city'
+    : membershipOf(normalizeClubRole(row.club_role)) === 'member' ? 'regular' : 'sometimes');
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
-type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'paused';
+type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'regular' | 'sometimes' | 'stopped' | 'other_city' | 'paused';
 // Two separate rows (owner, 2026-09-30): how the player comes, and what they do in the club; they combine.
 const ACTIVITY_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'regular', label: 'Ходят постоянно' },
   { value: 'sometimes', label: 'Ходят иногда' },
   { value: 'stopped', label: 'Перестали ходить' },
+  { value: 'other_city', label: 'Из других городов' },
   { value: 'paused', label: 'Рассылка на паузе' },
 ];
 const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
@@ -38,9 +42,10 @@ const matchesRoleFilter = (row: Row, filter: RoleFilter) => {
   if (filter === 'team') return role(row) === 'team';
   if (filter === 'hosts') return hostFormatsOf(row).length > 0;
   if (filter === 'organizes') return normalizeOrganizeFormats(row.organize_formats).length > 0;
-  if (filter === 'regular') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'member';
-  if (filter === 'sometimes') return !stopped(row) && membershipOf(normalizeClubRole(row.club_role)) === 'guest';
+  if (filter === 'regular') return activityOf(row) === 'regular';
+  if (filter === 'sometimes') return activityOf(row) === 'sometimes';
   if (filter === 'stopped') return stopped(row);
+  if (filter === 'other_city') return activityOf(row) === 'other_city';
   if (filter === 'paused') return pausedOther(row);
   return true;
 };
@@ -98,7 +103,7 @@ const MarkSelect = ({ label, ariaLabel, value, current, onChange }: {
 
 /** The one value every marked player shares, or null when they differ. */
 const common = <T,>(values: T[]): T | null => (values.length && values.every((value) => value === values[0]) ? values[0] : null);
-const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped' : membershipOf(normalizeClubRole(row.club_role)) === 'member' ? 'regular' : 'sometimes');
+
 
 /**
  * «Уровни и роли»: go through all players and set the playing level, how often they come, the club role
@@ -178,14 +183,16 @@ export function PlayerAccessBulkCRM() {
   const currentOrganization = common(selectedRows.map((row) => organizationOf(normalizeClubRole(row.club_role))));
   const currentHosting = (format: HostFormat) => common(selectedRows.map((row) => (hostFormatsOf(row).includes(format) ? 'yes' as const : 'no' as const)));
   const currentOrganizing = (format: OrganizeFormat) => common(selectedRows.map((row) => (normalizeOrganizeFormats(row.organize_formats).includes(format) ? 'yes' as const : 'no' as const)));
+  // Every marked player is (or is being made) «Из другого города»: only the level and rating/tournament judging stay.
+  const otherCityPanel = (activity || currentActivity) === 'other_city';
   // Only a pick that differs from what the marked players already have is a change.
   const levelPick = gameLevel && gameLevel !== currentLevel ? gameLevel : '';
   const activityPick = activity && activity !== currentActivity ? activity : '';
-  const organizationPick = organization && organization !== currentOrganization ? organization : '';
-  const hostAdd = HOST_FORMATS.filter((format) => hosting[format] === 'yes' && currentHosting(format) !== 'yes');
+  const organizationPick = organization && organization !== currentOrganization && !otherCityPanel ? organization : '';
+  const hostAdd = HOST_FORMATS.filter((format) => hosting[format] === 'yes' && currentHosting(format) !== 'yes' && (!otherCityPanel || format === 'RATING'));
   const hostRemove = HOST_FORMATS.filter((format) => hosting[format] === 'no' && currentHosting(format) !== 'no');
   const hostChanged = hostAdd.length + hostRemove.length > 0;
-  const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes' && currentOrganizing(format) !== 'yes');
+  const organizeAdd = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'yes' && currentOrganizing(format) !== 'yes' && !otherCityPanel);
   const organizeRemove = ORGANIZE_FORMATS.filter((format) => organizing[format] === 'no' && currentOrganizing(format) !== 'no');
   const organizeChanged = organizeAdd.length + organizeRemove.length > 0;
 
@@ -312,7 +319,7 @@ export function PlayerAccessBulkCRM() {
               <span className="min-w-0 flex-1">
                 <strong className="block truncate text-[14px] text-white">{row.nickname}</strong>
                 <span className="mt-0.5 block truncate text-[11px] text-white/50">
-                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {stopped(row) ? 'Перестал ходить' : accessLabel(CLUB_MEMBERSHIPS, membershipOf(normalizeClubRole(row.club_role)))}
+                  {accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))} · {accessLabel(PLAYER_ACTIVITY, activityOf(row))}
                   {organizationOf(normalizeClubRole(row.club_role)) !== 'none' ? ` · ${accessLabel(CLUB_ORGANIZATION, organizationOf(normalizeClubRole(row.club_role)))}` : ''}
                   {hostFormatsOf(row).length ? ` · ${hostFormatsSummary(hostFormatsOf(row))}` : ''}
                   {normalizeOrganizeFormats(row.organize_formats).length ? ` · ${organizeFormatsSummary(normalizeOrganizeFormats(row.organize_formats))}` : ''}
@@ -328,22 +335,23 @@ export function PlayerAccessBulkCRM() {
       {selected.size ? (
         <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-t-[22px] border border-white/15 bg-[#111217] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-2xl" data-testid="crm-access-bulk-panel">
           <p className="text-[13px] font-semibold text-white">Отмечено: {selected.size}</p>
+          {otherCityPanel ? <p className="mt-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] leading-4 text-white/60" data-testid="crm-access-bulk-other-city">Игрок из другого города: ставится только уровень игры, вести может рейтинг и турниры. Роли в клубе и «Может проводить» ему не ставятся.</p> : null}
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Select label="Уровень игры" about="На какие вечера зовём" value={gameLevel} current={currentLevel} onChange={setGameLevel} options={GAME_LEVELS} />
             <Select label="Как часто ходит" about="Пишет ли бот ему лично" value={activity} current={currentActivity} onChange={setActivity} options={PLAYER_ACTIVITY} />
-            <Select label="Роль в клубе" about="«Организатор клуба» — полный кабинет" value={organization} current={currentOrganization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.map((item) => (item.value === 'organizer' ? { ...item, disabled: true } : item)) : CLUB_ORGANIZATION} />
+            {otherCityPanel ? null : <Select label="Роль в клубе" about="«Организатор клуба» — полный кабинет" value={organization} current={currentOrganization} onChange={setOrganization} options={clubOwner === false ? CLUB_ORGANIZATION.map((item) => (item.value === 'organizer' ? { ...item, disabled: true } : item)) : CLUB_ORGANIZATION} />}
           </div>
           <div className="mt-1">
             <span className="block text-[11px] font-semibold text-white/70">Может вести</span>
             <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Может быть ведущим (судьёй) игр на таких вечерах. Вечер сам не создаёт.</span>
             <div className="grid grid-cols-3 gap-2">
-              {HOST_FORMAT_OPTIONS.map((option) => (
+              {HOST_FORMAT_OPTIONS.filter((option) => !otherCityPanel || option.value === 'RATING').map((option) => (
                 <MarkSelect key={option.value} label={option.label} ariaLabel={`Может вести: ${option.label}`} value={hosting[option.value]} current={currentHosting(option.value)}
                   onChange={(next) => setHosting((current) => ({ ...current, [option.value]: next }))} />
               ))}
             </div>
           </div>
-          {clubOwner !== false ? (
+          {clubOwner !== false && !otherCityPanel ? (
             <div className="mt-1">
               <span className="block text-[11px] font-semibold text-white/70">Может проводить</span>
               <span className="mb-1 block text-[10px] leading-[13px] text-white/40">Сам создаёт такие вечера в календаре и проводит их в своём кабинете: приход, оплата, столы, закрытие. «Турниры» — можно быть организатором турнира. Ставит только владелец.</span>

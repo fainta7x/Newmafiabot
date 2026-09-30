@@ -6,6 +6,7 @@ const players = [
   { id: 'a', nickname: 'Стаут', game_level: 'club', club_role: 'member', attendance_count: 2, organize_formats: null },
   { id: 'b', nickname: 'Точка', game_level: 'club', club_role: 'team', attendance_count: 9, organize_formats: 'CUSTOM' },
   { id: 'c', nickname: 'Аня', game_level: 'novice', club_role: 'member', attendance_count: 0, organize_formats: null, contact_status: 'paused', pause_reason: 'Исключён из рассылки организатором' },
+  { id: 'd', nickname: 'Гость', game_level: 'tournament', club_role: 'guest', attendance_count: 1, organize_formats: null, from_other_city: 1 },
 ];
 const bulk = vi.fn(async () => ({ success: true, updated: 1 }));
 vi.mock('../lib/api.ts', () => ({ api: { getPlayers: vi.fn(async () => players), bulkUpdatePlayerAccess: bulk } }));
@@ -19,13 +20,13 @@ describe('«Уровни и роли»', () => {
   it('filters by role and sorts by visits', async () => {
     render(<PlayerAccessBulkCRM />);
     await screen.findByText('Стаут');
-    expect(names()).toEqual(['Аня', 'Стаут', 'Точка']);
+    expect(names()).toEqual(['Аня', 'Гость', 'Стаут', 'Точка']);
     fireEvent.change(screen.getByLabelText('Порядок'), { target: { value: 'visits' } });
-    expect(names()).toEqual(['Точка', 'Стаут', 'Аня']);
+    expect(names()).toEqual(['Точка', 'Стаут', 'Гость', 'Аня']);
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
     expect(names()).toEqual(['Точка']);
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
-    expect(names()).toHaveLength(3);
+    expect(names()).toHaveLength(4);
   });
 
   it('marks a pause set for another reason and filters by it', async () => {
@@ -71,5 +72,15 @@ describe('«Уровни и роли»', () => {
     expect(names()).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Помогают клубу · 1' }));
     expect(names()).toEqual(['Точка']);
+  });
+
+  it('a player from another city gets only the level and rating judging', async () => {
+    render(<PlayerAccessBulkCRM />);
+    fireEvent.click(await screen.findByText('Гость'));
+    expect(screen.getByTestId('crm-access-bulk-other-city')).toBeTruthy();
+    expect(screen.getByTestId('crm-access-bulk-panel').textContent).not.toContain('Роль в клубе');
+    expect(screen.queryByLabelText('Может вести: Клубные вечера')).toBeNull();
+    expect(screen.getByLabelText('Может вести: Рейтинг и турниры')).toBeTruthy();
+    expect(screen.queryByLabelText('Может проводить: Турниры')).toBeNull();
   });
 });

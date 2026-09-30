@@ -22,7 +22,7 @@ type OpsPlayer = {
 
 type LevelDecision =
   | { kind: 'registration'; player_id: string; nickname: string; created_at: string }
-  | { kind: 'application'; application_id: string; player_id: string; nickname: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title: string | null; created_at: string };
+  | { kind: 'application'; application_id: string; player_id: string; nickname: string; entry_route: 'NOVICE' | 'OTHER_CITY' | 'EXPERIENCED'; evening_title: string | null; created_at: string };
 
 type PendingOnboardingLink = {
   id: string;
@@ -195,7 +195,7 @@ export default function OrganizerCommandCenter({
     await Promise.all([load({ silent: true, invalidatePayments: true }), onRefresh?.()]);
   };
 
-  const decideLevel = async (item: LevelDecision, decision: 'EXPERIENCED' | 'NOVICE' | 'CONFIRMED' | 'CANCELLED') => {
+  const decideLevel = async (item: LevelDecision, decision: 'EXPERIENCED' | 'NOVICE' | 'OTHER_CITY' | 'CONFIRMED' | 'CANCELLED') => {
     if (busy) return;
     setBusy(`level:${item.player_id}`);
     setError(null);
@@ -295,7 +295,7 @@ export default function OrganizerCommandCenter({
           const rowBusy = busy === `level:${item.player_id}`;
           const detail = item.kind === 'registration'
             ? `Зарегистрировался · ${formatPaymentDate(item.created_at)}`
-            : `Заявка: ${item.entry_route === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${item.evening_title ? ` · ${item.evening_title}` : ''}`;
+            : `Заявка: ${item.entry_route === 'NOVICE' ? 'новичок в мафии' : item.entry_route === 'OTHER_CITY' ? 'гость из другого города' : 'уже умеет играть'}${item.evening_title ? ` · ${item.evening_title}` : ''}`;
           return <div key={item.kind === 'application' ? item.application_id : item.player_id} className="rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
             <button type="button" onClick={() => onOpenPlayer(item.player_id)} className="flex min-h-11 w-full min-w-0 items-center gap-2 text-left">
               <span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{item.nickname}</strong><span className="block truncate text-[12px] text-text-muted">{detail}</span></span>
@@ -305,6 +305,7 @@ export default function OrganizerCommandCenter({
               {item.kind === 'registration' ? <>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'EXPERIENCED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'В клуб (умеет играть)'}</button>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'NOVICE')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">В школу новичков</button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'OTHER_CITY')} className="col-span-2 min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Гость из другого города</button>
               </> : <>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CONFIRMED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'Подтвердить'}</button>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CANCELLED')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Отклонить</button>

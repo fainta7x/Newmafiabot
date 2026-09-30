@@ -197,7 +197,7 @@ const bulkAccessSchema = z.object({
   // club_role holds two answers, so they change separately (as in the player card):
   // how often the player comes and the organization role. Changing one keeps the other.
   // «stopped» pauses announcements and invitations instead of touching club_role.
-  activity: z.enum(['regular', 'sometimes', 'stopped']).optional(),
+  activity: z.enum(['regular', 'sometimes', 'stopped', 'other_city']).optional(),
   organization: z.enum(['none', 'team', 'organizer']).optional(),
   // «Может вести»: marks to add and to remove; formats in neither list stay as they are for each player.
   host_formats_add: z.array(z.enum(HOST_FORMATS)).optional(),
@@ -238,46 +238,68 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
     if (organizeChanged && !isClubOwner(req)) {
       return res.status(403).json({ error: 'Отметки «Может проводить» ставит только владелец', code: 'club_owner_required' });
     }
+    // «Из другого города»: only the level is set; they may judge rating games and tournaments, nothing else.
+    const otherCityWarnings: string[] = [];
     await db.transaction(async (tx) => {
       for (const id of ids) {
         const current = await tx.get<any>(
-          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
+          "SELECT nickname, organize_formats, game_level, club_role, judge_level, host_formats, contact_status, lifecycle_status, pause_reason, stopped_attending, from_other_city FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' LIMIT 1",
           [id],
         );
         if (!current) continue;
         const role = normalizeClubRole(current.club_role);
-        const membership = data.activity === 'regular' ? 'member' : data.activity === 'sometimes' ? 'guest' : membershipOf(role);
-        const clubRole = clubRoleFrom(membership, data.organization ?? organizationOf(role));
+        let activity = data.activity;
+        if (activity === 'other_city' && organizationOf(role) === 'organizer') {
+          otherCityWarnings.push(`${current.nickname}: организатор клуба не может быть «Из другого города»`);
+          activity = undefined;
+        }
+        const otherCity = activity ? activity === 'other_city' : Number(current.from_other_city || 0) === 1;
+        const membership = activity === 'regular' ? 'member' : activity === 'sometimes' || activity === 'other_city' ? 'guest' : membershipOf(role);
+        let organization = data.organization ?? organizationOf(role);
+        if (otherCity && organization !== 'none') {
+          if (data.organization && data.organization !== 'none') otherCityWarnings.push(`${current.nickname}: игроку из другого города роль в клубе не ставится`);
+          organization = 'none';
+        }
+        const clubRole = clubRoleFrom(membership, organization);
         // Blocked players stay blocked. «Перестал ходить» pauses mailing; coming back lifts only that pause.
         const contact = String(current.contact_status || current.lifecycle_status || 'normal');
         let contactStatus = contact;
         let pauseReason = current.pause_reason ?? null;
-        if (data.activity === 'stopped' && contact === 'normal') {
+        if (activity === 'stopped' && contact === 'normal') {
           contactStatus = 'paused';
           pauseReason = STOPPED_REASON;
-        } else if (data.activity && data.activity !== 'stopped' && contact === 'paused' && pauseReason === STOPPED_REASON) {
+        } else if (activity && activity !== 'stopped' && contact === 'paused' && pauseReason === STOPPED_REASON) {
           contactStatus = 'normal';
           pauseReason = null;
         }
         const statusChanged = contactStatus !== contact;
         // «Перестал ходить» is saved even when the mailing is already off for another reason (owner, 2026-09-30):
         // that other pause or a block stays as it is.
-        const stoppedAttending = data.activity ? (data.activity === 'stopped' ? 1 : 0) : Number(current.stopped_attending || 0);
-        const hostChanged = Boolean(data.host_formats_add?.length || data.host_formats_remove?.length);
+        const stoppedAttending = activity ? (activity === 'stopped' ? 1 : 0) : Number(current.stopped_attending || 0);
         const formats = new Set(hostFormatsOf(current));
         data.host_formats_add?.forEach((format) => formats.add(format));
         data.host_formats_remove?.forEach((format) => formats.delete(format));
+        if (otherCity && (formats.has('NOVICE') || formats.has('CASUAL'))) {
+          if (data.host_formats_add?.some((format) => format !== 'RATING')) otherCityWarnings.push(`${current.nickname}: игрок из другого города может вести только рейтинг и турниры`);
+          formats.delete('NOVICE'); formats.delete('CASUAL');
+        }
         const nextFormats = HOST_FORMATS.filter((format) => formats.has(format));
+        const hostChanged = nextFormats.join(',') !== hostFormatsOf(current).join(',');
         const organize = new Set(normalizeOrganizeFormats(current.organize_formats));
         data.organize_formats_add?.forEach((format) => organize.add(format));
         data.organize_formats_remove?.forEach((format) => organize.delete(format));
+        if (otherCity && organize.size) {
+          if (data.organize_formats_add?.length) otherCityWarnings.push(`${current.nickname}: игрок из другого города не проводит вечера`);
+          organize.clear();
+        }
         const nextOrganize = ORGANIZE_FORMATS.filter((format) => organize.has(format));
+        const organizeWritten = organizeChanged || nextOrganize.join(',') !== normalizeOrganizeFormats(current.organize_formats).join(',');
         const result = await tx.run(
-          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeChanged ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE players SET game_level = ?, club_role = ?${hostChanged ? ', host_formats = ?, judge_level = ?' : ''}${organizeWritten ? ', organize_formats = ?' : ''}${statusChanged ? ', contact_status = ?, lifecycle_status = ?, pause_reason = ?' : ''}, stopped_attending = ?, from_other_city = ?, updated_at = ? WHERE id = ?`,
           [data.game_level ?? current.game_level, clubRole,
             ...(hostChanged ? [nextFormats.join(','), legacyJudgeLevelFor(nextFormats)] : []),
-            ...(organizeChanged ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
-            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, now, id],
+            ...(organizeWritten ? [nextOrganize.length ? nextOrganize.join(',') : null] : []),
+            ...(statusChanged ? [contactStatus, contactStatus, pauseReason] : []), stoppedAttending, otherCity ? 1 : 0, now, id],
         );
         updated += Number(result.changes || 0);
       }
@@ -293,7 +315,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         accessErrors.push(String(error?.message || 'Не удалось изменить доступ'));
       }
     }
-    const warnings = accessErrors;
+    const warnings = [...accessErrors, ...otherCityWarnings];
     return res.json({ success: true, updated, ...(warnings.length ? { warnings: Array.from(new Set(warnings)) } : {}) });
   } catch (err: any) {
     return res.status(400).json({ error: err?.errors?.[0]?.message || 'Не удалось сохранить изменения', details: err.errors || err.message });

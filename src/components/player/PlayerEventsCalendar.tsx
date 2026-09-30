@@ -32,7 +32,7 @@ type View = 'list' | 'calendar';
 
 type NoviceState = {
   player: { club_stage: string; game_level: string };
-  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_id?: string | null; evening_title?: string | null; reservation_status?: string | null }>;
+  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED' | 'OTHER_CITY'; evening_id?: string | null; evening_title?: string | null; reservation_status?: string | null }>;
   novice_visits: number;
   free_visits_remaining: number;
   next_novice_price_per_game: number;
@@ -143,7 +143,7 @@ export default function PlayerEventsCalendar({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [noviceState, setNoviceState] = useState<NoviceState | null>(null);
-  const [applicationBusy, setApplicationBusy] = useState<'NOVICE' | 'EXPERIENCED' | null>(null);
+  const [applicationBusy, setApplicationBusy] = useState<'NOVICE' | 'EXPERIENCED' | 'OTHER_CITY' | null>(null);
   const [applicationMessage, setApplicationMessage] = useState('');
 
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
@@ -265,7 +265,7 @@ export default function PlayerEventsCalendar({
 
   const pendingApplication = noviceState?.applications.find((application) => application.status === 'NEW') || null;
 
-  const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED', selectedEveningId?: string | null) => {
+  const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED' | 'OTHER_CITY', selectedEveningId?: string | null) => {
     setApplicationBusy(entryRoute);
     setApplicationMessage('');
     const expectedKind = entryRoute === 'NOVICE' ? 'novice' : 'club';
@@ -331,7 +331,9 @@ export default function PlayerEventsCalendar({
               <h2 className="mt-1 text-[18px] font-semibold">Заявка отправлена</h2>
               <p className="mt-1 text-[13px] leading-5 text-white/55">{pendingApplication.entry_route === 'NOVICE'
                 ? 'Для новичка подтверждение организатора больше не требуется. Продолжите — запись откроется сразу.'
-                : 'Опытный игрок ждёт подтверждения организатора. После этого самостоятельная запись откроется.'}</p>
+                : pendingApplication.entry_route === 'OTHER_CITY'
+                  ? 'Гость из другого города ждёт подтверждения организатора. После этого запись на вечера откроется.'
+                  : 'Опытный игрок ждёт подтверждения организатора. После этого самостоятельная запись откроется.'}</p>
               <div className="mt-3 rounded-2xl border border-sky-200/10 bg-black/20 px-3 py-3 text-[13px] leading-5 text-sky-100/80">
                 {pendingApplication.evening_title
                   ? <>Вечер: <strong>{pendingApplication.evening_title}</strong>{pendingApplication.reservation_status === 'reserved' ? ' · место временно зарезервировано.' : '.'}</>
@@ -349,6 +351,7 @@ export default function PlayerEventsCalendar({
               <div className="mt-3 grid gap-2">
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Запись откроется сразу · первые 2 посещения бесплатно</span></button>
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
+                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('OTHER_CITY', null)} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я гость из другого города</strong><span className="text-[12px] text-white/45">Уже играю у себя · пишем лично только о рейтинговых вечерах и турнирах</span></button>
               </div>
             </>
           )}

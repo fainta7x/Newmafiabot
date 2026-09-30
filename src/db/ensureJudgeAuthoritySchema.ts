@@ -52,6 +52,10 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   if (!columns.some((column) => column.name === 'stopped_attending')) {
     await db.run('ALTER TABLE players ADD COLUMN stopped_attending INTEGER NOT NULL DEFAULT 0');
   }
+  // «Из другого города» (owner decision 2026-09-30, src/lib/playerAccess.ts). 1 = a guest from another city.
+  if (!columns.some((column) => column.name === 'from_other_city')) {
+    await db.run('ALTER TABLE players ADD COLUMN from_other_city INTEGER NOT NULL DEFAULT 0');
+  }
   // Owner decision 2026-09-29: «Турниры» became a mark of its own, apart from «Рейтинговые вечера».
   // Players who had the old «Рейтинг и турниры» mark (stored as RATING) keep both rights. Runs once.
   await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');

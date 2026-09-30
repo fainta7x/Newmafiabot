@@ -77,6 +77,8 @@ describe('tasks of evenings that no longer happen', () => {
        VALUES (?,?,?,'Europe/Moscow','CASUAL','published',20,100,?,?)`, [id, `Вечер ${id}`, startsAt, stamp, stamp]);
     await evening('future', at(24 * 20));
     await evening('past', at(-3));
+    await evening('early', at(2));
+    await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'early'");
     // A task left from before: a far-away Friday with an open «Закрыть вечер».
     await db.run(`INSERT INTO organizer_tasks (id,title,type,status,priority,automation_key,evening_id,created_at,updated_at)
       VALUES ('old','Закрыть вечер · Вечер future','reminder','todo','high','evening-close:future','future',?,?)`, [stamp, stamp]);
@@ -87,5 +89,7 @@ describe('tasks of evenings that no longer happen', () => {
     const status = async (key: string) => (await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key = ?', [key]))?.status;
     expect(await status('evening-close:future')).toBe('cancelled');
     expect(await status('evening-close:past')).toBe('todo');
+    // Started before its time: the task is there at once.
+    expect(await status('evening-close:early')).toBe('todo');
   });
 });

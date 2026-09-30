@@ -10,7 +10,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
-**Live deployment:** runtime verification of the latest `main` is not yet recorded here. Do not claim the latest `main` is live until the public runtime is checked.
+**Live deployment:** PRs #556–#560 were deployed by the owner and checked on 2026-09-30 (`/api/health/runtime` ok, served bundle contains them); anything merged later is not live until deployed and checked again (see «Handoff»).
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 

@@ -387,9 +387,11 @@ export default function OrganizerCommandCenter({
     {overview?.summary ? (() => {
       const overdue = Number(overview.summary.overdueTasksCount || 0);
       const today = Number(overview.summary.todayTasksCount || 0);
-      const open = overdue + today + Number(overview.summary.noDeadlineTasksCount || 0);
+      const noDeadline = Number(overview.summary.noDeadlineTasksCount || 0);
+      const open = Math.max(Number(overview.summary.openTasksCount ?? 0), overdue + today + noDeadline);
+      const later = open - overdue - today - noDeadline;
       const detail = open
-        ? [overdue ? `просрочено ${overdue}` : '', today ? `на сегодня ${today}` : '', open - overdue - today ? `без срока ${open - overdue - today}` : ''].filter(Boolean).join(' · ')
+        ? [overdue ? `просрочено ${overdue}` : '', today ? `на сегодня ${today}` : '', later ? `позже ${later}` : '', noDeadline ? `без срока ${noDeadline}` : ''].filter(Boolean).join(' · ')
         : 'Открытых задач нет';
       return <button type="button" data-testid="crm-today-tasks" onClick={() => onNavigateTab('tasks')} className="flex min-h-14 w-full items-center gap-3 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-left active:bg-surface-hover">
         <ClipboardList className={`h-4 w-4 shrink-0 ${overdue ? 'text-warning' : 'text-text-secondary'}`} />

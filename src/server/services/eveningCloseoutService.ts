@@ -68,8 +68,9 @@ export async function closeTasksOfEndedEvenings(db: DatabaseWrapper) {
   );
   const started = await db.all<{ id: string }>(
     `SELECT id FROM game_evenings
-      WHERE status IN ('published', 'active') AND settled_at IS NULL
-        AND datetime(starts_at) <= datetime(?) AND datetime(starts_at) >= datetime(?)`,
+      WHERE settled_at IS NULL
+        AND (status = 'active' OR (status = 'published' AND datetime(starts_at) <= datetime(?)))
+        AND datetime(starts_at) >= datetime(?)`,
     [now, new Date(Date.now() - 60 * 86_400_000).toISOString()],
   );
   for (const row of started) await ensureEveningCloseoutTask(db, String(row.id));

@@ -248,6 +248,15 @@ For an OBS broadcast release, additionally:
 5. briefly interrupt the phone network and confirm Live Game continues locally, the overlay keeps its last frame and catches up after reconnection;
 6. remember that one main relay channel supports one streamed table at a time.
 
+For the OBS Studio remote bridge, additionally:
+
+1. on the laptop, use OBS Studio 28 or newer and open `Tools -> WebSocket Server Settings`;
+2. enable the WebSocket server on the default port `4455` and set a password;
+3. in the organizer cabinet open `Ещё -> OBS и трансляция`, create a ten-minute connection code and open `/obs-bridge` on that laptop;
+4. enter the code and then the OBS WebSocket password on the laptop page; the password must never be entered on the phone or stored in server configuration;
+5. keep `/obs-bridge` open while using the integration and verify that the phone shows the OBS version, current scene and current stream/recording state;
+6. if the laptop is lost or replaced, use `Отвязать ноутбук` before pairing another one.
+
 Only after these checks may a release be called **runtime verified**.
 
 ### Amvera probes

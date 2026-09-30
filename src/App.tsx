@@ -3,6 +3,7 @@ import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import LiveBroadcastOverlay from "./components/public/LiveBroadcastOverlay.tsx";
+import ObsBridgePage from "./components/public/ObsBridgePage.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
@@ -125,7 +126,8 @@ export default function App() {
   const isLiveRoute = isRoutePrefix(pathname, '/live');
   const isBroadcastRoute = isRoutePrefix(pathname, '/broadcast');
   const isGuideRoute = isRoutePrefix(pathname, '/guide');
-  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute;
+  const isObsBridgeRoute = isRoutePrefix(pathname, '/obs-bridge');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute || isObsBridgeRoute;
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
@@ -213,6 +215,8 @@ export default function App() {
   if (isLiveRoute) return <BigScreenLive />;
 
   if (isGuideRoute) return <PublicGuide initialTab={guideTabFromSearch(window.location.search)} />;
+
+  if (isObsBridgeRoute) return <ObsBridgePage />;
 
   if (isBroadcastRoute) {
     const parts = pathname.split('/').filter(Boolean);

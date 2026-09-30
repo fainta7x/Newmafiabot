@@ -15,6 +15,7 @@ import {
   Gamepad2,
   LogOut,
   Music2,
+  MonitorUp,
   Palette,
   Send,
   ShieldCheck,
@@ -32,6 +33,7 @@ import type { OrganizerMoreScreen } from './organizerRouting.ts';
 import NoviceDevelopmentCRM from './NoviceDevelopmentCRM.tsx';
 import LearningProgressCRM from './LearningProgressCRM.tsx';
 import PlayerAccessBulkCRM from './PlayerAccessBulkCRM.tsx';
+import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -52,6 +54,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Telegram',
   system: 'Состояние системы', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Развитие игроков', learning: 'Обучение', access: 'Уровни и роли',
+  obs: 'OBS и трансляция',
 };
 
 const menuTone = (id: string) => {
@@ -88,6 +91,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'betting' ? <BettingAdminCRM /> : null}
       {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
       {subscreen === 'telegram' ? <TelegramCRM /> : null}
+      {subscreen === 'obs' ? <ObsRemoteCRM /> : null}
       {subscreen === 'system' ? <SystemStatusCard /> : null}
       {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
@@ -111,6 +115,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const reportItems: MenuItem[] = [{ id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics }];
   const adminItems: MenuItem[] = [
     { id: 'telegram', label: 'Telegram', detail: 'Каналы, публикации и настройки', icon: Send, onClick: () => setSubscreen('telegram') },
+    { id: 'obs', label: 'OBS и трансляция', detail: 'Подключение ноутбука к OBS Studio', icon: MonitorUp, onClick: () => setSubscreen('obs') },
     { id: 'commerce', label: 'Оплата и поддержка', detail: 'Жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
     { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },

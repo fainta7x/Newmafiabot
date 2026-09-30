@@ -231,6 +231,17 @@ Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/
 
 Current contract: one stable secret main-channel URL, one streamed game at a time, roles/statuses and ordered nominations visible, and voter assignments withheld until the judge fixes the round result. This relay is transient and must not become a second in-progress game database.
 
+### OBS Studio remote connection
+
+- Organizer setup/status: `src/components/crm/ObsRemoteCRM.tsx`, route `Ещё -> OBS и трансляция`.
+- Laptop bridge: `src/components/public/ObsBridgePage.tsx`, public route `/obs-bridge`.
+- Local OBS WebSocket v5 client: `src/lib/obsWebSocket.ts`.
+- Pairing/status API: `src/server/routes/obsRemoteRoutes.ts` + `src/server/services/obsRemoteService.ts`.
+- Durable hashed pairing state: `src/db/ensureObsRemoteSchema.ts`.
+- Focused coverage: `src/tests/obsRemoteRoutes.test.ts` and organizer routing tests.
+
+Current contract: one paired laptop, one-time eight-character code valid for ten minutes, local OBS at `127.0.0.1:4455`, and status-only integration. The OBS password never leaves the laptop. Scene switching and media transport are later layers, not part of this bridge foundation.
+
 Read `docs/BUSINESS_RULES.md` before changing game behavior.
 
 ## Tournaments / protocols / awards / results

@@ -16,6 +16,7 @@ describe('organizer routing model', () => {
     expect(parseOrganizerRoute('/admin/evenings/e1/closeout').eveningSection).toBe('closeout');
     expect(parseOrganizerRoute('/admin/more').tab).toBe('more');
     expect(parseOrganizerRoute('/admin/more/music').moreScreen).toBe('music');
+    expect(parseOrganizerRoute('/admin/more/obs').moreScreen).toBe('obs');
     expect(parseOrganizerRoute('/admin/more/not-real').moreScreen).toBeNull();
     expect(parseOrganizerRoute('/outside')).toEqual({ tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });
   });

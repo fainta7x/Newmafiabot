@@ -5,6 +5,7 @@ import { queueEveningRsvpNudges } from './eveningRsvpNudgeService.ts';
 import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts';
 import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
+import { runClubResultPosts } from './clubResultPostService.ts';
 import { buildGameResultCard } from './gameResultCardService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 
@@ -22,7 +23,9 @@ const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 1
 // Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.
 // «Напомнить неответившим» goes out by itself two days before (eveningAutoReminderService).
 const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db))
-  + (await runEveningShortfallChecks(db)) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }));
+  + (await runEveningShortfallChecks(db)) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
+  // The game blank and the evening summary for the club chat (clubResultPostService).
+  + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }));
 
 async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   let queued = 0;

@@ -66,11 +66,11 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
 
-  if (section === 'poker') return <PlayerPoker onExit={() => open('home')} />;
+  if (section === 'poker') return <PlayerPoker onExit={() => open('club')} />;
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} onOpenPoker={() => open('poker')} />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
       {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}
@@ -85,7 +85,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : isPlayerRatingSection(section) ? (
         <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} />
       ) : section === 'club' || section === 'clubworld' ? (
-        <PlayerClubHub data={currentData} initialView={section === 'clubworld' ? 'activity' : 'players'} />
+        <PlayerClubHub data={currentData} initialView={section === 'clubworld' ? 'activity' : 'players'} onOpenPoker={() => open('poker')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (

@@ -3,6 +3,8 @@ import { applyPokerAction, createPokerHand, pokerHandLabel, pokerTurnRemaining, 
 
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; hand: PokerState | null; createdAt: string };
 const lobbies = new Map<string, PokerLobby>();
+/** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
+export const NEXT_HAND_DELAY_MS = 6000;
 
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
@@ -23,7 +25,7 @@ const publicState = (lobby: PokerLobby, viewerId?: string) => {
   const visibleIds = new Set([...(viewerId ? [viewerId] : []), ...(lobby.hand.street === 'finished' ? lobby.hand.revealed_ids || [] : [])]);
   const holeCards = Object.fromEntries([...visibleIds].map((id) => [id, lobby.hand?.hole_cards[id] || []]));
   const viewerSeated = Boolean(viewer);
-  const hand = { ...lobby.hand, deck: [], burn_cards: [], viewer_id: viewerSeated ? viewerId : null, can_deal_next: viewerSeated && lobby.status === 'playing' && lobby.hand.street === 'finished', hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
+  const hand = { ...lobby.hand, deck: [], burn_cards: [], viewer_id: viewerSeated ? viewerId : null, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand };
 };
 
@@ -51,12 +53,11 @@ export const startPokerLobby = (lobby: PokerLobby, actorId: string) => {
   if (lobby.players.length < 2) throw new Error('Нужно минимум 2 игрока.');
   lobby.hand = createPokerHand({ id: randomUUID(), players: lobby.players }); lobby.status = 'playing'; return lobby;
 };
-/** Any seated player starts the next hand once the current one is over; the dealer button moves on. */
-export const nextPokerHand = (lobby: PokerLobby, actorId: string) => {
+/** Deals the next hand with the chips left; the dealer button moves on. Busted players sit out. */
+export const nextPokerHand = (lobby: PokerLobby) => {
   const hand = lobby.hand;
   if (!hand || lobby.status !== 'playing') throw new Error('Игра не идёт.');
   if (hand.street !== 'finished') throw new Error('Текущая раздача ещё не закончилась.');
-  if (!lobby.players.some((player) => player.id === actorId)) throw new Error('Вы не сидите за этим столом.');
   for (const player of lobby.players) {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;
@@ -69,7 +70,12 @@ export const nextPokerHand = (lobby: PokerLobby, actorId: string) => {
 };
 export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => publicState(lobby, viewerId);
 export const tickPokerLobby = (lobby: PokerLobby) => {
-  if (!lobby.hand || lobby.status !== 'playing' || lobby.hand.current_seat === null) return;
+  if (!lobby.hand || lobby.status !== 'playing') return;
+  if (lobby.hand.street === 'finished') {
+    if (lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) nextPokerHand(lobby);
+    return;
+  }
+  if (lobby.hand.current_seat === null) return;
   const player = lobby.hand.players.find((item) => item.seat === lobby.hand?.current_seat);
   if (!player) return;
   if (player.is_bot) {

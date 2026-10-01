@@ -7,6 +7,7 @@ import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotif
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
+import { recordInviteLinkReferral } from '../services/premiumPlayerConnectionsService.ts';
 import { isNicknameClaimable, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
 import {
   findPlayersByNickname,
@@ -45,6 +46,10 @@ router.post('/players/register', async (req, res) => {
       nickname: String(req.body?.nickname ?? '').trim(),
       source: 'telegram_bot_registration',
     });
+    if (result.created && req.body?.invited_by) {
+      await recordInviteLinkReferral(db, String(result.player.id), req.body.invited_by)
+        .catch((error) => console.error('[INVITE LINK] referral failed:', error));
+    }
     return res.status(result.created ? 201 : 200).json({
       success: true,
       created: result.created,

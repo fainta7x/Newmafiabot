@@ -311,6 +311,7 @@ async def finish_registration(message: Message, state: FSMContext):
         telegram_username=message.from_user.username,
         full_name=message.from_user.full_name,
         nickname=nickname,
+        invited_by=pending_start_arg.removeprefix(INVITE_START_PREFIX) if pending_start_arg.startswith(INVITE_START_PREFIX) else None,
     )
 
     if result.get("success"):
@@ -354,6 +355,8 @@ async def finish_registration(message: Message, state: FSMContext):
 
 
 CLAIM_START_PREFIX = "claim_"
+# A friend's «Позвать друга» link from the game result card (gameResultCardService.ts).
+INVITE_START_PREFIX = "ref_"
 
 
 @router.callback_query(F.data.in_({"profile_claim:yes", "profile_claim:no"}))

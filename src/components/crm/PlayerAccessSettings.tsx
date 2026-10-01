@@ -142,27 +142,39 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     setSuccess(null);
     try {
       const { activity, ...fields } = draft;
-      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        // «Может проводить вечера» is sent only when changed: only the owner may change it.
-        body: JSON.stringify(draft.organize_formats.join(',') === baseline.organize_formats.join(',')
-          ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats, curator_areas: draft.curator_areas }
-          : fields),
-      });
-      await readJson(response);
+      const activityChanged = activity !== baseline.activity;
+      // Owner rule: a club organizer is never «Из другого города». Stop before anything is written.
+      if (activityChanged && activity === 'other_city' && organizationOf(draft.club_role) === 'organizer') {
+        throw new Error('Организатор клуба не может быть «Из другого города». Сначала снимите роль организатора клуба.');
+      }
       // «Перестал ходить» and «Из другого города» carry their own rules (announcement pause, roles):
-      // the same server step as the bulk screen applies them.
-      if (activity !== baseline.activity) {
+      // the same server step as the bulk screen applies them, first, so the card fields below
+      // are checked against the new activity (e.g. a curator after leaving «Из другого города»).
+      if (activityChanged) {
         const activityResponse = await fetch('/api/players/access/bulk', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ player_ids: [player.id], activity }),
         });
-        await readJson(activityResponse);
+        const activityResult = await readJson(activityResponse);
+        const warnings = Array.isArray(activityResult?.warnings) ? activityResult.warnings.filter(Boolean) : [];
+        if (warnings.length) throw new Error(warnings.join('\n'));
       }
+      // A player from another city keeps only the level: their roles were cleared by the step above.
+      const body = activity === 'other_city'
+        ? { game_level: draft.game_level }
+        // «Может проводить вечера» is sent only when changed: only the owner may change it.
+        : draft.organize_formats.join(',') === baseline.organize_formats.join(',')
+          ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats, curator_areas: draft.curator_areas }
+          : fields;
+      const response = await fetch(`/api/players/${encodeURIComponent(player.id)}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      await readJson(response);
 
       const readbackResponse = await fetch(`/api/players/${encodeURIComponent(player.id)}`, {
         credentials: 'include',
@@ -174,7 +186,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       const persisted = normalize(readback);
       // «Из другого города» may drop club roles on the server (owner rule), so after an activity change
       // only the activity itself must read back as chosen.
-      if (activity !== baseline.activity ? persisted.activity !== activity : !equalDraft(persisted, draft)) {
+      if (activityChanged ? persisted.activity !== activity : !equalDraft(persisted, draft)) {
         throw new Error('Сервер ответил успешно, но повторное чтение вернуло другие значения. Изменения не считаются сохранёнными.');
       }
 

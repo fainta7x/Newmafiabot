@@ -85,4 +85,24 @@ describe('player and CRM debt consistency', () => {
     expect(crmResponse.status, JSON.stringify(crmResponse.body)).toBe(200);
     expect(crmResponse.body.find((player: any) => player.id === 'player')?.outstanding_debt).toBe(200);
   });
+
+  it('a novice who said «Иду» owes nothing and cannot spend a free evening until marked as arrived', async () => {
+    await db.run("INSERT INTO players (id,nickname,lifecycle_status,created_at,updated_at) VALUES ('novice','Новичок','normal',?,?)", [now, now]);
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,created_at,updated_at) VALUES
+      ('novice-evening','Вечер новичков','2026-09-16T17:00:00.000Z','NOVICE','published',?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants
+      (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+      VALUES ('novice-going','novice-evening','novice','going','going','pending','unknown','unpaid',300,0,?,?)`, [now, now]);
+
+    const app = await createApp(db);
+    const cookie = `player_token=${generatePlayerSessionToken('novice')}`;
+    const payments = await request(app).get('/api/player/payments').set('Cookie', cookie);
+    expect(payments.status, JSON.stringify(payments.body)).toBe(200);
+    expect(payments.body.summary.outstanding).toBe(0);
+    const row = [...(payments.body.current || []), ...(payments.body.history || [])].find((item: any) => item.participant_id === 'novice-going');
+    if (row) expect(row).toMatchObject({ payment_expected: false, outstanding: 0 });
+
+    const free = await request(app).post('/api/player/payments/novice-going/use-free-evening').set('Cookie', cookie);
+    expect(free.status, JSON.stringify(free.body)).toBe(409);
+  });
 });

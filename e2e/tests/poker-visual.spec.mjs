@@ -15,6 +15,8 @@ test('poker 2.5D seats use readable integrated typography on a phone', async ({ 
   const geometry = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
   expect(geometry.document).toBeLessThanOrEqual(geometry.viewport + 1);
 
+  // Capture the settled table after the staggered two-card deal animation.
+  await page.waitForTimeout(700);
   const screenshot = info.outputPath('poker-seat-typography-390x844.png');
   await page.screenshot({ path: screenshot, fullPage: false });
   await info.attach('poker-seat-typography-390x844.png', { path: screenshot, contentType: 'image/png' });

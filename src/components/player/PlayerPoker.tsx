@@ -167,7 +167,11 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
                 <span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>
                 {!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[5px] h-[46px] w-[46px] rounded-full object-cover" /> : null}
                 <span className="pointer-events-none absolute inset-0 rounded-full border-[3px] border-[#8d7655] shadow-[inset_0_2px_2px_rgba(255,255,255,.45),inset_0_-4px_5px_rgba(0,0,0,.75),0_7px_14px_rgba(0,0,0,.75)]" />
-                <span className="absolute -left-3 -top-1 z-20 flex gap-0.5">{dealer ? <i className="poker-marker bg-[#ece5d7] text-black">D</i> : null}{player.seat === smallBlindSeat ? <i className="poker-marker bg-[#75251f] text-white">SB</i> : null}{player.seat === bigBlindSeat ? <i className="poker-marker bg-[#17191c] text-white">BB</i> : null}</span>
+                <span className="absolute -left-7 top-5 z-20 flex -space-x-2">
+                  {dealer ? <img src="/assets/poker/markers/dealer-button-25d-v1.webp" alt="Баттон дилера" className="h-8 w-8 object-contain drop-shadow-[0_5px_4px_rgba(0,0,0,.8)]" /> : null}
+                  {player.seat === smallBlindSeat ? <img src="/assets/poker/markers/small-blind-button-25d-v1.webp" alt="Малый блайнд" className="h-8 w-8 object-contain drop-shadow-[0_5px_4px_rgba(0,0,0,.8)]" /> : null}
+                  {player.seat === bigBlindSeat ? <img src="/assets/poker/markers/big-blind-button-25d-v1.webp" alt="Большой блайнд" className="h-8 w-8 object-contain drop-shadow-[0_5px_4px_rgba(0,0,0,.8)]" /> : null}
+                </span>
                 {allIn ? <span className="poker-all-in absolute -right-8 top-1/2 z-20 -translate-y-1/2 rounded-md border border-amber-200/50 bg-[#721f24] px-1.5 py-1 text-[7px] font-black tracking-wide text-amber-50 shadow-lg">ALL-IN</span> : null}
               </div>
               <div className="poker-seat-plaque -mt-1 rounded-xl px-2 py-1.5"><div className="truncate text-[11px] font-semibold">{mine ? 'Вы' : player.nickname}</div><div className="text-[10px] font-semibold text-amber-200">{handPlayer?.chips ?? player.chips}</div>{winner ? <div className="text-[9px] font-black uppercase tracking-wide text-amber-300">Победитель</div> : active ? <div className="text-[9px] font-bold text-emerald-300">{seconds} сек</div> : null}</div>

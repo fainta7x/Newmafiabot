@@ -138,7 +138,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
        FROM players
       WHERE COALESCE(source, '') != 'legacy_guest_migrated'
-        AND COALESCE(lifecycle_status, 'normal') != 'archived'
+        AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')
       ORDER BY nickname COLLATE NOCASE, id`,
     [DEFAULT_ELO],
   );
@@ -244,14 +244,16 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
     }
   }
-  await db.transaction(async (tx) => {
+  const persistRatings = async (tx: DatabaseWrapper) => {
     for (const player of players) {
       const playerId = String(player.id);
       const seed = seedByPlayer.get(playerId) ?? DEFAULT_ELO;
       const rating = ratings.get(playerId) ?? seed;
       await tx.run('UPDATE players SET elo = ? WHERE id = ?', [Math.round(rating), playerId]);
     }
-  });
+  };
+  if ((db.sqlite as any)?.inTransaction) await persistRatings(db);
+  else await db.transaction(persistRatings);
   return players
     .filter((player) => (gameCounts.get(String(player.id)) || 0) > 0)
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))

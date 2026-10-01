@@ -8,6 +8,7 @@ import {
   Copy,
   Edit3,
   Filter,
+  GitMerge,
   History,
   ImagePlus,
   MessageSquare,
@@ -23,6 +24,7 @@ import {
   type GameEvening,
   type Player,
   type PlayerDetails,
+  type PlayerMergePreview,
 } from '../../lib/api.ts';
 import { formatEveningDateTime, getSortedFutureEvenings } from '../../lib/dateUtils.ts';
 import { getEveningResponseLabel, getEveningTimelineLabel } from '../../lib/eveningResponse.ts';
@@ -43,6 +45,7 @@ import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
+import { useClubOwner } from './useClubOwner.ts';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -84,6 +87,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   onClosePlayerCard,
   onCrmChanged,
 }) => {
+  const isClubOwner = useClubOwner();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -103,6 +107,15 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  const [showMergeSheet, setShowMergeSheet] = useState(false);
+  const [mergeCandidates, setMergeCandidates] = useState<Player[]>([]);
+  const [mergeSourceId, setMergeSourceId] = useState('');
+  const [mergePreview, setMergePreview] = useState<PlayerMergePreview | null>(null);
+  const [mergeToken, setMergeToken] = useState('');
+  const [mergeConfirmation, setMergeConfirmation] = useState('');
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const [mergeSaving, setMergeSaving] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newNickname, setNewNickname] = useState('');
@@ -239,7 +252,32 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setShowTaskSheet(false);
     setShowCommSheet(false);
     setShowInviteSheet(false);
+    setShowMergeSheet(false);
     onClosePlayerCard?.();
+  };
+
+  const openMergeSheet = async () => {
+    if (!isClubOwner || !playerDetails) return;
+    setShowPlayerMenu(false); setShowMergeSheet(true); setMergeError(null); setMergePreview(null); setMergeToken(''); setMergeSourceId(''); setMergeConfirmation(''); setMergeLoading(true);
+    try {
+      const list = await api.getPlayers();
+      setMergeCandidates(list.filter((item) => item.id !== playerDetails.id && ['crm_manual', 'manual', ''].includes(String(item.source || '')) && !item.telegram_linked && !item.vk_linked && !['merged', 'archived'].includes(String(item.lifecycle_status || ''))));
+    } catch (error: any) { setMergeError(error?.message || 'Не удалось загрузить кандидатов'); } finally { setMergeLoading(false); }
+  };
+
+  const selectMergeSource = async (sourceId: string) => {
+    setMergeSourceId(sourceId); setMergePreview(null); setMergeToken(''); setMergeConfirmation(''); setMergeError(null);
+    if (!sourceId || !playerDetails) return;
+    setMergeLoading(true);
+    try { const preview = await api.getPlayerMergePreview(playerDetails.id, sourceId); setMergePreview(preview); setMergeToken(preview.token); }
+    catch (error: any) { setMergeError(error?.message || 'Не удалось построить предпросмотр'); } finally { setMergeLoading(false); }
+  };
+
+  const handleMerge = async () => {
+    if (!playerDetails || !mergeSourceId || !mergeToken || !mergePreview || mergePreview.blockers.length || mergeConfirmation.trim() !== playerDetails.nickname) return;
+    setMergeSaving(true); setMergeError(null);
+    try { await api.mergePlayerProfiles(playerDetails.id, { source_player_id: mergeSourceId, preview_token: mergeToken, confirmation_nickname: mergeConfirmation.trim() }); setShowMergeSheet(false); setProfileMessage('Профили объединены. История сохранена в основном профиле.'); await refreshPlayer(); }
+    catch (error: any) { setMergeError(error?.message || 'Не удалось объединить профили'); } finally { setMergeSaving(false); }
   };
 
   const refreshPlayer = async () => {
@@ -637,8 +675,22 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
         <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
           <div className="space-y-2">
             <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
+            {isClubOwner ? <MenuButton icon={GitMerge} label="Объединить профиль-дубликат" onClick={() => void openMergeSheet()} /> : null}
             <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
             {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
+          </div>
+        </MobileSheet>
+
+        <MobileSheet open={showMergeSheet} onClose={() => setShowMergeSheet(false)} title="Объединить профиль-дубликат" subtitle="Переносится только ручной профиль без Telegram/VK. Сначала система покажет все блокировки и переносимые данные." widthClass="sm:max-w-lg" footer={<button type="button" disabled={mergeSaving || mergeLoading || !mergePreview || mergePreview.blockers.length > 0 || mergeConfirmation.trim() !== playerDetails?.nickname} onClick={() => void handleMerge()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{mergeSaving ? 'Объединяем…' : 'Объединить профили'}</button>}>
+          <div className="space-y-4">
+            {mergeError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{mergeError}</div> : null}
+            <select value={mergeSourceId} onChange={(event) => void selectMergeSource(event.target.value)} className="mobile-field" disabled={mergeLoading}><option value="">Выберите профиль-дубликат</option>{mergeCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nickname}{candidate.full_name ? ` · ${candidate.full_name}` : ''}</option>)}</select>
+            {mergeLoading ? <div className="py-5 text-center text-[12px] text-text-secondary">Проверяем связи и конфликты…</div> : null}
+            {mergePreview ? <div className="space-y-3 text-[12px]">
+              <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3"><div className="font-semibold text-text-primary">{mergePreview.keeper?.nickname} ← {mergePreview.source?.nickname}</div><div className="mt-1 text-text-muted">Основной профиль сохранится. Дубликат останется архивной записью с отметкой об объединении.</div></div>
+              {mergePreview.blockers.length ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3"><div className="font-semibold text-danger">Объединение заблокировано</div><ul className="mt-2 list-disc space-y-1 pl-4 text-danger">{mergePreview.blockers.map((blocker) => <li key={`${blocker.code}-${blocker.table || ''}`}>{blocker.message}</li>)}</ul></div> : mergePreview.summary ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-text-primary">Будет перенесено: ссылок на профиль — {mergePreview.summary.reference_count}, JSON-связей — {mergePreview.summary.json_count}, токенов — {mergePreview.summary.source_tokens}.</div> : null}
+              {!mergePreview.blockers.length ? <input value={mergeConfirmation} onChange={(event) => setMergeConfirmation(event.target.value)} placeholder={`Введите точно: ${playerDetails?.nickname}`} className="mobile-field" /> : null}
+            </div> : null}
           </div>
         </MobileSheet>
 

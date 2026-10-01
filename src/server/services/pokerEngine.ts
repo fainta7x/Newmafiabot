@@ -73,7 +73,7 @@ const handRankFive = (cards: PokerCard[]): number[] => {
   const unique = [...new Set(values)].sort((a, b) => b - a);
   const straight = unique.length >= 5 && (unique[0] - unique[4] === 4 || JSON.stringify(unique.slice(0, 4)) === JSON.stringify([14, 5, 4, 3]));
   const flush = cards.every((card) => card.suit === cards[0].suit);
-  if (straight && flush) return [8, unique[0]];
+  if (straight && flush) return [unique[0] === 14 && unique[1] === 13 ? 9 : 8, unique[0]];
   if (groups[0]?.[1] === 4) return [7, groups[0][0], groups[1][0]];
   if (groups[0]?.[1] === 3 && groups[1]?.[1] >= 2) return [6, groups[0][0], groups[1][0]];
   if (flush) return [5, ...values];
@@ -93,7 +93,7 @@ const handRank = (cards: PokerCard[]): number[] => {
 export const pokerHandLabel = (state: PokerState, playerId: string) => {
   const cards = [...(state.hole_cards[playerId] || []), ...state.board];
   if (cards.length < 5) return 'Комбинация формируется';
-  const names = ['Старшая карта', 'Пара', 'Две пары', 'Тройка', 'Стрит', 'Флеш', 'Фулл-хаус', 'Каре', 'Стрит-флеш'];
+  const names = ['Старшая карта', 'Пара', 'Две пары', 'Сет', 'Стрит', 'Флеш', 'Фулл-хаус', 'Каре', 'Стрит-флеш', 'Флэш-рояль'];
   return names[handRank(cards)[0]] || names[0];
 };
 

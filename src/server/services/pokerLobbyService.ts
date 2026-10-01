@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { applyPokerAction, createPokerHand, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
+import { applyPokerAction, createPokerHand, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
 
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number }>; hand: PokerState | null; createdAt: string };
 const lobbies = new Map<string, PokerLobby>();
@@ -7,7 +7,7 @@ const lobbies = new Map<string, PokerLobby>();
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
   const currentPlayer = lobby.hand.players.find((player) => player.seat === lobby.hand?.current_seat);
-  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null };
+  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null };
   return { ...lobby, hand };
 };
 

@@ -90,6 +90,13 @@ const handRank = (cards: PokerCard[]): number[] => {
   return combinations.map(handRankFive).sort((a, b) => { for (let i = 0; i < Math.max(a.length, b.length); i += 1) if ((b[i] || 0) !== (a[i] || 0)) return (b[i] || 0) - (a[i] || 0); return 0; })[0] || [];
 };
 
+export const pokerHandLabel = (state: PokerState, playerId: string) => {
+  const cards = [...(state.hole_cards[playerId] || []), ...state.board];
+  if (cards.length < 5) return 'Комбинация формируется';
+  const names = ['Старшая карта', 'Пара', 'Две пары', 'Тройка', 'Стрит', 'Флеш', 'Фулл-хаус', 'Каре', 'Стрит-флеш'];
+  return names[handRank(cards)[0]] || names[0];
+};
+
 export const compareHands = (state: PokerState): string[] => {
   const eligible = activePlayers(state).filter((player) => state.hole_cards[player.id]?.length === 2);
   const ranked = eligible.map((player) => ({ player, rank: handRank([...state.hole_cards[player.id], ...state.board]) })).sort((a, b) => JSON.stringify(b.rank).localeCompare(JSON.stringify(a.rank)));
@@ -128,12 +135,12 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   } else throw new Error('Некорректное действие.');
   player.acted = true; state.last_action = `${player.id}:${action.type}`;
   const active = activePlayers(state);
-  if (active.length === 1) { state.winner_ids = [active[0].id]; state.street = 'finished'; state.current_seat = null; return state; }
+  if (active.length === 1) { state.winner_ids = [active[0].id]; active[0].chips += state.pot; state.pot = 0; state.street = 'finished'; state.current_seat = null; return state; }
   const ready = active.filter((item) => !item.all_in).every((item) => item.acted && item.committed === state.current_bet);
   if (ready || active.filter((item) => !item.all_in).length <= 1) {
     state.players.forEach((item) => { item.acted = false; item.committed = 0; });
     state.current_bet = 0;
-    if (state.street === 'river') { state.street = 'showdown'; state.winner_ids = compareHands(state); state.street = 'finished'; state.current_seat = null; }
+    if (state.street === 'river') { state.street = 'showdown'; state.winner_ids = compareHands(state); const share = state.winner_ids.length ? Math.floor(state.pot / state.winner_ids.length) : 0; state.winner_ids.forEach((id) => { const winner = state.players.find((item) => item.id === id); if (winner) winner.chips += share; }); state.pot = 0; state.street = 'finished'; state.current_seat = null; }
     else advanceStreet(state, state.deck);
   }
   state.current_seat = state.street === 'finished' ? null : nextSeat(state.players, player.seat);

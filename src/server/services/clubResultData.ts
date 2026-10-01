@@ -258,3 +258,95 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     scored, games, redWins, blackWins, players: all.length, mostWins, bestAverage, eloGain, bestByRole,
   };
 }
+
+export type SeasonRow = { place: number; playerId: string; nickname: string; avatar: string | null; value: string; detail: string };
+export type SeasonTable = {
+  periodTitle: string;
+  scored: boolean;
+  games: number;
+  rows: SeasonRow[];
+  bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
+};
+
+/** The rating period that counts this evening: its own format, its dates, or an organizer override. */
+async function findSeasonPeriod(db: DatabaseWrapper, evening: any) {
+  const override = await db.get<any>(`
+    SELECT p.* FROM rating_period_evening_overrides o JOIN rating_periods p ON p.id = o.period_id
+     WHERE o.evening_id = ? AND o.included = 1 ORDER BY p.starts_at DESC LIMIT 1
+  `, [evening.id]).catch(() => null);
+  if (override) return override;
+  return db.get<any>(`
+    SELECT p.* FROM rating_periods p
+     WHERE UPPER(p.type) = ? AND p.auto_include = 1
+       AND datetime(p.starts_at) <= datetime(?) AND datetime(p.ends_at) >= datetime(?)
+       AND NOT EXISTS (SELECT 1 FROM rating_period_evening_overrides o WHERE o.period_id = p.id AND o.evening_id = ? AND o.included = 0)
+     ORDER BY p.starts_at DESC LIMIT 1
+  `, [normalizeEveningFormat(evening.format), evening.starts_at, evening.starts_at, evening.id]).catch(() => null);
+}
+
+/** The season so far (owner, 2026-10-01): top 10 of the evening's rating period and the best by role. */
+export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): Promise<SeasonTable | null> {
+  const evening = await db.get<any>('SELECT id, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  if (!evening) return null;
+  const period = await findSeasonPeriod(db, evening);
+  if (!period) return null;
+  const { calculateRatingPeriodStandings } = await import('./ratingPeriodStandingsService.ts');
+  const result = await calculateRatingPeriodStandings(db, String(period.id));
+  const standings = (result.standings || []).filter((item: any) => Number(item.games_played) > 0);
+  if (!standings.length) return null;
+  const scored = isScoredFormat(evening.format);
+  const average = (item: any) => Number(item.total_points || 0) / Number(item.games_played);
+  const ranked = [...standings].sort((a: any, b: any) => (scored
+    ? average(b) - average(a) || b.games_played - a.games_played
+    : b.wins - a.wins || a.games_played - b.games_played || a.nickname.localeCompare(b.nickname, 'ru'))).slice(0, 10);
+
+  const winsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'победа' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'победы' : 'побед');
+  const ofGames = (count: number) => `из ${count} ${count % 10 === 1 && count % 100 !== 11 ? 'игры' : 'игр'}`;
+  const gamesWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игру' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'игры' : 'игр');
+
+  const roleIds = new Set<string>(ranked.map((item: any) => String(item.player_id)));
+  const roleTallies = new Map<string, Map<string, { games: number; wins: number; points: number }>>();
+  for (const item of standings) {
+    for (const game of item.games || []) {
+      const role = normalizeRole(game.role) || 'citizen';
+      const perRole = roleTallies.get(role) || new Map();
+      const tally = perRole.get(String(item.player_id)) || { games: 0, wins: 0, points: 0 };
+      tally.games += 1; tally.wins += Number(game.win_point || 0); tally.points += Number(game.game_total || 0);
+      perRole.set(String(item.player_id), tally);
+      roleTallies.set(role, perRole);
+    }
+  }
+  const bestRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
+    const entries = [...(roleTallies.get(role) || new Map()).entries()];
+    if (!entries.length) return { role, best: null as null | [string, { games: number; wins: number; points: number }] };
+    entries.sort((a, b) => (scored
+      ? b[1].points / b[1].games - a[1].points / a[1].games || b[1].games - a[1].games
+      : b[1].wins - a[1].wins || a[1].games - b[1].games));
+    const best = entries[0];
+    if (!scored && best[1].wins === 0) return { role, best: null };
+    roleIds.add(best[0]);
+    return { role, best };
+  });
+
+  const ids = [...roleIds];
+  const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
+  const rows: SeasonRow[] = ranked.map((item: any, index: number) => ({
+    place: index + 1,
+    playerId: String(item.player_id),
+    nickname: names.get(String(item.player_id)) || String(item.nickname || 'Игрок'),
+    avatar: avatars.get(String(item.player_id)) || null,
+    value: scored ? signed(average(item)) : `${item.wins} ${winsWord(item.wins)}`,
+    detail: scored ? `в среднем · ${item.games_played} ${gamesWord(item.games_played)}` : ofGames(item.games_played),
+  }));
+  const bestByRole = bestRole.map(({ role, best }) => ({
+    role,
+    player: best ? {
+      playerId: best[0],
+      nickname: names.get(best[0]) || 'Игрок',
+      avatar: avatars.get(best[0]) || null,
+      value: scored ? signed(best[1].points / best[1].games) : `${best[1].wins} ${winsWord(best[1].wins)}`,
+      detail: scored ? `в среднем за ${best[1].games} ${gamesWord(best[1].games)}` : ofGames(best[1].games),
+    } : null,
+  }));
+  return { periodTitle: String(period.title || 'Сезон'), scored, games: Number(result.completed_games_count || 0), rows, bestByRole };
+}

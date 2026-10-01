@@ -413,6 +413,7 @@ Do not use a club-wide production announcement as a generic health check.
 - **Points appear only on rating and tournament evenings.** Ordinary and novice games have no points; their blank marks the winners instead.
 - When the organizer closes the evening, the bot posts **the evening summary**: number of games, red : black, number of players, most wins, the biggest Elo gain of the evening, and the best sheriff, don, mafia and citizen.
 - On rating evenings «the best» is decided by the **average points per game** (sum of points / number of games), not by the sum — both for the evening leaders and for the best by role. On other evenings the best by role is the one with the most wins in that role.
+- **The season so far** (the rating period from the app that counts this evening: its format and dates, or an organizer override) rides as the **second picture of the same message** as the evening summary, to keep the chat quiet: top 10 of the period (ordinary — by wins; rating — by average points per game) and the best sheriff, don, mafia and citizen of the season. No period — no season picture.
 - Each picture is posted once. Evenings that started before the feature was switched on are never posted.
 
 ## Tournament publication

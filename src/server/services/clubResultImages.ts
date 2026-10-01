@@ -8,7 +8,7 @@ import {
   renderNoirExportBrandHeader,
   renderNoirExportFooter,
 } from '../../lib/exportNoirTheme.ts';
-import type { BlankSeat, EveningSummary, GameBlank, SummaryPlayer } from './clubResultData.ts';
+import type { BlankSeat, EveningSummary, GameBlank, SeasonTable, SummaryPlayer } from './clubResultData.ts';
 
 // The club chat pictures (owner, 2026-10-01), in the same noir style as the tournament game blank.
 
@@ -166,6 +166,44 @@ export function eveningSummarySvg(summary: EveningSummary) {
 }
 
 // The server ships as a CommonJS bundle (no import.meta); fonts live next to the app root.
+export function seasonTableSvg(season: SeasonTable) {
+  clipCounter = 0;
+  const top = 250;
+  const rowHeight = 92;
+  const rowsHeight = 60 + season.rows.length * rowHeight;
+  const rolesTop = top + rowsHeight + 30;
+  const height = rolesTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const medal = [C.gold, C.silver, C.bronze];
+  const rows = season.rows.map((row, index) => {
+    const y = top + 50 + index * rowHeight;
+    return `<rect x="${M}" y="${y}" width="${W - M * 2}" height="${rowHeight - 10}" rx="18" fill="rgba(255,255,255,${index < 3 ? 0.055 : 0.028})"/>
+      <text x="${M + 30}" y="${y + 52}" text-anchor="middle" font-size="26" font-weight="700" fill="${medal[index] || C.mutedText}">${row.place}</text>
+      ${avatar(M + 62, y + 10, 62, row.nickname, row.avatar)}
+      <text x="${M + 144}" y="${y + 52}" font-size="28" font-weight="700" fill="${C.warmText}">${esc(clip(row.nickname, 24))}</text>
+      <text x="${W - M - 24}" y="${y + 44}" text-anchor="end" font-size="30" font-weight="700" fill="${C.warmText}">${esc(row.value)}</text>
+      <text x="${W - M - 24}" y="${y + 68}" text-anchor="end" font-size="16" font-weight="600" fill="${C.subduedText}">${esc(row.detail)}</text>`;
+  }).join('');
+  const roleCells = season.bestByRole.map((entry, index) => {
+    const column = index % 2; const row = Math.floor(index / 2);
+    const cellWidth = (W - M * 2 - 24) / 2;
+    const x = M + column * (cellWidth + 24);
+    const y = rolesTop + 50 + row * 150;
+    return `<rect x="${x}" y="${y}" width="${cellWidth}" height="136" rx="22" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.07)"/>
+      ${personRow(x + 24, y + 4, cellWidth - 48, ROLE_BEST[entry.role], entry.player, ROLE_COLORS[entry.role])}`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('СЕЗОН · ПРОМЕЖУТОЧНАЯ ТАБЛИЦА')}
+  <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(season.periodTitle, 28))}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(`${season.games} ${season.games % 10 === 1 && season.games % 100 !== 11 ? 'игра' : [2, 3, 4].includes(season.games % 10) && ![12, 13, 14].includes(season.games % 100) ? 'игры' : 'игр'} в зачёте`)}</text>
+  <text x="${M}" y="${top + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">${season.scored ? 'ТОП-10 ПО СРЕДНЕМУ БАЛЛУ' : 'ТОП-10 ПО ПОБЕДАМ'}</text>
+  ${rows}
+  <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ ЗА СЕЗОН</text>
+  ${roleCells}
+  ${renderNoirExportFooter(W, height, season.scored ? 'средний балл = сумма баллов / число игр' : 'победы за сезон')}
+</svg>`;
+}
+
 const FONT_DIRS = [path.resolve(process.cwd(), 'fonts'), '/app/fonts'];
 const FONT_FILES = ['Montserrat-Medium.ttf', 'Montserrat-SemiBold.ttf', 'Montserrat-Bold.ttf']
   .map((name) => FONT_DIRS.map((dir) => path.join(dir, name)).find((file) => fs.existsSync(file)))

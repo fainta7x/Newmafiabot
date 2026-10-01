@@ -1,8 +1,8 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningSummary, loadGameBlank } from './clubResultData.ts';
-import { eveningSummarySvg, gameBlankSvg, renderPng } from './clubResultImages.ts';
+import { loadEveningSummary, loadGameBlank, loadSeasonTable } from './clubResultData.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from './clubResultImages.ts';
 
 /**
  * Club chat results (owner, 2026-10-01): after each completed game the bot posts the game blank,
@@ -36,7 +36,8 @@ export const clubResultDestination = (format: unknown) => {
   return normalized === 'NOVICE' ? 'novice' : normalized === 'CASUAL' ? 'club' : 'rating';
 };
 
-async function sendPhoto(db: DatabaseWrapper, format: unknown, photo: Buffer, caption: string, fetchImpl: typeof fetch) {
+/** One picture, or an album (the evening summary with the season table) in one message. */
+async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
@@ -47,10 +48,17 @@ async function sendPhoto(db: DatabaseWrapper, format: unknown, photo: Buffer, ca
   const form = new FormData();
   form.set('chat_id', String(destination.chat_id));
   if (destination.topic_id) form.set('message_thread_id', String(destination.topic_id));
-  form.set('caption', caption);
-  form.set('photo', new Blob([new Uint8Array(photo)], { type: 'image/png' }), 'result.png');
+  let method = 'sendPhoto';
+  if (photos.length > 1) {
+    method = 'sendMediaGroup';
+    form.set('media', JSON.stringify(photos.map((_, index) => ({ type: 'photo', media: `attach://p${index}`, ...(index === 0 ? { caption } : {}) }))));
+    photos.forEach((photo, index) => form.set(`p${index}`, new Blob([new Uint8Array(photo)], { type: 'image/png' }), `result-${index}.png`));
+  } else {
+    form.set('caption', caption);
+    form.set('photo', new Blob([new Uint8Array(photos[0])], { type: 'image/png' }), 'result.png');
+  }
   try {
-    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form });
+    const response = await fetchImpl(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: form });
     const payload: any = await response.json().catch(() => null);
     if (response.ok && payload?.ok !== false) return { ok: true };
     const temporary = response.status === 429 || response.status >= 500;
@@ -91,7 +99,7 @@ export async function postGameBlank(db: DatabaseWrapper, gameId: string, format:
     const blank = await loadGameBlank(db, gameId);
     if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра не завершена' }); return false; }
     const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
-    const result = await sendPhoto(db, format, renderPng(gameBlankSvg(blank)), `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl);
+    const result = await sendPhotos(db, format, [renderPng(gameBlankSvg(blank))], `🎭 Игра №${blank.gameNumber} · ${winner}`, fetchImpl);
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {
@@ -106,7 +114,11 @@ export async function postEveningSummary(db: DatabaseWrapper, eveningId: string,
   try {
     const summary = await loadEveningSummary(db, eveningId);
     if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
-    const result = await sendPhoto(db, format, renderPng(eveningSummarySvg(summary)), `🏁 Итоги вечера «${summary.eveningTitle}»`, fetchImpl);
+    // The season so far rides as the second picture of the same message (owner: less spam).
+    const season = await loadSeasonTable(db, eveningId).catch((error) => { console.error('[CLUB RESULTS] season table failed:', error); return null; });
+    const photos = [renderPng(eveningSummarySvg(summary)), ...(season ? [renderPng(seasonTableSvg(season))] : [])];
+    const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${season ? ` и промежуточная таблица «${season.periodTitle}»` : ''}`;
+    const result = await sendPhotos(db, format, photos, caption, fetchImpl);
     await finish(db, key, result);
     return result.ok;
   } catch (error: any) {

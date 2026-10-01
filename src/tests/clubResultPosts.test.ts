@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { loadEveningSummary, loadGameBlank } from '../server/services/clubResultData.ts';
-import { eveningSummarySvg, gameBlankSvg, renderPng } from '../server/services/clubResultImages.ts';
+import { loadEveningSummary, loadGameBlank, loadSeasonTable } from '../server/services/clubResultData.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../server/services/clubResultImages.ts';
 import { runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -41,13 +41,18 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
   return { db, addGame };
 }
 
+const addPeriod = (db: DatabaseWrapper, format: string) => db.run(`INSERT INTO rating_periods (id,title,type,starts_at,ends_at,status,auto_include,created_at,updated_at)
+  VALUES ('rp','Осень 2026',?,?,?,'active',1,?,?)`, [format, new Date(Date.now() - 30 * 86400_000).toISOString(), new Date(Date.now() + 30 * 86400_000).toISOString(), new Date().toISOString(), new Date().toISOString()]);
+
 const telegram = () => {
   const calls: FormData[] = [];
-  const fetchImpl = (async (_url: string, init: any) => {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string, init: any) => {
+    urls.push(String(url));
     calls.push(init.body as FormData);
     return new Response(JSON.stringify({ ok: true }));
   }) as unknown as typeof fetch;
-  return { calls, fetchImpl };
+  return { calls, urls, fetchImpl };
 };
 
 describe('club game blank', () => {
@@ -108,6 +113,32 @@ describe('evening summary', () => {
   });
 });
 
+describe('season so far', () => {
+  it('ordinary season: top by wins and the best by role over the rating period', async () => {
+    const { db, addGame } = await setup('CASUAL');
+    await addPeriod(db, 'CASUAL');
+    await addGame(1, 'red'); await addGame(2, 'red');
+    const season = await loadSeasonTable(db, 'ev');
+    expect(season).toMatchObject({ periodTitle: 'Осень 2026', scored: false, games: 2 });
+    expect(season!.rows).toHaveLength(10);
+    expect(season!.rows[9].value).toBe('0 побед');
+    expect(season!.rows[0]).toMatchObject({ place: 1, value: '2 победы', detail: 'из 2 игр' });
+    expect(season!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Игрок A' });
+    expect(seasonTableSvg(season!)).toContain('ТОП-10 ПО ПОБЕДАМ');
+  });
+
+  it('rating season ranks by the average, and there is no table without a period', async () => {
+    const { db, addGame } = await setup('RATING');
+    await addGame(1, 'red');
+    expect(await loadSeasonTable(db, 'ev')).toBeNull();
+    await addPeriod(db, 'RATING');
+    const season = await loadSeasonTable(db, 'ev');
+    expect(season!.scored).toBe(true);
+    expect(season!.rows[0].detail).toBe('в среднем · 1 игру');
+    expect(seasonTableSvg(season!)).toContain('ТОП-10 ПО СРЕДНЕМУ БАЛЛУ');
+  });
+});
+
 describe('posting to the club chat', () => {
   it('posts each completed game once to the evening group, then the summary after closing', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
@@ -127,6 +158,22 @@ describe('posting to the club chat', () => {
     expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
     expect(calls[1].get('caption')).toBe('🏁 Итоги вечера «Пятничный вечер»');
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
+  });
+
+  it('with a season the evening summary and the season table go as one album', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addPeriod(db, 'CASUAL');
+    await addGame(1, 'red');
+    await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = 'ev'");
+    const { calls, urls, fetchImpl } = telegram();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(2);
+    expect(urls[1]).toMatch(/\/sendMediaGroup$/);
+    const media = JSON.parse(String(calls[1].get('media')));
+    expect(media.map((item: any) => item.media)).toEqual(['attach://p0', 'attach://p1']);
+    expect(media[0].caption).toBe('🏁 Итоги вечера «Пятничный вечер» и промежуточная таблица «Осень 2026»');
+    expect(calls[1].get('message_thread_id')).toBe('77');
+    expect((calls[1].get('p1') as Blob).type).toBe('image/png');
   });
 
   it('never posts evenings from before the feature was switched on', async () => {

@@ -119,9 +119,9 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   const game = await db.get<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.judge_name, g.judge_player_id, g.protocol_text,
            e.title, e.format, e.starts_at, j.nickname AS judge_nickname,
-           -- The game's number within its evening (owner, 2026-10-01: the second evening of a day starts at №1).
-           (SELECT COUNT(*) FROM games o WHERE o.evening_id = g.evening_id AND o.archived_at IS NULL
-              AND (o.global_game_number < g.global_game_number OR (o.global_game_number = g.global_game_number AND o.id <= g.id))) AS local_number
+           -- The game's number within its evening, counted like the CRM (all its games, archived included,
+           -- in creation order): the second evening of a day starts at №1 (owner, 2026-10-01).
+           (SELECT COUNT(*) FROM games o WHERE o.evening_id = g.evening_id AND o.id <= g.id) AS local_number
       FROM games g
       JOIN game_evenings e ON e.id = g.evening_id
  LEFT JOIN players j ON j.id = g.judge_player_id
@@ -392,13 +392,15 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
   const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;
   const scored = isScoredFormat(evening.format);
-  const rows = await db.all<any>(
-    'SELECT id, global_game_number, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL ORDER BY global_game_number, id',
+  // Numbered like the CRM: all the evening's games in creation order, archived ones keep their number.
+  const rows = (await db.all<any>(
+    'SELECT id, global_game_number, protocol_text, archived_at FROM games WHERE evening_id = ? ORDER BY id',
     [eveningId],
-  );
+  ));
   const elo = await loadClubElo(db);
   const players = new Map<string, EveningPlayerResult>();
   for (const [index, row] of rows.entries()) {
+    if (row.archived_at) continue;
     const envelope = parse(row.protocol_text);
     if (!isCompleted(envelope)) continue;
     const gameElo = elo.get(String(row.id));

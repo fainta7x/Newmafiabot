@@ -12,6 +12,20 @@ const seatPositions = [
   'top-[34%] left-[2%]', 'top-[22%] right-[12%]', 'top-[22%] left-[12%]',
 ];
 
+const CHIP_DENOMINATIONS = [1000, 500, 100, 50, 25, 10, 5, 1] as const;
+
+const chipBreakdown = (amount: number) => {
+  let rest = Math.max(0, Math.floor(Number(amount) || 0));
+  const chips: number[] = [];
+  for (const denomination of CHIP_DENOMINATIONS) {
+    while (rest >= denomination) {
+      chips.push(denomination);
+      rest -= denomination;
+    }
+  }
+  return chips;
+};
+
 const stageIndex = (street: string) => ({ preflop: 0, flop: 1, turn: 2, river: 3, showdown: 4, finished: 4 }[String(street || '').toLowerCase()] || 0);
 const actionText = (action: any) => {
   if (!action) return '';
@@ -25,7 +39,29 @@ const actionText = (action: any) => {
 };
 
 function PlayingCard({ card, small = false }: { card: Card; small?: boolean }) {
-  return <span className={`grid shrink-0 place-items-center rounded-lg border border-black/10 bg-[#fffdf7] font-bold shadow-[0_5px_12px_rgba(0,0,0,.28)] ${cardColor(card.suit)} ${small ? 'h-14 w-10 text-base' : 'h-[74px] w-[52px] text-xl'}`}><span>{card.rank}</span><span className="-mt-2 text-sm">{suitSymbol(card.suit)}</span></span>;
+  const suit = suitSymbol(card.suit);
+  return <span className={`relative shrink-0 overflow-hidden rounded-lg bg-[url('/assets/poker/card-face-v1.webp')] bg-cover bg-center font-black shadow-[0_7px_15px_rgba(0,0,0,.38)] ${cardColor(card.suit)} ${small ? 'h-14 w-10' : 'h-[74px] w-[52px]'}`}>
+    <span className={`absolute left-[17%] top-[13%] leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{card.rank}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
+    <span className={`absolute inset-0 grid place-items-center ${small ? 'text-xl' : 'text-3xl'}`}>{suit}</span>
+    <span className={`absolute bottom-[13%] right-[17%] rotate-180 leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{card.rank}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
+  </span>;
+}
+
+function ChipAmount({ amount, compact = false }: { amount: number; compact?: boolean }) {
+  const chips = chipBreakdown(amount);
+  if (!chips.length) return null;
+  return <div className="inline-flex flex-col items-center">
+    <div className={`flex items-end justify-center ${compact ? '-space-x-2.5' : '-space-x-3.5'}`}>
+      {chips.map((denomination, index) => <img
+        key={`${denomination}-${index}`}
+        src={`/assets/poker/chips/chip-${denomination}.webp`}
+        alt={`Фишка ${denomination}`}
+        className={`${compact ? 'h-7 w-7' : 'h-10 w-10'} relative object-contain drop-shadow-[0_5px_5px_rgba(0,0,0,.65)]`}
+        style={{ zIndex: index + 1, transform: `translateY(${Math.abs(index - (chips.length - 1) / 2) * 1.5}px)` }}
+      />)}
+    </div>
+    <span className={`${compact ? '-mt-1 px-1.5 py-px text-[8px]' : '-mt-1 px-3 py-1 text-[11px]'} relative z-20 rounded-full border border-amber-200/20 bg-black/80 font-bold text-amber-100 shadow-lg`}>{amount}</span>
+  </div>;
 }
 
 export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
@@ -95,7 +131,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
         <section className="relative mx-auto aspect-[940/1672] w-full max-w-[470px] overflow-hidden rounded-[2rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.05),transparent_22%,transparent_74%,rgba(0,0,0,.36))]" />
           <div className="absolute left-1/2 top-[49%] w-full -translate-x-1/2 -translate-y-1/2 text-center">
-            <div key={current.hand.pot} className="poker-chip-flight relative mb-1 inline-flex min-h-16 min-w-24 items-end justify-center"><img src="/assets/poker/chip-stack-v1.webp" alt="" className="absolute inset-x-0 bottom-1 mx-auto w-24 drop-shadow-[0_8px_9px_rgba(0,0,0,.6)]"/><span className="relative z-10 rounded-xl border border-amber-200/20 bg-black/70 px-3 py-1 text-[11px] font-semibold text-amber-100">Банк · {current.hand.pot}</span></div>
+            <div key={current.hand.pot} className="poker-chip-flight mb-1"><div className="mb-0.5 text-[9px] uppercase tracking-[.18em] text-amber-100/55">Банк</div><ChipAmount amount={Number(current.hand.pot || 0)} /></div>
             <div className="flex justify-center gap-1.5">{(current.hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className="poker-board-card" style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} small /></span>)}{Array.from({ length: 5 - (current.hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="h-14 w-10 rounded-lg border border-white/20 bg-black/10" />)}</div>
             <div className="mt-2 text-[10px] uppercase tracking-[.2em] text-emerald-100/50">{current.hand.street}</div>
           </div>
@@ -105,8 +141,9 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const mine = player.id === viewerId;
             const handPlayer = current.hand.players?.find((item: Player) => item.id === player.id);
             const dealer = player.seat === current.hand.dealer_seat;
+            const winner = current.hand.winner_ids?.includes(player.id);
             const lastAction = [...(current.hand.action_log || [])].reverse().find((item: any) => item.player_id === player.id);
-            return <div key={player.id} className={`absolute z-10 w-[104px] ${seatPositions[index]} text-center transition-all duration-300`}><div className={`relative mx-auto grid h-12 w-12 place-items-center rounded-full border-2 bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-base font-bold text-black shadow-[0_5px_16px_rgba(0,0,0,.65)] ${active ? 'poker-active-seat border-emerald-300 ring-2 ring-emerald-300/40' : 'border-amber-100/60'}`}>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}{dealer ? <span className="absolute -right-2 -top-1 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-black text-black">D</span> : null}</div><div className="-mt-1 rounded-xl border border-amber-100/10 bg-black/80 px-2 py-1.5 shadow-lg backdrop-blur-sm"><div className="truncate text-[11px] font-semibold">{mine ? 'Вы' : player.nickname}</div><div className="text-[10px] font-semibold text-amber-200">{handPlayer?.chips ?? player.chips}</div>{active ? <div className="text-[9px] font-bold text-emerald-300">{seconds} сек</div> : null}</div>{handPlayer?.committed > 0 ? <div className="poker-chip-flight mt-1 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[9px] text-amber-100"><img src="/assets/poker/chip-stack-v1.webp" alt="" className="h-4 w-6 object-contain"/>{handPlayer.committed}</div> : null}{lastAction ? <div key={lastAction.at} className="poker-action-bubble mt-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/80">{actionText(lastAction)}</div> : null}{!mine ? <img src="/assets/poker/card-backs-v1.webp" alt="Закрытые карты" className="mx-auto mt-1 w-12 drop-shadow-[0_5px_7px_rgba(0,0,0,.6)]"/> : null}</div>;
+            return <div key={player.id} className={`absolute z-10 w-[104px] ${seatPositions[index]} text-center transition-all duration-300`}><div className={`relative mx-auto grid h-12 w-12 overflow-visible place-items-center rounded-full border-2 bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-base font-bold text-black shadow-[0_5px_16px_rgba(0,0,0,.65)] ${winner ? 'poker-winner-seat border-amber-200 ring-2 ring-amber-300/50' : active ? 'poker-active-seat border-emerald-300 ring-2 ring-emerald-300/40' : 'border-amber-100/60'}`}><span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>{!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 h-full w-full rounded-full object-cover" /> : null}{dealer ? <span className="absolute -right-2 -top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-black text-black">D</span> : null}</div><div className="-mt-1 rounded-xl border border-amber-100/10 bg-black/80 px-2 py-1.5 shadow-lg backdrop-blur-sm"><div className="truncate text-[11px] font-semibold">{mine ? 'Вы' : player.nickname}</div><div className="text-[10px] font-semibold text-amber-200">{handPlayer?.chips ?? player.chips}</div>{winner ? <div className="text-[9px] font-black uppercase tracking-wide text-amber-300">Победитель</div> : active ? <div className="text-[9px] font-bold text-emerald-300">{seconds} сек</div> : null}</div>{handPlayer?.committed > 0 ? <div key={handPlayer.committed} className="poker-chip-flight mt-0.5"><ChipAmount amount={Number(handPlayer.committed)} compact /></div> : null}{lastAction ? <div key={lastAction.at} className="poker-action-bubble mt-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/80">{actionText(lastAction)}</div> : null}{!mine ? <img src="/assets/poker/card-backs-2la-v2.webp" alt="Закрытые карты 2LA Noire" className="mx-auto mt-1 w-14 drop-shadow-[0_5px_7px_rgba(0,0,0,.6)]"/> : null}</div>;
           })}
           <div className="absolute bottom-[17%] left-1/2 z-20 -translate-x-1/2"><div className="flex justify-center -space-x-1">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className="poker-hole-card" style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div><div className="mt-1 rounded-full border border-amber-100/15 bg-black/70 px-3 py-1 text-center text-[10px] font-semibold text-amber-100 backdrop-blur-sm">{current.hand.hand_label || 'Комбинация формируется'}</div></div>
         </section>

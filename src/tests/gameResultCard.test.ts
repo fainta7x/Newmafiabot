@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { buildGameResultCard, gameResultPoints } from '../server/services/gameResultCardService.ts';
+import { gameResultPoints, inviteFriendUrl } from '../server/services/gameResultCardService.ts';
+import { ensurePersonalNotificationRoutingSchema } from '../db/ensurePersonalNotificationRoutingSchema.ts';
 import { reconcilePersonalNotifications } from '../server/services/personalTelegramNotificationService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -44,44 +45,18 @@ describe('game result card in the bot', () => {
     expect(gameResultPoints(removed, removed.player_results[0]).total).toBeLessThan(0);
   });
 
-  it('shows role, result, points, the evening so far and buttons for the protocol and inviting a friend', async () => {
-    vi.stubEnv('PLAYER_APP_URL', 'https://club.example/player');
-    const { db, addGame } = await setup();
-    await addGame(41, envelope('black'));
-    const body = envelope('red', { first_killed_participant_id: 'p1', best_moves: [{ participant_id: 'p1', seat_numbers: [8, 9, 10] }] });
-    const id = await addGame(42, body);
-    const card = await buildGameResultCard(db, { id, evening_id: 'ev', global_game_number: 42 }, body, body.player_results[0], 'NoireBot');
-    expect(card.text).toContain('Игра №42 · Пятничная мафия');
-    expect(card.text).toContain('🏆 Победа · Шериф · место 1');
-    expect(card.text).toMatch(/Баллы за игру: \+[\d.]+ \(лучший ход \+[\d.]+, первый убитый\)/);
-    expect(card.text).toContain('За вечер: 2 игры · 1 победа');
-    const [row] = (card.telegramReplyMarkup as any).inline_keyboard;
-    expect(row[0]).toEqual({ text: '📋 Протокол', web_app: { url: `https://club.example/player/games/${id}` } });
-    expect(row[1].text).toBe('🤝 Позвать друга');
-    expect(decodeURIComponent(row[1].url)).toContain('https://t.me/NoireBot?start=ref_hero');
+  it('the invite link opens the bot with the inviter, and there is none without the bot name', async () => {
+    expect(decodeURIComponent(String(await inviteFriendUrl('hero', 'NoireBot')))).toContain('https://t.me/NoireBot?start=ref_hero');
+    expect(await inviteFriendUrl('hero', null)).toBeNull();
   });
 
-  it('shows no points on an ordinary evening and no invite button when the bot name is unknown', async () => {
-    const { db, addGame } = await setup('CASUAL');
-    const body = envelope('black', { first_killed_participant_id: 'p1' });
-    const id = await addGame(1, body);
-    const card = await buildGameResultCard(db, { id, evening_id: 'ev', global_game_number: 1 }, body, body.player_results[0], null);
-    expect(card.text).toContain('Поражение · Шериф');
-    expect(card.text).not.toContain('Баллы');
-    expect(card.text).toContain('Первый убитый');
-    expect(card.text).not.toContain('За вечер');
-    expect(card.telegramReplyMarkup).toBeNull();
-  });
-
-  it('the worker queues one card per seat and does not repeat it', async () => {
+  it('the worker no longer sends a personal message after each club game', async () => {
     const { db, addGame } = await setup();
     await createApp(db);
     await addGame(7, envelope('red'));
     await reconcilePersonalNotifications(db);
-    await reconcilePersonalNotifications(db);
-    const rows = await db.all<any>("SELECT text FROM personal_notification_deliveries WHERE event_type = 'game_result'");
-    expect(rows).toHaveLength(1);
-    expect(rows[0].text).toContain('🏆 Победа · Шериф');
+    await ensurePersonalNotificationRoutingSchema(db);
+    expect(await db.all("SELECT 1 FROM personal_notification_deliveries WHERE event_type IN ('game_result', 'elo_change')")).toHaveLength(0);
   });
 });
 

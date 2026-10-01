@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 type Card = { rank: string; suit: string };
-type Player = { id: string; nickname: string; seat: number; chips: number; is_bot?: boolean };
+type Player = { id: string; nickname: string; seat: number; chips: number; committed?: number; folded?: boolean; all_in?: boolean; is_bot?: boolean };
 type Lobby = { id: string; title: string; status: string; players: Player[]; hand?: any };
 
 const suitSymbol = (suit: string) => ({ hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }[suit] || suit);
@@ -11,17 +11,23 @@ const seatPositions = [
   'top-[34%] right-[2%]', 'bottom-[28%] right-[2%]', 'bottom-[28%] left-[2%]',
   'top-[34%] left-[2%]', 'top-[22%] right-[12%]', 'top-[22%] left-[12%]',
 ];
+const seatVectors = [
+  { x: 0, y: 250 }, { x: 0, y: -250 }, { x: 155, y: -130 }, { x: 155, y: 150 },
+  { x: -155, y: 150 }, { x: -155, y: -130 }, { x: 105, y: -225 }, { x: -105, y: -225 },
+];
 
 const CHIP_DENOMINATIONS = [1000, 500, 100, 50, 25, 10, 5, 1] as const;
 
 const chipBreakdown = (amount: number) => {
   let rest = Math.max(0, Math.floor(Number(amount) || 0));
-  const chips: number[] = [];
+  const chips: Array<{ denomination: number; count: number }> = [];
   for (const denomination of CHIP_DENOMINATIONS) {
+    let count = 0;
     while (rest >= denomination) {
-      chips.push(denomination);
+      count += 1;
       rest -= denomination;
     }
+    if (count) chips.push({ denomination, count });
   }
   return chips;
 };
@@ -48,17 +54,19 @@ function PlayingCard({ card, small = false }: { card: Card; small?: boolean }) {
 }
 
 function ChipAmount({ amount, compact = false }: { amount: number; compact?: boolean }) {
-  const chips = chipBreakdown(amount);
-  if (!chips.length) return null;
+  const stacks = chipBreakdown(amount);
+  if (!stacks.length) return null;
   return <div className="inline-flex flex-col items-center">
-    <div className={`flex items-end justify-center ${compact ? '-space-x-2.5' : '-space-x-3.5'}`}>
-      {chips.map((denomination, index) => <img
-        key={`${denomination}-${index}`}
-        src={`/assets/poker/chips/chip-${denomination}-v2.webp`}
-        alt={`Фишка ${denomination}`}
-        className={`${compact ? 'h-7 w-7' : 'h-10 w-10'} relative object-contain drop-shadow-[0_5px_5px_rgba(0,0,0,.65)]`}
-        style={{ zIndex: index + 1, transform: `translateY(${Math.abs(index - (chips.length - 1) / 2) * 1.5}px)` }}
-      />)}
+    <div className={`flex items-end justify-center ${compact ? '-space-x-1.5' : '-space-x-2'}`}>
+      {stacks.map(({ denomination, count }) => <span key={denomination} className={`relative block ${compact ? 'h-10 w-7' : 'h-16 w-10'}`}>
+        {Array.from({ length: count }).map((_, index) => <img
+          key={`${denomination}-${index}`}
+          src={`/assets/poker/chips/chip-${denomination}-v2.webp`}
+          alt={index === count - 1 ? `Фишки ${denomination}` : ''}
+          className={`${compact ? 'h-7 w-7' : 'h-10 w-10'} absolute bottom-0 left-0 object-contain drop-shadow-[0_4px_3px_rgba(0,0,0,.7)]`}
+          style={{ zIndex: index + 1, transform: `translateY(-${index * (compact ? 3 : 4)}px)` }}
+        />)}
+      </span>)}
     </div>
     <span className={`${compact ? '-mt-1 px-1.5 py-px text-[8px]' : '-mt-1 px-3 py-1 text-[11px]'} relative z-20 rounded-full border border-amber-200/20 bg-black/80 font-bold text-amber-100 shadow-lg`}>{amount}</span>
   </div>;
@@ -112,6 +120,9 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const orderedPlayers: Player[] = current?.players ? [...current.players].sort((a: Player, b: Player) => a.id === viewerId ? -1 : b.id === viewerId ? 1 : a.seat - b.seat) : [];
   const currentStage = stageIndex(current?.hand?.street);
   const actions = current?.hand?.available_actions;
+  const smallBlindSeat = current?.hand?.small_blind_seat;
+  const bigBlindSeat = current?.hand?.big_blind_seat;
+  const winnerIndex = orderedPlayers.findIndex((player) => current?.hand?.winner_ids?.includes(player.id));
 
   useEffect(() => {
     const minimum = Number(actions?.min_bet_total || 0);
@@ -130,6 +141,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
 
         <section className="relative mx-auto aspect-[940/1672] w-full max-w-[470px] overflow-hidden rounded-[2rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.05),transparent_22%,transparent_74%,rgba(0,0,0,.36))]" />
+          <div className="poker-deck-source absolute left-[9%] top-[42%] z-[5] w-[70px]">
+            <img src="/assets/poker/deck-noir-v1.webp" alt="Колода 2LA Noire" className="w-full mix-blend-lighten drop-shadow-[0_10px_9px_rgba(0,0,0,.8)]" />
+            <span className="-mt-1 block text-center text-[8px] font-bold uppercase tracking-[.18em] text-amber-100/45">{current.hand.deck_remaining} карт</span>
+          </div>
           <div className="absolute left-1/2 top-[49%] w-full -translate-x-1/2 -translate-y-1/2 text-center">
             <div key={current.hand.pot} className="poker-chip-flight mb-1"><div className="mb-0.5 text-[9px] uppercase tracking-[.18em] text-amber-100/55">Банк</div><ChipAmount amount={Number(current.hand.pot || 0)} /></div>
             <div className="flex justify-center gap-1.5">{(current.hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className="poker-board-card" style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} small /></span>)}{Array.from({ length: 5 - (current.hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="h-14 w-10 rounded-lg border border-white/20 bg-black/10" />)}</div>
@@ -142,9 +157,24 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const handPlayer = current.hand.players?.find((item: Player) => item.id === player.id);
             const dealer = player.seat === current.hand.dealer_seat;
             const winner = current.hand.winner_ids?.includes(player.id);
+            const folded = Boolean(handPlayer?.folded);
+            const allIn = Boolean(handPlayer?.all_in);
             const lastAction = [...(current.hand.action_log || [])].reverse().find((item: any) => item.player_id === player.id);
-            return <div key={player.id} className={`absolute z-10 w-[104px] ${seatPositions[index]} text-center transition-all duration-300`}><div className={`relative mx-auto grid h-12 w-12 overflow-visible place-items-center rounded-full border-2 bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-base font-bold text-black shadow-[0_5px_16px_rgba(0,0,0,.65)] ${winner ? 'poker-winner-seat border-amber-200 ring-2 ring-amber-300/50' : active ? 'poker-active-seat border-emerald-300 ring-2 ring-emerald-300/40' : 'border-amber-100/60'}`}><span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>{!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 h-full w-full rounded-full object-cover" /> : null}{dealer ? <span className="absolute -right-2 -top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-black text-black">D</span> : null}</div><div className="-mt-1 rounded-xl border border-amber-100/10 bg-black/80 px-2 py-1.5 shadow-lg backdrop-blur-sm"><div className="truncate text-[11px] font-semibold">{mine ? 'Вы' : player.nickname}</div><div className="text-[10px] font-semibold text-amber-200">{handPlayer?.chips ?? player.chips}</div>{winner ? <div className="text-[9px] font-black uppercase tracking-wide text-amber-300">Победитель</div> : active ? <div className="text-[9px] font-bold text-emerald-300">{seconds} сек</div> : null}</div>{handPlayer?.committed > 0 ? <div key={handPlayer.committed} className="poker-chip-flight mt-0.5"><ChipAmount amount={Number(handPlayer.committed)} compact /></div> : null}{lastAction ? <div key={lastAction.at} className="poker-action-bubble mt-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/80">{actionText(lastAction)}</div> : null}{!mine ? <img src="/assets/poker/card-backs-2la-noir-v3.webp" alt="Закрытые карты 2LA Noire" className="mx-auto mt-1 w-14 drop-shadow-[0_5px_7px_rgba(0,0,0,.6)]"/> : null}</div>;
+            return <div key={player.id} className={`absolute z-10 w-[104px] ${seatPositions[index]} text-center transition-all duration-300 ${folded ? 'poker-folded-seat' : ''}`}>
+              <div className={`poker-seat-frame relative mx-auto grid h-14 w-14 overflow-visible place-items-center rounded-full bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-base font-bold text-black ${winner ? 'poker-winner-seat' : active ? 'poker-active-seat' : ''}`}>
+                <span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>
+                {!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[5px] h-[46px] w-[46px] rounded-full object-cover" /> : null}
+                <span className="pointer-events-none absolute inset-0 rounded-full border-[3px] border-[#8d7655] shadow-[inset_0_2px_2px_rgba(255,255,255,.45),inset_0_-4px_5px_rgba(0,0,0,.75),0_7px_14px_rgba(0,0,0,.75)]" />
+                <span className="absolute -left-3 -top-1 z-20 flex gap-0.5">{dealer ? <i className="poker-marker bg-[#ece5d7] text-black">D</i> : null}{player.seat === smallBlindSeat ? <i className="poker-marker bg-[#75251f] text-white">SB</i> : null}{player.seat === bigBlindSeat ? <i className="poker-marker bg-[#17191c] text-white">BB</i> : null}</span>
+                {allIn ? <span className="poker-all-in absolute -right-8 top-1/2 z-20 -translate-y-1/2 rounded-md border border-amber-200/50 bg-[#721f24] px-1.5 py-1 text-[7px] font-black tracking-wide text-amber-50 shadow-lg">ALL-IN</span> : null}
+              </div>
+              <div className="poker-seat-plaque -mt-1 rounded-xl px-2 py-1.5"><div className="truncate text-[11px] font-semibold">{mine ? 'Вы' : player.nickname}</div><div className="text-[10px] font-semibold text-amber-200">{handPlayer?.chips ?? player.chips}</div>{winner ? <div className="text-[9px] font-black uppercase tracking-wide text-amber-300">Победитель</div> : active ? <div className="text-[9px] font-bold text-emerald-300">{seconds} сек</div> : null}</div>
+              {handPlayer?.committed && handPlayer.committed > 0 ? <div key={handPlayer.committed} className="poker-chip-flight mt-0.5"><ChipAmount amount={Number(handPlayer.committed)} compact /></div> : null}
+              {lastAction ? <div key={lastAction.at} className={`poker-action-bubble mt-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${folded ? 'bg-[#6e1c28] text-white' : 'bg-black/70 text-white/85'}`}>{actionText(lastAction)}</div> : null}
+              {!mine && !folded ? <img src="/assets/poker/card-backs-2la-noir-v3.webp" alt="Закрытые карты 2LA Noire" className="mx-auto mt-1 w-14 drop-shadow-[0_5px_7px_rgba(0,0,0,.6)]"/> : null}
+            </div>;
           })}
+          {winnerIndex >= 0 && Number(current.hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 top-1/2 z-40" style={{ '--award-x': `${seatVectors[winnerIndex]?.x || 0}px`, '--award-y': `${seatVectors[winnerIndex]?.y || 0}px` } as CSSProperties}><ChipAmount amount={Number(current.hand.last_pot_awarded)} /></div> : null}
           <div className="absolute bottom-[17%] left-1/2 z-20 -translate-x-1/2"><div className="flex justify-center -space-x-1">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className="poker-hole-card" style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div><div className="mt-1 rounded-full border border-amber-100/15 bg-black/70 px-3 py-1 text-center text-[10px] font-semibold text-amber-100 backdrop-blur-sm">{current.hand.hand_label || 'Комбинация формируется'}</div></div>
         </section>
 
@@ -154,6 +184,13 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   );
 
   return (
-    <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] px-3 pb-12 pt-20 text-white"><header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={onExit} className="min-h-10 rounded-xl border border-white/10 px-3 text-sm text-white/70">← В приложение</button><div className="text-center"><div className="text-sm font-semibold">2LA Poker</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Лобби</div></div><div className="w-[106px]" /></header><div className="mx-auto max-w-lg space-y-4"><header><div className="text-xs uppercase tracking-[.2em] text-amber-100/40">Игровая зона</div><h1 className="mt-1 text-3xl font-semibold">Poker</h1><p className="mt-1 text-sm text-white/45">Открытые столы Texas Hold’em · 2–8 игроков</p></header>{error ? <div className="rounded-2xl bg-rose-400/15 p-3 text-sm text-rose-100">{error}</div> : null}{current ? <section className="space-y-3 rounded-3xl border border-amber-200/15 bg-[#15130f] p-4"><div className="flex items-center justify-between"><h2 className="font-semibold">{current.title}</h2><span className="text-xs text-white/40">Ожидание</span></div><div className="space-y-2">{current.players?.map((player: Player) => <div key={player.id} className="flex items-center gap-3 rounded-2xl bg-black/25 px-3 py-2"><span className="grid h-9 w-9 place-items-center rounded-full bg-amber-300 font-bold text-black">{player.nickname?.slice(0, 1)}</span><span className="flex-1 text-sm">Место {player.seat} · {player.nickname}</span>{player.is_bot ? <span className="text-xs text-amber-100/50">бот</span> : null}</div>)}</div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void lobbyAction(current.id, 'start')} className="min-h-12 rounded-2xl bg-white text-sm font-semibold text-black">Начать игру</button><button type="button" onClick={() => setCurrent(null)} className="min-h-12 rounded-2xl border border-white/10 text-sm text-white/60">К списку</button></div><button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-11 w-full rounded-2xl border border-amber-200/20 bg-amber-200/[.08] text-sm font-semibold text-amber-50">Добавить тестового бота</button></section> : <><section className="rounded-3xl border border-white/10 bg-white/[.03] p-4"><h2 className="font-semibold">Создать стол</h2><input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm" /><button type="button" onClick={() => void create()} className="mt-3 min-h-12 w-full rounded-2xl bg-white text-sm font-semibold text-black">Создать открытый стол</button></section><section className="space-y-2"><h2 className="text-sm font-semibold text-white/70">Открытые столы</h2>{lobbies.length ? lobbies.map((lobby) => <div key={lobby.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-3"><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{lobby.title}</strong><span className="text-xs text-white/40">{lobby.players.length}/8 игроков</span></div><button type="button" onClick={() => void lobbyAction(lobby.id, 'join')} className="min-h-10 rounded-xl bg-white px-4 text-xs font-semibold text-black">Войти</button></div>) : <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/35">Открытых столов пока нет</div>}</section></>}</div></main>
+    <main className="poker-room-bg min-h-[var(--tg-viewport-stable-height,100dvh)] px-3 pb-12 pt-20 text-white">
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={onExit} className="min-h-10 rounded-xl border border-white/10 px-3 text-sm text-white/70">← В приложение</button><div className="text-center"><div className="text-sm font-semibold">2LA Poker</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Закрытый клуб</div></div><div className="w-[106px]" /></header>
+      <div className="mx-auto max-w-lg space-y-4">
+        <section className="relative h-44 overflow-hidden rounded-[1.75rem] border border-amber-100/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_39%] shadow-[0_20px_50px_rgba(0,0,0,.6)]"><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,5,5,.93),rgba(2,5,5,.35),rgba(2,5,5,.66))]"/><div className="absolute inset-y-0 left-0 flex w-[70%] flex-col justify-center p-5"><div className="text-[9px] uppercase tracking-[.3em] text-[#caa96a]">Sport Mafia Club</div><h1 className="mt-1 text-4xl font-black tracking-tight">POKER</h1><p className="mt-1 text-xs leading-relaxed text-white/60">Техасский холдем в атмосфере 2LA Noire</p></div><img src="/assets/poker/deck-noir-v1.webp" alt="Колода 2LA Noire" className="absolute -bottom-5 -right-10 w-48 rotate-[-8deg] mix-blend-lighten drop-shadow-2xl" /></section>
+        {error ? <div className="rounded-2xl bg-rose-400/15 p-3 text-sm text-rose-100">{error}</div> : null}
+        {current ? <section className="space-y-3 rounded-3xl border border-amber-200/15 bg-[linear-gradient(145deg,rgba(39,32,24,.95),rgba(12,13,14,.98))] p-4 shadow-2xl"><div className="flex items-center justify-between"><div><div className="text-[9px] uppercase tracking-[.2em] text-amber-200/50">Ваш стол</div><h2 className="font-semibold">{current.title}</h2></div><span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">Ожидание</span></div><div className="grid grid-cols-2 gap-2">{current.players?.map((player: Player) => <div key={player.id} className="flex items-center gap-2 rounded-2xl border border-white/[.06] bg-black/30 px-2 py-2"><span className="poker-seat-frame grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-300 font-bold text-black">{player.nickname?.slice(0, 1)}</span><span className="min-w-0 flex-1"><b className="block truncate text-xs">{player.nickname}</b><small className="text-[9px] text-white/40">Место {player.seat}{player.is_bot ? ' · бот' : ''}</small></span></div>)}</div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void lobbyAction(current.id, 'start')} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">Начать игру</button><button type="button" onClick={() => setCurrent(null)} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 text-sm text-white/60">К списку</button></div><button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-11 w-full rounded-2xl border border-amber-200/20 bg-amber-200/[.08] text-sm font-semibold text-amber-50">+ Добавить тестового бота</button></section> : <><section className="rounded-3xl border border-white/10 bg-black/35 p-4 shadow-xl backdrop-blur"><div className="text-[9px] uppercase tracking-[.22em] text-amber-200/45">Новая игра</div><h2 className="mt-1 font-semibold">Создать стол</h2><input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm outline-none focus:border-amber-200/40" /><button type="button" onClick={() => void create()} className="mt-3 min-h-12 w-full rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">+ Создать открытый стол</button></section><section className="space-y-2"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Открытые столы</h2><span className="rounded-full bg-white/[.06] px-2 py-1 text-[10px] text-white/45">{lobbies.length}</span></div>{lobbies.length ? lobbies.map((lobby) => <div key={lobby.id} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#101514] p-3 shadow-xl"><div className="absolute inset-y-0 right-0 w-28 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center opacity-20"/><div className="relative flex items-center gap-3"><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{lobby.title}</strong><span className="text-[10px] text-white/40">Texas Hold’em · {lobby.players.length}/8 игроков</span><div className="mt-2 flex -space-x-2">{lobby.players.slice(0, 5).map((player) => <span key={player.id} className="grid h-6 w-6 place-items-center rounded-full border border-[#101514] bg-[#6b5737] text-[8px] font-bold">{player.nickname?.slice(0, 1)}</span>)}</div></div><button type="button" onClick={() => void lobbyAction(lobby.id, 'join')} className="min-h-10 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] px-4 text-xs font-black text-black">Войти</button></div></div>) : <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-6 text-center text-sm text-white/35">Открытых столов пока нет</div>}</section></>}
+      </div>
+    </main>
   );
 }

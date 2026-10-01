@@ -53,4 +53,14 @@ describe('poker engine', () => {
     applyPokerAction(hand, { type: 'call' });
     expect(current.reserve_seconds).toBe(46);
   });
+
+  it('keeps the awarded pot amount for the winner animation', () => {
+    const hand = createPokerHand({ id: 'award', players });
+    expect(hand.pot).toBe(30);
+    applyPokerAction(hand, { type: 'fold' });
+    expect(hand.street).toBe('finished');
+    expect(hand.pot).toBe(0);
+    expect(hand.last_pot_awarded).toBe(30);
+    expect(hand.winner_ids).toHaveLength(1);
+  });
 });

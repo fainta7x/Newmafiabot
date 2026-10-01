@@ -650,7 +650,7 @@ body.live-broadcast-document #root {
   position: absolute;
   left: calc(20 * var(--u));
   top: calc(110 * var(--u));
-  bottom: calc(326 * var(--u));
+  bottom: calc(300 * var(--u));
   width: calc(404 * var(--u));
   display: flex;
   flex-direction: column;
@@ -845,23 +845,6 @@ body.live-broadcast-document #root {
   font-size: calc(13 * var(--u));
 }
 
-.live-broadcast-check {
-  display: flex;
-  align-items: center;
-  gap: calc(5 * var(--u));
-  min-height: calc(20 * var(--u));
-  font-size: calc(12 * var(--u));
-  font-weight: 700;
-  line-height: 1.2;
-  color: rgba(255, 255, 255, .82);
-}
-
-.live-broadcast-check .live-broadcast-role-icon { flex: none; width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
-.live-broadcast-check.is-don .live-broadcast-role-icon { color: #c4b5fd; }
-.live-broadcast-check.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
-.live-broadcast-check > span { display: grid; }
-.live-broadcast-check b { font-weight: 700; }
-.live-broadcast-check small { font-size: calc(10.5 * var(--u)); font-weight: 600; color: var(--muted); }
 
 /* ---------- Role emblem and «out» ribbon (owner reference, 2026-10-01) ---------- */
 .live-broadcast-emblem {
@@ -909,34 +892,6 @@ body.live-broadcast-document #root {
 
 .live-broadcast-out-ribbon.is-voted span { font-size: calc(9.5 * var(--u)); letter-spacing: .03em; }
 
-.live-broadcast-check-tabs {
-  position: absolute;
-  left: calc(12 * var(--u));
-  bottom: 100%;
-  display: flex;
-  gap: calc(4 * var(--u));
-}
-
-.live-broadcast-check-tab {
-  display: flex;
-  align-items: center;
-  gap: calc(4 * var(--u));
-  height: calc(24 * var(--u));
-  padding: 0 calc(8 * var(--u));
-  border-radius: calc(7 * var(--u)) calc(7 * var(--u)) 0 0;
-  background: rgba(16, 16, 20, .92);
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  font-size: calc(12 * var(--u));
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-}
-
-.live-broadcast-check-tab .live-broadcast-role-icon { width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
-.live-broadcast-check-tab.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
-.live-broadcast-check-tab.is-don .live-broadcast-role-icon { color: #a78bfa; }
-.live-broadcast-player.is-out .live-broadcast-check-tab { opacity: .6; filter: grayscale(1); }
 .live-broadcast-out-ribbon { z-index: 1; }
 .live-broadcast-portrait .live-broadcast-seat-number,
 .live-broadcast-emblem { z-index: 2; }

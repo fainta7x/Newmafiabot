@@ -29,19 +29,6 @@ const RoleIcon = ({ kind }: { kind: RoleKind }) => {
   return <Heart className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
 };
 
-type PlayerCheck = { by: 'don' | 'sheriff'; round: number; result: 'red' | 'black' | 'sheriff' | 'not_sheriff' | null };
-
-/** Every Don and Sheriff check of the game, by checked seat. */
-const checksBySeat = (timeline: LiveBroadcastTimelineEntry[]) => {
-  const result = new Map<number, PlayerCheck[]>();
-  const add = (seat: number, check: PlayerCheck) => result.set(seat, [...(result.get(seat) || []), check]);
-  for (const entry of timeline) {
-    if (entry.kind !== 'night') continue;
-    if (entry.donCheck) add(entry.donCheck.seat, { by: 'don', round: entry.round, result: entry.donCheck.isSheriff === null ? null : entry.donCheck.isSheriff ? 'sheriff' : 'not_sheriff' });
-    if (entry.sheriffCheck) add(entry.sheriffCheck.seat, { by: 'sheriff', round: entry.round, result: entry.sheriffCheck.isBlack === null ? null : entry.sheriffCheck.isBlack ? 'black' : 'red' });
-  }
-  return result;
-};
 
 const DAY_NOTES: Record<string, string> = {
   voted: 'Ушёл',
@@ -186,7 +173,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const timerCaption = state.timerLabel || (state.currentSpeakerSeat ? `Речь игрока №${state.currentSpeakerSeat}` : 'Таймер');
   const kinds = new Map(state.players.map((player) => [player.seat, roleKind(player.role)]));
   const timeline = state.timeline || [];
-  const checks = checksBySeat(timeline);
   const protocolBySeat = new Map((state.protocols || []).map((protocol) => [protocol.seat, protocol]));
   const bestMove = state.bestMove;
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
@@ -343,7 +329,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {
           const kind = roleKind(player.role);
-          const playerChecks = checks.get(player.seat) || [];
           const exit = exitBySeat.get(player.seat);
           const protocol = player.alive ? undefined : protocolBySeat.get(player.seat);
           const hasDiscipline = player.fouls > 0 || player.minorTech > 0 || player.majorTech > 0;
@@ -355,17 +340,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
               key={player.seat}
               className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
-              {/* Checks as tabs above the card, nights left to right (owner reference, 2026-10-01). */}
-              {playerChecks.length ? (
-                <div className="live-broadcast-check-tabs">
-                  {playerChecks.map((check) => (
-                    <span key={`${check.by}-${check.round}`} className={`live-broadcast-check-tab is-${check.by}`} title={`${check.by === 'don' ? 'Дон' : 'Шериф'} проверил в ночь ${check.round}`}>
-                      {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
-                      ночь {check.round}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
               {/* The face first (owner, 2026-10-01): a large portrait with a role emblem. */}
               <div className="live-broadcast-player-head">
                 <div className="live-broadcast-portrait">

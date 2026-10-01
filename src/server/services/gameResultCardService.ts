@@ -1,10 +1,11 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { calculateBestMovePoints } from '../routes/tournamentProtocolRoutes.ts';
 import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 
-// The bot's card after each club game (owner chose 2026-10-01): role, result, the game's points,
+// The bot's card after each club game (owner chose 2026-10-01): role, result, the game's points (rating evenings only),
 // the player's evening so far, and «Позвать друга» with a personal link (/start ref_<player id>).
 
 export const INVITE_START_PREFIX = 'ref_';
@@ -83,18 +84,20 @@ const appUrl = (path: string) => {
   return base ? `${base}${path}` : null;
 };
 
-type EveningGames = { title: string | null; games: Array<{ id: number; number: number; envelope: any }> };
+type EveningGames = { title: string | null; scored: boolean; games: Array<{ id: number; number: number; envelope: any }> };
 
 // One scan reads each evening once, however many seats it announces.
 async function loadEvening(db: DatabaseWrapper, eveningId: string, cache?: Map<string, EveningGames>) {
   const cached = cache?.get(eveningId);
   if (cached) return cached;
   const [evening, rows] = await Promise.all([
-    db.get<any>('SELECT title FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]),
+    db.get<any>('SELECT title, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]),
     db.all<any>('SELECT id, global_game_number, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]),
   ]);
   const value: EveningGames = {
     title: evening?.title ? String(evening.title) : null,
+    // Points are given only on rating and tournament evenings; ordinary and novice games have none (owner, 2026-10-01).
+    scored: ['RATING', 'TOURNAMENT'].includes(normalizeEveningFormat(evening?.format)),
     games: rows.map((row) => ({ id: Number(row.id), number: Number(row.global_game_number ?? 0), envelope: parse(row.protocol_text) })),
   };
   cache?.set(eveningId, value);
@@ -114,10 +117,15 @@ export async function buildGameResultCard(
   const lines = [`🎭 Игра №${number}${evening?.title ? ` · ${evening.title}` : ''}`];
   const roleLabel = points.role ? ROLE_LABELS[points.role] : null;
   lines.push(`${points.win ? '🏆 Победа' : 'Поражение'}${roleLabel ? ` · ${roleLabel}` : ''}${result?.seat_number ? ` · место ${result.seat_number}` : ''}`);
-  const details: string[] = [];
-  if (points.bestMove > 0) details.push(`лучший ход ${signed(points.bestMove)}`);
-  if (String(protocol.first_killed_participant_id || '') === String(result?.participant_id || '')) details.push('первый убитый');
-  lines.push(`Баллы за игру: ${signed(points.total)}${details.length ? ` (${details.join(', ')})` : ''}`);
+  const firstKilled = String(protocol.first_killed_participant_id || '') === String(result?.participant_id || '');
+  if (evening?.scored) {
+    const details: string[] = [];
+    if (points.bestMove > 0) details.push(`лучший ход ${signed(points.bestMove)}`);
+    if (firstKilled) details.push('первый убитый');
+    lines.push(`Баллы за игру: ${signed(points.total)}${details.length ? ` (${details.join(', ')})` : ''}`);
+  } else if (firstKilled) {
+    lines.push('Первый убитый');
+  }
 
   if (evening) {
     const number = Number(game.global_game_number ?? 0);

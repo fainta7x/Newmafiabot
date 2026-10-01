@@ -7,7 +7,7 @@ export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | '
 export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean;
   /** Everything the player put in during this hand: decides which side pots they can win. */
   total_committed: number };
-export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'all_in'; amount: number; street: PokerStreet; at: number };
+export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all_in'; amount: number; street: PokerStreet; at: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
   small_blind_seat: number | null; big_blind_seat: number | null;
@@ -142,7 +142,10 @@ export const pokerHandLabel = (state: PokerState, playerId: string) => {
   const cards = [...(state.hole_cards[playerId] || []), ...state.board];
   if (cards.length < 5) {
     const hole = state.hole_cards[playerId] || [];
-    return hole.length === 2 && hole[0].rank === hole[1].rank ? `Пара ${RANK_OF[rankValue(hole[0].rank)]}` : 'Комбинация формируется';
+    if (hole.length !== 2) return '';
+    const [high, low] = hole.map((card) => rankValue(card.rank)).sort((x, y) => y - x);
+    // Before the flop there is always a hand: a pocket pair or a high card with its kicker.
+    return high === low ? `Пара ${RANK_OF[high]}` : `Старшая карта: ${RANK_ONE[high]}, кикер ${RANK_ONE[low]}`;
   }
   return describeHand(handRank(cards));
 };
@@ -210,6 +213,7 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   const player = state.players.find((item) => item.seat === state.current_seat);
   if (!player || player.folded || player.all_in) throw new Error('Сейчас ход другого игрока.');
   const toCall = Math.max(0, state.current_bet - player.committed);
+  const betBefore = state.current_bet;
   if (action.type === 'all_in') action = player.chips <= toCall ? { type: 'call' } : { type: 'bet', amount: player.committed + player.chips };
   const elapsed = state.turn_started_at ? Math.max(0, Math.floor((Date.now() - state.turn_started_at) / 1000)) : 0;
   const usedReserve = elapsed > state.base_turn_seconds;
@@ -232,7 +236,7 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
     actionAmount = paid; player.chips -= paid; player.committed += paid; player.total_committed += paid; state.pot += paid; state.current_bet = Math.max(state.current_bet, player.committed); player.all_in = player.chips === 0;
   } else throw new Error('Некорректное действие.');
   player.acted = true; state.last_action = `${player.id}:${action.type}:${actionAmount}`;
-  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type, amount: actionAmount, street: state.street, at: Date.now() });
+  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type === 'bet' && betBefore > 0 ? 'raise' : action.type, amount: actionAmount, street: state.street, at: Date.now() });
   state.action_log = state.action_log.slice(-20);
   const active = activePlayers(state);
   if (active.length === 1) { awardPot(state); state.turn_started_at = null; return state; }
@@ -259,6 +263,18 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   }
   state.current_seat = (state.street as PokerStreet) === 'finished' ? null : nextSeat(state.players, player.seat);
   state.turn_started_at = state.current_seat === null ? null : Date.now();
+  return state;
+};
+
+/** A player who leaves the table folds at once, even when it is not their turn. */
+export const foldOutOfTurn = (state: PokerState, playerId: string) => {
+  const player = state.players.find((item) => item.id === playerId);
+  if (!player || player.folded || state.street === 'finished') return state;
+  if (state.current_seat === player.seat) return applyPokerAction(state, { type: 'fold' });
+  player.folded = true;
+  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: 'fold', amount: 0, street: state.street, at: Date.now() });
+  const active = activePlayers(state);
+  if (active.length === 1) { awardPot(state); state.turn_started_at = null; }
   return state;
 };
 

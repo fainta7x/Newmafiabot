@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { applyPokerAction, createPokerHand, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
+import { applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
 
-export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; hand: PokerState | null; createdAt: string };
+export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean; sitting_out?: boolean }>; hand: PokerState | null; createdAt: string };
 const lobbies = new Map<string, PokerLobby>();
 /** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
 export const NEXT_HAND_DELAY_MS = 6000;
@@ -38,54 +38,88 @@ const publicState = (lobby: PokerLobby, viewerId?: string) => {
   // Own cards always; other players' cards only after a showdown. Burned cards stay hidden.
   const visibleIds = new Set([...(viewerId ? [viewerId] : []), ...(lobby.hand.street === 'finished' ? lobby.hand.revealed_ids || [] : [])]);
   const holeCards = Object.fromEntries([...visibleIds].map((id) => [id, lobby.hand?.hole_cards[id] || []]));
-  const viewerSeated = Boolean(viewer);
+  // A player who sat down during a hand watches it and plays from the next one.
+  const viewerAtTable = Boolean(viewerId && lobby.players.some((player) => player.id === viewerId));
+  const viewerSeated = viewerAtTable;
   const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
-  const hand = { ...lobby.hand, deck: [], burn_cards: [], showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
+  const hand = { ...lobby.hand, deck: [], burn_cards: [], showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand };
 };
 
-export const listPokerLobbies = () => [...lobbies.values()].filter((lobby) => lobby.status === 'waiting').map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, players: lobby.players.map(({ id, nickname, seat }) => ({ id, nickname, seat })), createdAt: lobby.createdAt }));
+export const listPokerLobbies = () => [...lobbies.values()].filter((lobby) => lobby.status !== 'finished' && lobby.players.length < 8).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, players: lobby.players.map(({ id, nickname, seat }) => ({ id, nickname, seat })), createdAt: lobby.createdAt }));
 export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната') => {
   const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: 1000 }], hand: null, createdAt: new Date().toISOString() };
   lobbies.set(lobby.id, lobby); return lobby;
 };
 export const getPokerLobby = (id: string) => lobbies.get(id) || null;
+/** The lowest seat number nobody sits on. */
+const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => !lobby.players.some((player) => player.seat === seat)) ?? lobby.players.length + 1;
+
+/** Like a poker room: the table stays open; someone who sits down during a hand plays from the next one. */
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
-  if (lobby.status !== 'waiting') throw new Error('Игра уже началась.');
+  if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) return lobby;
-  if (lobby.players.length >= 8) throw new Error('В лобби максимум 8 игроков.');
-  lobby.players.push({ ...player, seat: lobby.players.length + 1, chips: 1000 }); return lobby;
+  if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
+  lobby.players.push({ ...player, seat: freeSeat(lobby), chips: 1000 }); return lobby;
+};
+
+/** Leaving folds the player's cards in a running hand; chips already in the pot stay there. */
+export const leavePokerLobby = (lobby: PokerLobby, playerId: string) => {
+  const hand = lobby.hand;
+  if (hand && hand.street !== 'finished') {
+    const handPlayer = hand.players.find((item) => item.id === playerId);
+    if (handPlayer && !handPlayer.folded) foldOutOfTurn(hand, playerId);
+  }
+  lobby.players = lobby.players.filter((player) => player.id !== playerId);
+  const humans = lobby.players.filter((player) => !player.is_bot);
+  if (!humans.length) { lobbies.delete(lobby.id); return null; }
+  if (lobby.ownerId === playerId) lobby.ownerId = humans[0].id;
+  if (lobby.status === 'waiting' && lobby.hand === null) return lobby;
+  if (lobby.players.filter((player) => player.chips > 0).length < 2 && (!lobby.hand || lobby.hand.street === 'finished')) lobby.status = 'waiting';
+  return lobby;
 };
 export const addPokerBot = (lobby: PokerLobby) => {
-  if (lobby.status !== 'waiting') throw new Error('Игра уже началась.');
-  if (lobby.players.length >= 8) throw new Error('В лобби максимум 8 игроков.');
+  if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
+  if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
   const name = BOT_NAMES.find((candidate) => !lobby.players.some((item) => item.nickname === candidate)) || `Бот ${lobby.players.length}`;
-  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: name, seat: lobby.players.length + 1, chips: 1000, is_bot: true });
+  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: name, seat: freeSeat(lobby), chips: 1000, is_bot: true });
   return lobby;
 };
 export const startPokerLobby = (lobby: PokerLobby, actorId: string) => {
   if (lobby.ownerId !== actorId) throw new Error('Запустить игру может создатель лобби.');
-  if (lobby.players.length < 2) throw new Error('Нужно минимум 2 игрока.');
-  lobby.hand = createPokerHand({ id: randomUUID(), players: lobby.players }); lobby.status = 'playing'; return lobby;
+  const ready = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out);
+  if (ready.length < 2) throw new Error('Нужно минимум 2 игрока.');
+  lobby.hand = createPokerHand({ id: randomUUID(), players: ready }); lobby.status = 'playing'; return lobby;
 };
 /** Deals the next hand with the chips left; the dealer button moves on. Busted players sit out. */
 export const nextPokerHand = (lobby: PokerLobby) => {
   const hand = lobby.hand;
-  if (!hand || lobby.status !== 'playing') throw new Error('Игра не идёт.');
+  if (!hand || lobby.status === 'finished') throw new Error('Игра не идёт.');
   if (hand.street !== 'finished') throw new Error('Текущая раздача ещё не закончилась.');
   for (const player of lobby.players) {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;
   }
-  const seated = lobby.players.filter((player) => player.chips > 0).sort((a, b) => a.seat - b.seat);
-  if (seated.length < 2) { lobby.status = 'finished'; return lobby; }
+  // Players who are away keep their seat and chips but are not dealt in, like «sit out» in poker rooms.
+  const seated = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out).sort((a, b) => a.seat - b.seat);
+  if (seated.length < 2) { lobby.status = 'waiting'; return lobby; }
+  lobby.status = 'playing';
   const dealer = seated.find((player) => player.seat > hand.dealer_seat) || seated[0];
   lobby.hand = createPokerHand({ id: randomUUID(), players: seated, dealer_seat: dealer.seat });
   return lobby;
 };
+/** «Отойти» / «Вернуться за стол»: an away player keeps the seat but is not dealt in until they come back. */
+export const setPokerSitOut = (lobby: PokerLobby, playerId: string, away: boolean) => {
+  const seat = lobby.players.find((player) => player.id === playerId);
+  if (!seat) throw new Error('Вы не сидите за этим столом.');
+  seat.sitting_out = away;
+  // Coming back to a table that waited for players deals the next hand at once.
+  if (!away && lobby.status === 'waiting' && lobby.hand?.street === 'finished') nextPokerHand(lobby);
+  return lobby;
+};
 export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => publicState(lobby, viewerId);
 export const tickPokerLobby = (lobby: PokerLobby) => {
-  if (!lobby.hand || lobby.status !== 'playing') return;
+  if (!lobby.hand || lobby.status === 'finished') return;
   if (lobby.hand.street === 'finished') {
     if (lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) nextPokerHand(lobby);
     return;
@@ -98,8 +132,11 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
     try { applyPokerAction(lobby.hand, chooseBotAction(lobby.hand, player)); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
     return;
   }
+  const seat = lobby.players.find((item) => item.id === player.id);
   const remaining = pokerTurnRemaining(lobby.hand, player);
-  if (remaining.base_seconds > 0 || remaining.reserve_seconds > 0) return;
+  // A player who is away (or left) is played at once; a player whose time ran out goes away.
+  if (!seat?.sitting_out && (remaining.base_seconds > 0 || remaining.reserve_seconds > 0)) return;
+  if (seat && !seat.sitting_out) seat.sitting_out = true;
   const toCall = Math.max(0, lobby.hand.current_bet - player.committed);
   try { applyPokerAction(lobby.hand, { type: toCall ? 'fold' : 'check' }); } catch { /* retry on next poll */ }
 };

@@ -601,115 +601,116 @@ body.live-broadcast-document #root {
   .live-broadcast-timer-bar span { transition: none; }
 }
 
-/* ---------- «Ход игры» (owner, 2026-10-01): what happened stays on screen ---------- */
+/* ---------- «Ход игры» (owner, 2026-10-01): one aligned row per night and day ---------- */
 .live-broadcast-info-row { flex-wrap: wrap; }
-.live-broadcast-canvas.has-timeline .live-broadcast-info-row { margin-left: calc(392 * var(--u)); max-width: calc(980 * var(--u)); }
+.live-broadcast-canvas.has-timeline .live-broadcast-info-row { margin-left: calc(424 * var(--u)); max-width: calc(960 * var(--u)); }
 
 .live-broadcast-timeline {
+  --tl-cols: calc(92 * var(--u)) repeat(3, calc(96 * var(--u)));
   position: absolute;
   left: calc(20 * var(--u));
   top: calc(110 * var(--u));
   bottom: calc(266 * var(--u));
-  width: calc(372 * var(--u));
+  width: calc(404 * var(--u));
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
+  border-radius: calc(14 * var(--u));
 }
 
-.live-broadcast-timeline-title {
-  align-self: flex-start;
-  margin-bottom: calc(6 * var(--u));
-  padding: calc(4 * var(--u)) calc(10 * var(--u));
-  border-radius: 99px;
+.live-broadcast-tl-head,
+.live-broadcast-tl {
+  display: grid;
+  grid-template-columns: var(--tl-cols);
+  align-items: center;
+  padding: 0 calc(12 * var(--u));
+}
+
+.live-broadcast-tl-head {
+  height: calc(34 * var(--u));
+  border-radius: calc(14 * var(--u)) calc(14 * var(--u)) 0 0;
   background: var(--glass-strong);
   border: 1px solid var(--line);
-  font-size: calc(12 * var(--u));
+  border-bottom: 0;
+  font-size: calc(11 * var(--u));
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .14em;
+  letter-spacing: .1em;
   color: var(--muted);
 }
+
+.live-broadcast-tl-head > span { display: flex; align-items: center; gap: calc(5 * var(--u)); }
+.live-broadcast-tl-head > span:first-child { color: #fff; }
+.live-broadcast-tl-head svg { width: calc(13 * var(--u)); height: calc(13 * var(--u)); color: #ff8a9b; }
+.live-broadcast-tl-head > span:nth-child(3) .live-broadcast-role-icon { color: #c4b5fd; }
+.live-broadcast-tl-head > span:nth-child(4) .live-broadcast-role-icon { color: var(--role-sheriff); }
 
 .live-broadcast-timeline-list {
   display: flex;
   flex-direction: column;
-  gap: calc(6 * var(--u));
   min-height: 0;
-}
-
-.live-broadcast-tl {
-  display: grid;
-  gap: calc(5 * var(--u));
-  padding: calc(8 * var(--u)) calc(12 * var(--u)) calc(9 * var(--u));
-  border-radius: calc(12 * var(--u));
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-left: calc(4 * var(--u)) solid #9d87ff;
+  border-top: 0;
+  border-radius: 0 0 calc(14 * var(--u)) calc(14 * var(--u));
   background: var(--glass);
   backdrop-filter: blur(14px);
 }
 
-.live-broadcast-tl.is-day { border-left-color: var(--gold); }
-.live-broadcast-tl.is-current { box-shadow: 0 0 0 1px rgba(157, 135, 255, .55), 0 0 calc(22 * var(--u)) rgba(157, 135, 255, .35); }
+.live-broadcast-tl {
+  flex: none;
+  height: calc(40 * var(--u));
+  border-top: 1px solid var(--line);
+}
+
+.live-broadcast-tl.is-current { background: rgba(157, 135, 255, .16); }
 
 .live-broadcast-tl-tag {
-  display: flex;
-  align-items: center;
-  gap: calc(8 * var(--u));
-  font-size: calc(12 * var(--u));
+  font-size: calc(13 * var(--u));
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .12em;
+  letter-spacing: .08em;
   color: #c4b5fd;
 }
 
 .live-broadcast-tl.is-day .live-broadcast-tl-tag { color: var(--gold); }
+.live-broadcast-tl.is-current .live-broadcast-tl-tag::after { content: " •"; color: #9d87ff; }
 
-.live-broadcast-tl-tag i {
-  padding: calc(1 * var(--u)) calc(7 * var(--u));
-  border-radius: 99px;
-  background: #9d87ff;
-  color: #120c26;
-  font-style: normal;
-  letter-spacing: .06em;
+.live-broadcast-tl-cell { display: flex; align-items: center; }
+.live-broadcast-tl-cell.is-miss .live-broadcast-seat-chip { opacity: .45; text-decoration: line-through; }
+
+.live-broadcast-tl-dash {
+  font-size: calc(12 * var(--u));
+  font-weight: 700;
+  color: var(--muted);
 }
 
-.live-broadcast-tl-row {
+.live-broadcast-tl-day {
+  grid-column: 2 / -1;
   display: flex;
   align-items: center;
-  gap: calc(7 * var(--u));
-  font-size: calc(15 * var(--u));
-  font-weight: 600;
-  color: rgba(255, 255, 255, .85);
+  gap: calc(4 * var(--u));
+  min-width: 0;
+  overflow: hidden;
 }
 
-.live-broadcast-tl-row > svg { flex: none; width: calc(16 * var(--u)); height: calc(16 * var(--u)); color: #ff8a9b; }
-.live-broadcast-tl-row.is-don > svg { color: #c4b5fd; }
-.live-broadcast-tl-row.is-sheriff > svg { color: var(--role-sheriff); }
-.live-broadcast-tl.is-day .live-broadcast-tl-row > svg { color: var(--gold); }
-.live-broadcast-tl-label { min-width: calc(58 * var(--u)); }
-.live-broadcast-tl-row.is-best .live-broadcast-tl-label { color: var(--gold); font-weight: 800; }
+.live-broadcast-tl-day.is-quiet { font-size: calc(13 * var(--u)); font-weight: 700; color: var(--muted); }
 
-.live-broadcast-tl-row em {
-  padding: calc(2 * var(--u)) calc(8 * var(--u));
-  border-radius: 99px;
-  background: rgba(255, 255, 255, .12);
-  font-style: normal;
+.live-broadcast-tl-word {
   font-size: calc(12 * var(--u));
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: #fff;
+  font-weight: 700;
+  color: var(--muted);
 }
 
-.live-broadcast-tl-row.is-don em.is-hit { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-tl-row.is-sheriff em.is-hit { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .3); }
-.live-broadcast-tl-row.is-sheriff em.is-red { background: var(--role-citizen); }
+.live-broadcast-tl-word + .live-broadcast-seat-chip { margin-left: calc(2 * var(--u)); }
+.live-broadcast-seat-chip + .live-broadcast-tl-word { margin-left: calc(8 * var(--u)); }
 
-/* Older entries shrink to their first line so the newest three always fit. */
-.live-broadcast-tl.is-compact { padding: calc(5 * var(--u)) calc(12 * var(--u)); grid-template-columns: auto 1fr; align-items: center; column-gap: calc(10 * var(--u)); }
-.live-broadcast-tl.is-compact > :nth-child(n+3) { display: none; }
-.live-broadcast-tl.is-compact .live-broadcast-tl-row { font-size: calc(13 * var(--u)); }
+.live-broadcast-timeline .live-broadcast-seat-chip {
+  min-width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  font-size: calc(15 * var(--u));
+}
 
 .live-broadcast-seat-list { display: flex; gap: calc(5 * var(--u)); }
 
@@ -739,7 +740,7 @@ body.live-broadcast-document #root {
 .live-broadcast-protocol-group.is-sheriff .live-broadcast-protocol-label { color: var(--role-sheriff); }
 
 
-/* ---------- Player card facts (owner, 2026-10-01): each player's own story lives on the card ---------- */
+/* ---------- Player card facts (owner, 2026-10-01): each player's own story, as an aligned table ---------- */
 .live-broadcast-player-tags {
   display: flex;
   flex-direction: column;
@@ -752,47 +753,41 @@ body.live-broadcast-document #root {
 
 .live-broadcast-player-facts {
   display: grid;
-  gap: calc(5 * var(--u));
+  gap: calc(4 * var(--u));
   margin-top: calc(8 * var(--u));
   padding-top: calc(7 * var(--u));
   border-top: 1px solid var(--line);
 }
 
 .live-broadcast-player-facts:empty { display: none; }
-.live-broadcast-player-facts .live-broadcast-player-status { margin-top: 0; }
+.live-broadcast-player-facts .live-broadcast-player-status { margin-top: 0; height: calc(20 * var(--u)); }
 
 .live-broadcast-fact {
+  display: grid;
+  grid-template-columns: calc(62 * var(--u)) 1fr;
+  align-items: center;
+  min-height: calc(20 * var(--u));
+}
+
+.live-broadcast-fact > b {
+  font-size: calc(10 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+
+.live-broadcast-fact.is-best > b { color: var(--gold); }
+.live-broadcast-fact.is-red > b { color: #ff8a9b; }
+.live-broadcast-fact.is-black > b { color: #fff; }
+.live-broadcast-fact.is-sheriff > b { color: var(--role-sheriff); }
+
+.live-broadcast-fact-values {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: calc(3 * var(--u));
 }
-
-.live-broadcast-fact > b {
-  margin-right: calc(3 * var(--u));
-  font-size: calc(10 * var(--u));
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--muted);
-}
-
-.live-broadcast-fact.is-hands > b { color: #ff8a9b; }
-.live-broadcast-fact.is-best > b { color: var(--gold); }
-.live-broadcast-fact.is-protocol > b { flex-basis: 100%; }
-
-.live-broadcast-fact > span:not(.live-broadcast-seat-chip) {
-  display: flex;
-  align-items: center;
-  gap: calc(2 * var(--u));
-  margin-right: calc(4 * var(--u));
-  font-size: calc(11 * var(--u));
-  font-weight: 800;
-}
-
-.live-broadcast-fact.is-protocol > .is-red { color: #ff8a9b; }
-.live-broadcast-fact.is-protocol > .is-black { color: #fff; }
-.live-broadcast-fact.is-protocol > .is-sheriff { color: var(--role-sheriff); }
 
 .live-broadcast-player-facts .live-broadcast-seat-chip {
   min-width: calc(20 * var(--u));
@@ -805,32 +800,16 @@ body.live-broadcast-document #root {
 .live-broadcast-check {
   display: flex;
   align-items: center;
-  gap: calc(5 * var(--u));
+  gap: calc(3 * var(--u));
+  height: calc(20 * var(--u));
+  padding: 0 calc(6 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background: rgba(255, 255, 255, .1);
   font-size: calc(12 * var(--u));
   font-weight: 700;
-  color: rgba(255, 255, 255, .7);
+  color: #fff;
 }
 
-.live-broadcast-check .live-broadcast-role-icon { width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
+.live-broadcast-check .live-broadcast-role-icon { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
 .live-broadcast-check.is-don .live-broadcast-role-icon { color: #c4b5fd; }
 .live-broadcast-check.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
-
-.live-broadcast-check b {
-  margin-left: auto;
-  padding: calc(2 * var(--u)) calc(7 * var(--u));
-  border-radius: 99px;
-  font-size: calc(11 * var(--u));
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: #fff;
-  background: rgba(255, 255, 255, .14);
-}
-
-.live-broadcast-check.is-sheriff.is-red b { background: var(--role-citizen); }
-.live-broadcast-check.is-sheriff.is-black b { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .35); }
-.live-broadcast-check.is-don.is-sheriff b { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-check.is-don.is-not_sheriff b { background: rgba(139, 92, 246, .45); }
-
-.live-broadcast-tl-row.is-hands .live-broadcast-tl-label { color: #ff8a9b; font-size: calc(13 * var(--u)); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
-.live-broadcast-tl-row.is-hands { padding-left: calc(23 * var(--u)); }

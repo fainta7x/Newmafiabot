@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Ban, Crosshair, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
-import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastProtocol, LiveBroadcastState, LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
+import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState, LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
@@ -54,12 +54,13 @@ const DAY_NOTES: Record<string, string> = {
   single: 'Без голосования',
 };
 
-const ProtocolLine = ({ protocol, kinds }: { protocol: LiveBroadcastProtocol; kinds: Map<number, RoleKind> }) => (
-  <div className="live-broadcast-fact is-protocol">
-    <b>Протокол</b>
-    {protocol.red.length ? <span className="is-red">К{protocol.red.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
-    {protocol.black.length ? <span className="is-black">Ч{protocol.black.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
-    {protocol.sheriff.length ? <span className="is-sheriff">Ш{protocol.sheriff.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
+/** One fact line on a player card: a fixed-width label and the seats, so every card lines up. */
+const FactRow = ({ label, seats, kinds, tone }: { label: string; seats: number[]; kinds: Map<number, RoleKind>; tone?: 'best' | 'red' | 'black' | 'sheriff' }) => (
+  <div className={`live-broadcast-fact ${tone ? `is-${tone}` : ''}`}>
+    <b>{label}</b>
+    <div className="live-broadcast-fact-values">
+      {seats.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+    </div>
   </div>
 );
 
@@ -240,56 +241,43 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
 
       {visibleTimeline.length ? (
         <aside className="live-broadcast-timeline" aria-label="Ход игры">
-          <div className="live-broadcast-timeline-title">Ход игры</div>
+          {/* One aligned row per night and day; the colour of a seat already tells its team, so no result words. */}
+          <div className="live-broadcast-tl-head">
+            <span>Ход игры</span>
+            <span><Crosshair aria-hidden="true" />Выстрел</span>
+            <span><MafiaHatIcon className="live-broadcast-role-icon" />Дон</span>
+            <span><Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />Шериф</span>
+          </div>
           <div className="live-broadcast-timeline-list">
             {visibleTimeline.map((entry, index) => {
-              const compact = index < visibleTimeline.length - 3;
               if (entry.kind === 'day') {
+                const hands = entry.left.length === 1 ? handsFor(entry.round, entry.left[0]) : [];
                 return (
-                  <div key={`d${entry.round}-${index}`} className={`live-broadcast-tl is-day ${compact ? 'is-compact' : ''}`}>
+                  <div key={`d${entry.round}-${index}`} className="live-broadcast-tl is-day">
                     <div className="live-broadcast-tl-tag">День {entry.round}</div>
-                    <div className="live-broadcast-tl-row">
-                      <UserRoundX aria-hidden="true" />
-                      <span className="live-broadcast-tl-label">{entry.left.length ? (entry.note === 'table' ? 'Ушли' : 'Ушёл') : DAY_NOTES[entry.note]}</span>
-                      {entry.left.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
-                    </div>
-                    {entry.left.length === 1 && handsFor(entry.round, entry.left[0]).length ? (
-                      <div className="live-broadcast-tl-row is-hands">
-                        <span className="live-broadcast-tl-label">Руками</span>
-                        {handsFor(entry.round, entry.left[0]).map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+                    {entry.left.length ? (
+                      <div className="live-broadcast-tl-day">
+                        <span className="live-broadcast-tl-word">{entry.note === 'table' ? 'ушли' : 'ушёл'}</span>
+                        {entry.left.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+                        {hands.length ? <span className="live-broadcast-tl-word">руками</span> : null}
+                        {hands.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
                       </div>
-                    ) : null}
+                    ) : <div className="live-broadcast-tl-day is-quiet">{DAY_NOTES[entry.note].toLowerCase()}</div>}
                   </div>
                 );
               }
               return (
-                <div key={`n${entry.round}-${index}`} className={`live-broadcast-tl is-night ${entry.current ? 'is-current' : ''} ${compact ? 'is-compact' : ''}`}>
-                  <div className="live-broadcast-tl-tag">Ночь {entry.round}{entry.current ? <i>сейчас</i> : null}</div>
-                  <div className="live-broadcast-tl-row">
-                    <Crosshair aria-hidden="true" />
-                    {entry.shotSeat ? (
-                      <>
-                        <span className="live-broadcast-tl-label">{entry.current ? 'Выстрел' : entry.killed ? 'Убит' : 'Промах'}</span>
-                        <SeatChip seat={entry.shotSeat} kinds={kinds} />
-                      </>
-                    ) : <span className="live-broadcast-tl-label">{entry.current ? 'Выстрел —' : 'Промах'}</span>}
+                <div key={`n${entry.round}-${index}`} className={`live-broadcast-tl is-night ${entry.current ? 'is-current' : ''}`}>
+                  <div className="live-broadcast-tl-tag">Ночь {entry.round}</div>
+                  <div className={`live-broadcast-tl-cell ${!entry.current && !entry.killed ? 'is-miss' : ''}`}>
+                    {entry.shotSeat ? <SeatChip seat={entry.shotSeat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : 'промах'}</span>}
                   </div>
-                  {entry.donCheck ? (
-                    <div className="live-broadcast-tl-row is-don">
-                      <MafiaHatIcon className="live-broadcast-role-icon" />
-                      <span className="live-broadcast-tl-label">Дон</span>
-                      <SeatChip seat={entry.donCheck.seat} kinds={kinds} />
-                      {entry.donCheck.isSheriff !== null ? <em className={entry.donCheck.isSheriff ? 'is-hit' : ''}>{entry.donCheck.isSheriff ? 'шериф' : 'не шериф'}</em> : null}
-                    </div>
-                  ) : null}
-                  {entry.sheriffCheck ? (
-                    <div className="live-broadcast-tl-row is-sheriff">
-                      <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />
-                      <span className="live-broadcast-tl-label">Шериф</span>
-                      <SeatChip seat={entry.sheriffCheck.seat} kinds={kinds} />
-                      {entry.sheriffCheck.isBlack !== null ? <em className={entry.sheriffCheck.isBlack ? 'is-hit' : 'is-red'}>{entry.sheriffCheck.isBlack ? 'чёрный' : 'красный'}</em> : null}
-                    </div>
-                  ) : null}
+                  <div className="live-broadcast-tl-cell">
+                    {entry.donCheck ? <SeatChip seat={entry.donCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
+                  </div>
+                  <div className="live-broadcast-tl-cell">
+                    {entry.sheriffCheck ? <SeatChip seat={entry.sheriffCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
+                  </div>
                 </div>
               );
             })}
@@ -377,20 +365,24 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                     <span>{exit?.label || player.status}</span>
                   </div>
                 ) : null}
-                {exit?.hands.length ? (
-                  <div className="live-broadcast-fact is-hands"><b>Руками</b>{exit.hands.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
-                ) : null}
-                {bestMove && bestMove.bySeat === player.seat ? (
-                  <div className="live-broadcast-fact is-best"><b>ЛХ</b>{bestMove.seats.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
-                ) : null}
-                {protocol ? <ProtocolLine protocol={protocol} kinds={kinds} /> : null}
-                {playerChecks.map((check) => (
-                  <div key={`${check.by}-${check.round}`} className={`live-broadcast-check is-${check.by} is-${check.result || 'pending'}`}>
-                    {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
-                    <span>ночь {check.round}</span>
-                    <b>{checkTitle(check)}</b>
+                {exit?.hands.length ? <FactRow label="Руками" seats={exit.hands} kinds={kinds} /> : null}
+                {bestMove && bestMove.bySeat === player.seat ? <FactRow label="ЛХ" seats={bestMove.seats} kinds={kinds} tone="best" /> : null}
+                {protocol?.red.length ? <FactRow label="Красные" seats={protocol.red} kinds={kinds} tone="red" /> : null}
+                {protocol?.black.length ? <FactRow label="Чёрные" seats={protocol.black} kinds={kinds} tone="black" /> : null}
+                {protocol?.sheriff.length ? <FactRow label="Шериф" seats={protocol.sheriff} kinds={kinds} tone="sheriff" /> : null}
+                {playerChecks.length ? (
+                  <div className="live-broadcast-fact">
+                    <b>Проверки</b>
+                    <div className="live-broadcast-fact-values">
+                      {playerChecks.map((check) => (
+                        <span key={`${check.by}-${check.round}`} className={`live-broadcast-check is-${check.by}`} title={`${check.by === 'don' ? 'Дон' : 'Шериф'}, ночь ${check.round}: ${checkTitle(check)}`}>
+                          {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
+                          н{check.round}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                ) : null}
               </div>
               {hasDiscipline ? (
                 <div className="live-broadcast-player-footer">

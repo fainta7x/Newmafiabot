@@ -117,6 +117,8 @@ const bestHand = (cards: PokerCard[]): { rank: number[]; cards: PokerCard[] } =>
   return combinations.map((combo) => ({ rank: handRankFive(combo), cards: combo })).sort((a, b) => compareRanks(b.rank, a.rank))[0] || { rank: [], cards: [] };
 };
 const handRank = (cards: PokerCard[]): number[] => bestHand(cards).rank;
+/** Rank of the best five of up to seven cards; the bots use it for equity. */
+export const pokerHandRank = handRank;
 
 const RANK_ONE: Record<number, string> = { 2: 'двойка', 3: 'тройка', 4: 'четвёрка', 5: 'пятёрка', 6: 'шестёрка', 7: 'семёрка', 8: 'восьмёрка', 9: 'девятка', 10: 'десятка', 11: 'валет', 12: 'дама', 13: 'король', 14: 'туз' };
 const RANK_OF: Record<number, string> = { 2: 'двоек', 3: 'троек', 4: 'четвёрок', 5: 'пятёрок', 6: 'шестёрок', 7: 'семёрок', 8: 'восьмёрок', 9: 'девяток', 10: 'десяток', 11: 'валетов', 12: 'дам', 13: 'королей', 14: 'тузов' };
@@ -237,7 +239,8 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   } else throw new Error('Некорректное действие.');
   player.acted = true; state.last_action = `${player.id}:${action.type}:${actionAmount}`;
   state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type === 'bet' && betBefore > 0 ? 'raise' : action.type, amount: actionAmount, street: state.street, at: Date.now() });
-  state.action_log = state.action_log.slice(-20);
+  // Long enough for a whole hand: the bots read who raised before the flop.
+  state.action_log = state.action_log.slice(-80);
   const active = activePlayers(state);
   if (active.length === 1) { awardPot(state); state.turn_started_at = null; return state; }
   const canAct = active.filter((item) => !item.all_in);

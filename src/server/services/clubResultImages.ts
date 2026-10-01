@@ -170,8 +170,18 @@ export function seasonTableSvg(season: SeasonTable) {
   clipCounter = 0;
   const top = 250;
   const rowHeight = 92;
-  const rowsHeight = 60 + season.rows.length * rowHeight;
-  const rolesTop = top + rowsHeight + 30;
+  const rowsHeight = 60 + Math.max(1, season.rows.length) * rowHeight;
+  // Rating: players under the minimum are named below the top, so they see how close they are.
+  const pendingText = season.pending.map((item) => `${clip(item.nickname, 18)} ${item.games}/${season.minGames}`);
+  const pendingLines: string[] = [];
+  for (const part of pendingText) {
+    const last = pendingLines[pendingLines.length - 1];
+    if (last && (last + ', ' + part).length <= 52) pendingLines[pendingLines.length - 1] = `${last}, ${part}`;
+    else pendingLines.push(part);
+  }
+  const pendingHeight = pendingLines.length ? 60 + pendingLines.length * 34 : 0;
+  const pendingTop = top + rowsHeight + 10;
+  const rolesTop = top + rowsHeight + pendingHeight + 30;
   const height = rolesTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const medal = [C.gold, C.silver, C.bronze];
   const rows = season.rows.map((row, index) => {
@@ -195,9 +205,11 @@ export function seasonTableSvg(season: SeasonTable) {
   ${renderNoirExportBackground(W, height)}
   ${renderNoirExportBrandHeader('СЕЗОН · ПРОМЕЖУТОЧНАЯ ТАБЛИЦА')}
   <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(season.periodTitle, 28))}</text>
-  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(`${season.games} ${season.games % 10 === 1 && season.games % 100 !== 11 ? 'игра' : [2, 3, 4].includes(season.games % 10) && ![12, 13, 14].includes(season.games % 100) ? 'игры' : 'игр'} в зачёте`)}</text>
+  <text x="${M}" y="208" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(`${season.minGames ? `в топе — от ${season.minGames} ${season.minGames % 10 === 1 && season.minGames % 100 !== 11 ? 'игры' : 'игр'} · ` : ''}${season.games} ${season.games % 10 === 1 && season.games % 100 !== 11 ? 'игра' : [2, 3, 4].includes(season.games % 10) && ![12, 13, 14].includes(season.games % 100) ? 'игры' : 'игр'} в зачёте`)}</text>
   <text x="${M}" y="${top + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">${season.scored ? 'ТОП-10 ПО СРЕДНЕМУ БАЛЛУ' : 'ТОП-10 ПО ПОБЕДАМ'}</text>
-  ${rows}
+  ${rows || `<text x="${M}" y="${top + 100}" font-size="24" font-weight="500" fill="${C.subduedText}">Пока никто не набрал минимум игр</text>`}
+  ${pendingLines.length ? `<text x="${M}" y="${pendingTop + 30}" font-size="17" font-weight="700" letter-spacing="2" fill="${C.subduedText}">${esc(`БЛИЗКО К ЗАЧЁТУ · НУЖНО ${season.minGames} ${season.minGames && season.minGames % 10 === 1 && season.minGames % 100 !== 11 ? 'ИГРА' : season.minGames && [2, 3, 4].includes(season.minGames % 10) && ![12, 13, 14].includes(season.minGames % 100) ? 'ИГРЫ' : 'ИГР'}`)}</text>
+  ${pendingLines.map((line, index) => `<text x="${M}" y="${pendingTop + 66 + index * 34}" font-size="22" font-weight="500" fill="${C.mutedText}">${esc(line)}</text>`).join('')}` : ''}
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ ЗА СЕЗОН</text>
   ${roleCells}
   ${renderNoirExportFooter(W, height, season.scored ? 'средний балл = сумма баллов / число игр' : 'победы за сезон')}

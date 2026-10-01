@@ -269,8 +269,13 @@ export type SeasonTable = {
   scored: boolean;
   games: number;
   rows: SeasonRow[];
+  minGames: number | null;
+  pending: Array<{ nickname: string; games: number }>;
   bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
 };
+
+/** Rating seasons: the top counts only players with at least 40% of the most active player's games (owner, 2026-10-01). */
+export const SEASON_MIN_SHARE = 0.4;
 
 /** The rating period that counts this evening: its own format, its dates, or an organizer override. */
 async function findSeasonPeriod(db: DatabaseWrapper, evening: any) {
@@ -298,9 +303,17 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
   const result = await calculateRatingPeriodStandings(db, String(period.id));
   const standings = (result.standings || []).filter((item: any) => Number(item.games_played) > 0);
   if (!standings.length) return null;
-  const scored = isScoredFormat(evening.format);
+  // The period decides the season's rules (an organizer may include an evening of another format).
+  const scored = isScoredFormat(period.type);
   const average = (item: any) => Number(item.total_points || 0) / Number(item.games_played);
-  const ranked = [...standings].sort((a: any, b: any) => (scored
+  const maxGames = Math.max(...standings.map((item: any) => Number(item.games_played)));
+  const minGames = scored ? Math.max(1, Math.ceil(maxGames * SEASON_MIN_SHARE)) : null;
+  const qualified = minGames ? standings.filter((item: any) => Number(item.games_played) >= minGames) : standings;
+  const pendingRows = minGames
+    ? standings.filter((item: any) => Number(item.games_played) < minGames)
+      .sort((a: any, b: any) => b.games_played - a.games_played || a.nickname.localeCompare(b.nickname, 'ru'))
+    : [];
+  const ranked = [...qualified].sort((a: any, b: any) => (scored
     ? average(b) - average(a) || b.games_played - a.games_played
     : b.wins - a.wins || a.games_played - b.games_played || a.nickname.localeCompare(b.nickname, 'ru'))).slice(0, 10);
 
@@ -310,7 +323,8 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
 
   const roleIds = new Set<string>(ranked.map((item: any) => String(item.player_id)));
   const roleTallies = new Map<string, Map<string, { games: number; wins: number; points: number }>>();
-  for (const item of standings) {
+  // The best by role also counts only players who are in the season's standings.
+  for (const item of qualified) {
     for (const game of item.games || []) {
       const role = normalizeRole(game.role) || 'citizen';
       const perRole = roleTallies.get(role) || new Map();
@@ -333,7 +347,7 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
   });
 
   const ids = [...roleIds];
-  const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
+  const [names, avatars] = await Promise.all([loadNicknames(db, [...ids, ...pendingRows.map((item: any) => String(item.player_id))]), loadAvatars(db, ids)]);
   const rows: SeasonRow[] = ranked.map((item: any, index: number) => ({
     place: index + 1,
     playerId: String(item.player_id),
@@ -352,5 +366,50 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
       detail: scored ? `в среднем за ${best[1].games} ${gamesWord(best[1].games)}` : ofGames(best[1].games),
     } : null,
   }));
-  return { periodTitle: String(period.title || 'Сезон'), scored, games: Number(result.completed_games_count || 0), rows, bestByRole };
+  const pending = pendingRows.map((item: any) => ({ nickname: names.get(String(item.player_id)) || String(item.nickname || 'Игрок'), games: Number(item.games_played) }));
+  return { periodTitle: String(period.title || 'Сезон'), scored, games: Number(result.completed_games_count || 0), rows, minGames, pending, bestByRole };
+}
+
+export type EveningPlayerResult = {
+  playerId: string;
+  games: Array<{ number: string; role: string | null; won: boolean }>;
+  wins: number;
+  points: number | null;
+  eloDelta: number | null;
+  eloAfter: number | null;
+};
+
+/** Each profile's evening for the one personal message after closing (owner, 2026-10-01). */
+export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: string) {
+  const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  if (!evening) return null;
+  const scored = isScoredFormat(evening.format);
+  const rows = await db.all<any>(
+    'SELECT id, global_game_number, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL ORDER BY global_game_number, id',
+    [eveningId],
+  );
+  const elo = await loadClubElo(db);
+  const players = new Map<string, EveningPlayerResult>();
+  for (const row of rows) {
+    const envelope = parse(row.protocol_text);
+    if (!isCompleted(envelope)) continue;
+    const gameElo = elo.get(String(row.id));
+    for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
+      const playerId = String(result?.player_id || '');
+      if (!playerId) continue;
+      const role = normalizeRole(result?.role);
+      const win = won(role, envelope.protocol.winner_team);
+      const entry = players.get(playerId) || { playerId, games: [], wins: 0, points: scored ? 0 : null, eloDelta: null, eloAfter: null };
+      entry.games.push({ number: String(row.global_game_number || row.id), role, won: win });
+      if (win) entry.wins += 1;
+      if (scored) entry.points = (entry.points || 0) + gameResultPoints(envelope, result).total;
+      const change = gameElo?.get(playerId);
+      if (change) {
+        entry.eloDelta = (entry.eloDelta || 0) + change.delta;
+        entry.eloAfter = change.after;
+      }
+      players.set(playerId, entry);
+    }
+  }
+  return { title: String(evening.title || 'Игровой вечер'), dateLabel: dateLabel(evening.starts_at), scored, players: [...players.values()] };
 }

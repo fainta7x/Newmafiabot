@@ -1,7 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningSummary, loadGameBlank, loadSeasonTable } from './clubResultData.ts';
+import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable } from './clubResultData.ts';
+import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
+import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from './clubResultImages.ts';
 
 /**
@@ -12,6 +15,7 @@ import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from './cl
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 36 * 60 * 60 * 1000;
+const CLOSED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const ENABLED_KEY = 'enabled';
 
 export async function ensureClubResultPostSchema(db: DatabaseWrapper) {
@@ -163,7 +167,83 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
       if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
-    if (evening.status === 'completed' && await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
+  }
+
+  // Closed evenings by their closing time, not their start: an evening closed days later (or after a
+  // long publishing pause) still gets its summary and the personal messages.
+  const closed = await db.all<any>(`
+    SELECT e.id, e.format FROM game_evenings e
+     WHERE e.status = 'completed'
+       AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending')))
+  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
+  for (const evening of closed) {
+    if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
+    await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   }
   return posted;
+}
+
+const ROLE_LABELS: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
+const plural = (count: number, one: string, few: string, many: string) => {
+  const tens = count % 100; const ones = count % 10;
+  if (tens >= 11 && tens <= 14) return many;
+  if (ones === 1) return one;
+  if (ones >= 2 && ones <= 4) return few;
+  return many;
+};
+const comma = (value: number) => {
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${String(Math.abs(rounded)).replace('.', ',')}`;
+};
+
+/**
+ * One personal message per evening (owner, 2026-10-01) instead of one after each game: the
+ * player's games with role and result, points on rating evenings, the evening's Elo change,
+ * and buttons for their games and «Позвать друга». Sent once per player and evening.
+ */
+export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: string) {
+  await ensureClubResultPostSchema(db);
+  const key = `cards:${eveningId}`;
+  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND status = 'sent'", [key])) return 0;
+  const evening = await loadEveningPlayerResults(db, eveningId);
+  if (!evening) return 0;
+  const botUsername = await telegramBotUsername().catch(() => null);
+  const gamesUrl = appUrl('/player/games');
+  let queued = 0;
+  for (const player of evening.players) {
+    const lines = [`🏁 Твой вечер · ${evening.title}${evening.dateLabel ? `, ${evening.dateLabel}` : ''}`];
+    lines.push(`Сыграно: ${player.games.length} ${plural(player.games.length, 'игра', 'игры', 'игр')} · ${player.wins} ${plural(player.wins, 'победа', 'победы', 'побед')}`);
+    for (const game of player.games) {
+      lines.push(`№${game.number} ${game.role ? ROLE_LABELS[game.role] || game.role : 'роль не указана'} — ${game.won ? 'победа' : 'поражение'}`);
+    }
+    if (evening.scored && player.points != null) {
+      lines.push(`Баллы за вечер: ${comma(player.points)} · в среднем ${comma(player.points / player.games.length)}`);
+    }
+    if (player.eloDelta != null) lines.push(`Эло: ${comma(Math.round(player.eloDelta))} · теперь ${Math.round(player.eloAfter || 0)}`);
+    const invite = await inviteFriendUrl(player.playerId, botUsername);
+    const row = [
+      ...(gamesUrl ? [{ text: '📋 Мои игры', web_app: { url: gamesUrl } }] : []),
+      ...(invite ? [{ text: '🤝 Позвать друга', url: invite }] : []),
+    ];
+    const result = await queuePersonalNotification(db, {
+      notificationKey: `evening-result:${eveningId}:${player.playerId}`,
+      playerId: player.playerId,
+      eventType: 'evening_result',
+      entityId: eveningId,
+      text: lines.join('\n'),
+      actionPath: '/player/games',
+      telegramReplyMarkup: row.length ? { inline_keyboard: [row] } : null,
+    });
+    if (result.created) queued += 1;
+  }
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO club_result_posts (post_key, kind, evening_id, status, attempts, sent_at, created_at, updated_at)
+     VALUES (?, 'cards', ?, 'sent', 1, ?, ?, ?) ON CONFLICT(post_key) DO UPDATE SET status = 'sent', sent_at = excluded.sent_at, updated_at = excluded.updated_at`,
+    [key, eveningId, now, now, now],
+  );
+  return queued;
 }

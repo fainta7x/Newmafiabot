@@ -6,17 +6,11 @@ import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts
 import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
 import { runClubResultPosts } from './clubResultPostService.ts';
-import { buildGameResultCard } from './gameResultCardService.ts';
-import { telegramBotUsername } from './playerClaimLinkService.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let scanInFlight = false;
 
-const safeJson = (value: unknown): any => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try { return JSON.parse(value); } catch { return null; }
-};
 const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
 
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
@@ -27,35 +21,13 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEve
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }));
 
-async function queueGameAndEloNotifications(db: DatabaseWrapper) {
+async function queueEloNotifications(db: DatabaseWrapper) {
   let queued = 0;
-  const games = await db.all<any>(`
-    SELECT id, evening_id, global_game_number, game_date, protocol_text
-      FROM games
-     WHERE archived_at IS NULL
-     ORDER BY id DESC LIMIT 100
-  `);
-  const botUsername = await telegramBotUsername().catch(() => null);
-  const eveningCache = new Map();
-  for (const game of games) {
-    const envelope = safeJson(game.protocol_text);
-    if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
-    const results = Array.isArray(envelope.player_results) ? envelope.player_results : [];
-    for (const result of results) {
-      const playerId = String(result?.player_id || '');
-      if (!playerId) continue;
-      const notificationKey = `game-result:${game.id}:${playerId}`;
-      const card = await buildGameResultCard(db, game, envelope, result, botUsername, eveningCache);
-      await queuePersonalNotification(db, {
-        notificationKey, playerId, eventType: 'game_result', entityId: game.id,
-        text: card.text, actionPath: card.actionPath, telegramReplyMarkup: card.telegramReplyMarkup,
-      });
-      queued++;
-    }
-  }
-
+  // Club games: one personal message per evening after closing (clubResultPostService), not one per game.
   const eloTimeline = await loadPlayerEloHistory(db);
   for (const event of eloTimeline.slice(-100)) {
+    // The club game's Elo rides in the evening's personal message; tournaments keep their own note.
+    if (event.source === 'club') continue;
     for (const player of event.players || []) {
       const playerId = String(player.playerId || '');
       const delta = Number(player.totalDelta || 0);
@@ -107,7 +79,7 @@ async function queueBettingResults(db: DatabaseWrapper) {
 
 export async function reconcilePersonalNotifications(db: DatabaseWrapper) {
   const [evenings, gamesAndElo, betting] = await Promise.all([
-    queueEveningNotifications(db), queueGameAndEloNotifications(db), queueBettingResults(db),
+    queueEveningNotifications(db), queueEloNotifications(db), queueBettingResults(db),
   ]);
   return { queued: evenings + gamesAndElo + betting, evenings, games_and_elo: gamesAndElo, betting };
 }

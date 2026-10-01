@@ -9,7 +9,8 @@ describe('channel-neutral personal notification producers',()=>{
     const source=read('src/server/services/personalTelegramNotificationService.ts');
     expect(source).toContain("from './personalNotificationRouterService.ts'");
     expect(source).not.toContain('telegram_user_id IS NOT NULL');
-    for(const type of ['game_result','elo_change','bet_result','bet_refund']) expect(source).toContain(`'${type}'`);
+    for(const type of ['elo_change','bet_result','bet_refund']) expect(source).toContain(`'${type}'`);
+    expect(read('src/server/services/clubResultPostService.ts')).toContain("eventType: 'evening_result'");
     const evening=read('src/server/services/eveningRsvpNudgeService.ts');
     expect(evening).toContain("from './personalNotificationRouterService.ts'");
     for(const type of ['invitation','invitation_nudge','evening_reminder','evening_pick_games','thinking_followup']) expect(evening).toContain(`'${type}'`);

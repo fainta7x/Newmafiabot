@@ -4,7 +4,7 @@ export type PokerSuit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
 export type PokerRank = '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'T'|'J'|'Q'|'K'|'A';
 export type PokerCard = { rank: PokerRank; suit: PokerSuit };
 export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'finished';
-export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number };
+export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
   small_blind: number; big_blind: number; pot: number; current_bet: number; street: PokerStreet;
@@ -44,7 +44,7 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
   }
 };
 
-export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
+export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = shuffleDeck();
   const players: PokerPlayer[] = input.players.map((player) => ({ ...player, committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60 }));

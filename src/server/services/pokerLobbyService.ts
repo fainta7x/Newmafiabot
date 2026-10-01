@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { applyPokerAction, createPokerHand, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
 
-export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number }>; hand: PokerState | null; createdAt: string };
+export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; hand: PokerState | null; createdAt: string };
 const lobbies = new Map<string, PokerLobby>();
 
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
@@ -23,6 +23,13 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
   if (lobby.players.length >= 8) throw new Error('В лобби максимум 8 игроков.');
   lobby.players.push({ ...player, seat: lobby.players.length + 1, chips: 1000 }); return lobby;
 };
+export const addPokerBot = (lobby: PokerLobby) => {
+  if (lobby.status !== 'waiting') throw new Error('Игра уже началась.');
+  if (lobby.players.length >= 8) throw new Error('В лобби максимум 8 игроков.');
+  if (lobby.players.some((item) => item.is_bot)) return lobby;
+  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: 'Тестовый бот', seat: lobby.players.length + 1, chips: 1000, is_bot: true });
+  return lobby;
+};
 export const startPokerLobby = (lobby: PokerLobby, actorId: string) => {
   if (lobby.ownerId !== actorId) throw new Error('Запустить игру может создатель лобби.');
   if (lobby.players.length < 2) throw new Error('Нужно минимум 2 игрока.');
@@ -33,6 +40,11 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   if (!lobby.hand || lobby.status !== 'playing' || lobby.hand.current_seat === null) return;
   const player = lobby.hand.players.find((item) => item.seat === lobby.hand?.current_seat);
   if (!player) return;
+  if (player.is_bot) {
+    const toCall = Math.max(0, lobby.hand.current_bet - player.committed);
+    try { applyPokerAction(lobby.hand, { type: toCall ? 'call' : 'check' }); } catch { /* retry on next poll */ }
+    return;
+  }
   const remaining = pokerTurnRemaining(lobby.hand, player);
   if (remaining.base_seconds > 0 || remaining.reserve_seconds > 0) return;
   const toCall = Math.max(0, lobby.hand.current_bet - player.committed);

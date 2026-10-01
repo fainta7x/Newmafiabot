@@ -62,16 +62,22 @@ const telegram = () => {
 describe('club game blank', () => {
   it('lists every seat with role, game events and no points on an ordinary evening', async () => {
     const { db, addGame } = await setup('CASUAL');
+    // Global games №10–11 belong to this evening too (№10 archived, the CRM still counts it):
+    // game №12 of the day is the evening's third game, as the CRM shows it.
+    const archived = await addGame(10, 'black');
+    await db.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), archived]);
+    await addGame(11, 'black');
     const id = await addGame(12, 'red');
     const blank = await loadGameBlank(db, id);
-    expect(blank).toMatchObject({ gameNumber: '12', eveningTitle: 'Пятничный вечер', winnerTeam: 'red', judge: 'Судья Ночь', scored: false });
+    expect(blank).toMatchObject({ gameNumber: '3', eveningTitle: 'Пятничный вечер', winnerTeam: 'red', judge: 'Судья Ночь', scored: false });
     expect(blank!.seats).toHaveLength(10);
     expect(blank!.seats[0]).toMatchObject({ seat: 1, nickname: 'Игрок A', role: 'sheriff', won: true, points: null });
     expect(blank!.seats[1]).toMatchObject({ firstKilled: true, bestMoveSeats: [8, 9, 10] });
     expect(blank!.seats[4].fouls).toBe(2);
     expect(blank!.seats[8]).toMatchObject({ removed: true, won: false });
     const svg = gameBlankSvg(blank!);
-    expect(svg).toContain('ИГРА №12');
+    expect(svg).toContain('ИГРА №3');
+    expect(svg).toContain('&#160;·&#160;');
     expect(svg).toContain('ПОБЕДА КРАСНЫХ');
     expect(svg).toContain('Лучший ход: 8, 9, 10');
     // Ordinary evenings move Elo: winners up, losers down.

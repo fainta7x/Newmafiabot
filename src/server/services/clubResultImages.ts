@@ -72,7 +72,7 @@ export function gameBlankSvg(blank: GameBlank) {
       ? `<text x="${R}" y="${y + 50}" text-anchor="end" font-size="38" font-weight="700" fill="${C.warmText}">${esc(pointsText(seat.points))}</text>`
       : seat.won ? `<text x="${R}" y="${y + 46}" text-anchor="end" font-size="22" font-weight="700" letter-spacing="2" fill="#34D399">ПОБЕДА</text>` : '';
     const elo = seat.eloDelta != null
-      ? `<text x="${R}" y="${y + 84}" text-anchor="end" font-size="19" font-weight="600" fill="${seat.eloDelta > 0 ? '#34D399' : seat.eloDelta < 0 ? '#F87171' : C.mutedText}">Эло ${esc(pointsText(seat.eloDelta))}<tspan fill="${C.subduedText}"> · ${seat.eloAfter}</tspan></text>`
+      ? `<text x="${R}" y="${y + 84}" text-anchor="end" font-size="19" font-weight="600" fill="${seat.eloDelta > 0 ? '#34D399' : seat.eloDelta < 0 ? '#F87171' : C.mutedText}">Эло ${esc(pointsText(seat.eloDelta))}<tspan fill="${C.subduedText}">&#160;·&#160;${seat.eloAfter}</tspan></text>`
       : '';
     const right = top + elo;
     return `<rect x="${M}" y="${y + 6}" width="${W - M * 2}" height="${rowHeight - 12}" rx="20" fill="${seat.won ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)'}"/>

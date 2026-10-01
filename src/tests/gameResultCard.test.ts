@@ -18,13 +18,13 @@ const envelope = (winner: 'red' | 'black', extra: Record<string, unknown> = {}, 
   })),
 });
 
-async function setup() {
+async function setup(format = 'RATING') {
   const db = createDatabaseConnection(':memory:'); opened.push(db);
   const now = new Date().toISOString();
   await db.run(`INSERT INTO players (id,nickname,telegram_user_id,lifecycle_status,source,created_at,updated_at)
     VALUES ('hero','Герой','100','normal','telegram',?,?)`, [now, now]);
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
-    VALUES ('ev','Пятничная мафия',?,'Europe/Moscow','CASUAL','active',20,100,?,?)`, [now, now, now]);
+    VALUES ('ev','Пятничная мафия',?,'Europe/Moscow',?,'active',20,100,?,?)`, [now, format, now, now]);
   const addGame = async (number: number, body: unknown) => {
     const inserted = await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,judge_name,protocol_text,slots_json,created_at)
       VALUES ('ev',?,?,'red','Победа','Судья',?,'[]',?)`, [number, now, JSON.stringify(body), now]);
@@ -61,12 +61,14 @@ describe('game result card in the bot', () => {
     expect(decodeURIComponent(row[1].url)).toContain('https://t.me/NoireBot?start=ref_hero');
   });
 
-  it('leaves out the invite button when the bot name is unknown', async () => {
-    const { db, addGame } = await setup();
-    const body = envelope('black');
+  it('shows no points on an ordinary evening and no invite button when the bot name is unknown', async () => {
+    const { db, addGame } = await setup('CASUAL');
+    const body = envelope('black', { first_killed_participant_id: 'p1' });
     const id = await addGame(1, body);
     const card = await buildGameResultCard(db, { id, evening_id: 'ev', global_game_number: 1 }, body, body.player_results[0], null);
     expect(card.text).toContain('Поражение · Шериф');
+    expect(card.text).not.toContain('Баллы');
+    expect(card.text).toContain('Первый убитый');
     expect(card.text).not.toContain('За вечер');
     expect(card.telegramReplyMarkup).toBeNull();
   });

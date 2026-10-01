@@ -299,6 +299,11 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
   if (!evening) return null;
   const period = await findSeasonPeriod(db, evening);
   if (!period) return null;
+  return loadSeasonTableForPeriod(db, period);
+}
+
+/** The table of one rating period (also used for the weekly post in the entry channel). */
+export async function loadSeasonTableForPeriod(db: DatabaseWrapper, period: any): Promise<SeasonTable | null> {
   const { calculateRatingPeriodStandings } = await import('./ratingPeriodStandingsService.ts');
   const result = await calculateRatingPeriodStandings(db, String(period.id));
   const standings = (result.standings || []).filter((item: any) => Number(item.games_played) > 0);

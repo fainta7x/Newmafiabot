@@ -1,7 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable } from './clubResultData.ts';
+import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod } from './clubResultData.ts';
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
@@ -41,14 +41,16 @@ export const clubResultDestination = (format: unknown) => {
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
-async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch) {
+async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png') {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
     'SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1',
-    [clubResultDestination(format)],
+    [destinationId],
   ).catch(() => null);
-  if (!destination?.chat_id || Number(destination.active ?? 1) === 0) return { ok: false, temporary: false, error: 'Не настроена Telegram-группа для этого вечера' };
+  if (!destination?.chat_id || Number(destination.active ?? 1) === 0) {
+    return { ok: false, temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа для этого вечера' };
+  }
   const form = new FormData();
   form.set('chat_id', String(destination.chat_id));
   if (destination.topic_id) form.set('message_thread_id', String(destination.topic_id));
@@ -56,10 +58,10 @@ async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[]
   if (photos.length > 1) {
     method = 'sendMediaGroup';
     form.set('media', JSON.stringify(photos.map((_, index) => ({ type: 'photo', media: `attach://p${index}`, ...(index === 0 ? { caption } : {}) }))));
-    photos.forEach((photo, index) => form.set(`p${index}`, new Blob([new Uint8Array(photo)], { type: 'image/png' }), `result-${index}.png`));
+    photos.forEach((photo, index) => form.set(`p${index}`, new Blob([new Uint8Array(photo)], { type: mime }), `result-${index}.png`));
   } else {
     form.set('caption', caption);
-    form.set('photo', new Blob([new Uint8Array(photos[0])], { type: 'image/png' }), 'result.png');
+    form.set('photo', new Blob([new Uint8Array(photos[0])], { type: mime }), mime === 'image/png' ? 'result.png' : 'photo.jpg');
   }
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: form });
@@ -177,13 +179,109 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending')))
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending'))
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND p.status IN ('sent', 'failed', 'sending')))
   `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
   for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
+    if (await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   }
+
+  // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
+  const gathered = await db.all<any>(`
+    SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
+     WHERE gp.telegram_status = 'published' AND gp.image_data IS NOT NULL
+       AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
+       AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND p.status IN ('sent', 'failed', 'sending'))
+  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
+  for (const row of gathered) {
+    if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
+  }
+  if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
   return posted;
+}
+
+const botLink = async () => {
+  const bot = await telegramBotUsername().catch(() => null);
+  return bot ? `\n\nХочешь сыграть с нами? Пиши боту: https://t.me/${bot}` : '';
+};
+
+/** The evening summary picture in the entry channel, for evenings of every format. */
+export async function postPublicEveningSummary(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const key = `public-evening:${eveningId}`;
+  if (!(await claim(db, key, 'public-evening', eveningId, null))) return false;
+  try {
+    const summary = await loadEveningSummary(db, eveningId);
+    if (!summary) { await finish(db, key, { ok: false, temporary: false, error: 'В вечере нет сыгранных игр' }); return false; }
+    const caption = `🏁 Итоги вечера «${summary.eveningTitle}»${summary.dateLabel ? `, ${summary.dateLabel}` : ''}${await botLink()}`;
+    const result = await sendPhotos(db, null, [renderPng(eveningSummarySvg(summary))], caption, fetchImpl, 'public');
+    await finish(db, key, result);
+    return result.ok;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return false;
+  }
+}
+
+/** The «Мы собрались» photo, once it reached the evening's group, also goes to the entry channel. */
+export async function postPublicGathered(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const key = `public-gathered:${eveningId}`;
+  if (!(await claim(db, key, 'public-gathered', eveningId, null))) return false;
+  try {
+    const row = await db.get<any>(`
+      SELECT gp.image_data, gp.mime_type, gp.caption, e.title FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
+       WHERE gp.evening_id = ? LIMIT 1`, [eveningId]);
+    if (!row?.image_data) { await finish(db, key, { ok: false, temporary: false, error: 'Нет фото' }); return false; }
+    const caption = `${String(row.caption || `📸 Мы собрались! ${String(row.title || 'Игровой вечер')} начинается.`)}${await botLink()}`;
+    const result = await sendPhotos(db, null, [Buffer.from(String(row.image_data), 'base64')], caption, fetchImpl, 'public', String(row.mime_type || 'image/jpeg'));
+    await finish(db, key, result);
+    return result.ok;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return false;
+  }
+}
+
+const moscowParts = (now: number) => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false, weekday: 'short' })
+    .formatToParts(new Date(now));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) % 24, weekday: get('weekday') };
+};
+
+/**
+ * Once a week (Monday, 12:00–21:00 Moscow) the tables of the running seasons go to the entry
+ * channel in one message. Seasons without games are skipped.
+ */
+export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = Date.now()) {
+  const moscow = moscowParts(now);
+  if (moscow.weekday !== 'Mon' || moscow.hour < 12 || moscow.hour >= 21) return false;
+  const key = `public-season:${moscow.date}`;
+  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND status IN ('sent', 'failed', 'sending')", [key])) return false;
+  const stamp = new Date(now).toISOString();
+  const periods = await db.all<any>(`
+    SELECT * FROM rating_periods
+     WHERE status = 'active' AND datetime(starts_at) <= datetime(?) AND datetime(ends_at) >= datetime(?)
+     ORDER BY CASE UPPER(type) WHEN 'RATING' THEN 0 WHEN 'CASUAL' THEN 1 ELSE 2 END, starts_at DESC
+  `, [stamp, stamp]).catch(() => []);
+  const tables = [];
+  for (const period of periods) {
+    const table = await loadSeasonTableForPeriod(db, period).catch(() => null);
+    if (table) tables.push(table);
+    if (tables.length >= 10) break;
+  }
+  if (!tables.length) return false;
+  if (!(await claim(db, key, 'public-season', null as any, null))) return false;
+  try {
+    const caption = `🏆 Таблица сезона на эту неделю: ${tables.map((table) => `«${table.periodTitle}»`).join(', ')}${await botLink()}`;
+    const result = await sendPhotos(db, null, tables.map((table) => renderPng(seasonTableSvg(table))), caption, fetchImpl, 'public');
+    await finish(db, key, result);
+    return result.ok;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return false;
+  }
 }
 
 const ROLE_LABELS: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };

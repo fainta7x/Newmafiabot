@@ -285,3 +285,61 @@ describe('posting to the club chat', () => {
       .toMatchObject({ status: 'failed', last_error: 'Не настроена Telegram-группа для этого вечера' });
   });
 });
+
+describe('the entry channel', () => {
+  const addPublic = (db: DatabaseWrapper) => db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
+    VALUES ('public','Вход','@noire_entry',NULL,1,?,?)`, [new Date().toISOString(), new Date().toISOString()]);
+
+  it('gets the evening summary picture after closing, for any format, with a link to the bot', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    vi.stubEnv('TELEGRAM_BOT_USERNAME', 'NoireBot');
+    const { db, addGame } = await setup('RATING');
+    await addPublic(db);
+    await addGame(1, 'red');
+    await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
+    const { calls, fetchImpl } = telegram();
+    await runClubResultPosts(db, fetchImpl);
+    const entry = calls.filter((form) => form.get('chat_id') === '@noire_entry');
+    expect(entry).toHaveLength(1);
+    expect(String(entry[0].get('caption'))).toMatch(/^🏁 Итоги вечера «Пятничный вечер»/);
+    expect(String(entry[0].get('caption'))).toContain('https://t.me/NoireBot');
+    await runClubResultPosts(db, fetchImpl);
+    expect(calls.filter((form) => form.get('chat_id') === '@noire_entry')).toHaveLength(1);
+  });
+
+  it('gets the «Мы собрались» photo once it reached the evening group', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db } = await setup('CASUAL');
+    await addPublic(db);
+    const { ensureEveningGatheredPostSchema } = await import('../server/services/eveningGatheredPostService.ts');
+    await ensureEveningGatheredPostSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO evening_gathered_posts (evening_id, image_data, mime_type, caption, telegram_status, created_at, updated_at)
+      VALUES ('ev', ?, 'image/jpeg', '📸 Мы собрались!', 'published', ?, ?)`, [Buffer.from('jpeg-bytes').toString('base64'), now, now]);
+    const { calls, fetchImpl } = telegram();
+    await runClubResultPosts(db, fetchImpl);
+    await runClubResultPosts(db, fetchImpl);
+    const entry = calls.filter((form) => form.get('chat_id') === '@noire_entry');
+    expect(entry).toHaveLength(1);
+    expect(String(entry[0].get('caption'))).toMatch(/^📸 Мы собрались!/);
+    expect((entry[0].get('photo') as Blob).type).toBe('image/jpeg');
+  });
+
+  it('gets the running seasons once a week, on Monday afternoon', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addPublic(db);
+    await addPeriod(db, 'CASUAL');
+    await addGame(1, 'red');
+    const { postWeeklySeasonTables } = await import('../server/services/clubResultPostService.ts');
+    const { calls, fetchImpl } = telegram();
+    // 2026-10-05 is a Monday; 10:00 UTC = 13:00 Moscow. Tuesday does nothing.
+    expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-06T10:00:00Z'))).toBe(false);
+    expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-05T07:00:00Z'))).toBe(false);
+    expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-05T10:00:00Z'))).toBe(true);
+    expect(await postWeeklySeasonTables(db, fetchImpl, Date.parse('2026-10-05T12:00:00Z'))).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].get('chat_id')).toBe('@noire_entry');
+    expect(String(calls[0].get('caption'))).toContain('«Осень 2026»');
+  });
+});

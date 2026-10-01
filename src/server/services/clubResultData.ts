@@ -118,7 +118,10 @@ async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
 export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promise<GameBlank | null> {
   const game = await db.get<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.judge_name, g.judge_player_id, g.protocol_text,
-           e.title, e.format, e.starts_at, j.nickname AS judge_nickname
+           e.title, e.format, e.starts_at, j.nickname AS judge_nickname,
+           -- The game's number within its evening (owner, 2026-10-01: the second evening of a day starts at №1).
+           (SELECT COUNT(*) FROM games o WHERE o.evening_id = g.evening_id AND o.archived_at IS NULL
+              AND (o.global_game_number < g.global_game_number OR (o.global_game_number = g.global_game_number AND o.id <= g.id))) AS local_number
       FROM games g
       JOIN game_evenings e ON e.id = g.evening_id
  LEFT JOIN players j ON j.id = g.judge_player_id
@@ -162,7 +165,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
 
   return {
     gameId: String(game.id),
-    gameNumber: String(game.global_game_number || game.id),
+    gameNumber: String(game.local_number || game.global_game_number || game.id),
     eveningTitle: String(game.title || 'Игровой вечер'),
     dateLabel: dateLabel(game.starts_at || game.game_date),
     winnerTeam: protocol.winner_team === 'red' || protocol.winner_team === 'black' ? protocol.winner_team : null,
@@ -395,7 +398,7 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
   );
   const elo = await loadClubElo(db);
   const players = new Map<string, EveningPlayerResult>();
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const envelope = parse(row.protocol_text);
     if (!isCompleted(envelope)) continue;
     const gameElo = elo.get(String(row.id));
@@ -405,7 +408,7 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
       const role = normalizeRole(result?.role);
       const win = won(role, envelope.protocol.winner_team);
       const entry = players.get(playerId) || { playerId, games: [], wins: 0, points: scored ? 0 : null, eloDelta: null, eloAfter: null };
-      entry.games.push({ number: String(row.global_game_number || row.id), role, won: win });
+      entry.games.push({ number: String(index + 1), role, won: win });
       if (win) entry.wins += 1;
       if (scored) entry.points = (entry.points || 0) + gameResultPoints(envelope, result).total;
       const change = gameElo?.get(playerId);

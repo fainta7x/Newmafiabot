@@ -79,7 +79,7 @@ export default function PlayerMusicSlotsAdmin({ playerId }: { playerId: string }
             <input
               value={drafts[slot]}
               onChange={(event) => setDrafts((current) => ({ ...current, [slot]: event.target.value }))}
-              placeholder="Ссылка на трек или плейлист в Яндекс Музыке"
+              placeholder="Ссылка из Яндекс Музыки"
               inputMode="url"
               className="mobile-field"
               aria-label={`${SLOT_LABEL[slot]}: ссылка`}

@@ -303,14 +303,15 @@ export async function loadSeasonTable(db: DatabaseWrapper, eveningId: string): P
   const result = await calculateRatingPeriodStandings(db, String(period.id));
   const standings = (result.standings || []).filter((item: any) => Number(item.games_played) > 0);
   if (!standings.length) return null;
-  const scored = isScoredFormat(evening.format);
+  // The period decides the season's rules (an organizer may include an evening of another format).
+  const scored = isScoredFormat(period.type);
   const average = (item: any) => Number(item.total_points || 0) / Number(item.games_played);
   const maxGames = Math.max(...standings.map((item: any) => Number(item.games_played)));
   const minGames = scored ? Math.max(1, Math.ceil(maxGames * SEASON_MIN_SHARE)) : null;
   const qualified = minGames ? standings.filter((item: any) => Number(item.games_played) >= minGames) : standings;
   const pendingRows = minGames
     ? standings.filter((item: any) => Number(item.games_played) < minGames)
-      .sort((a: any, b: any) => b.games_played - a.games_played || a.nickname.localeCompare(b.nickname, 'ru')).slice(0, 6)
+      .sort((a: any, b: any) => b.games_played - a.games_played || a.nickname.localeCompare(b.nickname, 'ru'))
     : [];
   const ranked = [...qualified].sort((a: any, b: any) => (scored
     ? average(b) - average(a) || b.games_played - a.games_played

@@ -15,6 +15,7 @@ import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from './cl
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 36 * 60 * 60 * 1000;
+const CLOSED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const ENABLED_KEY = 'enabled';
 
 export async function ensureClubResultPostSchema(db: DatabaseWrapper) {
@@ -166,10 +167,21 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
       if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
       if (await postGameBlank(db, String(game.id), evening.format, String(evening.id), fetchImpl)) posted += 1;
     }
-    if (evening.status === 'completed') {
-      if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
-      await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
-    }
+  }
+
+  // Closed evenings by their closing time, not their start: an evening closed days later (or after a
+  // long publishing pause) still gets its summary and the personal messages.
+  const closed = await db.all<any>(`
+    SELECT e.id, e.format FROM game_evenings e
+     WHERE e.status = 'completed'
+       AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending')))
+  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
+  for (const evening of closed) {
+    if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
+    await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   }
   return posted;
 }

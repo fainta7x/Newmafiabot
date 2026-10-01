@@ -160,6 +160,12 @@ describe('season so far', () => {
     expect(season!.minGames).toBe(3);
     expect(season!.rows.map((row) => row.nickname)).not.toContain('Новичок Х');
     expect(season!.pending).toEqual([{ nickname: 'Новичок У', games: 1 }, { nickname: 'Новичок Х', games: 1 }]);
+    // The period decides: an ordinary evening included in this rating period still gets the rating rules.
+    await db.run("UPDATE game_evenings SET format = 'CASUAL' WHERE id = 'ev'");
+    await db.run(`INSERT INTO rating_period_evening_overrides (period_id, evening_id, included, created_at, updated_at) VALUES ('rp','ev',1,?,?)`, [now, now]).catch(async () => {
+      await db.run(`INSERT INTO rating_period_evening_overrides (period_id, evening_id, included) VALUES ('rp','ev',1)`);
+    });
+    expect((await loadSeasonTable(db, 'ev'))!.minGames).toBe(3);
     const svg = seasonTableSvg(season!);
     expect(svg).toContain('БЛИЗКО К ЗАЧЁТУ · НУЖНО 3 ИГРЫ');
     expect(svg).toContain('Новичок Х 1/3');
@@ -234,6 +240,20 @@ describe('posting to the club chat', () => {
     expect(media[0].caption).toBe('🏁 Итоги вечера «Пятничный вечер» и промежуточная таблица «Осень 2026»');
     expect(calls[1].get('message_thread_id')).toBe('77');
     expect((calls[1].get('p1') as Blob).type).toBe('image/png');
+  });
+
+  it('an evening closed days after it started still gets its summary and personal messages', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL', new Date(Date.now() - 3 * 86400_000).toISOString());
+    await db.run("UPDATE club_result_posts SET created_at = ? WHERE post_key = 'enabled'", [new Date(Date.now() - 5 * 86400_000).toISOString()]);
+    await db.run("UPDATE players SET telegram_user_id = '500' WHERE id = 'a'");
+    await addGame(1, 'red');
+    await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
+    const { calls, fetchImpl } = telegram();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
+    expect(calls[0].get('caption')).toBe('🏁 Итоги вечера «Пятничный вечер»');
+    expect(await db.get("SELECT 1 FROM personal_notification_deliveries WHERE notification_key = 'evening-result:ev:a'")).toBeTruthy();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
   });
 
   it('never posts an evening that started before the feature was switched on', async () => {

@@ -343,21 +343,24 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
               key={player.seat}
               className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
+              {/* The face first (owner, 2026-10-01): a large portrait ringed in the role colour. */}
               <div className="live-broadcast-player-head">
-                <div className="live-broadcast-seat-number">{player.seat}</div>
-                <BroadcastAvatar token={token} player={player} />
-                {order || speaking ? (
+                <div className="live-broadcast-portrait">
+                  <BroadcastAvatar token={token} player={player} />
+                  <div className="live-broadcast-seat-number">{player.seat}</div>
+                </div>
+                <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
-                    {order ? <div className="live-broadcast-nomination-order" title="Порядок выставления">выст. {order}</div> : null}
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
+                    {order ? <div className="live-broadcast-nomination-order" title="Порядок выставления">выст. {order}</div> : null}
                   </div>
-                ) : null}
+                  <div className="live-broadcast-role">
+                    <RoleIcon kind={kind} />
+                    {ROLE_LABELS[kind]}
+                  </div>
+                </div>
               </div>
               <div className="live-broadcast-player-name">{player.nickname}</div>
-              <div className="live-broadcast-role">
-                <RoleIcon kind={kind} />
-                {ROLE_LABELS[kind]}
-              </div>
               <div className="live-broadcast-player-facts">
                 {!player.alive ? (
                   <div className={`live-broadcast-player-status is-${player.statusKind}`}>

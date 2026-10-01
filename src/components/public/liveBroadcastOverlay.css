@@ -351,7 +351,7 @@ body.live-broadcast-document #root {
 .live-broadcast-player {
   position: relative;
   min-width: 0;
-  height: calc(232 * var(--u));
+  height: calc(246 * var(--u));
   padding: calc(9 * var(--u)) calc(11 * var(--u)) calc(10 * var(--u));
   border-radius: calc(14 * var(--u));
   overflow: hidden;
@@ -367,22 +367,54 @@ body.live-broadcast-document #root {
 
 .live-broadcast-player::before { height: calc(4 * var(--u)); }
 .live-broadcast-player.is-citizen::before { background: var(--role-citizen); }
-.live-broadcast-player.is-mafia::before { background: #9ca3af; }
+.live-broadcast-player.is-mafia::before { background: #fff; }
 .live-broadcast-player.is-don::before { background: var(--role-don); }
 .live-broadcast-player.is-sheriff::before { background: var(--role-sheriff); }
 
 /* Black team cards are black; red team cards keep the glass with a faint tint of their colour. */
-.live-broadcast-player.is-citizen { background: linear-gradient(180deg, rgba(229, 56, 79, .20), var(--glass) 55%); }
-.live-broadcast-player.is-sheriff { background: linear-gradient(180deg, rgba(250, 204, 21, .20), var(--glass) 55%); }
-.live-broadcast-player.is-mafia { background: linear-gradient(180deg, rgba(0, 0, 0, .96), rgba(0, 0, 0, .9)); border-color: rgba(255, 255, 255, .16); }
-.live-broadcast-player.is-don { background: linear-gradient(180deg, rgba(139, 92, 246, .30), rgba(0, 0, 0, .92) 60%); border-color: rgba(167, 139, 250, .35); }
+.live-broadcast-player { --ring: var(--role-citizen); }
+.live-broadcast-player.is-sheriff { --ring: var(--role-sheriff); }
+.live-broadcast-player.is-don { --ring: var(--role-don); }
+.live-broadcast-player.is-mafia { --ring: #f4f4f5; }
+.live-broadcast-player.is-citizen { background: linear-gradient(180deg, rgba(229, 56, 79, .24), rgba(14, 10, 12, .9) 58%); }
+.live-broadcast-player.is-sheriff { background: linear-gradient(180deg, rgba(250, 204, 21, .22), rgba(14, 12, 8, .9) 58%); }
+/* Black team cards are solid black with a white edge, so they never read as «out». */
+.live-broadcast-player.is-mafia { background: #000; border: 1px solid rgba(255, 255, 255, .55); }
+.live-broadcast-player.is-don { background: linear-gradient(180deg, rgba(139, 92, 246, .38), #000 60%); border: 1px solid rgba(167, 139, 250, .6); }
 
 .live-broadcast-player-head {
   display: flex;
   align-items: center;
-  gap: calc(7 * var(--u));
-  height: calc(40 * var(--u));
+  gap: calc(10 * var(--u));
+  height: calc(68 * var(--u));
 }
+
+.live-broadcast-portrait {
+  position: relative;
+  flex: none;
+}
+
+.live-broadcast-portrait .live-broadcast-avatar {
+  width: calc(64 * var(--u));
+  height: calc(64 * var(--u));
+  border: calc(3 * var(--u)) solid var(--ring);
+  box-shadow: 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, .7);
+  font-size: calc(26 * var(--u));
+}
+
+.live-broadcast-player.is-mafia .live-broadcast-portrait .live-broadcast-avatar { box-shadow: 0 0 0 calc(2 * var(--u)) #000, 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, .5); }
+
+.live-broadcast-portrait .live-broadcast-seat-number {
+  position: absolute;
+  left: calc(-4 * var(--u));
+  bottom: calc(-3 * var(--u));
+  box-shadow: 0 0 0 calc(2 * var(--u)) #0b0b0e;
+}
+
+.live-broadcast-player-text { min-width: 0; flex: 1; display: grid; }
+.live-broadcast-player-text { align-content: center; }
+.live-broadcast-player-text .live-broadcast-role { margin-top: 0; font-size: calc(14 * var(--u)); }
+.live-broadcast-player > .live-broadcast-player-name { margin-top: calc(8 * var(--u)); font-size: calc(19 * var(--u)); }
 
 .live-broadcast-seat-number {
   display: grid;
@@ -533,13 +565,17 @@ body.live-broadcast-document #root {
 .live-broadcast-player { transition: transform .25s ease, filter .25s ease, box-shadow .25s ease; }
 
 .live-broadcast-player.is-out {
-  filter: grayscale(1) brightness(.62);
-  background: rgba(8, 8, 10, .82);
-  border-color: rgba(255, 255, 255, .06);
+  --ring: rgba(255, 255, 255, .18);
+  opacity: .5;
+  background: rgba(20, 20, 24, .45);
+  border: 1px dashed rgba(255, 255, 255, .22);
   box-shadow: none;
 }
 
-.live-broadcast-player.is-out::before { background: rgba(255, 255, 255, .12); }
+.live-broadcast-player.is-out::before { background: transparent; }
+.live-broadcast-player.is-out .live-broadcast-avatar { filter: grayscale(1) brightness(.7); }
+.live-broadcast-player.is-out .live-broadcast-role,
+.live-broadcast-player.is-out .live-broadcast-player-facts { filter: grayscale(1); }
 .live-broadcast-player.is-out .live-broadcast-player-name { color: rgba(255, 255, 255, .55); text-decoration: line-through; text-decoration-thickness: 1px; }
 
 .live-broadcast-player.is-speaking {
@@ -613,7 +649,7 @@ body.live-broadcast-document #root {
   position: absolute;
   left: calc(20 * var(--u));
   top: calc(110 * var(--u));
-  bottom: calc(266 * var(--u));
+  bottom: calc(280 * var(--u));
   width: calc(404 * var(--u));
   display: flex;
   flex-direction: column;
@@ -746,19 +782,20 @@ body.live-broadcast-document #root {
 /* ---------- Player card facts (owner, 2026-10-01): each player's own story, as an aligned table ---------- */
 .live-broadcast-player-tags {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
   gap: calc(4 * var(--u));
-  margin-left: auto;
+  min-height: calc(18 * var(--u));
+  margin-bottom: calc(5 * var(--u));
 }
 
-.live-broadcast-player-name { margin-top: calc(7 * var(--u)); }
+.live-broadcast-player-tags .live-broadcast-speaking-tag,
+.live-broadcast-player-tags .live-broadcast-nomination-order { height: calc(18 * var(--u)); margin-left: 0; font-size: calc(10 * var(--u)); }
 
 .live-broadcast-player-facts {
   display: grid;
-  gap: calc(4 * var(--u));
-  margin-top: calc(8 * var(--u));
-  padding-top: calc(7 * var(--u));
+  gap: calc(3 * var(--u));
+  margin-top: calc(6 * var(--u));
+  padding-top: calc(6 * var(--u));
   border-top: 1px solid var(--line);
 }
 

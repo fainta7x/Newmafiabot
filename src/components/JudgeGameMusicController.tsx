@@ -98,6 +98,8 @@ export default function JudgeGameMusicController() {
   }, [emptyNotice]);
   const [active, setActive] = useState<{ entry: PoolEntry; kind: MusicStartKind } | null>(null);
   const [playerCollapsed, setPlayerCollapsed] = useState(true);
+  const preselectedRef = useRef<Partial<Record<MusicStartKind, PoolEntry>>>({});
+  const selectedContributorRef = useRef<Partial<Record<MusicStartKind, string>>>({});
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
@@ -146,6 +148,21 @@ export default function JudgeGameMusicController() {
 
   const localFallbackEntries = music.tracks.map(localPoolEntry);
 
+  const contributorId = (entry: PoolEntry) => entry.contributors[0]?.player_id || entry.key;
+  const choosePreselected = (entries: PoolEntry[], kind: MusicStartKind) => {
+    const existing = preselectedRef.current[kind];
+    if (existing && entries.some((entry) => entry.key === existing.key)) return existing;
+    const otherKind: MusicStartKind = kind === 'night' ? 'manual' : 'night';
+    const excludedContributor = selectedContributorRef.current[otherKind];
+    const eligible = entries.filter((entry) => !excludedContributor || contributorId(entry) !== excludedContributor);
+    const pool = eligible.length ? eligible : entries;
+    const selected = pool[Math.floor(Math.random() * pool.length)];
+    if (!selected) return null;
+    preselectedRef.current[kind] = selected;
+    selectedContributorRef.current[kind] = contributorId(selected);
+    return selected;
+  };
+
   const openEveningPicker = async (kind: MusicStartKind, autoStartLocal = false) => {
     setPickerLoading(true);
     setPickerError(null);
@@ -176,11 +193,11 @@ export default function JudgeGameMusicController() {
         return;
       }
       if (autoStartLocal) {
-        const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
-        if (localEntry) {
-          startLocal(localEntry, kind);
-          return;
-        }
+        const selected = choosePreselected(entries, kind);
+        if (selected?.source_type === 'upload') startLocal(selected, kind);
+        else if (selected) startExternal(selected, kind);
+        else setEmptyNotice('Музыка не выбрана — продолжаем без неё.');
+        return;
       }
       setPicker({ kind, entries, eveningId });
     } catch (error: any) {
@@ -201,7 +218,12 @@ export default function JudgeGameMusicController() {
       }
       const eveningId = resolveEveningId();
       const localTrack = (!eveningId || eveningId === '__test_game__') ? music.tracks[0] : null;
-      if (localTrack) startLocal(localPoolEntry(localTrack), kind);
+      if (localTrack) {
+        const selected = preselectedRef.current[kind] || localPoolEntry(localTrack);
+        preselectedRef.current[kind] = selected;
+        selectedContributorRef.current[kind] = contributorId(selected);
+        startLocal(selected, kind);
+      }
       else void openEveningPicker(kind, true);
     };
     const stop = () => {
@@ -209,6 +231,8 @@ export default function JudgeGameMusicController() {
       manualTrackRef.current = undefined;
       wantedRef.current = false;
       wantedTrackRef.current = undefined;
+      preselectedRef.current = {};
+      selectedContributorRef.current = {};
       clearManualState();
       setPicker(null);
       setActive(null);
@@ -322,9 +346,8 @@ export default function JudgeGameMusicController() {
                 {active.entry.source_type === 'yandex' ? `Яндекс Музыка · ${contributorText(active.entry)}` : `Файл · ${contributorText(active.entry)}`}
               </div>
               <div className="mt-2 flex gap-2">
-                <button type="button" onClick={() => void openEveningPicker(active.kind)} className="min-h-10 flex-1 rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Сменить трек</button>
                 {active.entry.source_type === 'upload' && (
-                  <button type="button" onClick={() => void music.start(active.entry.id)} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] text-white/55">
+                  <button type="button" onClick={() => void music.start(active.entry.id)} className="min-h-10 flex-1 rounded-xl border border-white/10 px-3 text-[10px] text-white/55">
                     {music.blocked ? 'Включить' : music.playing ? 'Играет' : 'Продолжить'}
                   </button>
                 )}

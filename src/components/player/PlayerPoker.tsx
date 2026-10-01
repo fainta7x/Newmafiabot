@@ -118,6 +118,12 @@ const chipBreakdown = (amount: number) => {
   return chips;
 };
 
+const formatChipCount = (amount: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.max(0, Number(amount) || 0));
+
+function SeatStack({ amount, hero = false }: { amount: number; hero?: boolean }) {
+  return <span className={`poker-seat-stack ${hero ? 'poker-seat-stack--hero' : ''}`}><span aria-hidden="true" className="poker-seat-stack-chip" />{formatChipCount(amount)}</span>;
+}
+
 
 /** The move tag above a seat, coloured like poker rooms: fold red, call green, bet/raise gold, all-in crimson. */
 const actionWord = (type: string) => ({ fold: 'Пас', check: 'Чек', call: 'Колл', bet: 'Бет', raise: 'Рейз', all_in: 'Олл-ин' }[type] || '');
@@ -281,7 +287,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
                 </div>
                 {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <img src="/assets/poker/opponent-hole-cards-noir-v1.webp" alt="Закрытые карты" className="absolute -right-5 top-2 -z-10 w-12 drop-shadow-[0_3px_4px_rgba(0,0,0,.6)]" /> : null}
               </div>
-              <div className={`poker-seat-plaque relative z-10 -mt-3 overflow-hidden rounded-[10px] px-1.5 pb-1 pt-1.5 ${active ? 'poker-seat-plaque--active' : ''}`}><div className="truncate text-[11px] font-semibold leading-tight text-white/90">{player.nickname}</div><div className="text-[12px] font-black leading-tight tabular-nums text-[#f3d491]">{handPlayer?.chips ?? player.chips}</div></div>
+              <div className={`poker-seat-plaque relative z-10 -mt-3 overflow-hidden rounded-[10px] px-1.5 pb-1.5 pt-2 ${active ? 'poker-seat-plaque--active' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
               {winner ? <div className="-mx-5 mt-0.5 rounded-lg bg-amber-300 px-1.5 py-0.5 text-[9px] font-black leading-tight text-black">{label || 'Победитель'}</div> : label ? <div className="-mx-5 mt-0.5 text-[9px] leading-tight text-white/75">{label}</div> : null}
             </div>;
           })}
@@ -306,10 +312,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const winner = hand.winner_ids?.includes(hero.id);
             return <div className="absolute bottom-[2%] left-1/2 z-20 flex w-[92%] -translate-x-1/2 flex-col items-center">
               <div className="flex gap-1.5">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
-                            <div className={`poker-seat-plaque relative mt-1.5 flex items-center gap-2 overflow-hidden rounded-xl py-1 pl-1 pr-3 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'ring-2 ring-emerald-400' : ''}`}>
+                            <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[360px] items-center gap-2.5 overflow-hidden rounded-xl py-1.5 pl-1.5 pr-4 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'ring-2 ring-emerald-400' : ''}`}>
                 {isMyTurn ? <span className="absolute inset-x-0 top-0"><TimerBar timer={turnTimer(hand)} thin /></span> : null}
-                <span className="poker-seat-frame relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-sm font-bold text-black">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[30px] w-[30px] rounded-full object-cover" /></span>
-                <span className="min-w-0 text-left"><b className="block text-[13px] leading-tight">Вы · <span className="text-amber-200">{handPlayer?.chips ?? hero.chips}</span>{handPlayer?.all_in ? <span className="ml-1 rounded bg-[#721f24] px-1 text-[8px]">ALL-IN</span> : null}</b><span className="block truncate text-[11px] leading-tight text-white/70">{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
+                <span className="poker-seat-frame relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-sm font-bold text-black">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[34px] w-[34px] rounded-full object-cover" /></span>
+                <span className="min-w-0 flex-1 text-left"><span className="flex items-center gap-2"><b className="poker-hero-name">Вы</b><SeatStack amount={handPlayer?.chips ?? hero.chips} hero />{handPlayer?.all_in ? <span className="rounded border border-rose-200/30 bg-[#721f24] px-1.5 py-0.5 text-[8px] font-black tracking-wide text-white shadow-inner">ALL-IN</span> : null}</span><span className="poker-hand-label block truncate"><span className="poker-hand-kicker">Рука</span>{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
               </div>
             </div>;
           })() : null}

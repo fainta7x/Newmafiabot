@@ -31,7 +31,7 @@ async function setup() {
   const pool = (table?: string[]) => request(app)
     .get(`/api/player/music-library/evenings/ev/pool${table ? `?table=${table.join(',')}` : ''}`)
     .set('Cookie', `player_token=${generatePlayerSessionToken('judge')}`);
-  return { pool };
+  return { pool, db };
 }
 
 describe('game music from the players at the table', () => {
@@ -56,5 +56,19 @@ describe('game music from the players at the table', () => {
     expect(deal?.source_player_id).toBe('seat1');
     // The judge has no tracks here, so the night has nobody else to draw from.
     expect(night).toBeNull();
+  });
+
+  it('keeps the judge library out of the draw while people at the table have music', async () => {
+    const { pool, db } = await setup();
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO music_link_entries (id, owner_player_id, scope, slot_index, title, source_kind, source_url, normalized_url, embed_url, sort_order, created_at, updated_at)
+      VALUES ('lib', 'judge', 'organizer', NULL, 'judge-library', 'yandex_track', 'https://music.yandex.ru/track/900', 'https://music.yandex.ru/track/900', NULL, 0, ?, ?)`, [now, now]);
+    for (let round = 0; round < 25; round += 1) {
+      const { deal, night } = (await pool(['seat1', 'seat2', 'judge'])).body.preselected;
+      expect(deal.entry.title).not.toBe('judge-library');
+      expect(night.entry.title).not.toBe('judge-library');
+    }
+    // Nobody at the table has music: the judge's library plays.
+    expect((await pool(['judge'])).body.preselected.deal.entry.title).toBe('judge-library');
   });
 });

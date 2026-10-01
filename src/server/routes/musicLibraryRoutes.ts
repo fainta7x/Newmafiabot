@@ -360,8 +360,9 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
     const usable = pool.filter((entry) => !excluded.has(entry.key));
     const organizerPool = usable.filter((entry) => entry.contributors.some((item: any) => item.player_id === actor.id));
     const choose = <T,>(items: T[]) => items.length ? items[Math.floor(Math.random() * items.length)] : null;
+    // Only personal slots take part in the draw; the judge's own library is the fallback alone.
     const entriesOf = (playerId: string, slot: number) => {
-      const own = usable.filter((entry) => entry.contributors.some((item: any) => item.player_id === playerId));
+      const own = usable.filter((entry) => entry.slot_index != null && entry.contributors.some((item: any) => item.player_id === playerId));
       const forSlot = own.filter((entry) => entry.slot_index === slot);
       return forSlot.length ? forSlot : own;
     };

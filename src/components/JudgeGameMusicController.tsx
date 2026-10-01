@@ -239,6 +239,8 @@ export default function JudgeGameMusicController() {
     const start = (event: Event) => {
       const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       const kind = detail.kind === 'night' ? 'night' : 'manual';
+      // A new deal starts a new game: never carry the previous game's night pick over.
+      if (kind === 'manual') gamePickRef.current = {};
       if (detail.trackId) {
         startLocal(detail.trackId, kind);
         return;

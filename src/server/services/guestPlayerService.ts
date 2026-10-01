@@ -168,7 +168,7 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
     const envelope = safeJsonParse<any>(game.protocol_text, null);
     if (!envelope || envelope.kind !== 'club_evening_protocol' || envelope.version !== 1) throw new Error('У игры отсутствует структурированный клубный протокол');
 
-    const player = await tx.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' AND COALESCE(lifecycle_status, 'normal') != 'archived'", [input.replacementPlayerId]);
+    const player = await tx.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')", [input.replacementPlayerId]);
     if (!player) throw new Error('Выбранный зарегистрированный игрок не найден');
 
     const current = (envelope.player_results || []).find((item: any) => Number(item.seat_number) === input.seatNumber);

@@ -56,7 +56,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       FROM players p
       WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
         AND COALESCE(p.source, '') != 'legacy_guest_migrated'
-        AND COALESCE(p.lifecycle_status, 'normal') != 'archived'
+        AND COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'merged')
       )
       SELECT * FROM ranked_players
        WHERE games > 0

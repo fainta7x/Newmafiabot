@@ -11,7 +11,7 @@ const loadRows = async (db: any, playerId?: string): Promise<LearningPlayerRow[]
   await ensureSplitVoteProgressSchema(db);
   const players = await db.all(
     `SELECT id, nickname, club_stage, game_level FROM players
-      WHERE ${playerId ? 'id = ?' : "COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'deleted')"}
+      WHERE ${playerId ? 'id = ?' : "COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged', 'deleted')"}
       ORDER BY nickname COLLATE NOCASE`,
     playerId ? [playerId] : [],
   );

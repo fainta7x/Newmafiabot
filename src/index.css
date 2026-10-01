@@ -320,13 +320,13 @@ select optgroup {
   color: #fff;
 }
 @keyframes poker-card-deal {
-  0% { opacity: 0; transform: translate(160px, -180px) rotate(18deg) scale(.72); }
+  0% { opacity: 0; transform: translate(-145px, -250px) rotate(-18deg) scale(.72); }
   70% { opacity: 1; transform: translate(-4px, 3px) rotate(-2deg) scale(1.03); }
   100% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); }
 }
 
 @keyframes poker-board-reveal {
-  0% { opacity: 0; transform: translateY(-22px) rotateY(85deg) scale(.85); }
+  0% { opacity: 0; transform: translate(-115px, -32px) rotateY(85deg) rotate(-8deg) scale(.72); }
   100% { opacity: 1; transform: translateY(0) rotateY(0) scale(1); }
 }
 
@@ -359,6 +359,13 @@ select optgroup {
   100% { opacity: 0; transform: translate(calc(-50% + var(--award-x)), calc(-50% + var(--award-y))) scale(.48); }
 }
 
+@keyframes poker-bet-to-pot {
+  0% { opacity: 0; transform: translate(calc(-50% + var(--bet-from-x)), calc(-50% + var(--bet-from-y))) scale(.7); }
+  18% { opacity: 1; }
+  72% { opacity: 1; transform: translate(-50%, -68%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.8); }
+}
+
 @keyframes poker-deck-breathe {
   0%, 100% { transform: translateY(0) rotate(-2deg); filter: brightness(.92); }
   50% { transform: translateY(-3px) rotate(-1deg); filter: brightness(1.08); }
@@ -376,6 +383,7 @@ select optgroup {
 .poker-winner-seat { animation: poker-winner-glow 1.1s ease-in-out infinite; }
 .poker-action-bubble, .poker-action-toast { animation: poker-action-pop .28s ease-out; }
 .poker-pot-award { animation: poker-pot-award 1.35s cubic-bezier(.22,.75,.27,1) .15s both; }
+.poker-bet-to-pot { animation: poker-bet-to-pot .72s cubic-bezier(.2,.72,.25,1) both; }
 .poker-deck-source { animation: poker-deck-breathe 3.6s ease-in-out infinite; }
 .poker-all-in { animation: poker-all-in-pulse 1.1s ease-in-out infinite; }
 .poker-seat-frame { box-shadow: 0 8px 18px rgba(0,0,0,.72), inset 0 1px rgba(255,255,255,.18); }
@@ -403,5 +411,5 @@ select optgroup {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat, .poker-winner-seat, .poker-action-bubble, .poker-action-toast, .poker-pot-award, .poker-deck-source, .poker-all-in { animation: none; opacity: 1; }
+  .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat, .poker-winner-seat, .poker-action-bubble, .poker-action-toast, .poker-pot-award, .poker-bet-to-pot, .poker-deck-source, .poker-all-in { animation: none; opacity: 1; }
 }

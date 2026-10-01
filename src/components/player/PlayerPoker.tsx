@@ -123,6 +123,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const smallBlindSeat = current?.hand?.small_blind_seat;
   const bigBlindSeat = current?.hand?.big_blind_seat;
   const winnerIndex = orderedPlayers.findIndex((player) => current?.hand?.winner_ids?.includes(player.id));
+  const latestAction = current?.hand?.action_log?.at(-1);
+  const latestActionIndex = orderedPlayers.findIndex((player) => player.id === latestAction?.player_id);
 
   useEffect(() => {
     const minimum = Number(actions?.min_bet_total || 0);
@@ -174,6 +176,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
               {!mine && !folded ? <img src="/assets/poker/card-backs-2la-noir-v3.webp" alt="Закрытые карты 2LA Noire" className="mx-auto mt-1 w-14 drop-shadow-[0_5px_7px_rgba(0,0,0,.6)]"/> : null}
             </div>;
           })}
+          {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 top-1/2 z-30" style={{ '--bet-from-x': `${seatVectors[latestActionIndex]?.x || 0}px`, '--bet-from-y': `${seatVectors[latestActionIndex]?.y || 0}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
           {winnerIndex >= 0 && Number(current.hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 top-1/2 z-40" style={{ '--award-x': `${seatVectors[winnerIndex]?.x || 0}px`, '--award-y': `${seatVectors[winnerIndex]?.y || 0}px` } as CSSProperties}><ChipAmount amount={Number(current.hand.last_pot_awarded)} /></div> : null}
           <div className="absolute bottom-[17%] left-1/2 z-20 -translate-x-1/2"><div className="flex justify-center -space-x-1">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className="poker-hole-card" style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div><div className="mt-1 rounded-full border border-amber-100/15 bg-black/70 px-3 py-1 text-center text-[10px] font-semibold text-amber-100 backdrop-blur-sm">{current.hand.hand_label || 'Комбинация формируется'}</div></div>
         </section>

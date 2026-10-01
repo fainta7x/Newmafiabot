@@ -29,6 +29,8 @@ body.live-broadcast-document #root {
   /* Role palette (owner, 2026-10-01): мирный red, мафия black, дон purple, шериф yellow. */
   --role-citizen: #e5384f;
   --role-mafia: #050506;
+  /* The black team's accent: cold steel blue on solid black, so it never reads as «out». */
+  --role-mafia-accent: #4cc3ff;
   --role-don: #8b5cf6;
   --role-sheriff: #facc15;
   position: relative;
@@ -188,9 +190,9 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-score-row b.is-red { background: var(--role-citizen); color: #fff; }
-.live-broadcast-score-row b.is-black { background: #050506; color: #fff; border: 1px solid rgba(255, 255, 255, .28); }
+.live-broadcast-score-row b.is-black { background: #050506; color: #bfe9ff; border: 1px solid rgba(76, 195, 255, .7); }
 .live-broadcast-score-row span.is-red { color: #ff8a9b; }
-.live-broadcast-score-row span.is-black { color: rgba(255, 255, 255, .78); }
+.live-broadcast-score-row span.is-black { color: #8fd8ff; }
 .live-broadcast-score-row i { font-style: normal; font-weight: 700; color: var(--muted); }
 
 .live-broadcast-timer-label {
@@ -367,7 +369,7 @@ body.live-broadcast-document #root {
 
 .live-broadcast-player::before { height: calc(4 * var(--u)); }
 .live-broadcast-player.is-citizen::before { background: var(--role-citizen); }
-.live-broadcast-player.is-mafia::before { background: #fff; }
+.live-broadcast-player.is-mafia::before { background: var(--role-mafia-accent); }
 .live-broadcast-player.is-don::before { background: var(--role-don); }
 .live-broadcast-player.is-sheriff::before { background: var(--role-sheriff); }
 
@@ -375,11 +377,11 @@ body.live-broadcast-document #root {
 .live-broadcast-player { --ring: var(--role-citizen); }
 .live-broadcast-player.is-sheriff { --ring: var(--role-sheriff); }
 .live-broadcast-player.is-don { --ring: var(--role-don); }
-.live-broadcast-player.is-mafia { --ring: #f4f4f5; }
+.live-broadcast-player.is-mafia { --ring: var(--role-mafia-accent); }
 .live-broadcast-player.is-citizen { background: linear-gradient(180deg, rgba(229, 56, 79, .24), rgba(14, 10, 12, .9) 58%); }
 .live-broadcast-player.is-sheriff { background: linear-gradient(180deg, rgba(250, 204, 21, .22), rgba(14, 12, 8, .9) 58%); }
 /* Black team cards are solid black with a white edge, so they never read as «out». */
-.live-broadcast-player.is-mafia { background: #000; border: 1px solid rgba(255, 255, 255, .55); }
+.live-broadcast-player.is-mafia { background: linear-gradient(180deg, rgba(76, 195, 255, .16), #000 58%); border: 1px solid rgba(76, 195, 255, .45); }
 .live-broadcast-player.is-don { background: linear-gradient(180deg, rgba(139, 92, 246, .38), #000 60%); border: 1px solid rgba(167, 139, 250, .6); }
 
 .live-broadcast-player-head {
@@ -402,7 +404,7 @@ body.live-broadcast-document #root {
   font-size: calc(26 * var(--u));
 }
 
-.live-broadcast-player.is-mafia .live-broadcast-portrait .live-broadcast-avatar { box-shadow: 0 0 0 calc(2 * var(--u)) #000, 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, .5); }
+.live-broadcast-player.is-mafia .live-broadcast-portrait .live-broadcast-avatar { box-shadow: 0 0 0 calc(2 * var(--u)) #000, 0 0 calc(14 * var(--u)) rgba(76, 195, 255, .45); }
 
 .live-broadcast-portrait .live-broadcast-seat-number {
   position: absolute;
@@ -513,7 +515,7 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-player.is-citizen .live-broadcast-role { color: #ff7b8f; }
-.live-broadcast-player.is-mafia .live-broadcast-role { color: #e5e7eb; }
+.live-broadcast-player.is-mafia .live-broadcast-role { color: #8fd8ff; }
 .live-broadcast-player.is-don .live-broadcast-role { color: #c4b5fd; }
 .live-broadcast-player.is-sheriff .live-broadcast-role { color: var(--role-sheriff); }
 .live-broadcast-role .live-broadcast-role-icon { width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
@@ -770,7 +772,7 @@ body.live-broadcast-document #root {
 
 .live-broadcast-seat-chip.is-citizen { background: var(--role-citizen); }
 .live-broadcast-seat-chip.is-sheriff { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-seat-chip.is-mafia { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .3); }
+.live-broadcast-seat-chip.is-mafia { background: var(--role-mafia); border: 1px solid rgba(76, 195, 255, .75); color: #bfe9ff; }
 .live-broadcast-seat-chip.is-don { background: var(--role-don); }
 .live-broadcast-seat-chip.is-empty { color: var(--muted); }
 
@@ -840,16 +842,17 @@ body.live-broadcast-document #root {
 .live-broadcast-check {
   display: flex;
   align-items: center;
-  gap: calc(3 * var(--u));
-  height: calc(20 * var(--u));
-  padding: 0 calc(6 * var(--u));
-  border-radius: calc(5 * var(--u));
-  background: rgba(255, 255, 255, .1);
+  gap: calc(5 * var(--u));
+  min-height: calc(20 * var(--u));
   font-size: calc(12 * var(--u));
   font-weight: 700;
-  color: #fff;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, .82);
 }
 
-.live-broadcast-check .live-broadcast-role-icon { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+.live-broadcast-check .live-broadcast-role-icon { flex: none; width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
 .live-broadcast-check.is-don .live-broadcast-role-icon { color: #c4b5fd; }
 .live-broadcast-check.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
+.live-broadcast-check > span { display: grid; }
+.live-broadcast-check b { font-weight: 700; }
+.live-broadcast-check small { font-size: calc(10.5 * var(--u)); font-weight: 600; color: var(--muted); }

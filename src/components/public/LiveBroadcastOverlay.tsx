@@ -29,11 +29,6 @@ const RoleIcon = ({ kind }: { kind: RoleKind }) => {
 
 type PlayerCheck = { by: 'don' | 'sheriff'; round: number; result: 'red' | 'black' | 'sheriff' | 'not_sheriff' | null };
 
-const checkTitle = (check: PlayerCheck) => {
-  if (check.by === 'sheriff') return check.result === 'black' ? 'чёрный' : check.result === 'red' ? 'красный' : '…';
-  return check.result === 'sheriff' ? 'шериф' : check.result === 'not_sheriff' ? 'не шериф' : '…';
-};
-
 /** Every Don and Sheriff check of the game, by checked seat. */
 const checksBySeat = (timeline: LiveBroadcastTimelineEntry[]) => {
   const result = new Map<number, PlayerCheck[]>();
@@ -373,19 +368,12 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 {protocol?.red.length ? <FactRow label="Красные" seats={protocol.red} kinds={kinds} tone="red" /> : null}
                 {protocol?.black.length ? <FactRow label="Чёрные" seats={protocol.black} kinds={kinds} tone="black" /> : null}
                 {protocol?.sheriff.length ? <FactRow label="Шериф" seats={protocol.sheriff} kinds={kinds} tone="sheriff" /> : null}
-                {playerChecks.length ? (
-                  <div className="live-broadcast-fact">
-                    <b>Проверки</b>
-                    <div className="live-broadcast-fact-values">
-                      {playerChecks.map((check) => (
-                        <span key={`${check.by}-${check.round}`} className={`live-broadcast-check is-${check.by}`} title={`${check.by === 'don' ? 'Дон' : 'Шериф'}, ночь ${check.round}: ${checkTitle(check)}`}>
-                          {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
-                          н{check.round}
-                        </span>
-                      ))}
-                    </div>
+                {playerChecks.map((check) => (
+                  <div key={`${check.by}-${check.round}`} className={`live-broadcast-check is-${check.by}`}>
+                    {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
+                    <span><b>{check.by === 'don' ? 'Дон' : 'Шериф'} проверил</b><small>в ночь {check.round}</small></span>
                   </div>
-                ) : null}
+                ))}
               </div>
               {hasDiscipline ? (
                 <div className="live-broadcast-player-footer">

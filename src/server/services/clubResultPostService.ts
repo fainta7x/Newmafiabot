@@ -128,8 +128,9 @@ export async function postEveningSummary(db: DatabaseWrapper, eveningId: string,
 }
 
 /**
- * The worker's scan: completed games of recent evenings, then closed evenings. Only evenings that
- * started after this feature was switched on are posted, so old games never flood the chat.
+ * The worker's scan: completed games of recent in-app evenings, then closed evenings. Only evenings
+ * that started after this feature was switched on are posted, so old games never flood the chat.
+ * Tournaments run through their own tables and their own result export, not this scan.
  */
 export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof fetch = fetch, now = Date.now()) {
   if (isEveningPublishingPaused()) return 0;
@@ -140,7 +141,8 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     [ENABLED_KEY, stamp, stamp],
   );
   const marker = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [ENABLED_KEY]);
-  const since = Math.max(now - WINDOW_MS, new Date(String(marker?.created_at || stamp)).getTime() - 12 * 60 * 60 * 1000);
+  // Strictly after the switch-on: an evening already running at deploy time is not posted retroactively.
+  const since = Math.max(now - WINDOW_MS, new Date(String(marker?.created_at || stamp)).getTime());
   const evenings = await db.all<any>(`
     SELECT id, format, status FROM game_evenings
      WHERE datetime(starts_at) >= datetime(?) AND datetime(starts_at) <= datetime(?)

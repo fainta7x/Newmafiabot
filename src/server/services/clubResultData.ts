@@ -182,6 +182,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
   const rows = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
   const elo = await loadClubElo(db);
   const eloByPlayer = new Map<string, number>();
+  const guestNames = new Map<string, string>();
   const scored = isScoredFormat(evening.format);
   const tallies = new Map<string, Tally>();
   let games = 0; let redWins = 0; let blackWins = 0;
@@ -193,8 +194,11 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     if (envelope.protocol.winner_team === 'black') blackWins += 1;
     for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
-      const playerId = String(result?.player_id || '');
+      // A walk-in guest has no profile: count them by the placeholder (or the name on the seat).
+      const guestKey = String(result?.guest_placeholder_id || result?.display_name || '').trim();
+      const playerId = String(result?.player_id || '') || (guestKey ? `guest:${guestKey}` : '');
       if (!playerId) continue;
+      if (playerId.startsWith('guest:')) guestNames.set(playerId, String(result?.display_name || 'Гость'));
       const role = normalizeRole(result?.role) || 'citizen';
       const win = won(role, envelope.protocol.winner_team) ? 1 : 0;
       const points = scored ? gameResultPoints(envelope, result).total : 0;
@@ -208,10 +212,10 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
   }
   if (!games) return null;
   const all = [...tallies.values()];
-  const ids = all.map((item) => item.playerId);
+  const ids = all.map((item) => item.playerId).filter((id) => !id.startsWith('guest:'));
   const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
   const person = (tally: Tally, value: string, detail: string): SummaryPlayer => ({
-    playerId: tally.playerId, nickname: names.get(tally.playerId) || 'Игрок', avatar: avatars.get(tally.playerId) || null, value, detail,
+    playerId: tally.playerId, nickname: names.get(tally.playerId) || guestNames.get(tally.playerId) || 'Игрок', avatar: avatars.get(tally.playerId) || null, value, detail,
   });
   const winsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'победа' : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? 'победы' : 'побед');
   const ofGames = (count: number) => `из ${count} ${count % 10 === 1 && count % 100 !== 11 ? 'игры' : 'игр'}`;

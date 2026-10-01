@@ -3,7 +3,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { loadEveningSummary, loadGameBlank, loadSeasonTable } from '../server/services/clubResultData.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from '../server/services/clubResultImages.ts';
-import { runClubResultPosts } from '../server/services/clubResultPostService.ts';
+import { ensureClubResultPostSchema, runClubResultPosts } from '../server/services/clubResultPostService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
@@ -22,6 +22,10 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
     VALUES ('ev','Пятничный вечер',?,'Europe/Moscow',?,'active',20,100,?,?)`, [startsAt, format, now, now]);
   await db.run(`INSERT OR REPLACE INTO telegram_destinations (id,name,chat_id,topic_id,active,created_at,updated_at)
     VALUES ('club','Клуб','-100500',77,1,?,?), ('rating','Рейтинг','-100600',NULL,1,?,?)`, [now, now, now, now]);
+  // The feature was switched on a day ago.
+  await ensureClubResultPostSchema(db);
+  const switchedOn = new Date(Date.now() - 86400_000).toISOString();
+  await db.run("INSERT INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES ('enabled','marker','sent',?,?)", [switchedOn, switchedOn]);
   // Player «a» is always the sheriff; the rest rotate.
   const addGame = async (number: number, winner: 'red' | 'black', extra: Record<string, unknown> = {}, status = 'completed') => {
     const envelope = {
@@ -100,6 +104,18 @@ describe('evening summary', () => {
     expect(eveningSummarySvg(summary!)).toContain('РОСТ ЭЛО ЗА ВЕЧЕР');
   });
 
+  it('a walk-in guest without a profile still counts', async () => {
+    const { db, addGame } = await setup('CASUAL');
+    const id = await addGame(1, 'red');
+    const game = await db.get<any>('SELECT protocol_text FROM games WHERE id = ?', [id]);
+    const envelope = JSON.parse(game.protocol_text);
+    Object.assign(envelope.player_results[0], { player_id: null, guest_placeholder_id: 'guest-1', display_name: 'Гость Олег' });
+    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(envelope), id]);
+    const summary = await loadEveningSummary(db, 'ev');
+    expect(summary!.players).toBe(10);
+    expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Гость Олег', avatar: null });
+  });
+
   it('rating evening: the best is the average points per game, not the sum', async () => {
     const { db, addGame } = await setup('RATING');
     await addGame(1, 'red'); await addGame(2, 'black');
@@ -176,11 +192,14 @@ describe('posting to the club chat', () => {
     expect((calls[1].get('p1') as Blob).type).toBe('image/png');
   });
 
-  it('never posts evenings from before the feature was switched on', async () => {
+  it('never posts an evening that started before the feature was switched on', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
-    const { db, addGame } = await setup('CASUAL', new Date(Date.now() - 30 * 3600_000).toISOString());
+    const { db, addGame } = await setup('CASUAL');
+    await db.run("DELETE FROM club_result_posts WHERE post_key = 'enabled'");
     await addGame(1, 'red');
     const { calls, fetchImpl } = telegram();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
+    await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = 'ev'");
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
     expect(calls).toHaveLength(0);
   });

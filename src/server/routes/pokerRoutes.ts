@@ -7,12 +7,12 @@ const router = Router();
 const actor = async (req: any, res: any) => {
   const id = getPlayerSessionId(req);
   if (!id) { res.status(401).json({ error: 'Для Poker нужен профиль игрока.' }); return null; }
-  const player = await req.db.get<any>('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [id]);
+  const player = await req.db.get('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [id]) as { id: string; nickname?: string } | undefined;
   if (!player) { res.status(404).json({ error: 'Игрок не найден.' }); return null; }
   return { id: String(player.id), nickname: String(player.nickname || 'Игрок') };
 };
 
-router.get('/poker/lobbies', async (req, res) => res.json({ lobbies: listPokerLobbies() }));
+router.get('/poker/lobbies', async (_req, res) => res.json({ lobbies: listPokerLobbies() }));
 router.post('/poker/lobbies', async (req, res) => { const player = await actor(req, res); if (!player) return; return res.status(201).json({ lobby: publicPokerLobby(createPokerLobby(player, req.body?.title), player.id) }); });
 router.get('/poker/lobbies/:id', async (req, res) => { const lobby = getPokerLobby(String(req.params.id)); if (!lobby) return res.status(404).json({ error: 'Лобби не найдено.' }); tickPokerLobby(lobby); const player = await actor(req, res); if (!player) return; return res.json({ lobby: publicPokerLobby(lobby, player.id) }); });
 router.post('/poker/lobbies/:id/join', async (req, res) => { const lobby = getPokerLobby(String(req.params.id)); if (!lobby) return res.status(404).json({ error: 'Лобби не найдено.' }); const player = await actor(req, res); if (!player) return; try { joinPokerLobby(lobby, player); return res.json({ lobby: publicPokerLobby(lobby, player.id) }); } catch (error: any) { return res.status(409).json({ error: error?.message || 'Не удалось войти в лобби.' }); } });

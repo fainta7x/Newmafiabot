@@ -36,7 +36,7 @@ export default function PlayerQuickAccessBar({
           {canOpenAdmin && onOpenAdmin ? (
             <ProductModeSwitch activeMode="player" onSwitch={onOpenAdmin} />
           ) : null}
-          <button type="button" onClick={onOpenPoker} className="hidden min-h-11 rounded-2xl border border-amber-200/15 bg-amber-200/[0.08] px-2.5 text-xs font-semibold text-amber-50 sm:inline-flex">Poker</button>
+          <button type="button" onClick={onOpenPoker} className="inline-flex min-h-11 rounded-2xl border border-amber-200/15 bg-amber-200/[0.08] px-2.5 text-xs font-semibold text-amber-50">Poker</button>
 
           <button
             data-testid="player-quick-wallet"

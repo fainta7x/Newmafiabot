@@ -6,7 +6,6 @@ type Lobby = { id: string; title: string; status: string; players: Player[]; han
 
 /** Ranks as on an ordinary deck: A K Q J 10 … — «T» for ten reads as «туз» in Russian. */
 const rankLabel = (rank: string) => (rank === 'T' ? '10' : rank);
-const suitSymbol = (suit: string) => ({ hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }[suit] || suit);
 const cardColor = (suit: string) => suit === 'hearts' || suit === 'diamonds' ? 'text-[#d92f45]' : 'text-[#101116]';
 /**
  * Seats sit on the chairs of the table picture (940×1672): one at the top, three on each side and
@@ -33,14 +32,17 @@ const seatOrder = (players: Player[], viewerId: string | null) => {
   const start = Math.max(0, sorted.findIndex((player) => player.id === viewerId));
   return [...sorted.slice(start), ...sorted.slice(0, start)];
 };
-/** Bets lie on the felt between the player and the pot. */
+/**
+ * Bets lie on the felt between the player and the pot. Vertical offsets are in pixels from the seat,
+ * because the seat plaques have a fixed size while the table picture changes height on short screens.
+ */
 const betSpot = (spot: { x: number; y: number }) => {
   const side = Math.abs(spot.x - 50) > 25;
-  if (side && spot.y > 30 && spot.y < 60) return { x: spot.x + (50 - spot.x) * 0.62, y: spot.y + 9.5 };
-  if (spot.y > 80) return { x: 50, y: 70 };
-  if (spot.y > 60) return { x: spot.x + (50 - spot.x) * (side ? 0.62 : 0.3), y: 64 };
-  if (spot.x > 45 && spot.x < 55) return { x: 50, y: spot.y + 14 };
-  return { x: spot.x + (spot.x < 50 ? 15 : -15), y: spot.y + 15 };
+  if (spot.y > 80) return { x: 50, top: `calc(${spot.y}% - 150px)` };
+  if (spot.y > 60) return { x: spot.x + (50 - spot.x) * (side ? 0.6 : 0.3), top: `calc(${spot.y}% - 46px)` };
+  if (side && spot.y >= 30) return { x: spot.x + (50 - spot.x) * 0.62, top: `calc(${spot.y}% + 40px)` };
+  if (spot.x > 45 && spot.x < 55) return { x: 50, top: `calc(${spot.y}% + 90px)` };
+  return { x: spot.x + (50 - spot.x) * 0.42, top: `calc(${spot.y}% + 90px)` };
 };
 /** Time left for the current move: the base time first, then the reserve, like poker rooms. */
 const turnTimer = (hand: any) => {
@@ -136,13 +138,30 @@ const actionTag = (type: string) => ({
   all_in: 'bg-[#c1123a] text-white',
 }[type] || 'bg-black text-white');
 
+/** Vector suits: the same shape on every phone, centred exactly (font glyphs are not). */
+const SUIT_PATHS: Record<string, string> = {
+  hearts: 'M12 21.4 10.6 20C5.4 15.4 2 12.3 2 8.5 2 5.4 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1C13.1 3.8 14.8 3 16.5 3 19.6 3 22 5.4 22 8.5c0 3.8-3.4 6.9-8.6 11.5L12 21.4z',
+  diamonds: 'M12 1.8 20.2 12 12 22.2 3.8 12z',
+  spades: 'M12 2c-3 4-9 7.4-9 12a4.6 4.6 0 0 0 7.7 3.4c-.3 1.8-1.1 3.3-2.6 4.6h7.8c-1.5-1.3-2.3-2.8-2.6-4.6A4.6 4.6 0 0 0 21 14c0-4.6-6-8-9-12z',
+  clubs: 'M12 2.4a4.3 4.3 0 0 0-3.6 6.7 4.3 4.3 0 1 0 2.4 7.7c-.3 2-1.1 3.7-2.6 5.2h7.6c-1.5-1.5-2.3-3.2-2.6-5.2a4.3 4.3 0 1 0 2.4-7.7A4.3 4.3 0 0 0 12 2.4z',
+};
+
+function SuitIcon({ suit, className = '' }: { suit: string; className?: string }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className={className}><path d={SUIT_PATHS[suit] || SUIT_PATHS.spades} fill="currentColor" /></svg>;
+}
+
+/**
+ * A classic card face: mirrored corner indices (rank over a small suit) and one big suit in the exact centre.
+ * Sizes: tiny (showdown at a seat), board, small and the viewer's own cards.
+ */
 function PlayingCard({ card, small = false, tiny = false, board = false }: { card: Card; small?: boolean; tiny?: boolean; board?: boolean }) {
-  const suit = suitSymbol(card.suit);
-  if (tiny) return <span className={`relative grid h-10 w-7 shrink-0 place-items-center rounded-md bg-[#f7f3ea] text-[11px] font-black leading-none shadow-[0_4px_8px_rgba(0,0,0,.45)] ${cardColor(card.suit)}`}><span>{rankLabel(card.rank)}<br />{suit}</span></span>;
-  return <span className={`poker-card-face relative shrink-0 overflow-hidden rounded-[7px] font-black ${cardColor(card.suit)} ${board ? 'h-[60px] w-[43px]' : small ? 'h-14 w-10' : 'h-[78px] w-[56px]'}`}>
-    <span className={`absolute left-[17%] top-[13%] leading-[.8] ${small ? 'text-[11px]' : board ? 'text-[13px]' : 'text-base'}`}>{rankLabel(card.rank)}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
-    <span className={`absolute inset-0 grid place-items-center ${small ? 'text-xl' : board ? 'text-2xl' : 'text-4xl'}`}>{suit}</span>
-    <span className={`absolute bottom-[13%] right-[17%] rotate-180 leading-[.8] ${small ? 'text-[11px]' : board ? 'text-[13px]' : 'text-base'}`}>{rankLabel(card.rank)}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
+  const size = tiny ? 'tiny' : board ? 'board' : small ? 'small' : 'hand';
+  const label = rankLabel(card.rank);
+  const corner = <span className="poker-card-index"><span className={label.length > 1 ? 'poker-card-rank is-wide' : 'poker-card-rank'}>{label}</span><SuitIcon suit={card.suit} className="poker-card-index-suit" /></span>;
+  return <span className={`poker-card-face poker-card--${size} ${cardColor(card.suit)}`} aria-label={`${label} ${card.suit}`}>
+    <span className="poker-card-corner is-top">{corner}</span>
+    {size !== 'tiny' ? <SuitIcon suit={card.suit} className="poker-card-pip" /> : null}
+    {size !== 'tiny' ? <span className="poker-card-corner is-bottom">{corner}</span> : null}
   </span>;
 }
 
@@ -260,7 +279,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 top-[35.5%] z-[5] -translate-x-1/2 -translate-y-1/2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/35 bg-black/70 py-1 pl-1 pr-3 shadow-[0_6px_16px_rgba(0,0,0,.6)]"><img src="/assets/poker/chips/chip-1000-v2.webp" alt="" className="h-7 w-7 object-contain" /><span className="text-[11px] uppercase tracking-[.14em] text-amber-100/65">Банк</span><span className="text-base font-black tabular-nums text-amber-100">{Number(hand.pot) > 0 ? hand.pot : finished ? hand.last_pot_awarded || 0 : 0}</span></span>
           </div>
-          <div className="absolute left-1/2 top-[51%] z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1">{(hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - (hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="h-[60px] w-[43px] rounded-lg border border-white/10 bg-black/15" />)}</div>
+          <div className="absolute left-1/2 top-[51%] z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1">{(hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - (hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="poker-card-slot" />)}</div>
 
           {orderedPlayers.slice(0, 8).map((player: Player, index: number) => {
             if (index === heroIndex) return null;
@@ -280,14 +299,13 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
               <div className={`relative h-12 w-12 ${edge === 'left' ? 'ml-0' : edge === 'right' ? 'ml-auto' : 'mx-auto'}`}>
                 {timer ? <span className="pointer-events-none absolute -inset-[4px] rounded-full transition-[background] duration-700" style={{ background: `conic-gradient(${timer.reserve ? '#fb923c' : timer.share < 0.3 ? '#fcd34d' : '#34d399'} ${timer.share * 360}deg, rgba(255,255,255,.12) 0deg)` }} /> : null}
                 {player.sitting_out ? <span className="absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/80 px-1.5 py-px text-[9px] font-black uppercase tracking-wide text-white/70 ring-1 ring-white/20">Отошёл</span> : !winner && !label && lastAction && lastAction.type !== 'small_blind' && lastAction.type !== 'big_blind' ? <span key={lastAction.at} className={`poker-action-bubble absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-wide shadow-[0_2px_6px_rgba(0,0,0,.6)] ${actionTag(lastAction.type)}`}>{actionWord(lastAction.type)}</span> : null}
-                <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-sm font-bold text-black ${winner ? 'poker-winner-seat' : ''}`}>
+                <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full text-sm font-bold ${winner ? 'poker-winner-seat' : ''}`}>
                   <span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>
                   {!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[42px] w-[42px] rounded-full object-cover" /> : null}
-                  <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#8d7655]" />
                 </div>
-                {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <img src="/assets/poker/opponent-hole-cards-noir-v1.webp" alt="Закрытые карты" className="absolute -right-5 top-2 -z-10 w-12 drop-shadow-[0_3px_4px_rgba(0,0,0,.6)]" /> : null}
+                {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <span className="poker-seat-backs" aria-label="Закрытые карты"><i /><i /></span> : null}
               </div>
-              <div className={`poker-seat-plaque relative z-10 -mt-3 overflow-hidden rounded-[10px] px-1.5 pb-1.5 pt-2 ${active ? 'poker-seat-plaque--active' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
+              <div className={`poker-seat-plaque relative z-10 -mt-2 ${active ? 'poker-seat-plaque--active' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
               {winner ? <div className="-mx-5 mt-0.5 rounded-lg bg-amber-300 px-1.5 py-0.5 text-[9px] font-black leading-tight text-black">{label || 'Победитель'}</div> : label ? <div className="-mx-5 mt-0.5 text-[9px] leading-tight text-white/75">{label}</div> : null}
             </div>;
           })}
@@ -301,7 +319,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const big = player.seat === bigBlindSeat;
             if (!committed && !dealer && !small && !big) return null;
             const spot = betSpot(layout[index]);
-            return <div key={`bet-${player.id}-${committed}`} className="poker-chip-flight absolute z-[8] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${spot.x}%`, top: `${spot.y}%` }}><SeatMarkers dealer={dealer} small={small} big={big} />{committed ? <BetChip amount={committed} /> : null}</div>;
+            return <div key={`bet-${player.id}-${committed}`} className="poker-chip-flight absolute z-[8] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${spot.x}%`, top: spot.top }}><SeatMarkers dealer={dealer} small={small} big={big} />{committed ? <BetChip amount={committed} /> : null}</div>;
           })}
           {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 top-[37%] z-40" style={{ '--award-x': `${(layout[winnerIndex].x - 50) * 3.7}px`, '--award-y': `${(layout[winnerIndex].y - 37) * 6.6}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
           {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 top-[37%] z-30" style={{ '--bet-from-x': `${(layout[latestActionIndex].x - 50) * 3.7}px`, '--bet-from-y': `${(layout[latestActionIndex].y - 37) * 6.6}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
@@ -312,10 +330,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const winner = hand.winner_ids?.includes(hero.id);
             return <div className="absolute bottom-[2%] left-1/2 z-20 flex w-[92%] -translate-x-1/2 flex-col items-center">
               <div className="flex gap-1.5">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
-                            <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[360px] items-center gap-2.5 overflow-hidden rounded-xl py-1.5 pl-1.5 pr-4 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'ring-2 ring-emerald-400' : ''}`}>
+                            <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[340px] items-center gap-2.5 overflow-hidden py-1.5 pl-1.5 pr-3 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'ring-2 ring-emerald-400' : ''}`}>
                 {isMyTurn ? <span className="absolute inset-x-0 top-0"><TimerBar timer={turnTimer(hand)} thin /></span> : null}
-                <span className="poker-seat-frame relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_25%,#f5d28a,#8d5924)] text-sm font-bold text-black">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[34px] w-[34px] rounded-full object-cover" /></span>
-                <span className="min-w-0 flex-1 text-left"><span className="flex items-center gap-2"><b className="poker-hero-name">Вы</b><SeatStack amount={handPlayer?.chips ?? hero.chips} hero />{handPlayer?.all_in ? <span className="rounded border border-rose-200/30 bg-[#721f24] px-1.5 py-0.5 text-[8px] font-black tracking-wide text-white shadow-inner">ALL-IN</span> : null}</span><span className="poker-hand-label block truncate"><span className="poker-hand-kicker">Рука</span>{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
+                <span className="poker-seat-frame relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[34px] w-[34px] rounded-full object-cover" /></span>
+                <span className="min-w-0 flex-1 text-left"><span className="flex items-center gap-2"><b className="poker-hero-name">Вы</b><SeatStack amount={handPlayer?.chips ?? hero.chips} hero />{handPlayer?.all_in ? <span className="rounded border border-rose-200/30 bg-[#721f24] px-1.5 py-0.5 text-[8px] font-black tracking-wide text-white shadow-inner">ALL-IN</span> : null}</span><span className="poker-hand-label block"><span className="poker-hand-kicker">Рука</span>{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
               </div>
             </div>;
           })() : null}

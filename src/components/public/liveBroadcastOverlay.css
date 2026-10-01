@@ -353,10 +353,9 @@ body.live-broadcast-document #root {
 .live-broadcast-player {
   position: relative;
   min-width: 0;
-  height: calc(246 * var(--u));
+  height: calc(262 * var(--u));
   padding: calc(9 * var(--u)) calc(11 * var(--u)) calc(10 * var(--u));
   border-radius: calc(14 * var(--u));
-  overflow: hidden;
 }
 
 .live-broadcast-player::before {
@@ -367,28 +366,16 @@ body.live-broadcast-document #root {
   background: rgba(255, 255, 255, .14);
 }
 
-.live-broadcast-player::before { height: calc(4 * var(--u)); }
-.live-broadcast-player.is-citizen::before { background: var(--role-citizen); }
-.live-broadcast-player.is-mafia::before { background: var(--role-mafia-accent); }
-.live-broadcast-player.is-don::before { background: var(--role-don); }
-.live-broadcast-player.is-sheriff::before { background: var(--role-sheriff); }
+.live-broadcast-player::before { display: none; }
 
 /* Black team cards are black; red team cards keep the glass with a faint tint of their colour. */
-.live-broadcast-player { --ring: var(--role-citizen); }
-.live-broadcast-player.is-sheriff { --ring: var(--role-sheriff); }
-.live-broadcast-player.is-don { --ring: var(--role-don); }
-.live-broadcast-player.is-mafia { --ring: var(--role-mafia-accent); }
-.live-broadcast-player.is-citizen { background: linear-gradient(180deg, rgba(229, 56, 79, .24), rgba(14, 10, 12, .9) 58%); }
-.live-broadcast-player.is-sheriff { background: linear-gradient(180deg, rgba(250, 204, 21, .22), rgba(14, 12, 8, .9) 58%); }
-/* Black team cards are solid black with a white edge, so they never read as «out». */
-.live-broadcast-player.is-mafia { background: linear-gradient(180deg, rgba(76, 195, 255, .16), #000 58%); border: 1px solid rgba(76, 195, 255, .45); }
-.live-broadcast-player.is-don { background: linear-gradient(180deg, rgba(139, 92, 246, .38), #000 60%); border: 1px solid rgba(167, 139, 250, .6); }
+.live-broadcast-player { --ring: rgba(255, 255, 255, .28); background: linear-gradient(180deg, rgba(38, 38, 46, .92), rgba(10, 10, 13, .9)); }
 
 .live-broadcast-player-head {
   display: flex;
   align-items: center;
   gap: calc(10 * var(--u));
-  height: calc(68 * var(--u));
+  height: calc(88 * var(--u));
 }
 
 .live-broadcast-portrait {
@@ -397,14 +384,13 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-portrait .live-broadcast-avatar {
-  width: calc(64 * var(--u));
-  height: calc(64 * var(--u));
+  width: calc(84 * var(--u));
+  height: calc(84 * var(--u));
   border: calc(3 * var(--u)) solid var(--ring);
   box-shadow: 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, .7);
   font-size: calc(26 * var(--u));
 }
 
-.live-broadcast-player.is-mafia .live-broadcast-portrait .live-broadcast-avatar { box-shadow: 0 0 0 calc(2 * var(--u)) #000, 0 0 calc(14 * var(--u)) rgba(76, 195, 255, .45); }
 
 .live-broadcast-portrait .live-broadcast-seat-number {
   position: absolute;
@@ -514,10 +500,7 @@ body.live-broadcast-document #root {
   height: calc(14 * var(--u));
 }
 
-.live-broadcast-player.is-citizen .live-broadcast-role { color: #ff7b8f; }
-.live-broadcast-player.is-mafia .live-broadcast-role { color: #8fd8ff; }
-.live-broadcast-player.is-don .live-broadcast-role { color: #c4b5fd; }
-.live-broadcast-player.is-sheriff .live-broadcast-role { color: var(--role-sheriff); }
+.live-broadcast-player .live-broadcast-role { color: rgba(255, 255, 255, .62); }
 .live-broadcast-role .live-broadcast-role-icon { width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
 
 .live-broadcast-player-status { color: #ff8da0; }
@@ -567,17 +550,15 @@ body.live-broadcast-document #root {
 .live-broadcast-player { transition: transform .25s ease, filter .25s ease, box-shadow .25s ease; }
 
 .live-broadcast-player.is-out {
-  --ring: rgba(255, 255, 255, .18);
-  opacity: .5;
-  background: rgba(20, 20, 24, .45);
-  border: 1px dashed rgba(255, 255, 255, .22);
+  background: rgba(12, 12, 15, .82);
+  border-color: rgba(255, 255, 255, .06);
   box-shadow: none;
 }
 
-.live-broadcast-player.is-out::before { background: transparent; }
-.live-broadcast-player.is-out .live-broadcast-avatar { filter: grayscale(1) brightness(.7); }
-.live-broadcast-player.is-out .live-broadcast-role,
-.live-broadcast-player.is-out .live-broadcast-player-facts { filter: grayscale(1); }
+.live-broadcast-player.is-out .live-broadcast-avatar { filter: grayscale(1) brightness(.75); }
+.live-broadcast-player.is-out .live-broadcast-emblem { filter: grayscale(.6) brightness(.8); }
+.live-broadcast-player.is-out .live-broadcast-player-facts { filter: grayscale(1); opacity: .7; }
+.live-broadcast-player.is-out .live-broadcast-role { color: rgba(255, 255, 255, .4); }
 .live-broadcast-player.is-out .live-broadcast-player-name { color: rgba(255, 255, 255, .55); text-decoration: line-through; text-decoration-thickness: 1px; }
 
 .live-broadcast-player.is-speaking {
@@ -651,7 +632,7 @@ body.live-broadcast-document #root {
   position: absolute;
   left: calc(20 * var(--u));
   top: calc(110 * var(--u));
-  bottom: calc(280 * var(--u));
+  bottom: calc(326 * var(--u));
   width: calc(404 * var(--u));
   display: flex;
   flex-direction: column;
@@ -856,3 +837,77 @@ body.live-broadcast-document #root {
 .live-broadcast-check > span { display: grid; }
 .live-broadcast-check b { font-weight: 700; }
 .live-broadcast-check small { font-size: calc(10.5 * var(--u)); font-weight: 600; color: var(--muted); }
+
+/* ---------- Role emblem and «out» ribbon (owner reference, 2026-10-01) ---------- */
+.live-broadcast-emblem {
+  position: absolute;
+  top: calc(-3 * var(--u));
+  right: calc(-5 * var(--u));
+  display: grid;
+  place-items: center;
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  border-radius: 50%;
+  box-shadow: 0 0 0 calc(2 * var(--u)) #0b0b0e, 0 calc(2 * var(--u)) calc(6 * var(--u)) rgba(0, 0, 0, .5);
+}
+
+.live-broadcast-emblem .live-broadcast-role-icon { width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
+.live-broadcast-emblem.is-citizen { background: #fff; color: #f43f6e; }
+.live-broadcast-emblem.is-mafia { background: #fff; color: #0b0b0e; }
+.live-broadcast-emblem.is-don { background: #8b5cf6; color: #0b0b0e; }
+.live-broadcast-emblem.is-sheriff { background: #facc15; color: #0b0b0e; }
+
+.live-broadcast-out-ribbon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(124 * var(--u));
+  transform: translate(-50%, -50%) rotate(-30deg);
+  pointer-events: none;
+}
+
+.live-broadcast-out-ribbon span {
+  display: block;
+  padding: calc(4 * var(--u)) 0;
+  background: rgba(10, 10, 12, .92);
+  border-top: 1px solid rgba(255, 90, 120, .5);
+  border-bottom: 1px solid rgba(255, 90, 120, .5);
+  color: #ff5a78;
+  font-size: calc(11 * var(--u));
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.live-broadcast-check-tabs {
+  position: absolute;
+  left: calc(12 * var(--u));
+  bottom: 100%;
+  display: flex;
+  gap: calc(4 * var(--u));
+}
+
+.live-broadcast-check-tab {
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  height: calc(24 * var(--u));
+  padding: 0 calc(8 * var(--u));
+  border-radius: calc(7 * var(--u)) calc(7 * var(--u)) 0 0;
+  background: rgba(16, 16, 20, .92);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  font-size: calc(12 * var(--u));
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.live-broadcast-check-tab .live-broadcast-role-icon { width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
+.live-broadcast-check-tab.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
+.live-broadcast-check-tab.is-don .live-broadcast-role-icon { color: #a78bfa; }
+.live-broadcast-player.is-out .live-broadcast-check-tab { opacity: .6; filter: grayscale(1); }
+.live-broadcast-out-ribbon { z-index: 1; }
+.live-broadcast-portrait .live-broadcast-seat-number,
+.live-broadcast-emblem { z-index: 2; }

@@ -17,6 +17,8 @@ const roleKind = (role: string | undefined): RoleKind => {
   return 'citizen';
 };
 
+const OUT_WORDS: Record<string, string> = { killed: 'Убит', voted: 'Заголосован', removed: 'Удалён', ppk: 'Удалён', out: 'Выбыл' };
+
 const ROLE_LABELS: Record<RoleKind, string> = { citizen: 'Мирный', mafia: 'Мафия', don: 'Дон', sheriff: 'Шериф' };
 
 /** The same role icons as the Live Game seats; colours follow the owner's palette (2026-10-01). */
@@ -338,21 +340,32 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
               key={player.seat}
               className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
-              {/* The face first (owner, 2026-10-01): a large portrait ringed in the role colour. */}
+              {/* Checks as tabs above the card, nights left to right (owner reference, 2026-10-01). */}
+              {playerChecks.length ? (
+                <div className="live-broadcast-check-tabs">
+                  {playerChecks.map((check) => (
+                    <span key={`${check.by}-${check.round}`} className={`live-broadcast-check-tab is-${check.by}`} title={`${check.by === 'don' ? 'Дон' : 'Шериф'} проверил в ночь ${check.round}`}>
+                      {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
+                      ночь {check.round}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {/* The face first (owner, 2026-10-01): a large portrait with a role emblem. */}
               <div className="live-broadcast-player-head">
                 <div className="live-broadcast-portrait">
                   <BroadcastAvatar token={token} player={player} />
                   <div className="live-broadcast-seat-number">{player.seat}</div>
+                  {/* Role emblem as on club streams (owner reference, 2026-10-01): the badge colour tells the role. */}
+                  <div className={`live-broadcast-emblem is-${kind}`} title={ROLE_LABELS[kind]}><RoleIcon kind={kind} /></div>
+                  {!player.alive ? <div className="live-broadcast-out-ribbon"><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
                 </div>
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
                     {order ? <div className="live-broadcast-nomination-order" title="Порядок выставления">выст. {order}</div> : null}
                   </div>
-                  <div className="live-broadcast-role">
-                    <RoleIcon kind={kind} />
-                    {ROLE_LABELS[kind]}
-                  </div>
+                  <div className="live-broadcast-role">{ROLE_LABELS[kind]}</div>
                 </div>
               </div>
               <div className="live-broadcast-player-name">{player.nickname}</div>
@@ -368,12 +381,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 {protocol?.red.length ? <FactRow label="Красные" seats={protocol.red} kinds={kinds} tone="red" /> : null}
                 {protocol?.black.length ? <FactRow label="Чёрные" seats={protocol.black} kinds={kinds} tone="black" /> : null}
                 {protocol?.sheriff.length ? <FactRow label="Шериф" seats={protocol.sheriff} kinds={kinds} tone="sheriff" /> : null}
-                {playerChecks.map((check) => (
-                  <div key={`${check.by}-${check.round}`} className={`live-broadcast-check is-${check.by}`}>
-                    {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
-                    <span><b>{check.by === 'don' ? 'Дон' : 'Шериф'} проверил</b><small>в ночь {check.round}</small></span>
-                  </div>
-                ))}
               </div>
               {hasDiscipline ? (
                 <div className="live-broadcast-player-footer">

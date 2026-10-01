@@ -4,6 +4,8 @@ type Card = { rank: string; suit: string };
 type Player = { id: string; nickname: string; seat: number; chips: number; committed?: number; folded?: boolean; all_in?: boolean; is_bot?: boolean };
 type Lobby = { id: string; title: string; status: string; players: Player[]; hand?: any };
 
+/** Ranks as on an ordinary deck: A K Q J 10 … — «T» for ten reads as «туз» in Russian. */
+const rankLabel = (rank: string) => (rank === 'T' ? '10' : rank);
 const suitSymbol = (suit: string) => ({ hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }[suit] || suit);
 const cardColor = (suit: string) => suit === 'hearts' || suit === 'diamonds' ? 'text-[#d92f45]' : 'text-[#101116]';
 /**
@@ -99,11 +101,11 @@ const actionText = (action: any) => {
 
 function PlayingCard({ card, small = false, tiny = false }: { card: Card; small?: boolean; tiny?: boolean }) {
   const suit = suitSymbol(card.suit);
-  if (tiny) return <span className={`relative grid h-10 w-7 shrink-0 place-items-center rounded-md bg-[#f7f3ea] text-[11px] font-black leading-none shadow-[0_4px_8px_rgba(0,0,0,.45)] ${cardColor(card.suit)}`}><span>{card.rank === 'T' ? '10' : card.rank}<br />{suit}</span></span>;
+  if (tiny) return <span className={`relative grid h-10 w-7 shrink-0 place-items-center rounded-md bg-[#f7f3ea] text-[11px] font-black leading-none shadow-[0_4px_8px_rgba(0,0,0,.45)] ${cardColor(card.suit)}`}><span>{rankLabel(card.rank)}<br />{suit}</span></span>;
   return <span className={`relative shrink-0 overflow-hidden rounded-lg bg-[url('/assets/poker/card-face-v1.webp')] bg-cover bg-center font-black shadow-[0_7px_15px_rgba(0,0,0,.38)] ${cardColor(card.suit)} ${small ? 'h-14 w-10' : 'h-[74px] w-[52px]'}`}>
-    <span className={`absolute left-[17%] top-[13%] leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{card.rank}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
+    <span className={`absolute left-[17%] top-[13%] leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{rankLabel(card.rank)}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
     <span className={`absolute inset-0 grid place-items-center ${small ? 'text-xl' : 'text-3xl'}`}>{suit}</span>
-    <span className={`absolute bottom-[13%] right-[17%] rotate-180 leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{card.rank}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
+    <span className={`absolute bottom-[13%] right-[17%] rotate-180 leading-[.8] ${small ? 'text-[11px]' : 'text-sm'}`}>{rankLabel(card.rank)}<small className="mt-0.5 block text-[.72em]">{suit}</small></span>
   </span>;
 }
 

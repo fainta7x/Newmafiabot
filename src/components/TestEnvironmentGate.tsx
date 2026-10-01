@@ -120,12 +120,14 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
   return (
     <>
       {status?.active ? (
-        <div className="fixed inset-x-0 top-0 z-[10000] flex min-h-6 items-center justify-center gap-3 bg-amber-400 px-3 py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-black">
-          <span>Тестовая версия · отдельная база</span>
+        // A small tab in the middle of the top edge: a full-width bar covered the buttons of fixed headers
+        // (for example the OBS button of the live game).
+        <div className="fixed left-1/2 top-0 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-b-lg bg-amber-400 px-2.5 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-black shadow-lg">
+          <span>Тест · отдельная база</span>
           <button type="button" onClick={() => void leaveTestMode()} className="rounded bg-black/15 px-2 py-0.5 normal-case tracking-normal">Выйти</button>
         </div>
       ) : null}
-      <div data-test-environment={status?.active ? 'active' : undefined} className={status?.active ? 'pt-6' : undefined}>{children}</div>
+      <div data-test-environment={status?.active ? 'active' : undefined}>{children}</div>
     </>
   );
 }

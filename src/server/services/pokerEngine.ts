@@ -19,6 +19,8 @@ export type PokerState = {
   revealed_ids: string[];
   action_log: PokerActionLogEntry[];
   base_turn_seconds: number; max_reserve_seconds: number; turn_started_at: number | null;
+  /** When the hand ended: the next one is dealt by itself a few seconds later. */
+  finished_at: number | null;
 };
 
 const SUITS: PokerSuit[] = ['clubs', 'diamonds', 'hearts', 'spades'];
@@ -59,7 +61,7 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
     street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null, last_pot_awarded: 0, revealed_ids: [],
-    deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(),
+    deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(), finished_at: null,
   };
   const ordered = players.slice().sort((a, b) => a.seat - b.seat);
   for (const player of ordered) state.hole_cards[player.id] = [deck.shift()!, deck.shift()!];
@@ -153,6 +155,7 @@ const awardPot = (state: PokerState) => {
   state.pot = 0;
   state.street = 'finished';
   state.current_seat = null;
+  state.finished_at = Date.now();
 };
 
 const showdown = (state: PokerState) => {

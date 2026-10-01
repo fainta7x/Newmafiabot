@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { createPokerLobby, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { NEXT_HAND_DELAY_MS, createPokerLobby, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -86,17 +86,23 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(hand.current_seat).toBe(2);
   });
 
-  it('deals the next hand with the chips left and moves the dealer button', () => {
+  it('deals the next hand by itself after a pause, with the chips left and the dealer button moved', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-01T20:00:00Z'));
     const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
     joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });
     startPokerLobby(lobby, 'o');
     const firstDealer = lobby.hand!.dealer_seat;
-    expect(() => nextPokerHand(lobby, 'o')).toThrow();
+    expect(() => nextPokerHand(lobby)).toThrow();
     applyPokerAction(lobby.hand!, { type: 'fold' });
     const view = publicPokerLobby(lobby, 'g');
-    expect(view.hand?.can_deal_next).toBe(true);
+    expect(view.hand?.next_hand_in).toBe(NEXT_HAND_DELAY_MS / 1000);
     expect(view.hand?.burn_cards).toEqual([]);
-    nextPokerHand(lobby, 'g');
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS - 1000);
+    tickPokerLobby(lobby);
+    expect(lobby.hand!.street).toBe('finished');
+    vi.advanceTimersByTime(1000);
+    tickPokerLobby(lobby);
+    vi.useRealTimers();
     expect(lobby.hand!.street).toBe('preflop');
     expect(lobby.hand!.dealer_seat).not.toBe(firstDealer);
     expect(lobby.players.reduce((sum, player) => sum + player.chips, 0)).toBe(2000);

@@ -14,6 +14,7 @@ import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
+import PlayerPoker from './PlayerPoker.tsx';
 import {
   isPlayerGameSection,
   isPlayerRatingSection,
@@ -67,7 +68,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} onOpenPoker={() => open('poker')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
       {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}
@@ -89,6 +90,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
         <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
         <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
+      ) : section === 'poker' ? (
+        <PlayerPoker />
       ) : (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
       )}

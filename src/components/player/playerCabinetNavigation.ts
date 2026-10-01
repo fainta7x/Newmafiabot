@@ -15,7 +15,8 @@ export type PlayerCabinetSection =
   | 'payments'
   | 'profile'
   | 'conduct'
-  | 'more';
+  | 'more'
+  | 'poker';
 
 export type PlayerCabinetNavId = 'home' | 'events' | 'games' | 'rating' | 'club';
 

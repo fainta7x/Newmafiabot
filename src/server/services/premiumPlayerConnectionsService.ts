@@ -154,6 +154,37 @@ export async function setHistoricalPlayerReferrer(
   };
 }
 
+/**
+ * A new player registered through a friend's «Позвать друга» link (/start ref_<inviter>).
+ * Only a fresh profile gets an inviter, and an inviter already set by the organizer stays.
+ */
+export async function recordInviteLinkReferral(db: DatabaseWrapper, invitedPlayerId: string, inviterInput: unknown) {
+  const inviterPlayerId = String(inviterInput || '').trim();
+  if (!inviterPlayerId || inviterPlayerId === invitedPlayerId) return false;
+  await ensurePlayerConnectionsSchema(db);
+  const [inviter, invited] = await Promise.all([
+    db.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(contact_status, 'normal') <> 'blocked' LIMIT 1", [inviterPlayerId]),
+    db.get<any>('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [invitedPlayerId]),
+  ]);
+  if (!inviter || !invited) return false;
+  const now = nowIso();
+  const inserted = await db.run(`
+    INSERT INTO player_referrals (invited_player_id, inviter_player_id, source, created_at, updated_at)
+    VALUES (?, ?, 'invite_link', ?, ?)
+    ON CONFLICT(invited_player_id) DO NOTHING
+  `, [invitedPlayerId, inviterPlayerId, now, now]);
+  if (!Number((inserted as any)?.changes ?? 1)) return false;
+  await queuePersonalNotification(db, {
+    notificationKey: `invite-link-joined:${invitedPlayerId}`,
+    playerId: inviterPlayerId,
+    eventType: 'invite_link_joined',
+    entityId: invitedPlayerId,
+    text: `🤝 По твоей ссылке в клуб пришёл новый игрок: ${String(invited.nickname || 'игрок')}. Спасибо, что зовёшь друзей!`,
+    actionPath: '/player',
+  }).catch((error) => console.error('[INVITE LINK] notification failed:', error));
+  return true;
+}
+
 const loadPlayer = async (db: DatabaseWrapper, playerId: string) => db.get<any>(`
   SELECT id, nickname, telegram_user_id, game_level,
          COALESCE(contact_status, lifecycle_status, 'normal') AS status

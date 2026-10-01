@@ -5,6 +5,8 @@ import { queueEveningRsvpNudges } from './eveningRsvpNudgeService.ts';
 import { enforceTournamentPaymentDeadlines } from './tournamentEveningService.ts';
 import { runEveningShortfallChecks } from './eveningShortfallService.ts';
 import { runAutomaticUnansweredReminders } from './eveningAutoReminderService.ts';
+import { buildGameResultCard } from './gameResultCardService.ts';
+import { telegramBotUsername } from './playerClaimLinkService.ts';
 
 const SCAN_INTERVAL_MS = 60_000;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -15,12 +17,6 @@ const safeJson = (value: unknown): any => {
   try { return JSON.parse(value); } catch { return null; }
 };
 const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
-const teamForRole = (role: unknown): 'red' | 'black' | null => {
-  const value = String(role || '').toLocaleLowerCase('ru-RU');
-  if (value === 'don' || value === 'mafia' || value === 'дон' || value === 'мафия') return 'black';
-  if (value === 'citizen' || value === 'sheriff' || value === 'мирный' || value === 'шериф') return 'red';
-  return null;
-};
 
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
 // Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.
@@ -31,28 +27,25 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEve
 async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   let queued = 0;
   const games = await db.all<any>(`
-    SELECT id, global_game_number, game_date, protocol_text
+    SELECT id, evening_id, global_game_number, game_date, protocol_text
       FROM games
      WHERE archived_at IS NULL
      ORDER BY id DESC LIMIT 100
   `);
+  const botUsername = await telegramBotUsername().catch(() => null);
+  const eveningCache = new Map();
   for (const game of games) {
     const envelope = safeJson(game.protocol_text);
     if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
-    const winner = envelope?.protocol?.winner_team === 'red' || envelope?.protocol?.winner_team === 'black'
-      ? envelope.protocol.winner_team : null;
     const results = Array.isArray(envelope.player_results) ? envelope.player_results : [];
     for (const result of results) {
       const playerId = String(result?.player_id || '');
       if (!playerId) continue;
-      const role = String(result?.role || '');
-      const team = teamForRole(role);
-      const won = Boolean(winner && team === winner);
+      const notificationKey = `game-result:${game.id}:${playerId}`;
+      const card = await buildGameResultCard(db, game, envelope, result, botUsername, eveningCache);
       await queuePersonalNotification(db, {
-        notificationKey: `game-result:${game.id}:${playerId}`,
-        playerId, eventType: 'game_result', entityId: game.id,
-        text: `🎭 Результат игры №${game.global_game_number || game.id}\n${won ? 'Победа' : 'Поражение'}${role ? ` · роль: ${role}` : ''}.`,
-        actionPath: `/player/games/${encodeURIComponent(String(game.id))}`,
+        notificationKey, playerId, eventType: 'game_result', entityId: game.id,
+        text: card.text, actionPath: card.actionPath, telegramReplyMarkup: card.telegramReplyMarkup,
       });
       queued++;
     }

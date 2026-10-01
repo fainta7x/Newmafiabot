@@ -49,6 +49,7 @@ async def register_canonical_profile(
     telegram_username: str | None,
     full_name: str | None,
     nickname: str,
+    invited_by: str | None = None,
 ) -> dict[str, Any]:
     if not BOT_API_BASE_URL or not BOT_API_SECRET:
         return {"success": False, "error": "configuration"}
@@ -60,6 +61,9 @@ async def register_canonical_profile(
         "full_name": full_name or "",
         "nickname": nickname,
     }
+    # «Позвать друга» link (/start ref_<player id>): the server records who brought the new player.
+    if invited_by:
+        payload["invited_by"] = invited_by
 
     try:
         timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)

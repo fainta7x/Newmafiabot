@@ -186,6 +186,7 @@ describe('live broadcast routes', () => {
             { kind: 'day', round: 3, left: [], note: '<script>' },
             { kind: 'speech', round: 3 },
           ],
+          dayVotes: [{ round: 2, assignments: { 1: 5, 3: 5, 11: 5, 4: 99 } }, { round: 3, assignments: 'x' }],
           protocols: [
             { seat: 2, red: [1, 4, 4], black: [8, 1, 11], sheriff: [7, 6] },
             { seat: 5, red: [], black: [], sheriff: [] },
@@ -202,6 +203,7 @@ describe('live broadcast routes', () => {
       { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: null }, sheriffCheck: { seat: 8, isBlack: true } },
       { kind: 'day', round: 2, left: [5], note: 'voted' },
     ]);
+    expect(body.state.dayVotes).toEqual([{ round: 2, assignments: { 1: 5, 3: 5 } }]);
     expect(body.state.protocols).toEqual([{ seat: 2, red: [1, 4], black: [8], sheriff: [7] }]);
   });
 

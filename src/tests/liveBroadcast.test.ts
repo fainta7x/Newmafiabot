@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLiveBroadcastState, parseBroadcastTimeline } from '../lib/liveBroadcast';
+import { buildLiveBroadcastState, mergeBroadcastDayVotes, parseBroadcastTimeline } from '../lib/liveBroadcast';
 
 const activePlayers = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,
@@ -180,5 +180,21 @@ describe('live broadcast audience state', () => {
       ...snapshot(), phase: 'night', roundNumber: 2, nightLogs: nightLogs.slice(0, 2), shotPlayerSlot: 6,
     }, metadata)!;
     expect(live.timeline?.at(-1)).toMatchObject({ kind: 'night', current: true, shotSeat: 6 });
+  });
+
+  it('remembers each day\'s last fixed vote so the stream shows by whose hands a player left', () => {
+    const fixed = (round: number, assignments: Record<number, number>) => ({
+      roundNumber: round,
+      vote: { roundNumber: 1, isRevote: false, candidates: [], highlightedCandidates: [], published: true, counts: {}, assignments, outcome: null },
+    });
+    let votes = mergeBroadcastDayVotes([], { roundNumber: 2, vote: null });
+    expect(votes).toEqual([]);
+    votes = mergeBroadcastDayVotes(votes, fixed(2, { 1: 5, 3: 5 }));
+    votes = mergeBroadcastDayVotes(votes, fixed(2, { 1: 5, 3: 5, 4: 5 }));
+    votes = mergeBroadcastDayVotes(votes, fixed(3, { 2: 7 }));
+    expect(votes).toEqual([
+      { round: 2, assignments: { 1: 5, 3: 5, 4: 5 } },
+      { round: 3, assignments: { 2: 7 } },
+    ]);
   });
 });

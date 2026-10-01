@@ -361,7 +361,7 @@ body.live-broadcast-document #root {
 .live-broadcast-player {
   position: relative;
   min-width: 0;
-  height: calc(134 * var(--u));
+  height: calc(232 * var(--u));
   padding: calc(9 * var(--u)) calc(11 * var(--u)) calc(10 * var(--u));
   border-radius: calc(14 * var(--u));
   overflow: hidden;
@@ -387,7 +387,7 @@ body.live-broadcast-document #root {
 .live-broadcast-player.is-mafia { background: linear-gradient(180deg, rgba(0, 0, 0, .96), rgba(0, 0, 0, .9)); border-color: rgba(255, 255, 255, .16); }
 .live-broadcast-player.is-don { background: linear-gradient(180deg, rgba(139, 92, 246, .30), rgba(0, 0, 0, .92) 60%); border-color: rgba(167, 139, 250, .35); }
 
-.live-broadcast-player-top {
+.live-broadcast-player-head {
   display: flex;
   align-items: center;
   gap: calc(7 * var(--u));
@@ -609,7 +609,7 @@ body.live-broadcast-document #root {
   position: absolute;
   left: calc(20 * var(--u));
   top: calc(110 * var(--u));
-  bottom: calc(170 * var(--u));
+  bottom: calc(266 * var(--u));
   width: calc(372 * var(--u));
   display: flex;
   flex-direction: column;
@@ -706,37 +706,6 @@ body.live-broadcast-document #root {
 .live-broadcast-tl-row.is-sheriff em.is-hit { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .3); }
 .live-broadcast-tl-row.is-sheriff em.is-red { background: var(--role-citizen); }
 
-.live-broadcast-tl-protocol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(4 * var(--u)) calc(10 * var(--u));
-  padding-top: calc(5 * var(--u));
-  border-top: 1px dashed var(--line);
-}
-
-.live-broadcast-tl-protocol::before {
-  content: "Протокол";
-  align-self: center;
-  font-size: calc(11 * var(--u));
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--muted);
-}
-
-.live-broadcast-tl-protocol > span {
-  display: flex;
-  align-items: center;
-  gap: calc(3 * var(--u));
-  font-size: calc(12 * var(--u));
-  font-weight: 800;
-}
-
-.live-broadcast-tl-protocol > .is-red { color: #ff8a9b; }
-.live-broadcast-tl-protocol > .is-black { color: #fff; }
-.live-broadcast-tl-protocol > .is-sheriff { color: var(--role-sheriff); }
-.live-broadcast-tl-protocol .live-broadcast-seat-chip { min-width: calc(22 * var(--u)); height: calc(22 * var(--u)); font-size: calc(13 * var(--u)); }
-
 /* Older entries shrink to their first line so the newest three always fit. */
 .live-broadcast-tl.is-compact { padding: calc(5 * var(--u)) calc(12 * var(--u)); grid-template-columns: auto 1fr; align-items: center; column-gap: calc(10 * var(--u)); }
 .live-broadcast-tl.is-compact > :nth-child(n+3) { display: none; }
@@ -769,28 +738,99 @@ body.live-broadcast-document #root {
 .live-broadcast-protocol-group.is-black .live-broadcast-protocol-label { color: #fff; }
 .live-broadcast-protocol-group.is-sheriff .live-broadcast-protocol-label { color: var(--role-sheriff); }
 
-/* Check history on the player card: who checked the player, which night and the result. */
-.live-broadcast-checks {
+
+/* ---------- Player card facts (owner, 2026-10-01): each player's own story lives on the card ---------- */
+.live-broadcast-player-tags {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(4 * var(--u));
+  margin-left: auto;
+}
+
+.live-broadcast-player-name { margin-top: calc(7 * var(--u)); }
+
+.live-broadcast-player-facts {
+  display: grid;
+  gap: calc(5 * var(--u));
+  margin-top: calc(8 * var(--u));
+  padding-top: calc(7 * var(--u));
+  border-top: 1px solid var(--line);
+}
+
+.live-broadcast-player-facts:empty { display: none; }
+.live-broadcast-player-facts .live-broadcast-player-status { margin-top: 0; }
+
+.live-broadcast-fact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: calc(3 * var(--u));
+}
+
+.live-broadcast-fact > b {
+  margin-right: calc(3 * var(--u));
+  font-size: calc(10 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.live-broadcast-fact.is-hands > b { color: #ff8a9b; }
+.live-broadcast-fact.is-best > b { color: var(--gold); }
+.live-broadcast-fact.is-protocol > b { flex-basis: 100%; }
+
+.live-broadcast-fact > span:not(.live-broadcast-seat-chip) {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  margin-right: calc(4 * var(--u));
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+}
+
+.live-broadcast-fact.is-protocol > .is-red { color: #ff8a9b; }
+.live-broadcast-fact.is-protocol > .is-black { color: #fff; }
+.live-broadcast-fact.is-protocol > .is-sheriff { color: var(--role-sheriff); }
+
+.live-broadcast-player-facts .live-broadcast-seat-chip {
+  min-width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  padding: 0 calc(3 * var(--u));
+  border-radius: calc(5 * var(--u));
+  font-size: calc(13 * var(--u));
 }
 
 .live-broadcast-check {
   display: flex;
   align-items: center;
-  gap: calc(2 * var(--u));
-  height: calc(20 * var(--u));
-  padding: 0 calc(5 * var(--u));
-  border-radius: calc(6 * var(--u));
-  font-family: "Space Grotesk", Inter, sans-serif;
+  gap: calc(5 * var(--u));
   font-size: calc(12 * var(--u));
   font-weight: 700;
-  background: rgba(255, 255, 255, .14);
-  color: #fff;
+  color: rgba(255, 255, 255, .7);
 }
 
-.live-broadcast-check .live-broadcast-role-icon { width: calc(11 * var(--u)); height: calc(11 * var(--u)); }
-.live-broadcast-check.is-sheriff.is-red { background: var(--role-citizen); }
-.live-broadcast-check.is-sheriff.is-black { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .35); }
-.live-broadcast-check.is-don.is-sheriff { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-check.is-don.is-not_sheriff { background: var(--role-don); }
+.live-broadcast-check .live-broadcast-role-icon { width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
+.live-broadcast-check.is-don .live-broadcast-role-icon { color: #c4b5fd; }
+.live-broadcast-check.is-sheriff .live-broadcast-role-icon { color: var(--role-sheriff); }
+
+.live-broadcast-check b {
+  margin-left: auto;
+  padding: calc(2 * var(--u)) calc(7 * var(--u));
+  border-radius: 99px;
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #fff;
+  background: rgba(255, 255, 255, .14);
+}
+
+.live-broadcast-check.is-sheriff.is-red b { background: var(--role-citizen); }
+.live-broadcast-check.is-sheriff.is-black b { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .35); }
+.live-broadcast-check.is-don.is-sheriff b { background: var(--role-sheriff); color: #1b1407; }
+.live-broadcast-check.is-don.is-not_sheriff b { background: rgba(139, 92, 246, .45); }
+
+.live-broadcast-tl-row.is-hands .live-broadcast-tl-label { color: #ff8a9b; font-size: calc(13 * var(--u)); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.live-broadcast-tl-row.is-hands { padding-left: calc(23 * var(--u)); }

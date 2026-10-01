@@ -73,6 +73,12 @@ export type LiveBroadcastTimelineEntry =
       note: 'voted' | 'table' | 'stay' | 'cancelled' | 'single';
     };
 
+/** A fixed vote of a past day: who voted for whom (the last fixed round of that day). */
+export type LiveBroadcastDayVote = {
+  round: number;
+  assignments: Record<number, number>;
+};
+
 /** A killed player's «протокол»: whom they named red, black and sheriff. */
 export type LiveBroadcastProtocol = {
   seat: number;
@@ -102,6 +108,7 @@ export type LiveBroadcastState = {
   night?: LiveBroadcastNight | null;
   bestMove?: LiveBroadcastBestMove | null;
   timeline?: LiveBroadcastTimelineEntry[];
+  dayVotes?: LiveBroadcastDayVote[];
   protocols?: LiveBroadcastProtocol[];
   /** Red and black wins in the evening's finished games; the server fills it in. */
   eveningScore?: { red: number; black: number } | null;
@@ -181,6 +188,21 @@ const seatsIn = (text: string): number[] => [...text.matchAll(/#(\d+)/g)]
   .filter((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10);
 
 /** Reads the engine's game log lines («Н2: выстрел в #4 — убит. Дон: #7 — Шериф. …»). */
+/**
+ * The engine forgets a day's votes when the next day starts, so the judge's device keeps
+ * each day's last fixed vote: the stream shows by whose hands a player left.
+ */
+export const mergeBroadcastDayVotes = (
+  previous: LiveBroadcastDayVote[],
+  state: Pick<LiveBroadcastState, 'roundNumber' | 'vote'>,
+): LiveBroadcastDayVote[] => {
+  if (!state.vote?.published || !Object.keys(state.vote.assignments).length) return previous;
+  return [
+    ...previous.filter((vote) => vote.round !== state.roundNumber),
+    { round: state.roundNumber, assignments: { ...state.vote.assignments } },
+  ].sort((left, right) => left.round - right.round);
+};
+
 export const parseBroadcastTimeline = (rawLogs: unknown): LiveBroadcastTimelineEntry[] => {
   const entries: LiveBroadcastTimelineEntry[] = [];
   for (const raw of Array.isArray(rawLogs) ? rawLogs : []) {

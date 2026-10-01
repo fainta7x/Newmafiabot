@@ -212,6 +212,16 @@ export const normalizeLiveBroadcastState = (
         .filter(Boolean)
         .slice(-40) as NonNullable<LiveBroadcastState['timeline']>
     : [];
+  const seats = new Set(game.players.map((player) => player.seat));
+  const dayVotes: NonNullable<LiveBroadcastState['dayVotes']> = Array.isArray(source.dayVotes)
+    ? source.dayVotes
+        .map((vote: any) => ({
+          round: Math.max(0, finiteInteger(vote?.round, 0)),
+          assignments: sanitizeSeatRecord(vote?.assignments, seats, 'seat'),
+        }))
+        .filter((vote: any) => Object.keys(vote.assignments).length)
+        .slice(-20)
+    : [];
   const protocols: NonNullable<LiveBroadcastState['protocols']> = Array.isArray(source.protocols)
     ? source.protocols
         .map((protocol: any) => {
@@ -249,6 +259,7 @@ export const normalizeLiveBroadcastState = (
     night,
     bestMove,
     timeline,
+    dayVotes,
     protocols,
     eveningScore: game.eveningScore || null,
     updatedAt: receivedAt.toISOString(),

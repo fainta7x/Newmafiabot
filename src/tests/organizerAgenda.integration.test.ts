@@ -117,7 +117,7 @@ describe('«Дела»', () => {
   });
 
   it('lists who to call when an evening in 3 days is short, and who is still thinking', async () => {
-    const { db, app, player, people, cookie } = await setup();
+    const { db, player } = await setup();
     await player('going'); await player('thinking'); await player('silent'); await player('sometimes', { sometimes: 1 });
     await player('declined'); await player('stopped', { stopped: 1 }); await player('guest', { otherCity: 1 });
     await db.run("UPDATE players SET game_level = 'novice' WHERE id = 'silent'");
@@ -133,12 +133,15 @@ describe('«Дела»', () => {
     const fill = agenda.items.find((item) => item.id === 'people:fill:fri');
     expect(fill?.group).toBe('now');
     expect(fill?.title).toContain('1 из 10');
-    // Not answered, the level fits a club evening, not stopped, not from another city; regulars first.
-    expect(fill?.people?.map((person) => person.player_id)).toEqual(['regular-silent', 'sometimes']);
-    expect(await people('people:thinking:fri')).toEqual(['thinking']);
-    const contacted = await request(app).post('/api/crm/agenda/contacted').set('Cookie', cookie).send({ player_id: 'regular-silent', reason: 'fill' });
-    expect(contacted.status, JSON.stringify(contacted.body)).toBe(200);
-    expect(await people('people:fill:fri')).toEqual(['sometimes']);
+    // Not answered, the level fits a club evening, not stopped, not from another city.
+    expect(fill?.people_total).toBe(2);
+    // The answer work happens inside the evening (owner, 2026-10-01): the task only points there.
+    expect(fill?.people).toBeUndefined();
+    expect(fill?.action_label).toBe('Открыть ответы');
+    expect(fill?.action).toEqual({ type: 'evening', evening_id: 'fri', section: 'overview' });
+    const thinking = agenda.items.find((item) => item.id === 'people:thinking:fri');
+    expect(thinking?.title).toContain('Думают · 1');
+    expect(thinking?.people).toBeUndefined();
   });
 
   it('asks every club player to fill the profile, not only those who came, and skips who stopped coming', async () => {

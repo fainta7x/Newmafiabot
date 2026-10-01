@@ -125,7 +125,8 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(await screen.findByTestId('crm-payments-refreshing')).toBeDefined();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
     expect(screen.queryByText('долг за 4 сентября: 600 ₽')).toBeNull();
-    expect(screen.getByText('11 сентября')).toBeDefined();
+    // The upcoming evening has no big card any more (owner, 2026-10-01); the refresh note names it.
+    expect(screen.getByTestId('crm-payments-refreshing').textContent).toContain('11 сентября');
 
     await new Promise<void>((resolve) => { setTimeout(resolve, 100); });
     resolveResume(await jsonResponse(responseBody({ currentDue: 0, previousDue: 0 })));

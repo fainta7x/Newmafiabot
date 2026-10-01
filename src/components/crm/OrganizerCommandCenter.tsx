@@ -351,7 +351,8 @@ export default function OrganizerCommandCenter({
       <p className="mx-auto mt-1 max-w-sm text-[13px] leading-5 text-text-secondary">Создай следующее событие — оно станет рабочим контекстом этой страницы.</p>
       <button type="button" onClick={onCreateEvening} className="mt-4 min-h-11 rounded-[12px] bg-accent px-4 text-[14px] font-bold text-white">Создать вечер</button>
     </section> : <>
-      <button type="button" data-testid="crm-today-evening-card" onClick={() => (snapshot.mode === 'active' ? onOpenEveningSection(snapshot.evening.id, 'games') : onOpenEvening(snapshot.evening.id))} aria-label={`Открыть вечер ${snapshot.evening.title}`} className={`block w-full rounded-[22px] border p-4 text-left active:opacity-90 ${snapshot.mode === 'active' ? 'border-success/30 bg-success-soft/20' : 'border-border-soft bg-surface-1'}`}>
+      {/* The big card only while an evening is running; upcoming ones sit evenly in «На этой неделе» (owner, 2026-10-01). */}
+      {snapshot.mode === 'active' ? <button type="button" data-testid="crm-today-evening-card" onClick={() => (snapshot.mode === 'active' ? onOpenEveningSection(snapshot.evening.id, 'games') : onOpenEvening(snapshot.evening.id))} aria-label={`Открыть вечер ${snapshot.evening.title}`} className={`block w-full rounded-[22px] border p-4 text-left active:opacity-90 ${snapshot.mode === 'active' ? 'border-success/30 bg-success-soft/20' : 'border-border-soft bg-surface-1'}`}>
         <div className="flex items-start gap-3">
           <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[13px] ${snapshot.mode === 'active' ? 'bg-success text-white' : 'bg-accent-soft text-accent'}`}>{snapshot.mode === 'active' ? <Gamepad2 className="h-5 w-5" /> : <Calendar className="h-5 w-5" />}</span>
           <div className="min-w-0 flex-1">
@@ -361,7 +362,7 @@ export default function OrganizerCommandCenter({
           </div>
           <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary"><ArrowRight className="h-4 w-4" /></span>
         </div>
-      </button>
+      </button> : null}
 
       {!paymentsFresh ? <section data-testid="crm-payments-refreshing" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-[13px] text-text-secondary"><RefreshCw className="h-4 w-4 animate-spin text-accent" /> Обновляем оплаты за {snapshot.evening.title} · {formatPaymentDate(snapshot.evening.starts_at)}…</section> : null}
 

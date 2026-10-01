@@ -7,7 +7,7 @@ import { PLAYER_VISITS_SQL, PLAYER_VISIT_STATS_SQL } from './playerVisitsService
 import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { CURATOR_AREAS, curatorAreaLabel, normalizeCuratorAreas, type CuratorArea } from '../../lib/curatorAreas.ts';
-import { STATUS_SEGMENT_LABELS, getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
+import { getPlayerStatusSegment } from '../../lib/playerActivitySegments.ts';
 import { membershipOfPlayer } from '../../lib/playerAccess.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 
@@ -277,10 +277,9 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
       items.push({
         id: `people:thinking:${eveningId}`, group: 'now', rank: 16, kind: 'thinking',
         title: `Думают · ${thinking.length} · ${eveningLabel(evening)}`,
-        why: 'Ответили «Думаю». Короткое личное сообщение — главный способ превратить «думаю» в «иду».',
-        people: await withLinks(db, thinking.slice(0, PEOPLE_LIMIT).map((row: any) => ({ player_id: String(row.id), nickname: String(row.nickname || 'Без ника') }))),
-        people_total: thinking.length, contact_reason: 'thinking',
-        action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть вечер',
+        why: 'Ответили «Думаю». Короткое личное сообщение — главный способ превратить «думаю» в «иду». Список — внутри вечера, «Личные приглашения» → «Думают».',
+        // The answer work happens inside the evening (owner, 2026-10-01): the task only points there.
+        action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть ответы',
       });
     }
     const shortfall = await loadEveningShortfall(db, eveningId);
@@ -294,14 +293,9 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
     items.push({
       id: `people:fill:${eveningId}`, group: 'now', rank: 15, kind: 'fill',
       title: `Добор: ${shortfall.confirmed} из ${shortfall.minimum} · ${eveningLabel(evening)}`,
-      why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных. Через час до начала вечер с недобором предложит отменить.`,
-      people: await withLinks(db, invite.slice(0, PEOPLE_LIMIT).map((row: any) => ({
-        player_id: String(row.id), nickname: String(row.nickname || 'Без ника'),
-        detail: [STATUS_SEGMENT_LABELS[getPlayerStatusSegment(row)].toLowerCase(),
-          row.last_visit ? `был ${dayLabel(row.last_visit)}` : ''].filter(Boolean).join(' · '),
-      }))),
-      people_total: invite.length, contact_reason: 'fill',
-      action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть вечер',
+      why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных — список внутри вечера, «Личные приглашения» → «Ждём ответа». Через час до начала вечер с недобором предложит отменить.`,
+      people_total: invite.length,
+      action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть ответы',
     });
   }
   return items;

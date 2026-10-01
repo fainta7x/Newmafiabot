@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import PhysicalRoleDeal from '../game/PhysicalRoleDeal.tsx';
+import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
 import type { ActivePlayerState } from './types.js';
 import { isSupportedTableSize, tableRoleCounts, tableRolesLabel } from '../../lib/tableComposition.ts';
@@ -56,6 +57,11 @@ export default function ClubGameSetupPhase({
   const rosterReady = Boolean(roleCounts) && selectedCount === tableSize && new Set(selectedUserIds).size === tableSize;
   const rosterSignature = activePlayers.map((player) => `${player.slot_num}:${player.user_id || 0}`).join('|');
   const rosterConfirmed = rosterReady && confirmedRosterSignature === rosterSignature;
+
+  // The game's music is drawn from the people at this table (owner, 2026-10-01).
+  React.useEffect(() => {
+    setJudgeMusicTablePlayers(activePlayers.map((player) => String(player.user_id || '')).filter((id) => id && id !== '0'));
+  }, [rosterSignature]);
 
   React.useEffect(() => {
     if (confirmedRosterSignature !== null && confirmedRosterSignature !== rosterSignature) {

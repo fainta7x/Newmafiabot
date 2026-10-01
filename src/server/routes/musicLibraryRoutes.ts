@@ -245,6 +245,9 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
     if (!actor) return;
     const eveningId = String(req.params.eveningId);
     const isPreview = eveningId === '__test_game__';
+    // Who sits at this game's table, the judge included (owner, 2026-10-01): the tracks are drawn only from them.
+    const tableIds = Array.from(new Set(String(req.query.table || '').split(',').map((id) => id.trim())
+      .filter((id) => id && !id.startsWith('legacy-')))).slice(0, 20);
     const evening = isPreview
       ? { id: '__test_game__', title: 'Тестовая игра' }
       : await req.db.get('SELECT id, title FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -268,6 +271,16 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
             WHERE ml.owner_player_id = ? AND ml.scope = 'player'
             ORDER BY ml.slot_index ASC`,
           [actor.id],
+        )
+        : tableIds.length
+        ? req.db.all(
+          `SELECT ml.*, p.nickname
+             FROM music_link_entries ml
+             JOIN players p ON p.id = ml.owner_player_id
+            WHERE ml.scope = 'player'
+              AND ml.owner_player_id IN (${[actor.id, ...tableIds].map(() => '?').join(',')})
+            ORDER BY CASE WHEN ml.owner_player_id = ? THEN 0 ELSE 1 END, ml.slot_index ASC`,
+          [actor.id, ...tableIds, actor.id],
         )
         : req.db.all(
           `SELECT ml.*, p.nickname
@@ -326,31 +339,43 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
     }
     pool.push(...dedup.values());
 
-    // Resolve both phase tracks before the game starts. We draw players first;
-    // only a missing player slot falls back to the organizer's own library.
-    const attendedPlayers = isPreview
+    // Resolve both phase tracks before the game starts: each from a different person at the table
+    // (the judge included), drawn at random. Slot 1 is the player's deal track, slot 2 the night one;
+    // a person without that slot plays their other track. Without the table (older clients) the
+    // evening's arrived players are used. Nobody with music → the judge's own library.
+    const candidatePlayers: Array<{ player_id: string; nickname: string }> = isPreview
       ? []
-      : await req.db.all(
-        `SELECT DISTINCT ep.player_id, p.nickname
-           FROM evening_participants ep
-           JOIN players p ON p.id = ep.player_id
-          WHERE ep.evening_id = ? AND ep.attendance_status = 'attended'`,
-        [eveningId],
-      );
-    const organizerPool = pool.filter((entry) => !excluded.has(entry.key) && entry.contributors.some((item: any) => item.player_id === actor.id));
-    const playerEntries = pool.filter((entry) => !excluded.has(entry.key) && entry.contributors.some((item: any) => item.kind === 'player'));
+      : tableIds.length
+        ? (await req.db.all(
+          `SELECT id AS player_id, nickname FROM players WHERE id IN (${tableIds.map(() => '?').join(',')})`,
+          tableIds,
+        )).map((row: any) => ({ player_id: String(row.player_id), nickname: String(row.nickname || 'Игрок') }))
+        : (await req.db.all(
+          `SELECT DISTINCT ep.player_id, p.nickname
+             FROM evening_participants ep
+             JOIN players p ON p.id = ep.player_id
+            WHERE ep.evening_id = ? AND ep.attendance_status = 'attended'`,
+          [eveningId],
+        )).map((row: any) => ({ player_id: String(row.player_id), nickname: String(row.nickname || 'Игрок') }));
+    const usable = pool.filter((entry) => !excluded.has(entry.key));
+    const organizerPool = usable.filter((entry) => entry.contributors.some((item: any) => item.player_id === actor.id));
     const choose = <T,>(items: T[]) => items.length ? items[Math.floor(Math.random() * items.length)] : null;
+    const entriesOf = (playerId: string, slot: number) => {
+      const own = usable.filter((entry) => entry.contributors.some((item: any) => item.player_id === playerId));
+      const forSlot = own.filter((entry) => entry.slot_index === slot);
+      return forSlot.length ? forSlot : own;
+    };
     const selectedContributors = new Set<string>();
     const resolvePhase = (slot: number, phase: 'deal' | 'night') => {
-      const candidates = attendedPlayers
-        .map((player: any) => {
-          const entries = playerEntries.filter((entry) => entry.slot_index === slot && entry.contributors.some((item: any) => item.player_id === String(player.player_id)));
-          return { player, entry: choose(entries) };
-        })
-        .filter((item: any) => item.entry && !selectedContributors.has(String(item.player.player_id)));
-      const picked = choose(candidates) || { player: { player_id: actor.id, nickname: actor.nickname }, entry: choose(organizerPool) };
-      if (picked.entry) selectedContributors.add(String(picked.player.player_id));
-      return picked.entry ? { phase, source_player_id: String(picked.player.player_id), source_nickname: String(picked.player.nickname), entry: picked.entry } : null;
+      const candidates = candidatePlayers
+        .filter((player) => !selectedContributors.has(player.player_id))
+        .map((player) => ({ player, entry: choose(entriesOf(player.player_id, slot)) }))
+        .filter((item) => item.entry);
+      const picked = choose(candidates)
+        || (selectedContributors.has(actor.id) ? null : { player: { player_id: actor.id, nickname: actor.nickname }, entry: choose(organizerPool) });
+      if (!picked?.entry) return null;
+      selectedContributors.add(picked.player.player_id);
+      return { phase, source_player_id: picked.player.player_id, source_nickname: picked.player.nickname, entry: picked.entry };
     };
     const preselected = { deal: resolvePhase(1, 'deal'), night: resolvePhase(2, 'night') };
 

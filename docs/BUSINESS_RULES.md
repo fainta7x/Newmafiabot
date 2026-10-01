@@ -169,6 +169,7 @@ The conducted-game interface is a judge protocol surface, not a generic game UI.
 - Night shot/Don/Sheriff markers belong only to their active night subphase and must not leak into later best-move/farewell states.
 - “Назад” / Undo must not become a dead end behind full-screen protocol or best-move overlays; entering such a state needs a restorable previous snapshot and an accessible way back.
 - The game is hosted live at a real table; the app is the judge's assistant and pacing tool. The **«♫ Включить музыку ночи»** and **«♫ Выключить музыку»** steps are mandatory separate judge steps in zero night and every regular night, even when the evening has no playlist and nothing plays: the judge uses them to announce night and to pace the table. Never skip them, merge them into another transition, or make them conditional on music availability (user rule, 2026-09-23).
+- **Whose music plays (owner, 2026-10-01).** Each game's deal track and night track are drawn at random from the people at that game's table, the judge included, and they are two different people. A player's first slot is the deal track and the second the night track. When nobody at the table has music, the judge's own library plays. A player's saved slot is locked: changing it is a future purchase / VIP / compendium feature.
 
 ## Live Game betting resilience
 

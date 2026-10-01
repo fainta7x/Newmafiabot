@@ -8,7 +8,7 @@ import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type
 import { buildLiveBroadcastState } from '../../lib/liveBroadcast';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
-import { MUSIC_EVENING_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
+import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 
 interface EveningLiveGameModalProps {
@@ -204,6 +204,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (typeof window === 'undefined' || !eveningId) return;
     try {
       sessionStorage.setItem(MUSIC_EVENING_CONTEXT_KEY, eveningId);
+      if (game.judge_player_id) sessionStorage.setItem(MUSIC_JUDGE_CONTEXT_KEY, String(game.judge_player_id));
+      else sessionStorage.removeItem(MUSIC_JUDGE_CONTEXT_KEY);
     } catch {}
     return () => {
       try {
@@ -212,7 +214,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         }
       } catch {}
     };
-  }, [game.evening_id]);
+  }, [game.evening_id, game.judge_player_id]);
 
   useEffect(() => {
     const originalConfirm = window.confirm;

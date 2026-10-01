@@ -7,7 +7,19 @@ const lobbies = new Map<string, PokerLobby>();
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
   const currentPlayer = lobby.hand.players.find((player) => player.seat === lobby.hand?.current_seat);
-  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: Boolean(viewerId && currentPlayer?.id === viewerId) };
+  const viewer = viewerId ? lobby.hand.players.find((player) => player.id === viewerId) : null;
+  const isViewerTurn = Boolean(viewer && currentPlayer?.id === viewer.id);
+  const toCall = viewer ? Math.max(0, lobby.hand.current_bet - viewer.committed) : 0;
+  const availableActions = viewer ? {
+    can_fold: isViewerTurn,
+    can_check: isViewerTurn && toCall === 0,
+    can_call: isViewerTurn && toCall > 0 && viewer.chips > 0,
+    can_bet: isViewerTurn && viewer.chips > toCall,
+    to_call: toCall,
+    min_bet_total: Math.min(viewer.committed + viewer.chips, Math.max(lobby.hand.big_blind, lobby.hand.current_bet + lobby.hand.big_blind)),
+    max_bet_total: viewer.committed + viewer.chips,
+  } : null;
+  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand };
 };
 

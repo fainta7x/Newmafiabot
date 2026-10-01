@@ -5,12 +5,14 @@ export type PokerRank = '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'T'|'J'|'Q'|'K'|'A';
 export type PokerCard = { rank: PokerRank; suit: PokerSuit };
 export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'finished';
 export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean };
+export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet'; amount: number; street: PokerStreet; at: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
   small_blind: number; big_blind: number; pot: number; current_bet: number; street: PokerStreet;
   board: PokerCard[]; hole_cards: Record<string, PokerCard[]>; burn_cards: PokerCard[];
   deck: PokerCard[];
   deck_remaining: number; winner_ids: string[]; last_action: string | null;
+  action_log: PokerActionLogEntry[];
   base_turn_seconds: number; max_reserve_seconds: number; turn_started_at: number | null;
 };
 
@@ -52,15 +54,19 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
     street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null,
-    deck, base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(),
+    deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(),
   };
   const ordered = players.slice().sort((a, b) => a.seat - b.seat);
   for (const player of ordered) state.hole_cards[player.id] = [deck.shift()!, deck.shift()!];
   const dealerIndex = ordered.findIndex((player) => player.seat === state.dealer_seat);
-  const sb = ordered[(dealerIndex + 1) % ordered.length];
-  const bb = ordered[(dealerIndex + 2) % ordered.length];
+  const sb = ordered.length === 2 ? ordered[dealerIndex] : ordered[(dealerIndex + 1) % ordered.length];
+  const bb = ordered.length === 2 ? ordered[(dealerIndex + 1) % ordered.length] : ordered[(dealerIndex + 2) % ordered.length];
   const post = (player: PokerPlayer, amount: number) => { const paid = Math.min(amount, player.chips); player.chips -= paid; player.committed += paid; state.pot += paid; player.all_in = player.chips === 0; };
   post(sb, state.small_blind); post(bb, state.big_blind); state.current_bet = Math.max(sb.committed, bb.committed);
+  state.action_log.push(
+    { player_id: sb.id, player_name: sb.nickname, type: 'small_blind', amount: sb.committed, street: 'preflop', at: Date.now() },
+    { player_id: bb.id, player_name: bb.nickname, type: 'big_blind', amount: bb.committed, street: 'preflop', at: Date.now() },
+  );
   state.current_seat = nextSeat(players, bb.seat);
   state.deck_remaining = deck.length;
   return state;
@@ -123,17 +129,22 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   const usedReserve = elapsed > state.base_turn_seconds;
   if (usedReserve) player.reserve_seconds = Math.max(0, player.reserve_seconds - Math.min(player.reserve_seconds, elapsed - state.base_turn_seconds));
   else player.reserve_seconds = Math.min(state.max_reserve_seconds, player.reserve_seconds + 1);
+  let actionAmount = 0;
   if (action.type === 'fold') player.folded = true;
-  else if (action.type === 'check' && toCall !== 0) throw new Error('Нельзя сделать чек: есть ставка.');
+  else if (action.type === 'check') {
+    if (toCall !== 0) throw new Error(`Нельзя сделать чек: нужно уравнять ${toCall}.`);
+  }
   else if (action.type === 'call') {
-    const paid = Math.min(toCall, player.chips); player.chips -= paid; player.committed += paid; state.pot += paid; player.all_in = player.chips === 0;
+    const paid = Math.min(toCall, player.chips); actionAmount = paid; player.chips -= paid; player.committed += paid; state.pot += paid; player.all_in = player.chips === 0;
   } else if (action.type === 'bet') {
     const amount = Math.max(state.big_blind, Math.floor(Number(action.amount || 0)));
     const total = Math.max(amount, state.current_bet + state.big_blind);
     const paid = Math.min(total - player.committed, player.chips); if (paid <= 0) throw new Error('Некорректный размер ставки.');
-    player.chips -= paid; player.committed += paid; state.pot += paid; state.current_bet = player.committed; player.all_in = player.chips === 0;
+    actionAmount = paid; player.chips -= paid; player.committed += paid; state.pot += paid; state.current_bet = player.committed; player.all_in = player.chips === 0;
   } else throw new Error('Некорректное действие.');
-  player.acted = true; state.last_action = `${player.id}:${action.type}`;
+  player.acted = true; state.last_action = `${player.id}:${action.type}:${actionAmount}`;
+  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: action.type, amount: actionAmount, street: state.street, at: Date.now() });
+  state.action_log = state.action_log.slice(-20);
   const active = activePlayers(state);
   if (active.length === 1) { state.winner_ids = [active[0].id]; active[0].chips += state.pot; state.pot = 0; state.street = 'finished'; state.current_seat = null; return state; }
   const ready = active.filter((item) => !item.all_in).every((item) => item.acted && item.committed === state.current_bet);

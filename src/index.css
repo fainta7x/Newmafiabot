@@ -341,10 +341,17 @@ select optgroup {
   50% { box-shadow: 0 0 0 7px rgba(252, 211, 77, .2); }
 }
 
+@keyframes poker-action-pop {
+  0% { opacity: 0; transform: translateY(8px) scale(.82); }
+  65% { opacity: 1; transform: translateY(-2px) scale(1.06); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .poker-hole-card { display: inline-flex; opacity: 0; animation: poker-card-deal .52s cubic-bezier(.2,.8,.2,1) forwards; }
 .poker-board-card { display: inline-flex; opacity: 0; animation: poker-board-reveal .42s ease-out forwards; transform-style: preserve-3d; }
 .poker-chip-flight { animation: poker-chip-flight .42s ease-out; }
 .poker-active-seat { animation: poker-seat-pulse 1.5s ease-in-out infinite; }
+.poker-action-bubble, .poker-action-toast { animation: poker-action-pop .28s ease-out; }
 .poker-room-bg {
   background:
     radial-gradient(circle at 15% 12%, rgba(196, 129, 48, .14), transparent 22%),
@@ -365,5 +372,5 @@ select optgroup {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat { animation: none; opacity: 1; }
+  .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat, .poker-action-bubble, .poker-action-toast { animation: none; opacity: 1; }
 }

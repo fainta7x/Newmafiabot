@@ -252,6 +252,10 @@ The club launcher also publishes a dedicated OBS Browser Source overlay:
 
 - one stable secret URL for the main broadcast channel;
 - a transparent 1920×1080 HUD with the current game number, ten player identities, roles and alive/out status;
+- role colours and icons (owner, 2026-10-01): мирный red (heart), мафия black (pistol), дон purple (hat), шериф yellow (star) — the same icons as the Live Game seats;
+- the evening score in the top bar: red and black wins in the evening's other finished games (counted by the server from `protocol.winner_team`);
+- during the night: the shot seat, the Don's check and the Sheriff's check with their results; the first killed player's best move; the protocols («красные / чёрные / шериф») of killed players, up to the last three;
+- each player card keeps the game's check history (who checked, which night, the result); the judge's device remembers it in `mafia_live_broadcast_checks:<gameId>` because the engine keeps only tonight's checks;
 - ordered nominations, with the nominating seat where available;
 - voter-to-candidate assignments only after the judge fixes the voting result; partial collection is never shown;
 - transient server relay only: the phone remains the recoverable Live Game source and timer ticks are not written to Turso.
@@ -513,6 +517,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 35. Live Game judge screen, a more «volumetric» look (owner idea 2026-10-01) — **on hold, do not start without the owner's «да»**. The owner is happy with the current Live Game layout and controls (`src/components/LiveGameEngine.tsx` and `LiveGameEngine/`): keep the same screen, places, buttons and flow; at most a 2.5D/volumetric finish of the existing elements later. No poker style, no new markers, no table redesign.
 
 36. Broadcast scenes follow the game (owner idea 2026-10-01, to discuss after the first stream test; not built): OBS scenes switch by themselves with the game — «Заставка» while seating, «Стол» from the role deal, «Перерыв»/«Комментаторы» between games (the commentator's job is to entertain viewers during breaks), «Итоги» at the end. The owner is not sure «Стол + комментаторы» is needed. Today scenes switch only by the judge's buttons in «OBS и трансляция» (`ObsRemoteCRM.tsx`, scene names in `src/lib/obsScenes.ts`).
+
+37. Broadcast extras (owner ideas 2026-10-01, not built): a frame around the commentator window in «Стол + комментаторы»; the owner will look at the new overlay on the next stream test and say what else to change.
 
 ### Waiting on the owner
 - Owner decisions 2026-10-01, not built yet: the novice evening keeps the current price per chosen game («для опытных будет скидка»); the weekly evening automation fails once at startup with «cannot start a transaction within a transaction» — fix later; the old browser suites for CRM and live game (`e2e/`) are out of date (roster confirm step, list test ids) and do not block a release — update later; a weekly anonymized copy of the production database for development checks (branch `feat/weekly-db-snapshot`, unfinished: GitHub Action, script, docs).

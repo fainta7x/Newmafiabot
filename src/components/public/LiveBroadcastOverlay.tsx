@@ -1,18 +1,41 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, Crown, Radio, ShieldCheck, Skull, UserRound, UserRoundX } from 'lucide-react';
-import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState } from '../../lib/liveBroadcast';
+import { Ban, Crosshair, Heart, Moon, Radio, Skull, Star, UserRoundX } from 'lucide-react';
+import type { LiveBroadcastCheck, LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState } from '../../lib/liveBroadcast';
+import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
 type LiveBroadcastOverlayProps = {
   token: string;
 };
 
-const rolePresentation = (role: string) => {
-  if (role === 'Дон' || role === 'don') return { label: 'Дон', className: 'is-don', icon: Crown };
-  if (role === 'Мафия' || role === 'mafia') return { label: 'Мафия', className: 'is-mafia', icon: Ban };
-  if (role === 'Шериф' || role === 'sheriff') return { label: 'Шериф', className: 'is-sheriff', icon: ShieldCheck };
-  return { label: 'Мирный', className: 'is-citizen', icon: UserRound };
+type RoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff';
+
+const roleKind = (role: string | undefined): RoleKind => {
+  if (role === 'Дон' || role === 'don') return 'don';
+  if (role === 'Мафия' || role === 'mafia') return 'mafia';
+  if (role === 'Шериф' || role === 'sheriff') return 'sheriff';
+  return 'citizen';
 };
+
+const ROLE_LABELS: Record<RoleKind, string> = { citizen: 'Мирный', mafia: 'Мафия', don: 'Дон', sheriff: 'Шериф' };
+
+/** The same role icons as the Live Game seats; colours follow the owner's palette (2026-10-01). */
+const RoleIcon = ({ kind }: { kind: RoleKind }) => {
+  if (kind === 'don') return <MafiaHatIcon className="live-broadcast-role-icon" />;
+  if (kind === 'mafia') return <PistolIcon className="live-broadcast-role-icon" />;
+  if (kind === 'sheriff') return <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
+  return <Heart className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
+};
+
+const checkTitle = (check: LiveBroadcastCheck) => {
+  if (check.by === 'sheriff') return check.result === 'black' ? 'чёрный' : check.result === 'red' ? 'красный' : '…';
+  return check.result === 'sheriff' ? 'шериф' : check.result === 'not_sheriff' ? 'не шериф' : '…';
+};
+
+/** Seat chip coloured by the seat's real team: viewers see roles anyway. */
+const SeatChip = ({ seat, kinds }: { seat: number | null; kinds: Map<number, RoleKind> }) => (
+  seat ? <span className={`live-broadcast-seat-chip is-${kinds.get(seat) || 'citizen'}`}>{seat}</span> : <span className="live-broadcast-seat-chip is-empty">—</span>
+);
 
 const PlayerStatusIcon = ({ player }: { player: LiveBroadcastPlayer }) => {
   if (player.statusKind === 'killed') return <Skull aria-hidden="true" />;
@@ -128,113 +151,201 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
       }))
     : [];
 
+  const timerShare = state.timerSeconds !== null && state.timerMaxSeconds
+    ? Math.max(0, Math.min(1, state.timerSeconds / state.timerMaxSeconds))
+    : null;
+  const timerCaption = state.timerLabel || (state.currentSpeakerSeat ? `Речь игрока №${state.currentSpeakerSeat}` : 'Таймер');
+  const kinds = new Map(state.players.map((player) => [player.seat, roleKind(player.role)]));
+  const night = state.phaseKey === 'night' ? state.night : null;
+  const bestMove = state.bestMove;
+  const protocols = (state.protocols || []).slice(-3);
+  const checks = state.checks || [];
+  const showInfoRow = state.nominations.length > 0 || Boolean(state.vote) || Boolean(night) || Boolean(bestMove) || protocols.length > 0;
+  const score = state.eveningScore || { red: 0, black: 0 };
+
   return (
     <main className={`live-broadcast-canvas phase-${state.phaseKey}`}>
       <header className="live-broadcast-header">
-        <div className="live-broadcast-identity-block">
-          <div className="live-broadcast-brand-mark">2LA</div>
-          <div>
-            <div className="live-broadcast-eyebrow">2LA Noire · спортивная мафия</div>
-            <div className="live-broadcast-game-number">
-              Игра вечера №{state.eveningGameNumber || '—'}
-              <span>Общая №{state.globalGameNumber}</span>
-            </div>
+        <div className="live-broadcast-brand-mark">2LA</div>
+        <div className="live-broadcast-phase-block">
+          <div className="live-broadcast-eyebrow">
+            Игра вечера №{state.eveningGameNumber || '—'}
+            <span>{state.tableName || 'Стол'} · общая №{state.globalGameNumber}</span>
+          </div>
+          <div className="live-broadcast-phase-title">{state.phaseTitle}</div>
+          {state.phaseDetail ? <div className="live-broadcast-phase-detail">{state.phaseDetail}</div> : null}
+        </div>
+        <div className="live-broadcast-score" aria-label="Победы за вечер">
+          <div className="live-broadcast-score-caption">Счёт вечера</div>
+          <div className="live-broadcast-score-row">
+            <span className="is-red">Красные</span>
+            <b className="is-red">{score.red}</b>
+            <i>:</i>
+            <b className="is-black">{score.black}</b>
+            <span className="is-black">Чёрные</span>
           </div>
         </div>
-
-        <div className="live-broadcast-phase-block">
-          <div className="live-broadcast-phase-title">{state.phaseTitle}</div>
-          <div className="live-broadcast-phase-detail">{state.phaseDetail}</div>
-        </div>
-
-        <div className={`live-broadcast-timer ${state.timerRunning ? 'is-running' : ''}`}>
-          <div className="live-broadcast-timer-label">{state.timerLabel || (state.currentSpeakerSeat ? `Речь #${state.currentSpeakerSeat}` : 'Таймер')}</div>
+        <div className={`live-broadcast-timer ${state.timerRunning ? 'is-running' : ''} ${timerShare !== null && timerShare <= 0.2 ? 'is-low' : ''}`}>
+          <div className="live-broadcast-timer-label">{timerCaption}</div>
           <div className="live-broadcast-timer-value">{timerText(state)}</div>
+          {timerShare !== null ? <div className="live-broadcast-timer-bar"><span style={{ width: `${timerShare * 100}%` }} /></div> : null}
         </div>
       </header>
 
-      <section className="live-broadcast-info-row">
-        <div className={`live-broadcast-panel live-broadcast-nominations ${state.nominations.length ? '' : 'is-empty'}`}>
-          <div className="live-broadcast-panel-title">Порядок выставления</div>
-          {state.nominations.length ? (
-            <div className="live-broadcast-nomination-list">
-              {state.nominations.map((nomination) => (
-                <div key={nomination.seat} className="live-broadcast-nomination-chip">
-                  <span>{nomination.order}</span>
-                  Игрок #{nomination.seat}
-                  {nomination.nominatedBy ? <small>от #{nomination.nominatedBy}</small> : null}
-                </div>
-              ))}
+      {showInfoRow ? (
+        <section className="live-broadcast-info-row">
+          {night ? (
+            <div className="live-broadcast-panel live-broadcast-night">
+              <div className="live-broadcast-panel-title"><Moon aria-hidden="true" />Ночь</div>
+              <div className="live-broadcast-night-item">
+                <Crosshair aria-hidden="true" />
+                <span>Выстрел</span>
+                <SeatChip seat={night.shotSeat} kinds={kinds} />
+              </div>
+              <div className="live-broadcast-night-item is-don">
+                <MafiaHatIcon className="live-broadcast-role-icon" />
+                <span>Дон</span>
+                <SeatChip seat={night.donCheck?.seat ?? null} kinds={kinds} />
+                {night.donCheck && night.donCheck.isSheriff !== null ? (
+                  <em className={night.donCheck.isSheriff ? 'is-hit' : ''}>{night.donCheck.isSheriff ? 'шериф' : 'не шериф'}</em>
+                ) : null}
+              </div>
+              <div className="live-broadcast-night-item is-sheriff">
+                <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />
+                <span>Шериф</span>
+                <SeatChip seat={night.sheriffCheck?.seat ?? null} kinds={kinds} />
+                {night.sheriffCheck && night.sheriffCheck.isBlack !== null ? (
+                  <em className={night.sheriffCheck.isBlack ? 'is-hit' : ''}>{night.sheriffCheck.isBlack ? 'чёрный' : 'красный'}</em>
+                ) : null}
+              </div>
             </div>
-          ) : <div className="live-broadcast-panel-empty">Кандидатов пока нет</div>}
-        </div>
+          ) : null}
 
-        {state.vote && (
-          <div className={`live-broadcast-panel live-broadcast-vote ${state.vote.published ? 'is-published' : 'is-collecting'}`}>
-            <div className="live-broadcast-panel-heading">
-              <div className="live-broadcast-panel-title">
-                {state.vote.isRevote ? `Переголосование · раунд ${state.vote.roundNumber}` : 'Голосование'}
-              </div>
-              <div className="live-broadcast-vote-state">
-                {state.vote.published ? 'Зафиксировано' : 'Идёт голосование'}
+          {bestMove ? (
+            <div className="live-broadcast-panel live-broadcast-best-move">
+              <div className="live-broadcast-panel-title">Лучший ход{bestMove.bySeat ? <span>от №{bestMove.bySeat}</span> : null}</div>
+              <div className="live-broadcast-seat-list">
+                {bestMove.seats.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
               </div>
             </div>
-            {state.vote.published ? (
-              <div className="live-broadcast-vote-groups">
-                {voteGroups.map((group) => (
-                  <div key={group.candidate} className="live-broadcast-vote-group">
-                    <div className="live-broadcast-vote-candidate">#{group.candidate}<strong>{group.count}</strong></div>
-                    <div className="live-broadcast-voters">
-                      {group.voters.length ? group.voters.map((voter) => <span key={voter}>{voter}</span>) : <em>—</em>}
-                    </div>
+          ) : null}
+
+          {protocols.map((protocol) => (
+            <div key={protocol.seat} className="live-broadcast-panel live-broadcast-protocol">
+              <div className="live-broadcast-panel-title">Протокол<span>№{protocol.seat}</span></div>
+              {protocol.red.length ? (
+                <div className="live-broadcast-protocol-group is-red"><span className="live-broadcast-protocol-label">Красные</span>{protocol.red.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
+              ) : null}
+              {protocol.black.length ? (
+                <div className="live-broadcast-protocol-group is-black"><span className="live-broadcast-protocol-label">Чёрные</span>{protocol.black.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
+              ) : null}
+              {protocol.sheriff.length ? (
+                <div className="live-broadcast-protocol-group is-sheriff"><span className="live-broadcast-protocol-label">Шериф</span>{protocol.sheriff.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
+              ) : null}
+            </div>
+          ))}
+
+          {state.nominations.length ? (
+            <div className="live-broadcast-panel live-broadcast-nominations">
+              <div className="live-broadcast-panel-title">Выставлены</div>
+              <div className="live-broadcast-nomination-list">
+                {state.nominations.map((nomination) => (
+                  <div key={nomination.seat} className="live-broadcast-nomination-chip">
+                    <b>№{nomination.seat}</b>
+                    {nomination.nominatedBy ? <small>от №{nomination.nominatedBy}</small> : null}
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="live-broadcast-vote-pending">
-                Результат и голоса игроков появятся после фиксации ведущим
+            </div>
+          ) : null}
+
+          {state.vote ? (
+            <div className={`live-broadcast-panel live-broadcast-vote ${state.vote.published ? 'is-published' : 'is-collecting'}`}>
+              <div className="live-broadcast-panel-title">
+                {state.vote.isRevote ? `Переголосование · раунд ${state.vote.roundNumber}` : 'Голосование'}
+                <span className="live-broadcast-vote-state">{state.vote.published ? 'Зафиксировано' : 'Идёт голосование'}</span>
               </div>
-            )}
-          </div>
-        )}
-      </section>
+              {state.vote.published ? (
+                <div className="live-broadcast-vote-groups">
+                  {voteGroups.map((group) => (
+                    <div key={group.candidate} className="live-broadcast-vote-group">
+                      <div className="live-broadcast-vote-candidate">№{group.candidate}<strong>{group.count}</strong></div>
+                      <div className="live-broadcast-voters">
+                        {group.voters.length ? group.voters.map((voter) => <span key={voter}>{voter}</span>) : <em>—</em>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="live-broadcast-vote-pending">
+                  Результат и голоса игроков появятся после фиксации ведущим
+                </div>
+              )}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {
-          const role = rolePresentation(player.role);
-          const RoleIcon = role.icon;
+          const kind = roleKind(player.role);
+          const playerChecks = checks.filter((check) => check.seat === player.seat);
+          const hasDiscipline = player.fouls > 0 || player.minorTech > 0 || player.majorTech > 0;
           const order = nominationOrder.get(player.seat);
           const isVoteCandidate = voteCandidates.has(player.seat);
+          const speaking = state.currentSpeakerSeat === player.seat;
           return (
             <article
               key={player.seat}
-              className={`live-broadcast-player ${role.className} ${player.alive ? 'is-alive' : 'is-out'} ${state.currentSpeakerSeat === player.seat ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
-              style={player.alive ? undefined : { opacity: 1, filter: 'none' }}
+              className={`live-broadcast-player is-${kind} ${player.alive ? 'is-alive' : 'is-out'} ${speaking ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
             >
-              <div className="live-broadcast-seat-number">{player.seat}</div>
-              {order ? <div className="live-broadcast-nomination-order">{order}</div> : null}
-              <BroadcastAvatar token={token} player={player} />
-              <div className="live-broadcast-player-name">{player.nickname}</div>
-              <div className="live-broadcast-role">
-                <RoleIcon aria-hidden="true" />
-                {role.label}
+              <div className="live-broadcast-player-top">
+                <div className="live-broadcast-seat-number">{player.seat}</div>
+                <BroadcastAvatar token={token} player={player} />
+                {order ? <div className="live-broadcast-nomination-order" title="Порядок выставления">выст. {order}</div> : null}
+                {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
               </div>
-              {(player.fouls > 0 || player.minorTech > 0 || player.majorTech > 0) && (
-                <div className="live-broadcast-discipline">
-                  {player.fouls > 0 ? <span>Ф {player.fouls}</span> : null}
-                  {player.minorTech > 0 ? <span>ТМ {player.minorTech}</span> : null}
-                  {player.majorTech > 0 ? <span>ТБ {player.majorTech}</span> : null}
+              <div className="live-broadcast-player-body">
+                <div className="live-broadcast-player-text">
+                  <div className="live-broadcast-player-name">{player.nickname}</div>
+                  {player.alive ? (
+                    <div className="live-broadcast-role">
+                      <RoleIcon kind={kind} />
+                      {ROLE_LABELS[kind]}
+                    </div>
+                  ) : (
+                    <div className={`live-broadcast-player-status is-${player.statusKind}`}>
+                      <PlayerStatusIcon player={player} />
+                      <span>{player.status}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-              {!player.alive && (
-                <div
-                  className={`live-broadcast-player-status is-${player.statusKind}`}
-                  style={{ background: 'rgba(7, 8, 11, .94)' }}
-                >
-                  <PlayerStatusIcon player={player} />
-                  <span>{player.status}</span>
+              </div>
+              {(playerChecks.length || hasDiscipline) ? (
+                <div className="live-broadcast-player-footer">
+                  {playerChecks.length ? (
+                    <div className="live-broadcast-checks" aria-label="Проверки">
+                      {playerChecks.map((check) => (
+                        <span
+                          key={`${check.by}-${check.round}`}
+                          className={`live-broadcast-check is-${check.by} is-${check.result || 'pending'}`}
+                          title={`${check.by === 'don' ? 'Дон' : 'Шериф'}, ночь ${check.round}: ${checkTitle(check)}`}
+                        >
+                          {check.by === 'don' ? <MafiaHatIcon className="live-broadcast-role-icon" /> : <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />}
+                          {check.round}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasDiscipline ? (
+                    <div className="live-broadcast-discipline" aria-label="Фолы">
+                      {[1, 2, 3, 4].map((index) => <i key={index} className={index <= player.fouls ? 'is-on' : ''} />)}
+                      {player.minorTech > 0 ? <span>ТМ {player.minorTech}</span> : null}
+                      {player.majorTech > 0 ? <span>ТБ {player.majorTech}</span> : null}
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
             </article>
           );
         })}

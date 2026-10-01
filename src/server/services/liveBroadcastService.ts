@@ -7,6 +7,8 @@ export type CanonicalBroadcastGame = {
   globalGameNumber: number;
   eveningGameNumber: number;
   tableName: string | null;
+  /** Red and black wins in the evening's finished games. */
+  eveningScore?: { red: number; black: number };
   players: Array<{
     seat: number;
     playerId: string | null;
@@ -165,6 +167,55 @@ export const normalizeLiveBroadcastState = (
     };
   }
 
+  const seatList = (value: unknown, limit = 10): number[] => (Array.isArray(value)
+    ? [...new Set(value.map(toSeat).filter((seat: number | null): seat is number => seat !== null))].slice(0, limit)
+    : []);
+  const nightSource = source.night && typeof source.night === 'object' && !Array.isArray(source.night) ? source.night : null;
+  const night: LiveBroadcastState['night'] = nightSource
+    ? {
+        shotSeat: toSeat(nightSource.shotSeat),
+        donCheck: toSeat(nightSource.donCheck?.seat)
+          ? { seat: toSeat(nightSource.donCheck.seat)!, isSheriff: typeof nightSource.donCheck.isSheriff === 'boolean' ? nightSource.donCheck.isSheriff : null }
+          : null,
+        sheriffCheck: toSeat(nightSource.sheriffCheck?.seat)
+          ? { seat: toSeat(nightSource.sheriffCheck.seat)!, isBlack: typeof nightSource.sheriffCheck.isBlack === 'boolean' ? nightSource.sheriffCheck.isBlack : null }
+          : null,
+      }
+    : null;
+  const bestMoveSeats = seatList(source.bestMove?.seats, 3);
+  const bestMove: LiveBroadcastState['bestMove'] = bestMoveSeats.length
+    ? { bySeat: toSeat(source.bestMove?.bySeat), seats: bestMoveSeats }
+    : null;
+  const allowedResults = new Set(['red', 'black', 'sheriff', 'not_sheriff']);
+  const checks: NonNullable<LiveBroadcastState['checks']> = Array.isArray(source.checks)
+    ? source.checks
+        .map((check: any) => {
+          const seat = toSeat(check?.seat);
+          const by = check?.by === 'don' ? 'don' : check?.by === 'sheriff' ? 'sheriff' : null;
+          if (!seat || !by) return null;
+          return {
+            round: Math.max(1, finiteInteger(check.round, 1)),
+            by,
+            seat,
+            result: allowedResults.has(String(check.result)) ? String(check.result) : null,
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 30) as NonNullable<LiveBroadcastState['checks']>
+    : [];
+  const protocols: NonNullable<LiveBroadcastState['protocols']> = Array.isArray(source.protocols)
+    ? source.protocols
+        .map((protocol: any) => {
+          const seat = toSeat(protocol?.seat);
+          if (!seat) return null;
+          const red = seatList(protocol.red);
+          const black = seatList(protocol.black).filter((item) => !red.includes(item));
+          return { seat, red, black, sheriff: seatList(protocol.sheriff, 1) };
+        })
+        .filter((protocol: any) => protocol && (protocol.red.length || protocol.black.length || protocol.sheriff.length))
+        .slice(0, 10) as NonNullable<LiveBroadcastState['protocols']>
+    : [];
+
   const timerSeconds = source.timerSeconds == null ? null : Math.max(0, finiteInteger(source.timerSeconds));
   const timerMaxSeconds = source.timerMaxSeconds == null ? null : Math.max(0, finiteInteger(source.timerMaxSeconds));
 
@@ -186,6 +237,11 @@ export const normalizeLiveBroadcastState = (
     players,
     nominations: nominations as LiveBroadcastState['nominations'],
     vote,
+    night,
+    bestMove,
+    checks,
+    protocols,
+    eveningScore: game.eveningScore || null,
     updatedAt: receivedAt.toISOString(),
   };
 };

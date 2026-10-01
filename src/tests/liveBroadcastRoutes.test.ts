@@ -165,6 +165,45 @@ describe('live broadcast routes', () => {
     expect(invalidToken.status).toBe(404);
   });
 
+  it('adds the evening score and keeps only well-formed night facts, checks and protocols', async () => {
+    await db.run('UPDATE games SET protocol_text = ? WHERE global_game_number = 237', [
+      JSON.stringify({ version: 1, kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: 'black' }, player_results: canonicalPlayers }),
+    ]);
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+    await request(app)
+      .put(`/api/games/${gameId}/broadcast-state`)
+      .set('Cookie', cookie)
+      .send({
+        state: {
+          ...audienceState(),
+          eveningScore: { red: 99, black: 99 },
+          night: { shotSeat: 4, donCheck: { seat: 7, isSheriff: 'yes' }, sheriffCheck: { seat: 42, isBlack: true } },
+          bestMove: { bySeat: 2, seats: [8, 9, 10, 1] },
+          checks: [
+            { round: 1, by: 'sheriff', seat: 8, result: 'black' },
+            { round: 1, by: 'judge', seat: 3, result: 'red' },
+            { round: 2, by: 'don', seat: 3, result: '<b>' },
+          ],
+          protocols: [
+            { seat: 2, red: [1, 4, 4], black: [8, 1, 11], sheriff: [7, 6] },
+            { seat: 5, red: [], black: [], sheriff: [] },
+          ],
+        },
+      })
+      .expect(202);
+
+    const { body } = await request(app).get(`/api/public/broadcast/${token}`);
+    expect(body.state.eveningScore).toEqual({ red: 0, black: 1 });
+    expect(body.state.night).toEqual({ shotSeat: 4, donCheck: { seat: 7, isSheriff: null }, sheriffCheck: null });
+    expect(body.state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
+    expect(body.state.checks).toEqual([
+      { round: 1, by: 'sheriff', seat: 8, result: 'black' },
+      { round: 2, by: 'don', seat: 3, result: null },
+    ]);
+    expect(body.state.protocols).toEqual([{ seat: 2, red: [1, 4], black: [8], sheriff: [7] }]);
+  });
+
   it('allows the assigned qualified judge to configure and publish only their active game', async () => {
     await db.run("UPDATE players SET judge_level = 'host' WHERE id = 'player-1'");
     await db.run("UPDATE games SET judge_player_id = 'player-1' WHERE id = ?", [gameId]);

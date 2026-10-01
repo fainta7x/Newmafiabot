@@ -64,11 +64,21 @@ const loadCanonicalBroadcastGame = async (
     .sort((left: any, right: any) => left.seat - right.seat);
 
   if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
+  // Red and black wins in the evening's other finished games (the score shown on stream).
+  const eveningGames = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL AND id <> ?', [row.evening_id, row.id]);
+  const eveningScore = { red: 0, black: 0 };
+  for (const other of eveningGames) {
+    const finished = parseProtocol(other.protocol_text);
+    if (finished?.protocol?.status !== 'completed') continue;
+    if (finished.protocol.winner_team === 'red') eveningScore.red += 1;
+    if (finished.protocol.winner_team === 'black') eveningScore.black += 1;
+  }
   return {
     gameId: Number(row.id),
     globalGameNumber: Number(row.global_game_number),
     eveningGameNumber: Math.max(1, Number(row.evening_game_number || 1)),
     tableName: row.table_name ? String(row.table_name) : null,
+    eveningScore,
     players,
   };
 };

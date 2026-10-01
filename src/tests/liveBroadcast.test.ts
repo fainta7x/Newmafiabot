@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLiveBroadcastState } from '../lib/liveBroadcast';
+import { buildLiveBroadcastState, mergeBroadcastChecks } from '../lib/liveBroadcast';
 
 const activePlayers = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,
@@ -128,5 +128,45 @@ describe('live broadcast audience state', () => {
     expect(state.players[1]).toMatchObject({ role: 'Мафия', alive: false, statusKind: 'killed' });
     expect(state.players[2].statusKind).toBe('voted');
     expect(state.players[3].statusKind).toBe('removed');
+  });
+
+  it('shows tonight\'s shot and checks only during the night', () => {
+    const night = buildLiveBroadcastState({
+      ...snapshot(),
+      phase: 'night',
+      shotPlayerSlot: 4,
+      donCheckSlot: 7,
+      donCheckResult: true,
+      sheriffCheckSlot: 10,
+      sheriffCheckResult: 'ЧЁРНЫЙ!',
+    }, metadata)!;
+    expect(night.night).toEqual({
+      shotSeat: 4,
+      donCheck: { seat: 7, isSheriff: true },
+      sheriffCheck: { seat: 10, isBlack: true },
+    });
+
+    const day = buildLiveBroadcastState({ ...snapshot(), shotPlayerSlot: 4, donCheckSlot: 7 }, metadata)!;
+    expect(day.night).toBeNull();
+  });
+
+  it('publishes the first killed player\'s best move', () => {
+    const state = buildLiveBroadcastState({
+      ...snapshot(),
+      protocolMarkers: { firstKilledSlot: 2, bestMoveSource: 'first_killed', bestMoveSeats: [8, 9, 10] },
+    }, metadata)!;
+    expect(state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
+  });
+
+  it('keeps one check per night and checker for the whole game', () => {
+    let checks = mergeBroadcastChecks([], 1, { shotSeat: null, donCheck: { seat: 3, isSheriff: null }, sheriffCheck: null });
+    checks = mergeBroadcastChecks(checks, 1, { shotSeat: 4, donCheck: { seat: 3, isSheriff: false }, sheriffCheck: { seat: 8, isBlack: true } });
+    checks = mergeBroadcastChecks(checks, 2, null);
+    checks = mergeBroadcastChecks(checks, 2, { shotSeat: null, donCheck: null, sheriffCheck: { seat: 1, isBlack: false } });
+    expect(checks).toEqual([
+      { round: 1, by: 'don', seat: 3, result: 'not_sheriff' },
+      { round: 1, by: 'sheriff', seat: 8, result: 'black' },
+      { round: 2, by: 'sheriff', seat: 1, result: 'red' },
+    ]);
   });
 });

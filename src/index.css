@@ -345,6 +345,24 @@ select optgroup {
 .poker-board-card { display: inline-flex; opacity: 0; animation: poker-board-reveal .42s ease-out forwards; transform-style: preserve-3d; }
 .poker-chip-flight { animation: poker-chip-flight .42s ease-out; }
 .poker-active-seat { animation: poker-seat-pulse 1.5s ease-in-out infinite; }
+.poker-room-bg {
+  background:
+    radial-gradient(circle at 15% 12%, rgba(196, 129, 48, .14), transparent 22%),
+    radial-gradient(circle at 85% 16%, rgba(196, 129, 48, .11), transparent 24%),
+    linear-gradient(rgba(4, 12, 10, .82), rgba(3, 6, 7, .96)),
+    repeating-linear-gradient(90deg, #17100c 0, #17100c 42px, #100b08 43px, #100b08 84px);
+}
+.poker-card-back {
+  display: inline-block;
+  border: 2px solid #fff7e7;
+  border-radius: 5px;
+  background-color: #8f2f2b;
+  background-image:
+    linear-gradient(45deg, rgba(255,255,255,.18) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.18) 75%),
+    linear-gradient(-45deg, rgba(255,255,255,.18) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.18) 75%);
+  background-size: 6px 6px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.4);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat { animation: none; opacity: 1; }

@@ -116,11 +116,12 @@ export default function EventsPanel({
 
   return (
     <div className="grid grid-cols-1 gap-3">
+      {/* On wide screens it sits left of the window's header buttons (OBS, roles, close) so it never covers the OBS button. */}
       <button
         type="button"
         data-testid="live-state-button"
         onClick={() => setStateOpen(true)}
-        className="fixed right-2 top-0 z-[111] grid h-11 w-11 place-items-center rounded-xl border border-amber-200/15 bg-amber-200/[0.08] text-amber-100/75 shadow-none backdrop-blur md:right-[92px] md:top-[6px] md:flex md:h-9 md:w-auto md:px-3 md:gap-1.5 md:rounded-xl md:text-[10px] md:font-semibold"
+        className="fixed right-2 top-0 z-[111] grid h-11 w-11 place-items-center rounded-xl border border-amber-200/15 bg-amber-200/[0.08] text-amber-100/75 shadow-none backdrop-blur md:right-[140px] md:top-[6px] md:flex md:h-9 md:w-auto md:px-3 md:gap-1.5 md:rounded-xl md:text-[10px] md:font-semibold"
         title="Текущее состояние игры"
         aria-label="Текущее состояние игры"
       >

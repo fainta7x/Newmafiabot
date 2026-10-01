@@ -40,11 +40,13 @@ async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
       // One note per player and game. A recalculation (the ×5 scale, a corrected protocol) changes the
       // numbers but must not send the same game again; older keys carried the new Elo as a suffix.
       const notificationKey = `elo:${event.source}:${event.sourceId}:${playerId}`;
-      const alreadySent = await db.get(
-        'SELECT 1 FROM personal_notification_deliveries WHERE notification_key = ? OR notification_key LIKE ? LIMIT 1',
-        [notificationKey, `${notificationKey}:%`],
+      // A note under the old suffixed key was already sent. The stable key still goes through
+      // queuePersonalNotification, which is idempotent and repairs a missing outbox row after a crash.
+      const sentUnderOldKey = await db.get(
+        'SELECT 1 FROM personal_notification_deliveries WHERE notification_key LIKE ? LIMIT 1',
+        [`${notificationKey}:%`],
       ).catch(() => null);
-      if (alreadySent) continue;
+      if (sentUnderOldKey) continue;
       await queuePersonalNotification(db, {
         notificationKey,
         playerId, eventType: 'elo_change', entityId: `${event.source}:${event.sourceId}`,

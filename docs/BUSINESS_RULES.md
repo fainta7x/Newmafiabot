@@ -271,7 +271,8 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - Only after the judge fixes the round result may the overlay show totals and the exact voter-to-candidate mapping.
 - Each revote is shown as the active round with its own candidate set and fixed result; do not merge several revotes into one invented vote.
 - Loss of broadcast connectivity must not block Live Game on the phone. The overlay may freeze on the last confirmed frame and catch up after reconnection.
-- Judge-only notes, Don/Sheriff check results, Undo history and other closed workflow state are not part of the audience payload.
+- The secret OBS overlay shows the night as it happens (owner, 2026-10-01): the shot seat, the Don's and the Sheriff's checked seats with their results, the first killed player's best move and protocol, and by whose hands a player left a fixed vote. Viewers see all roles there anyway; the ordinary public `/live` page stays role-safe and shows none of this.
+- Judge-only notes, Undo history and other closed workflow state are not part of the audience payload.
 
 ## Corrections and completed games
 

@@ -5,11 +5,13 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
-import { buildLiveBroadcastState } from '../../lib/liveBroadcast';
+import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote } from '../../lib/liveBroadcast';
+import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
+import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -290,8 +292,24 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       try {
         const raw = localStorage.getItem('mafia_live_session');
         if (!raw) return;
-        const state = buildLiveBroadcastState(JSON.parse(raw), metadata);
-        if (!state) return;
+        const built = buildLiveBroadcastState(JSON.parse(raw), metadata);
+        if (!built) return;
+        const votesKey = `mafia_live_broadcast_votes:${game.id}`;
+        let storedVotes: LiveBroadcastDayVote[] = [];
+        try {
+          const parsed = JSON.parse(localStorage.getItem(votesKey) || '[]');
+          if (Array.isArray(parsed)) storedVotes = parsed;
+        } catch { /* start a fresh history */ }
+        if (built.phaseKey === 'setup' || built.phaseKey === 'zero_night') storedVotes = [];
+        const dayVotes = mergeBroadcastDayVotes(storedVotes, built);
+        if (dayVotes !== storedVotes || !storedVotes.length) {
+          try { localStorage.setItem(votesKey, JSON.stringify(dayVotes)); } catch { /* storage full: still publish */ }
+        }
+        const deadSeats = new Set(built.players.filter((player) => !player.alive).map((player) => player.seat));
+        const protocols = Object.entries(readStoredDeathProtocols())
+          .map(([seat, protocol]) => ({ seat: Number(seat), ...protocol }))
+          .filter((protocol) => deadSeats.has(protocol.seat) && (protocol.red.length || protocol.black.length || protocol.sheriff.length));
+        const state = { ...built, protocols, dayVotes };
         const signature = JSON.stringify(state);
         const now = Date.now();
         if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;
@@ -477,6 +495,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                   })}
                   <p className="text-[11px] leading-4 text-white/35">Добавьте в OBS как «Источник браузера» 1920 × 1080 в сцены «Заставка» и «Итоги».</p>
                 </div>
+                <BroadcastLayoutControls />
               </>
             )}
 

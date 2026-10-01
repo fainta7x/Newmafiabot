@@ -165,6 +165,69 @@ describe('live broadcast routes', () => {
     expect(invalidToken.status).toBe(404);
   });
 
+  it('adds the evening score and keeps only well-formed night facts, game log and protocols', async () => {
+    await db.run('UPDATE games SET protocol_text = ? WHERE global_game_number = 237', [
+      JSON.stringify({ version: 1, kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: 'black' }, player_results: canonicalPlayers }),
+    ]);
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+    await request(app)
+      .put(`/api/games/${gameId}/broadcast-state`)
+      .set('Cookie', cookie)
+      .send({
+        state: {
+          ...audienceState(),
+          eveningScore: { red: 99, black: 99 },
+          night: { shotSeat: 4, donCheck: { seat: 7, isSheriff: 'yes' }, sheriffCheck: { seat: 42, isBlack: true } },
+          bestMove: { bySeat: 2, seats: [8, 9, 10, 1] },
+          timeline: [
+            { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: 'no' }, sheriffCheck: { seat: 8, isBlack: true } },
+            { kind: 'day', round: 2, left: [5, 42], note: 'voted' },
+            { kind: 'day', round: 3, left: [], note: '<script>' },
+            { kind: 'speech', round: 3 },
+          ],
+          dayVotes: [{ round: 2, assignments: { 1: 5, 3: 5, 11: 5, 4: 99 } }, { round: 3, assignments: 'x' }],
+          protocols: [
+            { seat: 2, red: [1, 4, 4], black: [8, 1, 11], sheriff: [7, 6] },
+            { seat: 5, red: [], black: [], sheriff: [] },
+          ],
+        },
+      })
+      .expect(202);
+
+    const { body } = await request(app).get(`/api/public/broadcast/${token}`);
+    expect(body.state.eveningScore).toEqual({ red: 0, black: 1 });
+    expect(body.state.night).toEqual({ shotSeat: 4, donCheck: { seat: 7, isSheriff: null }, sheriffCheck: null });
+    expect(body.state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
+    expect(body.state.timeline).toEqual([
+      { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: null }, sheriffCheck: { seat: 8, isBlack: true } },
+      { kind: 'day', round: 2, left: [5], note: 'voted' },
+    ]);
+    expect(body.state.dayVotes).toEqual([{ round: 2, assignments: { 1: 5, 3: 5 } }]);
+    expect(body.state.protocols).toEqual([{ seat: 2, red: [1, 4], black: [8], sheriff: [7] }]);
+  });
+
+  it('saves the overlay layout for the host and serves it with the public frame', async () => {
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+
+    await request(app).put('/api/games/broadcast-overlay-layout').send({ layout: { players: 80 } }).expect(401);
+    const saved = await request(app)
+      .put('/api/games/broadcast-overlay-layout')
+      .set('Cookie', cookie)
+      .send({ layout: { top: 300, timeline: 'x', players: 82, showTimeline: false } })
+      .expect(200);
+    expect(saved.body.layout).toEqual({ top: 140, timeline: 100, players: 82, showTop: true, showTimeline: false, showPlayers: true });
+
+    const frame = await request(app).get(`/api/public/broadcast/${token}`).expect(200);
+    expect(frame.body.layout).toEqual(saved.body.layout);
+
+    // Survives a restart: the in-memory copy is dropped and the database copy is read back.
+    resetLiveBroadcastForTests();
+    const reloaded = await request(app).get('/api/games/broadcast-overlay-layout').set('Cookie', cookie).expect(200);
+    expect(reloaded.body.layout).toEqual(saved.body.layout);
+  });
+
   it('allows the assigned qualified judge to configure and publish only their active game', async () => {
     await db.run("UPDATE players SET judge_level = 'host' WHERE id = 'player-1'");
     await db.run("UPDATE games SET judge_player_id = 'player-1' WHERE id = ?", [gameId]);

@@ -1,12 +1,21 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
-import type { LiveBroadcastEnvelope, LiveBroadcastState } from '../../lib/liveBroadcast.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import {
+  DEFAULT_LIVE_BROADCAST_LAYOUT,
+  normalizeLiveBroadcastLayout,
+  type LiveBroadcastEnvelope,
+  type LiveBroadcastLayout,
+  type LiveBroadcastState,
+} from '../../lib/liveBroadcast.ts';
 
 export type CanonicalBroadcastGame = {
   gameId: number;
   globalGameNumber: number;
   eveningGameNumber: number;
   tableName: string | null;
+  /** Red and black wins in the evening's finished games. */
+  eveningScore?: { red: number; black: number };
   players: Array<{
     seat: number;
     playerId: string | null;
@@ -165,6 +174,74 @@ export const normalizeLiveBroadcastState = (
     };
   }
 
+  const seatList = (value: unknown, limit = 10): number[] => (Array.isArray(value)
+    ? [...new Set(value.map(toSeat).filter((seat: number | null): seat is number => seat !== null))].slice(0, limit)
+    : []);
+  const sanitizeDon = (value: any) => (toSeat(value?.seat)
+    ? { seat: toSeat(value.seat)!, isSheriff: typeof value.isSheriff === 'boolean' ? value.isSheriff : null }
+    : null);
+  const sanitizeSheriff = (value: any) => (toSeat(value?.seat)
+    ? { seat: toSeat(value.seat)!, isBlack: typeof value.isBlack === 'boolean' ? value.isBlack : null }
+    : null);
+  const nightSource = source.night && typeof source.night === 'object' && !Array.isArray(source.night) ? source.night : null;
+  const night: LiveBroadcastState['night'] = nightSource
+    ? {
+        shotSeat: toSeat(nightSource.shotSeat),
+        donCheck: sanitizeDon(nightSource.donCheck),
+        sheriffCheck: sanitizeSheriff(nightSource.sheriffCheck),
+      }
+    : null;
+  const bestMoveSeats = seatList(source.bestMove?.seats, 3);
+  const bestMove: LiveBroadcastState['bestMove'] = bestMoveSeats.length
+    ? { bySeat: toSeat(source.bestMove?.bySeat), seats: bestMoveSeats }
+    : null;
+  const dayNotes = new Set(['voted', 'table', 'stay', 'cancelled', 'single']);
+  const timeline: NonNullable<LiveBroadcastState['timeline']> = Array.isArray(source.timeline)
+    ? source.timeline
+        .map((entry: any) => {
+          const round = Math.max(0, finiteInteger(entry?.round, 0));
+          if (entry?.kind === 'night') {
+            return {
+              kind: 'night',
+              round,
+              current: entry.current === true,
+              shotSeat: toSeat(entry.shotSeat),
+              killed: entry.killed === true,
+              donCheck: sanitizeDon(entry.donCheck),
+              sheriffCheck: sanitizeSheriff(entry.sheriffCheck),
+            };
+          }
+          if (entry?.kind === 'day' && dayNotes.has(String(entry.note))) {
+            return { kind: 'day', round, left: seatList(entry.left), note: String(entry.note) };
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .slice(-40) as NonNullable<LiveBroadcastState['timeline']>
+    : [];
+  const seats = new Set(game.players.map((player) => player.seat));
+  const dayVotes: NonNullable<LiveBroadcastState['dayVotes']> = Array.isArray(source.dayVotes)
+    ? source.dayVotes
+        .map((vote: any) => ({
+          round: Math.max(0, finiteInteger(vote?.round, 0)),
+          assignments: sanitizeSeatRecord(vote?.assignments, seats, 'seat'),
+        }))
+        .filter((vote: any) => Object.keys(vote.assignments).length)
+        .slice(-20)
+    : [];
+  const protocols: NonNullable<LiveBroadcastState['protocols']> = Array.isArray(source.protocols)
+    ? source.protocols
+        .map((protocol: any) => {
+          const seat = toSeat(protocol?.seat);
+          if (!seat) return null;
+          const red = seatList(protocol.red);
+          const black = seatList(protocol.black).filter((item) => !red.includes(item));
+          return { seat, red, black, sheriff: seatList(protocol.sheriff, 1) };
+        })
+        .filter((protocol: any) => protocol && (protocol.red.length || protocol.black.length || protocol.sheriff.length))
+        .slice(0, 10) as NonNullable<LiveBroadcastState['protocols']>
+    : [];
+
   const timerSeconds = source.timerSeconds == null ? null : Math.max(0, finiteInteger(source.timerSeconds));
   const timerMaxSeconds = source.timerMaxSeconds == null ? null : Math.max(0, finiteInteger(source.timerMaxSeconds));
 
@@ -186,6 +263,12 @@ export const normalizeLiveBroadcastState = (
     players,
     nominations: nominations as LiveBroadcastState['nominations'],
     vote,
+    night,
+    bestMove,
+    timeline,
+    dayVotes,
+    protocols,
+    eveningScore: game.eveningScore || null,
     updatedAt: receivedAt.toISOString(),
   };
 };
@@ -200,6 +283,34 @@ export const readLiveBroadcastEnvelope = (now = Date.now()): LiveBroadcastEnvelo
   state: currentBroadcast?.state || null,
 });
 
+// The layout lives in memory for instant updates and in the database to survive a restart.
+let currentLayout: LiveBroadcastLayout | null = null;
+const LAYOUT_ID = 'main';
+
+export async function readLiveBroadcastLayout(db: DatabaseWrapper): Promise<LiveBroadcastLayout> {
+  if (currentLayout) return currentLayout;
+  try {
+    const row = await db.get<{ layout_json: string }>('SELECT layout_json FROM broadcast_overlay_layout WHERE id = ? LIMIT 1', [LAYOUT_ID]);
+    currentLayout = row ? normalizeLiveBroadcastLayout(JSON.parse(row.layout_json)) : { ...DEFAULT_LIVE_BROADCAST_LAYOUT };
+  } catch {
+    currentLayout = { ...DEFAULT_LIVE_BROADCAST_LAYOUT };
+  }
+  return currentLayout;
+}
+
+export async function saveLiveBroadcastLayout(db: DatabaseWrapper, input: unknown): Promise<LiveBroadcastLayout> {
+  const layout = normalizeLiveBroadcastLayout(input);
+  currentLayout = layout;
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO broadcast_overlay_layout (id, layout_json, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET layout_json = excluded.layout_json, updated_at = excluded.updated_at`,
+    [LAYOUT_ID, JSON.stringify(layout), now],
+  );
+  return layout;
+}
+
 export const resetLiveBroadcastForTests = (): void => {
   currentBroadcast = null;
+  currentLayout = null;
 };

@@ -1,6 +1,6 @@
 import type { PlayerResultData, TournamentGameProtocolData } from './api';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from './liveDeathProtocol';
-import type { LiveBroadcastState } from './liveBroadcast';
+import type { LiveBroadcastLayout, LiveBroadcastState } from './liveBroadcast';
 import { isSupportedTableSize } from './tableComposition.ts';
 
 export interface ClubGameProtocolEnvelope {
@@ -273,6 +273,11 @@ export const clubGamesApi = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  getBroadcastLayout: () => request<{ layout: LiveBroadcastLayout }>('/api/games/broadcast-overlay-layout'),
+  saveBroadcastLayout: (layout: LiveBroadcastLayout) => request<{ layout: LiveBroadcastLayout }>(
+    '/api/games/broadcast-overlay-layout',
+    { method: 'PUT', body: JSON.stringify({ layout }) },
+  ),
   getBroadcastConfig: (gameId: number) => request<LiveBroadcastConfig>(`/api/games/${gameId}/broadcast-config`),
   publishBroadcastState: (gameId: number, state: LiveBroadcastState) => request<{ ok: true; received_at: string }>(
     `/api/games/${gameId}/broadcast-state`,

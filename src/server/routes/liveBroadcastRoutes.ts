@@ -9,6 +9,8 @@ import {
   normalizeLiveBroadcastState,
   publishLiveBroadcastState,
   readLiveBroadcastEnvelope,
+  readLiveBroadcastLayout,
+  saveLiveBroadcastLayout,
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
 import { loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
@@ -64,11 +66,21 @@ const loadCanonicalBroadcastGame = async (
     .sort((left: any, right: any) => left.seat - right.seat);
 
   if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
+  // Red and black wins in the evening's other finished games (the score shown on stream).
+  const eveningGames = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL AND id <> ?', [row.evening_id, row.id]);
+  const eveningScore = { red: 0, black: 0 };
+  for (const other of eveningGames) {
+    const finished = parseProtocol(other.protocol_text);
+    if (finished?.protocol?.status !== 'completed') continue;
+    if (finished.protocol.winner_team === 'red') eveningScore.red += 1;
+    if (finished.protocol.winner_team === 'black') eveningScore.black += 1;
+  }
   return {
     gameId: Number(row.id),
     globalGameNumber: Number(row.global_game_number),
     eveningGameNumber: Math.max(1, Number(row.evening_game_number || 1)),
     tableName: row.table_name ? String(row.table_name) : null,
+    eveningScore,
     players,
   };
 };
@@ -78,6 +90,21 @@ const publicOrigin = (req: Request): string => {
   if (configured) return configured;
   return `${req.protocol}://${req.get('host')}`;
 };
+
+// Overlay sizes and visibility, changed live from «OBS и трансляция» (owner, 2026-10-01).
+gameRouter.get('/broadcast-overlay-layout', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  const db = req.db || (await getDb());
+  return res.json({ layout: await readLiveBroadcastLayout(db) });
+});
+
+gameRouter.put('/broadcast-overlay-layout', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const db = req.db || (await getDb());
+    return res.json({ layout: await saveLiveBroadcastLayout(db, req.body?.layout) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить размеры графики' });
+  }
+});
 
 gameRouter.get('/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
@@ -117,12 +144,13 @@ gameRouter.put('/:gameId/broadcast-state', requireOrganizerAuth, async (req: Aut
   }
 });
 
-publicRouter.get('/broadcast/:token', (req, res) => {
+publicRouter.get('/broadcast/:token', async (req: AuthenticatedRequest, res) => {
   if (!isValidLiveBroadcastToken(String(req.params.token || ''))) {
     return res.status(404).json({ error: 'Трансляция не найдена' });
   }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  return res.json(readLiveBroadcastEnvelope());
+  const db = req.db || (await getDb());
+  return res.json({ ...readLiveBroadcastEnvelope(), layout: await readLiveBroadcastLayout(db) });
 });
 
 // «Заставка» / «Итоги» scenes: the next game's seating and the tournament table, by the same secret link.

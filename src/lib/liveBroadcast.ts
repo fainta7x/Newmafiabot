@@ -37,6 +37,56 @@ export type LiveBroadcastVote = {
   outcome: string | null;
 };
 
+/** What happened this night, as the judge records it (owner 2026-10-01: viewers see it at once). */
+export type LiveBroadcastNight = {
+  shotSeat: number | null;
+  donCheck: { seat: number; isSheriff: boolean | null } | null;
+  sheriffCheck: { seat: number; isBlack: boolean | null } | null;
+};
+
+/** «Лучший ход»: the seats named by the first killed player (or the zero-round voted player). */
+export type LiveBroadcastBestMove = {
+  bySeat: number | null;
+  seats: number[];
+};
+
+/**
+ * «Ход игры»: one entry per night and per day that changed the table, built from the
+ * engine's own game log so it survives a phone reload (owner, 2026-10-01: what happened
+ * stays on screen until the end of the game).
+ */
+export type LiveBroadcastTimelineEntry =
+  | {
+      kind: 'night';
+      round: number;
+      /** The night that is still going on: facts are shown as the judge records them. */
+      current: boolean;
+      shotSeat: number | null;
+      killed: boolean;
+      donCheck: LiveBroadcastNight['donCheck'];
+      sheriffCheck: LiveBroadcastNight['sheriffCheck'];
+    }
+  | {
+      kind: 'day';
+      round: number;
+      left: number[];
+      note: 'voted' | 'table' | 'stay' | 'cancelled' | 'single';
+    };
+
+/** A fixed vote of a past day: who voted for whom (the last fixed round of that day). */
+export type LiveBroadcastDayVote = {
+  round: number;
+  assignments: Record<number, number>;
+};
+
+/** A killed player's «протокол»: whom they named red, black and sheriff. */
+export type LiveBroadcastProtocol = {
+  seat: number;
+  red: number[];
+  black: number[];
+  sheriff: number[];
+};
+
 export type LiveBroadcastState = {
   version: typeof LIVE_BROADCAST_VERSION;
   gameId: number;
@@ -55,13 +105,60 @@ export type LiveBroadcastState = {
   players: LiveBroadcastPlayer[];
   nominations: LiveBroadcastNomination[];
   vote: LiveBroadcastVote | null;
+  night?: LiveBroadcastNight | null;
+  bestMove?: LiveBroadcastBestMove | null;
+  timeline?: LiveBroadcastTimelineEntry[];
+  dayVotes?: LiveBroadcastDayVote[];
+  protocols?: LiveBroadcastProtocol[];
+  /** Red and black wins in the evening's finished games; the server fills it in. */
+  eveningScore?: { red: number; black: number } | null;
   updatedAt: string;
+};
+
+/** Overlay block sizes in percent and visibility, adjusted live from «OBS и трансляция». */
+export type LiveBroadcastLayout = {
+  top: number;
+  timeline: number;
+  players: number;
+  showTop: boolean;
+  showTimeline: boolean;
+  showPlayers: boolean;
+};
+
+export const LIVE_BROADCAST_LAYOUT_LIMITS = { min: 60, max: 140 } as const;
+
+export const DEFAULT_LIVE_BROADCAST_LAYOUT: LiveBroadcastLayout = {
+  top: 100,
+  timeline: 100,
+  players: 100,
+  showTop: true,
+  showTimeline: true,
+  showPlayers: true,
+};
+
+export const normalizeLiveBroadcastLayout = (input: unknown): LiveBroadcastLayout => {
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {};
+  const percent = (value: unknown, fallback: number) => {
+    const number = Math.round(Number(value));
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(LIVE_BROADCAST_LAYOUT_LIMITS.max, Math.max(LIVE_BROADCAST_LAYOUT_LIMITS.min, number));
+  };
+  const flag = (value: unknown) => value !== false;
+  return {
+    top: percent(source.top, DEFAULT_LIVE_BROADCAST_LAYOUT.top),
+    timeline: percent(source.timeline, DEFAULT_LIVE_BROADCAST_LAYOUT.timeline),
+    players: percent(source.players, DEFAULT_LIVE_BROADCAST_LAYOUT.players),
+    showTop: flag(source.showTop),
+    showTimeline: flag(source.showTimeline),
+    showPlayers: flag(source.showPlayers),
+  };
 };
 
 export type LiveBroadcastEnvelope = {
   connected: boolean;
   receivedAt: string | null;
   state: LiveBroadcastState | null;
+  layout?: LiveBroadcastLayout;
 };
 
 export type LiveBroadcastGameMetadata = {
@@ -121,10 +218,65 @@ const recordSeats = (value: unknown, allowedTargets?: Set<number>): Record<numbe
 };
 
 /**
- * Produces the small, audience-safe state sent to the OBS bridge. The complete
- * judge snapshot (history, checks, notes and pending interactions) never leaves
- * the phone through this path.
+ * Produces the small state sent to the OBS bridge. Viewers see the roles, so the
+ * current night's shot and checks and the best move are shown as they happen
+ * (owner, 2026-10-01). History, notes and pending interactions never leave the
+ * phone through this path, and vote choices stay hidden until the judge fixes them.
  */
+const seatsIn = (text: string): number[] => [...text.matchAll(/#(\d+)/g)]
+  .map((match) => Number(match[1]))
+  .filter((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10);
+
+/** Reads the engine's game log lines («Н2: выстрел в #4 — убит. Дон: #7 — Шериф. …»). */
+/**
+ * The engine forgets a day's votes when the next day starts, so the judge's device keeps
+ * each day's last fixed vote: the stream shows by whose hands a player left.
+ */
+export const mergeBroadcastDayVotes = (
+  previous: LiveBroadcastDayVote[],
+  state: Pick<LiveBroadcastState, 'roundNumber' | 'vote'>,
+): LiveBroadcastDayVote[] => {
+  if (!state.vote?.published || !Object.keys(state.vote.assignments).length) return previous;
+  return [
+    ...previous.filter((vote) => vote.round !== state.roundNumber),
+    { round: state.roundNumber, assignments: { ...state.vote.assignments } },
+  ].sort((left, right) => left.round - right.round);
+};
+
+export const parseBroadcastTimeline = (rawLogs: unknown): LiveBroadcastTimelineEntry[] => {
+  const entries: LiveBroadcastTimelineEntry[] = [];
+  for (const raw of Array.isArray(rawLogs) ? rawLogs : []) {
+    const text = String((raw as any)?.log || '');
+    const night = /^Н(\d+):/.exec(text);
+    if (night) {
+      const shot = /выстрел в #(\d+) — (убит|промах)/.exec(text);
+      const don = /Дон: #(\d+) — (не )?Шериф/.exec(text);
+      const sheriff = /Шериф: #(\d+) — ([^.]*)/.exec(text);
+      entries.push({
+        kind: 'night',
+        round: Number(night[1]),
+        current: false,
+        shotSeat: shot ? Number(shot[1]) : null,
+        killed: shot?.[2] === 'убит',
+        donCheck: don ? { seat: Number(don[1]), isSheriff: !don[2] } : null,
+        sheriffCheck: sheriff
+          ? { seat: Number(sheriff[1]), isBlack: /ч[её]рн/i.test(sheriff[2]) ? true : /красн/i.test(sheriff[2]) ? false : null }
+          : null,
+      });
+      continue;
+    }
+    const day = /^Д(\d+):/.exec(text);
+    if (!day) continue;
+    const round = Number(day[1]);
+    if (/отменено/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'cancelled' });
+    else if (/одна кандидатура/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'single' });
+    else if (/заголосован игрок/.test(text)) entries.push({ kind: 'day', round, left: seatsIn(text.split(';')[0]), note: 'voted' });
+    else if (/спорные/.test(text)) entries.push({ kind: 'day', round, left: seatsIn(text.split('заголосованы')[0]), note: 'table' });
+    else if (/все остаются|никто не покидает/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'stay' });
+  }
+  return entries;
+};
+
 export const buildLiveBroadcastState = (
   rawSnapshot: unknown,
   metadata: LiveBroadcastGameMetadata,
@@ -201,6 +353,41 @@ export const buildLiveBroadcastState = (
       }
     : null;
 
+  // The engine clears these marks when a night starts and when the day starts, so they
+  // describe the current night only.
+  const phaseKey = String(snapshot.phase || 'setup');
+  const shotSeat = toSeat(snapshot.shotPlayerSlot);
+  const donSeat = toSeat(snapshot.donCheckSlot);
+  const sheriffSeat = toSeat(snapshot.sheriffCheckSlot);
+  const night: LiveBroadcastNight | null = phaseKey === 'night' && (shotSeat || donSeat || sheriffSeat)
+    ? {
+        shotSeat,
+        donCheck: donSeat ? { seat: donSeat, isSheriff: typeof snapshot.donCheckResult === 'boolean' ? snapshot.donCheckResult : null } : null,
+        sheriffCheck: sheriffSeat
+          ? { seat: sheriffSeat, isBlack: snapshot.sheriffCheckResult ? /ч[её]рн/i.test(String(snapshot.sheriffCheckResult)) : null }
+          : null,
+      }
+    : null;
+
+  const markers = asObject(snapshot.protocolMarkers) || {};
+  const bestMoveSeats = (Array.isArray(markers.bestMoveSeats) ? markers.bestMoveSeats : [])
+    .map(toSeat)
+    .filter((seat: number | null): seat is number => seat !== null);
+  const bestMove: LiveBroadcastBestMove | null = bestMoveSeats.length
+    ? {
+        bySeat: markers.bestMoveSource === 'zero_round_voted' ? toSeat(markers.zeroRoundVotedSlot) : toSeat(markers.firstKilledSlot),
+        seats: bestMoveSeats,
+      }
+    : null;
+
+  // A resolved night is already in the log while the farewell and the death protocol still run
+  // under phase «night»; it is not shown a second time as the current night.
+  const loggedTimeline = parseBroadcastTimeline(snapshot.nightLogs);
+  const tonightLogged = loggedTimeline.some((entry) => entry.kind === 'night' && entry.round === view.roundNumber);
+  const timeline: LiveBroadcastTimelineEntry[] = night && !tonightLogged
+    ? [...loggedTimeline, { kind: 'night', round: view.roundNumber, current: true, shotSeat: night.shotSeat, killed: false, donCheck: night.donCheck, sheriffCheck: night.sheriffCheck }]
+    : loggedTimeline;
+
   const timerSeconds = toNonNegativeInteger(snapshot.timeLeft);
   const timerMaxSeconds = toNonNegativeInteger(snapshot.timerMax);
 
@@ -210,7 +397,7 @@ export const buildLiveBroadcastState = (
     globalGameNumber: Number(metadata.globalGameNumber),
     eveningGameNumber: metadata.eveningGameNumber == null ? null : Number(metadata.eveningGameNumber),
     tableName: metadata.tableName ? String(metadata.tableName) : null,
-    phaseKey: String(snapshot.phase || 'setup'),
+    phaseKey,
     phaseTitle: view.phaseTitle,
     phaseDetail: view.phaseDetail,
     roundNumber: view.roundNumber,
@@ -222,6 +409,9 @@ export const buildLiveBroadcastState = (
     players,
     nominations,
     vote,
+    night,
+    bestMove,
+    timeline,
     // The server replaces this with its receive time. Keeping the field in the
     // client contract makes the public response shape stable and easy to test.
     updatedAt: '',

@@ -122,6 +122,7 @@ import { startWeeklyEveningAutomationWorker } from './server/services/weeklyEven
 import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts';
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
+import { applyEloScaleMigration } from './db/applyEloScaleMigration.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -171,6 +172,10 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureCustomEventsSchema(db);
   await ensureObsRemoteSchema(db);
   await ensurePlayerProfileMergeSchema(db);
+  // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
+  if (db.dbPath !== ':memory:') {
+    try { await applyEloScaleMigration(db); } catch (error) { console.error('[ELO] ×5 scale switch failed:', error); }
+  }
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';

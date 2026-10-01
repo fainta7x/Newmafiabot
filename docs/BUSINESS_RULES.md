@@ -573,11 +573,12 @@ The rating model is intended to account for table/team strength rather than act 
 
 Approved behaviour (confirmed by the owner 2026-10-01 against the current formula, which already does this):
 
-- the team result is weighed by the expected win chance from the team averages; red and black are asymmetric (the prior is red 30% / black 70% at an equal table), so a black win at an equal table gives +3 and a red win +7 (base weight 10);
+- the team result is weighed by the expected win chance from the team averages; red and black are asymmetric (the prior is red 30% / black 70% at an equal table), so at an equal table a red win gives +35 / a red loss −15 and a black win +15 / a black loss −35;
 - **a weak player carried by a strong team gains little**: a weak mafia with two strong mafias against weak citizens gets a small win;
 - **a weak player in an average or weak team against a strong table gains a lot**: a weak black with average blacks against strong citizens gets much more than at an equal table;
 - **a strong player is protected in a weak team**: a stronger player loses less on a loss and gains a little more on a win than the weaker teammates; the protection depends on the gap between the player and the teammates, so the closer the table's levels are, the smaller the protection (none at an equal table);
-- personal game points (best move, judge bonus, Ci, fouls) are added on top (×8 each point); they are mostly positive, so the club average slowly rises — accepted;
+- personal game points (best move, judge bonus, Ci, fouls) are added on top (×40 each point); they are mostly positive, so the club average slowly rises — accepted;
+- **the ×5 scale (owner, 2026-10-01):** every distance from 1000 is five times larger than in the first version — the game weight, the personal-point weight, the win-expectation scale (2000 instead of 400) and the protection scale (1000 instead of 200) are all ×5 (`ELO_SCALE` in `eloRatingService.ts`), so the behaviour is unchanged and only the numbers are bigger; manual start Elo was stretched the same way once on the switch;
 - no calibration multiplier for new players (owner decision 2026-10-01).
 
 Do not replace the current Elo implementation with a standard off-the-shelf formula merely because it is simpler. Any formula change needs explicit product review and comparison against known tournament/player outcomes.

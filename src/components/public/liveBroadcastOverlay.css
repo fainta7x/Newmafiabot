@@ -882,25 +882,29 @@ body.live-broadcast-document #root {
 .live-broadcast-out-ribbon {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: calc(124 * var(--u));
-  transform: translate(-50%, -50%) rotate(-30deg);
+  top: 56%;
+  width: calc(96 * var(--u));
+  transform: translate(-50%, -50%) rotate(-10deg);
   pointer-events: none;
 }
 
+/* A stamp across the photo, never wider than the card's portrait area. */
 .live-broadcast-out-ribbon span {
   display: block;
   padding: calc(4 * var(--u)) 0;
+  border-radius: calc(4 * var(--u));
   background: rgba(10, 10, 12, .92);
-  border-top: 1px solid rgba(255, 90, 120, .5);
-  border-bottom: 1px solid rgba(255, 90, 120, .5);
+  border: 1px solid rgba(255, 90, 120, .65);
   color: #ff5a78;
   font-size: calc(11 * var(--u));
   font-weight: 900;
-  letter-spacing: .12em;
+  letter-spacing: .1em;
   text-align: center;
   text-transform: uppercase;
+  white-space: nowrap;
 }
+
+.live-broadcast-out-ribbon.is-voted span { font-size: calc(9.5 * var(--u)); letter-spacing: .03em; }
 
 .live-broadcast-check-tabs {
   position: absolute;

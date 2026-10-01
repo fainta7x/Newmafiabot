@@ -373,7 +373,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                   <div className="live-broadcast-seat-number">{player.seat}</div>
                   {/* Role emblem as on club streams (owner reference, 2026-10-01): the badge colour tells the role. */}
                   <div className={`live-broadcast-emblem is-${kind}`} title={ROLE_LABELS[kind]}><RoleIcon kind={kind} /></div>
-                  {!player.alive ? <div className="live-broadcast-out-ribbon"><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
+                  {!player.alive ? <div className={`live-broadcast-out-ribbon is-${player.statusKind}`}><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
                 </div>
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">

@@ -58,6 +58,19 @@ const linkDto = (row: any) => ({
 
 // Service override: ordinary players get immutable free slots, while the owner
 // can repair a bad link or release a slot during support/administration.
+router.get('/music-library/admin/player-slots/:playerId', requireOrganizerAuth, requireClubOwner, async (req, res) => {
+  try {
+    const rows = await req.db.all(
+      `SELECT * FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' ORDER BY slot_index ASC`,
+      [String(req.params.playerId)],
+    );
+    const bySlot = new Map(rows.map((row: any) => [Number(row.slot_index), linkDto(row)]));
+    return res.json({ slots: [1, 2].map((slot) => ({ slot, entry: bySlot.get(slot) || null })) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить музыку игрока.' });
+  }
+});
+
 router.put('/music-library/admin/player-slots/:playerId/:slot', requireOrganizerAuth, requireClubOwner, async (req, res) => {
   try {
     const slot = Number(req.params.slot);

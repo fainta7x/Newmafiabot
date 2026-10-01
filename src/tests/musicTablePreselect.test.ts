@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -31,7 +31,7 @@ async function setup() {
   const pool = (table?: string[]) => request(app)
     .get(`/api/player/music-library/evenings/ev/pool${table ? `?table=${table.join(',')}` : ''}`)
     .set('Cookie', `player_token=${generatePlayerSessionToken('judge')}`);
-  return { pool, db };
+  return { pool, db, app };
 }
 
 describe('game music from the players at the table', () => {
@@ -70,5 +70,31 @@ describe('game music from the players at the table', () => {
     }
     // Nobody at the table has music: the judge's library plays.
     expect((await pool(['judge'])).body.preselected.deal.entry.title).toBe('judge-library');
+  });
+});
+
+describe('owner repairs a player\'s locked music slot', () => {
+  it('only the owner reads, fixes and frees the slot; the player still cannot change it', async () => {
+    const { app } = await setup();
+    const owner = `organizer_token=${generateOrganizerToken()}`;
+    const url = '/api/player/music-library/admin/player-slots/seat1';
+
+    expect((await request(app).get(url).set('Cookie', `organizer_token=${generateOrganizerToken('not-owner')}`)).status).toBeGreaterThanOrEqual(401);
+    const before = await request(app).get(url).set('Cookie', owner);
+    expect(before.status, JSON.stringify(before.body)).toBe(200);
+    expect(before.body.slots.map((slot: any) => slot.entry?.title)).toEqual(['seat1-1', 'seat1-2']);
+
+    const fixed = await request(app).put(`${url}/1`).set('Cookie', owner).send({ url: 'https://music.yandex.ru/album/5/track/777' });
+    expect(fixed.status, JSON.stringify(fixed.body)).toBe(200);
+    expect(fixed.body.entry.source_url).toContain('777');
+
+    const player = `player_token=${generatePlayerSessionToken('seat1')}`;
+    expect((await request(app).put('/api/player/music-library/player-slots/1').set('Cookie', player).send({ url: 'https://music.yandex.ru/album/5/track/1' })).status).toBe(409);
+
+    expect((await request(app).delete(`${url}/2`).set('Cookie', owner)).status).toBe(200);
+    const after = await request(app).get(url).set('Cookie', owner);
+    expect(after.body.slots[1].entry).toBeNull();
+    // A freed slot is the player's to fill again.
+    expect((await request(app).put('/api/player/music-library/player-slots/2').set('Cookie', player).send({ url: 'https://music.yandex.ru/album/5/track/888' })).status).toBe(200);
   });
 });

@@ -39,7 +39,8 @@ describe('«Уровни и роли»', () => {
   it('shows what will change, saves «Может проводить» and reports the result by the button', async () => {
     render(<PlayerAccessBulkCRM />);
     fireEvent.click(await screen.findByText('Стаут'));
-    fireEvent.change(screen.getByLabelText('Может проводить: Турниры'), { target: { value: 'yes' } });
+    // Marks are tap chips now (owner, 2026-10-01): one tap flips what the player has.
+    fireEvent.click(screen.getByRole('button', { name: 'Может проводить: Турниры' }));
     expect(screen.getByTestId('crm-access-bulk-summary').textContent).toContain('может проводить: турниры');
     fireEvent.click(screen.getByRole('button', { name: 'Применить к 1' }));
     await waitFor(() => expect(bulk).toHaveBeenCalledWith({ player_ids: ['a'], organize_formats_add: ['TOURNAMENT'] }));
@@ -51,15 +52,19 @@ describe('«Уровни и роли»', () => {
     fireEvent.click(await screen.findByText('Точка'));
     const panel = screen.getByTestId('crm-access-bulk-panel');
     expect(panel.textContent).not.toContain('Не менять');
-    expect((screen.getByLabelText('Может проводить: Свои ивенты') as HTMLSelectElement).value).toBe('yes');
-    expect((screen.getByLabelText('Может проводить: Турниры') as HTMLSelectElement).value).toBe('no');
-    // Picking the value the player already has is not a change.
-    fireEvent.change(screen.getByLabelText('Может проводить: Свои ивенты'), { target: { value: 'yes' } });
+    const custom = () => screen.getByRole('button', { name: 'Может проводить: Свои ивенты' });
+    expect(custom().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Может проводить: Турниры' }).getAttribute('aria-pressed')).toBe('false');
+    // Tapping twice comes back to what the player has: no change.
+    fireEvent.click(custom());
+    expect(custom().getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('crm-access-bulk-summary').textContent).toContain('не может проводить: свои ивенты');
+    fireEvent.click(custom());
     expect(screen.queryByTestId('crm-access-bulk-summary')).toBeNull();
-    // Players who differ show «Разное».
+    // Players who differ show «Разное» (mixed).
     fireEvent.click(screen.getByText('Стаут'));
-    expect((screen.getByLabelText('Может проводить: Свои ивенты') as HTMLSelectElement).value).toBe('');
-    expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('Разное');
+    expect(custom().getAttribute('aria-pressed')).toBe('mixed');
+    expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('по-разному');
   });
 
   it('puts «Все» last and combines «Как ходят» with «Роль в клубе»', async () => {
@@ -78,8 +83,8 @@ describe('«Уровни и роли»', () => {
     fireEvent.click(await screen.findByText('Гость'));
     expect(screen.getByTestId('crm-access-bulk-other-city')).toBeTruthy();
     expect(screen.getByTestId('crm-access-bulk-panel').textContent).not.toContain('Роль в клубе');
-    expect(screen.queryByLabelText('Может вести: Клубные вечера')).toBeNull();
-    expect(screen.getByLabelText('Может вести: Рейтинг и турниры')).toBeTruthy();
-    expect(screen.queryByLabelText('Может проводить: Турниры')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Может вести: Клубные вечера' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Может вести: Рейтинг и турниры' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Может проводить: Турниры' })).toBeNull();
   });
 });

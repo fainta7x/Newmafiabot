@@ -52,6 +52,10 @@ export default function PlayerPoker() {
   }, [current?.id]);
 
   const ownCards: Card[] = current?.hand?.hole_cards ? Object.values(current.hand.hole_cards)[0] as Card[] || [] : [];
+  const currentTurnPlayer = current?.hand?.current_seat !== null && current?.hand?.current_seat !== undefined
+    ? current?.players?.find((player: any) => player.seat === current.hand.current_seat)
+    : null;
+  const isMyTurn = Boolean(currentTurnPlayer && current?.hand?.players?.some((player: any) => player.id === currentTurnPlayer.id && !player.is_bot));
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-6 text-white">
@@ -80,7 +84,8 @@ export default function PlayerPoker() {
                   <div className="mt-3 text-sm text-amber-100">Ваша комбинация: <strong>{current.hand.hand_label || 'Комбинация формируется'}</strong></div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-white/50">{current.players.length} игрока за столом · номинальные фишки · Texas Hold’em</div>
-                <div className="grid grid-cols-4 gap-2"><button type="button" onClick={() => void pokerAction('fold')} className="min-h-11 rounded-xl bg-rose-500/80 text-xs font-semibold">Пас</button><button type="button" onClick={() => void pokerAction('check')} className="min-h-11 rounded-xl bg-white/10 text-xs font-semibold">Чек</button><button type="button" onClick={() => void pokerAction('call')} className="min-h-11 rounded-xl bg-emerald-500/70 text-xs font-semibold">Колл</button><button type="button" onClick={() => void pokerAction('bet', 100)} className="min-h-11 rounded-xl bg-amber-400 text-xs font-semibold text-black">Ставка</button></div>
+                <div className={`rounded-xl p-3 text-center text-sm font-semibold ${isMyTurn ? 'bg-emerald-400/15 text-emerald-100' : 'bg-white/[.06] text-white/60'}`}>{isMyTurn ? 'Ваш ход' : currentTurnPlayer ? `Ход игрока: ${currentTurnPlayer.nickname}` : 'Раздача завершена'}</div>
+                <div className="grid grid-cols-4 gap-2"><button type="button" disabled={!isMyTurn} onClick={() => void pokerAction('fold')} className="min-h-11 rounded-xl bg-rose-500/80 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35">Пас</button><button type="button" disabled={!isMyTurn} onClick={() => void pokerAction('check')} className="min-h-11 rounded-xl bg-white/10 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35">Чек</button><button type="button" disabled={!isMyTurn} onClick={() => void pokerAction('call')} className="min-h-11 rounded-xl bg-emerald-500/70 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35">Колл</button><button type="button" disabled={!isMyTurn} onClick={() => void pokerAction('bet', 100)} className="min-h-11 rounded-xl bg-amber-400 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-35">Ставка</button></div>
               </>
             ) : (
               <><div className="space-y-2">{current.players?.map((player: any) => <div key={player.id} className="rounded-xl bg-black/20 px-3 py-2 text-sm">Место {player.seat} · {player.nickname}{player.is_bot ? <span className="ml-2 text-xs text-amber-100/60">бот</span> : null}</div>)}</div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void lobbyAction(current.id, 'start')} className="min-h-11 rounded-xl bg-white text-xs font-semibold text-black">Начать игру</button><button type="button" onClick={() => setCurrent(null)} className="min-h-11 rounded-xl border border-white/10 text-xs text-white/60">К лобби</button></div><button type="button" onClick={async () => { const response = await fetch(`/api/player/poker/lobbies/${current.id}/bot`, { method: 'POST', credentials: 'include' }); const body = await response.json(); if (!response.ok) return setError(body.error); setCurrent(body.lobby); }} className="min-h-10 w-full rounded-xl border border-amber-200/20 bg-amber-200/[.08] text-xs font-semibold text-amber-50">Добавить тестового бота</button></>

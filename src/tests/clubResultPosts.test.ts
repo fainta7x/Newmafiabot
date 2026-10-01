@@ -25,6 +25,7 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
   // Player «a» is always the sheriff; the rest rotate.
   const addGame = async (number: number, winner: 'red' | 'black', extra: Record<string, unknown> = {}, status = 'completed') => {
     const envelope = {
+      version: 1,
       kind: 'club_evening_protocol',
       protocol: { status, winner_team: winner, first_killed_participant_id: 'p2', best_moves: [{ participant_id: 'p2', seat_numbers: [8, 9, 10] }], ...extra },
       player_results: ROLES.map((role, index) => ({
@@ -64,7 +65,10 @@ describe('club game blank', () => {
     expect(svg).toContain('ИГРА №12');
     expect(svg).toContain('ПОБЕДА КРАСНЫХ');
     expect(svg).toContain('Лучший ход: 8, 9, 10');
-    expect(svg).not.toContain('БАЛЛЫ');
+    // Ordinary evenings move Elo: winners up, losers down.
+    expect(blank!.seats[0].eloDelta).toBeGreaterThan(0);
+    expect(blank!.seats[9].eloDelta).toBeLessThan(0);
+    expect(svg).toContain('Эло +');
     expect(renderPng(svg).subarray(1, 4).toString()).toBe('PNG');
   });
 
@@ -73,7 +77,7 @@ describe('club game blank', () => {
     const blank = await loadGameBlank(db, await addGame(1, 'red'));
     expect(blank!.scored).toBe(true);
     expect(blank!.seats[0].points).toBeCloseTo(1.5, 2);
-    expect(gameBlankSvg(blank!)).toContain('БАЛЛЫ');
+    expect(gameBlankSvg(blank!)).toMatch(/\+1,5/);
   });
 });
 
@@ -87,6 +91,8 @@ describe('evening summary', () => {
     expect(summary!.bestByRole.find((item) => item.role === 'sheriff')!.player).toMatchObject({ nickname: 'Игрок A' });
     expect(summary!.bestByRole.find((item) => item.role === 'don')!.player).toMatchObject({ nickname: 'Игрок J', value: '1 победа' });
     expect(eveningSummarySvg(summary!)).toContain('БОЛЬШЕ ВСЕХ ПОБЕД');
+    expect(summary!.eloGain[0].detail).toBe('Эло за вечер');
+    expect(eveningSummarySvg(summary!)).toContain('РОСТ ЭЛО ЗА ВЕЧЕР');
   });
 
   it('rating evening: the best is the average points per game, not the sum', async () => {

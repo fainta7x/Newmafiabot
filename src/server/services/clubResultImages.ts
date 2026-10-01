@@ -67,10 +67,14 @@ export function gameBlankSvg(blank: GameBlank) {
       ? `<text x="${M + 152}" y="${y + 86}" font-size="21" font-weight="600">${events.map((event, i) => `<tspan${i ? ' dx="26"' : ''} fill="${event.color}">${esc(event.text)}</tspan>`).join('')}</text>`
       : '';
     const roleColor = seat.role ? ROLE_COLORS[seat.role] || C.mutedText : C.mutedText;
-    const right = blank.scored && seat.points != null
-      ? `<text x="${W - M}" y="${y + 52}" text-anchor="end" font-size="40" font-weight="700" fill="${C.warmText}">${esc(pointsText(seat.points))}</text>
-         <text x="${W - M}" y="${y + 80}" text-anchor="end" font-size="15" font-weight="600" letter-spacing="2" fill="${C.subduedText}">БАЛЛЫ</text>`
-      : seat.won ? `<text x="${W - M}" y="${y + 58}" text-anchor="end" font-size="22" font-weight="700" letter-spacing="2" fill="#34D399">ПОБЕДА</text>` : '';
+    const R = W - M - 24;
+    const top = blank.scored && seat.points != null
+      ? `<text x="${R}" y="${y + 50}" text-anchor="end" font-size="38" font-weight="700" fill="${C.warmText}">${esc(pointsText(seat.points))}</text>`
+      : seat.won ? `<text x="${R}" y="${y + 46}" text-anchor="end" font-size="22" font-weight="700" letter-spacing="2" fill="#34D399">ПОБЕДА</text>` : '';
+    const elo = seat.eloDelta != null
+      ? `<text x="${R}" y="${y + 84}" text-anchor="end" font-size="19" font-weight="600" fill="${seat.eloDelta > 0 ? '#34D399' : seat.eloDelta < 0 ? '#F87171' : C.mutedText}">Эло ${esc(pointsText(seat.eloDelta))}<tspan fill="${C.subduedText}"> · ${seat.eloAfter}</tspan></text>`
+      : '';
+    const right = top + elo;
     return `<rect x="${M}" y="${y + 6}" width="${W - M * 2}" height="${rowHeight - 12}" rx="20" fill="${seat.won ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)'}"/>
       <text x="${M + 22}" y="${y + 62}" font-size="22" font-weight="700" fill="${C.subduedText}">${String(seat.seat).padStart(2, '0')}</text>
       ${avatar(M + 62, y + 20, 72, seat.nickname, seat.avatar)}
@@ -84,12 +88,14 @@ export function gameBlankSvg(blank: GameBlank) {
   ${renderNoirExportBrandHeader('ИТОГИ ИГРЫ')}
   <text x="${M}" y="176" font-size="64" font-weight="700" fill="${C.warmText}">ИГРА №${esc(blank.gameNumber)}</text>
   <text x="${M}" y="222" font-size="24" font-weight="500" fill="${C.mutedText}">${esc(subtitle)}</text>
-  <text x="${W - M}" y="168" text-anchor="end" font-size="30" font-weight="700" letter-spacing="1" fill="${winnerColor}">${winnerText}</text>
-  ${blank.ppk ? `<text x="${W - M}" y="200" text-anchor="end" font-size="19" font-weight="600" fill="${C.mutedText}">по ППК</text>` : ''}
-  ${blank.judge ? `<text x="${W - M}" y="222" text-anchor="end" font-size="21" font-weight="500" fill="${C.mutedText}">Судья · ${esc(clip(blank.judge, 24))}</text>` : ''}
+  <text x="${W - M}" y="150" text-anchor="end" font-size="30" font-weight="700" letter-spacing="1" fill="${winnerColor}">${winnerText}</text>
+  ${blank.ppk ? `<text x="${W - M}" y="176" text-anchor="end" font-size="19" font-weight="600" fill="${C.mutedText}">по ППК</text>` : ''}
+  ${blank.judge ? `${avatar(W - M - 52, 186, 52, blank.judge, blank.judgeAvatar)}
+  <text x="${W - M - 66}" y="208" text-anchor="end" font-size="15" font-weight="700" letter-spacing="2" fill="${C.subduedText}">СУДЬЯ</text>
+  <text x="${W - M - 66}" y="234" text-anchor="end" font-size="23" font-weight="700" fill="${C.warmText}">${esc(clip(blank.judge, 22))}</text>` : ''}
   <line x1="${M}" y1="${headerHeight - 8}" x2="${W - M}" y2="${headerHeight - 8}" stroke="${C.divider}" stroke-width="1"/>
   ${rows}
-  ${renderNoirExportFooter(W, height, blank.scored ? 'баллы за игру без Ci' : 'клубная игра')}
+  ${renderNoirExportFooter(W, height, blank.scored ? 'баллы за игру без Ci · Эло — изменение рейтинга' : 'Эло — изменение рейтинга')}
 </svg>`;
 }
 
@@ -112,7 +118,8 @@ export function eveningSummarySvg(summary: EveningSummary) {
   const top = 340;
   const leadersHeight = 70 + Math.max(1, leaders.length) * 104;
   const secondaryHeight = secondary.length ? 70 + secondary.length * 104 : 0;
-  const rolesTop = top + leadersHeight + secondaryHeight + 30;
+  const eloHeight = summary.eloGain.length ? 70 + summary.eloGain.length * 104 : 0;
+  const rolesTop = top + leadersHeight + secondaryHeight + eloHeight + 30;
   const height = rolesTop + 2 * 150 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
   const medal = [C.gold, C.silver, C.bronze];
 
@@ -151,6 +158,7 @@ export function eveningSummarySvg(summary: EveningSummary) {
   ${stat(M + 560, 'ИГРОКОВ', String(summary.players), C.warmText)}
   ${list(leadersTitle, leaders, top)}
   ${secondary.length ? list('БОЛЬШЕ ВСЕХ ПОБЕД', secondary, top + leadersHeight) : ''}
+  ${summary.eloGain.length ? list('РОСТ ЭЛО ЗА ВЕЧЕР', summary.eloGain, top + leadersHeight + secondaryHeight) : ''}
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
   ${roleCells}
   ${renderNoirExportFooter(W, height, summary.scored ? 'средний балл = сумма баллов / число игр' : 'клубный вечер')}

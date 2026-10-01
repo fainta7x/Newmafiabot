@@ -4,6 +4,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
 import { normalizeRole, roundToTwo } from '../utils/ciHelper.ts';
 import { gameResultPoints } from './gameResultCardService.ts';
+import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 
 // Data for the pictures the bot posts to the club chat (owner, 2026-10-01): the blank after each
 // game and the evening summary at closeout. Points exist only on rating and tournament evenings.
@@ -21,6 +22,8 @@ export type BlankSeat = {
   technicalFouls: number;
   removed: boolean;
   points: number | null;
+  eloDelta: number | null;
+  eloAfter: number | null;
 };
 
 export type GameBlank = {
@@ -31,6 +34,7 @@ export type GameBlank = {
   winnerTeam: 'red' | 'black' | null;
   ppk: boolean;
   judge: string | null;
+  judgeAvatar: string | null;
   scored: boolean;
   seats: BlankSeat[];
 };
@@ -47,6 +51,7 @@ export type EveningSummary = {
   players: number;
   mostWins: SummaryPlayer[];
   bestAverage: SummaryPlayer[];
+  eloGain: SummaryPlayer[];
   bestByRole: Array<{ role: 'sheriff' | 'don' | 'mafia' | 'citizen'; player: SummaryPlayer | null }>;
 };
 
@@ -92,6 +97,17 @@ async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
   return result;
 }
 
+/** Elo changes per club game id (novice evenings do not move Elo). */
+async function loadClubElo(db: DatabaseWrapper) {
+  const byGame = new Map<string, Map<string, { delta: number; after: number }>>();
+  const timeline = await loadPlayerEloHistory(db).catch((error) => { console.error('[CLUB RESULTS] Elo unavailable:', error); return []; });
+  for (const event of timeline) {
+    if (event.source !== 'club') continue;
+    byGame.set(String(event.sourceId), new Map(event.players.map((player) => [String(player.playerId), { delta: Number(player.totalDelta || 0), after: Number(player.eloAfter || 0) }])));
+  }
+  return byGame;
+}
+
 async function loadNicknames(db: DatabaseWrapper, playerIds: string[]) {
   const ids = [...new Set(playerIds.filter(Boolean))];
   if (!ids.length) return new Map<string, string>();
@@ -113,7 +129,9 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   const protocol = envelope.protocol || {};
   const results: any[] = Array.isArray(envelope.player_results) ? envelope.player_results : [];
   const ids = results.map((item) => String(item?.player_id || '')).filter(Boolean);
-  const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, ids)]);
+  const judgeId = game.judge_player_id ? String(game.judge_player_id) : '';
+  const [names, avatars, elo] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, [...ids, judgeId]), loadClubElo(db)]);
+  const gameElo = elo.get(String(game.id));
   const scored = isScoredFormat(game.format);
   const moves = Array.isArray(protocol.best_moves) && protocol.best_moves.length
     ? protocol.best_moves
@@ -137,6 +155,8 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
       technicalFouls: Math.max(0, Math.trunc(Number(result?.minor_technical_fouls || 0)) + Math.trunc(Number(result?.major_technical_fouls || 0))),
       removed: result?.exit_type === 'removed',
       points: scored ? gameResultPoints(envelope, result).total : null,
+      eloDelta: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.delta) : null,
+      eloAfter: playerId && gameElo?.has(playerId) ? Math.round(gameElo.get(playerId)!.after) : null,
     };
   }).sort((a, b) => a.seat - b.seat);
 
@@ -148,6 +168,7 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
     winnerTeam: protocol.winner_team === 'red' || protocol.winner_team === 'black' ? protocol.winner_team : null,
     ppk: protocol.end_reason === 'ppk',
     judge: game.judge_nickname ? String(game.judge_nickname) : game.judge_name ? String(game.judge_name) : null,
+    judgeAvatar: (judgeId && avatars.get(judgeId)) || null,
     scored,
     seats,
   };
@@ -158,7 +179,9 @@ type Tally = { playerId: string; games: number; wins: number; points: number; by
 export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string): Promise<EveningSummary | null> {
   const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;
-  const rows = await db.all<any>('SELECT protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
+  const rows = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
+  const elo = await loadClubElo(db);
+  const eloByPlayer = new Map<string, number>();
   const scored = isScoredFormat(evening.format);
   const tallies = new Map<string, Tally>();
   let games = 0; let redWins = 0; let blackWins = 0;
@@ -168,6 +191,7 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
     games += 1;
     if (envelope.protocol.winner_team === 'red') redWins += 1;
     if (envelope.protocol.winner_team === 'black') blackWins += 1;
+    for (const [playerId, change] of elo.get(String(row.id)) || []) eloByPlayer.set(playerId, (eloByPlayer.get(playerId) || 0) + change.delta);
     for (const result of Array.isArray(envelope.player_results) ? envelope.player_results : []) {
       const playerId = String(result?.player_id || '');
       if (!playerId) continue;
@@ -205,6 +229,12 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
       .map((item) => person(item, signed(item.points / item.games), `в среднем за ${item.games} ${gamesWord(item.games)}`))
     : [];
 
+  const eloGain = [...eloByPlayer.entries()]
+    .filter(([, delta]) => Math.round(delta) > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([playerId, delta]) => person(tallies.get(playerId) || { playerId, games: 0, wins: 0, points: 0, byRole: new Map() }, `+${Math.round(delta)}`, 'Эло за вечер'));
+
   const bestByRole = (['sheriff', 'don', 'mafia', 'citizen'] as const).map((role) => {
     const candidates = all.filter((item) => item.byRole.has(role));
     if (!candidates.length) return { role, player: null };
@@ -225,6 +255,6 @@ export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string)
   return {
     eveningTitle: String(evening.title || 'Игровой вечер'),
     dateLabel: dateLabel(evening.starts_at),
-    scored, games, redWins, blackWins, players: all.length, mostWins, bestAverage, bestByRole,
+    scored, games, redWins, blackWins, players: all.length, mostWins, bestAverage, eloGain, bestByRole,
   };
 }

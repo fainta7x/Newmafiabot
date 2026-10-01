@@ -195,7 +195,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
   const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
   const visibleTimeline = firstNight < 0 ? timeline.filter((entry) => entry.kind === 'day' && entry.left.length) : timeline.slice(firstNight);
-  const showInfoRow = state.nominations.length > 0 || Boolean(state.vote);
   // By whose hands each day's leavers left: voters for that seat in the day's fixed vote.
   const handsFor = (round: number, seat: number) => {
     const vote = (state.dayVotes || []).find((item) => item.round === round);
@@ -222,6 +221,49 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
           <div className="live-broadcast-phase-title">{state.phaseTitle}</div>
           {state.phaseDetail ? <div className="live-broadcast-phase-detail">{state.phaseDetail}</div> : null}
         </div>
+        {/* Nominations and the vote live in the top bar (owner, 2026-10-01): nothing covers the table. */}
+        <section className="live-broadcast-info-row">
+          {state.vote ? (
+            <div className={`live-broadcast-vote ${state.vote.published ? 'is-published' : 'is-collecting'}`}>
+              <div className="live-broadcast-info-title">
+                {state.vote.isRevote ? `Переголосование · ${state.vote.roundNumber}` : 'Голосование'}
+                <span className="live-broadcast-vote-state">{state.vote.published ? 'Зафиксировано' : 'Идёт голосование'}</span>
+              </div>
+              {state.vote.published ? (
+                <div className="live-broadcast-vote-groups">
+                  {voteGroups.map((group) => (
+                    <div key={group.candidate} className="live-broadcast-vote-group">
+                      <SeatChip seat={group.candidate} kinds={kinds} />
+                      <strong>{group.count}</strong>
+                      <div className="live-broadcast-voters">
+                        {group.voters.length ? group.voters.map((voter) => <span key={voter}>{voter}</span>) : <em>—</em>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="live-broadcast-vote-groups">
+                    {state.vote.candidates.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+                  </div>
+                  <div className="live-broadcast-vote-pending">Результат и голоса игроков появятся после фиксации ведущим</div>
+                </>
+              )}
+            </div>
+          ) : state.nominations.length ? (
+            <div className="live-broadcast-nominations">
+              <div className="live-broadcast-info-title">Выставлены</div>
+              <div className="live-broadcast-nomination-list">
+                {state.nominations.map((nomination) => (
+                  <div key={nomination.seat} className="live-broadcast-nomination-chip">
+                    <SeatChip seat={nomination.seat} kinds={kinds} />
+                    {nomination.nominatedBy ? <small>от {nomination.nominatedBy}</small> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
         <div className="live-broadcast-score" aria-label="Победы за вечер">
           <div className="live-broadcast-score-caption">Счёт вечера</div>
           <div className="live-broadcast-score-row">
@@ -285,48 +327,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
         </aside>
       ) : null}
 
-      {showInfoRow ? (
-        <section className="live-broadcast-info-row">
-          {state.nominations.length ? (
-            <div className="live-broadcast-panel live-broadcast-nominations">
-              <div className="live-broadcast-panel-title">Выставлены</div>
-              <div className="live-broadcast-nomination-list">
-                {state.nominations.map((nomination) => (
-                  <div key={nomination.seat} className="live-broadcast-nomination-chip">
-                    <b>№{nomination.seat}</b>
-                    {nomination.nominatedBy ? <small>от №{nomination.nominatedBy}</small> : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {state.vote ? (
-            <div className={`live-broadcast-panel live-broadcast-vote ${state.vote.published ? 'is-published' : 'is-collecting'}`}>
-              <div className="live-broadcast-panel-title">
-                {state.vote.isRevote ? `Переголосование · раунд ${state.vote.roundNumber}` : 'Голосование'}
-                <span className="live-broadcast-vote-state">{state.vote.published ? 'Зафиксировано' : 'Идёт голосование'}</span>
-              </div>
-              {state.vote.published ? (
-                <div className="live-broadcast-vote-groups">
-                  {voteGroups.map((group) => (
-                    <div key={group.candidate} className="live-broadcast-vote-group">
-                      <div className="live-broadcast-vote-candidate">№{group.candidate}<strong>{group.count}</strong></div>
-                      <div className="live-broadcast-voters">
-                        {group.voters.length ? group.voters.map((voter) => <span key={voter}>{voter}</span>) : <em>—</em>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="live-broadcast-vote-pending">
-                  Результат и голоса игроков появятся после фиксации ведущим
-                </div>
-              )}
-            </div>
-          ) : null}
-        </section>
-      ) : null}
 
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {

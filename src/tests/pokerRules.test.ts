@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyPokerAction, compareHands, createPokerHand, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { NEXT_HAND_DELAY_MS, createPokerLobby, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, chooseBotAction, createPokerLobby, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -116,5 +116,58 @@ describe('poker rules (owner check 2026-10-01)', () => {
     lobby.hand!.revealed_ids = ['o', 'g'];
     lobby.hand!.street = 'finished';
     expect(Object.keys(publicPokerLobby(lobby, 'o').hand!.hole_cards).sort()).toEqual(['g', 'o']);
+  });
+
+  it('a raise must be at least the last raise; all-in pushes the whole stack', () => {
+    const hand = createPokerHand({ id: 'raise', dealer_seat: 1, players: [1, 2, 3].map((n) => ({ id: `p${n}`, nickname: `P${n}`, seat: n, chips: 1000 })) });
+    expect(minRaiseTotal(hand)).toBe(40);
+    applyPokerAction(hand, { type: 'bet', amount: 100 }); // raise by 80
+    expect(minRaiseTotal(hand)).toBe(180);
+    applyPokerAction(hand, { type: 'bet', amount: 120 }); // too small: lifted to the minimum
+    expect(hand.current_bet).toBe(180);
+    applyPokerAction(hand, { type: 'all_in' });
+    expect(seat(hand, 'p3').chips).toBe(0);
+    expect(hand.action_log.at(-1)?.type).toBe('all_in');
+  });
+
+  it('names hands the way poker rooms do and lights up the winning five cards', () => {
+    expect(describeHand([2, 12, 9, 7])).toBe('Две пары: дамы и девятки');
+    expect(describeHand([5, 14, 10, 8, 4, 2])).toBe('Флеш до туза');
+    expect(describeHand([4, 5])).toBe('Стрит до пятёрки');
+    expect(describeHand([6, 13, 3])).toBe('Фулл-хаус: короли и тройки');
+    const hand = createPokerHand({ id: 'label', dealer_seat: 1, players: [{ id: 'a', nickname: 'A', seat: 1, chips: 100 }, { id: 'b', nickname: 'B', seat: 2, chips: 100 }] });
+    hand.hole_cards = { a: cards('Tc Td'), b: cards('Qs 9c') };
+    expect(pokerHandLabel(hand, 'a')).toBe('Пара десяток');
+    hand.deck = cards('2h 7s Qc 9d 3h 2d 3s 7c');
+    applyPokerAction(hand, { type: 'all_in' });
+    applyPokerAction(hand, { type: 'call' });
+    expect(hand.winner_ids).toEqual(['b']);
+    const winning = hand.winning_cards.map((card) => card.rank + card.suit[0]);
+    expect(winning).toHaveLength(5);
+    expect(winning).toEqual(expect.arrayContaining(['Qs', 'Qc', '9c', '9d']));
+  });
+
+  it('fills a table with several bots that wait a moment before acting', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-01T21:00:00Z'));
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
+    expect(lobby.players).toHaveLength(8);
+    expect(new Set(lobby.players.map((player) => player.nickname)).size).toBe(8);
+    expect(() => addPokerBot(lobby)).toThrow();
+    startPokerLobby(lobby, 'o');
+    const before = lobby.hand!.current_seat;
+    tickPokerLobby(lobby);
+    expect(lobby.hand!.current_seat).toBe(before);
+    vi.advanceTimersByTime(BOT_THINK_MS);
+    tickPokerLobby(lobby);
+    vi.useRealTimers();
+    expect(lobby.hand!.action_log.length).toBe(3);
+  });
+
+  it('bot choices are always legal', () => {
+    const hand = createPokerHand({ id: 'bot', dealer_seat: 1, players: [1, 2, 3].map((n) => ({ id: `p${n}`, nickname: `P${n}`, seat: n, chips: 1000 })) });
+    for (const roll of [0, 0.05, 0.15, 0.5, 0.99]) expect(['fold', 'check', 'call', 'bet']).toContain(chooseBotAction(hand, { chips: 1000, committed: 0 }, () => roll).type);
+    expect(chooseBotAction(hand, { chips: 1000, committed: 10 }, () => 0.99).type).toBe('call');
+    expect(chooseBotAction(hand, { chips: 1000, committed: 20 }, () => 0.99).type).toBe('check');
   });
 });

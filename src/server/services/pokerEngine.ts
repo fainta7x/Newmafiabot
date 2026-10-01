@@ -7,7 +7,7 @@ export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | '
 export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean;
   /** Everything the player put in during this hand: decides which side pots they can win. */
   total_committed: number };
-export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet'; amount: number; street: PokerStreet; at: number };
+export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'all_in'; amount: number; street: PokerStreet; at: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
   small_blind_seat: number | null; big_blind_seat: number | null;
@@ -17,6 +17,10 @@ export type PokerState = {
   deck_remaining: number; winner_ids: string[]; last_action: string | null; last_pot_awarded: number;
   /** Players whose cards are shown after a showdown. */
   revealed_ids: string[];
+  /** The five cards of the winning hand, lit up after a showdown. */
+  winning_cards: PokerCard[];
+  /** The last full raise: the next raise must be at least this much more. */
+  last_raise_size: number;
   action_log: PokerActionLogEntry[];
   base_turn_seconds: number; max_reserve_seconds: number; turn_started_at: number | null;
   /** When the hand ended: the next one is dealt by itself a few seconds later. */
@@ -60,7 +64,7 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
   const state: PokerState = {
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
-    street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null, last_pot_awarded: 0, revealed_ids: [],
+    street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null, last_pot_awarded: 0, revealed_ids: [], winning_cards: [], last_raise_size: input.big_blind ?? 20,
     deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(), finished_at: null,
   };
   const ordered = players.slice().sort((a, b) => a.seat - b.seat);
@@ -107,17 +111,40 @@ export const compareRanks = (a: number[], b: number[]) => {
   return 0;
 };
 
-const handRank = (cards: PokerCard[]): number[] => {
+const bestHand = (cards: PokerCard[]): { rank: number[]; cards: PokerCard[] } => {
   const combinations: PokerCard[][] = [];
   for (let a = 0; a < cards.length - 4; a += 1) for (let b = a + 1; b < cards.length - 3; b += 1) for (let c = b + 1; c < cards.length - 2; c += 1) for (let d = c + 1; d < cards.length - 1; d += 1) for (let e = d + 1; e < cards.length; e += 1) combinations.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
-  return combinations.map(handRankFive).sort((a, b) => compareRanks(b, a))[0] || [];
+  return combinations.map((combo) => ({ rank: handRankFive(combo), cards: combo })).sort((a, b) => compareRanks(b.rank, a.rank))[0] || { rank: [], cards: [] };
+};
+const handRank = (cards: PokerCard[]): number[] => bestHand(cards).rank;
+
+const RANK_ONE: Record<number, string> = { 2: 'двойка', 3: 'тройка', 4: 'четвёрка', 5: 'пятёрка', 6: 'шестёрка', 7: 'семёрка', 8: 'восьмёрка', 9: 'девятка', 10: 'десятка', 11: 'валет', 12: 'дама', 13: 'король', 14: 'туз' };
+const RANK_OF: Record<number, string> = { 2: 'двоек', 3: 'троек', 4: 'четвёрок', 5: 'пятёрок', 6: 'шестёрок', 7: 'семёрок', 8: 'восьмёрок', 9: 'девяток', 10: 'десяток', 11: 'валетов', 12: 'дам', 13: 'королей', 14: 'тузов' };
+const RANK_MANY: Record<number, string> = { 2: 'двойки', 3: 'тройки', 4: 'четвёрки', 5: 'пятёрки', 6: 'шестёрки', 7: 'семёрки', 8: 'восьмёрки', 9: 'девятки', 10: 'десятки', 11: 'валеты', 12: 'дамы', 13: 'короли', 14: 'тузы' };
+const RANK_TO: Record<number, string> = { 2: 'двойки', 3: 'тройки', 4: 'четвёрки', 5: 'пятёрки', 6: 'шестёрки', 7: 'семёрки', 8: 'восьмёрки', 9: 'девятки', 10: 'десятки', 11: 'валета', 12: 'дамы', 13: 'короля', 14: 'туза' };
+
+/** «Две пары: дамы и девятки», «Флеш до туза» — what poker rooms show at a showdown. */
+export const describeHand = (rank: number[]) => {
+  const [kind, a, b] = rank;
+  if (kind === 9) return 'Флеш-рояль';
+  if (kind === 8) return `Стрит-флеш до ${RANK_TO[a]}`;
+  if (kind === 7) return `Каре ${RANK_OF[a]}`;
+  if (kind === 6) return `Фулл-хаус: ${RANK_MANY[a]} и ${RANK_MANY[b]}`;
+  if (kind === 5) return `Флеш до ${RANK_TO[a]}`;
+  if (kind === 4) return `Стрит до ${RANK_TO[a]}`;
+  if (kind === 3) return `Сет ${RANK_OF[a]}`;
+  if (kind === 2) return `Две пары: ${RANK_MANY[a]} и ${RANK_MANY[b]}`;
+  if (kind === 1) return `Пара ${RANK_OF[a]}`;
+  return a ? `Старшая карта: ${RANK_ONE[a]}` : 'Старшая карта';
 };
 
 export const pokerHandLabel = (state: PokerState, playerId: string) => {
   const cards = [...(state.hole_cards[playerId] || []), ...state.board];
-  if (cards.length < 5) return 'Комбинация формируется';
-  const names = ['Старшая карта', 'Пара', 'Две пары', 'Сет', 'Стрит', 'Флеш', 'Фулл-хаус', 'Каре', 'Стрит-флеш', 'Флэш-рояль'];
-  return names[handRank(cards)[0]] || names[0];
+  if (cards.length < 5) {
+    const hole = state.hole_cards[playerId] || [];
+    return hole.length === 2 && hole[0].rank === hole[1].rank ? `Пара ${RANK_OF[rankValue(hole[0].rank)]}` : 'Комбинация формируется';
+  }
+  return describeHand(handRank(cards));
 };
 
 const bestOf = (state: PokerState, candidates: PokerPlayer[]): PokerPlayer[] => {
@@ -161,6 +188,8 @@ const awardPot = (state: PokerState) => {
 const showdown = (state: PokerState) => {
   state.street = 'showdown';
   state.revealed_ids = activePlayers(state).map((player) => player.id);
+  const best = bestOf(state, activePlayers(state))[0];
+  state.winning_cards = best ? bestHand([...state.hole_cards[best.id], ...state.board]).cards : [];
   awardPot(state);
 };
 
@@ -172,12 +201,16 @@ export const advanceStreet = (state: PokerState, deck: PokerCard[]) => {
   state.deck_remaining = deck.length;
 };
 
-export type PokerAction = { type: 'fold' | 'check' | 'call' | 'bet'; amount?: number };
+export type PokerAction = { type: 'fold' | 'check' | 'call' | 'bet' | 'all_in'; amount?: number };
+
+/** The smallest «raise to» total: the big blind for a first bet, otherwise the bet plus the last full raise. */
+export const minRaiseTotal = (state: PokerState) => state.current_bet === 0 ? state.big_blind : state.current_bet + Math.max(state.big_blind, state.last_raise_size || 0);
 export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   if (state.street === 'finished' || state.street === 'showdown') throw new Error('Раздача уже завершена.');
   const player = state.players.find((item) => item.seat === state.current_seat);
   if (!player || player.folded || player.all_in) throw new Error('Сейчас ход другого игрока.');
   const toCall = Math.max(0, state.current_bet - player.committed);
+  if (action.type === 'all_in') action = player.chips <= toCall ? { type: 'call' } : { type: 'bet', amount: player.committed + player.chips };
   const elapsed = state.turn_started_at ? Math.max(0, Math.floor((Date.now() - state.turn_started_at) / 1000)) : 0;
   const usedReserve = elapsed > state.base_turn_seconds;
   if (usedReserve) player.reserve_seconds = Math.max(0, player.reserve_seconds - Math.min(player.reserve_seconds, elapsed - state.base_turn_seconds));
@@ -190,14 +223,16 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   else if (action.type === 'call') {
     const paid = Math.min(toCall, player.chips); actionAmount = paid; player.chips -= paid; player.committed += paid; player.total_committed += paid; state.pot += paid; player.all_in = player.chips === 0;
   } else if (action.type === 'bet') {
-    const amount = Math.max(state.big_blind, Math.floor(Number(action.amount || 0)));
-    const total = Math.max(amount, state.current_bet + state.big_blind);
+    // «Raise to» total, never below the minimum raise; more than the stack means all-in.
+    const total = Math.max(minRaiseTotal(state), Math.floor(Number(action.amount || 0)));
     const paid = Math.min(total - player.committed, player.chips); if (paid <= 0) throw new Error('Некорректный размер ставки.');
+    const raisedBy = player.committed + paid - state.current_bet;
+    if (raisedBy >= state.last_raise_size) state.last_raise_size = raisedBy;
     // A short all-in never lowers the bet the others already face.
     actionAmount = paid; player.chips -= paid; player.committed += paid; player.total_committed += paid; state.pot += paid; state.current_bet = Math.max(state.current_bet, player.committed); player.all_in = player.chips === 0;
   } else throw new Error('Некорректное действие.');
   player.acted = true; state.last_action = `${player.id}:${action.type}:${actionAmount}`;
-  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: action.type, amount: actionAmount, street: state.street, at: Date.now() });
+  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type, amount: actionAmount, street: state.street, at: Date.now() });
   state.action_log = state.action_log.slice(-20);
   const active = activePlayers(state);
   if (active.length === 1) { awardPot(state); state.turn_started_at = null; return state; }
@@ -208,6 +243,7 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   if (ready) {
     state.players.forEach((item) => { item.acted = false; item.committed = 0; });
     state.current_bet = 0;
+    state.last_raise_size = state.big_blind;
     if (state.street === 'river') showdown(state);
     else if (canAct.length <= 1) {
       // Nobody can bet any more: deal the rest of the board and show the cards.

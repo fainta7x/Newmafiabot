@@ -1,10 +1,23 @@
 import { randomUUID } from 'node:crypto';
-import { applyPokerAction, createPokerHand, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
+import { applyPokerAction, createPokerHand, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
 
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; hand: PokerState | null; createdAt: string };
 const lobbies = new Map<string, PokerLobby>();
 /** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
 export const NEXT_HAND_DELAY_MS = 6000;
+/** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
+const BOT_NAMES = ['Бот Лаки', 'Бот Блеф', 'Бот Скала', 'Бот Акула', 'Бот Профи', 'Бот Ниндзя', 'Бот Фортуна'];
+export const BOT_THINK_MS = 1200;
+
+/** A simple test opponent: checks or calls most of the time, sometimes raises, gives up against big bets. */
+export const chooseBotAction = (hand: PokerState, bot: { chips: number; committed: number }, random = Math.random) => {
+  const toCall = Math.max(0, hand.current_bet - bot.committed);
+  const roll = random();
+  if (toCall === 0) return roll < 0.2 && bot.chips > hand.big_blind * 2 ? { type: 'bet' as const, amount: minRaiseTotal(hand) + hand.big_blind } : { type: 'check' as const };
+  if (toCall > bot.chips * 0.5 && roll < 0.5) return { type: 'fold' as const };
+  if (roll < 0.1 && bot.chips > toCall + hand.big_blind * 2) return { type: 'bet' as const, amount: minRaiseTotal(hand) };
+  return { type: 'call' as const };
+};
 
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
@@ -18,14 +31,16 @@ const publicState = (lobby: PokerLobby, viewerId?: string) => {
     can_call: isViewerTurn && toCall > 0 && viewer.chips > 0,
     can_bet: isViewerTurn && viewer.chips > toCall,
     to_call: toCall,
-    min_bet_total: Math.min(viewer.committed + viewer.chips, Math.max(lobby.hand.big_blind, lobby.hand.current_bet + lobby.hand.big_blind)),
+    call_amount: Math.min(toCall, viewer.chips),
+    min_bet_total: Math.min(viewer.committed + viewer.chips, minRaiseTotal(lobby.hand)),
     max_bet_total: viewer.committed + viewer.chips,
   } : null;
   // Own cards always; other players' cards only after a showdown. Burned cards stay hidden.
   const visibleIds = new Set([...(viewerId ? [viewerId] : []), ...(lobby.hand.street === 'finished' ? lobby.hand.revealed_ids || [] : [])]);
   const holeCards = Object.fromEntries([...visibleIds].map((id) => [id, lobby.hand?.hole_cards[id] || []]));
   const viewerSeated = Boolean(viewer);
-  const hand = { ...lobby.hand, deck: [], burn_cards: [], viewer_id: viewerSeated ? viewerId : null, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
+  const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
+  const hand = { ...lobby.hand, deck: [], burn_cards: [], showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand };
 };
 
@@ -44,8 +59,8 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
 export const addPokerBot = (lobby: PokerLobby) => {
   if (lobby.status !== 'waiting') throw new Error('Игра уже началась.');
   if (lobby.players.length >= 8) throw new Error('В лобби максимум 8 игроков.');
-  if (lobby.players.some((item) => item.is_bot)) return lobby;
-  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: 'Тестовый бот', seat: lobby.players.length + 1, chips: 1000, is_bot: true });
+  const name = BOT_NAMES.find((candidate) => !lobby.players.some((item) => item.nickname === candidate)) || `Бот ${lobby.players.length}`;
+  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: name, seat: lobby.players.length + 1, chips: 1000, is_bot: true });
   return lobby;
 };
 export const startPokerLobby = (lobby: PokerLobby, actorId: string) => {
@@ -79,8 +94,8 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   const player = lobby.hand.players.find((item) => item.seat === lobby.hand?.current_seat);
   if (!player) return;
   if (player.is_bot) {
-    const toCall = Math.max(0, lobby.hand.current_bet - player.committed);
-    try { applyPokerAction(lobby.hand, { type: toCall ? 'call' : 'check' }); } catch { /* retry on next poll */ }
+    if (lobby.hand.turn_started_at && Date.now() - lobby.hand.turn_started_at < BOT_THINK_MS) return;
+    try { applyPokerAction(lobby.hand, chooseBotAction(lobby.hand, player)); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
     return;
   }
   const remaining = pokerTurnRemaining(lobby.hand, player);

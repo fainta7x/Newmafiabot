@@ -9,6 +9,7 @@ import {
   Edit3,
   Filter,
   GitMerge,
+  Music2,
   History,
   ImagePlus,
   MessageSquare,
@@ -46,6 +47,7 @@ import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 import { useClubOwner } from './useClubOwner.ts';
+import PlayerMusicSlotsAdmin from './PlayerMusicSlotsAdmin.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -108,6 +110,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
   const [showMergeSheet, setShowMergeSheet] = useState(false);
+  const [showMusicSheet, setShowMusicSheet] = useState(false);
   const [mergeCandidates, setMergeCandidates] = useState<Player[]>([]);
   const [mergeSourceId, setMergeSourceId] = useState('');
   const [mergePreview, setMergePreview] = useState<PlayerMergePreview | null>(null);
@@ -253,6 +256,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setShowCommSheet(false);
     setShowInviteSheet(false);
     setShowMergeSheet(false);
+    setShowMusicSheet(false);
     onClosePlayerCard?.();
   };
 
@@ -676,9 +680,14 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
           <div className="space-y-2">
             <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
             {isClubOwner ? <MenuButton icon={GitMerge} label="Объединить профиль-дубликат" onClick={() => void openMergeSheet()} /> : null}
+            {isClubOwner ? <MenuButton icon={Music2} label="Музыка игрока" onClick={() => { setShowPlayerMenu(false); setShowMusicSheet(true); }} /> : null}
             <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
             {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
           </div>
+        </MobileSheet>
+
+        <MobileSheet open={showMusicSheet && Boolean(playerDetails)} onClose={() => setShowMusicSheet(false)} title="Музыка игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-lg">
+          {playerDetails ? <PlayerMusicSlotsAdmin playerId={playerDetails.id} /> : null}
         </MobileSheet>
 
         <MobileSheet open={showMergeSheet} onClose={() => setShowMergeSheet(false)} title="Объединить профиль-дубликат" subtitle="Переносится только ручной профиль без Telegram/VK. Сначала система покажет все блокировки и переносимые данные." widthClass="sm:max-w-lg" footer={<button type="button" disabled={mergeSaving || mergeLoading || !mergePreview || mergePreview.blockers.length > 0 || mergeConfirmation.trim() !== playerDetails?.nickname} onClick={() => void handleMerge()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{mergeSaving ? 'Объединяем…' : 'Объединить профили'}</button>}>

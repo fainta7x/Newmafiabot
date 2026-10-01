@@ -7,6 +7,21 @@ const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
 const MANUAL_STATE_KEY = 'judge-game-music-manual-state-v1';
 export const MUSIC_EVENING_CONTEXT_KEY = 'mafia_music_evening_id';
+/** The judge of the running game and the players at its table: the game's music is drawn only from them. */
+export const MUSIC_JUDGE_CONTEXT_KEY = 'mafia_music_judge_id';
+const MUSIC_TABLE_CONTEXT_KEY = 'mafia_music_table_players';
+
+export const setJudgeMusicTablePlayers = (playerIds: string[]) => {
+  try { sessionStorage.setItem(MUSIC_TABLE_CONTEXT_KEY, JSON.stringify(playerIds.filter(Boolean))); } catch {}
+};
+
+const resolveTableIds = (): string[] => {
+  try {
+    const players = JSON.parse(sessionStorage.getItem(MUSIC_TABLE_CONTEXT_KEY) || '[]');
+    const judge = sessionStorage.getItem(MUSIC_JUDGE_CONTEXT_KEY) || '';
+    return Array.from(new Set([...(Array.isArray(players) ? players.map(String) : []), judge].filter(Boolean)));
+  } catch { return []; }
+};
 
 type MusicStartKind = 'manual' | 'night';
 type MusicStartDetail = { trackId?: string; kind?: MusicStartKind };
@@ -101,6 +116,9 @@ export default function JudgeGameMusicController() {
   const [playerCollapsed, setPlayerCollapsed] = useState(true);
   const preselectedRef = useRef<Partial<Record<MusicStartKind, PoolEntry>>>({});
   const selectedContributorRef = useRef<Partial<Record<MusicStartKind, string>>>({});
+  // Both tracks of one game are drawn together at the deal (different people), so the night one is kept
+  // until the next deal even though the deal music is stopped in between.
+  const gamePickRef = useRef<{ night?: PoolEntry }>({});
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
@@ -184,7 +202,9 @@ export default function JudgeGameMusicController() {
       return;
     }
     try {
-      const response = await fetch(`/api/player/music-library/evenings/${encodeURIComponent(eveningId)}/pool`, { credentials: 'include' });
+      const tableIds = resolveTableIds();
+      const query = tableIds.length ? `?table=${encodeURIComponent(tableIds.join(','))}` : '';
+      const response = await fetch(`/api/player/music-library/evenings/${encodeURIComponent(eveningId)}/pool${query}`, { credentials: 'include' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось собрать музыку вечера.');
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
@@ -194,6 +214,7 @@ export default function JudgeGameMusicController() {
         return;
       }
       if (autoStartLocal) {
+        if (kind === 'manual') gamePickRef.current = { night: body.preselected?.night?.entry || undefined };
         const preselected = body.preselected?.[kind === 'night' ? 'night' : 'deal']?.entry as PoolEntry | undefined;
         const selected = preselected || choosePreselected(entries, kind);
         if (selected) {
@@ -218,12 +239,22 @@ export default function JudgeGameMusicController() {
     const start = (event: Event) => {
       const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       const kind = detail.kind === 'night' ? 'night' : 'manual';
+      // A new deal starts a new game: never carry the previous game's night pick over.
+      if (kind === 'manual') gamePickRef.current = {};
       if (detail.trackId) {
         startLocal(detail.trackId, kind);
         return;
       }
       const eveningId = resolveEveningId();
       const localTrack = (!eveningId || eveningId === '__test_game__') ? music.tracks[0] : null;
+      const nightPick = kind === 'night' ? gamePickRef.current.night : undefined;
+      if (nightPick && !localTrack) {
+        preselectedRef.current.night = nightPick;
+        selectedContributorRef.current.night = contributorId(nightPick);
+        if (nightPick.source_type === 'upload') startLocal(nightPick, 'night');
+        else startExternal(nightPick, 'night');
+        return;
+      }
       if (localTrack) {
         const selected = preselectedRef.current[kind] || localPoolEntry(localTrack);
         preselectedRef.current[kind] = selected;

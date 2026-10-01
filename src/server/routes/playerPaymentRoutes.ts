@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isAttendingResponse } from '../../lib/eveningResponse.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
 
@@ -18,9 +19,11 @@ const requirePlayerId = (req: any, res: any): string | null => {
 const isSettledEvening = (row: any): boolean =>
   String(row.evening_status || '') === 'completed' || Boolean(row.settled_at);
 
+// Same rule as the CRM (owner, 2026-10-01): a novice evening asks money only from those marked as arrived.
 const isPaymentExpected = (row: any): boolean => {
-  if (isSettledEvening(row)) return String(row.attendance_status || '') === 'attended';
-  return String(row.attendance_status || '') === 'attended' || isAttendingResponse(row);
+  const attended = String(row.attendance_status || '') === 'attended';
+  if (isSettledEvening(row) || normalizeEveningFormat(row.evening_format) === 'NOVICE') return attended;
+  return attended || isAttendingResponse(row);
 };
 
 const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: unknown) => {
@@ -84,7 +87,7 @@ router.get('/payments', async (req, res) => {
       db.all<any>(`
         SELECT ep.id AS participant_id, ep.evening_id, ep.response_status, ep.registration_status, ep.payment_status,
                ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
-               e.title, e.starts_at, e.venue, e.status AS evening_status, e.settled_at
+               e.title, e.starts_at, e.venue, e.status AS evening_status, e.format AS evening_format, e.settled_at
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id
          WHERE ep.player_id = ? AND e.status <> 'cancelled'
@@ -210,7 +213,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
       const participant = await tx.get<any>(`
         SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status, ep.attendance_status,
                ep.amount_due, ep.amount_paid, ep.payment_status,
-               e.id AS evening_id, e.title, e.status AS evening_status, e.settled_at
+               e.id AS evening_id, e.title, e.status AS evening_status, e.format AS evening_format, e.settled_at
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id
          WHERE ep.id = ? AND ep.player_id = ?

@@ -60,22 +60,6 @@ export default function PlayerMusicSlots() {
     }
   };
 
-  const remove = async (slot: 1 | 2) => {
-    if (busy) return;
-    setBusy(slot);
-    setError(null);
-    try {
-      const response = await fetch(`/api/player/music-library/player-slots/${slot}`, { method: 'DELETE', credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось удалить музыку.');
-      await load();
-    } catch (removeError: any) {
-      setError(removeError?.message || 'Не удалось удалить музыку.');
-    } finally {
-      setBusy(null);
-    }
-  };
-
   return (
     <section className="rounded-3xl border border-violet-300/10 bg-gradient-to-b from-violet-300/[0.055] to-white/[0.025] p-4">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Моя музыка</div>
@@ -92,7 +76,7 @@ export default function PlayerMusicSlots() {
           return (
             <div key={slot} className="rounded-2xl border border-white/[0.07] bg-black/20 p-3">
               <div className="flex items-center justify-between gap-3">
-                <strong className="text-sm text-white">Слот {slot}</strong>
+                <strong className="text-sm text-white">{slot === 1 ? 'Музыка для раздачи' : 'Музыка для договорки'}</strong>
                 {entry && (
                   <a href={entry.source_url} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-violet-200/70">
                     Открыть ↗
@@ -119,19 +103,11 @@ export default function PlayerMusicSlots() {
                   onClick={() => void save(slot)}
                   className="min-h-10 rounded-xl bg-white px-3 text-xs font-semibold text-black disabled:opacity-35"
                 >
-                  {busy === slot ? 'Сохраняем…' : entry ? 'Обновить' : 'Добавить'}
+                  {busy === slot ? 'Сохраняем…' : entry ? 'Сохранено' : 'Добавить'}
                 </button>
-                {entry && (
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => void remove(slot)}
-                    className="min-h-10 rounded-xl border border-rose-300/10 bg-rose-400/[0.04] px-3 text-xs text-rose-200/60 disabled:opacity-35"
-                  >
-                    Удалить
-                  </button>
-                )}
+                {entry && <div className="flex min-h-10 items-center rounded-xl border border-white/10 px-3 text-[10px] text-white/35">Слот закреплён</div>}
               </div>
+              {entry && <p className="mt-2 text-[10px] leading-4 text-white/30">Замена будет доступна позже через магазин, VIP или компендиум.</p>}
             </div>
           );
         })}

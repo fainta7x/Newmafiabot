@@ -120,6 +120,7 @@ import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOut
 import { startWeeklyEveningAutomationWorker } from './server/services/weeklyEveningAutomationService.ts';
 import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts';
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
+import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -168,6 +169,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureNoviceSystemSchema(db);
   await ensureCustomEventsSchema(db);
   await ensureObsRemoteSchema(db);
+  await ensurePlayerProfileMergeSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';

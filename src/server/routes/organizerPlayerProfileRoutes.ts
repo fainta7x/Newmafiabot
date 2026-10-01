@@ -11,9 +11,12 @@ import {
   PrimaryOrganizerAccessError,
   setOrganizerPlayerAccess,
 } from '../services/organizerPlayerAccessService.ts';
+import rateLimit from 'express-rate-limit';
+import { createPlayerMergePreview, mergePlayerProfiles } from '../services/playerProfileMergeService.ts';
 
 const router = Router();
 const MIGRATED_GUEST_SOURCE = 'legacy_guest_migrated';
+const mergeRateLimit = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false });
 
 const classificationSchema = z.object({
   game_level: z.enum(['novice', 'club', 'tournament']).optional(), // «unrated» is retired
@@ -37,6 +40,40 @@ const classificationKeys = ['game_level', 'club_role', 'attends_sometimes', 'jud
 
 const isExactPlayerGet = (method: string, path: string) =>
   method === 'GET' && /^\/[^/]+\/?$/.test(path);
+
+// Profile merging is deliberately narrower than ordinary CRM edits: only the
+// club owner may inspect a preview or execute a merge, and both endpoints are
+// rate-limited so a stale UI cannot be used as a bulk mutation primitive.
+router.post('/:id/merge-preview', mergeRateLimit, requireOrganizerAuth, requireClubOwner, async (req: AuthenticatedRequest, res) => {
+  try {
+    const sourceId = z.string().min(1).parse(req.body?.source_player_id);
+    const actorId = getAuthenticatedOrganizerActorId(req) || 'owner:root-session';
+    return res.json(await createPlayerMergePreview(req.db || (await getDb()), { keeperId: String(req.params.id), sourceId, actorId }));
+  } catch (error: any) {
+    if (error?.name === 'ZodError') return res.status(400).json({ error: 'Не выбран профиль-дубликат' });
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось подготовить объединение', code: error?.code, blockers: error?.blockers });
+  }
+});
+
+router.post('/:id/merge', mergeRateLimit, requireOrganizerAuth, requireClubOwner, async (req: AuthenticatedRequest, res) => {
+  try {
+    const schema = z.object({
+      source_player_id: z.string().min(1),
+      preview_token: z.string().min(20),
+      confirmation_nickname: z.string().trim().min(1).max(120),
+    }).strict();
+    const data = schema.parse(req.body);
+    const actorId = getAuthenticatedOrganizerActorId(req) || 'owner:root-session';
+    const result = await mergePlayerProfiles(req.db || (await getDb()), {
+      keeperId: String(req.params.id), sourceId: data.source_player_id, actorId,
+      previewToken: data.preview_token, confirmationNickname: data.confirmation_nickname,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error: any) {
+    if (error?.name === 'ZodError') return res.status(400).json({ error: 'Нужно подтвердить основной профиль' });
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось объединить профили', code: error?.code, blockers: error?.blockers });
+  }
+});
 
 // Add the real organizer authorization state to the existing canonical CRM player detail
 // without duplicating the large player-detail query owned by playersRoutes.

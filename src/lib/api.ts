@@ -224,6 +224,26 @@ export interface PlayerDetails extends Player {
   achievements?: PlayerAchievementProfile;
 }
 
+export interface PlayerMergePreview {
+  token: string;
+  expires_at: string;
+  keeper: Player | null;
+  source: Player | null;
+  blockers: Array<{ code: string; message: string; table?: string; count?: number }>;
+  summary: {
+    source_id: string;
+    keeper_id: string;
+    source_nickname: string;
+    keeper_nickname: string;
+    reference_count: number;
+    references: Array<{ table: string; column: string; count: number }>;
+    json_count: number;
+    claim_links_revoked: number;
+    source_tokens: number;
+    target_tokens: number;
+  } | null;
+}
+
 export interface EveningTable {
   id: string;
   evening_id: string;
@@ -797,6 +817,13 @@ export const api = {
     return request<Player[]>(`/api/players?${query.toString()}`);
   },
   getPlayer: (id: string) => request<PlayerDetails>(`/api/players/${id}`),
+  getPlayerMergePreview: (keeperId: string, sourceId: string) => request<PlayerMergePreview>(`/api/players/${keeperId}/merge-preview`, {
+    method: 'POST', body: JSON.stringify({ source_player_id: sourceId }),
+  }),
+  mergePlayerProfiles: (keeperId: string, data: { source_player_id: string; preview_token: string; confirmation_nickname: string }) =>
+    request<{ success: boolean; merge_id: string; summary: Record<string, unknown> }>(`/api/players/${keeperId}/merge`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
   getTournamentAwards: (tournamentId: string) =>
     request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards`),
   setTournamentAwardOverride: (

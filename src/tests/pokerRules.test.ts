@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, chooseBotAction, createPokerLobby, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, chooseBotAction, createPokerLobby, leavePokerLobby, listPokerLobbies, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -138,6 +138,7 @@ describe('poker rules (owner check 2026-10-01)', () => {
     const hand = createPokerHand({ id: 'label', dealer_seat: 1, players: [{ id: 'a', nickname: 'A', seat: 1, chips: 100 }, { id: 'b', nickname: 'B', seat: 2, chips: 100 }] });
     hand.hole_cards = { a: cards('Tc Td'), b: cards('Qs 9c') };
     expect(pokerHandLabel(hand, 'a')).toBe('Пара десяток');
+    expect(pokerHandLabel(hand, 'b')).toBe('Старшая карта: дама, кикер девятка');
     hand.deck = cards('2h 7s Qc 9d 3h 2d 3s 7c');
     applyPokerAction(hand, { type: 'all_in' });
     applyPokerAction(hand, { type: 'call' });
@@ -169,5 +170,67 @@ describe('poker rules (owner check 2026-10-01)', () => {
     for (const roll of [0, 0.05, 0.15, 0.5, 0.99]) expect(['fold', 'check', 'call', 'bet']).toContain(chooseBotAction(hand, { chips: 1000, committed: 0 }, () => roll).type);
     expect(chooseBotAction(hand, { chips: 1000, committed: 10 }, () => 0.99).type).toBe('call');
     expect(chooseBotAction(hand, { chips: 1000, committed: 20 }, () => 0.99).type).toBe('check');
+  });
+
+  it('the table stays open: a newcomer sits down mid-hand and plays from the next hand', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-01T22:00:00Z'));
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });
+    startPokerLobby(lobby, 'o');
+    expect(listPokerLobbies().some((item) => item.id === lobby.id && item.status === 'playing')).toBe(true);
+    joinPokerLobby(lobby, { id: 'late', nickname: 'Late' });
+    expect(lobby.hand!.players.some((player) => player.id === 'late')).toBe(false);
+    expect(publicPokerLobby(lobby, 'late').hand?.waiting_for_next_hand).toBe(true);
+    applyPokerAction(lobby.hand!, { type: 'fold' });
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS);
+    tickPokerLobby(lobby);
+    vi.useRealTimers();
+    expect(lobby.hand!.players.map((player) => player.id)).toContain('late');
+  });
+
+  it('leaving folds the cards, frees the seat and hands the table to another person', () => {
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });
+    joinPokerLobby(lobby, { id: 'h', nickname: 'Third' });
+    startPokerLobby(lobby, 'o');
+    const notOnTurn = lobby.hand!.players.find((player) => player.seat !== lobby.hand!.current_seat && player.id !== 'g')!;
+    leavePokerLobby(lobby, notOnTurn.id);
+    expect(lobby.hand!.players.find((player) => player.id === notOnTurn.id)?.folded).toBe(true);
+    expect(lobby.players.some((player) => player.id === notOnTurn.id)).toBe(false);
+    if (notOnTurn.id === 'o') expect(lobby.ownerId).not.toBe('o');
+    joinPokerLobby(lobby, { id: 'n', nickname: 'New' });
+    expect(new Set(lobby.players.map((player) => player.seat)).size).toBe(lobby.players.length);
+    leavePokerLobby(lobby, 'g'); leavePokerLobby(lobby, 'h'); leavePokerLobby(lobby, 'o');
+    expect(leavePokerLobby(lobby, 'n')).toBeNull();
+  });
+
+  it('a raise is logged as a raise, a first bet as a bet', () => {
+    const hand = createPokerHand({ id: 'log', dealer_seat: 1, players: [1, 2, 3].map((n) => ({ id: `p${n}`, nickname: `P${n}`, seat: n, chips: 1000 })) });
+    applyPokerAction(hand, { type: 'bet', amount: 60 });
+    expect(hand.action_log.at(-1)?.type).toBe('raise');
+  });
+
+  it('a player whose time runs out is away: not dealt in until they come back, the seat stays', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-01T23:00:00Z'));
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });
+    joinPokerLobby(lobby, { id: 'h', nickname: 'Third' });
+    startPokerLobby(lobby, 'o');
+    const slow = lobby.hand!.players.find((player) => player.seat === lobby.hand!.current_seat)!;
+    vi.advanceTimersByTime(81_000);
+    tickPokerLobby(lobby);
+    expect(lobby.players.find((player) => player.id === slow.id)?.sitting_out).toBe(true);
+    // Finish the hand and wait for the next one: the away player is not dealt in.
+    while (lobby.hand!.street !== 'finished') { tickPokerLobby(lobby); const turn = lobby.hand!.players.find((player) => player.seat === lobby.hand!.current_seat); if (!turn) break; applyPokerAction(lobby.hand!, { type: 'fold' }); }
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS);
+    tickPokerLobby(lobby);
+    expect(lobby.hand!.players.map((player) => player.id)).not.toContain(slow.id);
+    expect(lobby.players.some((player) => player.id === slow.id)).toBe(true);
+    setPokerSitOut(lobby, slow.id, false);
+    applyPokerAction(lobby.hand!, { type: 'fold' });
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS);
+    tickPokerLobby(lobby);
+    vi.useRealTimers();
+    expect(lobby.hand!.players.map((player) => player.id)).toContain(slow.id);
   });
 });

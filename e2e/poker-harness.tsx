@@ -31,7 +31,7 @@ const lobby = {
     waiting_for_next_hand: false,
     board: [],
     hole_cards: {
-      viewer: [{ rank: 'J', suit: 'clubs' }, { rank: 'T', suit: 'spades' }],
+      viewer: [{ rank: 'J', suit: 'clubs' }, { rank: '10', suit: 'spades' }],
       'bot-lucky': [],
       'bot-bluff': [],
     },

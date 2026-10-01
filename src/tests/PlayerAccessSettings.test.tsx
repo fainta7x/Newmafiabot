@@ -115,4 +115,23 @@ describe('PlayerAccessSettings', () => {
     const organizerOption = Array.from(roleSelect.options).find((option) => option.value === 'organizer');
     expect(organizerOption?.disabled).toBe(true);
   });
+  it('offers «Из другого города» like the roles screen and applies it through the same server step', async () => {
+    const calls: Array<{ url: string; body: any }> = [];
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (String(input).endsWith('/access/bulk')) return response({ updated: 1 });
+      if (init?.method === 'PATCH') return response({ ...player, attends_sometimes: 1 });
+      return response({ ...player, attends_sometimes: 1, from_other_city: 1 });
+    }));
+    render(<PlayerAccessSettings player={player} />);
+    fireEvent.click(screen.getByTestId('crm-player-access-edit'));
+    fireEvent.change(screen.getByTestId('crm-player-activity'), { target: { value: 'other_city' } });
+    // Curators are not for players from another city.
+    expect(screen.queryByText('Куратор направления')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/players/access/bulk')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/players/access/bulk')!.body).toEqual({ player_ids: ['player-1'], activity: 'other_city' });
+    expect(await screen.findByTestId('crm-player-access-success')).toBeDefined();
+    expect(screen.getByTestId('crm-player-access-summary').textContent).toContain('Из другого города');
+  });
 });

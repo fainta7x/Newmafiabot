@@ -29,12 +29,11 @@ describe('«Уровни и роли»', () => {
     expect(names()).toHaveLength(4);
   });
 
-  it('marks a pause set for another reason and filters by it', async () => {
+  it('marks a pause set for another reason; there is no separate filter for it (it repeated «Перестали ходить»)', async () => {
     render(<PlayerAccessBulkCRM />);
     await screen.findByText('Аня');
     expect(screen.getByText(/Рассылка на паузе: Исключён из рассылки организатором/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Рассылка на паузе · 1' }));
-    expect(names()).toEqual(['Аня']);
+    expect(screen.queryByRole('button', { name: /^Рассылка на паузе/ })).toBeNull();
   });
 
   it('shows what will change, saves «Может проводить» and reports the result by the button', async () => {

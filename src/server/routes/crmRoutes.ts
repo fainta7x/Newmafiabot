@@ -13,6 +13,7 @@ import {
 } from '../services/playerOnboardingOrganizerService.ts';
 import { dismissClubOrderItem, loadClubOrder } from '../services/clubOrderService.ts';
 import { closeTasksOfEndedEvenings } from '../services/eveningCloseoutService.ts';
+import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { loadAgenda, recordAgendaContact, snoozeAgendaItem } from '../services/organizerAgendaService.ts';
 
 const router = Router();
@@ -119,7 +120,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
         console.warn('[CRM] Could not load announcement readiness:', error);
       }
       const paymentExpected = participants.filter((p: any) => (
-        p.attendance_status === 'attended' || ['going', 'late'].includes(getEveningResponse(p))
+        isPaymentExpected(nextEvening.format, { attendance_status: p.attendance_status, response_status: getEveningResponse(p) })
       ));
       const unpaidNow = paymentExpected.filter((p: any) => (
         p.payment_status !== 'waived' && Number(p.amount_due || 0) > Number(p.amount_paid || 0)

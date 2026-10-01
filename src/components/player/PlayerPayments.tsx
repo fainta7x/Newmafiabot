@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type PaymentItem = {
   participant_id: string;
@@ -63,7 +64,7 @@ type PaymentData = {
 
 const PURPOSE_ICON: Record<PaymentPurpose['id'], string> = {
   evening: '🎟️',
-  token_topup: '🪙',
+  token_topup: '💰',
   support: '🖤',
   fundraiser: '🎯',
 };
@@ -161,7 +162,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
       {online.token_packages.length > 0 && (
         <div className="mt-3 rounded-2xl bg-black/15 px-3 py-3">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Пакеты жетонов</div>
-          <div className="mt-2 flex flex-wrap gap-2">{online.token_packages.map((item) => <span key={item.id} className="rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[11px] text-white/50">{item.token_amount.toLocaleString('ru-RU')} 🪙 · {rubles(item.price_rub)}</span>)}</div>
+          <div className="mt-2 flex flex-wrap gap-2">{online.token_packages.map((item) => <span key={item.id} className="rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[11px] text-white/50">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)}</span>)}</div>
         </div>
       )}
 

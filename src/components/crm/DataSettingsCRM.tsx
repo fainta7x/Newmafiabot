@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Award, Database, History, RefreshCw, ShoppingBag } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type Achievement = {
   id: string;
@@ -125,7 +126,7 @@ function ShopEditor({ item, onSaved }: { item: ShopItem; onSaved: () => Promise<
       <summary className="cursor-pointer list-none">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{item.icon}</span>
-          <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{item.name}</div><div className="text-[11px] text-text-secondary">{item.price.toLocaleString('ru-RU')} 🪙 · {item.active ? 'продаётся' : 'скрыт'}</div></div>
+          <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{item.name}</div><div className="text-[11px] text-text-secondary">{item.price.toLocaleString('ru-RU')} <TokenIcon /> · {item.active ? 'продаётся' : 'скрыт'}</div></div>
         </div>
       </summary>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

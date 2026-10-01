@@ -12,7 +12,8 @@ import {
   normalizeClubRole,
   normalizeGameLevel,
   organizationOf,
-  type ClubMembership,
+  PLAYER_ACTIVITY,
+  type PlayerActivity,
   type ClubOrganization,
   type ClubRole,
   type GameLevel,
@@ -29,6 +30,8 @@ import { countVisits } from '../../lib/russianPlural';
 const visitDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });
 
 type PlayerWithAccess = PlayerDetails & {
+  from_other_city?: number | null;
+  stopped_attending?: number | null;
   game_level?: GameLevel | null;
   club_role?: ClubRole | null;
   attends_sometimes?: number | null;
@@ -41,6 +44,7 @@ type PlayerWithAccess = PlayerDetails & {
 
 type Draft = {
   game_level: GameLevel;
+  activity: PlayerActivity;
   club_role: ClubRole;
   attends_sometimes: boolean;
   host_formats: HostFormat[];
@@ -53,8 +57,16 @@ type Confirmation =
   | { kind: 'crm-access'; enabled: boolean }
   | null;
 
+// Same four answers as «Ещё → Уровни и роли» (owner, 2026-10-01: the card must offer «Из другого города» too).
+const activityOf = (player: PlayerWithAccess): PlayerActivity => (
+  Number(player.from_other_city || 0) === 1 ? 'other_city'
+    : Number(player.stopped_attending || 0) === 1 ? 'stopped'
+      : membershipOfPlayer(player) === 'guest' ? 'sometimes' : 'regular'
+);
+
 const normalize = (player: PlayerWithAccess): Draft => ({
   game_level: normalizeGameLevel(player.game_level),
+  activity: activityOf(player),
   club_role: normalizeClubRole(player.club_role),
   attends_sometimes: membershipOfPlayer(player) === 'guest',
   host_formats: hostFormatsOf(player),
@@ -64,6 +76,7 @@ const normalize = (player: PlayerWithAccess): Draft => ({
 
 const equalDraft = (left: Draft, right: Draft) =>
   left.game_level === right.game_level
+  && left.activity === right.activity
   && left.club_role === right.club_role
   && left.attends_sometimes === right.attends_sometimes
   && left.host_formats.join(',') === right.host_formats.join(',')
@@ -128,6 +141,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
     setError(null);
     setSuccess(null);
     try {
+      const { activity, ...fields } = draft;
       const response = await fetch(`/api/players/${encodeURIComponent(player.id)}`, {
         method: 'PATCH',
         credentials: 'include',
@@ -135,9 +149,20 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
         // «Может проводить вечера» is sent only when changed: only the owner may change it.
         body: JSON.stringify(draft.organize_formats.join(',') === baseline.organize_formats.join(',')
           ? { game_level: draft.game_level, club_role: draft.club_role, attends_sometimes: draft.attends_sometimes, host_formats: draft.host_formats, curator_areas: draft.curator_areas }
-          : draft),
+          : fields),
       });
       await readJson(response);
+      // «Перестал ходить» and «Из другого города» carry their own rules (announcement pause, roles):
+      // the same server step as the bulk screen applies them.
+      if (activity !== baseline.activity) {
+        const activityResponse = await fetch('/api/players/access/bulk', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_ids: [player.id], activity }),
+        });
+        await readJson(activityResponse);
+      }
 
       const readbackResponse = await fetch(`/api/players/${encodeURIComponent(player.id)}`, {
         credentials: 'include',
@@ -147,7 +172,9 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       if (sequence !== saveSequence.current) return;
 
       const persisted = normalize(readback);
-      if (!equalDraft(persisted, draft)) {
+      // «Из другого города» may drop club roles on the server (owner rule), so after an activity change
+      // only the activity itself must read back as chosen.
+      if (activity !== baseline.activity ? persisted.activity !== activity : !equalDraft(persisted, draft)) {
         throw new Error('Сервер ответил успешно, но повторное чтение вернуло другие значения. Изменения не считаются сохранёнными.');
       }
 
@@ -217,7 +244,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
   const visitsText = visitsCount ? `${countVisits(visitsCount)}${lastVisit ? ` · последний ${visitDate(lastVisit)}` : ''}` : 'Ещё не был на вечерах';
   const summaryRows: Array<[string, string, string | null]> = [
     ['Уровень игры', accessLabel(GAME_LEVELS, draft.game_level), null],
-    ['Как часто ходит', accessLabel(CLUB_MEMBERSHIPS, draft.attends_sometimes ? 'guest' : 'member'), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
+    ['Как часто ходит', PLAYER_ACTIVITY.find((item) => item.value === draft.activity)?.label || accessLabel(CLUB_MEMBERSHIPS, draft.attends_sometimes ? 'guest' : 'member'), [visitsText, clubStageNote((player as { club_stage?: string }).club_stage)].filter(Boolean).join(' · ')],
     ['Роль в клубе', accessLabel(CLUB_ORGANIZATION, organizationOf(draft.club_role)), null],
     ['Может вести', hostFormatsSummary(draft.host_formats), null],
     ['Проводит вечера', organizeFormatsSummary(draft.organize_formats), null],
@@ -253,7 +280,11 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
 
           <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Уровень игры</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Насколько хорошо играет. Определяет, в какие форматы можно записаться.</span><select value={draft.game_level} onChange={(event) => setDraft((value) => ({ ...value, game_level: event.target.value as GameLevel }))} className="mobile-field w-full max-w-full">{GAME_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
-          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Постоянный игрок или приходит иногда. Число визитов считается само.</span><select value={draft.attends_sometimes ? 'guest' : 'member'} onChange={(event) => setDraft((value) => ({ ...value, attends_sometimes: event.target.value === 'guest', club_role: clubRoleFrom(event.target.value as ClubMembership, organizationOf(value.club_role)) }))} className="mobile-field w-full max-w-full">{CLUB_MEMBERSHIPS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
+          <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-text-primary">Как часто ходит</span><span className="mb-2 block text-[11px] leading-4 text-text-muted">Как и в «Уровнях и ролях»: от этого зависят анонсы и приглашения. Число визитов считается само.</span><select data-testid="crm-player-activity" value={draft.activity} onChange={(event) => setDraft((value) => {
+            const activity = event.target.value as PlayerActivity;
+            const sometimes = activity === 'regular' ? false : activity === 'stopped' ? value.attends_sometimes : true;
+            return { ...value, activity, attends_sometimes: sometimes, club_role: clubRoleFrom(sometimes ? 'guest' : 'member', organizationOf(value.club_role)) };
+          })} className="mobile-field w-full max-w-full">{PLAYER_ACTIVITY.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>
 
           <div className="space-y-3 rounded-[13px] border border-border-soft p-3">
             <div><div className="text-[12px] font-semibold text-text-primary">Роль в клубе</div><div className="mt-1 text-[11px] leading-4 text-text-muted">Роль в команде клуба и какие вечера может вести. «Организатор» сразу получает кабинет организатора; назначает и снимает организаторов только владелец.</div></div>
@@ -293,7 +324,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
             </fieldset>
           </div>
 
-          {Number((player as { from_other_city?: number | null }).from_other_city || 0) === 1 ? null : <fieldset className="space-y-1.5 rounded-[13px] border border-border-soft p-3" data-testid="crm-player-curator-areas">
+          {draft.activity === 'other_city' ? null : <fieldset className="space-y-1.5 rounded-[13px] border border-border-soft p-3" data-testid="crm-player-curator-areas">
             <legend className="px-1 text-[12px] font-semibold text-text-primary">Куратор направления</legend>
             <p className="mb-1.5 text-[11px] leading-4 text-text-muted">За что отвечает в клубе. Прав в приложении не даёт; если направление давно стоит без дел, в «Делах» появится напоминание написать куратору.</p>
             {CURATOR_AREA_OPTIONS.map((item) => {

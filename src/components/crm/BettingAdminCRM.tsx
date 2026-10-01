@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type Team = 'red' | 'black';
 type Bet = {
@@ -144,7 +145,7 @@ export const BettingAdminCRM: React.FC = () => {
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><div className="text-[10px] text-text-muted">Открыто</div><div className="mt-1 text-[20px] font-black">{data?.summary.open || 0}</div></div>
         <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><div className="text-[10px] text-text-muted">Ждут итога</div><div className="mt-1 text-[20px] font-black">{data?.summary.unsettled || 0}</div></div>
-        <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><div className="text-[10px] text-text-muted">Резерв клуба</div><div className="mt-1 truncate text-[18px] font-black">{money(data?.summary.reserve_total || 0)} 🪙</div></div>
+        <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><div className="text-[10px] text-text-muted">Резерв клуба</div><div className="mt-1 truncate text-[18px] font-black">{money(data?.summary.reserve_total || 0)} <TokenIcon /></div></div>
       </div>
 
       <div className="flex gap-1 overflow-x-auto rounded-[14px] border border-border-soft bg-surface-1 p-1">
@@ -166,21 +167,21 @@ export const BettingAdminCRM: React.FC = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[15px] font-black text-text-primary">Игра №{pool.game_number || pool.game_id}</div>
-                    <div className="mt-1 text-[11px] text-text-muted">{pool.game_date || 'дата не указана'} · {pool.bet_count} ставок · банк {money(pool.total_staked)} 🪙</div>
+                    <div className="mt-1 text-[11px] text-text-muted">{pool.game_date || 'дата не указана'} · {pool.bet_count} ставок · банк {money(pool.total_staked)} <TokenIcon /></div>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${meta.className}`}>{meta.label}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-[13px] bg-red-500/[0.08] p-3"><div className="text-[10px] font-bold text-red-300/70">🔴 Красные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.red_pool)} 🪙</span><span className="text-[12px] font-bold text-red-200/70">{coef(pool.red_coefficient)}</span></div></div>
-                  <div className="rounded-[13px] bg-white/[0.055] p-3"><div className="text-[10px] font-bold text-text-secondary">⚫ Чёрные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.black_pool)} 🪙</span><span className="text-[12px] font-bold text-text-secondary">{coef(pool.black_coefficient)}</span></div></div>
+                  <div className="rounded-[13px] bg-red-500/[0.08] p-3"><div className="text-[10px] font-bold text-red-300/70">🔴 Красные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.red_pool)} <TokenIcon /></span><span className="text-[12px] font-bold text-red-200/70">{coef(pool.red_coefficient)}</span></div></div>
+                  <div className="rounded-[13px] bg-white/[0.055] p-3"><div className="text-[10px] font-bold text-text-secondary">⚫ Чёрные</div><div className="mt-1 flex items-end justify-between gap-2"><span className="text-[17px] font-black">{money(pool.black_pool)} <TokenIcon /></span><span className="text-[12px] font-bold text-text-secondary">{coef(pool.black_coefficient)}</span></div></div>
                 </div>
               </summary>
 
               <div className="space-y-4 border-t border-border-soft p-4">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Комиссия</div><div className="mt-1 text-[13px] font-bold">{(Number(pool.house_rate_bps || 0) / 100).toFixed(0)}%</div></div>
-                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Резерв</div><div className="mt-1 text-[13px] font-bold">{money(pool.reserve_amount)} 🪙</div></div>
-                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Выплачено</div><div className="mt-1 text-[13px] font-bold">{money(pool.total_paid_out)} 🪙</div></div>
+                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Резерв</div><div className="mt-1 text-[13px] font-bold">{money(pool.reserve_amount)} <TokenIcon /></div></div>
+                  <div className="rounded-[12px] bg-surface-2 p-2.5"><div className="text-[10px] text-text-muted">Выплачено</div><div className="mt-1 text-[13px] font-bold">{money(pool.total_paid_out)} <TokenIcon /></div></div>
                 </div>
 
                 <section>
@@ -192,7 +193,7 @@ export const BettingAdminCRM: React.FC = () => {
 
                 <section>
                   <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">Ставки игроков</div>
-                  {!pool.bets.length ? <div className="rounded-[12px] bg-surface-2 p-3 text-[11px] text-text-muted">Никто не поставил.</div> : <div className="space-y-1.5">{pool.bets.map((bet) => <div key={bet.id} className="flex items-center gap-3 rounded-[12px] bg-surface-2 px-3 py-2.5"><span className="text-base">{bet.team === 'red' ? '🔴' : '⚫'}</span><div className="min-w-0 flex-1"><div className="truncate text-[12px] font-bold">{bet.nickname}</div><div className="text-[10px] text-text-muted">{new Date(bet.placed_at).toLocaleString('ru-RU')}</div></div><div className="text-right"><div className="text-[12px] font-black">{money(bet.amount)} 🪙</div>{pool.status === 'settled' ? <div className="mt-0.5 text-[10px] text-text-secondary">{bet.payout_amount ? `${coef(bet.final_coefficient)} → ${money(bet.payout_amount)}` : 'проигрыш'}</div> : null}</div></div>)}</div>}
+                  {!pool.bets.length ? <div className="rounded-[12px] bg-surface-2 p-3 text-[11px] text-text-muted">Никто не поставил.</div> : <div className="space-y-1.5">{pool.bets.map((bet) => <div key={bet.id} className="flex items-center gap-3 rounded-[12px] bg-surface-2 px-3 py-2.5"><span className="text-base">{bet.team === 'red' ? '🔴' : '⚫'}</span><div className="min-w-0 flex-1"><div className="truncate text-[12px] font-bold">{bet.nickname}</div><div className="text-[10px] text-text-muted">{new Date(bet.placed_at).toLocaleString('ru-RU')}</div></div><div className="text-right"><div className="text-[12px] font-black">{money(bet.amount)} <TokenIcon /></div>{pool.status === 'settled' ? <div className="mt-0.5 text-[10px] text-text-secondary">{bet.payout_amount ? `${coef(bet.final_coefficient)} → ${money(bet.payout_amount)}` : 'проигрыш'}</div> : null}</div></div>)}</div>}
                 </section>
 
                 {pool.settled_winner ? <div className="flex items-center gap-2 rounded-[13px] bg-success-soft p-3 text-[12px] font-bold text-success"><ShieldCheck className="h-4 w-4" /> Победили {pool.settled_winner === 'red' ? 'красные' : 'чёрные'}</div> : null}

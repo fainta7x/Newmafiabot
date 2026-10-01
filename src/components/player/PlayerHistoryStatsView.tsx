@@ -7,6 +7,7 @@ import PlayerGameDetail, { formatEloDelta, type PlayerGameDetailData, type Playe
 import PlayerPayments from './PlayerPayments.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 export type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'club' | 'payments' | 'profile';
 type GameScope = 'mine' | 'all';
@@ -397,7 +398,7 @@ export default function PlayerCabinetV2({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Жетоны</div>
-                  <div className="mt-2 text-3xl font-semibold text-white">{tokenBalance.toLocaleString('ru-RU')} 🪙</div>
+                  <div className="mt-2 text-3xl font-semibold text-white">{tokenBalance.toLocaleString('ru-RU')} <TokenIcon /></div>
                   <div className="mt-1 text-sm text-white/40">Кошелёк, магазин, ставки и история</div>
                 </div>
                 <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.07] text-lg text-white/55">→</div>

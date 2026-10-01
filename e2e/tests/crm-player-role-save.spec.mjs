@@ -61,7 +61,7 @@ test.describe('CRM player classification persistence', () => {
     const reopened = page.getByTestId('crm-player-access-sheet');
     const persisted = reopened.getByRole('combobox');
     await expect(persisted.nth(0)).toHaveValue('club');
-    await expect(persisted.nth(1)).toHaveValue('member');
+    await expect(persisted.nth(1)).toHaveValue('regular');
     await expect(persisted.nth(2)).toHaveValue('team');
     const reopenedHosting = reopened.getByTestId('crm-player-host-formats');
     await expect(reopenedHosting.getByRole('checkbox', { name: /Клубные вечера/ })).toBeChecked();

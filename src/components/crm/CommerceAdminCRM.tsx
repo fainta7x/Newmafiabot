@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Coins, Pencil, Plus, RefreshCw, Send, Target } from 'lucide-react';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type TokenPackage = {
   id: string;
@@ -181,7 +182,7 @@ export default function CommerceAdminCRM() {
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${overview?.online_payment.available ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{overview?.online_payment.available ? 'СБП работает' : 'Провайдер не подключён'}</span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {['🎟️ Вечер', '🪙 Жетоны', '🖤 Поддержка', '🎯 Сбор'].map((item) => <div key={item} className="rounded-[12px] bg-surface-2 px-3 py-2.5 text-[11px] font-bold text-text-primary">{item}</div>)}
+          {['🎟️ Вечер', '💰 Жетоны', '🖤 Поддержка', '🎯 Сбор'].map((item) => <div key={item} className="rounded-[12px] bg-surface-2 px-3 py-2.5 text-[11px] font-bold text-text-primary">{item}</div>)}
         </div>
       </section>
 
@@ -191,7 +192,7 @@ export default function CommerceAdminCRM() {
           <button type="button" onClick={() => openTokens()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[10px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
         </div>
         <div className="mt-3 space-y-2">
-          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} 🪙 · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Пакетов пока нет. Никакой курс автоматически не придуман.</div>}
+          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Пакетов пока нет. Никакой курс автоматически не придуман.</div>}
         </div>
       </section>
 

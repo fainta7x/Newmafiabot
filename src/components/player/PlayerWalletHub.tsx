@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerEconomyPanel, { type WalletEconomyView } from './PlayerEconomyPanel.tsx';
 import PlayerPayments from './PlayerPayments.tsx';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type WalletView = 'payments' | WalletEconomyView;
 
@@ -58,7 +59,7 @@ export default function PlayerWalletHub({
           </div>
           <div className="rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Жетоны</div>
-            <div className="mt-2 text-xl font-semibold text-white/80">{Math.trunc(Number(tokenBalance)).toLocaleString('ru-RU')} 🪙</div>
+            <div className="mt-2 text-xl font-semibold text-white/80">{Math.trunc(Number(tokenBalance)).toLocaleString('ru-RU')} <TokenIcon /></div>
             <div className="mt-1 text-[11px] text-white/25">магазин и ставки</div>
           </div>
         </section>

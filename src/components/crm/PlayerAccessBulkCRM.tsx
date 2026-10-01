@@ -21,15 +21,15 @@ const activityOf = (row: Row): PlayerActivity => (stopped(row) ? 'stopped'
     : membershipOfPlayer(row) === 'member' ? 'regular' : 'sometimes');
 type LevelFilter = GameLevel | 'all';
 // Quick filters and sorting (owner, 2026-09-29: find and set up any player fast).
-type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'curators' | 'regular' | 'sometimes' | 'stopped' | 'other_city' | 'paused';
+type RoleFilter = 'all' | 'organizer' | 'team' | 'hosts' | 'organizes' | 'curators' | 'regular' | 'sometimes' | 'stopped' | 'other_city';
 // Two separate rows (owner, 2026-09-30): how the player comes, and what they do in the club; they combine.
 const ACTIVITY_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'regular', label: 'Ходят постоянно' },
   { value: 'sometimes', label: 'Ходят иногда' },
   { value: 'stopped', label: 'Перестали ходить' },
   { value: 'other_city', label: 'Из других городов' },
-  { value: 'paused', label: 'Рассылка на паузе' },
 ];
+// «Рассылка на паузе» was removed as a filter (owner, 2026-10-01): it repeated «Перестали ходить».
 const ROLE_FILTERS: Array<{ value: Exclude<RoleFilter, 'all'>; label: string }> = [
   { value: 'organizer', label: 'Организаторы' },
   { value: 'team', label: 'Помогают клубу' },
@@ -49,7 +49,6 @@ const matchesRoleFilter = (row: Row, filter: RoleFilter) => {
   if (filter === 'sometimes') return activityOf(row) === 'sometimes';
   if (filter === 'stopped') return stopped(row);
   if (filter === 'other_city') return activityOf(row) === 'other_city';
-  if (filter === 'paused') return pausedOther(row);
   return true;
 };
 type SortBy = 'name' | 'visits' | 'recent' | 'new';

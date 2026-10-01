@@ -4,6 +4,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { isPaymentExpected } from '../../lib/eveningPaymentScope.ts';
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
@@ -103,7 +104,7 @@ router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
       const present = roster.filter((row: any) => row.attendance_status === 'attended');
       const pendingAttendance = expected.filter((row: any) => row.attendance_status === 'pending');
       const noShow = roster.filter((row: any) => row.attendance_status === 'no_show');
-      const paymentExpected = roster.filter((row: any) => row.attendance_status === 'attended' || ['going', 'late'].includes(row.response_status));
+      const paymentExpected = roster.filter((row: any) => isPaymentExpected(evening.format, row));
       const unpaid = paymentExpected.filter((row: any) => row.payment_status !== 'waived' && row.amount_due > row.amount_paid);
       const completedGames = games.filter((item: any) => item.completed);
       const draftGames = games.filter((item: any) => !item.completed);

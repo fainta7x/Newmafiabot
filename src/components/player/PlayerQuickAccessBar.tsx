@@ -1,5 +1,6 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
 import ProductModeSwitch from '../ProductModeSwitch.tsx';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 export default function PlayerQuickAccessBar({
   player,
@@ -47,7 +48,7 @@ export default function PlayerQuickAccessBar({
                 : 'border-white/10 bg-white/[0.045] text-white/72'
             }`}
           >
-            <span aria-hidden="true">🪙</span>
+            <TokenIcon />
             <span>{Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')}</span>
           </button>
 

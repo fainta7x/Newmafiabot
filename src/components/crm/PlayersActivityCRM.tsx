@@ -18,7 +18,9 @@ const QUICK_FILTERS: Array<{ id: QuickFilter; label: string; caption: string }> 
   { id: 'novice', label: 'Новички', caption: 'уровень «Новичок»' },
   { id: 'stopped', label: 'Перестали', caption: 'перестали ходить' }, { id: 'all', label: 'Вся база', caption: 'все записи' },
 ];
-const SEGMENT_TONE: Record<PlayerStatusSegment, string> = { regular: 'bg-success-soft text-success', sometimes: 'bg-white/[0.07] text-text-secondary', other_city: 'bg-sky-400/10 text-sky-200', novice: 'bg-accent-soft text-accent', stopped: 'bg-warning-soft text-warning' };
+// Colour by meaning (owner, 2026-10-01): green — comes regularly, blue — comes, just less often,
+// violet — another city, cherry — novice, grey — stopped coming (grey reads as «inactive»).
+const SEGMENT_TONE: Record<PlayerStatusSegment, string> = { regular: 'bg-success-soft text-success', sometimes: 'bg-sky-400/10 text-sky-200', other_city: 'bg-violet-400/10 text-violet-200', novice: 'bg-accent-soft text-accent', stopped: 'bg-white/[0.05] text-text-muted' };
 
 interface PlayersActivityCRMProps { evenings: GameEvening[]; onOpenEvening: (id: string) => void; selectedPlayerId?: string | null; onClosePlayerCard?: () => void; onCrmChanged?: () => void; }
 

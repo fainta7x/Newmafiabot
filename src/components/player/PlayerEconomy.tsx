@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { TokenIcon } from '../ui/TokenIcon.tsx';
 
 type EconomyScope = 'shop' | 'bets' | 'history';
 type BetTeam = 'red' | 'black';
@@ -278,7 +279,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось принять ставку');
-      setSuccess(`Ставка ${formatTokens(amount)} 🪙 на ${selectedTeam === 'red' ? 'красных' : 'чёрных'} принята`);
+      setSuccess(`Ставка ${formatTokens(amount)} жет. на ${selectedTeam === 'red' ? 'красных' : 'чёрных'} принята`);
       onBalanceChange?.(Number(body?.balance || 0));
       await Promise.all([loadBetting(), load()]);
     } catch (placeError: any) {
@@ -304,7 +305,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
         <div className="text-xs uppercase tracking-[0.18em] text-white/35">Кошелёк</div>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div>
-            <div className="text-3xl font-semibold text-white">{formatTokens(data?.balance || betting?.balance || 0)} 🪙</div>
+            <div className="text-3xl font-semibold text-white">{formatTokens(data?.balance || betting?.balance || 0)} <TokenIcon /></div>
             <div className="mt-1 text-sm text-white/40">жетонов на балансе</div>
           </div>
           <div className="rounded-2xl bg-black/20 px-3 py-2 text-right">
@@ -339,7 +340,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
                       </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
-                      <div><div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Цена</div><div className="mt-0.5 font-semibold text-white/80">{formatTokens(item.price)} 🪙</div></div>
+                      <div><div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Цена</div><div className="mt-0.5 font-semibold text-white/80">{formatTokens(item.price)} <TokenIcon /></div></div>
                       <button type="button" disabled={!affordable || buying} onClick={() => { setSuccess(null); setActiveItem(item); }} className={`min-h-10 rounded-xl px-4 text-sm font-semibold ${affordable ? 'bg-white text-black' : 'bg-white/[0.05] text-white/25'}`}>
                         {affordable ? 'Купить' : 'Не хватает'}
                       </button>
@@ -377,7 +378,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
                 ]).map((side) => (
                   <button key={side.team} type="button" disabled={Boolean(activePool.my_bet) || activePool.status !== 'open'} onClick={() => setSelectedTeam(side.team)} className={`rounded-3xl border p-3 text-left ${selectedTeam === side.team && !activePool.my_bet ? 'border-white/30 bg-white/[0.08]' : 'border-white/10 bg-white/[0.035]'}`}>
                     <div className="flex items-start justify-between gap-2"><div className="text-sm font-semibold text-white">{side.icon} {side.title}</div><div className="text-lg font-semibold text-white">{formatCoefficient(side.coef)}</div></div>
-                    <div className="mt-1 text-[11px] text-white/35">в банке {formatTokens(side.pool)} 🪙</div>
+                    <div className="mt-1 text-[11px] text-white/35">в банке {formatTokens(side.pool)} <TokenIcon /></div>
                     <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3">
                       {side.players.map((player) => <div key={player.seat_number} className="text-[11px] leading-4 text-white/50"><span className="text-white/30">#{player.seat_number}</span> {player.nickname}<span className="block pl-4 text-white/25">{roleLabel(player.role)}</span></div>)}
                     </div>
@@ -388,9 +389,9 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
               {activePool.my_bet ? (
                 <Section title="Ваша ставка">
                   <div className="rounded-2xl bg-black/20 p-3">
-                    <div className="flex items-center justify-between gap-3"><span className="text-sm text-white/55">{activePool.my_bet.team === 'red' ? '🔴 Красные' : '⚫ Чёрные'}</span><strong className="text-white">{formatTokens(activePool.my_bet.amount)} 🪙</strong></div>
+                    <div className="flex items-center justify-between gap-3"><span className="text-sm text-white/55">{activePool.my_bet.team === 'red' ? '🔴 Красные' : '⚫ Чёрные'}</span><strong className="text-white">{formatTokens(activePool.my_bet.amount)} <TokenIcon /></strong></div>
                     <div className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="text-white/35">Коэффициент сейчас</span><strong className="text-white/80">{formatCoefficient(currentMyCoefficient || 1)}</strong></div>
-                    <div className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="text-white/35">Выплата сейчас</span><strong className="text-emerald-200/80">{formatTokens(Math.floor(activePool.my_bet.amount * (currentMyCoefficient || 1)))} 🪙</strong></div>
+                    <div className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="text-white/35">Выплата сейчас</span><strong className="text-emerald-200/80">{formatTokens(Math.floor(activePool.my_bet.amount * (currentMyCoefficient || 1)))} <TokenIcon /></strong></div>
                   </div>
                   {activePool.status === 'open' && <p className="mt-3 text-xs leading-5 text-white/35">Коэффициент меняется до закрытия ставок. Чем больше жетонов ставят на одну сторону, тем менее выгодной она становится.</p>}
                 </Section>
@@ -400,10 +401,10 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
                     <button type="button" onClick={() => setSelectedTeam('red')} className={`min-h-11 rounded-xl text-sm font-medium ${selectedTeam === 'red' ? 'bg-white text-black' : 'bg-black/20 text-white/55'}`}>🔴 Красные</button>
                     <button type="button" onClick={() => setSelectedTeam('black')} className={`min-h-11 rounded-xl text-sm font-medium ${selectedTeam === 'black' ? 'bg-white text-black' : 'bg-black/20 text-white/55'}`}>⚫ Чёрные</button>
                   </div>
-                  <div className="mt-3 flex gap-2"><input inputMode="numeric" value={betAmount} onChange={(event) => setBetAmount(event.target.value.replace(/[^0-9]/g, ''))} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-base text-white outline-none" /><div className="flex items-center rounded-xl bg-black/20 px-3 text-sm text-white/40">🪙</div></div>
+                  <div className="mt-3 flex gap-2"><input inputMode="numeric" value={betAmount} onChange={(event) => setBetAmount(event.target.value.replace(/[^0-9]/g, ''))} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-base text-white outline-none" /><div className="flex items-center rounded-xl bg-black/20 px-3 text-sm text-white/40"><TokenIcon /></div></div>
                   <div className="mt-2 grid grid-cols-4 gap-1">{[50, 100, 250, 500].map((preset) => <button key={preset} type="button" onClick={() => setBetAmount(String(preset))} className="rounded-lg bg-white/[0.05] py-2 text-[11px] text-white/45">{preset}</button>)}</div>
-                  {projected && <div className="mt-3 rounded-2xl bg-black/20 p-3 text-sm"><div className="flex justify-between text-white/45"><span>Коэффициент после вашей ставки</span><strong className="text-white/80">{formatCoefficient(projected.coefficient)}</strong></div><div className="mt-2 flex justify-between text-white/45"><span>Выплата, если линия не изменится</span><strong className="text-emerald-200/80">{formatTokens(projected.payout)} 🪙</strong></div></div>}
-                  <button type="button" disabled={placingBet || amount < 50 || amount > Number(betting?.balance || 0)} onClick={() => void placeBet()} className="mt-3 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.06] disabled:text-white/25">{placingBet ? 'Принимаем…' : amount > Number(betting?.balance || 0) ? 'Не хватает жетонов' : `Поставить ${formatTokens(amount)} 🪙`}</button>
+                  {projected && <div className="mt-3 rounded-2xl bg-black/20 p-3 text-sm"><div className="flex justify-between text-white/45"><span>Коэффициент после вашей ставки</span><strong className="text-white/80">{formatCoefficient(projected.coefficient)}</strong></div><div className="mt-2 flex justify-between text-white/45"><span>Выплата, если линия не изменится</span><strong className="text-emerald-200/80">{formatTokens(projected.payout)} <TokenIcon /></strong></div></div>}
+                  <button type="button" disabled={placingBet || amount < 50 || amount > Number(betting?.balance || 0)} onClick={() => void placeBet()} className="mt-3 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.06] disabled:text-white/25">{placingBet ? 'Принимаем…' : amount > Number(betting?.balance || 0) ? 'Не хватает жетонов' : <>Поставить {formatTokens(amount)} <TokenIcon /></>}</button>
                   <p className="mt-3 text-xs leading-5 text-white/35">Ставки игроков образуют общий банк. 90% проигранного банка распределяется победителям, 10% выводится из оборота. Максимальный коэффициент — x10. Итоговый коэффициент фиксируется только после закрытия линии.</p>
                 </Section>
               ) : null}
@@ -412,7 +413,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
 
           {betting?.history?.length ? <Section title="Последние ставки"><div className="space-y-2">{betting.history.slice(0, 6).map((bet) => (
             <div key={bet.id} className="rounded-2xl bg-black/20 p-3">
-              <div className="flex items-start justify-between gap-3"><div><div className="text-sm font-medium text-white">Игра №{bet.game_number || bet.game_id} · {bet.team === 'red' ? '🔴 красные' : '⚫ чёрные'}</div><div className="mt-1 text-xs text-white/30">{formatDateTime(bet.placed_at)} · {betStatusLabel(bet.status)}</div></div><div className="text-right"><div className="text-sm font-semibold text-white/75">{formatTokens(bet.amount)} 🪙</div>{bet.status === 'won' && <div className="mt-1 text-xs text-emerald-300">+{formatTokens(Math.max(0, bet.payout_amount - bet.amount))}</div>}</div></div>
+              <div className="flex items-start justify-between gap-3"><div><div className="text-sm font-medium text-white">Игра №{bet.game_number || bet.game_id} · {bet.team === 'red' ? '🔴 красные' : '⚫ чёрные'}</div><div className="mt-1 text-xs text-white/30">{formatDateTime(bet.placed_at)} · {betStatusLabel(bet.status)}</div></div><div className="text-right"><div className="text-sm font-semibold text-white/75">{formatTokens(bet.amount)} <TokenIcon /></div>{bet.status === 'won' && <div className="mt-1 text-xs text-emerald-300">+{formatTokens(Math.max(0, bet.payout_amount - bet.amount))}</div>}</div></div>
             </div>
           ))}</div></Section> : null}
         </>
@@ -423,7 +424,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
               <div key={purchase.id} className="rounded-2xl bg-black/20 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-white">{purchase.item_name_snapshot}</div><div className="mt-1 text-xs text-white/35">{formatDateTime(purchase.purchased_at)}</div></div>
-                  <div className="shrink-0 text-right"><div className="text-sm font-semibold text-rose-200/80">−{formatTokens(purchase.price_snapshot)} 🪙</div><div className="mt-1 text-[11px] text-white/30">{purchaseStatusLabel(purchase.status)}</div></div>
+                  <div className="shrink-0 text-right"><div className="text-sm font-semibold text-rose-200/80">−{formatTokens(purchase.price_snapshot)} <TokenIcon /></div><div className="mt-1 text-[11px] text-white/30">{purchaseStatusLabel(purchase.status)}</div></div>
                 </div>
               </div>
             ))}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Покупок пока нет.</p>}
@@ -434,7 +435,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
               <div key={entry.id} className="rounded-2xl bg-black/20 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1"><div className="text-sm font-medium text-white/80">{entry.description}</div><div className="mt-1 text-xs text-white/30">{formatDateTime(entry.created_at)}</div></div>
-                  <div className="shrink-0 text-right"><div className={`text-sm font-semibold ${entry.amount > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{entry.amount > 0 ? '+' : ''}{formatTokens(entry.amount)} 🪙</div><div className="mt-1 text-[11px] text-white/30">баланс {formatTokens(entry.balance_after)}</div></div>
+                  <div className="shrink-0 text-right"><div className={`text-sm font-semibold ${entry.amount > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{entry.amount > 0 ? '+' : ''}{formatTokens(entry.amount)} <TokenIcon /></div><div className="mt-1 text-[11px] text-white/30">баланс {formatTokens(entry.balance_after)}</div></div>
                 </div>
               </div>
             ))}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История жетонов пока пустая.</p>}
@@ -450,9 +451,9 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
               <div className="min-w-0 flex-1"><div className="text-lg font-semibold text-white">{activeItem.name}</div><p className="mt-1 text-sm leading-5 text-white/45">{activeItem.description}</p></div>
             </div>
             <div className="mt-4 rounded-2xl bg-black/25 p-3 text-sm">
-              <div className="flex justify-between text-white/45"><span>Сейчас</span><span>{formatTokens(data?.balance || 0)} 🪙</span></div>
-              <div className="mt-2 flex justify-between text-white/45"><span>Покупка</span><span>−{formatTokens(activeItem.price)} 🪙</span></div>
-              <div className="mt-2 flex justify-between border-t border-white/[0.06] pt-2 font-semibold text-white/80"><span>Останется</span><span>{formatTokens((data?.balance || 0) - activeItem.price)} 🪙</span></div>
+              <div className="flex justify-between text-white/45"><span>Сейчас</span><span>{formatTokens(data?.balance || 0)} <TokenIcon /></span></div>
+              <div className="mt-2 flex justify-between text-white/45"><span>Покупка</span><span>−{formatTokens(activeItem.price)} <TokenIcon /></span></div>
+              <div className="mt-2 flex justify-between border-t border-white/[0.06] pt-2 font-semibold text-white/80"><span>Останется</span><span>{formatTokens((data?.balance || 0) - activeItem.price)} <TokenIcon /></span></div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" disabled={buying} onClick={() => setActiveItem(null)} className="min-h-11 rounded-xl bg-white/[0.06] text-sm font-medium text-white/60">Отмена</button>

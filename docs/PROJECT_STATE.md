@@ -26,7 +26,8 @@ For the next assistant:
 - **Owner ideas 2026-10-01, to agree:** adjust the Elo system a little (future task, details to discuss).
 - **Done 2026-10-01 (outside Claude, checked by Claude):** owner-only «Объединить профиль-дубликат» in the player card (a manual duplicate without Telegram/VK into a linked profile; the token journal stays with each profile, the balance moves as debit + credit; the merged row is hidden like the archive); music: two locked player slots («раздача» / «договорка», owner can repair a slot through the API only), the game's track is drawn from the evening's arrived players, «Сменить трек» removed.
 - **Music, owner answers 2026-10-01:** tracks come from the people at this game's table, the judge included, deal and night from two different people (fixed in a follow-up PR); no «Сменить трек» is fine — the judge closes a Yandex track in Yandex Music, files have «Стоп». The owner wanted a button to repair or free a player's locked slot: «Данные и фото → Музыка игрока» (owner only).
-- **Next work:** Elo adjustment (details to discuss with the owner).
+- **Elo (owner, 2026-10-01):** the formula logic stays (confirmed against the owner's cases), no calibration; the owner wanted bigger numbers, so the whole scale is ×5 (same behaviour). On the first start after deploy a one-time migration (`0042_elo_scale_x5_v1`) stretches manual start Elo and rebuilds every rating. Idea for later: a seasonal Elo trim for everybody (for example cut 20% of the distance from 1000), to discuss when needed. Note: rating achievements start at Elo 1400 (`achievementCatalog.ts`) and become reachable on the new scale.
+- **Next work:** nothing agreed; ask the owner.
 
 ## Source-of-truth model
 

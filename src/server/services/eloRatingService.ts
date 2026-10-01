@@ -40,29 +40,40 @@ const numeric = (value: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * The Elo scale (owner, 2026-10-01): every distance from 1000 is five times larger than in the first
+ * version, so one game, the win expectation and the strong-player protection all use ×5 units.
+ * The behaviour is the same as before, only the numbers are bigger.
+ */
+export const ELO_SCALE = 5;
+const RESULT_WEIGHT = 10 * ELO_SCALE;
+const PERSONAL_POINT_WEIGHT = 8 * ELO_SCALE;
+const EXPECTATION_DIVISOR = 400 * ELO_SCALE;
+const PROTECTION_DIVISOR = 200 * ELO_SCALE;
+
 export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {
   const redPlayers = players.filter((player) => player.team === 'red');
   const blackPlayers = players.filter((player) => player.team === 'black');
   if (!redPlayers.length || !blackPlayers.length) throw new Error('Canonical Elo requires both red and black teams.');
   const redTeamAvg = average(redPlayers.map((player) => player.elo));
   const blackTeamAvg = average(blackPlayers.map((player) => player.elo));
-  const redOdds = (0.30 / 0.70) * (10 ** ((redTeamAvg - blackTeamAvg) / 400));
+  const redOdds = (0.30 / 0.70) * (10 ** ((redTeamAvg - blackTeamAvg) / EXPECTATION_DIVISOR));
   const pRed = redOdds / (1 + redOdds);
   const pBlack = 1 - pRed;
   return players.map((player) => {
     const teamPlayers = player.team === 'red' ? redPlayers : blackPlayers;
     const allies = teamPlayers.filter((ally) => ally.playerId !== player.playerId);
     const allyAvgExcludingSelf = allies.length ? average(allies.map((ally) => ally.elo)) : player.elo;
-    const n = clamp((player.elo - allyAvgExcludingSelf) / 200, -1, 1);
+    const n = clamp((player.elo - allyAvgExcludingSelf) / PROTECTION_DIVISOR, -1, 1);
     const won = player.team === winnerTeam;
     let carryModifier: number;
     if (won) carryModifier = n > 0 ? 1 + 0.30 * n : 1 - 0.20 * Math.abs(n);
     else carryModifier = n > 0 ? 1 - 0.40 * n : 1 + 0.20 * Math.abs(n);
     const expectedTeamResult = player.team === 'red' ? pRed : pBlack;
     const actualResult = won ? 1 : 0;
-    const resultDelta = 10 * (actualResult - expectedTeamResult);
+    const resultDelta = RESULT_WEIGHT * (actualResult - expectedTeamResult);
     const modifiedResultDelta = resultDelta * carryModifier;
-    const personalDelta = player.canonicalPersonalGamePoints * 8;
+    const personalDelta = player.canonicalPersonalGamePoints * PERSONAL_POINT_WEIGHT;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta, personalDelta, totalDelta: modifiedResultDelta + personalDelta };
   });
 }

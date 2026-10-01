@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, Crosshair, Heart, Moon, Radio, Skull, Star, UserRoundX } from 'lucide-react';
-import type { LiveBroadcastCheck, LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState } from '../../lib/liveBroadcast';
+import { Ban, Crosshair, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
+import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastProtocol, LiveBroadcastState, LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
@@ -27,10 +27,40 @@ const RoleIcon = ({ kind }: { kind: RoleKind }) => {
   return <Heart className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
 };
 
-const checkTitle = (check: LiveBroadcastCheck) => {
+type PlayerCheck = { by: 'don' | 'sheriff'; round: number; result: 'red' | 'black' | 'sheriff' | 'not_sheriff' | null };
+
+const checkTitle = (check: PlayerCheck) => {
   if (check.by === 'sheriff') return check.result === 'black' ? 'чёрный' : check.result === 'red' ? 'красный' : '…';
   return check.result === 'sheriff' ? 'шериф' : check.result === 'not_sheriff' ? 'не шериф' : '…';
 };
+
+/** Every Don and Sheriff check of the game, by checked seat. */
+const checksBySeat = (timeline: LiveBroadcastTimelineEntry[]) => {
+  const result = new Map<number, PlayerCheck[]>();
+  const add = (seat: number, check: PlayerCheck) => result.set(seat, [...(result.get(seat) || []), check]);
+  for (const entry of timeline) {
+    if (entry.kind !== 'night') continue;
+    if (entry.donCheck) add(entry.donCheck.seat, { by: 'don', round: entry.round, result: entry.donCheck.isSheriff === null ? null : entry.donCheck.isSheriff ? 'sheriff' : 'not_sheriff' });
+    if (entry.sheriffCheck) add(entry.sheriffCheck.seat, { by: 'sheriff', round: entry.round, result: entry.sheriffCheck.isBlack === null ? null : entry.sheriffCheck.isBlack ? 'black' : 'red' });
+  }
+  return result;
+};
+
+const DAY_NOTES: Record<string, string> = {
+  voted: 'Ушёл',
+  table: 'Решение стола',
+  stay: 'Никто не ушёл',
+  cancelled: 'Голосование отменено',
+  single: 'Без голосования',
+};
+
+const ProtocolLine = ({ protocol, kinds }: { protocol: LiveBroadcastProtocol; kinds: Map<number, RoleKind> }) => (
+  <div className="live-broadcast-tl-protocol">
+    {protocol.red.length ? <span className="is-red">К{protocol.red.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
+    {protocol.black.length ? <span className="is-black">Ч{protocol.black.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
+    {protocol.sheriff.length ? <span className="is-sheriff">Ш{protocol.sheriff.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span> : null}
+  </div>
+);
 
 /** Seat chip coloured by the seat's real team: viewers see roles anyway. */
 const SeatChip = ({ seat, kinds }: { seat: number | null; kinds: Map<number, RoleKind> }) => (
@@ -156,15 +186,18 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
     : null;
   const timerCaption = state.timerLabel || (state.currentSpeakerSeat ? `Речь игрока №${state.currentSpeakerSeat}` : 'Таймер');
   const kinds = new Map(state.players.map((player) => [player.seat, roleKind(player.role)]));
-  const night = state.phaseKey === 'night' ? state.night : null;
+  const timeline = state.timeline || [];
+  const checks = checksBySeat(timeline);
+  const protocolBySeat = new Map((state.protocols || []).map((protocol) => [protocol.seat, protocol]));
   const bestMove = state.bestMove;
-  const protocols = (state.protocols || []).slice(-3);
-  const checks = state.checks || [];
-  const showInfoRow = state.nominations.length > 0 || Boolean(state.vote) || Boolean(night) || Boolean(bestMove) || protocols.length > 0;
+  // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
+  const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
+  const visibleTimeline = firstNight < 0 ? timeline.filter((entry) => entry.kind === 'day' && entry.left.length) : timeline.slice(firstNight);
+  const showInfoRow = state.nominations.length > 0 || Boolean(state.vote);
   const score = state.eveningScore || { red: 0, black: 0 };
 
   return (
-    <main className={`live-broadcast-canvas phase-${state.phaseKey}`}>
+    <main className={`live-broadcast-canvas phase-${state.phaseKey} ${visibleTimeline.length ? 'has-timeline' : ''}`}>
       <header className="live-broadcast-header">
         <div className="live-broadcast-brand-mark">2LA</div>
         <div className="live-broadcast-phase-block">
@@ -192,59 +225,70 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
         </div>
       </header>
 
+      {visibleTimeline.length ? (
+        <aside className="live-broadcast-timeline" aria-label="Ход игры">
+          <div className="live-broadcast-timeline-title">Ход игры</div>
+          <div className="live-broadcast-timeline-list">
+            {visibleTimeline.map((entry, index) => {
+              const compact = index < visibleTimeline.length - 3;
+              if (entry.kind === 'day') {
+                return (
+                  <div key={`d${entry.round}-${index}`} className={`live-broadcast-tl is-day ${compact ? 'is-compact' : ''}`}>
+                    <div className="live-broadcast-tl-tag">День {entry.round}</div>
+                    <div className="live-broadcast-tl-row">
+                      <UserRoundX aria-hidden="true" />
+                      <span className="live-broadcast-tl-label">{entry.left.length ? (entry.note === 'table' ? 'Ушли' : 'Ушёл') : DAY_NOTES[entry.note]}</span>
+                      {entry.left.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+                    </div>
+                  </div>
+                );
+              }
+              const protocol = entry.killed && entry.shotSeat ? protocolBySeat.get(entry.shotSeat) : undefined;
+              const showBestMove = Boolean(bestMove && entry.killed && entry.shotSeat === bestMove.bySeat);
+              return (
+                <div key={`n${entry.round}-${index}`} className={`live-broadcast-tl is-night ${entry.current ? 'is-current' : ''} ${compact ? 'is-compact' : ''}`}>
+                  <div className="live-broadcast-tl-tag">Ночь {entry.round}{entry.current ? <i>сейчас</i> : null}</div>
+                  <div className="live-broadcast-tl-row">
+                    <Crosshair aria-hidden="true" />
+                    {entry.shotSeat ? (
+                      <>
+                        <span className="live-broadcast-tl-label">{entry.current ? 'Выстрел' : entry.killed ? 'Убит' : 'Промах'}</span>
+                        <SeatChip seat={entry.shotSeat} kinds={kinds} />
+                      </>
+                    ) : <span className="live-broadcast-tl-label">{entry.current ? 'Выстрел —' : 'Промах'}</span>}
+                  </div>
+                  {entry.donCheck ? (
+                    <div className="live-broadcast-tl-row is-don">
+                      <MafiaHatIcon className="live-broadcast-role-icon" />
+                      <span className="live-broadcast-tl-label">Дон</span>
+                      <SeatChip seat={entry.donCheck.seat} kinds={kinds} />
+                      {entry.donCheck.isSheriff !== null ? <em className={entry.donCheck.isSheriff ? 'is-hit' : ''}>{entry.donCheck.isSheriff ? 'шериф' : 'не шериф'}</em> : null}
+                    </div>
+                  ) : null}
+                  {entry.sheriffCheck ? (
+                    <div className="live-broadcast-tl-row is-sheriff">
+                      <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />
+                      <span className="live-broadcast-tl-label">Шериф</span>
+                      <SeatChip seat={entry.sheriffCheck.seat} kinds={kinds} />
+                      {entry.sheriffCheck.isBlack !== null ? <em className={entry.sheriffCheck.isBlack ? 'is-hit' : 'is-red'}>{entry.sheriffCheck.isBlack ? 'чёрный' : 'красный'}</em> : null}
+                    </div>
+                  ) : null}
+                  {showBestMove && bestMove ? (
+                    <div className="live-broadcast-tl-row is-best">
+                      <span className="live-broadcast-tl-label">ЛХ</span>
+                      {bestMove.seats.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
+                    </div>
+                  ) : null}
+                  {protocol ? <ProtocolLine protocol={protocol} kinds={kinds} /> : null}
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+      ) : null}
+
       {showInfoRow ? (
         <section className="live-broadcast-info-row">
-          {night ? (
-            <div className="live-broadcast-panel live-broadcast-night">
-              <div className="live-broadcast-panel-title"><Moon aria-hidden="true" />Ночь</div>
-              <div className="live-broadcast-night-item">
-                <Crosshair aria-hidden="true" />
-                <span>Выстрел</span>
-                <SeatChip seat={night.shotSeat} kinds={kinds} />
-              </div>
-              <div className="live-broadcast-night-item is-don">
-                <MafiaHatIcon className="live-broadcast-role-icon" />
-                <span>Дон</span>
-                <SeatChip seat={night.donCheck?.seat ?? null} kinds={kinds} />
-                {night.donCheck && night.donCheck.isSheriff !== null ? (
-                  <em className={night.donCheck.isSheriff ? 'is-hit' : ''}>{night.donCheck.isSheriff ? 'шериф' : 'не шериф'}</em>
-                ) : null}
-              </div>
-              <div className="live-broadcast-night-item is-sheriff">
-                <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />
-                <span>Шериф</span>
-                <SeatChip seat={night.sheriffCheck?.seat ?? null} kinds={kinds} />
-                {night.sheriffCheck && night.sheriffCheck.isBlack !== null ? (
-                  <em className={night.sheriffCheck.isBlack ? 'is-hit' : ''}>{night.sheriffCheck.isBlack ? 'чёрный' : 'красный'}</em>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {bestMove ? (
-            <div className="live-broadcast-panel live-broadcast-best-move">
-              <div className="live-broadcast-panel-title">Лучший ход{bestMove.bySeat ? <span>от №{bestMove.bySeat}</span> : null}</div>
-              <div className="live-broadcast-seat-list">
-                {bestMove.seats.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
-              </div>
-            </div>
-          ) : null}
-
-          {protocols.map((protocol) => (
-            <div key={protocol.seat} className="live-broadcast-panel live-broadcast-protocol">
-              <div className="live-broadcast-panel-title">Протокол<span>№{protocol.seat}</span></div>
-              {protocol.red.length ? (
-                <div className="live-broadcast-protocol-group is-red"><span className="live-broadcast-protocol-label">Красные</span>{protocol.red.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
-              ) : null}
-              {protocol.black.length ? (
-                <div className="live-broadcast-protocol-group is-black"><span className="live-broadcast-protocol-label">Чёрные</span>{protocol.black.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
-              ) : null}
-              {protocol.sheriff.length ? (
-                <div className="live-broadcast-protocol-group is-sheriff"><span className="live-broadcast-protocol-label">Шериф</span>{protocol.sheriff.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
-              ) : null}
-            </div>
-          ))}
-
           {state.nominations.length ? (
             <div className="live-broadcast-panel live-broadcast-nominations">
               <div className="live-broadcast-panel-title">Выставлены</div>
@@ -289,7 +333,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {
           const kind = roleKind(player.role);
-          const playerChecks = checks.filter((check) => check.seat === player.seat);
+          const playerChecks = checks.get(player.seat) || [];
           const hasDiscipline = player.fouls > 0 || player.minorTech > 0 || player.majorTech > 0;
           const order = nominationOrder.get(player.seat);
           const isVoteCandidate = voteCandidates.has(player.seat);

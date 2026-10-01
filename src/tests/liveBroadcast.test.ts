@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLiveBroadcastState, mergeBroadcastChecks } from '../lib/liveBroadcast';
+import { buildLiveBroadcastState, parseBroadcastTimeline } from '../lib/liveBroadcast';
 
 const activePlayers = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,
@@ -158,15 +158,27 @@ describe('live broadcast audience state', () => {
     expect(state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
   });
 
-  it('keeps one check per night and checker for the whole game', () => {
-    let checks = mergeBroadcastChecks([], 1, { shotSeat: null, donCheck: { seat: 3, isSheriff: null }, sheriffCheck: null });
-    checks = mergeBroadcastChecks(checks, 1, { shotSeat: 4, donCheck: { seat: 3, isSheriff: false }, sheriffCheck: { seat: 8, isBlack: true } });
-    checks = mergeBroadcastChecks(checks, 2, null);
-    checks = mergeBroadcastChecks(checks, 2, { shotSeat: null, donCheck: null, sheriffCheck: { seat: 1, isBlack: false } });
-    expect(checks).toEqual([
-      { round: 1, by: 'don', seat: 3, result: 'not_sheriff' },
-      { round: 1, by: 'sheriff', seat: 8, result: 'black' },
-      { round: 2, by: 'sheriff', seat: 1, result: 'red' },
+  it('builds «Ход игры» from the engine log and adds the current night live', () => {
+    const nightLogs = [
+      { round: 1, log: 'Д1: в нулевом круге выставлена только одна кандидатура #3; голосование не проводится, наступает ночь.' },
+      { round: 1, log: 'Н1: выстрел в #2 — убит. Дон: #3 — не Шериф. Шериф: #8 — ЧЁРНЫЙ!.' },
+      { round: 2, log: 'Д2: заголосован игрок #5; перед ночью — прощальная минута.' },
+      { round: 2, log: 'Н2: выстрел в #1 — промах. Дон: #6 — Шериф. Шериф: #4 — Красный.' },
+      { round: 3, log: 'Д3: 6/8 за уход; спорные #3, #7 заголосованы. Прощальные минуты: #3, #7.' },
+      { round: 4, log: 'Д4: 3/6 за уход; большинство не набрано, все остаются.' },
+    ];
+    expect(parseBroadcastTimeline(nightLogs)).toEqual([
+      { kind: 'day', round: 1, left: [], note: 'single' },
+      { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: false }, sheriffCheck: { seat: 8, isBlack: true } },
+      { kind: 'day', round: 2, left: [5], note: 'voted' },
+      { kind: 'night', round: 2, current: false, shotSeat: 1, killed: false, donCheck: { seat: 6, isSheriff: true }, sheriffCheck: { seat: 4, isBlack: false } },
+      { kind: 'day', round: 3, left: [3, 7], note: 'table' },
+      { kind: 'day', round: 4, left: [], note: 'stay' },
     ]);
+
+    const live = buildLiveBroadcastState({
+      ...snapshot(), phase: 'night', roundNumber: 2, nightLogs: nightLogs.slice(0, 2), shotPlayerSlot: 6,
+    }, metadata)!;
+    expect(live.timeline?.at(-1)).toMatchObject({ kind: 'night', current: true, shotSeat: 6 });
   });
 });

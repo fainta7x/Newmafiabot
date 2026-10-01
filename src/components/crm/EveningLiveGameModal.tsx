@@ -5,7 +5,7 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
-import { buildLiveBroadcastState, mergeBroadcastChecks, type LiveBroadcastCheck } from '../../lib/liveBroadcast';
+import { buildLiveBroadcastState } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
@@ -293,21 +293,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         if (!raw) return;
         const built = buildLiveBroadcastState(JSON.parse(raw), metadata);
         if (!built) return;
-        // The engine keeps only tonight's checks, so the stream remembers the whole game's history here.
-        const checksKey = `mafia_live_broadcast_checks:${game.id}`;
-        let storedChecks: LiveBroadcastCheck[] = [];
-        try {
-          const parsed = JSON.parse(localStorage.getItem(checksKey) || '[]');
-          if (Array.isArray(parsed)) storedChecks = parsed;
-        } catch { /* start a fresh history */ }
-        if (built.phaseKey === 'setup' || built.phaseKey === 'zero_night') storedChecks = [];
-        const checks = mergeBroadcastChecks(storedChecks, built.roundNumber, built.night);
-        try { localStorage.setItem(checksKey, JSON.stringify(checks)); } catch { /* storage full: still publish */ }
         const deadSeats = new Set(built.players.filter((player) => !player.alive).map((player) => player.seat));
         const protocols = Object.entries(readStoredDeathProtocols())
           .map(([seat, protocol]) => ({ seat: Number(seat), ...protocol }))
           .filter((protocol) => deadSeats.has(protocol.seat) && (protocol.red.length || protocol.black.length || protocol.sheriff.length));
-        const state = { ...built, checks, protocols };
+        const state = { ...built, protocols };
         const signature = JSON.stringify(state);
         const now = Date.now();
         if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;

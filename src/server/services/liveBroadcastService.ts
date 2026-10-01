@@ -170,38 +170,47 @@ export const normalizeLiveBroadcastState = (
   const seatList = (value: unknown, limit = 10): number[] => (Array.isArray(value)
     ? [...new Set(value.map(toSeat).filter((seat: number | null): seat is number => seat !== null))].slice(0, limit)
     : []);
+  const sanitizeDon = (value: any) => (toSeat(value?.seat)
+    ? { seat: toSeat(value.seat)!, isSheriff: typeof value.isSheriff === 'boolean' ? value.isSheriff : null }
+    : null);
+  const sanitizeSheriff = (value: any) => (toSeat(value?.seat)
+    ? { seat: toSeat(value.seat)!, isBlack: typeof value.isBlack === 'boolean' ? value.isBlack : null }
+    : null);
   const nightSource = source.night && typeof source.night === 'object' && !Array.isArray(source.night) ? source.night : null;
   const night: LiveBroadcastState['night'] = nightSource
     ? {
         shotSeat: toSeat(nightSource.shotSeat),
-        donCheck: toSeat(nightSource.donCheck?.seat)
-          ? { seat: toSeat(nightSource.donCheck.seat)!, isSheriff: typeof nightSource.donCheck.isSheriff === 'boolean' ? nightSource.donCheck.isSheriff : null }
-          : null,
-        sheriffCheck: toSeat(nightSource.sheriffCheck?.seat)
-          ? { seat: toSeat(nightSource.sheriffCheck.seat)!, isBlack: typeof nightSource.sheriffCheck.isBlack === 'boolean' ? nightSource.sheriffCheck.isBlack : null }
-          : null,
+        donCheck: sanitizeDon(nightSource.donCheck),
+        sheriffCheck: sanitizeSheriff(nightSource.sheriffCheck),
       }
     : null;
   const bestMoveSeats = seatList(source.bestMove?.seats, 3);
   const bestMove: LiveBroadcastState['bestMove'] = bestMoveSeats.length
     ? { bySeat: toSeat(source.bestMove?.bySeat), seats: bestMoveSeats }
     : null;
-  const allowedResults = new Set(['red', 'black', 'sheriff', 'not_sheriff']);
-  const checks: NonNullable<LiveBroadcastState['checks']> = Array.isArray(source.checks)
-    ? source.checks
-        .map((check: any) => {
-          const seat = toSeat(check?.seat);
-          const by = check?.by === 'don' ? 'don' : check?.by === 'sheriff' ? 'sheriff' : null;
-          if (!seat || !by) return null;
-          return {
-            round: Math.max(1, finiteInteger(check.round, 1)),
-            by,
-            seat,
-            result: allowedResults.has(String(check.result)) ? String(check.result) : null,
-          };
+  const dayNotes = new Set(['voted', 'table', 'stay', 'cancelled', 'single']);
+  const timeline: NonNullable<LiveBroadcastState['timeline']> = Array.isArray(source.timeline)
+    ? source.timeline
+        .map((entry: any) => {
+          const round = Math.max(0, finiteInteger(entry?.round, 0));
+          if (entry?.kind === 'night') {
+            return {
+              kind: 'night',
+              round,
+              current: entry.current === true,
+              shotSeat: toSeat(entry.shotSeat),
+              killed: entry.killed === true,
+              donCheck: sanitizeDon(entry.donCheck),
+              sheriffCheck: sanitizeSheriff(entry.sheriffCheck),
+            };
+          }
+          if (entry?.kind === 'day' && dayNotes.has(String(entry.note))) {
+            return { kind: 'day', round, left: seatList(entry.left), note: String(entry.note) };
+          }
+          return null;
         })
         .filter(Boolean)
-        .slice(0, 30) as NonNullable<LiveBroadcastState['checks']>
+        .slice(-40) as NonNullable<LiveBroadcastState['timeline']>
     : [];
   const protocols: NonNullable<LiveBroadcastState['protocols']> = Array.isArray(source.protocols)
     ? source.protocols
@@ -239,7 +248,7 @@ export const normalizeLiveBroadcastState = (
     vote,
     night,
     bestMove,
-    checks,
+    timeline,
     protocols,
     eveningScore: game.eveningScore || null,
     updatedAt: receivedAt.toISOString(),

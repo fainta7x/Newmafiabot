@@ -165,7 +165,7 @@ describe('live broadcast routes', () => {
     expect(invalidToken.status).toBe(404);
   });
 
-  it('adds the evening score and keeps only well-formed night facts, checks and protocols', async () => {
+  it('adds the evening score and keeps only well-formed night facts, game log and protocols', async () => {
     await db.run('UPDATE games SET protocol_text = ? WHERE global_game_number = 237', [
       JSON.stringify({ version: 1, kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: 'black' }, player_results: canonicalPlayers }),
     ]);
@@ -180,10 +180,11 @@ describe('live broadcast routes', () => {
           eveningScore: { red: 99, black: 99 },
           night: { shotSeat: 4, donCheck: { seat: 7, isSheriff: 'yes' }, sheriffCheck: { seat: 42, isBlack: true } },
           bestMove: { bySeat: 2, seats: [8, 9, 10, 1] },
-          checks: [
-            { round: 1, by: 'sheriff', seat: 8, result: 'black' },
-            { round: 1, by: 'judge', seat: 3, result: 'red' },
-            { round: 2, by: 'don', seat: 3, result: '<b>' },
+          timeline: [
+            { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: 'no' }, sheriffCheck: { seat: 8, isBlack: true } },
+            { kind: 'day', round: 2, left: [5, 42], note: 'voted' },
+            { kind: 'day', round: 3, left: [], note: '<script>' },
+            { kind: 'speech', round: 3 },
           ],
           protocols: [
             { seat: 2, red: [1, 4, 4], black: [8, 1, 11], sheriff: [7, 6] },
@@ -197,9 +198,9 @@ describe('live broadcast routes', () => {
     expect(body.state.eveningScore).toEqual({ red: 0, black: 1 });
     expect(body.state.night).toEqual({ shotSeat: 4, donCheck: { seat: 7, isSheriff: null }, sheriffCheck: null });
     expect(body.state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
-    expect(body.state.checks).toEqual([
-      { round: 1, by: 'sheriff', seat: 8, result: 'black' },
-      { round: 2, by: 'don', seat: 3, result: null },
+    expect(body.state.timeline).toEqual([
+      { kind: 'night', round: 1, current: false, shotSeat: 2, killed: true, donCheck: { seat: 3, isSheriff: null }, sheriffCheck: { seat: 8, isBlack: true } },
+      { kind: 'day', round: 2, left: [5], note: 'voted' },
     ]);
     expect(body.state.protocols).toEqual([{ seat: 2, red: [1, 4], black: [8], sheriff: [7] }]);
   });

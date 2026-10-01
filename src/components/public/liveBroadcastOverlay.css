@@ -601,51 +601,146 @@ body.live-broadcast-document #root {
   .live-broadcast-timer-bar span { transition: none; }
 }
 
-/* ---------- Night, best move, protocols ---------- */
+/* ---------- «Ход игры» (owner, 2026-10-01): what happened stays on screen ---------- */
 .live-broadcast-info-row { flex-wrap: wrap; }
+.live-broadcast-canvas.has-timeline .live-broadcast-info-row { margin-left: calc(392 * var(--u)); max-width: calc(980 * var(--u)); }
 
-.live-broadcast-panel-title svg {
-  width: calc(14 * var(--u));
-  height: calc(14 * var(--u));
-}
-
-.live-broadcast-panel-title span {
-  font-family: "Space Grotesk", Inter, sans-serif;
-  font-size: calc(15 * var(--u));
-  letter-spacing: 0;
-  color: #fff;
-}
-
-.live-broadcast-night .live-broadcast-panel-title { display: flex; align-items: center; gap: calc(6 * var(--u)); color: #c4b5fd; }
-
-.live-broadcast-night-item,
-.live-broadcast-protocol-group {
+.live-broadcast-timeline {
+  position: absolute;
+  left: calc(20 * var(--u));
+  top: calc(110 * var(--u));
+  bottom: calc(170 * var(--u));
+  width: calc(372 * var(--u));
   display: flex;
-  align-items: center;
-  gap: calc(6 * var(--u));
-  font-size: calc(13 * var(--u));
-  font-weight: 700;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.live-broadcast-timeline-title {
+  align-self: flex-start;
+  margin-bottom: calc(6 * var(--u));
+  padding: calc(4 * var(--u)) calc(10 * var(--u));
+  border-radius: 99px;
+  background: var(--glass-strong);
+  border: 1px solid var(--line);
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: .14em;
   color: var(--muted);
 }
 
-.live-broadcast-night-item > svg { width: calc(16 * var(--u)); height: calc(16 * var(--u)); color: #ff8a9b; }
-.live-broadcast-night-item.is-don > svg { color: #c4b5fd; }
-.live-broadcast-night-item.is-sheriff > svg { color: var(--role-sheriff); }
+.live-broadcast-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--u));
+  min-height: 0;
+}
 
-.live-broadcast-night-item em {
-  padding: calc(3 * var(--u)) calc(8 * var(--u));
+.live-broadcast-tl {
+  display: grid;
+  gap: calc(5 * var(--u));
+  padding: calc(8 * var(--u)) calc(12 * var(--u)) calc(9 * var(--u));
+  border-radius: calc(12 * var(--u));
+  border: 1px solid var(--line);
+  border-left: calc(4 * var(--u)) solid #9d87ff;
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+}
+
+.live-broadcast-tl.is-day { border-left-color: var(--gold); }
+.live-broadcast-tl.is-current { box-shadow: 0 0 0 1px rgba(157, 135, 255, .55), 0 0 calc(22 * var(--u)) rgba(157, 135, 255, .35); }
+
+.live-broadcast-tl-tag {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: #c4b5fd;
+}
+
+.live-broadcast-tl.is-day .live-broadcast-tl-tag { color: var(--gold); }
+
+.live-broadcast-tl-tag i {
+  padding: calc(1 * var(--u)) calc(7 * var(--u));
   border-radius: 99px;
-  background: rgba(255, 255, 255, .1);
+  background: #9d87ff;
+  color: #120c26;
+  font-style: normal;
+  letter-spacing: .06em;
+}
+
+.live-broadcast-tl-row {
+  display: flex;
+  align-items: center;
+  gap: calc(7 * var(--u));
+  font-size: calc(15 * var(--u));
+  font-weight: 600;
+  color: rgba(255, 255, 255, .85);
+}
+
+.live-broadcast-tl-row > svg { flex: none; width: calc(16 * var(--u)); height: calc(16 * var(--u)); color: #ff8a9b; }
+.live-broadcast-tl-row.is-don > svg { color: #c4b5fd; }
+.live-broadcast-tl-row.is-sheriff > svg { color: var(--role-sheriff); }
+.live-broadcast-tl.is-day .live-broadcast-tl-row > svg { color: var(--gold); }
+.live-broadcast-tl-label { min-width: calc(58 * var(--u)); }
+.live-broadcast-tl-row.is-best .live-broadcast-tl-label { color: var(--gold); font-weight: 800; }
+
+.live-broadcast-tl-row em {
+  padding: calc(2 * var(--u)) calc(8 * var(--u));
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .12);
   font-style: normal;
   font-size: calc(12 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
   color: #fff;
 }
 
-.live-broadcast-night-item.is-don em.is-hit { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-night-item.is-sheriff em.is-hit { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .3); }
-.live-broadcast-night-item.is-sheriff em:not(.is-hit) { background: var(--role-citizen); }
+.live-broadcast-tl-row.is-don em.is-hit { background: var(--role-sheriff); color: #1b1407; }
+.live-broadcast-tl-row.is-sheriff em.is-hit { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .3); }
+.live-broadcast-tl-row.is-sheriff em.is-red { background: var(--role-citizen); }
+
+.live-broadcast-tl-protocol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(4 * var(--u)) calc(10 * var(--u));
+  padding-top: calc(5 * var(--u));
+  border-top: 1px dashed var(--line);
+}
+
+.live-broadcast-tl-protocol::before {
+  content: "Протокол";
+  align-self: center;
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+.live-broadcast-tl-protocol > span {
+  display: flex;
+  align-items: center;
+  gap: calc(3 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+}
+
+.live-broadcast-tl-protocol > .is-red { color: #ff8a9b; }
+.live-broadcast-tl-protocol > .is-black { color: #fff; }
+.live-broadcast-tl-protocol > .is-sheriff { color: var(--role-sheriff); }
+.live-broadcast-tl-protocol .live-broadcast-seat-chip { min-width: calc(22 * var(--u)); height: calc(22 * var(--u)); font-size: calc(13 * var(--u)); }
+
+/* Older entries shrink to their first line so the newest three always fit. */
+.live-broadcast-tl.is-compact { padding: calc(5 * var(--u)) calc(12 * var(--u)); grid-template-columns: auto 1fr; align-items: center; column-gap: calc(10 * var(--u)); }
+.live-broadcast-tl.is-compact > :nth-child(n+3) { display: none; }
+.live-broadcast-tl.is-compact .live-broadcast-tl-row { font-size: calc(13 * var(--u)); }
 
 .live-broadcast-seat-list { display: flex; gap: calc(5 * var(--u)); }
 

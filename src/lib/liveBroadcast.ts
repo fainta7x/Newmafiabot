@@ -50,14 +50,28 @@ export type LiveBroadcastBestMove = {
   seats: number[];
 };
 
-/** One night check, remembered by the judge's device for the whole game. */
-export type LiveBroadcastCheck = {
-  round: number;
-  by: 'sheriff' | 'don';
-  seat: number;
-  /** sheriff: 'red' | 'black'; don: 'sheriff' | 'not_sheriff'; null until the judge records it. */
-  result: 'red' | 'black' | 'sheriff' | 'not_sheriff' | null;
-};
+/**
+ * «Ход игры»: one entry per night and per day that changed the table, built from the
+ * engine's own game log so it survives a phone reload (owner, 2026-10-01: what happened
+ * stays on screen until the end of the game).
+ */
+export type LiveBroadcastTimelineEntry =
+  | {
+      kind: 'night';
+      round: number;
+      /** The night that is still going on: facts are shown as the judge records them. */
+      current: boolean;
+      shotSeat: number | null;
+      killed: boolean;
+      donCheck: LiveBroadcastNight['donCheck'];
+      sheriffCheck: LiveBroadcastNight['sheriffCheck'];
+    }
+  | {
+      kind: 'day';
+      round: number;
+      left: number[];
+      note: 'voted' | 'table' | 'stay' | 'cancelled' | 'single';
+    };
 
 /** A killed player's «протокол»: whom they named red, black and sheriff. */
 export type LiveBroadcastProtocol = {
@@ -87,7 +101,7 @@ export type LiveBroadcastState = {
   vote: LiveBroadcastVote | null;
   night?: LiveBroadcastNight | null;
   bestMove?: LiveBroadcastBestMove | null;
-  checks?: LiveBroadcastCheck[];
+  timeline?: LiveBroadcastTimelineEntry[];
   protocols?: LiveBroadcastProtocol[];
   /** Red and black wins in the evening's finished games; the server fills it in. */
   eveningScore?: { red: number; black: number } | null;
@@ -162,22 +176,43 @@ const recordSeats = (value: unknown, allowedTargets?: Set<number>): Record<numbe
  * (owner, 2026-10-01). History, notes and pending interactions never leave the
  * phone through this path, and vote choices stay hidden until the judge fixes them.
  */
-/** Adds this night's checks to the game's list (one per round and checker), keeping the newest result. */
-export const mergeBroadcastChecks = (
-  previous: LiveBroadcastCheck[],
-  roundNumber: number,
-  night: LiveBroadcastNight | null | undefined,
-): LiveBroadcastCheck[] => {
-  const next = previous.filter((check) => check.round !== roundNumber || (
-    (check.by === 'sheriff' && !night?.sheriffCheck) || (check.by === 'don' && !night?.donCheck)
-  ));
-  if (night?.sheriffCheck) {
-    next.push({ round: roundNumber, by: 'sheriff', seat: night.sheriffCheck.seat, result: night.sheriffCheck.isBlack === null ? null : night.sheriffCheck.isBlack ? 'black' : 'red' });
+const seatsIn = (text: string): number[] => [...text.matchAll(/#(\d+)/g)]
+  .map((match) => Number(match[1]))
+  .filter((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10);
+
+/** Reads the engine's game log lines («Н2: выстрел в #4 — убит. Дон: #7 — Шериф. …»). */
+export const parseBroadcastTimeline = (rawLogs: unknown): LiveBroadcastTimelineEntry[] => {
+  const entries: LiveBroadcastTimelineEntry[] = [];
+  for (const raw of Array.isArray(rawLogs) ? rawLogs : []) {
+    const text = String((raw as any)?.log || '');
+    const night = /^Н(\d+):/.exec(text);
+    if (night) {
+      const shot = /выстрел в #(\d+) — (убит|промах)/.exec(text);
+      const don = /Дон: #(\d+) — (не )?Шериф/.exec(text);
+      const sheriff = /Шериф: #(\d+) — ([^.]*)/.exec(text);
+      entries.push({
+        kind: 'night',
+        round: Number(night[1]),
+        current: false,
+        shotSeat: shot ? Number(shot[1]) : null,
+        killed: shot?.[2] === 'убит',
+        donCheck: don ? { seat: Number(don[1]), isSheriff: !don[2] } : null,
+        sheriffCheck: sheriff
+          ? { seat: Number(sheriff[1]), isBlack: /ч[её]рн/i.test(sheriff[2]) ? true : /красн/i.test(sheriff[2]) ? false : null }
+          : null,
+      });
+      continue;
+    }
+    const day = /^Д(\d+):/.exec(text);
+    if (!day) continue;
+    const round = Number(day[1]);
+    if (/отменено/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'cancelled' });
+    else if (/одна кандидатура/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'single' });
+    else if (/заголосован игрок/.test(text)) entries.push({ kind: 'day', round, left: seatsIn(text.split(';')[0]), note: 'voted' });
+    else if (/спорные/.test(text)) entries.push({ kind: 'day', round, left: seatsIn(text.split('заголосованы')[0]), note: 'table' });
+    else if (/все остаются|никто не покидает/.test(text)) entries.push({ kind: 'day', round, left: [], note: 'stay' });
   }
-  if (night?.donCheck) {
-    next.push({ round: roundNumber, by: 'don', seat: night.donCheck.seat, result: night.donCheck.isSheriff === null ? null : night.donCheck.isSheriff ? 'sheriff' : 'not_sheriff' });
-  }
-  return next.sort((left, right) => left.round - right.round || left.by.localeCompare(right.by));
+  return entries;
 };
 
 export const buildLiveBroadcastState = (
@@ -306,6 +341,9 @@ export const buildLiveBroadcastState = (
     vote,
     night,
     bestMove,
+    timeline: night
+      ? [...parseBroadcastTimeline(snapshot.nightLogs), { kind: 'night', round: view.roundNumber, current: true, shotSeat: night.shotSeat, killed: false, donCheck: night.donCheck, sheriffCheck: night.sheriffCheck }]
+      : parseBroadcastTimeline(snapshot.nightLogs),
     // The server replaces this with its receive time. Keeping the field in the
     // client contract makes the public response shape stable and easy to test.
     updatedAt: '',

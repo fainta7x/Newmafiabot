@@ -380,6 +380,14 @@ export const buildLiveBroadcastState = (
       }
     : null;
 
+  // A resolved night is already in the log while the farewell and the death protocol still run
+  // under phase «night»; it is not shown a second time as the current night.
+  const loggedTimeline = parseBroadcastTimeline(snapshot.nightLogs);
+  const tonightLogged = loggedTimeline.some((entry) => entry.kind === 'night' && entry.round === view.roundNumber);
+  const timeline: LiveBroadcastTimelineEntry[] = night && !tonightLogged
+    ? [...loggedTimeline, { kind: 'night', round: view.roundNumber, current: true, shotSeat: night.shotSeat, killed: false, donCheck: night.donCheck, sheriffCheck: night.sheriffCheck }]
+    : loggedTimeline;
+
   const timerSeconds = toNonNegativeInteger(snapshot.timeLeft);
   const timerMaxSeconds = toNonNegativeInteger(snapshot.timerMax);
 
@@ -403,9 +411,7 @@ export const buildLiveBroadcastState = (
     vote,
     night,
     bestMove,
-    timeline: night
-      ? [...parseBroadcastTimeline(snapshot.nightLogs), { kind: 'night', round: view.roundNumber, current: true, shotSeat: night.shotSeat, killed: false, donCheck: night.donCheck, sheriffCheck: night.sheriffCheck }]
-      : parseBroadcastTimeline(snapshot.nightLogs),
+    timeline,
     // The server replaces this with its receive time. Keeping the field in the
     // client contract makes the public response shape stable and easy to test.
     updatedAt: '',

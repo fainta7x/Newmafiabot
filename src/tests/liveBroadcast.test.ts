@@ -180,6 +180,13 @@ describe('live broadcast audience state', () => {
       ...snapshot(), phase: 'night', roundNumber: 2, nightLogs: nightLogs.slice(0, 2), shotPlayerSlot: 6,
     }, metadata)!;
     expect(live.timeline?.at(-1)).toMatchObject({ kind: 'night', current: true, shotSeat: 6 });
+
+    // After the night is resolved the farewell still runs under phase «night»: no duplicate row.
+    const resolved = buildLiveBroadcastState({
+      ...snapshot(), phase: 'night', roundNumber: 1, nightLogs: nightLogs.slice(0, 2), shotPlayerSlot: 2,
+    }, metadata)!;
+    expect(resolved.timeline?.filter((entry) => entry.kind === 'night' && entry.round === 1)).toHaveLength(1);
+    expect(resolved.timeline?.some((entry) => entry.kind === 'night' && entry.current)).toBe(false);
   });
 
   it('remembers each day\'s last fixed vote so the stream shows by whose hands a player left', () => {

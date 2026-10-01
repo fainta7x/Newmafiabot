@@ -190,7 +190,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   for (const entry of timeline) {
     if (entry.kind === 'night' && entry.killed && entry.shotSeat) exitBySeat.set(entry.shotSeat, { label: `Убит · ночь ${entry.round}`, hands: [] });
     if (entry.kind === 'day') {
-      for (const seat of entry.left) exitBySeat.set(seat, { label: `${entry.note === 'table' ? 'Решение стола' : 'Ушёл'} · день ${entry.round}`, hands: handsFor(entry.round, seat) });
+      // Only a ballot vote names the hands; a table decision has no per-seat ballots to show.
+      for (const seat of entry.left) exitBySeat.set(seat, { label: `${entry.note === 'table' ? 'Решение стола' : 'Ушёл'} · день ${entry.round}`, hands: entry.note === 'voted' ? handsFor(entry.round, seat) : [] });
     }
   }
   const score = state.eveningScore || { red: 0, black: 0 };
@@ -308,7 +309,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
               </div>
               <div className="live-broadcast-timeline-list">
                 {days.map((entry) => {
-                  const hands = entry.left.length === 1 ? handsFor(entry.round, entry.left[0]) : [];
+                  const hands = entry.note === 'voted' && entry.left.length === 1 ? handsFor(entry.round, entry.left[0]) : [];
                   return (
                     <div key={`d${entry.round}`} className="live-broadcast-tl is-day">
                       <div className="live-broadcast-tl-tag">День {entry.round}</div>

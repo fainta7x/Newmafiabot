@@ -1,6 +1,13 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
-import type { LiveBroadcastEnvelope, LiveBroadcastState } from '../../lib/liveBroadcast.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
+import {
+  DEFAULT_LIVE_BROADCAST_LAYOUT,
+  normalizeLiveBroadcastLayout,
+  type LiveBroadcastEnvelope,
+  type LiveBroadcastLayout,
+  type LiveBroadcastState,
+} from '../../lib/liveBroadcast.ts';
 
 export type CanonicalBroadcastGame = {
   gameId: number;
@@ -276,6 +283,34 @@ export const readLiveBroadcastEnvelope = (now = Date.now()): LiveBroadcastEnvelo
   state: currentBroadcast?.state || null,
 });
 
+// The layout lives in memory for instant updates and in the database to survive a restart.
+let currentLayout: LiveBroadcastLayout | null = null;
+const LAYOUT_ID = 'main';
+
+export async function readLiveBroadcastLayout(db: DatabaseWrapper): Promise<LiveBroadcastLayout> {
+  if (currentLayout) return currentLayout;
+  try {
+    const row = await db.get<{ layout_json: string }>('SELECT layout_json FROM broadcast_overlay_layout WHERE id = ? LIMIT 1', [LAYOUT_ID]);
+    currentLayout = row ? normalizeLiveBroadcastLayout(JSON.parse(row.layout_json)) : { ...DEFAULT_LIVE_BROADCAST_LAYOUT };
+  } catch {
+    currentLayout = { ...DEFAULT_LIVE_BROADCAST_LAYOUT };
+  }
+  return currentLayout;
+}
+
+export async function saveLiveBroadcastLayout(db: DatabaseWrapper, input: unknown): Promise<LiveBroadcastLayout> {
+  const layout = normalizeLiveBroadcastLayout(input);
+  currentLayout = layout;
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO broadcast_overlay_layout (id, layout_json, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET layout_json = excluded.layout_json, updated_at = excluded.updated_at`,
+    [LAYOUT_ID, JSON.stringify(layout), now],
+  );
+  return layout;
+}
+
 export const resetLiveBroadcastForTests = (): void => {
   currentBroadcast = null;
+  currentLayout = null;
 };

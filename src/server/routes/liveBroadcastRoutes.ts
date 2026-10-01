@@ -9,6 +9,8 @@ import {
   normalizeLiveBroadcastState,
   publishLiveBroadcastState,
   readLiveBroadcastEnvelope,
+  readLiveBroadcastLayout,
+  saveLiveBroadcastLayout,
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
 import { loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
@@ -89,6 +91,21 @@ const publicOrigin = (req: Request): string => {
   return `${req.protocol}://${req.get('host')}`;
 };
 
+// Overlay sizes and visibility, changed live from «OBS и трансляция» (owner, 2026-10-01).
+gameRouter.get('/broadcast-overlay-layout', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  const db = req.db || (await getDb());
+  return res.json({ layout: await readLiveBroadcastLayout(db) });
+});
+
+gameRouter.put('/broadcast-overlay-layout', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const db = req.db || (await getDb());
+    return res.json({ layout: await saveLiveBroadcastLayout(db, req.body?.layout) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить размеры графики' });
+  }
+});
+
 gameRouter.get('/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId);
@@ -127,12 +144,13 @@ gameRouter.put('/:gameId/broadcast-state', requireOrganizerAuth, async (req: Aut
   }
 });
 
-publicRouter.get('/broadcast/:token', (req, res) => {
+publicRouter.get('/broadcast/:token', async (req: AuthenticatedRequest, res) => {
   if (!isValidLiveBroadcastToken(String(req.params.token || ''))) {
     return res.status(404).json({ error: 'Трансляция не найдена' });
   }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  return res.json(readLiveBroadcastEnvelope());
+  const db = req.db || (await getDb());
+  return res.json({ ...readLiveBroadcastEnvelope(), layout: await readLiveBroadcastLayout(db) });
 });
 
 // «Заставка» / «Итоги» scenes: the next game's seating and the tournament table, by the same secret link.

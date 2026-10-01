@@ -115,10 +115,50 @@ export type LiveBroadcastState = {
   updatedAt: string;
 };
 
+/** Overlay block sizes in percent and visibility, adjusted live from «OBS и трансляция». */
+export type LiveBroadcastLayout = {
+  top: number;
+  timeline: number;
+  players: number;
+  showTop: boolean;
+  showTimeline: boolean;
+  showPlayers: boolean;
+};
+
+export const LIVE_BROADCAST_LAYOUT_LIMITS = { min: 60, max: 140 } as const;
+
+export const DEFAULT_LIVE_BROADCAST_LAYOUT: LiveBroadcastLayout = {
+  top: 100,
+  timeline: 100,
+  players: 100,
+  showTop: true,
+  showTimeline: true,
+  showPlayers: true,
+};
+
+export const normalizeLiveBroadcastLayout = (input: unknown): LiveBroadcastLayout => {
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {};
+  const percent = (value: unknown, fallback: number) => {
+    const number = Math.round(Number(value));
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(LIVE_BROADCAST_LAYOUT_LIMITS.max, Math.max(LIVE_BROADCAST_LAYOUT_LIMITS.min, number));
+  };
+  const flag = (value: unknown) => value !== false;
+  return {
+    top: percent(source.top, DEFAULT_LIVE_BROADCAST_LAYOUT.top),
+    timeline: percent(source.timeline, DEFAULT_LIVE_BROADCAST_LAYOUT.timeline),
+    players: percent(source.players, DEFAULT_LIVE_BROADCAST_LAYOUT.players),
+    showTop: flag(source.showTop),
+    showTimeline: flag(source.showTimeline),
+    showPlayers: flag(source.showPlayers),
+  };
+};
+
 export type LiveBroadcastEnvelope = {
   connected: boolean;
   receivedAt: string | null;
   state: LiveBroadcastState | null;
+  layout?: LiveBroadcastLayout;
 };
 
 export type LiveBroadcastGameMetadata = {

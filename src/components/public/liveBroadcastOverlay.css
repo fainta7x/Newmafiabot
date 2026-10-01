@@ -18,7 +18,13 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-canvas {
-  --u: calc(100vw / 1920);
+  /* --u0 is 1/1920 of the width; each block scales its own --u by the judge's layout (owner, 2026-10-01). */
+  --u0: calc(100vw / 1920);
+  --u: var(--u0);
+  --u-top: calc(var(--u0) * var(--s-top, 1));
+  --u-players: calc(var(--u0) * var(--s-players, 1));
+  --top-space: calc(18 * var(--u0) + 80 * var(--u-top) + 12 * var(--u0));
+  --bottom-space: calc(18 * var(--u0) + 262 * var(--u-players) + 22 * var(--u0));
   --accent: #e8b65a;
   --glass: rgba(9, 10, 13, .80);
   --glass-strong: rgba(9, 10, 13, .90);
@@ -67,6 +73,7 @@ body.live-broadcast-document #root {
 
 /* ---------- Top bar ---------- */
 .live-broadcast-header {
+  --u: var(--u-top);
   position: relative;
   display: grid;
   grid-template-columns: auto calc(270 * var(--u)) 1fr auto calc(220 * var(--u));
@@ -339,10 +346,12 @@ body.live-broadcast-document #root {
 
 /* ---------- Player strip ---------- */
 .live-broadcast-players {
+  --u: var(--u-players);
   position: absolute;
-  left: calc(20 * var(--u));
-  right: calc(20 * var(--u));
-  bottom: calc(18 * var(--u));
+  left: 50%;
+  width: min(calc(1880 * var(--u0)), calc(1880 * var(--u-players)));
+  transform: translateX(-50%);
+  bottom: calc(18 * var(--u0));
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: calc(8 * var(--u));
@@ -646,11 +655,12 @@ body.live-broadcast-document #root {
 /* ---------- «Ход игры» (owner, 2026-10-01): one aligned row per night and day ---------- */
 
 .live-broadcast-timeline {
+  --u: calc(var(--u0) * var(--s-timeline, 1));
   --tl-cols: calc(92 * var(--u)) repeat(3, calc(96 * var(--u)));
   position: absolute;
-  left: calc(20 * var(--u));
-  top: calc(110 * var(--u));
-  bottom: calc(300 * var(--u));
+  left: calc(20 * var(--u0));
+  top: var(--top-space);
+  bottom: var(--bottom-space);
   width: calc(404 * var(--u));
   display: flex;
   flex-direction: column;
@@ -898,3 +908,11 @@ body.live-broadcast-document #root {
 
 .live-broadcast-discipline span { font-size: calc(10.5 * var(--u)); letter-spacing: .02em; }
 .live-broadcast-discipline span.is-major { background: rgba(255, 77, 106, .2); color: #ff8da0; }
+
+/* Blocks the judge switched off; the others take the free space. */
+.live-broadcast-canvas.hide-top .live-broadcast-header,
+.live-broadcast-canvas.hide-timeline .live-broadcast-timeline,
+.live-broadcast-canvas.hide-players .live-broadcast-players { display: none; }
+.live-broadcast-canvas.hide-top { --top-space: calc(18 * var(--u0)); }
+.live-broadcast-canvas.hide-players { --bottom-space: calc(18 * var(--u0)); }
+.live-broadcast-player-text .live-broadcast-role { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

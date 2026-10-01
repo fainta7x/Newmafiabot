@@ -207,6 +207,27 @@ describe('live broadcast routes', () => {
     expect(body.state.protocols).toEqual([{ seat: 2, red: [1, 4], black: [8], sheriff: [7] }]);
   });
 
+  it('saves the overlay layout for the host and serves it with the public frame', async () => {
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+
+    await request(app).put('/api/games/broadcast-overlay-layout').send({ layout: { players: 80 } }).expect(401);
+    const saved = await request(app)
+      .put('/api/games/broadcast-overlay-layout')
+      .set('Cookie', cookie)
+      .send({ layout: { top: 300, timeline: 'x', players: 82, showTimeline: false } })
+      .expect(200);
+    expect(saved.body.layout).toEqual({ top: 140, timeline: 100, players: 82, showTop: true, showTimeline: false, showPlayers: true });
+
+    const frame = await request(app).get(`/api/public/broadcast/${token}`).expect(200);
+    expect(frame.body.layout).toEqual(saved.body.layout);
+
+    // Survives a restart: the in-memory copy is dropped and the database copy is read back.
+    resetLiveBroadcastForTests();
+    const reloaded = await request(app).get('/api/games/broadcast-overlay-layout').set('Cookie', cookie).expect(200);
+    expect(reloaded.body.layout).toEqual(saved.body.layout);
+  });
+
   it('allows the assigned qualified judge to configure and publish only their active game', async () => {
     await db.run("UPDATE players SET judge_level = 'host' WHERE id = 'player-1'");
     await db.run("UPDATE games SET judge_player_id = 'player-1' WHERE id = ?", [gameId]);

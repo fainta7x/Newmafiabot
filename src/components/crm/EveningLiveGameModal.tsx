@@ -11,6 +11,7 @@ import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '.
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
+import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -494,6 +495,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                   })}
                   <p className="text-[11px] leading-4 text-white/35">Добавьте в OBS как «Источник браузера» 1920 × 1080 в сцены «Заставка» и «Итоги».</p>
                 </div>
+                <BroadcastLayoutControls />
               </>
             )}
 

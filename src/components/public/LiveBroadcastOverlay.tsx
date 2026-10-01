@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
-import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState, LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
+import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
@@ -130,6 +130,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   }, [token]);
 
   const state = envelope.state;
+  const layout = envelope.layout || DEFAULT_LIVE_BROADCAST_LAYOUT;
   const nominationOrder = useMemo(() => new Map(
     (state?.nominations || []).map((nomination) => [nomination.seat, nomination.order]),
   ), [state?.nominations]);
@@ -195,7 +196,10 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const score = state.eveningScore || { red: 0, black: 0 };
 
   return (
-    <main className={`live-broadcast-canvas phase-${state.phaseKey} ${visibleTimeline.length ? 'has-timeline' : ''}`}>
+    <main
+      className={`live-broadcast-canvas phase-${state.phaseKey} ${visibleTimeline.length ? 'has-timeline' : ''} ${layout.showTop ? '' : 'hide-top'} ${layout.showTimeline ? '' : 'hide-timeline'} ${layout.showPlayers ? '' : 'hide-players'}`}
+      style={{ '--s-top': layout.top / 100, '--s-timeline': layout.timeline / 100, '--s-players': layout.players / 100 } as React.CSSProperties}
+    >
       <header className="live-broadcast-header">
         <div className="live-broadcast-brand-mark">2LA</div>
         <div className="live-broadcast-phase-block">

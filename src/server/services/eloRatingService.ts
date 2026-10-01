@@ -40,7 +40,11 @@ const numeric = (value: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam): CanonicalEloPlayerDelta[] {
+/** How much one game moves Elo: the team result weight and the personal points weight. */
+export interface EloWeights { result: number; personal: number }
+export const ELO_WEIGHTS: EloWeights = { result: 10, personal: 8 };
+
+export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], winnerTeam: EloTeam, weights: EloWeights = ELO_WEIGHTS): CanonicalEloPlayerDelta[] {
   const redPlayers = players.filter((player) => player.team === 'red');
   const blackPlayers = players.filter((player) => player.team === 'black');
   if (!redPlayers.length || !blackPlayers.length) throw new Error('Canonical Elo requires both red and black teams.');
@@ -60,9 +64,9 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
     else carryModifier = n > 0 ? 1 - 0.40 * n : 1 + 0.20 * Math.abs(n);
     const expectedTeamResult = player.team === 'red' ? pRed : pBlack;
     const actualResult = won ? 1 : 0;
-    const resultDelta = 10 * (actualResult - expectedTeamResult);
+    const resultDelta = weights.result * (actualResult - expectedTeamResult);
     const modifiedResultDelta = resultDelta * carryModifier;
-    const personalDelta = player.canonicalPersonalGamePoints * 8;
+    const personalDelta = player.canonicalPersonalGamePoints * weights.personal;
     return { playerId: player.playerId, expectedTeamResult, resultDelta, carryModifier, modifiedResultDelta, personalDelta, totalDelta: modifiedResultDelta + personalDelta };
   });
 }
@@ -132,7 +136,7 @@ const validatePreparedEvent = (event: PreparedEloEvent) => {
 
 export interface EloRebuildRow { player_id: string; nickname: string; elo: number; games: number; }
 
-export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
+export async function rebuildCanonicalEloRatings(db: DatabaseWrapper, options: { weightsFor?: (gamesPlayed: number) => EloWeights; dryRun?: boolean } = {}): Promise<EloRebuildRow[]> {
   const { getFlexibleTournamentStandings: internalGetStandings } = await import('./flexibleTournamentStandingsService.ts');
   const players = await db.all<any>(
     `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
@@ -240,7 +244,11 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     const deltas = calculateCanonicalEloGame(gamePlayers, event.winnerTeam);
     for (const delta of deltas) {
       const fallbackSeed = seedByPlayer.get(delta.playerId) ?? DEFAULT_ELO;
-      ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? fallbackSeed) + delta.totalDelta);
+      const weights = options.weightsFor?.(gameCounts.get(delta.playerId) || 0);
+      const total = weights
+        ? delta.modifiedResultDelta * (weights.result / ELO_WEIGHTS.result) + delta.personalDelta * (weights.personal / ELO_WEIGHTS.personal)
+        : delta.totalDelta;
+      ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? fallbackSeed) + total);
       gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
     }
   }
@@ -252,7 +260,8 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       await tx.run('UPDATE players SET elo = ? WHERE id = ?', [Math.round(rating), playerId]);
     }
   };
-  if ((db.sqlite as any)?.inTransaction) await persistRatings(db);
+  if (options.dryRun) { /* simulation only */ }
+  else if ((db.sqlite as any)?.inTransaction) await persistRatings(db);
   else await db.transaction(persistRatings);
   return players
     .filter((player) => (gameCounts.get(String(player.id)) || 0) > 0)

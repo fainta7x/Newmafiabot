@@ -377,7 +377,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req,res)=>{
     }
     const playerId=data.player_id;
     if(!playerId)return res.status(400).json({error:'Укажите зарегистрированного игрока или имя гостя'});
-    if(!await db.get<any>("SELECT id FROM players WHERE id=? AND COALESCE(source,'') NOT IN ('quick_guest','legacy_guest_migrated') AND COALESCE(lifecycle_status,'normal')!='archived'",[playerId]))return res.status(400).json({error:'Зарегистрированный игрок не найден'});
+    if(!await db.get<any>("SELECT id FROM players WHERE id=? AND COALESCE(source,'') NOT IN ('quick_guest','legacy_guest_migrated') AND COALESCE(lifecycle_status,'normal') NOT IN ('archived','merged')",[playerId]))return res.status(400).json({error:'Зарегистрированный игрок не найден'});
     if(await db.get('SELECT id FROM evening_participants WHERE evening_id=? AND player_id=?',[String(req.params.id),playerId]))return res.status(400).json({error:'Игрок уже добавлен на этот вечер'});
     if(data.table_id&&!await db.get('SELECT id FROM evening_tables WHERE id=? AND evening_id=?',[data.table_id,String(req.params.id)]))return res.status(404).json({error:'Игровой стол не найден на этом вечере'});
     const response=data.response_status?parseResponseStatus(data.response_status):'unanswered'; const due=data.amount_due??evening.default_price; const paid=data.amount_paid??0; const payment=due===0?'waived':paid>=due&&due>0?'paid':paid>0?'partial':'unpaid'; const id=crypto.randomUUID(); const now=new Date().toISOString();

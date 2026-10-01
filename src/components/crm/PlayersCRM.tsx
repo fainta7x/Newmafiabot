@@ -265,7 +265,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setShowPlayerMenu(false); setShowMergeSheet(true); setMergeError(null); setMergePreview(null); setMergeToken(''); setMergeSourceId(''); setMergeConfirmation(''); setMergeLoading(true);
     try {
       const list = await api.getPlayers();
-      setMergeCandidates(list.filter((item) => item.id !== playerDetails.id && ['crm_manual', 'manual', ''].includes(String(item.source || '')) && !item.telegram_linked && !item.vk_linked && !['merged', 'archived'].includes(String(item.lifecycle_status || ''))));
+      setMergeCandidates(list.filter((item) => item.id !== playerDetails.id && ['crm_manual', 'manual', ''].includes(String(item.source || '')) && !item.telegram_linked && !item.vk_linked && !['merged', 'archived'].includes(String(item.stored_lifecycle_status || ''))));
     } catch (error: any) { setMergeError(error?.message || 'Не удалось загрузить кандидатов'); } finally { setMergeLoading(false); }
   };
 
@@ -697,7 +697,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             {mergeLoading ? <div className="py-5 text-center text-[12px] text-text-secondary">Проверяем связи и конфликты…</div> : null}
             {mergePreview ? <div className="space-y-3 text-[12px]">
               <div className="rounded-[13px] border border-border-soft bg-surface-2 p-3"><div className="font-semibold text-text-primary">{mergePreview.keeper?.nickname} ← {mergePreview.source?.nickname}</div><div className="mt-1 text-text-muted">Основной профиль сохранится. Дубликат останется архивной записью с отметкой об объединении.</div></div>
-              {mergePreview.blockers.length ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3"><div className="font-semibold text-danger">Объединение заблокировано</div><ul className="mt-2 list-disc space-y-1 pl-4 text-danger">{mergePreview.blockers.map((blocker) => <li key={`${blocker.code}-${blocker.table || ''}`}>{blocker.message}</li>)}</ul></div> : mergePreview.summary ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-text-primary">Будет перенесено: ссылок на профиль — {mergePreview.summary.reference_count}, JSON-связей — {mergePreview.summary.json_count}, токенов — {mergePreview.summary.source_tokens}.</div> : null}
+              {mergePreview.blockers.length ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3"><div className="font-semibold text-danger">Объединение заблокировано</div><ul className="mt-2 list-disc space-y-1 pl-4 text-danger">{mergePreview.blockers.map((blocker) => <li key={`${blocker.code}-${blocker.table || ''}`}>{blocker.message}</li>)}</ul></div> : mergePreview.summary ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-text-primary">Будет перенесено: записей о вечерах, играх и делах — {mergePreview.summary.reference_count}, протоколов игр — {mergePreview.summary.json_count}, жетонов — {mergePreview.summary.source_tokens}.</div> : null}
               {!mergePreview.blockers.length ? <input value={mergeConfirmation} onChange={(event) => setMergeConfirmation(event.target.value)} placeholder={`Введите точно: ${playerDetails?.nickname}`} className="mobile-field" /> : null}
             </div> : null}
           </div>

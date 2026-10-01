@@ -65,9 +65,9 @@ export const STATUS_SEGMENT_LABELS: Record<PlayerStatusSegment, string> = {
 
 const STOPPED = 'Перестал ходить';
 
-/** Service rows (merged guests, placeholders, archive) are not club players and stay only in «Вся база». */
+/** Service rows (merged guests and duplicates, placeholders, archive) are not club players and stay only in «Вся база». */
 export const isClubPlayer = (player: StatusPlayer) =>
-  !['archived', 'guest_placeholder', 'legacy_guest_migrated'].includes(String(player.stored_lifecycle_status || ''))
+  !['archived', 'merged', 'guest_placeholder', 'legacy_guest_migrated'].includes(String(player.stored_lifecycle_status || ''))
   && String(player.source || '') !== 'legacy_guest_migrated';
 
 export const getPlayerStatusSegment = (player: StatusPlayer): PlayerStatusSegment => {

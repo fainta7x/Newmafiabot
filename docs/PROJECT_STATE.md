@@ -26,7 +26,8 @@ For the next assistant:
 - **Owner ideas 2026-10-01, to agree:** adjust the Elo system a little (future task, details to discuss).
 - **Done 2026-10-01 (outside Claude, checked by Claude):** owner-only «Объединить профиль-дубликат» in the player card (a manual duplicate without Telegram/VK into a linked profile; the token journal stays with each profile, the balance moves as debit + credit; the merged row is hidden like the archive); music: two locked player slots («раздача» / «договорка», owner can repair a slot through the API only), the game's track is drawn from the evening's arrived players, «Сменить трек» removed.
 - **Music, owner answers 2026-10-01:** tracks come from the people at this game's table, the judge included, deal and night from two different people (fixed in a follow-up PR); no «Сменить трек» is fine — the judge closes a Yandex track in Yandex Music, files have «Стоп». The owner wanted a button to repair or free a player's locked slot: «Данные и фото → Музыка игрока» (owner only).
-- **Next work:** Elo adjustment (details to discuss with the owner).
+- **Elo (owner, 2026-10-01):** the small spread after one 10-game tournament is expected (black won 8 of 10, which the formula already expects); no calibration, the formula stays; the rules wording was fixed in BUSINESS_RULES. Idea for later: a seasonal Elo trim for everybody (for example cut 20% of the distance from 1000), to discuss when needed.
+- **Next work:** nothing agreed; ask the owner.
 
 ## Source-of-truth model
 

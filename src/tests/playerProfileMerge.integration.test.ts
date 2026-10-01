@@ -4,6 +4,8 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
+import { mutateTokenBalance } from '../server/services/tokenLedgerService.ts';
+import { isClubPlayer } from '../lib/playerActivitySegments.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -44,5 +46,39 @@ describe('player profile merge', () => {
     await db.run("UPDATE players SET telegram_user_id = NULL, source = 'manual' WHERE id = ?", [source.id]);
     const response = await request(app).post(`/api/players/${keeper.id}/merge-preview`).set('Cookie', `organizer_token=${generateOrganizerToken('not-owner')}`).send({ source_player_id: source.id });
     expect(response.status).toBe(401);
+  });
+
+  it('keeps each token journal equal to its balance and hides the merged duplicate from the club lists', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    const app = await createApp(db);
+    const keeper = (await registerNewPlayer(db, { telegramUserId: '990005', nickname: 'Основной' })).player;
+    const source = (await registerNewPlayer(db, { telegramUserId: '990006', nickname: 'Дубль', source: 'manual' })).player;
+    await db.run("UPDATE players SET telegram_user_id = NULL, source = 'manual' WHERE id = ?", [source.id]);
+    const grant = (playerId: string, delta: number, key: string) => mutateTokenBalance(db, {
+      playerId, delta, reasonType: 'admin_adjustment', description: 'Начисление', sourceType: 'manual', sourceId: key,
+      idempotencyKey: key, debitPolicy: 'allow_negative', actorType: 'owner', actorId: 'owner',
+    } as any);
+    await grant(source.id, 12, 'grant-source');
+    await grant(keeper.id, 8, 'grant-keeper');
+    const balances = async () => Promise.all([keeper.id, source.id].map(async (id) => ({
+      tokens: Number((await db.get<any>('SELECT tokens FROM players WHERE id = ?', [id]))?.tokens || 0),
+      journal: Number((await db.get<any>('SELECT COALESCE(SUM(amount), 0) AS total FROM token_ledger WHERE player_id = ?', [id]))?.total || 0),
+    })));
+    const before = await balances();
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const preview = await request(app).post(`/api/players/${keeper.id}/merge-preview`).set('Cookie', cookie).send({ source_player_id: source.id });
+    expect(preview.body.blockers).toEqual([]);
+    const merged = await request(app).post(`/api/players/${keeper.id}/merge`).set('Cookie', cookie)
+      .send({ source_player_id: source.id, preview_token: preview.body.token, confirmation_nickname: 'Основной' });
+    expect(merged.status, JSON.stringify(merged.body)).toBe(200);
+
+    const [keeperAfter, sourceAfter] = await balances();
+    expect(keeperAfter.tokens).toBe(before[0].tokens + before[1].tokens);
+    expect(keeperAfter.journal).toBe(keeperAfter.tokens);
+    expect(sourceAfter).toEqual({ tokens: 0, journal: 0 });
+
+    const list = await request(app).get('/api/players').set('Cookie', cookie);
+    const duplicate = list.body.find((player: any) => player.id === source.id);
+    expect(isClubPlayer(duplicate)).toBe(false);
   });
 });

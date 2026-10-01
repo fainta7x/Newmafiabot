@@ -9,6 +9,9 @@ const MERGE_PREVIEW_TTL_MS = 10 * 60 * 1000;
 const DEDUPE_TABLES = new Set(['player_achievements', 'player_split_vote_progress']);
 const META_TABLES = new Set(['player_profile_merge_previews', 'player_profile_merges', 'migration_history']);
 const CLAIM_TABLE = 'player_claim_links';
+// The token journal stays with its own profile: every row carries the balance after it, so moving
+// the duplicate's rows would double its history on the keeper. The balance moves as one debit + credit.
+const LEDGER_TABLES = new Set(['token_ledger']);
 const UNSUPPORTED_LEGACY_TABLES = new Set([
   'guest_player_migration_diagnostics', 'guest_player_migration_state', 'guest_player_placeholders',
   'guest_player_replacement_audit',
@@ -90,7 +93,7 @@ async function inspectReferences(db: DatabaseWrapper, sourceId: string, keeperId
   const tables = await listTables(db);
 
   for (const table of tables) {
-    if (META_TABLES.has(table) || table === 'players' || UNSUPPORTED_LEGACY_TABLES.has(table)) continue;
+    if (META_TABLES.has(table) || table === 'players' || UNSUPPORTED_LEGACY_TABLES.has(table) || LEDGER_TABLES.has(table)) continue;
     const columns = await playerColumns(db, table);
     if (!columns.length) continue;
     const clauses = columns.map((column) => `${quoteIdent(column)}=?`).join(' OR ');
@@ -252,7 +255,7 @@ async function mergeInsideTransaction(db: DatabaseWrapper, keeperId: string, sou
   }
 
   for (const table of await listTables(db)) {
-    if (META_TABLES.has(table) || table === 'players' || UNSUPPORTED_LEGACY_TABLES.has(table) || table === CLAIM_TABLE) continue;
+    if (META_TABLES.has(table) || table === 'players' || UNSUPPORTED_LEGACY_TABLES.has(table) || LEDGER_TABLES.has(table) || table === CLAIM_TABLE) continue;
     for (const column of await playerColumns(db, table)) {
       await db.run(`UPDATE ${quoteIdent(table)} SET ${quoteIdent(column)}=? WHERE ${quoteIdent(column)}=?`, [keeperId, sourceId]);
     }

@@ -59,7 +59,7 @@ const eveningName = (row: any) => `${String(row.title || 'Игровой веч�
 const money = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
 const person = (row: any, detail?: string): ClubOrderPerson => ({ player_id: String(row.player_id ?? row.id), nickname: String(row.nickname || 'Без ника'), ...(detail ? { detail } : {}) });
 // Placeholder, archived and blocked profiles are not club members to look after.
-const MEMBER_SQL = `COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'blocked', 'guest_placeholder', 'legacy_guest_migrated')`;
+const MEMBER_SQL = `COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'merged', 'blocked', 'guest_placeholder', 'legacy_guest_migrated')`;
 
 export async function ensureClubOrderSchema(db: DatabaseWrapper) {
   await db.exec(`CREATE TABLE IF NOT EXISTS club_order_dismissals (item_id TEXT PRIMARY KEY, dismissed_at TEXT NOT NULL)`);

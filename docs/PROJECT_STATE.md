@@ -24,7 +24,9 @@ For the next assistant:
 - **Owner workflow rules:** Russian, plain words; questions through the interactive picker; bugs and wording fixed at once, new features proposed and started after «да»; at most 3 PRs per owner message; each PR to green CI (Codex review comments answered and fixed), squash-merged by the assistant, then the owner gets the `main` SHA and deploys himself; never change production data.
 - **Waiting for the owner:** the owner's phone test for the tournament broadcast (USB hub with camera and microphone on the phone, VDO.Ninja to the laptop; fallback — an old phone as the table camera), then a step-by-step broadcast guide.
 - **Owner ideas 2026-10-01, to agree:** adjust the Elo system a little (future task, details to discuss).
-- **Next work (owner chose 2026-10-01, in this order):** the music section (29, ask the owner first what is missing); a «merge two profiles» tool.
+- **Done 2026-10-01 (outside Claude, checked by Claude):** owner-only «Объединить профиль-дубликат» in the player card (a manual duplicate without Telegram/VK into a linked profile; the token journal stays with each profile, the balance moves as debit + credit; the merged row is hidden like the archive); music: two locked player slots («раздача» / «договорка», owner can repair a slot through the API only), the game's track is drawn from the evening's arrived players, «Сменить трек» removed.
+- **Open questions about music (ask the owner):** draw tracks from the players of this game's table or from everyone who came to the evening (code: the evening); should the judge still be able to change a track during the game; does the owner need a button in the CRM to repair or free a player's slot.
+- **Next work:** Elo adjustment (details to discuss with the owner).
 
 ## Source-of-truth model
 

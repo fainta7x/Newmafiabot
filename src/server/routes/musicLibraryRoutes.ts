@@ -86,22 +86,14 @@ router.put('/music-library/player-slots/:slot', async (req, res) => {
       `SELECT id FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`,
       [actor.id, slot],
     );
+    if (existing) return res.status(409).json({ error: 'Этот слот уже занят. Замена музыки будет доступна через покупку, VIP или компендиум.' });
     const id = existing?.id ? String(existing.id) : randomUUID();
-    if (existing) {
-      await req.db.run(
-        `UPDATE music_link_entries
-            SET title = ?, source_kind = ?, source_url = ?, normalized_url = ?, embed_url = ?, updated_at = ?
-          WHERE id = ? AND owner_player_id = ?`,
-        [title, source.kind, source.sourceUrl, source.normalizedUrl, source.embedUrl, now, id, actor.id],
-      );
-    } else {
-      await req.db.run(
-        `INSERT INTO music_link_entries
-          (id, owner_player_id, scope, slot_index, title, source_kind, source_url, normalized_url, embed_url, sort_order, created_at, updated_at)
-         VALUES (?, ?, 'player', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, actor.id, slot, title, source.kind, source.sourceUrl, source.normalizedUrl, source.embedUrl, slot - 1, now, now],
-      );
-    }
+    await req.db.run(
+      `INSERT INTO music_link_entries
+        (id, owner_player_id, scope, slot_index, title, source_kind, source_url, normalized_url, embed_url, sort_order, created_at, updated_at)
+       VALUES (?, ?, 'player', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, actor.id, slot, title, source.kind, source.sourceUrl, source.normalizedUrl, source.embedUrl, slot - 1, now, now],
+    );
     const row = await req.db.get('SELECT * FROM music_link_entries WHERE id = ?', [id]);
     return res.json({ slot, entry: linkDto(row) });
   } catch (error: any) {
@@ -115,10 +107,8 @@ router.delete('/music-library/player-slots/:slot', async (req, res) => {
     if (!actor) return;
     const slot = Number(req.params.slot);
     if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'У игрока может быть только два трека.' });
-    await req.db.run(
-      `DELETE FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`,
-      [actor.id, slot],
-    );
+    const existing = await req.db.get('SELECT id FROM music_link_entries WHERE owner_player_id = ? AND scope = \'player\' AND slot_index = ?', [actor.id, slot]);
+    if (existing) return res.status(409).json({ error: 'Сохранённую музыку нельзя удалить без права замены.' });
     return res.json({ ok: true });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось удалить ссылку.' });

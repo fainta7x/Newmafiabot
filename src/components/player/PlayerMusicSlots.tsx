@@ -119,19 +119,11 @@ export default function PlayerMusicSlots() {
                   onClick={() => void save(slot)}
                   className="min-h-10 rounded-xl bg-white px-3 text-xs font-semibold text-black disabled:opacity-35"
                 >
-                  {busy === slot ? 'Сохраняем…' : entry ? 'Обновить' : 'Добавить'}
+                  {busy === slot ? 'Сохраняем…' : entry ? 'Сохранено' : 'Добавить'}
                 </button>
-                {entry && (
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => void remove(slot)}
-                    className="min-h-10 rounded-xl border border-rose-300/10 bg-rose-400/[0.04] px-3 text-xs text-rose-200/60 disabled:opacity-35"
-                  >
-                    Удалить
-                  </button>
-                )}
+                {entry && <div className="flex min-h-10 items-center rounded-xl border border-white/10 px-3 text-[10px] text-white/35">Слот закреплён</div>}
               </div>
+              {entry && <p className="mt-2 text-[10px] leading-4 text-white/30">Замена будет доступна позже через магазин, VIP или компендиум.</p>}
             </div>
           );
         })}

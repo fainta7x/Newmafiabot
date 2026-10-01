@@ -21,19 +21,32 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEve
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }));
 
-async function queueEloNotifications(db: DatabaseWrapper) {
+// A tournament Elo note is news only shortly after the game; older games never get one.
+const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
   let queued = 0;
   // Club games: one personal message per evening after closing (clubResultPostService), not one per game.
   const eloTimeline = await loadPlayerEloHistory(db);
   for (const event of eloTimeline.slice(-100)) {
     // The club game's Elo rides in the evening's personal message; tournaments keep their own note.
     if (event.source === 'club') continue;
+    const playedAt = new Date(String(event.sortAt || '')).getTime();
+    if (!Number.isFinite(playedAt) || now - playedAt > ELO_NOTE_MAX_AGE_MS) continue;
     for (const player of event.players || []) {
       const playerId = String(player.playerId || '');
       const delta = Number(player.totalDelta || 0);
       if (!playerId || Math.abs(delta) < 0.01) continue;
+      // One note per player and game. A recalculation (the ×5 scale, a corrected protocol) changes the
+      // numbers but must not send the same game again; older keys carried the new Elo as a suffix.
+      const notificationKey = `elo:${event.source}:${event.sourceId}:${playerId}`;
+      const alreadySent = await db.get(
+        'SELECT 1 FROM personal_notification_deliveries WHERE notification_key = ? OR notification_key LIKE ? LIMIT 1',
+        [notificationKey, `${notificationKey}:%`],
+      ).catch(() => null);
+      if (alreadySent) continue;
       await queuePersonalNotification(db, {
-        notificationKey: `elo:${event.source}:${event.sourceId}:${playerId}:${Math.round(Number(player.eloAfter || 0) * 100)}`,
+        notificationKey,
         playerId, eventType: 'elo_change', entityId: `${event.source}:${event.sourceId}`,
         text: `📊 Рейтинг Elo изменился\n${signed(delta)} · ${Math.round(Number(player.eloBefore || 0))} → ${Math.round(Number(player.eloAfter || 0))}.`,
         actionPath: '/player/elo',

@@ -25,7 +25,7 @@ async function setup(format = 'CASUAL', startsAt = new Date(Date.now() - 3 * 360
   // The feature was switched on a day ago.
   await ensureClubResultPostSchema(db);
   const switchedOn = new Date(Date.now() - 86400_000).toISOString();
-  await db.run("INSERT INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES ('enabled','marker','sent',?,?)", [switchedOn, switchedOn]);
+  await db.run("INSERT INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES ('enabled','marker','sent',?,?), ('enabled-public','marker','sent',?,?)", [switchedOn, switchedOn, switchedOn, switchedOn]);
   // Player «a» is always the sheriff; the rest rotate.
   const addGame = async (number: number, winner: 'red' | 'black', extra: Record<string, unknown> = {}, status = 'completed') => {
     const envelope = {
@@ -305,6 +305,20 @@ describe('the entry channel', () => {
     expect(String(entry[0].get('caption'))).toContain('https://t.me/NoireBot');
     await runClubResultPosts(db, fetchImpl);
     expect(calls.filter((form) => form.get('chat_id') === '@noire_entry')).toHaveLength(1);
+  });
+
+  it('an upgrade does not post evenings closed before the entry channel was switched on', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addPublic(db);
+    await db.run("DELETE FROM club_result_posts WHERE post_key = 'enabled-public'");
+    await addGame(1, 'red');
+    await db.run("UPDATE game_evenings SET status = 'completed', settled_at = ? WHERE id = 'ev'", [new Date().toISOString()]);
+    const { calls, fetchImpl } = telegram();
+    await runClubResultPosts(db, fetchImpl);
+    expect(calls.filter((form) => form.get('chat_id') === '@noire_entry')).toHaveLength(0);
+    // The club chat still gets the game blank and the summary.
+    expect(calls.filter((form) => form.get('chat_id') === '-100500')).toHaveLength(2);
   });
 
   it('gets the «Мы собрались» photo once it reached the evening group', async () => {

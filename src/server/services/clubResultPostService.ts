@@ -17,6 +17,7 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 36 * 60 * 60 * 1000;
 const CLOSED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const ENABLED_KEY = 'enabled';
+const PUBLIC_ENABLED_KEY = 'enabled-public';
 
 export async function ensureClubResultPostSchema(db: DatabaseWrapper) {
   await db.exec(`
@@ -147,6 +148,14 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     [ENABLED_KEY, stamp, stamp],
   );
   const marker = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [ENABLED_KEY]);
+  // The entry channel has its own switch-on: an upgrade from the chat-only release must not post
+  // the evenings closed before it (they never had entry-channel records).
+  await db.run(
+    `INSERT OR IGNORE INTO club_result_posts (post_key, kind, status, created_at, updated_at) VALUES (?, 'marker', 'sent', ?, ?)`,
+    [PUBLIC_ENABLED_KEY, stamp, stamp],
+  );
+  const publicMarker = await db.get<any>('SELECT created_at FROM club_result_posts WHERE post_key = ?', [PUBLIC_ENABLED_KEY]);
+  const publicSince = String(publicMarker?.created_at || stamp);
   // Strictly after the switch-on: an evening already running at deploy time is not posted retroactively.
   const since = Math.max(now - WINDOW_MS, new Date(String(marker?.created_at || stamp)).getTime());
   const evenings = await db.all<any>(`
@@ -174,17 +183,19 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   // Closed evenings by their closing time, not their start: an evening closed days later (or after a
   // long publishing pause) still gets its summary and the personal messages.
   const closed = await db.all<any>(`
-    SELECT e.id, e.format FROM game_evenings e
+    SELECT e.id, e.format, e.starts_at FROM game_evenings e
      WHERE e.status = 'completed'
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
          OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending'))
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND p.status IN ('sent', 'failed', 'sending')))
-  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]);
+         OR (datetime(e.starts_at) >= datetime(?)
+           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND p.status IN ('sent', 'failed', 'sending'))))
+  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString(), publicSince]);
   for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
-    if (await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
+    if (new Date(String(evening.starts_at)).getTime() >= new Date(publicSince).getTime()
+      && await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   }
 
@@ -194,7 +205,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
      WHERE gp.telegram_status = 'published' AND gp.image_data IS NOT NULL
        AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND p.status IN ('sent', 'failed', 'sending'))
-  `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
+  `, [publicSince, new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
   for (const row of gathered) {
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
   }

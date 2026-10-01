@@ -8,10 +8,11 @@ export type PokerPlayer = { id: string; nickname: string; seat: number; chips: n
 export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet'; amount: number; street: PokerStreet; at: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
+  small_blind_seat: number | null; big_blind_seat: number | null;
   small_blind: number; big_blind: number; pot: number; current_bet: number; street: PokerStreet;
   board: PokerCard[]; hole_cards: Record<string, PokerCard[]>; burn_cards: PokerCard[];
   deck: PokerCard[];
-  deck_remaining: number; winner_ids: string[]; last_action: string | null;
+  deck_remaining: number; winner_ids: string[]; last_action: string | null; last_pot_awarded: number;
   action_log: PokerActionLogEntry[];
   base_turn_seconds: number; max_reserve_seconds: number; turn_started_at: number | null;
 };
@@ -51,9 +52,9 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
   const deck = shuffleDeck();
   const players: PokerPlayer[] = input.players.map((player) => ({ ...player, committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60 }));
   const state: PokerState = {
-    id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null,
+    id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
-    street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null,
+    street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null, last_pot_awarded: 0,
     deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(),
   };
   const ordered = players.slice().sort((a, b) => a.seat - b.seat);
@@ -61,6 +62,7 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
   const dealerIndex = ordered.findIndex((player) => player.seat === state.dealer_seat);
   const sb = ordered.length === 2 ? ordered[dealerIndex] : ordered[(dealerIndex + 1) % ordered.length];
   const bb = ordered.length === 2 ? ordered[(dealerIndex + 1) % ordered.length] : ordered[(dealerIndex + 2) % ordered.length];
+  state.small_blind_seat = sb.seat; state.big_blind_seat = bb.seat;
   const post = (player: PokerPlayer, amount: number) => { const paid = Math.min(amount, player.chips); player.chips -= paid; player.committed += paid; state.pot += paid; player.all_in = player.chips === 0; };
   post(sb, state.small_blind); post(bb, state.big_blind); state.current_bet = Math.max(sb.committed, bb.committed);
   state.action_log.push(
@@ -146,12 +148,12 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   state.action_log.push({ player_id: player.id, player_name: player.nickname, type: action.type, amount: actionAmount, street: state.street, at: Date.now() });
   state.action_log = state.action_log.slice(-20);
   const active = activePlayers(state);
-  if (active.length === 1) { state.winner_ids = [active[0].id]; active[0].chips += state.pot; state.pot = 0; state.street = 'finished'; state.current_seat = null; return state; }
+  if (active.length === 1) { state.winner_ids = [active[0].id]; state.last_pot_awarded = state.pot; active[0].chips += state.pot; state.pot = 0; state.street = 'finished'; state.current_seat = null; return state; }
   const ready = active.filter((item) => !item.all_in).every((item) => item.acted && item.committed === state.current_bet);
   if (ready || active.filter((item) => !item.all_in).length <= 1) {
     state.players.forEach((item) => { item.acted = false; item.committed = 0; });
     state.current_bet = 0;
-    if (state.street === 'river') { state.street = 'showdown'; state.winner_ids = compareHands(state); const share = state.winner_ids.length ? Math.floor(state.pot / state.winner_ids.length) : 0; state.winner_ids.forEach((id) => { const winner = state.players.find((item) => item.id === id); if (winner) winner.chips += share; }); state.pot = 0; state.street = 'finished'; state.current_seat = null; }
+    if (state.street === 'river') { state.street = 'showdown'; state.winner_ids = compareHands(state); state.last_pot_awarded = state.pot; const share = state.winner_ids.length ? Math.floor(state.pot / state.winner_ids.length) : 0; state.winner_ids.forEach((id) => { const winner = state.players.find((item) => item.id === id); if (winner) winner.chips += share; }); state.pot = 0; state.street = 'finished'; state.current_seat = null; }
     else advanceStreet(state, state.deck);
   }
   state.current_seat = state.street === 'finished' ? null : nextSeat(state.players, player.seat);

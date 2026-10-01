@@ -23,6 +23,7 @@ type PoolEntry = {
   embed_url: string | null;
   excluded?: boolean;
   contributors: Array<{ player_id: string; nickname: string; kind: 'organizer' | 'player' }>;
+  slot_index?: number | null;
 };
 
 const readStoredManualState = (): StoredManualState | null => {
@@ -193,7 +194,12 @@ export default function JudgeGameMusicController() {
         return;
       }
       if (autoStartLocal) {
-        const selected = choosePreselected(entries, kind);
+        const preselected = body.preselected?.[kind === 'night' ? 'night' : 'deal']?.entry as PoolEntry | undefined;
+        const selected = preselected || choosePreselected(entries, kind);
+        if (selected) {
+          preselectedRef.current[kind] = selected;
+          selectedContributorRef.current[kind] = contributorId(selected);
+        }
         if (selected?.source_type === 'upload') startLocal(selected, kind);
         else if (selected) startExternal(selected, kind);
         else setEmptyNotice('Музыка не выбрана — продолжаем без неё.');

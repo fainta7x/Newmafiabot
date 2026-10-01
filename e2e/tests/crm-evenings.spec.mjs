@@ -28,8 +28,9 @@ test.describe('Organizer events mobile workflow', () => {
     await expect(page.getByTestId('crm-events-calendar')).toHaveCount(0);
 
     const typeTabs = page.getByRole('navigation', { name: 'Типы событий' });
-    await expect(typeTabs.getByRole('button', { name: 'Игровые вечера', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(typeTabs.getByRole('button', { name: 'Вечера', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(typeTabs.getByRole('button', { name: 'Турниры', exact: true })).toBeVisible();
+    await expect(typeTabs.getByRole('button', { name: 'Свои события', exact: true })).toBeVisible();
 
     const timeTabs = page.getByRole('navigation', { name: 'Период событий' });
     await expect(timeTabs.getByRole('button', { name: 'Актуальное', exact: true })).toHaveAttribute('aria-current', 'page');

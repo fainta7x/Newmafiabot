@@ -4,7 +4,7 @@ import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type ResponseStatus = 'going' | 'late' | 'thinking' | 'declined' | 'unanswered';
-type Filter = 'all' | 'unanswered';
+type Filter = 'all' | 'unanswered' | 'thinking';
 
 type AudiencePlayer = {
   id: string;
@@ -101,7 +101,8 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
 
   const unansweredRows = useMemo(() => rows.filter((row) => row.responseStatus === 'unanswered'), [rows]);
   const answeredRows = useMemo(() => rows.filter((row) => row.responseStatus !== 'unanswered'), [rows]);
-  const visibleRows = filter === 'all' ? rows : unansweredRows;
+  const thinkingRows = useMemo(() => rows.filter((row) => row.responseStatus === 'thinking'), [rows]);
+  const visibleRows = filter === 'all' ? rows : filter === 'thinking' ? thinkingRows : unansweredRows;
 
   const setStatus = async (row: Row, status: ResponseStatus) => {
     if (savingId || readonly || row.responseStatus === status) return;
@@ -176,8 +177,10 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      {/* «Дела» lead here for the answer work (owner, 2026-10-01): who has not answered and who «думает». */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <button type="button" onClick={() => setFilter('unanswered')} className={`min-h-[56px] rounded-[12px] px-3 text-left ${filter === 'unanswered' ? 'bg-warning-soft ring-1 ring-warning/30' : 'bg-surface-2'}`}><strong className="block text-[18px] text-warning">{unansweredRows.length}</strong><span className="text-[10px] text-text-muted">Ждём ответа</span></button>
+        <button type="button" data-testid="evening-invites-thinking" onClick={() => setFilter('thinking')} className={`min-h-[56px] rounded-[12px] px-3 text-left ${filter === 'thinking' ? 'bg-sky-400/10 ring-1 ring-sky-300/30' : 'bg-surface-2'}`}><strong className="block text-[18px] text-sky-200">{thinkingRows.length}</strong><span className="text-[10px] text-text-muted">Думают</span></button>
         <button type="button" onClick={() => setFilter('all')} className={`min-h-[56px] rounded-[12px] px-3 text-left ${filter === 'all' ? 'bg-accent-soft ring-1 ring-accent/30' : 'bg-surface-2'}`}><strong className="block text-[18px] text-text-primary">{rows.length}</strong><span className="text-[10px] text-text-muted">Все</span></button>
       </div>
 
@@ -186,7 +189,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
       {loading ? <div className="py-7 text-center text-[11px] text-text-muted">Загружаю игроков…</div> : null}
 
       {!loading ? <div className="mt-3">
-        {visibleRows.length ? renderRows(visibleRows) : rows.length ? <div className="rounded-[12px] bg-success-soft px-3 py-5 text-center text-[11px] text-success">Все уже ответили.</div> : <div className="rounded-[12px] bg-surface-2 px-3 py-5 text-center text-[11px] text-text-muted">Приглашений пока нет. Они отправляются после публикации тем, у кого привязан Telegram или VK.</div>}
+        {visibleRows.length ? renderRows(visibleRows) : rows.length ? filter === 'thinking' ? <div data-testid="evening-invites-thinking-empty" className="rounded-[12px] bg-surface-2 px-3 py-5 text-center text-[11px] text-text-muted">Никто не думает: все определились или ещё не ответили.</div> : <div className="rounded-[12px] bg-success-soft px-3 py-5 text-center text-[11px] text-success">Все уже ответили.</div> : <div className="rounded-[12px] bg-surface-2 px-3 py-5 text-center text-[11px] text-text-muted">Приглашений пока нет. Они отправляются после публикации тем, у кого привязан Telegram или VK.</div>}
 
         {filter === 'unanswered' && answeredRows.length ? <>
           <button type="button" onClick={() => setShowAnswered((value) => !value)} className="mt-3 flex min-h-[48px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">

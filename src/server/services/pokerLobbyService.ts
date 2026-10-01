@@ -7,7 +7,7 @@ const lobbies = new Map<string, PokerLobby>();
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
   const currentPlayer = lobby.hand.players.find((player) => player.seat === lobby.hand?.current_seat);
-  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null };
+  const hand = { ...lobby.hand, deck: [], hole_cards: viewerId ? { [viewerId]: lobby.hand.hole_cards[viewerId] || [] } : {}, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: Boolean(viewerId && currentPlayer?.id === viewerId) };
   return { ...lobby, hand };
 };
 

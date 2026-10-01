@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { buildAnonymizedSnapshot } from '../services/anonymizedSnapshotService.ts';
 
 const router = Router();
 
@@ -30,6 +31,29 @@ function requireDeveloperReadAccess(req: Request, res: Response, next: NextFunct
 }
 
 router.use(requireDeveloperReadAccess);
+
+// Weekly anonymized database copy (owner, 2026-10-01): only the dedicated developer key, never the
+// bot secret, and one build at a time. See docs/RUNBOOK.md «Weekly anonymized snapshot».
+let snapshotInFlight = false;
+router.post('/snapshot', async (req, res) => {
+  const dedicatedSecret = String(process.env.DEVELOPER_READ_KEY || '').trim();
+  const supplied = String(req.header('X-Developer-Read-Key') || '').trim();
+  if (!dedicatedSecret || !supplied || !safeEqual(dedicatedSecret, supplied)) {
+    return res.status(401).json({ error: 'The snapshot needs the dedicated developer read key' });
+  }
+  if (snapshotInFlight) return res.status(429).json({ error: 'A snapshot is already being built' });
+  snapshotInFlight = true;
+  try {
+    const { gzip, stats } = await buildAnonymizedSnapshot(req.db);
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('X-Snapshot-Stats', JSON.stringify({ tables: stats.tables, wiped_tables: stats.wipedTables.length, scrubbed_columns: stats.scrubbedColumns, bytes: stats.bytes }));
+    return res.send(gzip);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to build the snapshot' });
+  } finally {
+    snapshotInFlight = false;
+  }
+});
 
 router.post('/evenings', async (req, res) => {
   try {

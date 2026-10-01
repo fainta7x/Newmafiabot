@@ -577,7 +577,7 @@ Approved behaviour (confirmed by the owner 2026-10-01 against the current formul
 - **a weak player carried by a strong team gains little**: a weak mafia with two strong mafias against weak citizens gets a small win;
 - **a weak player in an average or weak team against a strong table gains a lot**: a weak black with average blacks against strong citizens gets much more than at an equal table;
 - **a strong player is protected in a weak team**: a stronger player loses less on a loss and gains a little more on a win than the weaker teammates; the protection depends on the gap between the player and the teammates, so the closer the table's levels are, the smaller the protection (none at an equal table);
-- personal game points (best move, judge bonus, Ci, fouls) are added on top (×8 each point); they are mostly positive, so the club average slowly rises — accepted; a seasonal Elo trim for everybody is a possible later tool (owner idea 2026-10-01);
+- personal game points (best move, judge bonus, Ci, fouls) are added on top (×8 each point); they are mostly positive, so the club average slowly rises — accepted;
 - no calibration multiplier for new players (owner decision 2026-10-01).
 
 Do not replace the current Elo implementation with a standard off-the-shelf formula merely because it is simpler. Any formula change needs explicit product review and comparison against known tournament/player outcomes.

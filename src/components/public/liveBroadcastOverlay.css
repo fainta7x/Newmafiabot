@@ -29,8 +29,6 @@ body.live-broadcast-document #root {
   /* Role palette (owner, 2026-10-01): мирный red, мафия black, дон purple, шериф yellow. */
   --role-citizen: #e5384f;
   --role-mafia: #050506;
-  /* The black team's accent: cold steel blue on solid black, so it never reads as «out». */
-  --role-mafia-accent: #4cc3ff;
   --role-don: #8b5cf6;
   --role-sheriff: #facc15;
   position: relative;
@@ -190,9 +188,9 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-score-row b.is-red { background: var(--role-citizen); color: #fff; }
-.live-broadcast-score-row b.is-black { background: #050506; color: #bfe9ff; border: 1px solid rgba(76, 195, 255, .7); }
+.live-broadcast-score-row b.is-black { background: #050506; color: #fff; border: 1px solid rgba(255, 255, 255, .45); }
 .live-broadcast-score-row span.is-red { color: #ff8a9b; }
-.live-broadcast-score-row span.is-black { color: #8fd8ff; }
+.live-broadcast-score-row span.is-black { color: rgba(255, 255, 255, .85); }
 .live-broadcast-score-row i { font-style: normal; font-weight: 700; color: var(--muted); }
 
 .live-broadcast-timer-label {
@@ -569,12 +567,29 @@ body.live-broadcast-document #root {
 
 .live-broadcast-player.is-speaking .live-broadcast-player-name { color: #ffe3a8; }
 
-/* Nominated players get a red outline; the candidates of the vote also a soft red glow. */
-.live-broadcast-player.is-nominated:not(.is-speaking):not(.is-out) { border-color: rgba(255, 77, 106, .7); }
-.live-broadcast-player.is-vote-candidate:not(.is-speaking):not(.is-out) {
-  border: 2px solid var(--red);
-  box-shadow: 0 0 calc(20 * var(--u)) rgba(255, 77, 106, .4);
+/* Nominated players carry an orange «Выставлен» strip at the bottom of the card. */
+.live-broadcast-nominated-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6 * var(--u));
+  height: calc(28 * var(--u));
+  border-radius: 0 0 calc(13 * var(--u)) calc(13 * var(--u));
+  background: linear-gradient(90deg, #f97316, #fb923c);
+  color: #1c0d02;
+  font-size: calc(12 * var(--u));
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
+
+.live-broadcast-nominated-strip svg { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
+.live-broadcast-player:has(.live-broadcast-nominated-strip) .live-broadcast-player-footer { bottom: calc(36 * var(--u)); }
+.live-broadcast-player.is-vote-candidate:not(.is-out) .live-broadcast-nominated-strip { box-shadow: 0 0 calc(18 * var(--u)) rgba(249, 115, 22, .55); }
 
 /* ---------- Connection and waiting ---------- */
 .live-broadcast-connection-warning {
@@ -637,9 +652,16 @@ body.live-broadcast-document #root {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  gap: calc(10 * var(--u));
   overflow: hidden;
-  border-radius: calc(14 * var(--u));
 }
+
+.live-broadcast-tl-block { display: flex; flex-direction: column; min-height: 0; flex: none; }
+.live-broadcast-tl-block.is-days { --tl-cols: calc(92 * var(--u)) calc(96 * var(--u)) 1fr; }
+.live-broadcast-tl-block.is-days .live-broadcast-tl-tag { color: var(--gold); }
+.live-broadcast-tl-block.is-days .live-broadcast-tl-head svg { color: var(--gold); }
+.live-broadcast-tl-cell.is-hands { gap: calc(4 * var(--u)); flex-wrap: wrap; }
+.live-broadcast-tl-cell.is-wide { grid-column: 2 / -1; }
 
 .live-broadcast-tl-head,
 .live-broadcast-tl {
@@ -753,7 +775,7 @@ body.live-broadcast-document #root {
 
 .live-broadcast-seat-chip.is-citizen { background: var(--role-citizen); }
 .live-broadcast-seat-chip.is-sheriff { background: var(--role-sheriff); color: #1b1407; }
-.live-broadcast-seat-chip.is-mafia { background: var(--role-mafia); border: 1px solid rgba(76, 195, 255, .75); color: #bfe9ff; }
+.live-broadcast-seat-chip.is-mafia { background: var(--role-mafia); border: 1px solid rgba(255, 255, 255, .45); color: #fff; }
 .live-broadcast-seat-chip.is-don { background: var(--role-don); }
 .live-broadcast-seat-chip.is-empty { color: var(--muted); }
 

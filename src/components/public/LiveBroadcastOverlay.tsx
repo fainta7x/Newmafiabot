@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, Crosshair, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
+import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
 import type { LiveBroadcastEnvelope, LiveBroadcastPlayer, LiveBroadcastState, LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
@@ -192,6 +192,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
   const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
   const visibleTimeline = firstNight < 0 ? timeline.filter((entry) => entry.kind === 'day' && entry.left.length) : timeline.slice(firstNight);
+  const nights = visibleTimeline.filter((entry): entry is Extract<LiveBroadcastTimelineEntry, { kind: 'night' }> => entry.kind === 'night');
+  const days = visibleTimeline.filter((entry): entry is Extract<LiveBroadcastTimelineEntry, { kind: 'day' }> => entry.kind === 'day');
   // By whose hands each day's leavers left: voters for that seat in the day's fixed vote.
   const handsFor = (round: number, seat: number) => {
     const vote = (state.dayVotes || []).find((item) => item.round === round);
@@ -280,47 +282,60 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
 
       {visibleTimeline.length ? (
         <aside className="live-broadcast-timeline" aria-label="Ход игры">
-          {/* One aligned row per night and day; the colour of a seat already tells its team, so no result words. */}
-          <div className="live-broadcast-tl-head">
-            <span>Ход игры</span>
-            <span><Crosshair aria-hidden="true" />Выстрел</span>
-            <span><MafiaHatIcon className="live-broadcast-role-icon" />Дон</span>
-            <span><Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />Шериф</span>
-          </div>
-          <div className="live-broadcast-timeline-list">
-            {visibleTimeline.map((entry, index) => {
-              if (entry.kind === 'day') {
-                const hands = entry.left.length === 1 ? handsFor(entry.round, entry.left[0]) : [];
-                return (
-                  <div key={`d${entry.round}-${index}`} className="live-broadcast-tl is-day">
-                    <div className="live-broadcast-tl-tag">День {entry.round}</div>
-                    {entry.left.length ? (
-                      <div className="live-broadcast-tl-day">
-                        <span className="live-broadcast-tl-word">{entry.note === 'table' ? 'ушли' : 'ушёл'}</span>
-                        {entry.left.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
-                        {hands.length ? <span className="live-broadcast-tl-word">руками</span> : null}
-                        {hands.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}
-                      </div>
-                    ) : <div className="live-broadcast-tl-day is-quiet">{DAY_NOTES[entry.note].toLowerCase()}</div>}
+          {/* Two blocks with their own columns (owner, 2026-10-01): nights and days never mix in one table. */}
+          {nights.length ? (
+            <div className="live-broadcast-tl-block">
+              <div className="live-broadcast-tl-head">
+                <span>Ночи</span>
+                <span><Crosshair aria-hidden="true" />Выстрел</span>
+                <span><MafiaHatIcon className="live-broadcast-role-icon" />Дон</span>
+                <span><Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />Шериф</span>
+              </div>
+              <div className="live-broadcast-timeline-list">
+                {nights.map((entry) => (
+                  <div key={`n${entry.round}`} className={`live-broadcast-tl is-night ${entry.current ? 'is-current' : ''}`}>
+                    <div className="live-broadcast-tl-tag">Ночь {entry.round}</div>
+                    <div className={`live-broadcast-tl-cell ${!entry.current && !entry.killed ? 'is-miss' : ''}`}>
+                      {entry.shotSeat ? <SeatChip seat={entry.shotSeat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : 'промах'}</span>}
+                    </div>
+                    <div className="live-broadcast-tl-cell">
+                      {entry.donCheck ? <SeatChip seat={entry.donCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
+                    </div>
+                    <div className="live-broadcast-tl-cell">
+                      {entry.sheriffCheck ? <SeatChip seat={entry.sheriffCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
+                    </div>
                   </div>
-                );
-              }
-              return (
-                <div key={`n${entry.round}-${index}`} className={`live-broadcast-tl is-night ${entry.current ? 'is-current' : ''}`}>
-                  <div className="live-broadcast-tl-tag">Ночь {entry.round}</div>
-                  <div className={`live-broadcast-tl-cell ${!entry.current && !entry.killed ? 'is-miss' : ''}`}>
-                    {entry.shotSeat ? <SeatChip seat={entry.shotSeat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : 'промах'}</span>}
-                  </div>
-                  <div className="live-broadcast-tl-cell">
-                    {entry.donCheck ? <SeatChip seat={entry.donCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
-                  </div>
-                  <div className="live-broadcast-tl-cell">
-                    {entry.sheriffCheck ? <SeatChip seat={entry.sheriffCheck.seat} kinds={kinds} /> : <span className="live-broadcast-tl-dash">{entry.current ? '…' : '—'}</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {days.length ? (
+            <div className="live-broadcast-tl-block is-days">
+              <div className="live-broadcast-tl-head">
+                <span>Дни</span>
+                <span><UserRoundX aria-hidden="true" />Ушёл</span>
+                <span><Hand aria-hidden="true" />Руками</span>
+              </div>
+              <div className="live-broadcast-timeline-list">
+                {days.map((entry) => {
+                  const hands = entry.left.length === 1 ? handsFor(entry.round, entry.left[0]) : [];
+                  return (
+                    <div key={`d${entry.round}`} className="live-broadcast-tl is-day">
+                      <div className="live-broadcast-tl-tag">День {entry.round}</div>
+                      {entry.left.length ? (
+                        <>
+                          <div className="live-broadcast-tl-cell">{entry.left.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</div>
+                          <div className="live-broadcast-tl-cell is-hands">
+                            {hands.length ? hands.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />) : <span className="live-broadcast-tl-dash">{entry.note === 'table' ? 'решение стола' : '—'}</span>}
+                          </div>
+                        </>
+                      ) : <div className="live-broadcast-tl-cell is-wide"><span className="live-broadcast-tl-dash">{DAY_NOTES[entry.note].toLowerCase()}</span></div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </aside>
       ) : null}
 
@@ -363,7 +378,6 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
-                    {order ? <div className="live-broadcast-nomination-order" title="Порядок выставления">выст. {order}</div> : null}
                   </div>
                   <div className="live-broadcast-role">{ROLE_LABELS[kind]}</div>
                 </div>
@@ -382,6 +396,9 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 {protocol?.black.length ? <FactRow label="Чёрные" seats={protocol.black} kinds={kinds} tone="black" /> : null}
                 {protocol?.sheriff.length ? <FactRow label="Шериф" seats={protocol.sheriff} kinds={kinds} tone="sheriff" /> : null}
               </div>
+              {order && player.alive ? (
+                <div className="live-broadcast-nominated-strip"><Hand aria-hidden="true" />Выставлен · {order}-м</div>
+              ) : null}
               {hasDiscipline ? (
                 <div className="live-broadcast-player-footer">
                   <div className="live-broadcast-discipline" aria-label="Фолы">

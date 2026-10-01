@@ -407,6 +407,15 @@ Do not use a club-wide production announcement as a generic health check.
 - **VK group** gets the invitation post for novice evenings and the ordinary announcement for the others.
 - The invitation post starts by saying it is a novice evening (`headline` and `firstTimeText` in `src/shared/novicePromo.json`), then date, venue, schedule and price, a sign-up link, the novice group links and the organizer contacts, and ends with the approved promo text (owner decision 2026-09-29: the essentials first, the promo last). The Telegram sign-up link goes through the bot so the Mini App gets the player's Telegram login, and it lets a novice sign up straight from the post without going through the groups first.
 
+### Game results in the club chat (owner, 2026-10-01)
+
+- After each completed game of an in-app evening the bot posts **the game blank** as a picture to that evening's Telegram group (novice / club / rating, the same place as «Мы собрались»): game number, evening, date, which team won, the judge with avatar, every seat with avatar, nickname and role, the game's events (first killed, best move with the named seats, fouls, technical fouls, removal) and each player's Elo change with the new Elo (novice evenings do not move Elo).
+- **Points appear only on rating evenings.** Ordinary and novice games have no points; their blank marks the winners instead. Tournaments are not part of this: they have their own result export.
+- When the organizer closes the evening, the bot posts **the evening summary**: number of games, red : black, number of players, most wins, the biggest Elo gain of the evening, and the best sheriff, don, mafia and citizen.
+- On rating evenings «the best» is decided by the **average points per game** (sum of points / number of games), not by the sum — both for the evening leaders and for the best by role. On other evenings the best by role is the one with the most wins in that role.
+- **The season so far** (the rating period from the app that counts this evening: its format and dates, or an organizer override) rides as the **second picture of the same message** as the evening summary, to keep the chat quiet: top 10 of the period (ordinary — by wins; rating — by average points per game) and the best sheriff, don, mafia and citizen of the season. No period — no season picture.
+- Each picture is posted once. Evenings that started before the feature was switched on are never posted. Walk-in guests without a profile count in the evening summary under their seat name.
+
 ## Tournament publication
 
 Approved high-level publication format for tournament summary graphics is three logical outputs:

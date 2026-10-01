@@ -1,6 +1,6 @@
 import { build } from 'vite';
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -21,6 +21,7 @@ const pages = [
   'e2e/crm-players.html',
   'e2e/crm-more.html',
   'e2e/crm-closeout.html',
+  'e2e/poker-harness.html',
 ];
 const bootstrapSource = 'src/lib/uiPreviewProductionBootstrap.ts';
 const bootstrapPath = path.join(root, bootstrapSource);
@@ -47,6 +48,9 @@ await build({
     rolldownOptions: { input: [...pages.map((file) => path.join(root, file)), bootstrapPath] },
   },
 });
+// The poker harness needs only the checked-in art bundle. Keep uploads, avatars,
+// checkpoints and other runtime files out of the isolated preview artifact.
+await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
 const manifest = JSON.parse(await readFile(path.join(output, '.vite/manifest.json'), 'utf8'));
 const bootstrapAsset = manifest[bootstrapSource]?.file;
 if (!bootstrapAsset) throw new Error(`UI preview bootstrap asset missing from Vite manifest: ${bootstrapSource}`);

@@ -526,21 +526,36 @@ body.live-broadcast-document #root {
   font-weight: 800;
 }
 
+/*
+ * Card states by brightness (owner, 2026-10-01): players at the table glow in their role colour,
+ * players who left fade to grey as a whole card, the speaker is lifted and lit in gold.
+ */
+.live-broadcast-player { transition: transform .25s ease, filter .25s ease, box-shadow .25s ease; }
+
+.live-broadcast-player.is-out {
+  filter: grayscale(1) brightness(.62);
+  background: rgba(8, 8, 10, .82);
+  border-color: rgba(255, 255, 255, .06);
+  box-shadow: none;
+}
+
+.live-broadcast-player.is-out::before { background: rgba(255, 255, 255, .12); }
+.live-broadcast-player.is-out .live-broadcast-player-name { color: rgba(255, 255, 255, .55); text-decoration: line-through; text-decoration-thickness: 1px; }
+
 .live-broadcast-player.is-speaking {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 1px var(--gold), 0 0 calc(24 * var(--u)) rgba(232, 182, 90, .45);
+  transform: translateY(calc(-10 * var(--u)));
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 calc(28 * var(--u)) rgba(232, 182, 90, .55), 0 calc(10 * var(--u)) calc(30 * var(--u)) rgba(0, 0, 0, .45);
 }
 
-.live-broadcast-player.is-nominated:not(.is-speaking) { border-color: rgba(255, 77, 106, .55); }
-.live-broadcast-player.is-vote-candidate:not(.is-speaking) {
-  border-color: var(--red);
-  box-shadow: 0 0 calc(18 * var(--u)) rgba(255, 77, 106, .35);
-}
+.live-broadcast-player.is-speaking .live-broadcast-player-name { color: #ffe3a8; }
 
-.live-broadcast-player.is-out { background: var(--glass-strong); }
-.live-broadcast-player.is-out .live-broadcast-avatar { filter: grayscale(1); opacity: .45; }
-.live-broadcast-player.is-out .live-broadcast-player-name { color: rgba(255, 255, 255, .45); text-decoration: line-through; text-decoration-thickness: 1px; }
-.live-broadcast-player.is-out .live-broadcast-seat-number { background: rgba(255, 255, 255, .3); }
+/* Nominated players get a red outline; the candidates of the vote also a soft red glow. */
+.live-broadcast-player.is-nominated:not(.is-speaking):not(.is-out) { border-color: rgba(255, 77, 106, .7); }
+.live-broadcast-player.is-vote-candidate:not(.is-speaking):not(.is-out) {
+  border: 2px solid var(--red);
+  box-shadow: 0 0 calc(20 * var(--u)) rgba(255, 77, 106, .4);
+}
 
 /* ---------- Connection and waiting ---------- */
 .live-broadcast-connection-warning {

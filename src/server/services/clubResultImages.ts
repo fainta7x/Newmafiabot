@@ -157,7 +157,8 @@ export function eveningSummarySvg(summary: EveningSummary) {
 </svg>`;
 }
 
-const FONT_DIRS = [path.resolve(process.cwd(), 'fonts'), path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../fonts')];
+// The server ships as a CommonJS bundle (no import.meta); fonts live next to the app root.
+const FONT_DIRS = [path.resolve(process.cwd(), 'fonts'), '/app/fonts'];
 const FONT_FILES = ['Montserrat-Medium.ttf', 'Montserrat-SemiBold.ttf', 'Montserrat-Bold.ttf']
   .map((name) => FONT_DIRS.map((dir) => path.join(dir, name)).find((file) => fs.existsSync(file)))
   .filter((file): file is string => Boolean(file));

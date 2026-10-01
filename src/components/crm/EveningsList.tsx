@@ -120,8 +120,11 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   }, [filteredEvenings]);
 
   const primaryEvening = clusters.highlighted[0] || null;
-  // Only a running evening (or one beyond this week, absent from the week list) gets the big card.
-  const primaryStandsOut = Boolean(primaryEvening && (String(primaryEvening.status) === 'active' || startTimestamp(primaryEvening) >= Date.now() + 7 * 86_400_000));
+  // The big card only for a running evening, one whose time has passed and still needs a decision,
+  // or one beyond this week (absent from the week list): upcoming evenings sit evenly in the list.
+  const primaryStandsOut = Boolean(primaryEvening && (String(primaryEvening.status) === 'active'
+    || startTimestamp(primaryEvening) < Date.now()
+    || startTimestamp(primaryEvening) >= Date.now() + 7 * 86_400_000));
   const nextEvening = clusters.highlighted[1] || null;
   const activeFormatLabel = formatFilter === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatFilter];
 

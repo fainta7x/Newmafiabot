@@ -403,8 +403,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 <div className="live-broadcast-player-footer">
                   <div className="live-broadcast-discipline" aria-label="Фолы">
                     {[1, 2, 3, 4].map((index) => <i key={index} className={index <= player.fouls ? 'is-on' : ''} />)}
-                    {player.minorTech > 0 ? <span>ТМ {player.minorTech}</span> : null}
-                    {player.majorTech > 0 ? <span>ТБ {player.majorTech}</span> : null}
+                    {player.minorTech > 0 ? <span>техфол{player.minorTech > 1 ? ` ×${player.minorTech}` : ''}</span> : null}
+                    {player.majorTech > 0 ? <span className="is-major">большой техфол{player.majorTech > 1 ? ` ×${player.majorTech}` : ''}</span> : null}
                   </div>
                 </div>
               ) : null}

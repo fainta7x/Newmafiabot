@@ -516,6 +516,9 @@ body.live-broadcast-document #root {
 
 .live-broadcast-discipline {
   margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: calc(3 * var(--u));
   display: flex;
   align-items: center;
   gap: calc(3 * var(--u));
@@ -937,3 +940,6 @@ body.live-broadcast-document #root {
 .live-broadcast-out-ribbon { z-index: 1; }
 .live-broadcast-portrait .live-broadcast-seat-number,
 .live-broadcast-emblem { z-index: 2; }
+
+.live-broadcast-discipline span { font-size: calc(10.5 * var(--u)); letter-spacing: .02em; }
+.live-broadcast-discipline span.is-major { background: rgba(255, 77, 106, .2); color: #ff8da0; }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { chooseStrongBotAction, observePokerHand } from './pokerBot.ts';
 import { applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
 
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean; sitting_out?: boolean }>; hand: PokerState | null; createdAt: string };
@@ -8,16 +9,6 @@ export const NEXT_HAND_DELAY_MS = 6000;
 /** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
 const BOT_NAMES = ['Бот Лаки', 'Бот Блеф', 'Бот Скала', 'Бот Акула', 'Бот Профи', 'Бот Ниндзя', 'Бот Фортуна'];
 export const BOT_THINK_MS = 1200;
-
-/** A simple test opponent: checks or calls most of the time, sometimes raises, gives up against big bets. */
-export const chooseBotAction = (hand: PokerState, bot: { chips: number; committed: number }, random = Math.random) => {
-  const toCall = Math.max(0, hand.current_bet - bot.committed);
-  const roll = random();
-  if (toCall === 0) return roll < 0.2 && bot.chips > hand.big_blind * 2 ? { type: 'bet' as const, amount: minRaiseTotal(hand) + hand.big_blind } : { type: 'check' as const };
-  if (toCall > bot.chips * 0.5 && roll < 0.5) return { type: 'fold' as const };
-  if (roll < 0.1 && bot.chips > toCall + hand.big_blind * 2) return { type: 'bet' as const, amount: minRaiseTotal(hand) };
-  return { type: 'call' as const };
-};
 
 const publicState = (lobby: PokerLobby, viewerId?: string) => {
   if (!lobby.hand) return { ...lobby, hand: null };
@@ -96,6 +87,8 @@ export const nextPokerHand = (lobby: PokerLobby) => {
   const hand = lobby.hand;
   if (!hand || lobby.status === 'finished') throw new Error('Игра не идёт.');
   if (hand.street !== 'finished') throw new Error('Текущая раздача ещё не закончилась.');
+  // The bots learn every player's habits from the hand that just ended.
+  observePokerHand(hand);
   for (const player of lobby.players) {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;
@@ -129,7 +122,7 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   if (!player) return;
   if (player.is_bot) {
     if (lobby.hand.turn_started_at && Date.now() - lobby.hand.turn_started_at < BOT_THINK_MS) return;
-    try { applyPokerAction(lobby.hand, chooseBotAction(lobby.hand, player)); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
+    try { applyPokerAction(lobby.hand, chooseStrongBotAction(lobby.hand, player)); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
     return;
   }
   const seat = lobby.players.find((item) => item.id === player.id);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, chooseBotAction, createPokerLobby, leavePokerLobby, listPokerLobbies, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, createPokerLobby, leavePokerLobby, listPokerLobbies, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -163,13 +163,6 @@ describe('poker rules (owner check 2026-10-01)', () => {
     tickPokerLobby(lobby);
     vi.useRealTimers();
     expect(lobby.hand!.action_log.length).toBe(3);
-  });
-
-  it('bot choices are always legal', () => {
-    const hand = createPokerHand({ id: 'bot', dealer_seat: 1, players: [1, 2, 3].map((n) => ({ id: `p${n}`, nickname: `P${n}`, seat: n, chips: 1000 })) });
-    for (const roll of [0, 0.05, 0.15, 0.5, 0.99]) expect(['fold', 'check', 'call', 'bet']).toContain(chooseBotAction(hand, { chips: 1000, committed: 0 }, () => roll).type);
-    expect(chooseBotAction(hand, { chips: 1000, committed: 10 }, () => 0.99).type).toBe('call');
-    expect(chooseBotAction(hand, { chips: 1000, committed: 20 }, () => 0.99).type).toBe('check');
   });
 
   it('the table stays open: a newcomer sits down mid-hand and plays from the next hand', () => {

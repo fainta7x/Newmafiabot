@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
-import { getPlayerSessionId } from '../auth.ts';
+import { getPlayerSessionId, requireClubOwner, requireOrganizerAuth } from '../auth.ts';
 import { normalizeJudgeLevel } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { musicEntryKey, normalizeYandexMusicUrl } from '../../lib/musicSource.ts';
 
@@ -54,6 +54,42 @@ const linkDto = (row: any) => ({
   sort_order: Number(row.sort_order || 0),
   slot_index: row.slot_index == null ? null : Number(row.slot_index),
   created_at: row.created_at || null,
+});
+
+// Service override: ordinary players get immutable free slots, while the owner
+// can repair a bad link or release a slot during support/administration.
+router.put('/music-library/admin/player-slots/:playerId/:slot', requireOrganizerAuth, requireClubOwner, async (req, res) => {
+  try {
+    const slot = Number(req.params.slot);
+    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'У игрока может быть только два трека.' });
+    const source = normalizeYandexMusicUrl(String(req.body?.url || ''));
+    const title = safeTitle(req.body?.title, source.kind === 'yandex_playlist' ? 'Мой плейлист' : 'Мой трек');
+    const now = new Date().toISOString();
+    const existing = await req.db.get<any>(`SELECT id FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`, [String(req.params.playerId), slot]);
+    const id = existing?.id ? String(existing.id) : randomUUID();
+    if (existing) {
+      await req.db.run(`UPDATE music_link_entries SET title = ?, source_kind = ?, source_url = ?, normalized_url = ?, embed_url = ?, updated_at = ? WHERE id = ? AND owner_player_id = ?`, [title, source.kind, source.sourceUrl, source.normalizedUrl, source.embedUrl, now, id, String(req.params.playerId)]);
+    } else {
+      await req.db.run(`INSERT INTO music_link_entries (id, owner_player_id, scope, slot_index, title, source_kind, source_url, normalized_url, embed_url, sort_order, created_at, updated_at) VALUES (?, ?, 'player', ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, String(req.params.playerId), slot, title, source.kind, source.sourceUrl, source.normalizedUrl, source.embedUrl, slot - 1, now, now]);
+    }
+    return res.json({ slot, entry: linkDto(await req.db.get<any>('SELECT * FROM music_link_entries WHERE id = ?', [id])) });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Не удалось исправить ссылку.' });
+  }
+});
+
+router.delete('/music-library/admin/player-slots/:playerId/:slot', requireOrganizerAuth, requireClubOwner, async (req, res) => {
+  try {
+    const slot = Number(req.params.slot);
+    if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'У игрока может быть только два трека.' });
+    await req.db.run(
+      `DELETE FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`,
+      [String(req.params.playerId), slot],
+    );
+    return res.json({ ok: true });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось освободить слот.' });
+  }
 });
 
 router.get('/music-library/player-slots', async (req, res) => {

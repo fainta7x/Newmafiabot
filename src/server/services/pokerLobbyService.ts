@@ -65,7 +65,9 @@ export const rebuyPoker = (lobby: PokerLobby, playerId: string) => {
   if (!seat) throw new Error('Вы не сидите за этим столом.');
   const handPlayer = lobby.hand?.players.find((player) => player.id === playerId);
   const inLiveHand = Boolean(lobby.hand && lobby.hand.street !== 'finished' && handPlayer && !handPlayer.folded);
-  if (seat.chips > 0 || inLiveHand) throw new Error('Взять фишки можно, когда стек закончился.');
+  // After a hand ends the seat is updated only at the next deal: the finished hand holds the real stack.
+  const stack = lobby.hand?.street === 'finished' && handPlayer ? handPlayer.chips : seat.chips;
+  if (stack > 0 || inLiveHand) throw new Error('Взять фишки можно, когда стек закончился.');
   seat.chips = POKER_REBUY_CHIPS;
   // The finished hand still holds the old stack; the next deal copies chips from it.
   if (handPlayer && lobby.hand?.street === 'finished') handPlayer.chips = POKER_REBUY_CHIPS;
@@ -120,7 +122,7 @@ const autoDealMainLobby = (lobby: PokerLobby) => {
   if (lobby.status === 'waiting') nextPokerHand(lobby);
 };
 
-export const listPokerLobbies = () => { ensureMainLobby(); return [...lobbies.values()].filter((lobby) => lobby.status !== 'finished' && lobby.players.length < 8).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), players: lobby.players.map(({ id, nickname, seat }) => ({ id, nickname, seat })), createdAt: lobby.createdAt }))
+export const listPokerLobbies = () => { ensureMainLobby(); return [...lobbies.values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent)).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8, players: lobby.players.map(({ id, nickname, seat }) => ({ id, nickname, seat })), createdAt: lobby.createdAt }))
   .sort((a, b) => Number(b.permanent) - Number(a.permanent)); };
 export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната') => {
   const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: 1000 }], hand: null, createdAt: new Date().toISOString() };

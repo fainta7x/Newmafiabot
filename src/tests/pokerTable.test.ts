@@ -53,6 +53,16 @@ describe('poker table: history, rebuy, permanent table (owner, 2026-10-02)', () 
     lobby.players[0].chips = 0;
     rebuyPoker(lobby, 'carol');
     expect(lobby.players[0].chips).toBe(1000);
+
+    // Right after a busting hand the seat still shows the old stack; the finished hand has the real one.
+    startPokerLobby(lobby, 'carol');
+    finishByFolds(lobby);
+    const loser = lobby.hand!.players.find((player) => player.chips < 1000)!;
+    loser.chips = 0;
+    const seat = lobby.players.find((player) => player.id === loser.id)!;
+    expect(seat.chips).toBeGreaterThan(0);
+    rebuyPoker(lobby, loser.id);
+    expect(seat.chips).toBe(1000);
   });
 
   it('always lists the permanent table and deals there once two players sit down', () => {
@@ -69,5 +79,10 @@ describe('poker table: history, rebuy, permanent table (owner, 2026-10-02)', () 
     expect(leavePokerLobby(main, 'erin')).toBeNull();
     expect(getPokerLobby(MAIN_POKER_LOBBY_ID)).toMatchObject({ players: [], hand: null, status: 'waiting' });
     expect(listPokerLobbies()[0].id).toBe(MAIN_POKER_LOBBY_ID);
+
+    // A full permanent table stays listed, marked full.
+    for (let index = 0; index < 8; index += 1) joinPokerLobby(main, { id: `full-${index}`, nickname: `Full ${index}` });
+    expect(listPokerLobbies()[0]).toMatchObject({ id: MAIN_POKER_LOBBY_ID, full: true });
+    for (let index = 0; index < 8; index += 1) leavePokerLobby(main, `full-${index}`);
   });
 });

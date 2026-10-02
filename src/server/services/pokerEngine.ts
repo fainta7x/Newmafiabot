@@ -6,7 +6,9 @@ export type PokerCard = { rank: PokerRank; suit: PokerSuit };
 export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'finished';
 export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean;
   /** Everything the player put in during this hand: decides which side pots they can win. */
-  total_committed: number };
+  total_committed: number;
+  /** The stack before the blinds: the hand history shows what each player won or lost. */
+  start_chips?: number };
 export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all_in'; amount: number; street: PokerStreet; at: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
@@ -60,7 +62,7 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
 export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = shuffleDeck();
-  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60 }));
+  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60 }));
   const state: PokerState = {
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
@@ -146,8 +148,9 @@ export const pokerHandLabel = (state: PokerState, playerId: string) => {
     const hole = state.hole_cards[playerId] || [];
     if (hole.length !== 2) return '';
     const [high, low] = hole.map((card) => rankValue(card.rank)).sort((x, y) => y - x);
-    // Before the flop there is always a hand: a pocket pair or a high card with its kicker.
-    return high === low ? `Пара ${RANK_OF[high]}` : `Старшая карта: ${RANK_ONE[high]}, кикер ${RANK_ONE[low]}`;
+    // Before the flop the hand is a combination like any other (owner, 2026-10-02): a pair or a high card.
+    // The high card is the whole combination — «Старшая карта: валет» — never a second «кикер» name.
+    return high === low ? `Пара ${RANK_OF[high]}` : `Старшая карта: ${RANK_ONE[high]}`;
   }
   return describeHand(handRank(cards));
 };

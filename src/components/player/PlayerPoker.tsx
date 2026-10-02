@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 type Card = { rank: string; suit: string };
 type Player = { id: string; nickname: string; seat: number; chips: number; committed?: number; folded?: boolean; all_in?: boolean; is_bot?: boolean; sitting_out?: boolean };
@@ -8,13 +8,23 @@ type Lobby = { id: string; title: string; status: string; players: Player[]; han
 const rankLabel = (rank: string) => (rank === 'T' ? '10' : rank);
 const cardColor = (suit: string) => suit === 'hearts' || suit === 'diamonds' ? 'text-[#d92f45]' : 'text-[#101116]';
 /**
- * Seats sit on the chairs of the table picture (940×1672): one at the top, three on each side and
- * the viewer at the bottom. Index 0 is always the viewer; the rest go clockwise.
+ * The table is drawn on a fixed 400×640 canvas and scaled to the phone as a whole (owner, 2026-10-02:
+ * on a short Telegram screen plaques, bets, the pot and the board used to overlap). The picture
+ * (940×1672) covers the canvas, cropped a little at the top and bottom.
+ * Seats sit on its chairs: one at the top, three on each side and the viewer at the bottom.
+ * Index 0 is always the viewer; the rest go clockwise.
  */
+const TABLE_W = 400;
+const TABLE_H = 640;
 const CHAIRS = {
-  bottom: { x: 50, y: 88 }, lowerLeft: { x: 7, y: 71 }, left: { x: 6, y: 34 }, upperLeft: { x: 17, y: 16 },
-  top: { x: 50, y: 11 }, upperRight: { x: 83, y: 16 }, right: { x: 94, y: 34 }, lowerRight: { x: 93, y: 71 },
+  bottom: { x: 50, y: 92 }, lowerLeft: { x: 7, y: 73.4 }, left: { x: 6, y: 32.2 }, upperLeft: { x: 17, y: 12.2 },
+  top: { x: 50, y: 6.7 }, upperRight: { x: 83, y: 12.2 }, right: { x: 94, y: 32.2 }, lowerRight: { x: 93, y: 73.4 },
 } as const;
+const POT_Y = 33.9;
+const BOARD_Y = 51.1;
+/** Pixels per percent of the canvas, for the chip flights between a seat and the pot. */
+const PX_X = TABLE_W / 100;
+const PX_Y = TABLE_H / 100;
 const LAYOUTS: Record<number, Array<keyof typeof CHAIRS>> = {
   1: ['bottom'],
   2: ['bottom', 'top'],
@@ -40,7 +50,7 @@ const betSpot = (spot: { x: number; y: number }) => {
   const side = Math.abs(spot.x - 50) > 25;
   if (spot.y > 80) return { x: 50, top: `calc(${spot.y}% - 150px)` };
   if (spot.y > 60) return { x: spot.x + (50 - spot.x) * (side ? 0.6 : 0.3), top: `calc(${spot.y}% - 46px)` };
-  if (side && spot.y >= 30) return { x: spot.x + (50 - spot.x) * 0.62, top: `calc(${spot.y}% + 40px)` };
+  if (side && spot.y >= 30) return { x: spot.x + (50 - spot.x) * 0.62, top: `calc(${spot.y}% + 50px)` };
   if (spot.x > 45 && spot.x < 55) return { x: 50, top: `calc(${spot.y}% + 90px)` };
   return { x: spot.x + (50 - spot.x) * 0.42, top: `calc(${spot.y}% + 90px)` };
 };
@@ -73,6 +83,26 @@ const winningKeys = (hand: any) => new Set<string>((hand?.winning_cards || []).m
  * otherwise 2.5×/3× the raise. After the flop: parts of the pot (a pot-size raise counts the call).
  * Every size is a «raise to» total, kept between the minimum raise and all-in.
  */
+/** «Бот Блеф — рейз до 40»: the latest move in words, for the line under the board. */
+const actionSentence = (hand: any) => {
+  const entry = [...(hand?.action_log || [])].reverse().find((item: any) => item.type !== 'small_blind' && item.type !== 'big_blind');
+  if (!entry) return null;
+  const committed = Number(hand.players?.find((player: any) => player.id === entry.player_id)?.committed || entry.amount || 0);
+  const phrase = entry.type === 'fold' ? 'пас' : entry.type === 'check' ? 'чек'
+    : entry.type === 'call' ? `колл ${entry.amount}` : entry.type === 'bet' ? `бет ${committed}`
+    : entry.type === 'raise' ? `рейз до ${committed}` : entry.type === 'all_in' ? `олл-ин ${committed}` : '';
+  const name = entry.player_id === hand.viewer_id ? 'Вы' : entry.player_name || hand.players?.find((player: any) => player.id === entry.player_id)?.nickname || 'Игрок';
+  return { key: `${entry.at}-${entry.player_id}`, text: `${name} — ${phrase}`, type: entry.type };
+};
+
+const historyActionWord = (type: string, amount: number) => ({
+  small_blind: `малый блайнд ${amount}`, big_blind: `большой блайнд ${amount}`, fold: 'пас', check: 'чек',
+  call: `колл ${amount}`, bet: `бет ${amount}`, raise: `рейз +${amount}`, all_in: `олл-ин +${amount}`,
+}[type] || type);
+
+/** Pre-moves like poker rooms: chosen before your turn, played the moment it comes, cancelled by a tap. */
+type PreAction = { kind: 'check_fold' | 'check' | 'fold' | 'call' | 'call_any'; amount?: number; bet: number; street: string; handId: string };
+
 const betPresets = (hand: any, actions: any) => {
   const min = Number(actions.min_bet_total || 0);
   const max = Number(actions.max_bet_total || 0);
@@ -196,6 +226,22 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const [title, setTitle] = useState('Открытая покерная комната');
   const [error, setError] = useState<string | null>(null);
   const [betAmount, setBetAmount] = useState(100);
+  // The table canvas scales to the space between the header and the action panel (see TABLE_W/TABLE_H).
+  const tableFrameRef = useRef<HTMLDivElement | null>(null);
+  const [tableScale, setTableScale] = useState(0.9);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const frame = tableFrameRef.current;
+      const width = (frame?.clientWidth || window.innerWidth) - 16;
+      const stable = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-stable-height')) || window.innerHeight;
+      const height = stable - 222;
+      const next = Math.max(0.55, Math.min(1.2, width / TABLE_W, height / TABLE_H));
+      setTableScale((previous) => (Math.abs(previous - next) < 0.002 ? previous : next));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  });
 
   const readBody = async (response: Response) => {
     // A restart or a proxy error answers with an HTML page, not JSON: say it plainly and keep polling.
@@ -265,6 +311,54 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     if (minimum > 0) setBetAmount(minimum);
   }, [actions?.min_bet_total, current?.hand?.current_seat, current?.hand?.street]);
 
+  const heroHand = current?.hand?.players?.find((player: Player) => player.id === viewerId);
+  const heroSeat = current?.players?.find((player: Player) => player.id === viewerId);
+  const heroToCall = heroHand ? Math.max(0, Number(current.hand.current_bet || 0) - Number(heroHand.committed || 0)) : 0;
+  const canPreAct = Boolean(current?.hand && heroHand && !heroHand.folded && !heroHand.all_in && current.hand.street !== 'finished' && !isMyTurn && !meAway);
+  // The seat's stack is updated at the next deal; after a hand ends the hand's own stack is the fresh one.
+  const heroChips = current?.hand?.street === 'finished' && heroHand ? Number(heroHand.chips) : Number(heroSeat?.chips ?? 1);
+  const heroBusted = Boolean(heroSeat && heroChips <= 0 && (!heroHand || heroHand.folded || current?.hand?.street === 'finished'));
+  const [preAction, setPreAction] = useState<PreAction | null>(null);
+  // A pre-move that no longer fits is dropped: a new hand, or a new bet for «Чек» and «Колл N».
+  useEffect(() => {
+    if (!preAction) return;
+    const hand = current?.hand;
+    if (!hand || hand.id !== preAction.handId || hand.street === 'finished') { setPreAction(null); return; }
+    if ((preAction.kind === 'check' || preAction.kind === 'call') && (Number(hand.current_bet) !== preAction.bet || hand.street !== preAction.street)) setPreAction(null);
+  }, [current?.hand?.id, current?.hand?.current_bet, current?.hand?.street, preAction]);
+  // ...and played the moment the turn comes.
+  useEffect(() => {
+    if (!isMyTurn || !preAction) return;
+    const chosen = preAction;
+    setPreAction(null);
+    if (chosen.kind === 'check_fold') void pokerAction(heroToCall ? 'fold' : 'check');
+    else if (chosen.kind === 'fold') void pokerAction('fold');
+    else if (chosen.kind === 'check') { if (!heroToCall) void pokerAction('check'); }
+    else if (chosen.kind === 'call') { if (heroToCall === chosen.amount) void pokerAction('call'); }
+    else void pokerAction(heroToCall ? 'call' : 'check');
+  }, [isMyTurn, preAction]);
+  const choosePreAction = (kind: PreAction['kind']) => {
+    const hand = current?.hand;
+    if (!hand) return;
+    setPreAction((previous) => (previous?.kind === kind ? null : { kind, amount: heroToCall, bet: Number(hand.current_bet), street: hand.street, handId: hand.id }));
+  };
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [openHand, setOpenHand] = useState<string | null>(null);
+  const showHistory = async () => {
+    setHistoryOpen(true);
+    try {
+      const body = await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/history`, { credentials: 'include' }));
+      setHistory(body.history || []);
+      setOpenHand(body.history?.[0]?.id || null);
+    } catch (e: any) { setError(e.message); }
+  };
+  const rebuy = async () => {
+    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/rebuy`, { method: 'POST', credentials: 'include' }))).lobby); }
+    catch (e: any) { setError(e.message); }
+  };
+
   if (current?.hand) {
     const hand = current.hand;
     const finished = hand.street === 'finished';
@@ -274,12 +368,15 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {hand.small_blind}/{hand.big_blind}</div></div><div className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
-      <div className="flex flex-1 items-start justify-center px-2 pt-1">
-        <section className="relative w-full max-w-[470px] overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ height: 'min(calc(min(100vw - 16px, 470px) / 0.5622), calc(var(--tg-viewport-stable-height, 100dvh) - 222px))' }}>
-          <div key={hand.pot} className="poker-chip-flight absolute left-1/2 top-[35.5%] z-[5] -translate-x-1/2 -translate-y-1/2">
+      <div ref={tableFrameRef} className="flex flex-1 items-start justify-center px-2 pt-1">
+        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: TABLE_H * tableScale }}>
+        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
+          <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/35 bg-black/70 py-1 pl-1 pr-3 shadow-[0_6px_16px_rgba(0,0,0,.6)]"><img src="/assets/poker/chips/chip-1000-v2.webp" alt="" className="h-7 w-7 object-contain" /><span className="text-[11px] uppercase tracking-[.14em] text-amber-100/65">Банк</span><span className="text-base font-black tabular-nums text-amber-100">{Number(hand.pot) > 0 ? hand.pot : finished ? hand.last_pot_awarded || 0 : 0}</span></span>
           </div>
-          <div className="absolute left-1/2 top-[51%] z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1">{(hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - (hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="poker-card-slot" />)}</div>
+          {hand.street !== 'preflop' && !finished ? <div key={`street-${hand.id}-${hand.street}`} className="poker-street-banner pointer-events-none absolute left-1/2 z-[7]" style={{ top: `${BOARD_Y}%` }}>{streetName(hand.street)}</div> : null}
+          {(() => { const said = actionSentence(hand); return said && !finished ? <div key={said.key} className={`poker-action-ticker absolute left-1/2 z-[6] is-${said.type}`} style={{ top: `calc(${BOARD_Y}% + 46px)` }}>{said.text}</div> : null; })()}
+          <div className="absolute left-1/2 z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1" style={{ top: `${BOARD_Y}%` }}>{(hand.board || []).map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 110}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - (hand.board || []).length }).map((_, index) => <span key={`empty-${index}`} className="poker-card-slot" />)}</div>
 
           {orderedPlayers.slice(0, 8).map((player: Player, index: number) => {
             if (index === heroIndex) return null;
@@ -305,7 +402,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
                 </div>
                 {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <span className="poker-seat-backs" aria-label="Закрытые карты"><i /><i /></span> : null}
               </div>
-              <div className={`poker-seat-plaque relative z-10 -mt-2 ${active ? 'poker-seat-plaque--active' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
+              <div className={`poker-seat-plaque relative z-10 -mt-2 ${active ? 'poker-seat-plaque--active poker-active-seat' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
               {winner ? <div className="-mx-5 mt-0.5 rounded-lg bg-amber-300 px-1.5 py-0.5 text-[9px] font-black leading-tight text-black">{label || 'Победитель'}</div> : label ? <div className="-mx-5 mt-0.5 text-[9px] leading-tight text-white/75">{label}</div> : null}
             </div>;
           })}
@@ -321,8 +418,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const spot = betSpot(layout[index]);
             return <div key={`bet-${player.id}-${committed}`} className="poker-chip-flight absolute z-[8] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${spot.x}%`, top: spot.top }}><SeatMarkers dealer={dealer} small={small} big={big} />{committed ? <BetChip amount={committed} /> : null}</div>;
           })}
-          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 top-[37%] z-40" style={{ '--award-x': `${(layout[winnerIndex].x - 50) * 3.7}px`, '--award-y': `${(layout[winnerIndex].y - 37) * 6.6}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
-          {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 top-[37%] z-30" style={{ '--bet-from-x': `${(layout[latestActionIndex].x - 50) * 3.7}px`, '--bet-from-y': `${(layout[latestActionIndex].y - 37) * 6.6}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
+          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 z-40" style={{ top: `${POT_Y}%`, '--award-x': `${(layout[winnerIndex].x - 50) * PX_X}px`, '--award-y': `${(layout[winnerIndex].y - POT_Y) * PX_Y}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
+          {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 z-30" style={{ top: `${POT_Y}%`, '--bet-from-x': `${(layout[latestActionIndex].x - 50) * PX_X}px`, '--bet-from-y': `${(layout[latestActionIndex].y + 6 - POT_Y) * PX_Y}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
 
           {heroIndex >= 0 ? (() => {
             const hero = orderedPlayers[heroIndex];
@@ -338,14 +435,49 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             </div>;
           })() : null}
         </section>
+        </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}><div className="mx-auto max-w-[470px]">{finished ? <div className="grid min-h-[136px] place-items-center text-center"><div><div className="text-sm font-semibold text-amber-200">{orderedPlayers.filter((player) => hand.winner_ids?.includes(player.id)).map((player) => player.id === viewerId ? 'Вы' : player.nickname).join(', ') || '—'} {hand.winner_ids?.length > 1 ? 'делят банк' : 'забирает банк'}</div><div className="mt-1 text-xs text-white/55">{meAway ? <button type="button" onClick={() => void setAway(false)} className="mt-2 min-h-10 rounded-xl bg-emerald-500 px-4 text-xs font-black text-[#04291b]">Вернуться за стол</button> : current.status === 'waiting' ? 'Ждём игроков: нужно минимум двое за столом.' : current.status === 'finished' ? 'Игра окончена: фишки остались у одного игрока.' : hand.next_hand_in !== null && hand.next_hand_in !== undefined ? `Следующая раздача через ${hand.next_hand_in} с` : ''}</div></div></div> : <>
-        {meAway ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-white/[.06] px-3 py-2 text-xs text-white/75"><span>Вы отошли — карты не раздаются, место за вами</span><button type="button" onClick={() => void setAway(false)} className="min-h-9 shrink-0 rounded-xl bg-emerald-500 px-3 text-xs font-black text-[#04291b]">Вернуться за стол</button></div> : hand.waiting_for_next_hand ? <div className="mb-1.5 rounded-xl bg-emerald-400/10 py-1.5 text-center text-xs font-semibold text-emerald-200">Вы за столом — сыграете со следующей раздачи</div> : null}
-        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-white/45"><span className="w-12" /><span>{isMyTurn ? (actions?.to_call > 0 ? <span className="text-amber-200">Нужно уравнять {actions.to_call}</span> : <span className="text-emerald-300">Можно сделать чек</span>) : `Ходит ${turnPlayer?.nickname || '…'}`}</span>{!meAway ? <button type="button" onClick={() => void setAway(true)} className="w-12 text-right text-[11px] text-white/50 underline-offset-2 hover:underline">Отойти</button> : <span className="w-12" />}</div>
+      {historyOpen ? <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
+        <div className="max-h-[80dvh] w-full max-w-[470px] overflow-y-auto rounded-t-3xl border border-white/10 bg-[#101114] p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]" onClick={(event) => event.stopPropagation()} data-testid="poker-history">
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold">История раздач</h2><button type="button" onClick={() => setHistoryOpen(false)} className="min-h-9 rounded-xl bg-white/10 px-3 text-xs">Закрыть</button></div>
+          {history.length ? history.map((entry) => {
+            const me = entry.players.find((player: any) => player.id === viewerId);
+            const winners = entry.players.filter((player: any) => entry.winner_ids.includes(player.id)).map((player: any) => (player.id === viewerId ? 'Вы' : player.nickname)).join(', ');
+            const opened = openHand === entry.id;
+            return <div key={entry.id} className="mb-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[.03]">
+              <button type="button" onClick={() => setOpenHand(opened ? null : entry.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+                <span className="text-xs text-white/40">№{entry.number}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{winners || '—'} · банк {entry.pot}</span>
+                {me ? <b className={`text-sm tabular-nums ${me.net > 0 ? 'text-emerald-300' : me.net < 0 ? 'text-rose-300' : 'text-white/50'}`}>{me.net > 0 ? '+' : ''}{me.net}</b> : null}
+              </button>
+              {opened ? <div className="space-y-2 border-t border-white/10 px-3 py-2.5 text-xs">
+                {entry.board.length ? <div className="flex gap-1">{entry.board.map((card: Card, index: number) => <PlayingCard key={index} card={card} tiny />)}</div> : null}
+                <div className="space-y-1">{entry.players.map((player: any) => <div key={player.id} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate">{player.id === viewerId ? 'Вы' : player.nickname}{player.label ? <span className="text-white/45"> · {player.label}</span> : null}</span>{player.cards.length ? <span className="flex gap-0.5">{player.cards.map((card: Card, index: number) => <PlayingCard key={index} card={card} tiny />)}</span> : <span className="text-white/30">карты закрыты</span>}<b className={`w-12 text-right tabular-nums ${player.net > 0 ? 'text-emerald-300' : player.net < 0 ? 'text-rose-300' : 'text-white/40'}`}>{player.net > 0 ? '+' : ''}{player.net}</b></div>)}</div>
+                {['preflop', 'flop', 'turn', 'river'].map((street) => {
+                  const moves = entry.actions.filter((action: any) => action.street === street);
+                  if (!moves.length) return null;
+                  return <div key={street}><div className="text-[10px] uppercase tracking-[.14em] text-amber-200/60">{streetName(street)}</div><div className="leading-5 text-white/75">{moves.map((action: any) => `${action.player_id === viewerId ? 'Вы' : action.player_name}: ${historyActionWord(action.type, action.amount)}`).join(' · ')}</div></div>;
+                })}
+              </div> : null}
+            </div>;
+          }) : <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/40">Пока нет сыгранных раздач</div>}
+        </div>
+      </div> : null}
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}><div className="mx-auto max-w-[470px]">{finished ? <div className="relative grid min-h-[136px] place-items-center text-center"><div><button type="button" onClick={() => void showHistory()} className="absolute left-3 top-2 text-[11px] text-white/55">История</button><div className="text-sm font-semibold text-amber-200">{orderedPlayers.filter((player) => hand.winner_ids?.includes(player.id)).map((player) => player.id === viewerId ? 'Вы' : player.nickname).join(', ') || '—'} {hand.winner_ids?.length > 1 ? 'делят банк' : 'забирает банк'}</div><div className="mt-1 text-xs text-white/55">{heroBusted ? <button type="button" onClick={() => void rebuy()} className="mt-2 min-h-10 rounded-xl bg-[#d5a54b] px-4 text-xs font-black text-black">Фишки закончились — взять 1000</button> : meAway ? <button type="button" onClick={() => void setAway(false)} className="mt-2 min-h-10 rounded-xl bg-emerald-500 px-4 text-xs font-black text-[#04291b]">Вернуться за стол</button> : current.status === 'waiting' ? <span className="flex flex-col items-center gap-2"><span>Ждём игроков: нужно минимум двое с фишками.</span>{(current.ownerId === viewerId || (current.permanent && heroSeat)) && current.players.length < 8 ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-10 rounded-xl border border-amber-200/25 bg-amber-200/10 px-4 text-xs font-semibold text-amber-50">+ Добавить бота</button> : null}</span> : current.status === 'finished' ? 'Игра окончена: фишки остались у одного игрока.' : hand.next_hand_in !== null && hand.next_hand_in !== undefined ? `Следующая раздача через ${hand.next_hand_in} с` : ''}</div></div></div> : <>
+        {heroBusted ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-amber-300/10 px-3 py-2 text-xs text-amber-100"><span>Фишки закончились</span><button type="button" onClick={() => void rebuy()} className="min-h-9 shrink-0 rounded-xl bg-[#d5a54b] px-3 text-xs font-black text-black">Взять 1000 фишек</button></div> : meAway ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-white/[.06] px-3 py-2 text-xs text-white/75"><span>Вы отошли — карты не раздаются, место за вами</span><button type="button" onClick={() => void setAway(false)} className="min-h-9 shrink-0 rounded-xl bg-emerald-500 px-3 text-xs font-black text-[#04291b]">Вернуться за стол</button></div> : hand.waiting_for_next_hand ? <div className="mb-1.5 rounded-xl bg-emerald-400/10 py-1.5 text-center text-xs font-semibold text-emerald-200">Вы за столом — сыграете со следующей раздачи</div> : null}
+        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-white/45"><button type="button" onClick={() => void showHistory()} className="w-14 text-left text-[11px] text-white/55 underline-offset-2 hover:underline">История</button><span>{isMyTurn ? (actions?.to_call > 0 ? <span className="text-amber-200">Нужно уравнять {actions.to_call}</span> : <span className="text-emerald-300">Можно сделать чек</span>) : `Ходит ${turnPlayer?.nickname || '…'}`}</span>{!meAway ? <button type="button" onClick={() => void setAway(true)} className="w-12 text-right text-[11px] text-white/50 underline-offset-2 hover:underline">Отойти</button> : <span className="w-12" />}</div>
+        {canPreAct ? <div className="poker-preactions pt-1" data-testid="poker-preactions">
+          <div className="mb-2 text-center text-[10px] uppercase tracking-[.14em] text-white/35">Заранее · сработает в ваш ход</div>
+          <div className="grid grid-cols-3 gap-2">{(heroToCall
+            ? [['fold', 'Пас'], ['call', `Колл ${Math.min(heroToCall, Number(heroHand?.chips || heroToCall))}`], ['call_any', 'Колл любую']]
+            : [['check_fold', 'Чек / Пас'], ['check', 'Чек'], ['call_any', 'Колл любую']]
+          ).map(([kind, label]) => <button key={kind} type="button" aria-pressed={preAction?.kind === kind} onClick={() => choosePreAction(kind as PreAction['kind'])} className={`min-h-12 rounded-2xl border text-sm font-bold leading-tight ${preAction?.kind === kind ? 'border-amber-300 bg-amber-300/20 text-amber-100' : 'border-white/10 bg-white/[.06] text-white/75'}`}><span className={`mr-1.5 inline-block h-3.5 w-3.5 rounded-[4px] border align-[-2px] ${preAction?.kind === kind ? 'border-amber-300 bg-amber-300' : 'border-white/40'}`} />{label}</button>)}</div>
+        </div> : <>
         <div className="mb-2 grid grid-cols-5 gap-1.5">{presets.map((preset) => <button key={preset.label} type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(preset.amount)} className={`min-h-9 rounded-xl text-[11px] font-semibold disabled:opacity-30 ${betAmount === preset.amount ? 'bg-amber-300 text-black' : 'bg-white/[.07] text-white/80'}`}>{preset.label}</button>)}</div>
         <div className="mb-2 flex items-center gap-2"><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount - bigBlind))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">−</button><input type="range" aria-label="Размер ставки" disabled={!actions?.can_bet} min={actions?.min_bet_total || 0} max={actions?.max_bet_total || 0} step={Math.max(1, Math.round(bigBlind / 2))} value={betAmount} onChange={(event) => setBetAmount(clampBet(Number(event.target.value)))} className="h-9 min-w-0 flex-1 accent-amber-300 disabled:opacity-30" /><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount + bigBlind))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">+</button></div>
-        <div className="grid grid-cols-3 gap-2"><button type="button" disabled={!actions?.can_fold} onClick={() => void pokerAction('fold')} className="min-h-12 rounded-2xl bg-[#d91e4d] text-sm font-bold disabled:opacity-30">Пас</button>{actions?.to_call > 0 ? <button type="button" disabled={!actions?.can_call} onClick={() => void pokerAction('call')} className="min-h-12 rounded-2xl bg-[#0f9b6d] text-sm font-bold leading-tight disabled:opacity-30">Колл<br />{actions.call_amount ?? actions.to_call}</button> : <button type="button" disabled={!actions?.can_check} onClick={() => void pokerAction('check')} className="min-h-12 rounded-2xl bg-white/15 text-sm font-bold disabled:opacity-30">Чек</button>}<button type="button" disabled={!actions?.can_bet} onClick={() => void pokerAction(betAmount >= Number(actions?.max_bet_total || Infinity) ? 'all_in' : 'bet', betAmount)} className="min-h-12 rounded-2xl bg-[#d5a54b] text-sm font-bold leading-tight text-black disabled:opacity-30">{betAmount >= Number(actions?.max_bet_total || Infinity) ? 'Олл-ин' : hand.current_bet > 0 ? 'Рейз до' : 'Бет'}<br />{betAmount}</button></div>
+        <div className="grid grid-cols-3 gap-2"><button type="button" disabled={!actions?.can_fold} onClick={() => void pokerAction('fold')} className="min-h-12 rounded-2xl bg-[#d91e4d] text-sm font-bold disabled:opacity-30">Пас</button>{actions?.to_call > 0 ? <button type="button" disabled={!actions?.can_call} onClick={() => void pokerAction('call')} className="min-h-12 rounded-2xl bg-[#0f9b6d] text-sm font-bold leading-tight disabled:opacity-30">Колл<br />{actions.call_amount ?? actions.to_call}</button> : <button type="button" disabled={!actions?.can_check} onClick={() => void pokerAction('check')} className="min-h-12 rounded-2xl bg-white/15 text-sm font-bold disabled:opacity-30">Чек</button>}<button type="button" disabled={!actions?.can_bet} onClick={() => void pokerAction(betAmount >= Number(actions?.max_bet_total || Infinity) ? 'all_in' : 'bet', betAmount)} className="min-h-12 rounded-2xl bg-[#d5a54b] text-sm font-bold leading-tight text-black disabled:opacity-30">{betAmount >= Number(actions?.max_bet_total || Infinity) ? 'Олл-ин' : hand.current_bet > 0 ? 'Рейз до' : 'Бет'}<br />{betAmount}</button></div></>}
       </>}</div></div>
     </main>
     );
@@ -357,7 +489,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       <div className="mx-auto max-w-lg space-y-4">
         <section className="relative h-44 overflow-hidden rounded-[1.75rem] border border-amber-100/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_39%] shadow-[0_20px_50px_rgba(0,0,0,.6)]"><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,5,5,.93),rgba(2,5,5,.35),rgba(2,5,5,.66))]"/><div className="absolute inset-y-0 left-0 flex w-[70%] flex-col justify-center p-5"><div className="text-[9px] uppercase tracking-[.3em] text-[#caa96a]">Sport Mafia Club</div><h1 className="mt-1 text-4xl font-black tracking-tight">POKER</h1><p className="mt-1 text-xs leading-relaxed text-white/60">Техасский холдем в атмосфере 2LA Noire</p></div><img src="/assets/poker/deck-flat-noir-v2.webp" alt="Колода 2LA Noire" className="absolute -bottom-2 -right-5 w-40 drop-shadow-2xl" /></section>
         {error ? <div className="rounded-2xl bg-rose-400/15 p-3 text-sm text-rose-100">{error}</div> : null}
-        {current ? <section className="space-y-3 rounded-3xl border border-amber-200/15 bg-[linear-gradient(145deg,rgba(39,32,24,.95),rgba(12,13,14,.98))] p-4 shadow-2xl"><div className="flex items-center justify-between"><div><div className="text-[9px] uppercase tracking-[.2em] text-amber-200/50">Ваш стол</div><h2 className="font-semibold">{current.title}</h2></div><span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">Ожидание</span></div><div className="grid grid-cols-2 gap-2">{current.players?.map((player: Player) => <div key={player.id} className="flex items-center gap-2 rounded-2xl border border-white/[.06] bg-black/30 px-2 py-2"><span className="poker-seat-frame grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-300 font-bold text-black">{player.nickname?.slice(0, 1)}</span><span className="min-w-0 flex-1"><b className="block truncate text-xs">{player.nickname}</b><small className="text-[9px] text-white/40">Место {player.seat}{player.is_bot ? ' · бот' : ''}</small></span></div>)}</div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void lobbyAction(current.id, 'start')} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">Начать игру</button><button type="button" onClick={() => void leaveTable()} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 text-sm text-white/60">Встать из-за стола</button></div><button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-11 w-full rounded-2xl border border-amber-200/20 bg-amber-200/[.08] text-sm font-semibold text-amber-50">+ Добавить бота (до 8 за столом)</button></section> : <><section className="rounded-3xl border border-white/10 bg-black/35 p-4 shadow-xl backdrop-blur"><div className="text-[9px] uppercase tracking-[.22em] text-amber-200/45">Новая игра</div><h2 className="mt-1 font-semibold">Создать стол</h2><input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm outline-none focus:border-amber-200/40" /><button type="button" onClick={() => void create()} className="mt-3 min-h-12 w-full rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">+ Создать открытый стол</button></section><section className="space-y-2"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Открытые столы</h2><span className="rounded-full bg-white/[.06] px-2 py-1 text-[10px] text-white/45">{lobbies.length}</span></div>{lobbies.length ? lobbies.map((lobby) => <div key={lobby.id} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#101514] p-3 shadow-xl"><div className="absolute inset-y-0 right-0 w-28 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center opacity-20"/><div className="relative flex items-center gap-3"><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{lobby.title}</strong><span className="text-[10px] text-white/40">{lobby.status === 'playing' ? 'Идёт игра' : 'Ждут игроков'} · {lobby.players.length}/8 мест</span><div className="mt-2 flex -space-x-2">{lobby.players.slice(0, 5).map((player) => <span key={player.id} className="grid h-6 w-6 place-items-center rounded-full border border-[#101514] bg-[#6b5737] text-[8px] font-bold">{player.nickname?.slice(0, 1)}</span>)}</div></div><button type="button" onClick={() => void lobbyAction(lobby.id, 'join')} className="min-h-10 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] px-4 text-xs font-black text-black">{lobby.status === 'playing' ? 'Сесть' : 'Войти'}</button></div></div>) : <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-6 text-center text-sm text-white/35">Открытых столов пока нет</div>}</section></>}
+        {current ? <section className="space-y-3 rounded-3xl border border-amber-200/15 bg-[linear-gradient(145deg,rgba(39,32,24,.95),rgba(12,13,14,.98))] p-4 shadow-2xl"><div className="flex items-center justify-between"><div><div className="text-[9px] uppercase tracking-[.2em] text-amber-200/50">Ваш стол</div><h2 className="font-semibold">{current.title}</h2></div><span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">Ожидание</span></div><div className="grid grid-cols-2 gap-2">{current.players?.map((player: Player) => <div key={player.id} className="flex items-center gap-2 rounded-2xl border border-white/[.06] bg-black/30 px-2 py-2"><span className="poker-seat-frame grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-300 font-bold text-black">{player.nickname?.slice(0, 1)}</span><span className="min-w-0 flex-1"><b className="block truncate text-xs">{player.nickname}</b><small className="text-[9px] text-white/40">Место {player.seat}{player.is_bot ? ' · бот' : ''}</small></span></div>)}</div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void lobbyAction(current.id, 'start')} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">Начать игру</button><button type="button" onClick={() => void leaveTable()} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 text-sm text-white/60">Встать из-за стола</button></div><button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-11 w-full rounded-2xl border border-amber-200/20 bg-amber-200/[.08] text-sm font-semibold text-amber-50">+ Добавить бота (до 8 за столом)</button></section> : <><section className="rounded-3xl border border-white/10 bg-black/35 p-4 shadow-xl backdrop-blur"><div className="text-[9px] uppercase tracking-[.22em] text-amber-200/45">Новая игра</div><h2 className="mt-1 font-semibold">Создать стол</h2><input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm outline-none focus:border-amber-200/40" /><button type="button" onClick={() => void create()} className="mt-3 min-h-12 w-full rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] shadow-[inset_0_1px_rgba(255,255,255,.55)]">+ Создать открытый стол</button></section><section className="space-y-2"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Открытые столы</h2><span className="rounded-full bg-white/[.06] px-2 py-1 text-[10px] text-white/45">{lobbies.length}</span></div>{lobbies.length ? lobbies.map((lobby) => <div key={lobby.id} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#101514] p-3 shadow-xl"><div className="absolute inset-y-0 right-0 w-28 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center opacity-20"/><div className="relative flex items-center gap-3"><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{lobby.title}</strong><span className="text-[10px] text-white/40">{lobby.status === 'playing' ? 'Идёт игра' : 'Ждут игроков'} · {lobby.players.length}/8 мест</span><div className="mt-2 flex -space-x-2">{lobby.players.slice(0, 5).map((player) => <span key={player.id} className="grid h-6 w-6 place-items-center rounded-full border border-[#101514] bg-[#6b5737] text-[8px] font-bold">{player.nickname?.slice(0, 1)}</span>)}</div></div>{(lobby as any).full ? <span className="rounded-xl bg-white/[.06] px-3 py-2 text-xs text-white/45">Мест нет</span> : <button type="button" onClick={() => void lobbyAction(lobby.id, 'join')} className="min-h-10 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] px-4 text-xs font-black text-black">{lobby.status === 'playing' ? 'Сесть' : 'Войти'}</button>}</div></div>) : <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-6 text-center text-sm text-white/35">Открытых столов пока нет</div>}</section></>}
       </div>
     </main>
   );

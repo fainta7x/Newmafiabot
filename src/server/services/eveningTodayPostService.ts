@@ -5,6 +5,7 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
+import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 
 /**
@@ -14,8 +15,9 @@ import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
  * group and the VK group. Each channel gets the post once; a failed channel can be retried.
  *
  * At 17:00 Moscow time on the evening day the post goes out by itself when the evening is gathered
- * (the slot plan's `assembled`: 4 games with a full table by default). Otherwise the organizer gets a
- * Telegram message and a highlighted task «Играем сегодня?»: publish the post or decide not to.
+ * (the slot plan's `assembled`: 4 games with a full table by default). With no full game at all and fewer
+ * players than the minimum the evening is cancelled by itself. In between (e.g. 3 of 4) the organizer gets a
+ * Telegram message and a highlighted task «Играем сегодня?»: publish the post, decide not to, or cancel.
  */
 export const TODAY_POST_HOUR_MSK = 17;
 
@@ -219,11 +221,24 @@ export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now()
   let actions = 0;
   for (const evening of evenings) {
     if (moscowParts(new Date(String(evening.starts_at)).getTime()).date !== clock.date) continue;
-    // Anything already sent, skipped or asked about is left to the organizer.
-    if (evening.telegram_status || evening.vk_status || evening.skipped_at || evening.decision_prompt_at) continue;
+    // Anything already sent or skipped is the organizer's decision.
+    if (evening.telegram_status || evening.vk_status || evening.skipped_at) continue;
     const id = String(evening.id);
     const plan = await loadEveningSlotPlan(db, id).catch(() => null);
     if (!plan?.slots.length) continue;
+    // No game has a full table and the evening is under its player minimum: cancel by itself (owner, 2026-10-02).
+    if (plan.event.assembled_slots === 0 && (await loadEveningShortfall(db, id))?.short) {
+      try {
+        const { cancelEveningByOrganizer } = await import('./eveningCancelService.ts');
+        await cancelEveningByOrganizer(db, id, { reason: 'shortfall' }, fetchImpl);
+        actions += 1;
+      } catch (error) {
+        console.error('[TODAY POST] automatic cancellation failed:', error);
+      }
+      continue;
+    }
+    // A decision already asked for is not asked twice.
+    if (evening.decision_prompt_at) continue;
     if (plan.event.assembled) {
       try {
         await publishTodayPost(db, id, {}, fetchImpl);

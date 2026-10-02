@@ -31,6 +31,21 @@ async function setup() {
   return db;
 }
 
+// Eleven more players registered for the first `games` games: those games have a full table.
+async function fillGames(db: DatabaseWrapper, games: number) {
+  const now = new Date().toISOString();
+  const plan = await loadEveningSlotPlan(db, 'ev');
+  for (let index = 0; index < 11; index += 1) {
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [`f${index}`, `Игрок ${index}`, now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+      VALUES (?,?,?,'going','going','pending','unpaid',?,?)`, [`ep-f${index}`, 'ev', `f${index}`, now, now]);
+    await db.run("DELETE FROM evening_slot_registrations WHERE participant_id = ?", [`ep-f${index}`]);
+    for (const slot of plan.slots.slice(0, games)) {
+      await db.run('INSERT INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?,?,?,?,?)', [`rf-${index}-${slot.id}`, slot.id, `ep-f${index}`, now, now]);
+    }
+  }
+}
+
 describe('«Сегодня играем» post', () => {
   it('builds a bright text with the chosen game, the roster and a call to join', async () => {
     const db = await setup();
@@ -69,8 +84,9 @@ describe('«Сегодня играем» post', () => {
     expect(step.action).toBe('today_post');
   });
 
-  it('at 17:00 Moscow asks the organizer when fewer than 4 games are full, once', async () => {
+  it('at 17:00 Moscow asks the organizer when 3 of 4 games are full, once', async () => {
     const db = await setup();
+    await fillGames(db, 3);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
     const fetchImpl = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
@@ -112,5 +128,31 @@ describe('«Сегодня играем» post', () => {
     expect(calls[0].body.text).toContain('Сегодня играем');
     expect((await loadTodayPost(db, 'ev')).telegram_status).toBe('published');
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:01:00Z'), fetchImpl)).toBe(0);
+  });
+
+  it('at 17:00 Moscow cancels by itself when no game has a full table and the evening is under the minimum', async () => {
+    const db = await setup();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const calls: any[] = [];
+    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:00:00Z'), fetchImpl)).toBe(1);
+    expect((await db.get<any>("SELECT status FROM game_evenings WHERE id = 'ev'")).status).toBe('cancelled');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toContain('отменяется');
+    expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:01:00Z'), fetchImpl)).toBe(0);
+  });
+
+  it('turns «Сбор» green once the organizer decided to play', async () => {
+    const db = await setup();
+    await fillGames(db, 3);
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const fetchImpl = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as any;
+    const before = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:05:00Z'));
+    expect(before.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'shortfall')!.status).toBe('attention');
+    await publishTodayPost(db, 'ev', { text: 'Играем!' }, fetchImpl);
+    const after = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:06:00Z'));
+    const shortfall = after.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'shortfall')!;
+    expect(shortfall.status).toBe('done');
+    expect(shortfall.title).toContain('решение организатора');
   });
 });

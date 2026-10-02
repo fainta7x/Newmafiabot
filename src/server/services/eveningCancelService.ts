@@ -2,7 +2,6 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { notifyEveningCancelled, recordEveningCancellation } from './eveningShortfallService.ts';
 import { sendTelegram, sendVk } from './eveningTodayPostService.ts';
 
@@ -105,6 +104,6 @@ export async function cancelEveningByOrganizer(db: DatabaseWrapper, eveningId: s
   const reason = input.reason || 'organizer';
   await recordEveningCancellation(db, eveningId, reason);
   await notifyEveningCancelled(db, eveningId, reason);
-  await finalizeExistingVkEveningPublications(db, eveningId).catch((error) => console.warn('[CANCEL] VK finalization failed:', error));
+  // The old announcements stay as they were: the cancellation is a new message (owner, 2026-10-02).
   return publishCancelPost(db, eveningId, { text: input.text, reason }, fetchImpl);
 }

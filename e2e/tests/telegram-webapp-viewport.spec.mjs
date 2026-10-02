@@ -119,6 +119,33 @@ test('fixed Player and Organizer navigation respect horizontal Telegram content-
   await assertFixedNavActionsInsideHorizontalSafeArea(page, '.organizer-bottom-nav', item);
 });
 
+test('Telegram viewport resynchronizes after returning from the background', async ({ page }) => {
+  const item = cases[1];
+  await page.setViewportSize({ width: item.width, height: item.height });
+  await installTelegramMock(page, item);
+  await page.goto('/e2e/player-cabinet.html?scenario=live');
+  await page.evaluate(() => history.replaceState({}, '', '/player'));
+  const initialExpandCalls = await page.evaluate(() => window.__tgExpandCalls || 0);
+
+  await page.evaluate(() => {
+    const webApp = window.Telegram.WebApp;
+    webApp.viewportHeight = 430;
+    webApp.viewportStableHeight = 430;
+    for (const callback of window.__tgHandlers.get('viewportChanged') || []) callback();
+  });
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-height').trim())).toBe('430px');
+
+  await page.evaluate(({ height }) => {
+    const webApp = window.Telegram.WebApp;
+    webApp.viewportHeight = height;
+    webApp.viewportStableHeight = height;
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+  }, { height: item.tgHeight });
+
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-height').trim())).toBe(`${item.tgHeight}px`);
+  expect(await page.evaluate(() => window.__tgExpandCalls || 0)).toBeGreaterThan(initialExpandCalls);
+});
+
 test('canonical profile tabs, filters, Elo and owner actions stay usable in Telegram', async ({ page }, info) => {
   const item = cases[1];
   await page.setViewportSize({ width: item.width, height: item.height });

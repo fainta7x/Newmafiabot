@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { TELEGRAM_VIEWPORT_CHANGE_EVENT } from '../../lib/telegramWebAppViewport';
 
 type Card = { rank: string; suit: string };
 type Player = { id: string; nickname: string; seat: number; chips: number; committed?: number; folded?: boolean; all_in?: boolean; is_bot?: boolean; sitting_out?: boolean };
@@ -240,11 +241,15 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       const frame = tableFrameRef.current;
       // Edge to edge (owner, 2026-10-02): the table takes the full width and the height between the header and the action panel.
       const width = frame?.clientWidth || window.innerWidth;
-      const stable = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-stable-height')) || window.innerHeight;
+      const rootStyle = getComputedStyle(document.documentElement);
+      const viewport = Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-height'))
+        || Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-stable-height'))
+        || window.visualViewport?.height
+        || window.innerHeight;
       // The tallest action panel seen so far, so the table does not jump when pre-moves appear and disappear.
       bottomPanelMax.current = Math.max(bottomPanelMax.current, bottomPanelRef.current?.offsetHeight || 0);
       const top = frame ? frame.getBoundingClientRect().top + window.scrollY : 60;
-      const height = stable - top - (bottomPanelMax.current || 160) - 6;
+      const height = viewport - top - (bottomPanelMax.current || 160) - 6;
       const nextH = Math.round(Math.max(TABLE_MIN_H, Math.min(TABLE_MAX_H, height / (width / TABLE_W))));
       const next = Math.max(0.55, Math.min(1.2, width / TABLE_W, height / nextH));
       setTableH((previous) => (previous === nextH ? previous : nextH));
@@ -252,8 +257,16 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  });
+    window.addEventListener(TELEGRAM_VIEWPORT_CHANGE_EVENT, measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (tableFrameRef.current) observer?.observe(tableFrameRef.current);
+    if (bottomPanelRef.current) observer?.observe(bottomPanelRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener(TELEGRAM_VIEWPORT_CHANGE_EVENT, measure);
+      observer?.disconnect();
+    };
+  }, [current?.id, Boolean(current?.hand)]);
 
   const readBody = async (response: Response) => {
     // A restart or a proxy error answers with an HTML page, not JSON: say it plainly and keep polling.
@@ -386,10 +399,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const waitingPlayers: Player[] = seatOrder(current.players || [], current.viewer_id || null);
     const waitingLayout = seatLayout(waitingPlayers.length);
     return (
-    <main className="flex min-h-[var(--tg-viewport-stable-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
+    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => void leaveTable().then(() => onExit?.())} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Ждём игроков</div></div><span className="w-[72px]" /></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
-      <div ref={tableFrameRef} className="flex flex-1 items-start justify-center">
+      <div ref={tableFrameRef} data-testid="poker-table-frame" className="flex flex-1 items-start justify-center">
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
         <section className="absolute left-0 top-0 overflow-hidden bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div className="absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-center" style={{ top: `${BOARD_Y - 6}%` }} data-testid="poker-waiting-table">
@@ -421,11 +434,11 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const finished = hand.street === 'finished';
     const heroIndex = orderedPlayers.findIndex((player) => player.id === viewerId);
     return (
-    <main className="flex min-h-[var(--tg-viewport-stable-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
+    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {hand.small_blind}/{hand.big_blind}</div></div><div className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
-      <div ref={tableFrameRef} className="flex flex-1 items-start justify-center">
+      <div ref={tableFrameRef} data-testid="poker-table-frame" className="flex flex-1 items-start justify-center">
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
         <section className="absolute left-0 top-0 overflow-hidden bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>

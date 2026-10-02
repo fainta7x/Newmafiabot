@@ -1,4 +1,3 @@
-import cookieParser from 'cookie-parser';
 import express from 'express';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -7,12 +6,15 @@ import { generatePlayerSessionToken } from '../server/auth.ts';
 import pokerRoutes from '../server/routes/pokerRoutes.ts';
 import { resetPokerRuntimeCacheForTesting } from '../server/services/pokerPersistenceService.ts';
 
-const cookie = (playerId: string) => `player_token=${generatePlayerSessionToken(playerId)}`;
 const testApp = (db: DatabaseWrapper) => {
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
-  app.use((req, _res, next) => { req.db = db; next(); });
+  app.use((req, _res, next) => {
+    const playerId = String(req.header('x-test-player') || '');
+    req.cookies = playerId ? { player_token: generatePlayerSessionToken(playerId) } : {};
+    req.db = db;
+    next();
+  });
   app.use('/api/player', pokerRoutes);
   return app;
 };
@@ -32,13 +34,13 @@ describe('durable poker chips and table state', () => {
 
   it('restores an in-progress hand from SQLite after a fresh server runtime', async () => {
     let app = testApp(db);
-    expect((await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('alice'))).status).toBe(200);
-    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('bob'));
+    expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);
+    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
     expect(started.status).toBe(200);
     const hand = started.body.lobby.hand;
     const current = hand.players.find((player: any) => player.seat === hand.current_seat);
     const action = hand.current_bet > current.committed ? { type: 'call' } : { type: 'check' };
-    const acted = await request(app).post('/api/player/poker/lobbies/main/action').set('Cookie', cookie(current.id)).send(action);
+    const acted = await request(app).post('/api/player/poker/lobbies/main/action').set('x-test-player', current.id).send(action);
     expect(acted.status).toBe(200);
     const beforeRestart = acted.body.lobby.hand;
     expect((await db.get(`SELECT id FROM poker_runtime_state WHERE id='main'`))).toEqual({ id: 'main' });
@@ -46,7 +48,7 @@ describe('durable poker chips and table state', () => {
     // A new Node process has no Map state and must reconstruct the exact hand from SQLite.
     resetPokerRuntimeCacheForTesting(db);
     app = testApp(db);
-    const restored = await request(app).get('/api/player/poker/lobbies/main').set('Cookie', cookie('alice'));
+    const restored = await request(app).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
     expect(restored.status).toBe(200);
     expect(restored.body.lobby.hand).toMatchObject({
       id: beforeRestart.id,
@@ -60,26 +62,26 @@ describe('durable poker chips and table state', () => {
 
   it('returns a human player with the same stack after leaving and after another restart', async () => {
     let app = testApp(db);
-    await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('alice'));
-    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('bob'));
+    await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
+    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
     const aliceBefore = started.body.lobby.hand.players.find((player: any) => player.id === 'alice').chips;
 
-    expect((await request(app).post('/api/player/poker/lobbies/main/leave').set('Cookie', cookie('alice'))).status).toBe(200);
+    expect((await request(app).post('/api/player/poker/lobbies/main/leave').set('x-test-player', 'alice')).status).toBe(200);
     resetPokerRuntimeCacheForTesting(db);
     app = testApp(db);
-    const returned = await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('alice'));
+    const returned = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
     expect(returned.status).toBe(200);
     expect(returned.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(aliceBefore);
 
     resetPokerRuntimeCacheForTesting(db);
-    const afterSecondRestart = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('Cookie', cookie('alice'));
+    const afterSecondRestart = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
     expect(afterSecondRestart.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(aliceBefore);
   });
 
   it('does not let one account duplicate its saved stack at two tables', async () => {
     const app = testApp(db);
-    expect((await request(app).post('/api/player/poker/lobbies/main/join').set('Cookie', cookie('alice'))).status).toBe(200);
-    const duplicate = await request(app).post('/api/player/poker/lobbies').set('Cookie', cookie('alice')).send({ title: 'Второй стол' });
+    expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);
+    const duplicate = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Второй стол' });
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.error).toContain('уже сидите за другим столом');
   });

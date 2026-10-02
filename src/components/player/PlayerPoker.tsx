@@ -258,7 +258,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       // In a short Telegram landscape viewport, keep the table readable and let the page scroll.
       // Shrinking it to the available height made documentHeight equal the viewport height,
       // hiding the lower table/action area instead of exposing it below the fold.
-      const next = viewport < 600
+      const next = viewport < 600 && width > viewport
         ? Math.min(1.2, width / TABLE_W)
         : Math.max(0.55, Math.min(1.2, width / TABLE_W, height / nextH));
       setTableH((previous) => (previous === nextH ? previous : nextH));

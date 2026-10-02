@@ -537,6 +537,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 42. Cancel an evening from «Сбор» (owner, 2026-10-02, built): `eveningCancelService` + `CancelEveningSheet`; players notified, VK marked cancelled, a post to the evening's own Telegram group and VK; also posted by the automatic shortfall cancellation. Rule in BUSINESS_RULES «Announcements». Not yet verified live with a real post.
 
+43. Idea (owner, 2026-10-02, needs «да» and answers): a tournament announcement for tomorrow in the rating and tournament Telegram channels — the list of participants with avatars (one picture in the club's noir style, like the game blank), and the broadcast information (where and when to watch). Open questions: which exact channel(s), the broadcast link to show, and when it goes out (the evening before, automatically or by a button).
+
 ### Waiting on the owner
 - Owner decisions 2026-10-01, not built yet: the novice evening keeps the current price per chosen game («для опытных будет скидка»); the weekly evening automation fails once at startup with «cannot start a transaction within a transaction» — fix later; the old browser suites for CRM and live game (`e2e/`) are out of date (roster confirm step, list test ids) and do not block a release — update later; a weekly anonymized copy of the production database for development checks (branch `feat/weekly-db-snapshot`, unfinished: GitHub Action, script, docs).
 - Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.

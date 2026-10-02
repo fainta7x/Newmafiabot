@@ -1,10 +1,13 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { serializeTournamentRosterMutation } from './tournamentRosterMutationSerializer.ts';
 
 export type TournamentRosterEditMode = 'full' | 'replacement_only' | 'locked';
 
 const nowIso = () => new Date().toISOString();
+const tournamentPlayerPath = (tournamentId: string) => `/player/events/${encodeURIComponent(tournamentId)}`;
 
 async function managedTournament(db: DatabaseWrapper, tournamentId: string) {
   const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
@@ -43,6 +46,38 @@ async function renumberReserve(db: DatabaseWrapper, tournamentId: string) {
   }
 }
 
+async function notifyReplacementPlayer(
+  db: DatabaseWrapper,
+  tournamentId: string,
+  replacementPlayerId: string,
+  slotNumber: number,
+) {
+  const tournament = await db.get<any>(
+    'SELECT title,date,entry_fee_rub FROM tournaments WHERE id=? LIMIT 1',
+    [tournamentId],
+  );
+  const claim = await db.get<any>(
+    'SELECT state FROM tournament_payment_claims WHERE tournament_id=? AND player_id=? LIMIT 1',
+    [tournamentId, replacementPlayerId],
+  );
+  const fee = Number(tournament?.entry_fee_rub || 0);
+  const settled = ['confirmed', 'pending', 'waived'].includes(String(claim?.state || ''));
+  const when = tournament?.date && Number.isFinite(new Date(tournament.date).getTime())
+    ? ` (${new Date(tournament.date).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })})`
+    : '';
+  const paymentText = fee > 0 && !settled
+    ? ` Взнос ${fee.toLocaleString('ru-RU')} ₽: отметьте оплату в приложении.`
+    : '';
+  await queuePersonalNotification(db, {
+    notificationKey: `tournament:${tournamentId}:replacement:${replacementPlayerId}:${slotNumber}`,
+    playerId: replacementPlayerId,
+    eventType: 'tournament_player_replaced_in',
+    entityId: tournamentId,
+    text: `Организатор добавил вас в основной состав турнира «${String(tournament?.title || 'Турнир')}»${when}. Вы заняли место №${slotNumber}.${paymentText}`,
+    actionPath: tournamentPlayerPath(tournamentId),
+  });
+}
+
 export async function replaceConfirmedTournamentPlayer(
   db: DatabaseWrapper,
   tournamentId: string,
@@ -58,7 +93,7 @@ export async function replaceConfirmedTournamentPlayer(
     throw new Error('INVALID_REPLACEMENT');
   }
 
-  return db.transaction(async (tx) => {
+  const result = await serializeTournamentRosterMutation(db, () => db.transaction(async (tx) => {
     const tournament = await managedTournament(tx, tournamentId);
     const editMode = await getTournamentRosterEditMode(tx, tournamentId);
     if (editMode === 'locked') throw new Error('ROSTER_LOCKED');
@@ -161,5 +196,14 @@ export async function replaceConfirmedTournamentPlayer(
       participant_id: String(participant.id),
       roster_edit_mode: editMode,
     };
-  });
+  }));
+
+  // Notification delivery is deliberately outside the roster transaction: a missing external
+  // channel must never roll back the already valid replacement. The routing ledger is idempotent.
+  try {
+    await notifyReplacementPlayer(db, tournamentId, replacementPlayerId, result.slot_number);
+  } catch (error) {
+    console.warn('[TOURNAMENT] Replacement notification could not be queued', tournamentId, replacementPlayerId, error);
+  }
+  return result;
 }

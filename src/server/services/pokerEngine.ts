@@ -59,10 +59,10 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
   }
 };
 
-export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
+export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = shuffleDeck();
-  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60, reserve_recovery_at: Date.now() }));
+  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: player.reserve_seconds ?? 60, reserve_recovery_at: player.reserve_recovery_at ?? Date.now() }));
   const state: PokerState = {
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
@@ -294,7 +294,11 @@ export const pokerTurnRemaining = (state: PokerState, player: PokerPlayer) => {
 
 /** Recover one reserve second per completed minute while the player is not spending their timebank. */
 export const refreshPokerReserve = (player: PokerPlayer, now = Date.now(), canRecover = true, maxSeconds = 60) => {
-  const checkpoint = Number(player.reserve_recovery_at || now);
+  if (player.reserve_recovery_at === undefined) {
+    player.reserve_recovery_at = now;
+    return player.reserve_seconds;
+  }
+  const checkpoint = player.reserve_recovery_at;
   if (!canRecover) { player.reserve_recovery_at = now; return player.reserve_seconds; }
   const minutes = Math.floor(Math.max(0, now - checkpoint) / 60_000);
   if (minutes > 0) {

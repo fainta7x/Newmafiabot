@@ -63,7 +63,7 @@ router.post('/poker/lobbies/:id/bot', route(async (req) => {
 }));
 router.post('/poker/lobbies/:id/start', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
-  try { startPokerLobby(table, player.id); } catch (error) { conflict(error, 'Не удалось начать игру.'); }
+  try { startPokerLobby(table, player.id, true); } catch (error) { conflict(error, 'Не удалось начать игру.'); }
   return { body: { lobby: publicPokerLobby(table, player.id) } };
 }));
 router.post('/poker/lobbies/:id/leave', route(async (req) => {
@@ -80,6 +80,8 @@ router.post('/poker/lobbies/:id/sit-out', route(async (req) => {
 router.post('/poker/lobbies/:id/action', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   if (!table.hand) throw new PokerRouteError(404, 'Активная раздача не найдена.');
+  tickPokerLobby(table);
+  if (table.hand.animation_phase !== 'playing') throw new PokerRouteError(409, 'Дождитесь окончания автоматической выкладки карт.');
   if (table.hand.players.find((item) => item.seat === table.hand?.current_seat)?.id !== player.id) throw new PokerRouteError(409, 'Сейчас ход другого игрока.');
   try { applyPokerAction(table.hand, req.body || {}); } catch (error) { conflict(error, 'Действие недоступно.'); }
   return { body: { lobby: publicPokerLobby(table, player.id) } };

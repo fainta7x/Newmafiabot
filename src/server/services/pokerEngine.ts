@@ -4,6 +4,7 @@ export type PokerSuit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
 export type PokerRank = '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'T'|'J'|'Q'|'K'|'A';
 export type PokerCard = { rank: PokerRank; suit: PokerSuit };
 export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'finished';
+export type PokerAnimationPhase = 'dealing' | 'playing' | 'runout';
 export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; reserve_recovery_at?: number; is_bot?: boolean;
   /** Everything the player put in during this hand: decides which side pots they can win. */
   total_committed: number;
@@ -27,7 +28,18 @@ export type PokerState = {
   base_turn_seconds: number; max_reserve_seconds: number; turn_started_at: number | null;
   /** When the hand ended: the next one is dealt by itself a few seconds later. */
   finished_at: number | null;
+  /** Durable server timeline: clients only render the cards released by this phase. */
+  animation_phase: PokerAnimationPhase;
+  animation_step: number;
+  animation_next_at: number | null;
+  pending_current_seat: number | null;
+  animations_enabled: boolean;
 };
+
+export const POKER_DEAL_CARD_MS = 420;
+export const POKER_DEAL_SETTLE_MS = 500;
+export const POKER_RUNOUT_START_MS = 700;
+const POKER_RUNOUT_DELAYS_MS = [520, 520, 950, 1050, 1150, 0];
 
 const SUITS: PokerSuit[] = ['clubs', 'diamonds', 'hearts', 'spades'];
 const RANKS: PokerRank[] = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
@@ -59,7 +71,7 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
   }
 };
 
-export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
+export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number; animate?: boolean }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = shuffleDeck();
   const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: player.reserve_seconds ?? 60, reserve_recovery_at: player.reserve_recovery_at ?? Date.now() }));
@@ -67,7 +79,11 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
     street: 'preflop', board: [], hole_cards: {}, burn_cards: [], deck_remaining: 52, winner_ids: [], last_action: null, last_pot_awarded: 0, revealed_ids: [], winning_cards: [], last_raise_size: input.big_blind ?? 20,
-    deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: Date.now(), finished_at: null,
+    deck, action_log: [], base_turn_seconds: 20, max_reserve_seconds: 60, turn_started_at: null, finished_at: null,
+    animation_phase: input.animate ? 'dealing' : 'playing', animation_step: 0,
+    animation_next_at: input.animate ? Date.now() + players.length * 2 * POKER_DEAL_CARD_MS + POKER_DEAL_SETTLE_MS : null,
+    pending_current_seat: null,
+    animations_enabled: Boolean(input.animate),
   };
   const ordered = players.slice().sort((a, b) => a.seat - b.seat);
   for (const player of ordered) state.hole_cards[player.id] = [deck.shift()!, deck.shift()!];
@@ -81,7 +97,9 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
     { player_id: sb.id, player_name: sb.nickname, type: 'small_blind', amount: sb.committed, street: 'preflop', at: Date.now() },
     { player_id: bb.id, player_name: bb.nickname, type: 'big_blind', amount: bb.committed, street: 'preflop', at: Date.now() },
   );
-  state.current_seat = nextSeat(players, bb.seat);
+  state.pending_current_seat = input.animate ? nextSeat(players, bb.seat) : null;
+  state.current_seat = input.animate ? null : nextSeat(players, bb.seat);
+  state.turn_started_at = input.animate ? null : Date.now();
   state.deck_remaining = deck.length;
   return state;
 };
@@ -214,6 +232,7 @@ export type PokerAction = { type: 'fold' | 'check' | 'call' | 'bet' | 'all_in'; 
 /** The smallest «raise to» total: the big blind for a first bet, otherwise the bet plus the last full raise. */
 export const minRaiseTotal = (state: PokerState) => state.current_bet === 0 ? state.big_blind : state.current_bet + Math.max(state.big_blind, state.last_raise_size || 0);
 export const applyPokerAction = (state: PokerState, action: PokerAction) => {
+  if (state.animation_phase !== 'playing') throw new Error('Дождитесь окончания раздачи карт.');
   if (state.street === 'finished' || state.street === 'showdown') throw new Error('Раздача уже завершена.');
   const player = state.players.find((item) => item.seat === state.current_seat);
   if (!player || player.folded || player.all_in) throw new Error('Сейчас ход другого игрока.');
@@ -258,8 +277,15 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
     state.current_bet = 0;
     state.last_raise_size = state.big_blind;
     if (state.street === 'river') showdown(state);
-    else if (canAct.length <= 1) {
-      // Nobody can bet any more: deal the rest of the board and show the cards.
+    else if (canAct.length <= 1 && state.animations_enabled) {
+      // Nobody can bet any more: the durable server timeline reveals the board card by card.
+      state.current_seat = null;
+      state.turn_started_at = null;
+      state.animation_phase = 'runout';
+      state.animation_step = state.street === 'preflop' ? 0 : state.street === 'flop' ? 3 : 4;
+      state.animation_next_at = Date.now() + POKER_RUNOUT_START_MS;
+      return state;
+    } else if (canAct.length <= 1) {
       while ((state.street as PokerStreet) !== 'river') advanceStreet(state, state.deck);
       showdown(state);
     } else {
@@ -272,6 +298,44 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   }
   state.current_seat = (state.street as PokerStreet) === 'finished' ? null : nextSeat(state.players, player.seat);
   state.turn_started_at = state.current_seat === null ? null : Date.now();
+  return state;
+};
+
+/** Advances the durable visual timeline. It may catch up several steps after a server restart. */
+export const advancePokerAnimation = (state: PokerState, now = Date.now()) => {
+  if (state.animation_phase === 'dealing') {
+    if (state.animation_next_at !== null && now >= state.animation_next_at) {
+      state.animation_phase = 'playing';
+      state.current_seat = state.pending_current_seat;
+      state.pending_current_seat = null;
+      state.animation_next_at = null;
+      state.turn_started_at = now;
+    }
+    return state;
+  }
+  while (state.animation_phase === 'runout' && state.animation_next_at !== null && now >= state.animation_next_at) {
+    const scheduledAt = state.animation_next_at;
+    const step = state.animation_step;
+    if (step === 0) {
+      const burn = state.deck.shift(); if (burn) state.burn_cards.push(burn);
+      const card = state.deck.shift(); if (card) state.board.push(card);
+      state.street = 'flop';
+    } else if (step === 1 || step === 2) {
+      const card = state.deck.shift(); if (card) state.board.push(card);
+    } else if (step === 3 || step === 4) {
+      const burn = state.deck.shift(); if (burn) state.burn_cards.push(burn);
+      const card = state.deck.shift(); if (card) state.board.push(card);
+      state.street = step === 3 ? 'turn' : 'river';
+    } else {
+      state.animation_phase = 'playing';
+      state.animation_next_at = null;
+      showdown(state);
+      break;
+    }
+    state.animation_step += 1;
+    state.deck_remaining = state.deck.length;
+    state.animation_next_at = scheduledAt + POKER_RUNOUT_DELAYS_MS[step];
+  }
   return state;
 };
 

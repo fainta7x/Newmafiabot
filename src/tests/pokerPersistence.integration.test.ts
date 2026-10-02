@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generatePlayerSessionToken } from '../server/auth.ts';
 import pokerRoutes from '../server/routes/pokerRoutes.ts';
@@ -31,13 +31,16 @@ describe('durable poker chips and table state', () => {
       [now, now, now, now],
     );
   });
+  afterEach(() => vi.useRealTimers());
 
   it('restores an in-progress hand from SQLite after a fresh server runtime', async () => {
     let app = testApp(db);
     expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);
     const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
     expect(started.status).toBe(200);
-    const hand = started.body.lobby.hand;
+    vi.useFakeTimers(); vi.setSystemTime(Number(started.body.lobby.hand.animation_next_at) + 1);
+    const ready = await request(app).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
+    const hand = ready.body.lobby.hand;
     const current = hand.players.find((player: any) => player.seat === hand.current_seat);
     const action = hand.current_bet > current.committed ? { type: 'call' } : { type: 'check' };
     const acted = await request(app).post('/api/player/poker/lobbies/main/action').set('x-test-player', current.id).send(action);
@@ -58,6 +61,26 @@ describe('durable poker chips and table state', () => {
       deck_remaining: beforeRestart.deck_remaining,
     });
     expect(restored.body.lobby.hand.action_log).toHaveLength(beforeRestart.action_log.length);
+  });
+
+  it('restores the synchronized deal timeline and resumes it after restart', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-02T15:00:00Z'));
+    let app = testApp(db);
+    await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
+    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
+    expect(started.body.lobby.hand).toMatchObject({ animation_phase: 'dealing', current_seat: null });
+    const deadline = Number(started.body.lobby.hand.animation_next_at);
+
+    resetPokerRuntimeCacheForTesting(db);
+    app = testApp(db);
+    const during = await request(app).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
+    expect(during.body.lobby.hand).toMatchObject({ animation_phase: 'dealing', animation_next_at: deadline, current_seat: null });
+    expect((await request(app).post('/api/player/poker/lobbies/main/action').set('x-test-player', 'alice').send({ type: 'call' })).status).toBe(409);
+
+    vi.setSystemTime(deadline + 1);
+    const resumed = await request(app).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
+    expect(resumed.body.lobby.hand.animation_phase).toBe('playing');
+    expect(resumed.body.lobby.hand.current_seat).not.toBeNull();
   });
 
   it('returns a human player with the same stack after leaving and after another restart', async () => {

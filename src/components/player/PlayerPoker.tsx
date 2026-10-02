@@ -344,9 +344,9 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       try { const body = await readBody(await fetch(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' })); if (!cancelled) setCurrent(body.lobby); }
       catch (e: any) { if (!cancelled) setError(e.message); }
     };
-    const timer = window.setInterval(() => void poll(), 900);
+    const timer = window.setInterval(() => void poll(), current?.hand?.animation_phase === 'playing' ? 900 : 250);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [current?.id]);
+  }, [current?.id, current?.hand?.animation_phase]);
 
   const viewerId: string | null = current?.hand?.viewer_id || null;
   const ownCards: Card[] = viewerId ? sortCardsHighFirst(current.hand.hole_cards[viewerId] || []) : [];
@@ -355,6 +355,12 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const baseSeconds = Number(current?.hand?.turn_remaining?.base_seconds || 0);
   const reserveSeconds = Number(current?.hand?.turn_remaining?.reserve_seconds || 0);
   const orderedPlayers: Player[] = current?.players ? seatOrder(current.players, viewerId) : [];
+  const dealOrder: Player[] = current?.hand?.players ? [...current.hand.players].sort((a: Player, b: Player) => a.seat - b.seat) : [];
+  const dealtCountFor = (playerId: string) => {
+    const index = dealOrder.findIndex((player: Player) => player.id === playerId);
+    const dealt = Number(current?.hand?.dealt_card_count || 0);
+    return index < 0 ? 0 : Number(dealt > index) + Number(dealt > index + dealOrder.length);
+  };
   const layout = seatLayout(orderedPlayers.length);
   const actions = current?.hand?.available_actions;
   const smallBlindSeat = current?.hand?.small_blind_seat;
@@ -504,7 +510,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
                   <span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>
                   {!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[42px] w-[42px] rounded-full object-cover" /> : null}
                 </div>
-                {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <span className="poker-seat-backs" aria-label="Закрытые карты"><i /><i /></span> : null}
+                {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished && dealtCountFor(player.id) ? <span className="poker-seat-backs" aria-label="Закрытые карты">{Array.from({ length: dealtCountFor(player.id) }, (_, cardIndex) => <i key={cardIndex} />)}</span> : null}
               </div>
               <div role={player.is_bot && canAddBot ? 'button' : undefined} onClick={player.is_bot && canAddBot ? () => void removeBot(player) : undefined} title={player.is_bot && canAddBot ? 'Нажмите, чтобы убрать бота' : undefined} className={`poker-seat-plaque relative z-10 -mt-2 ${player.is_bot && canAddBot ? 'cursor-pointer' : ''} ${active ? 'poker-seat-plaque--active poker-active-seat' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} bigBlind={bigBlind} mode={stackDisplay} /></div>
               {winner ? <div className="-mx-5 mt-0.5 rounded-lg bg-amber-300 px-1.5 py-0.5 text-[9px] font-black leading-tight text-black">{label || 'Победитель'}</div> : label ? <div className="-mx-5 mt-0.5 text-[9px] leading-tight text-white/75">{label}</div> : null}

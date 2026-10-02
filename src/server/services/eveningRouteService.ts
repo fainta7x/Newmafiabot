@@ -5,6 +5,7 @@ import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
 import { loadTodayPost } from './eveningTodayPostService.ts';
+import { loadCancelPost } from './eveningCancelService.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
@@ -21,7 +22,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -154,6 +155,14 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
       target: 'participants',
     },
   );
+  // Cancelling is available while the evening has not started (owner, 2026-10-02).
+  const cancelPost = await loadCancelPost(db, eveningId);
+  if (evening.status === 'cancelled') {
+    const cancelLegs = [(cancelPost as any).telegram_status === 'published' ? 'Telegram ✓' : 'Telegram —', (cancelPost as any).vk_status === 'published' ? 'ВК ✓' : 'ВК —'].join(' · ');
+    steps.gather.push({ id: 'cancel', title: 'Вечер отменён', detail: cancelPost.state === 'none' ? 'Игроки предупреждены' : `Пост об отмене: ${cancelLegs}`, status: 'done' });
+  } else if (evening.status === 'published' && !evening.settled_at) {
+    steps.gather.push({ id: 'cancel', title: 'Отменить вечер', detail: 'Не собрали игроков? Предупредим всех записавшихся и выложим пост в Telegram и ВК', status: 'info', action: 'cancel_evening' });
+  }
   if (format === 'NOVICE') {
     steps.gather.push({ id: 'novice-decision', title: 'Решение по вечеру новичков', detail: 'Проверка группы в четверг в 20:00, решение до пятницы 15:00. Автоотмены нет.', status: 'info' });
   }

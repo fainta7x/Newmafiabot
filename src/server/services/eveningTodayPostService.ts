@@ -111,7 +111,7 @@ export async function loadTodayPost(db: DatabaseWrapper, eveningId: string) {
   return { evening_id: eveningId, state, text: row.text, game_number: row.game_number, telegram_status: row.telegram_status, telegram_error: row.telegram_error, vk_status: row.vk_status, vk_error: row.vk_error, vk_url: row.vk_url, published_at: row.published_at, decision_prompt_at: row.decision_prompt_at || null, skipped_at: row.skipped_at || null };
 }
 
-async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch) {
+export async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fetchImpl: typeof fetch) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { status: 'failed', error: 'Telegram-бот не настроен' };
   const format = normalizeEveningFormat(evening.format);
@@ -134,7 +134,7 @@ async function sendTelegram(db: DatabaseWrapper, evening: any, text: string, fet
   }
 }
 
-async function sendVk(text: string) {
+export async function sendVk(text: string) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {

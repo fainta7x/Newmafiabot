@@ -41,6 +41,9 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
   await recordEveningCancellation(db, eveningId, 'shortfall');
   await notifyEveningCancelled(db, eveningId, 'shortfall');
   await finalizeExistingVkEveningPublications(db, eveningId).catch((error) => console.warn('[SHORTFALL] VK finalization failed:', error));
+  // The group and VK hear about it too (owner, 2026-10-02).
+  const { publishCancelPost } = await import('./eveningCancelService.ts');
+  await publishCancelPost(db, eveningId, { reason: 'shortfall' }).catch((error) => console.warn('[SHORTFALL] cancellation post failed:', error));
   return true;
 }
 

@@ -19,17 +19,53 @@ export const TELEGRAM_VIEWPORT_CHANGE_EVENT = 'telegramviewportchange';
 const root = () => document.documentElement;
 const px = (value: number | undefined, fallback: string) => Number.isFinite(value) ? `${Math.max(0, Number(value))}px` : fallback;
 const isAppRoute = (pathname: string) => pathname === '/player' || pathname.startsWith('/player/') || pathname === '/admin' || pathname.startsWith('/admin/');
+const finitePositive = (value: number | undefined) => Number.isFinite(value) && Number(value) > 0 ? Number(value) : 0;
+
+// Telegram Android can keep reporting the compact viewportHeight for a while after
+// the Mini App is restored. Poker sizes its canvas from this CSS variable, so one
+// stale compact value used to permanently make the table narrower than the phone.
+// Keep the largest expanded height for the current screen width. A large width
+// change means rotation / another real viewport, so the cache is reset.
+let lastExpandedViewportHeight = 0;
+let lastViewportWidth = 0;
 
 const setViewportVariables = (webApp?: TelegramWebAppLike) => {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
   const style = root().style;
-  const current = webApp?.viewportHeight;
-  const stable = webApp?.viewportStableHeight;
+  const current = finitePositive(webApp?.viewportHeight);
+  const stable = finitePositive(webApp?.viewportStableHeight);
+  const browser = Math.max(
+    finitePositive(window.visualViewport?.height),
+    finitePositive(window.innerHeight),
+    finitePositive(root().clientHeight),
+  );
+  const width = Math.max(
+    finitePositive(window.visualViewport?.width),
+    finitePositive(window.innerWidth),
+    finitePositive(root().clientWidth),
+  );
+  const appRoute = isAppRoute(window.location.pathname);
+
+  let effectiveCurrent = current || browser;
+  if (appRoute) {
+    if (lastViewportWidth > 0 && width > 0 && Math.abs(width - lastViewportWidth) > 80) {
+      lastExpandedViewportHeight = 0;
+    }
+    if (width > 0) lastViewportWidth = width;
+
+    // We explicitly expand player/admin Mini Apps below, so a smaller current
+    // height is never useful here. Prefer the stable/browser height and remember
+    // the largest settled value across background → foreground transitions.
+    const expandedCandidate = Math.max(current, stable, browser);
+    lastExpandedViewportHeight = Math.max(lastExpandedViewportHeight, expandedCandidate);
+    effectiveCurrent = lastExpandedViewportHeight || expandedCandidate;
+  }
+
   const safe = webApp?.safeAreaInset;
   const content = webApp?.contentSafeAreaInset;
 
-  style.setProperty('--tg-viewport-height', px(current, '100dvh'));
-  style.setProperty('--tg-viewport-stable-height', px(stable, '100svh'));
+  style.setProperty('--tg-viewport-height', px(effectiveCurrent || undefined, '100dvh'));
+  style.setProperty('--tg-viewport-stable-height', px(stable || undefined, '100svh'));
   style.setProperty('--tg-safe-area-top', px(safe?.top, 'env(safe-area-inset-top, 0px)'));
   style.setProperty('--tg-safe-area-bottom', px(safe?.bottom, 'env(safe-area-inset-bottom, 0px)'));
   style.setProperty('--tg-safe-area-left', px(safe?.left, 'env(safe-area-inset-left, 0px)'));
@@ -50,14 +86,10 @@ export const initializeTelegramWebAppViewport = () => {
   const telegramWindow = window as TelegramWindow;
   const webApp = telegramWindow.Telegram?.WebApp;
   const update = () => setViewportVariables(webApp);
-  const browserUpdate = () => {
-    if (!webApp?.viewportHeight) {
-      const height = window.visualViewport?.height || window.innerHeight;
-      root().style.setProperty('--tg-viewport-height', `${Math.max(0, height)}px`);
-    }
-    if (!webApp?.viewportStableHeight) root().style.setProperty('--tg-viewport-stable-height', '100svh');
-    window.dispatchEvent(new Event(TELEGRAM_VIEWPORT_CHANGE_EVENT));
-  };
+  // Browser metrics are intentionally re-read even when Telegram exposes
+  // viewportHeight: on Android that Telegram value is exactly the one that can
+  // stay stale after restoring the Mini App.
+  const browserUpdate = () => setViewportVariables(webApp);
   const resumeTimers = new Set<number>();
   const resyncAfterResume = () => {
     if (document.visibilityState === 'hidden') return;
@@ -65,19 +97,13 @@ export const initializeTelegramWebAppViewport = () => {
       try { webApp?.expand?.(); } catch {}
     }
     update();
-    browserUpdate();
-    // Telegram updates viewportHeight asynchronously after a Mini App returns
-    // from the background. Re-read it after both the first paint and the end of
-    // the native expand animation instead of keeping the transient compact size.
-    window.requestAnimationFrame(() => {
-      update();
-      browserUpdate();
-    });
-    for (const delay of [120, 360]) {
+    // Telegram and Chromium settle the restored viewport on different frames.
+    // Re-measure several times, including after the native expand animation.
+    window.requestAnimationFrame(update);
+    for (const delay of [120, 360, 800]) {
       const timer = window.setTimeout(() => {
         resumeTimers.delete(timer);
         update();
-        browserUpdate();
       }, delay);
       resumeTimers.add(timer);
     }
@@ -91,7 +117,6 @@ export const initializeTelegramWebAppViewport = () => {
   }
 
   update();
-  browserUpdate();
 
   const telegramEvents = ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged'] as const;
   for (const event of telegramEvents) {
@@ -101,6 +126,7 @@ export const initializeTelegramWebAppViewport = () => {
   window.visualViewport?.addEventListener('resize', browserUpdate, { passive: true });
   window.addEventListener('focus', resyncAfterResume);
   window.addEventListener('pageshow', resyncAfterResume);
+  window.addEventListener('orientationchange', resyncAfterResume);
   document.addEventListener('visibilitychange', resyncAfterResume);
 
   cleanupSingleton = () => {
@@ -111,9 +137,12 @@ export const initializeTelegramWebAppViewport = () => {
     window.visualViewport?.removeEventListener('resize', browserUpdate);
     window.removeEventListener('focus', resyncAfterResume);
     window.removeEventListener('pageshow', resyncAfterResume);
+    window.removeEventListener('orientationchange', resyncAfterResume);
     document.removeEventListener('visibilitychange', resyncAfterResume);
     for (const timer of resumeTimers) window.clearTimeout(timer);
     resumeTimers.clear();
+    lastExpandedViewportHeight = 0;
+    lastViewportWidth = 0;
     cleanupSingleton = null;
   };
   return cleanupSingleton;

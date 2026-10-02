@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, Share2, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
-import { Tournament } from '../../../lib/api.ts';
+import { api, Tournament } from '../../../lib/api.ts';
 import {
   buildSeatingMatrix,
   generateSeatingSvg,
-  renderSvgToPngDataUrl,
+  renderSvgToPngBlob,
   getSafeFilename,
+  shouldUseNativeShareForDownload,
 } from '../../../lib/seatingExport.ts';
 
 interface SeatingExportModalProps {
@@ -21,8 +22,18 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const [pngBlob, setPngBlob] = useState<Blob | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
+
+  const clearImage = () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+    setPngUrl(null);
+    setPngBlob(null);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -36,7 +47,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      setPngUrl(null);
+      clearImage();
       setErrorMsg(null);
       setLoading(true);
       return;
@@ -46,17 +57,18 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
       setLoading(true);
       setErrorMsg(null);
 
-      const matrix = buildSeatingMatrix(tournament);
-
-      if (!matrix.valid) {
-        setErrorMsg(matrix.error || 'Ошибка построения матрицы рассадки');
-        setLoading(false);
-        return;
-      }
-
       try {
-        const svg = generateSeatingSvg(tournament, matrix.rows);
-        const url = await renderSvgToPngDataUrl(svg, 1080, 1350);
+        // The roster may have been corrected in another panel. Always build the export
+        // from the canonical server state instead of a stale modal prop.
+        const freshTournament = await api.getTournament(tournament.id).catch(() => tournament);
+        const matrix = buildSeatingMatrix(freshTournament);
+        if (!matrix.valid) throw new Error(matrix.error || 'Ошибка построения матрицы рассадки');
+        const svg = generateSeatingSvg(freshTournament, matrix.rows);
+        const blob = await renderSvgToPngBlob(svg, 1080, 1350);
+        clearImage();
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setPngBlob(blob);
         setPngUrl(url);
       } catch (err: any) {
         console.error('Failed to generate seating PNG:', err);
@@ -66,7 +78,11 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
       }
     };
 
-    prepareImage();
+    void prepareImage();
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    };
   }, [isOpen, tournament]);
 
   if (!isOpen) return null;
@@ -74,25 +90,46 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
   const fileName = getSafeFilename(tournament.title);
   const canWebShare = typeof navigator !== 'undefined' && Boolean(navigator.share);
 
-  const handleDownload = () => {
-    if (!pngUrl) return;
-    const a = document.createElement('a');
-    a.href = pngUrl;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const file = pngBlob && typeof File !== 'undefined'
+    ? new File([pngBlob], fileName, { type: 'image/png' })
+    : null;
+  let canShareFile = false;
+  try {
+    canShareFile = Boolean(file && navigator.canShare?.({ files: [file] }));
+  } catch {
+    canShareFile = false;
+  }
+
+  const handleDownload = async () => {
+    if (!pngUrl || !file || downloading) return;
+    setDownloading(true);
+    setErrorMsg(null);
+    try {
+      // iOS and Telegram WebView ignore the download attribute. Their native share
+      // sheet offers a reliable "Save image / Save to Files" action instead.
+      if (shouldUseNativeShareForDownload(navigator.userAgent, canShareFile) && navigator.share) {
+        await navigator.share({ title: `Рассадка: ${tournament.title}`, files: [file] });
+        return;
+      }
+      const anchor = document.createElement('a');
+      anchor.href = pngUrl;
+      anchor.download = fileName;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') setErrorMsg(err?.message || 'Не удалось сохранить PNG');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleShare = async () => {
-    if (!pngUrl || sharing) return;
+    if (!file || sharing) return;
     setSharing(true);
     try {
-      const res = await fetch(pngUrl);
-      const blob = await res.blob();
-      const file = new File([blob], fileName, { type: 'image/png' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (canShareFile) {
         await navigator.share({
           title: `Рассадка: ${tournament.title}`,
           text: `Общая рассадка игроков для турнира "${tournament.title}"`,
@@ -105,9 +142,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
         });
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('Share failed:', err);
-      }
+      if (err.name !== 'AbortError') setErrorMsg(err?.message || 'Не удалось открыть меню отправки');
     } finally {
       setSharing(false);
     }
@@ -190,11 +225,12 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
 
               <button
                 type="button"
-                onClick={handleDownload}
-                className="min-h-[44px] w-full rounded-2xl bg-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-all hover:bg-accent-hover cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-accent/20 sm:w-auto"
+                onClick={() => void handleDownload()}
+                disabled={downloading}
+                className="min-h-[44px] w-full rounded-2xl bg-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-all hover:bg-accent-hover cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50 sm:w-auto"
               >
                 <Download className="w-4 h-4" />
-                <span>Скачать PNG</span>
+                <span>{downloading ? 'Открываем…' : 'Скачать PNG'}</span>
               </button>
             </div>
           )}

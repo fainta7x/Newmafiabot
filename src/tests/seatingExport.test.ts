@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildSeatingMatrix, generateSeatingSvg, getSafeFilename } from '../lib/seatingExport.ts';
+import {
+  buildSeatingMatrix,
+  generateSeatingSvg,
+  getSafeFilename,
+  shouldUseNativeShareForDownload,
+} from '../lib/seatingExport.ts';
 import { Tournament } from '../lib/api.ts';
 
 function createMockTournament(): Tournament {
@@ -105,6 +110,8 @@ describe('Seating Export Utility Tests', () => {
     expect(svg).toContain('РАССАДКА ИГРОКОВ');
     expect(svg).toContain('10 игроков × 10 игр');
     expect(svg).toContain('2LA NOIRE');
+    expect(svg).toContain('Цифра в круге — место за столом');
+    expect(svg.match(/<circle/g)?.length).toBeGreaterThanOrEqual(120);
     expect(svg).not.toContain('NewMafia CRM');
     expect(svg).not.toContain('#0F172A');
     expect(svg).not.toContain('#2563EB');
@@ -119,5 +126,12 @@ describe('Seating Export Utility Tests', () => {
   it('5. Generates safe filename from tournament title', () => {
     expect(getSafeFilename('Кубок Мафии 2026!')).toBe('rassadka_кубок_мафии_2026.png');
     expect(getSafeFilename('   ')).toBe('rassadka_tournament.png');
+  });
+
+  it('6. Uses native file share for mobile downloads when the image is shareable', () => {
+    expect(shouldUseNativeShareForDownload('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)', true)).toBe(true);
+    expect(shouldUseNativeShareForDownload('Telegram Android Mobile', true)).toBe(true);
+    expect(shouldUseNativeShareForDownload('Mozilla/5.0 (X11; Linux x86_64)', true)).toBe(false);
+    expect(shouldUseNativeShareForDownload('Mozilla/5.0 (iPhone)', false)).toBe(false);
   });
 });

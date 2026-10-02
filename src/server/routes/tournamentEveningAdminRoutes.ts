@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Router, type NextFunction, type Response } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getAuthenticatedOrganizerActorId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { normalizeRole } from '../utils/ciHelper.ts';
 import {
   cancelTournamentRegistration,
   loadTournamentEvening,
@@ -12,6 +13,7 @@ import {
   reorderTournamentReserve,
   validatePrizeConfiguration,
 } from '../services/tournamentEveningService.ts';
+import { serializeTournamentRosterMutation } from '../services/tournamentRosterMutationSerializer.ts';
 
 const router = Router();
 const actorId = (req: AuthenticatedRequest) => getAuthenticatedOrganizerActorId(req);
@@ -53,4 +55,36 @@ router.patch('/:id/participants/:participantId/correct-player',requireOrganizerA
 const prepareSeating=async(req:AuthenticatedRequest,res:Response)=>{const actor=actorId(req);if(!actor)return res.status(401).json({error:'ACTOR_REQUIRED'});try{const result=await prepareTournamentEveningSeating(req.db as DatabaseWrapper,String(req.params.id),actor);return res.json({...result,tournament:await loadTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))});}catch(e:any){return res.status(statusFor(e?.message)).json({error:e?.message});}};
 router.post('/evenings/:id/prepare-seating',requireOrganizerAuth,prepareSeating);
 router.post('/:id/generate-seating',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response,next:NextFunction)=>{if(!(await isManagedTournamentEvening(req.db as DatabaseWrapper,String(req.params.id))))return next();return prepareSeating(req,res);});
+
+// Managed tournament evenings shadow the legacy game-start route so the transition is serialized
+// with roster replacement. Reads, role validation and the planned -> active write happen inside the
+// same DB transaction; a replacement therefore either finishes first or observes an already-started game.
+router.post('/:id/games/:gameId/start',requireOrganizerAuth,async(req:AuthenticatedRequest,res:Response,next:NextFunction)=>{
+  const db=req.db as DatabaseWrapper,tournamentId=String(req.params.id),gameId=String(req.params.gameId);
+  if(!(await isManagedTournamentEvening(db,tournamentId)))return next();
+  try{
+    const result=await serializeTournamentRosterMutation(db,()=>db.transaction(async(tx)=>{
+      const tournament=await tx.get<any>('SELECT * FROM tournaments WHERE id=? LIMIT 1',[tournamentId]);
+      if(!tournament)return{status:404,body:{error:'Турнир не найден'}};
+      if(tournament.status!=='active')return{status:400,body:{error:'Запуск игры разрешён только в активном турнире'}};
+      const game=await tx.get<any>('SELECT * FROM tournament_games WHERE id=? AND tournament_id=? LIMIT 1',[gameId,tournamentId]);
+      if(!game)return{status:404,body:{error:'Игра не найдена'}};
+      if(game.status!=='planned')return{status:400,body:{error:'Игра уже была запущена или завершена'}};
+      const active=await tx.get<any>("SELECT COUNT(*) AS cnt FROM tournament_games WHERE tournament_id=? AND status='active' AND id<>?",[tournamentId,gameId]);
+      if(Number(active?.cnt||0)>0)return{status:400,body:{error:'В турнире уже идет другая игра'}};
+      const seats=await tx.all<any>('SELECT * FROM tournament_game_seats WHERE game_id=?',[gameId]);
+      if(seats.length!==10)return{status:400,body:{error:'В игре должно быть ровно 10 мест'}};
+      const roleCounts:Record<string,number>={citizen:0,sheriff:0,mafia:0,don:0};
+      for(const seat of seats){const role=normalizeRole(seat.role);if(role&&roleCounts[role]!==undefined)roleCounts[role]+=1;}
+      if(roleCounts.citizen!==6||roleCounts.sheriff!==1||roleCounts.mafia!==2||roleCounts.don!==1){
+        return{status:400,body:{error:'Нельзя запустить игру с неправильным набором ролей. Требуется ровно: 6 мирных, 1 Шериф, 2 мафии и 1 Дон.',current_roles:roleCounts}};
+      }
+      const now=new Date().toISOString();
+      await tx.run("UPDATE tournament_games SET status='active',started_at=? WHERE id=? AND status='planned'",[now,gameId]);
+      return{status:200,body:{success:true,game:await tx.get<any>('SELECT * FROM tournament_games WHERE id=?',[gameId])}};
+    }));
+    return res.status(result.status).json(result.body);
+  }catch(error:any){return res.status(500).json({error:error?.message||'Ошибка запуска игры'});}
+});
+
 export default router;

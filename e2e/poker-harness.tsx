@@ -19,6 +19,7 @@ const lobby = {
   status: 'playing',
   players,
   hand: {
+    id: 'visual-hand',
     viewer_id: 'viewer',
     street: 'preflop',
     small_blind: 10,
@@ -59,14 +60,34 @@ const lobby = {
   },
 };
 
+const history = [{
+  id: 'h1', number: 1, at: 0, small_blind: 10, big_blind: 20, pot: 240, winner_ids: ['bot-bluff'],
+  board: [{ rank: 'K', suit: 'spades' }, { rank: '9', suit: 'hearts' }, { rank: '4', suit: 'clubs' }, { rank: 'K', suit: 'diamonds' }, { rank: '2', suit: 'spades' }],
+  players: [
+    { id: 'viewer', nickname: 'Чагин', seat: 1, cards: [{ rank: 'Q', suit: 'hearts' }, { rank: 'Q', suit: 'clubs' }], revealed: true, net: -120, label: 'Две пары: короли и дамы' },
+    { id: 'bot-bluff', nickname: 'Бот Блеф', seat: 3, cards: [{ rank: 'K', suit: 'hearts' }, { rank: '9', suit: 'clubs' }], revealed: true, net: 130, label: 'Фулл-хаус: короли и девятки' },
+    { id: 'bot-lucky', nickname: 'Бот Лаки', seat: 2, cards: [], revealed: false, net: -10, label: null },
+  ],
+  actions: [
+    { street: 'preflop', player_id: 'bot-bluff', player_name: 'Бот Блеф', type: 'small_blind', amount: 10 },
+    { street: 'preflop', player_id: 'bot-lucky', player_name: 'Бот Лаки', type: 'big_blind', amount: 20 },
+    { street: 'preflop', player_id: 'viewer', player_name: 'Чагин', type: 'raise', amount: 60 },
+    { street: 'preflop', player_id: 'bot-bluff', player_name: 'Бот Блеф', type: 'call', amount: 50 },
+    { street: 'flop', player_id: 'bot-bluff', player_name: 'Бот Блеф', type: 'check', amount: 0 },
+    { street: 'flop', player_id: 'viewer', player_name: 'Чагин', type: 'bet', amount: 60 },
+    { street: 'flop', player_id: 'bot-bluff', player_name: 'Бот Блеф', type: 'call', amount: 60 },
+  ],
+}];
+
 globalThis.fetch = async (input, init) => {
   const url = String(input);
+  if (url.endsWith('/history')) return new Response(JSON.stringify({ history }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   const body = url.endsWith('/api/player/poker/lobbies') && (!init?.method || init.method === 'GET')
     ? { lobbies: [] }
     : { lobby };
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 
-document.documentElement.style.setProperty('--tg-viewport-stable-height', '844px');
+document.documentElement.style.setProperty('--tg-viewport-stable-height', `${window.innerHeight}px`);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<PlayerPoker onExit={() => undefined} />);

@@ -445,3 +445,18 @@ select optgroup {
 @media (prefers-reduced-motion: reduce) {
   .poker-hole-card, .poker-board-card, .poker-chip-flight, .poker-active-seat, .poker-winner-seat, .poker-action-bubble, .poker-action-toast, .poker-pot-award, .poker-bet-to-pot, .poker-deck-source, .poker-all-in { animation: none; opacity: 1; }
 }
+
+/* Readable play (owner, 2026-10-02): a street banner over the board, the latest move in words, a pulsing active seat. */
+@keyframes poker-street-banner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.8); }
+  18%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+}
+.poker-street-banner { padding: 6px 18px; border-radius: 999px; background: rgba(8, 9, 10, .82); border: 1px solid rgba(232, 196, 124, .6); color: #f3d491; font: 800 15px/1 Inter, Roboto, system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; box-shadow: 0 8px 22px rgba(0,0,0,.6); animation: poker-street-banner 1.5s ease-out both; }
+@keyframes poker-ticker-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.poker-action-ticker { transform: translateX(-50%); white-space: nowrap; padding: 4px 12px; border-radius: 999px; background: rgba(6, 7, 8, .72); border: 1px solid rgba(255,255,255,.14); color: #f7edda; font: 700 12px/1.2 Inter, Roboto, system-ui, sans-serif; animation: poker-ticker-in .25s ease-out both; }
+.poker-action-ticker.is-fold { color: #fda4af; }
+.poker-action-ticker.is-call, .poker-action-ticker.is-check { color: #86efac; }
+.poker-action-ticker.is-bet, .poker-action-ticker.is-raise { color: #fcd34d; }
+.poker-action-ticker.is-all_in { color: #fca5a5; border-color: rgba(248,113,113,.5); }
+.poker-seat-plaque--active.poker-active-seat { animation: poker-seat-pulse 1.3s ease-in-out infinite; }

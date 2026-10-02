@@ -21,3 +21,32 @@ test('poker 2.5D seats use readable integrated typography on a phone', async ({ 
   await page.screenshot({ path: screenshot, fullPage: false });
   await info.attach('poker-seat-typography-390x844.png', { path: screenshot, contentType: 'image/png' });
 });
+
+test('poker table recovers its full width after Telegram resumes', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/e2e/poker-harness.html');
+  await page.getByRole('button', { name: '+ Создать открытый стол' }).click();
+
+  const frame = page.getByTestId('poker-table-frame');
+  await expect.poll(async () => (await frame.locator('> div').boundingBox())?.width).toBeGreaterThan(380);
+
+  // Telegram briefly reports a compact viewport while the Mini App is hidden.
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty('--tg-viewport-height', '430px');
+    window.dispatchEvent(new Event('telegramviewportchange'));
+  });
+  await expect.poll(async () => (await frame.locator('> div').boundingBox())?.width).toBeLessThan(300);
+
+  // On return the native viewport recovers without a browser resize event.
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty('--tg-viewport-height', '844px');
+    window.dispatchEvent(new Event('telegramviewportchange'));
+  });
+  await expect.poll(async () => (await frame.locator('> div').boundingBox())?.width).toBeGreaterThan(380);
+
+  const box = await frame.locator('> div').boundingBox();
+  expect(box?.height).toBeGreaterThan(500);
+  const screenshot = info.outputPath('poker-after-telegram-resume-390x844.png');
+  await page.screenshot({ path: screenshot, fullPage: false });
+  await info.attach('poker-after-telegram-resume-390x844.png', { path: screenshot, contentType: 'image/png' });
+});

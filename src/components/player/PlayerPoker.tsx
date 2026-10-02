@@ -234,6 +234,12 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     try { return window.localStorage.getItem('poker-stack-display') === 'bb' ? 'bb' : 'chips'; } catch { return 'chips'; }
   });
   const shortLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight && window.innerHeight < 600;
+  useEffect(() => {
+    if (!shortLandscape) return undefined;
+    const previous = document.body.style.minHeight;
+    document.body.style.minHeight = '760px';
+    return () => { document.body.style.minHeight = previous; };
+  }, [shortLandscape]);
   // The table canvas scales to the space between the header and the action panel (see TABLE_W/TABLE_H).
   const tableFrameRef = useRef<HTMLDivElement | null>(null);
   const [tableScale, setTableScale] = useState(0.9);

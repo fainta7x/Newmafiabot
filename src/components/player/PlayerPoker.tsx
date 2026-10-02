@@ -16,6 +16,7 @@ const cardColor = (suit: string) => suit === 'hearts' || suit === 'diamonds' ? '
  */
 const TABLE_W = 400;
 const TABLE_H = 640;
+const TABLE_MIN_H = 530;
 const CHAIRS = {
   bottom: { x: 50, y: 92 }, lowerLeft: { x: 7, y: 73.4 }, left: { x: 6, y: 32.2 }, upperLeft: { x: 17, y: 12.2 },
   top: { x: 50, y: 6.7 }, upperRight: { x: 83, y: 12.2 }, right: { x: 94, y: 32.2 }, lowerRight: { x: 93, y: 73.4 },
@@ -24,7 +25,6 @@ const POT_Y = 33.9;
 const BOARD_Y = 51.1;
 /** Pixels per percent of the canvas, for the chip flights between a seat and the pot. */
 const PX_X = TABLE_W / 100;
-const PX_Y = TABLE_H / 100;
 const LAYOUTS: Record<number, Array<keyof typeof CHAIRS>> = {
   1: ['bottom'],
   2: ['bottom', 'top'],
@@ -229,13 +229,17 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   // The table canvas scales to the space between the header and the action panel (see TABLE_W/TABLE_H).
   const tableFrameRef = useRef<HTMLDivElement | null>(null);
   const [tableScale, setTableScale] = useState(0.9);
+  // On tall narrow phones the canvas gets a little flatter (down to TABLE_MIN_H) so the table fills the width (owner, 2026-10-02).
+  const [tableH, setTableH] = useState(TABLE_H);
   useLayoutEffect(() => {
     const measure = () => {
       const frame = tableFrameRef.current;
       const width = (frame?.clientWidth || window.innerWidth) - 16;
       const stable = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tg-viewport-stable-height')) || window.innerHeight;
       const height = stable - 222;
-      const next = Math.max(0.55, Math.min(1.2, width / TABLE_W, height / TABLE_H));
+      const nextH = Math.round(Math.max(TABLE_MIN_H, Math.min(TABLE_H, height / (width / TABLE_W))));
+      const next = Math.max(0.55, Math.min(1.2, width / TABLE_W, height / nextH));
+      setTableH((previous) => (previous === nextH ? previous : nextH));
       setTableScale((previous) => (Math.abs(previous - next) < 0.002 ? previous : next));
     };
     measure();
@@ -378,8 +382,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => void leaveTable().then(() => onExit?.())} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Ждём игроков</div></div><span className="w-[72px]" /></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
       <div ref={tableFrameRef} className="flex flex-1 items-start justify-center px-2 pt-1">
-        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: TABLE_H * tableScale }}>
-        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
+        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
+        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div className="absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-center" style={{ top: `${BOARD_Y - 6}%` }} data-testid="poker-waiting-table">
             <div className="poker-street-banner-static">Ждём второго игрока</div>
             <div className="mt-2 text-[12px] text-white/70">Раздача начнётся сама, как только за столом будут двое</div>
@@ -414,8 +418,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
       <div ref={tableFrameRef} className="flex flex-1 items-start justify-center px-2 pt-1">
-        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: TABLE_H * tableScale }}>
-        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
+        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
+        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/35 bg-black/70 py-1 pl-1 pr-3 shadow-[0_6px_16px_rgba(0,0,0,.6)]"><img src="/assets/poker/chips/chip-1000-v2.webp" alt="" className="h-7 w-7 object-contain" /><span className="text-[11px] uppercase tracking-[.14em] text-amber-100/65">Банк</span><span className="text-base font-black tabular-nums text-amber-100">{Number(hand.pot) > 0 ? hand.pot : finished ? hand.last_pot_awarded || 0 : 0}</span></span>
           </div>
@@ -463,8 +467,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const spot = betSpot(layout[index]);
             return <div key={`bet-${player.id}-${committed}`} className="poker-chip-flight absolute z-[8] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${spot.x}%`, top: spot.top }}><SeatMarkers dealer={dealer} small={small} big={big} />{committed ? <BetChip amount={committed} /> : null}</div>;
           })}
-          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 z-40" style={{ top: `${POT_Y}%`, '--award-x': `${(layout[winnerIndex].x - 50) * PX_X}px`, '--award-y': `${(layout[winnerIndex].y - POT_Y) * PX_Y}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
-          {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 z-30" style={{ top: `${POT_Y}%`, '--bet-from-x': `${(layout[latestActionIndex].x - 50) * PX_X}px`, '--bet-from-y': `${(layout[latestActionIndex].y + 6 - POT_Y) * PX_Y}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
+          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 z-40" style={{ top: `${POT_Y}%`, '--award-x': `${(layout[winnerIndex].x - 50) * PX_X}px`, '--award-y': `${(layout[winnerIndex].y - POT_Y) * (tableH / 100)}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
+          {latestActionIndex >= 0 && Number(latestAction?.amount || 0) > 0 && latestAction?.type !== 'small_blind' && latestAction?.type !== 'big_blind' ? <div key={latestAction.at} className="poker-bet-to-pot pointer-events-none absolute left-1/2 z-30" style={{ top: `${POT_Y}%`, '--bet-from-x': `${(layout[latestActionIndex].x - 50) * PX_X}px`, '--bet-from-y': `${(layout[latestActionIndex].y + 6 - POT_Y) * (tableH / 100)}px` } as CSSProperties}><ChipAmount amount={Number(latestAction.amount)} compact /></div> : null}
 
           {heroIndex >= 0 ? (() => {
             const hero = orderedPlayers[heroIndex];

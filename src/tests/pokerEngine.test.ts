@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { advanceStreet, applyPokerAction, createPokerHand } from '../server/services/pokerEngine.ts';
+import { advanceStreet, applyPokerAction, createPokerHand, refreshPokerReserve } from '../server/services/pokerEngine.ts';
 
 const players = [
   { id: 'p1', nickname: 'Первый', seat: 1, chips: 1000 },
@@ -22,6 +22,21 @@ describe('poker engine', () => {
     expect(hand.street).toBe('river'); expect(hand.board).toHaveLength(5); expect(hand.burn_cards).toHaveLength(3);
     const all = [...Object.values(hand.hole_cards).flat(), ...hand.board, ...hand.burn_cards].map((card) => `${card.rank}:${card.suit}`);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('recovers reserve only by completed offline minutes and never while the turn is active', () => {
+    const hand = createPokerHand({ id: 'recovery', players });
+    const player = hand.players[0];
+    player.reserve_seconds = 12;
+    player.reserve_recovery_at = 1_000;
+    refreshPokerReserve(player, 121_000, true, 60);
+    expect(player.reserve_seconds).toBe(14);
+    refreshPokerReserve(player, 600_000, false, 60);
+    expect(player.reserve_seconds).toBe(14);
+    refreshPokerReserve(player, 659_000, true, 60);
+    expect(player.reserve_seconds).toBe(14);
+    refreshPokerReserve(player, 721_000, true, 60);
+    expect(player.reserve_seconds).toBe(16);
   });
 
   it('supports the requested 2 to 8 players', () => {

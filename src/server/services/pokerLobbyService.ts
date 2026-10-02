@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { chooseStrongBotAction, observePokerHand } from './pokerBot.ts';
-import { type PokerCard, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, type PokerState } from './pokerEngine.ts';
+import { type PokerCard, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, pokerHandLabel, pokerTurnRemaining, refreshPokerReserve, type PokerState } from './pokerEngine.ts';
 
 export type PokerHistoryEntry = {
   id: string; number: number; at: number; small_blind: number; big_blind: number; board: PokerCard[]; pot: number;
@@ -44,7 +44,7 @@ export const exportPokerRuntimeSnapshot = (): PokerRuntimeSnapshot => {
   return { version: 1, lobbies: [...lobbyStore().values()], bankrolls: Object.fromEntries(runtime().bankrolls) };
 };
 /** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
-export const NEXT_HAND_DELAY_MS = 6000;
+export const NEXT_HAND_DELAY_MS = 4000;
 /** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
 const BOT_NAMES = ['Бот Лаки', 'Бот Блеф', 'Бот Скала', 'Бот Акула', 'Бот Профи', 'Бот Ниндзя', 'Бот Фортуна'];
 export const BOT_THINK_MS = 1200;
@@ -109,6 +109,8 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   const { history: _history, ...lobby } = fullLobby;
   // The viewer's id lets the waiting table seat them at the bottom like during play.
   if (!lobby.hand) return { ...lobby, hand: null, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
+  const now = Date.now();
+  for (const player of lobby.hand.players) refreshPokerReserve(player, now, player.seat !== lobby.hand.current_seat, lobby.hand.max_reserve_seconds);
   const currentPlayer = lobby.hand.players.find((player) => player.seat === lobby.hand?.current_seat);
   const viewer = viewerId ? lobby.hand.players.find((player) => player.id === viewerId) : null;
   const isViewerTurn = Boolean(viewer && currentPlayer?.id === viewer.id);
@@ -242,6 +244,8 @@ export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => public
 export const tickPokerLobby = (lobby: PokerLobby) => {
   if (lobby.permanent && !lobby.hand) autoDealMainLobby(lobby);
   if (!lobby.hand || lobby.status === 'finished') return;
+  const now = Date.now();
+  for (const player of lobby.hand.players) refreshPokerReserve(player, now, player.seat !== lobby.hand.current_seat, lobby.hand.max_reserve_seconds);
   if (lobby.hand.street === 'finished') {
     recordFinishedHand(lobby);
     if (lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) nextPokerHand(lobby);

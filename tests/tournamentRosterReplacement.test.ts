@@ -135,7 +135,7 @@ describe('TOURNAMENT-ROSTER-REPLACEMENT', () => {
       [tournamentId],
     );
     expect(oldPayment).toMatchObject({ state: 'confirmed', confirmed_amount_rub: 500 });
-    expect(replacementPayment).toBeUndefined();
+    expect(replacementPayment).toBeNull();
 
     const audit = await db.get<any>(
       "SELECT actor_type,actor_id,reason,payload_json FROM tournament_evening_audit WHERE tournament_id=? AND action='replace_player'",

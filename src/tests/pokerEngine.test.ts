@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { advanceStreet, applyPokerAction, createPokerHand, refreshPokerReserve } from '../server/services/pokerEngine.ts';
+import { advancePokerAnimation, advanceStreet, applyPokerAction, createPokerHand, POKER_DEAL_CARD_MS, POKER_DEAL_SETTLE_MS, refreshPokerReserve } from '../server/services/pokerEngine.ts';
 
 const players = [
   { id: 'p1', nickname: 'Первый', seat: 1, chips: 1000 },
@@ -22,6 +22,41 @@ describe('poker engine', () => {
     expect(hand.street).toBe('river'); expect(hand.board).toHaveLength(5); expect(hand.burn_cards).toHaveLength(3);
     const all = [...Object.values(hand.hole_cards).flat(), ...hand.board, ...hand.burn_cards].map((card) => `${card.rank}:${card.suit}`);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('locks actions until the server-synchronized pocket-card deal completes', () => {
+    vi.useFakeTimers(); vi.setSystemTime(10_000);
+    const hand = createPokerHand({ id: 'animated-deal', players, animate: true });
+    expect(hand).toMatchObject({ animation_phase: 'dealing', current_seat: null });
+    expect(() => applyPokerAction(hand, { type: 'call' })).toThrow('Дождитесь окончания раздачи');
+    advancePokerAnimation(hand, 10_000 + players.length * 2 * POKER_DEAL_CARD_MS + POKER_DEAL_SETTLE_MS);
+    expect(hand.animation_phase).toBe('playing');
+    expect(hand.current_seat).not.toBeNull();
+    expect(hand.turn_started_at).toBe(10_000 + players.length * 2 * POKER_DEAL_CARD_MS + POKER_DEAL_SETTLE_MS);
+  });
+
+  it('reveals an all-in board one card at a time before showdown', () => {
+    vi.useFakeTimers(); vi.setSystemTime(20_000);
+    const hand = createPokerHand({ id: 'animated-runout', players, animate: true });
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    applyPokerAction(hand, { type: 'all_in' });
+    applyPokerAction(hand, { type: 'call' });
+    expect(hand).toMatchObject({ animation_phase: 'runout', street: 'preflop', board: [], current_seat: null });
+    expect(() => applyPokerAction(hand, { type: 'check' })).toThrow('Дождитесь окончания раздачи');
+
+    const first = hand.animation_next_at!;
+    advancePokerAnimation(hand, first);
+    expect(hand.street).toBe('flop'); expect(hand.board).toHaveLength(1); expect(hand.winner_ids).toEqual([]);
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    expect(hand.board).toHaveLength(2);
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    expect(hand.board).toHaveLength(3);
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    expect(hand.street).toBe('turn'); expect(hand.board).toHaveLength(4);
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    expect(hand.street).toBe('river'); expect(hand.board).toHaveLength(5); expect(hand.revealed_ids).toEqual([]);
+    advancePokerAnimation(hand, hand.animation_next_at!);
+    expect(hand.street).toBe('finished'); expect(hand.revealed_ids).toHaveLength(2); expect(hand.winner_ids.length).toBeGreaterThan(0);
   });
 
   it('recovers reserve only by completed offline minutes and never while the turn is active', () => {

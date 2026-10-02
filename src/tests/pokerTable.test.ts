@@ -77,6 +77,12 @@ describe('poker table: history, rebuy, permanent table (owner, 2026-10-02)', () 
     addPokerBot(main);
     expect(main.hand).not.toBeNull();
     expect(main.status).toBe('playing');
+    // A bot added mid-hand waits for the next deal; removing it folds its cards.
+    addPokerBot(main);
+    const lateBot = main.players.at(-1)!;
+    expect(main.hand!.players.some((player) => player.id === lateBot.id)).toBe(false);
+    leavePokerLobby(main, lateBot.id);
+    expect(main.players.some((player) => player.id === lateBot.id)).toBe(false);
 
     expect(leavePokerLobby(main, 'erin')).toBeNull();
     expect(getPokerLobby(MAIN_POKER_LOBBY_ID)).toMatchObject({ players: [], hand: null, status: 'waiting' });

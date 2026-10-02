@@ -27,6 +27,7 @@ type TournamentDetail = {
   confirmed_count: number;
   remaining_places: number;
   entry_fee_rub: number;
+  registrations: Registration[];
   confirmed: Registration[];
   reserves: Registration[];
   roster_edit_mode?: RosterEditMode;
@@ -103,6 +104,12 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     () => new Set((detail?.confirmed || []).map((row) => row.player_id)),
     [detail?.confirmed],
   );
+
+  const cancelledWithPayment = useMemo(() => (detail?.registrations || [])
+    .filter((row) => ['cancelled', 'declined'].includes(row.status))
+    .filter((row) => row.payment_state !== 'unpaid')
+    .slice()
+    .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')), [detail?.registrations]);
 
   const eligiblePlayers = useMemo(() => players
     .filter((player) => player.game_level === 'tournament')
@@ -280,7 +287,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
           </select>
           <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Причина / комментарий (необязательно)" className="min-h-[42px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary" />
           <button type="button" disabled={!replaceFromPlayerId || !replaceToPlayerId || !!busyKey} onClick={() => void replacePlayer()} className="min-h-[44px] w-full rounded-xl bg-accent px-4 text-xs font-black text-white disabled:opacity-40">{busyKey.startsWith('replace:') ? 'Заменяем…' : 'Заменить игрока'}</button>
-          <p className="text-[10px] leading-4 text-text-muted">Оплата не переносится автоматически: у снятого и нового игрока остаются свои статусы оплаты.</p>
+          <p className="text-[10px] leading-4 text-text-muted">Оплата не переносится автоматически: у снятого и нового игрока остаются свои статусы оплаты. Оплату снятого игрока можно скорректировать ниже.</p>
         </div>
       ) : null}
 
@@ -332,6 +339,27 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
           </div>
         )) : <div className="rounded-xl border border-dashed border-border-soft px-3 py-4 text-center text-[11px] text-text-muted">Никто не ждёт места и не вызвался подменить.</div>}
       </div>
+
+      {cancelledWithPayment.length ? (
+        <div className="mt-4 space-y-2" data-testid="tournament-cancelled-payments">
+          <div>
+            <h4 className="text-[11px] font-black uppercase tracking-wide text-text-muted">Снятые игроки · оплаты</h4>
+            <p className="mt-1 text-[10px] leading-4 text-text-muted">Здесь остаются оплаты игроков, которых сняли или заменили. При необходимости отметьте возврат — история оплаты не теряется вместе с местом в составе.</p>
+          </div>
+          {cancelledWithPayment.map((row) => (
+            <div key={row.id} className="flex min-h-[50px] items-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
+                <div className="text-[10px] text-text-muted">Снят с турнира · {paymentLabels[row.payment_state]}{row.reported_amount_rub != null ? ` · заявлено ${row.reported_amount_rub} ₽` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${row.confirmed_amount_rub} ₽` : ''}</div>
+              </div>
+              <select value={row.payment_state || 'unpaid'} disabled={!!busyKey} onChange={(event) => void updatePayment(row, event.target.value as PaymentState)} className="max-w-[145px] rounded-lg border border-border-soft bg-surface-1 px-2 py-1.5 text-[10px] text-text-primary">
+                {row.payment_state === 'pending' ? <option value="pending" disabled>{paymentLabels.pending}</option> : null}
+                {organizerPaymentStates.map((value) => <option key={value} value={value}>{paymentLabels[value]}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {detail && detail.confirmed.length ? (
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">

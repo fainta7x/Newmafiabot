@@ -138,7 +138,10 @@ describe('poker rules (owner check 2026-10-01)', () => {
     const hand = createPokerHand({ id: 'label', dealer_seat: 1, players: [{ id: 'a', nickname: 'A', seat: 1, chips: 100 }, { id: 'b', nickname: 'B', seat: 2, chips: 100 }] });
     hand.hole_cards = { a: cards('Tc Td'), b: cards('Qs 9c') };
     expect(pokerHandLabel(hand, 'a')).toBe('Пара десяток');
-    expect(pokerHandLabel(hand, 'b')).toBe('Старшая карта: дама, кикер девятка');
+    expect(pokerHandLabel(hand, 'b')).toBe('Дама-девятка, разномастные');
+    hand.hole_cards.b = cards('Js Ts');
+    expect(pokerHandLabel(hand, 'b')).toBe('Валет-десятка, одномастные');
+    hand.hole_cards.b = cards('Qs 9c');
     hand.deck = cards('2h 7s Qc 9d 3h 2d 3s 7c');
     applyPokerAction(hand, { type: 'all_in' });
     applyPokerAction(hand, { type: 'call' });

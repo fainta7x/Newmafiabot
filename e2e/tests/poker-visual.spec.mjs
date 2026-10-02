@@ -10,7 +10,7 @@ test('poker 2.5D seats use readable integrated typography on a phone', async ({ 
   await expect(page.getByText('Бот Блеф', { exact: true })).toBeVisible();
   await expect(page.locator('.poker-seat-stack').filter({ hasText: '1 080' })).toBeVisible();
   await expect(page.locator('.poker-hero-name')).toHaveText('Вы');
-  await expect(page.locator('.poker-hand-label')).toContainText('Старшая карта: валет');
+  await expect(page.locator('.poker-hand-label')).toContainText('Валет-десятка');
 
   const geometry = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
   expect(geometry.document).toBeLessThanOrEqual(geometry.viewport + 1);

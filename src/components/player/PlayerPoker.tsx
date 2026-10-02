@@ -359,6 +359,45 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     catch (e: any) { setError(e.message); }
   };
 
+  // Bots may sit down at any moment, also mid-hand: they play from the next deal.
+  const canAddBot = Boolean(current && current.status !== 'finished' && (current.players?.length || 0) < 8
+    && (current.ownerId === (viewerId || current.viewer_id) || (current.permanent && current.players?.some((player: Player) => player.id === (viewerId || current.viewer_id)))));
+
+  // «Общий стол» is always running (owner, 2026-10-02): sitting down shows the table at once, never a set-up screen.
+  if (current?.permanent && !current?.hand) {
+    const waitingPlayers: Player[] = seatOrder(current.players || [], current.viewer_id || null);
+    const waitingLayout = seatLayout(waitingPlayers.length);
+    return (
+    <main className="flex min-h-[var(--tg-viewport-stable-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => void leaveTable().then(() => onExit?.())} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Ждём игроков</div></div><span className="w-[72px]" /></header>
+      {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
+      <div ref={tableFrameRef} className="flex flex-1 items-start justify-center px-2 pt-1">
+        <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: TABLE_H * tableScale }}>
+        <section className="absolute left-0 top-0 overflow-hidden rounded-[1.75rem] bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center shadow-[0_25px_65px_rgba(0,0,0,.75)]" style={{ width: TABLE_W, height: TABLE_H, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
+          <div className="absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-center" style={{ top: `${BOARD_Y - 6}%` }} data-testid="poker-waiting-table">
+            <div className="poker-street-banner-static">Ждём второго игрока</div>
+            <div className="mt-2 text-[12px] text-white/70">Раздача начнётся сама, как только за столом будут двое</div>
+          </div>
+          {waitingPlayers.slice(0, 8).map((player: Player, index: number) => {
+            const spot = waitingLayout[index];
+            const edge = spot.x < 20 ? 'left' : spot.x > 80 ? 'right' : 'centre';
+            const seatLeft = edge === 'left' ? `max(0px, calc(${spot.x}% - 24px))` : edge === 'right' ? `min(calc(100% - 84px), calc(${spot.x}% - 60px))` : `clamp(2px, calc(${spot.x}% - 42px), calc(100% - 86px))`;
+            const isViewer = player.id === current.viewer_id;
+            return <div key={player.id} className="absolute z-10 w-[84px] text-center" style={{ left: seatLeft, top: index === 0 ? `calc(${spot.y}% - 70px)` : `calc(${spot.y}% - 24px)` }}>
+              <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full text-sm font-bold ${edge === 'left' ? 'ml-0' : edge === 'right' ? 'ml-auto' : 'mx-auto'}`}><span>{player.nickname?.slice(0, 1).toUpperCase()}</span>{!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[42px] w-[42px] rounded-full object-cover" /> : null}</div>
+              <div className="poker-seat-plaque relative z-10 -mt-2"><div className="poker-seat-name truncate">{isViewer ? 'Вы' : player.nickname}</div><SeatStack amount={player.chips} /></div>
+            </div>;
+          })}
+        </section>
+        </div>
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-3 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}><div className="mx-auto grid max-w-[470px] gap-2">
+        {canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106]">+ Посадить бота</button> : null}
+        <button type="button" onClick={() => void leaveTable()} className="min-h-11 rounded-2xl border border-white/10 bg-black/20 text-sm text-white/60">Встать из-за стола</button>
+      </div></div>
+    </main>);
+  }
+
   if (current?.hand) {
     const hand = current.hand;
     const finished = hand.street === 'finished';
@@ -467,7 +506,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
 
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}><div className="mx-auto max-w-[470px]">{finished ? <div className="relative grid min-h-[136px] place-items-center text-center"><div><button type="button" onClick={() => void showHistory()} className="absolute left-3 top-2 text-[11px] text-white/55">История</button><div className="text-sm font-semibold text-amber-200">{orderedPlayers.filter((player) => hand.winner_ids?.includes(player.id)).map((player) => player.id === viewerId ? 'Вы' : player.nickname).join(', ') || '—'} {hand.winner_ids?.length > 1 ? 'делят банк' : 'забирает банк'}</div><div className="mt-1 text-xs text-white/55">{heroBusted ? <button type="button" onClick={() => void rebuy()} className="mt-2 min-h-10 rounded-xl bg-[#d5a54b] px-4 text-xs font-black text-black">Фишки закончились — взять 1000</button> : meAway ? <button type="button" onClick={() => void setAway(false)} className="mt-2 min-h-10 rounded-xl bg-emerald-500 px-4 text-xs font-black text-[#04291b]">Вернуться за стол</button> : current.status === 'waiting' ? <span className="flex flex-col items-center gap-2"><span>Ждём игроков: нужно минимум двое с фишками.</span>{(current.ownerId === viewerId || (current.permanent && heroSeat)) && current.players.length < 8 ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-10 rounded-xl border border-amber-200/25 bg-amber-200/10 px-4 text-xs font-semibold text-amber-50">+ Добавить бота</button> : null}</span> : current.status === 'finished' ? 'Игра окончена: фишки остались у одного игрока.' : hand.next_hand_in !== null && hand.next_hand_in !== undefined ? `Следующая раздача через ${hand.next_hand_in} с` : ''}</div></div></div> : <>
         {heroBusted ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-amber-300/10 px-3 py-2 text-xs text-amber-100"><span>Фишки закончились</span><button type="button" onClick={() => void rebuy()} className="min-h-9 shrink-0 rounded-xl bg-[#d5a54b] px-3 text-xs font-black text-black">Взять 1000 фишек</button></div> : meAway ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-white/[.06] px-3 py-2 text-xs text-white/75"><span>Вы отошли — карты не раздаются, место за вами</span><button type="button" onClick={() => void setAway(false)} className="min-h-9 shrink-0 rounded-xl bg-emerald-500 px-3 text-xs font-black text-[#04291b]">Вернуться за стол</button></div> : hand.waiting_for_next_hand ? <div className="mb-1.5 rounded-xl bg-emerald-400/10 py-1.5 text-center text-xs font-semibold text-emerald-200">Вы за столом — сыграете со следующей раздачи</div> : null}
-        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-white/45"><button type="button" onClick={() => void showHistory()} className="w-14 text-left text-[11px] text-white/55 underline-offset-2 hover:underline">История</button><span>{isMyTurn ? (actions?.to_call > 0 ? <span className="text-amber-200">Нужно уравнять {actions.to_call}</span> : <span className="text-emerald-300">Можно сделать чек</span>) : `Ходит ${turnPlayer?.nickname || '…'}`}</span>{!meAway ? <button type="button" onClick={() => void setAway(true)} className="w-12 text-right text-[11px] text-white/50 underline-offset-2 hover:underline">Отойти</button> : <span className="w-12" />}</div>
+        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-white/45"><span className="flex w-24 items-center gap-2"><button type="button" onClick={() => void showHistory()} className="text-left text-[11px] text-white/55 underline-offset-2 hover:underline">История</button>{canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="text-[11px] text-amber-200/80 underline-offset-2 hover:underline" title="Бот сядет на свободное место и сыграет со следующей раздачи">+ Бот</button> : null}</span><span>{isMyTurn ? (actions?.to_call > 0 ? <span className="text-amber-200">Нужно уравнять {actions.to_call}</span> : <span className="text-emerald-300">Можно сделать чек</span>) : `Ходит ${turnPlayer?.nickname || '…'}`}</span>{!meAway ? <button type="button" onClick={() => void setAway(true)} className="w-24 text-right text-[11px] text-white/50 underline-offset-2 hover:underline">Отойти</button> : <span className="w-12" />}</div>
         {canPreAct ? <div className="poker-preactions pt-1" data-testid="poker-preactions">
           <div className="mb-2 text-center text-[10px] uppercase tracking-[.14em] text-white/35">Заранее · сработает в ваш ход</div>
           <div className="grid grid-cols-3 gap-2">{(heroToCall

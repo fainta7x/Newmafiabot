@@ -78,7 +78,8 @@ export const rebuyPoker = (lobby: PokerLobby, playerId: string) => {
 const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   // The history holds every player's cards: it is served only through publicPokerHistory.
   const { history: _history, ...lobby } = fullLobby;
-  if (!lobby.hand) return { ...lobby, hand: null };
+  // The viewer's id lets the waiting table seat them at the bottom like during play.
+  if (!lobby.hand) return { ...lobby, hand: null, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
   const currentPlayer = lobby.hand.players.find((player) => player.seat === lobby.hand?.current_seat);
   const viewer = viewerId ? lobby.hand.players.find((player) => player.id === viewerId) : null;
   const isViewerTurn = Boolean(viewer && currentPlayer?.id === viewer.id);

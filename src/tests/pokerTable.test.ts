@@ -72,6 +72,8 @@ describe('poker table: history, rebuy, permanent table (owner, 2026-10-02)', () 
     const main = getPokerLobby(MAIN_POKER_LOBBY_ID)!;
     joinPokerLobby(main, { id: 'erin', nickname: 'Erin' });
     expect(main.hand).toBeNull();
+    // The waiting table still tells the viewer where they sit.
+    expect(publicPokerLobby(main, 'erin')).toMatchObject({ hand: null, viewer_id: 'erin', permanent: true });
     addPokerBot(main);
     expect(main.hand).not.toBeNull();
     expect(main.status).toBe('playing');

@@ -460,3 +460,4 @@ select optgroup {
 .poker-action-ticker.is-bet, .poker-action-ticker.is-raise { color: #fcd34d; }
 .poker-action-ticker.is-all_in { color: #fca5a5; border-color: rgba(248,113,113,.5); }
 .poker-seat-plaque--active.poker-active-seat { animation: poker-seat-pulse 1.3s ease-in-out infinite; }
+.poker-street-banner-static { display: inline-block; padding: 8px 18px; border-radius: 999px; background: rgba(8, 9, 10, .82); border: 1px solid rgba(232, 196, 124, .6); color: #f3d491; font: 800 14px/1 Inter, Roboto, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 8px 22px rgba(0,0,0,.6); }

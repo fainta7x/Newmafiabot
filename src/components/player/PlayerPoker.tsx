@@ -233,6 +233,13 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const [stackDisplay, setStackDisplay] = useState<'chips' | 'bb'>(() => {
     try { return window.localStorage.getItem('poker-stack-display') === 'bb' ? 'bb' : 'chips'; } catch { return 'chips'; }
   });
+  const shortLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight && window.innerHeight < 600;
+  useEffect(() => {
+    if (!shortLandscape) return undefined;
+    const previous = document.body.style.minHeight;
+    document.body.style.minHeight = '760px';
+    return () => { document.body.style.minHeight = previous; };
+  }, [shortLandscape]);
   // The table canvas scales to the space between the header and the action panel (see TABLE_W/TABLE_H).
   const tableFrameRef = useRef<HTMLDivElement | null>(null);
   const [tableScale, setTableScale] = useState(0.9);
@@ -255,7 +262,12 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       const top = frame ? frame.getBoundingClientRect().top + window.scrollY : 60;
       const height = viewport - top - (bottomPanelMax.current || 160) - 6;
       const nextH = Math.round(Math.max(TABLE_MIN_H, Math.min(TABLE_MAX_H, height / (width / TABLE_W))));
-      const next = Math.max(0.55, Math.min(1.2, width / TABLE_W, height / nextH));
+      // In a short Telegram landscape viewport, keep the table readable and let the page scroll.
+      // Shrinking it to the available height made documentHeight equal the viewport height,
+      // hiding the lower table/action area instead of exposing it below the fold.
+      const next = viewport < 600 && width > viewport
+        ? Math.min(1.2, width / TABLE_W)
+        : Math.max(0.55, Math.min(1.2, width / TABLE_W, height / nextH));
       setTableH((previous) => (previous === nextH ? previous : nextH));
       setTableScale((previous) => (Math.abs(previous - next) < 0.002 ? previous : next));
     };
@@ -407,10 +419,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const waitingPlayers: Player[] = seatOrder(current.players || [], current.viewer_id || null);
     const waitingLayout = seatLayout(waitingPlayers.length);
     return (
-    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
+    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => void leaveTable().then(() => onExit?.())} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Ждём игроков</div></div><span className="w-[72px]" /></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
-      <div ref={tableFrameRef} data-testid="poker-table-frame" className="flex flex-1 items-start justify-center">
+      <div ref={tableFrameRef} data-testid="poker-table-frame" className="poker-table-frame flex flex-1 items-start justify-center" style={shortLandscape ? { minHeight: 760 } : undefined}>
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
         <section className="absolute left-0 top-0 overflow-hidden bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div className="absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-center" style={{ top: `${BOARD_Y - 6}%` }} data-testid="poker-waiting-table">
@@ -442,11 +454,11 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const finished = hand.street === 'finished';
     const heroIndex = orderedPlayers.findIndex((player) => player.id === viewerId);
     return (
-    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
+    <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {hand.small_blind}/{hand.big_blind}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>Фишки</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
-      <div ref={tableFrameRef} data-testid="poker-table-frame" className="flex flex-1 items-start justify-center">
+      <div ref={tableFrameRef} data-testid="poker-table-frame" className="poker-table-frame flex flex-1 items-start justify-center" style={shortLandscape ? { minHeight: 760 } : undefined}>
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
         <section className="absolute left-0 top-0 overflow-hidden bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>

@@ -4,7 +4,7 @@ export type PokerSuit = 'clubs' | 'diamonds' | 'hearts' | 'spades';
 export type PokerRank = '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'T'|'J'|'Q'|'K'|'A';
 export type PokerCard = { rank: PokerRank; suit: PokerSuit };
 export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'finished';
-export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; is_bot?: boolean;
+export type PokerPlayer = { id: string; nickname: string; seat: number; chips: number; committed: number; folded: boolean; all_in: boolean; acted: boolean; reserve_seconds: number; reserve_recovery_at?: number; is_bot?: boolean;
   /** Everything the player put in during this hand: decides which side pots they can win. */
   total_committed: number;
   /** The stack before the blinds: the hand history shows what each player won or lost. */
@@ -62,7 +62,7 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
 export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = shuffleDeck();
-  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60 }));
+  const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: 60, reserve_recovery_at: Date.now() }));
   const state: PokerState = {
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,
     small_blind: input.small_blind ?? 10, big_blind: input.big_blind ?? 20, pot: 0, current_bet: 0,
@@ -224,6 +224,9 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
   const usedReserve = elapsed > state.base_turn_seconds;
   if (usedReserve) player.reserve_seconds = Math.max(0, player.reserve_seconds - Math.min(player.reserve_seconds, elapsed - state.base_turn_seconds));
   else player.reserve_seconds = Math.min(state.max_reserve_seconds, player.reserve_seconds + 1);
+  // Start passive recovery from the moment this turn is resolved; time spent thinking
+  // must never be counted as offline recovery after a reconnect.
+  player.reserve_recovery_at = Date.now();
   let actionAmount = 0;
   if (action.type === 'fold') player.folded = true;
   else if (action.type === 'check') {
@@ -287,4 +290,16 @@ export const foldOutOfTurn = (state: PokerState, playerId: string) => {
 export const pokerTurnRemaining = (state: PokerState, player: PokerPlayer) => {
   const elapsed = state.turn_started_at ? Math.max(0, Math.floor((Date.now() - state.turn_started_at) / 1000)) : 0;
   return { base_seconds: Math.max(0, state.base_turn_seconds - elapsed), reserve_seconds: Math.max(0, player.reserve_seconds - Math.max(0, elapsed - state.base_turn_seconds)) };
+};
+
+/** Recover one reserve second per completed minute while the player is not spending their timebank. */
+export const refreshPokerReserve = (player: PokerPlayer, now = Date.now(), canRecover = true, maxSeconds = 60) => {
+  const checkpoint = Number(player.reserve_recovery_at || now);
+  if (!canRecover) { player.reserve_recovery_at = now; return player.reserve_seconds; }
+  const minutes = Math.floor(Math.max(0, now - checkpoint) / 60_000);
+  if (minutes > 0) {
+    player.reserve_seconds = Math.min(maxSeconds, player.reserve_seconds + minutes);
+    player.reserve_recovery_at = checkpoint + minutes * 60_000;
+  }
+  return player.reserve_seconds;
 };

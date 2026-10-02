@@ -9,15 +9,21 @@ import { readLiveBroadcastEnvelope } from './liveBroadcastService.ts';
  */
 const HOUR = 3_600_000;
 export type LobbySeat = { seat: number; nickname: string; player_id: string | null };
+export type BroadcastStanding = { place: number; nickname: string; points: number; player_id: string | null };
 export type BroadcastLobby = {
   event: { kind: 'tournament' | 'evening'; id: string; title: string; starts_at: string | null } | null;
   next_game: { number: number; table: string | null; seats: LobbySeat[] } | null;
   played_games: number;
   total_games: number | null;
-  standings: Array<{ place: number; nickname: string; points: number }>;
+  standings: BroadcastStanding[];
 };
 
 const parse = (value: unknown): any => { try { return JSON.parse(String(value || '')); } catch { return null; } };
+
+export const broadcastLobbyPlayerIds = (lobby: BroadcastLobby) => new Set<string>([
+  ...(lobby.next_game?.seats || []).map((seat) => seat.player_id),
+  ...(lobby.standings || []).map((row) => row.player_id),
+].filter((playerId): playerId is string => Boolean(playerId)));
 
 async function todaysTournament(db: DatabaseWrapper, now: number) {
   const columns = new Set((await db.all<any>('PRAGMA table_info(tournaments)')).map((row: any) => String(row.name)));
@@ -41,8 +47,23 @@ async function tournamentLobby(db: DatabaseWrapper, tournament: any): Promise<Br
   )).map((row: any) => ({ seat: Number(row.seat_number), nickname: String(row.display_name || 'Игрок'), player_id: row.player_id ? String(row.player_id) : null })) : [];
   let standings: BroadcastLobby['standings'] = [];
   try {
+    const participants = await db.all<any>(
+      'SELECT id, player_id FROM tournament_participants WHERE tournament_id = ?',
+      [tournament.id],
+    );
+    const playerIdByParticipant = new Map<string, string | null>(participants.map((row: any) => [
+      String(row.id),
+      row.player_id ? String(row.player_id) : null,
+    ]));
     standings = ((await getFlexibleTournamentStandings(db, String(tournament.id))).standings || [])
-      .map((row: any) => ({ place: Number(row.place), nickname: String(row.display_name || 'Игрок'), points: Number(row.total_points || 0) }));
+      .map((row: any) => ({
+        place: Number(row.place),
+        nickname: String(row.display_name || 'Игрок'),
+        points: Number(row.total_points || 0),
+        player_id: row.player_id
+          ? String(row.player_id)
+          : playerIdByParticipant.get(String(row.participant_id)) || null,
+      }));
   } catch { standings = []; }
   return {
     event: { kind: 'tournament', id: String(tournament.id), title: String(tournament.title || 'Турнир'), starts_at: tournament.date || null },

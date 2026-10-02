@@ -16,6 +16,7 @@ const boardCards = [{ rank: 'Q', suit: 'hearts' }, { rank: '10', suit: 'diamonds
 const lobby = {
   id: 'visual-table',
   title: 'Открытая покерная комната',
+  ownerId: 'viewer',
   status: 'playing',
   players,
   hand: {
@@ -78,6 +79,9 @@ const history = [{
     { street: 'flop', player_id: 'bot-bluff', player_name: 'Бот Блеф', type: 'call', amount: 60 },
   ],
 }];
+
+// ?waiting=1: the permanent «Общий стол» with one player, before the first deal.
+if (params.get('waiting')) Object.assign(lobby, { title: 'Общий стол', permanent: true, ownerId: '', status: 'waiting', players: players.slice(0, 1), hand: null, viewer_id: 'viewer' });
 
 globalThis.fetch = async (input, init) => {
   const url = String(input);

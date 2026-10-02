@@ -361,9 +361,11 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
 /** 36 hours before the start (owner, 2026-10-02) the tournament announcement goes to the rating group. */
 export const TOURNAMENT_ANNOUNCE_HOURS = 36;
 
-const broadcastLink = () => String(process.env.TWITCH_CHANNEL_URL || '').trim().replace(/\/$/, '');
+// The club's Twitch channel (owner, 2026-10-02: chagintv); TWITCH_CHANNEL_URL overrides it.
+const broadcastLink = () => String(process.env.TWITCH_CHANNEL_URL || 'https://www.twitch.tv/chagintv').trim().replace(/\/$/, '');
 
 export async function postTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
+  await ensureClubResultPostSchema(db);
   const key = `tournament-announce:${tournamentId}`;
   const announcement = await loadTournamentAnnouncement(db, tournamentId);
   // Without a confirmed roster there is nothing to announce yet; the scan tries again later.

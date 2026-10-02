@@ -89,7 +89,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const plan = has.has('evening_game_slots') ? await loadEveningSlotPlan(db, eveningId).catch(() => null) : null;
   const slots: Array<{ slot_number: number; registered_count: number }> = plan?.slots || [];
   const perSlot = Number(plan?.event.required_players_per_slot || 11);
-  const neededSlots = Math.min(slots.length, Number(plan?.event.required_slots || 4));
+  const neededSlots = Number(plan?.event.required_slots || 4);
+  const assembled = Boolean(plan?.event.assembled);
   const fullSlots = slots.filter((slot) => slot.registered_count >= perSlot);
   const gameList = slots.map((slot) => slot.registered_count >= perSlot ? `${slot.slot_number}-я ✓` : `${slot.slot_number}-я ${slot.registered_count}/${perSlot}`).join(' · ');
 
@@ -143,12 +144,12 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const silent = overview ? Number(overview.summary.unanswered || 0) + Number(overview.summary.not_sent || 0) + Number(overview.summary.failed || 0) : answers.unanswered;
   steps.gather.push(
     // «Думаю» is an answer too: the step is done once nobody is silent (owner, 2026-10-02).
-    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent ? 'attention' : coming ? 'done' : 'todo', target: 'participants' },
+    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
     {
       id: 'shortfall',
-      title: !slots.length ? 'Набор на игры' : fullSlots.length >= neededSlots ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
+      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
       detail: slots.length ? `Стол — ${players(perSlot)}. ${gameList}` : 'Игры не настроены',
-      status: slots.length && fullSlots.length >= neededSlots ? 'done' : 'attention',
+      status: slots.length && assembled ? 'done' : 'attention',
       target: 'participants',
     },
   );

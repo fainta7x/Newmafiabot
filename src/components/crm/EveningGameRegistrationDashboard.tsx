@@ -42,6 +42,7 @@ const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
   if (responseStatus === 'declined') return 'declined';
   if (responseStatus === 'thinking') return 'thinking';
   // «Иду» always means every game unless the player picked exact ones (owner, 2026-10-02): no «без игр» bucket.
+  // «Приду позже» without games still counts as coming; its games stay empty until chosen.
   if (slots.length || responseStatus === 'going' || responseStatus === 'late') return 'games';
   return 'unknown';
 };
@@ -88,9 +89,12 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const participantByPlayer = new Map(participants.map((participant) => [String(participant.player_id), participant]));
       const audienceByPlayer = new Map(audiencePlayers.map((player) => [String(player.id), player]));
       const slotByPlayer = new Map<string, Slot[]>();
+      const wholeEveningIds = new Set<string>();
       for (const slot of slots) {
         for (const person of slot.participants || []) {
           // «Иду» without an exact plan is counted in every game by the server and shown as all games.
+          // «Приду позже» records only intent, never a slot plan (BUSINESS_RULES), so it is filtered below.
+          if (person.whole_evening) wholeEveningIds.add(String(person.id));
           const current = slotByPlayer.get(String(person.id)) || [];
           current.push(slot);
           slotByPlayer.set(String(person.id), current);
@@ -104,8 +108,10 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const nextRows: Row[] = Array.from(candidateIds).map((playerId) => {
         const participant = participantByPlayer.get(playerId) || null;
         const audience = audienceByPlayer.get(playerId);
-        const playerSlots = (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
         const responseStatus = participant ? getEveningResponse(participant) : String(audience?.response_status || 'unanswered');
+        const playerSlots = responseStatus === 'late' && wholeEveningIds.has(playerId)
+          ? []
+          : (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
         return {
           playerId,
           nickname: String(participant?.nickname || audience?.nickname || 'Игрок'),

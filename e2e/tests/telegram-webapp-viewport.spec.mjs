@@ -124,6 +124,7 @@ test('Telegram viewport resynchronizes after returning from the background', asy
   await page.setViewportSize({ width: item.width, height: item.height });
   await installTelegramMock(page, item);
   await page.goto('/e2e/player-cabinet.html?scenario=live');
+  await page.evaluate(() => history.replaceState({}, '', '/player'));
   const initialExpandCalls = await page.evaluate(() => window.__tgExpandCalls || 0);
 
   await page.evaluate(() => {

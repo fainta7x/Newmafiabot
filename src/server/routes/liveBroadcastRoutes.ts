@@ -13,7 +13,7 @@ import {
   saveLiveBroadcastLayout,
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
-import { loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
+import { broadcastLobbyPlayerIds, loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
 
 const gameRouter = Router();
 const publicRouter = Router();
@@ -89,6 +89,24 @@ const publicOrigin = (req: Request): string => {
   const configured = String(process.env.PLAYER_APP_URL || '').trim().replace(/\/+$/, '');
   if (configured) return configured;
   return `${req.protocol}://${req.get('host')}`;
+};
+
+// Avatar image requests arrive in a burst when OBS opens a scene. Cache the allowed IDs briefly so
+// twenty images do not recalculate the whole tournament table twenty times at once.
+let avatarAccessCache: { db: unknown; expiresAt: number; promise: Promise<Set<string>> } | null = null;
+const getIntermissionAvatarPlayerIds = async (db: any) => {
+  const now = Date.now();
+  if (avatarAccessCache && avatarAccessCache.db === db && avatarAccessCache.expiresAt > now) {
+    return avatarAccessCache.promise;
+  }
+  const promise = loadBroadcastLobby(db, now).then(broadcastLobbyPlayerIds);
+  avatarAccessCache = { db, expiresAt: now + 5_000, promise };
+  try {
+    return await promise;
+  } catch (error) {
+    if (avatarAccessCache?.promise === promise) avatarAccessCache = null;
+    throw error;
+  }
 };
 
 // Overlay sizes and visibility, changed live from «OBS и трансляция» (owner, 2026-10-01).
@@ -170,9 +188,11 @@ publicRouter.get('/broadcast/:token/avatar/:playerId', async (req: Authenticated
   try {
     const db = req.db || (await getDb());
     const playerId = String(req.params.playerId || '');
-    const broadcastPlayer = readLiveBroadcastEnvelope().state?.players
-      .some((player) => player.playerId === playerId);
-    if (!broadcastPlayer) return res.status(404).end();
+    const livePlayer = readLiveBroadcastEnvelope().state?.players
+      .some((player) => player.playerId === playerId) === true;
+    const intermissionPlayers = livePlayer ? null : await getIntermissionAvatarPlayerIds(db);
+    if (!livePlayer && !intermissionPlayers?.has(playerId)) return res.status(404).end();
+
     const avatar = await db.get<any>(
       'SELECT mime_type, image_data FROM player_avatars WHERE player_id = ? LIMIT 1',
       [playerId],

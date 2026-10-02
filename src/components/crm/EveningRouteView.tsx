@@ -15,8 +15,8 @@ type Step = {
   action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
   task_id?: string;
 };
-type Stage = { id: string; title: string; hint: string; state: 'done' | 'current' | 'upcoming'; steps: Step[] };
-type RoutePayload = { evening: { id: string; status: string }; current_stage: string; stages: Stage[] };
+type Stage = { id: string; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: Step[] };
+type RoutePayload = { evening: { id: string; status: string }; current_stage: string; open_stage?: string; stages: Stage[] };
 
 const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   publish: 'Опубликовать',
@@ -56,7 +56,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить маршрут');
       setRoute(body as RoutePayload);
-      setOpen((current) => current ?? (body as RoutePayload).current_stage);
+      setOpen((current) => current ?? (body as RoutePayload).open_stage ?? (body as RoutePayload).current_stage);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить маршрут');
     }
@@ -110,12 +110,12 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
       {route.stages.map((stage, index) => {
         const expanded = open === stage.id;
         const done = stage.steps.filter((step) => step.status === 'done').length;
-        const tone = stage.state === 'current' ? 'border-accent/40 bg-surface-1' : 'border-border-soft bg-surface-1';
+        const tone = stage.state === 'current' ? 'border-accent/40 bg-surface-1' : stage.state === 'attention' ? 'border-warning/40 bg-surface-1' : 'border-border-soft bg-surface-1';
         return (
           <div key={stage.id} className={`overflow-hidden rounded-[16px] border ${tone}`} data-testid={`evening-route-stage-${stage.id}`}>
             <button type="button" onClick={() => setOpen(expanded ? null : stage.id)} aria-expanded={expanded} className="flex min-h-[56px] w-full items-center gap-3 px-3 text-left">
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-black ${stage.state === 'done' ? 'bg-success-soft text-success' : stage.state === 'current' ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted'}`}>
-                {stage.state === 'done' ? <Check className="h-4 w-4" /> : index + 1}
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-black ${stage.state === 'done' ? 'bg-success-soft text-success' : stage.state === 'attention' ? 'bg-warning-soft text-warning' : stage.state === 'current' ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted'}`}>
+                {stage.state === 'done' ? <Check className="h-4 w-4" /> : stage.state === 'attention' ? <AlertCircle className="h-4 w-4" /> : index + 1}
               </span>
               <span className="min-w-0 flex-1">
                 <strong className={`block text-[15px] ${stage.state === 'upcoming' ? 'text-text-secondary' : 'text-text-primary'}`}>{stage.title}{stage.state === 'current' ? <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 align-middle text-[11px] font-bold text-accent">сейчас</span> : null}</strong>

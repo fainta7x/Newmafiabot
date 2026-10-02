@@ -37,7 +37,8 @@ describe('evening route', () => {
     expect(response.status).toBe(200);
     expect(response.body.current_stage).toBe('gather');
     expect(response.body.stages.map((stage: any) => [stage.id, stage.state])).toEqual([
-      ['prepare', 'done'], ['gather', 'current'], ['day', 'upcoming'], ['live', 'upcoming'], ['closeout', 'upcoming'], ['after', 'upcoming'],
+      // Nothing was announced or sent yet, so the past «Подготовка» stays yellow, not «done».
+      ['prepare', 'attention'], ['gather', 'current'], ['day', 'upcoming'], ['live', 'upcoming'], ['closeout', 'upcoming'], ['after', 'upcoming'],
     ]);
     const gather = response.body.stages.find((stage: any) => stage.id === 'gather');
     const answers = gather.steps.find((step: any) => step.id === 'answers');

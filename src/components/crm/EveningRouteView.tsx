@@ -4,6 +4,7 @@ import { api } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import GatheredPostSheet from './GatheredPostSheet.tsx';
 import TodayPostSheet from './TodayPostSheet.tsx';
+import CancelEveningSheet from './CancelEveningSheet.tsx';
 
 type StepStatus = 'done' | 'todo' | 'attention' | 'info';
 type Step = {
@@ -12,7 +13,7 @@ type Step = {
   detail?: string;
   status: StepStatus;
   target?: EveningSection;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 type Stage = { id: string; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: Step[] };
@@ -24,6 +25,7 @@ const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   create_next: 'Создать следующую пятницу',
   gathered_post: 'Сделать фото',
   today_post: 'Подготовить пост',
+  cancel_evening: 'Отменить',
 };
 
 const StepIcon = ({ status }: { status: StepStatus }) => {
@@ -49,6 +51,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   const [error, setError] = useState('');
   const [gatheredOpen, setGatheredOpen] = useState(false);
   const [todayOpen, setTodayOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +77,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
     if (busy) return;
     if (step.action === 'gathered_post') { setGatheredOpen(true); return; }
     if (step.action === 'today_post') { setTodayOpen(true); return; }
+    if (step.action === 'cancel_evening') { setCancelOpen(true); return; }
     setBusy(step.id);
     setError('');
     try {
@@ -105,6 +109,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   return (
     <section className="space-y-2" aria-label="Маршрут вечера" data-testid="evening-route">
       <GatheredPostSheet eveningId={eveningId} open={gatheredOpen} onClose={() => setGatheredOpen(false)} onDone={() => { setGatheredOpen(false); onChanged?.(); void load(); }} />
+      <CancelEveningSheet eveningId={eveningId} open={cancelOpen} onClose={() => setCancelOpen(false)} onDone={() => { setCancelOpen(false); onChanged?.(); void load(); }} />
       <TodayPostSheet eveningId={eveningId} open={todayOpen} onClose={() => setTodayOpen(false)} onDone={() => { setTodayOpen(false); onChanged?.(); void load(); }} />
       {error ? <div className="rounded-[12px] bg-danger-soft px-3 py-2 text-[13px] text-danger">{error}</div> : null}
       {route.stages.map((stage, index) => {

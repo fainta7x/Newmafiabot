@@ -5,6 +5,7 @@ import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
 import { loadTodayPost } from './eveningTodayPostService.ts';
+import { loadCancelPost } from './eveningCancelService.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
@@ -21,7 +22,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -143,22 +144,34 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   // «Молчат» is everyone invited who has not answered, not only players already in the roster.
   const overview = await loadAnnouncementOverview(db, eveningId).catch(() => null);
   const silent = overview ? Number(overview.summary.unanswered || 0) + Number(overview.summary.not_sent || 0) + Number(overview.summary.failed || 0) : answers.unanswered;
+  const todayPost = await loadTodayPost(db, eveningId);
+  // The organizer's own decision to play (the «Сегодня играем» post went out, or «Не публикуем») settles the gathering (owner, 2026-10-02).
+  const decidedToPlay = Boolean((todayPost as any).telegram_status === 'published' || (todayPost as any).vk_status === 'published' || todayPost.skipped_at);
   steps.gather.push(
     // «Думаю» is an answer too: the step is done once nobody is silent (owner, 2026-10-02).
     { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
     {
       id: 'shortfall',
-      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
+      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
       detail: slots.length ? `Стол — ${players(perSlot)}. ${gameList}` : 'Игры не настроены',
-      status: slots.length && assembled ? 'done' : 'attention',
+      status: slots.length && (assembled || decidedToPlay) ? 'done' : 'attention',
       target: 'participants',
     },
   );
+  // Cancelling is available while the evening has not started (owner, 2026-10-02).
+  const cancelPost = await loadCancelPost(db, eveningId);
+  if (evening.status === 'cancelled') {
+    const cancelLegs = [(cancelPost as any).telegram_status === 'published' ? 'Telegram ✓' : 'Telegram —', (cancelPost as any).vk_status === 'published' ? 'ВК ✓' : 'ВК —'].join(' · ');
+    steps.gather.push(cancelPost.state === 'published'
+      ? { id: 'cancel', title: 'Вечер отменён', detail: `Пост об отмене: ${cancelLegs}`, status: 'done' }
+      : { id: 'cancel', title: cancelPost.state === 'none' ? 'Вечер отменён, поста об отмене нет' : 'Пост об отмене дошёл не везде', detail: cancelPost.state === 'none' ? 'Игроки предупреждены. Можно выложить пост в Telegram и ВК' : `${cancelLegs} — можно повторить`, status: 'attention', action: 'cancel_evening' });
+  } else if (evening.status === 'published' && !evening.settled_at) {
+    steps.gather.push({ id: 'cancel', title: 'Отменить вечер', detail: 'Не собрали игроков? Предупредим всех записавшихся и выложим пост в Telegram и ВК', status: 'info', action: 'cancel_evening' });
+  }
   if (format === 'NOVICE') {
     steps.gather.push({ id: 'novice-decision', title: 'Решение по вечеру новичков', detail: 'Проверка группы в четверг в 20:00, решение до пятницы 15:00. Автоотмены нет.', status: 'info' });
   }
 
-  const todayPost = await loadTodayPost(db, eveningId);
   const todayLegs = [
     (todayPost as any).telegram_status === 'published' ? 'Telegram ✓' : (todayPost as any).telegram_status === 'failed' ? 'Telegram ✗' : 'Telegram —',
     (todayPost as any).vk_status === 'published' ? 'ВК ✓' : (todayPost as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',

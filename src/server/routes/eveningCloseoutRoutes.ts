@@ -10,6 +10,7 @@ import { loadEveningRoute } from '../services/eveningRouteService.ts';
 import { buildTodayPostDraft, loadTodayPost, publishTodayPost, skipTodayPost } from '../services/eveningTodayPostService.ts';
 import { loadGatheredPost, publishGatheredPost, skipGatheredPost } from '../services/eveningGatheredPostService.ts';
 import { cancelEveningForShortfall } from '../services/eveningShortfallService.ts';
+import { buildCancelPostDraft, cancelEveningByOrganizer, loadCancelPost } from '../services/eveningCancelService.ts';
 
 const router = Router();
 
@@ -62,6 +63,17 @@ router.get('/:id/today-post', requireOrganizerAuth, async (req, res) => {
     const [post, draft] = await Promise.all([loadTodayPost(req.db, String(req.params.id)), buildTodayPostDraft(req.db, String(req.params.id), req.query.game)]);
     return res.json({ ...post, draft });
   } catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось подготовить пост' }); }
+});
+
+// Cancelling from «Сбор»: tells the players and posts to the evening's group and VK (owner, 2026-10-02).
+router.get('/:id/cancel-post', requireOrganizerAuth, async (req, res) => {
+  try { return res.json({ ...(await loadCancelPost(req.db, String(req.params.id))), draft: await buildCancelPostDraft(req.db, String(req.params.id)) }); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось подготовить пост' }); }
+});
+
+router.post('/:id/cancel', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await cancelEveningByOrganizer(req.db, String(req.params.id), { text: req.body?.text })); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось отменить вечер' }); }
 });
 
 router.post('/:id/today-post/skip', requireOrganizerAuth, async (req, res) => {

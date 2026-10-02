@@ -4,6 +4,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
+import { loadTodayPost } from './eveningTodayPostService.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
@@ -20,7 +21,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -157,6 +158,23 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     steps.gather.push({ id: 'novice-decision', title: 'Решение по вечеру новичков', detail: 'Проверка группы в четверг в 20:00, решение до пятницы 15:00. Автоотмены нет.', status: 'info' });
   }
 
+  const todayPost = await loadTodayPost(db, eveningId);
+  const todayLegs = [
+    (todayPost as any).telegram_status === 'published' ? 'Telegram ✓' : (todayPost as any).telegram_status === 'failed' ? 'Telegram ✗' : 'Telegram —',
+    (todayPost as any).vk_status === 'published' ? 'ВК ✓' : (todayPost as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
+  ].join(' · ');
+  const canPostToday = published && evening.status !== 'completed' && !evening.settled_at;
+  steps.day.push(
+    todayPost.state === 'published'
+      ? { id: 'today-post', title: 'Пост «Сегодня играем»', detail: todayLegs, status: 'done' }
+      : todayPost.skipped_at
+        ? { id: 'today-post', title: 'Пост «Сегодня играем» решили не публиковать', detail: 'Можно передумать и выложить', status: 'done', action: canPostToday ? 'today_post' : undefined }
+      : todayPost.decision_prompt_at && todayPost.state === 'pending'
+        ? { id: 'today-post', title: 'Играем сегодня? Реши про пост', detail: 'В 17:00 набралось меньше нужных игр — пост сам не ушёл. Опубликуй или реши, что не публикуем', status: 'attention', action: canPostToday ? 'today_post' : undefined }
+      : todayPost.state === 'partial'
+        ? { id: 'today-post', title: 'Пост «Сегодня играем» дошёл не везде', detail: `${todayLegs} — можно повторить`, status: 'attention', action: 'today_post' }
+        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: 'Уйдёт сам в 17:00, если набрано 4 игры. Можно выложить раньше', status: stageNow === 'day' ? 'todo' : 'info', action: canPostToday ? 'today_post' : undefined },
+  );
   steps.day.push(
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },

@@ -1,3 +1,4 @@
+import { ensureEveningTodayPostSchema } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
@@ -141,6 +142,21 @@ async function eveningItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
       id: `shortfall:${row.id}`, category: 'evenings', title: 'Недобор — отменить вечер?',
       detail: `${eveningName(row)} — записались ${shortfall.confirmed} из ${shortfall.minimum}. При отмене всем записавшимся придёт сообщение`,
       action: { type: 'cancel_evening', evening_id: String(row.id) }, action_label: 'Отменить вечер',
+    });
+  }
+
+  // «Играем сегодня?» (owner, 2026-10-02): at 17:00 the evening was short of games, so the post waits for a decision.
+  await ensureEveningTodayPostSchema(db);
+  for (const row of await db.all<any>(
+    `SELECT e.id, e.title, e.starts_at FROM game_evenings e JOIN evening_today_posts p ON p.evening_id = e.id
+      WHERE e.status = 'published' AND e.settled_at IS NULL AND p.decision_prompt_at IS NOT NULL AND p.skipped_at IS NULL
+        AND p.telegram_status IS NULL AND p.vk_status IS NULL AND datetime(e.starts_at) > datetime(?)`,
+    [iso(now - 2 * HOUR)],
+  )) {
+    items.push({
+      id: `today-post:${row.id}`, category: 'evenings', title: 'Играем сегодня? Реши про пост',
+      detail: `${eveningName(row)} — набралось меньше нужных игр, пост «Сегодня играем» сам не ушёл`,
+      action: { type: 'evening', evening_id: String(row.id), section: 'overview' }, action_label: 'Решить',
     });
   }
 

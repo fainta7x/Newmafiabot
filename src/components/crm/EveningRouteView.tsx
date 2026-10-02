@@ -3,6 +3,7 @@ import { AlertCircle, Check, ChevronDown, ChevronRight, Circle, Info, RefreshCw 
 import { api } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import GatheredPostSheet from './GatheredPostSheet.tsx';
+import TodayPostSheet from './TodayPostSheet.tsx';
 
 type StepStatus = 'done' | 'todo' | 'attention' | 'info';
 type Step = {
@@ -11,7 +12,7 @@ type Step = {
   detail?: string;
   status: StepStatus;
   target?: EveningSection;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post';
+  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
   task_id?: string;
 };
 type Stage = { id: string; title: string; hint: string; state: 'done' | 'current' | 'upcoming'; steps: Step[] };
@@ -22,6 +23,7 @@ const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   start: 'Начать вечер',
   create_next: 'Создать следующую пятницу',
   gathered_post: 'Сделать фото',
+  today_post: 'Подготовить пост',
 };
 
 const StepIcon = ({ status }: { status: StepStatus }) => {
@@ -46,6 +48,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [gatheredOpen, setGatheredOpen] = useState(false);
+  const [todayOpen, setTodayOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +73,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   const run = async (step: Step) => {
     if (busy) return;
     if (step.action === 'gathered_post') { setGatheredOpen(true); return; }
+    if (step.action === 'today_post') { setTodayOpen(true); return; }
     setBusy(step.id);
     setError('');
     try {
@@ -101,6 +105,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
   return (
     <section className="space-y-2" aria-label="Маршрут вечера" data-testid="evening-route">
       <GatheredPostSheet eveningId={eveningId} open={gatheredOpen} onClose={() => setGatheredOpen(false)} onDone={() => { setGatheredOpen(false); onChanged?.(); void load(); }} />
+      <TodayPostSheet eveningId={eveningId} open={todayOpen} onClose={() => setTodayOpen(false)} onDone={() => { setTodayOpen(false); onChanged?.(); void load(); }} />
       {error ? <div className="rounded-[12px] bg-danger-soft px-3 py-2 text-[13px] text-danger">{error}</div> : null}
       {route.stages.map((stage, index) => {
         const expanded = open === stage.id;

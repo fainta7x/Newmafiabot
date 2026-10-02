@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import './broadcastLobbyScreen.css';
 
 type PlayerIdentity = { nickname: string; player_id: string | null };
@@ -70,7 +70,7 @@ function SceneFrame({
 }: {
   lobby: Lobby | null;
   view: 'lobby' | 'standings';
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const progress = lobby?.total_games
     ? `${lobby.played_games} / ${lobby.total_games}`
@@ -81,7 +81,7 @@ function SceneFrame({
   const eventKind = lobby?.event?.kind === 'tournament' ? 'ТУРНИР' : 'ИГРОВОЙ ВЕЧЕР';
 
   return (
-    <main data-testid={`broadcast-${view}`} className={`broadcast-intermission broadcast-intermission--${view}`}>
+    <main data-testid={`broadcast-${view}`} className={`broadcast-intermission broadcast-intermission--${view} flex flex-col`}>
       <div className="broadcast-scene-glow broadcast-scene-glow--one" />
       <div className="broadcast-scene-glow broadcast-scene-glow--two" />
       <div className="broadcast-scene-grid" />
@@ -108,9 +108,9 @@ function SceneFrame({
         </div>
       </header>
 
-      <section className="broadcast-scene-content">{children}</section>
+      <section className="broadcast-scene-content flex-1">{children}</section>
 
-      <footer className="broadcast-scene-footer">
+      <footer className="broadcast-scene-footer shrink-0">
         <span className="broadcast-live-dot" />
         <span>{view === 'lobby' ? 'Состав готовится к старту' : 'Таблица обновляется автоматически'}</span>
         <span className="broadcast-footer-line" />

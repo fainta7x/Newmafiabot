@@ -73,7 +73,7 @@ const comma = (value: number) => String(roundToTwo(value)).replace('.', ',');
 const signed = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${comma(Math.abs(value))}`;
 
 /** The player's photo as a data URL for the picture: an uploaded avatar, else the club's stored photo. */
-async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
+export async function loadAvatars(db: DatabaseWrapper, playerIds: string[]) {
   const result = new Map<string, string>();
   const ids = [...new Set(playerIds.filter(Boolean))];
   if (!ids.length) return result;
@@ -422,4 +422,45 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
     }
   }
   return { title: String(evening.title || 'Игровой вечер'), dateLabel: dateLabel(evening.starts_at), scored, players: [...players.values()] };
+}
+
+export type TournamentAnnouncement = {
+  tournamentId: string;
+  title: string;
+  startsAt: string;
+  dateLabel: string;
+  timeLabel: string;
+  venue: string | null;
+  judge: string | null;
+  players: Array<{ playerId: string; nickname: string; avatar: string | null }>;
+};
+
+/** Everything the tournament announcement shows: the confirmed roster with photos, the judge, the start. */
+export async function loadTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string): Promise<TournamentAnnouncement | null> {
+  const tournament = await db.get<any>('SELECT id, title, date, venue, chief_judge_name FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
+  if (!tournament) return null;
+  let rows = await db.all<any>(
+    `SELECT r.player_id, p.nickname FROM tournament_registrations r JOIN players p ON p.id = r.player_id
+      WHERE r.tournament_id = ? AND r.status = 'confirmed' ORDER BY COALESCE(r.slot_number, 99), r.registered_at`,
+    [tournamentId],
+  ).catch(() => []);
+  if (!rows.length) {
+    rows = await db.all<any>(
+      `SELECT tp.player_id, COALESCE(NULLIF(tp.display_name, ''), p.nickname) AS nickname FROM tournament_participants tp JOIN players p ON p.id = tp.player_id
+        WHERE tp.tournament_id = ? ORDER BY tp.participant_number`,
+      [tournamentId],
+    ).catch(() => []);
+  }
+  const avatars = await loadAvatars(db, rows.map((row: any) => String(row.player_id)));
+  const time = new Date(String(tournament.date)).getTime();
+  return {
+    tournamentId,
+    title: String(tournament.title || 'Турнир'),
+    startsAt: String(tournament.date),
+    dateLabel: dateLabel(tournament.date) || '',
+    timeLabel: Number.isFinite(time) ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(time) : '',
+    venue: tournament.venue ? String(tournament.venue) : null,
+    judge: tournament.chief_judge_name ? String(tournament.chief_judge_name) : null,
+    players: rows.map((row: any) => ({ playerId: String(row.player_id), nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null })),
+  };
 }

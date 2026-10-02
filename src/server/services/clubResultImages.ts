@@ -8,7 +8,7 @@ import {
   renderNoirExportBrandHeader,
   renderNoirExportFooter,
 } from '../../lib/exportNoirTheme.ts';
-import type { BlankSeat, EveningSummary, GameBlank, SeasonTable, SummaryPlayer } from './clubResultData.ts';
+import type { BlankSeat, EveningSummary, GameBlank, SeasonTable, SummaryPlayer, TournamentAnnouncement } from './clubResultData.ts';
 
 // The club chat pictures (owner, 2026-10-01), in the same noir style as the tournament game blank.
 
@@ -162,6 +162,38 @@ export function eveningSummarySvg(summary: EveningSummary) {
   <text x="${M}" y="${rolesTop + 30}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЛУЧШИЕ ПО РОЛЯМ</text>
   ${roleCells}
   ${renderNoirExportFooter(W, height, summary.scored ? 'средний балл = сумма баллов / число игр' : 'клубный вечер')}
+</svg>`;
+}
+
+/** The tournament announcement picture (owner, 2026-10-02): the roster with photos, the judge and the broadcast. */
+export function tournamentAnnounceSvg(announcement: TournamentAnnouncement, broadcastLabel: string) {
+  clipCounter = 0;
+  const players = announcement.players.slice(0, 12);
+  const rows = Math.max(1, Math.ceil(players.length / 2));
+  const top = 400;
+  const height = top + 60 + rows * 104 + 40 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const cellWidth = (W - M * 2 - 24) / 2;
+  const cells = players.map((player, index) => {
+    const column = index % 2; const row = Math.floor(index / 2);
+    const x = M + column * (cellWidth + 24);
+    const y = top + 60 + row * 104;
+    return `<rect x="${x}" y="${y}" width="${cellWidth}" height="92" rx="20" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.07)"/>
+      ${avatar(x + 14, y + 12, 68, player.nickname, player.avatar)}
+      <text x="${x + 98}" y="${y + 58}" font-size="28" font-weight="700" fill="${C.warmText}">${esc(clip(player.nickname, 15))}</text>`;
+  }).join('');
+  const info = (x: number, label: string, value: string) => `
+    <text x="${x}" y="266" font-size="16" font-weight="700" letter-spacing="2" fill="${C.subduedText}">${esc(label)}</text>
+    <text x="${x}" y="306" font-size="28" font-weight="700" fill="${C.warmText}">${esc(clip(value, 22))}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('ТУРНИР')}
+  <text x="${M}" y="168" font-size="52" font-weight="700" fill="${C.warmText}">${esc(clip(announcement.title, 28))}</text>
+  <text x="${M}" y="208" font-size="26" font-weight="500" fill="${C.mutedText}">${esc(`${announcement.dateLabel}${announcement.timeLabel ? ` · начало в ${announcement.timeLabel}` : ''}${announcement.venue ? ` · ${announcement.venue}` : ''}`)}</text>
+  ${info(M, 'ГЛАВНЫЙ СУДЬЯ', announcement.judge || 'уточняется')}
+  ${info(M + 360, 'ПРЯМОЙ ЭФИР', broadcastLabel)}
+  <text x="${M}" y="${top + 36}" font-size="19" font-weight="700" letter-spacing="3" fill="#D7A0AE">УЧАСТНИКИ · ${announcement.players.length}</text>
+  ${cells || `<text x="${M}" y="${top + 100}" font-size="24" fill="${C.subduedText}">Состав уточняется</text>`}
+  ${renderNoirExportFooter(W, height, 'трансляция начинается со стартом игр')}
 </svg>`;
 }
 

@@ -109,6 +109,19 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(lobby.players.reduce((sum, player) => sum + player.chips, 0)).toBe(2000);
   });
 
+  it('carries reserve and its recovery checkpoint into the next hand', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-02T12:00:00Z'));
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });
+    startPokerLobby(lobby, 'o');
+    applyPokerAction(lobby.hand!, { type: 'fold' });
+    const owner = seat(lobby.hand!, 'o');
+    owner.reserve_seconds = 17;
+    owner.reserve_recovery_at = Date.now() - 30_000;
+    nextPokerHand(lobby);
+    expect(seat(lobby.hand!, 'o')).toMatchObject({ reserve_seconds: 17, reserve_recovery_at: Date.now() - 30_000 });
+  });
+
   it('shows opponents cards only after a showdown', () => {
     const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
     joinPokerLobby(lobby, { id: 'g', nickname: 'Guest' });

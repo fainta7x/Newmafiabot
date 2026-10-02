@@ -39,6 +39,17 @@ describe('poker engine', () => {
     expect(player.reserve_seconds).toBe(16);
   });
 
+  it('initializes a missing legacy recovery checkpoint only once', () => {
+    const hand = createPokerHand({ id: 'legacy-recovery', players });
+    const player = hand.players[0];
+    player.reserve_seconds = 12;
+    delete player.reserve_recovery_at;
+    refreshPokerReserve(player, 1_000, true, 60);
+    expect(player).toMatchObject({ reserve_seconds: 12, reserve_recovery_at: 1_000 });
+    refreshPokerReserve(player, 61_000, true, 60);
+    expect(player).toMatchObject({ reserve_seconds: 13, reserve_recovery_at: 61_000 });
+  });
+
   it('supports the requested 2 to 8 players', () => {
     const eight = Array.from({ length: 8 }, (_, index) => ({ id: `p${index}`, nickname: `P${index}`, seat: index, chips: 1000 }));
     expect(createPokerHand({ id: 'h8', players: eight }).players).toHaveLength(8);

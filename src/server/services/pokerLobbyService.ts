@@ -224,7 +224,10 @@ export const nextPokerHand = (lobby: PokerLobby) => {
     if (handPlayer) player.chips = handPlayer.chips;
   }
   // Players who are away keep their seat and chips but are not dealt in, like «sit out» in poker rooms.
-  const seated = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out).sort((a, b) => a.seat - b.seat);
+  const seated = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out).sort((a, b) => a.seat - b.seat).map((player) => {
+    const handPlayer = hand.players.find((item) => item.id === player.id);
+    return { ...player, reserve_seconds: handPlayer?.reserve_seconds, reserve_recovery_at: handPlayer?.reserve_recovery_at };
+  });
   if (seated.length < 2) { lobby.status = 'waiting'; return lobby; }
   lobby.status = 'playing';
   const dealer = seated.find((player) => player.seat > hand.dealer_seat) || seated[0];

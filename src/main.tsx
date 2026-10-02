@@ -15,6 +15,7 @@ import "./styles/design-system.css";
 import "./styles/telegram-viewport.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
+import "./components/crm/liveGameDesktopParity.css";
 import "./components/crm/liveGameCabinetShell.css";
 import "./components/crm/liveGameSeatCabinet.css";
 import "./components/crm/liveGameActionPriority.css";

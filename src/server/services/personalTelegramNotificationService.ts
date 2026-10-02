@@ -1,3 +1,4 @@
+import { runTodayPostSchedule } from './eveningTodayPostService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -19,7 +20,9 @@ const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 1
 const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db))
   + (await runEveningShortfallChecks(db)) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
   // The game blank and the evening summary for the club chat (clubResultPostService).
-  + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }));
+  + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
+  // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).
+  + (await runTodayPostSchedule(db).catch((error) => { console.error('[TODAY POST] failed:', error); return 0; }));
 
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

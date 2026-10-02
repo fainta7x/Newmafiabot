@@ -7,6 +7,7 @@ import {
 } from '../services/eveningCloseoutService.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { loadEveningRoute } from '../services/eveningRouteService.ts';
+import { buildTodayPostDraft, loadTodayPost, publishTodayPost, skipTodayPost } from '../services/eveningTodayPostService.ts';
 import { loadGatheredPost, publishGatheredPost, skipGatheredPost } from '../services/eveningGatheredPostService.ts';
 import { cancelEveningForShortfall } from '../services/eveningShortfallService.ts';
 
@@ -53,6 +54,24 @@ router.post('/:id/gathered-post', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/gathered-post/skip', requireOrganizerAuth, async (req, res) => {
   try { return res.json(await skipGatheredPost(req.db, String(req.params.id), req.body?.reason)); }
   catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось пропустить пост' }); }
+});
+
+// «Сегодня играем»: the bright invitation with the roster on the evening day (owner, 2026-10-02).
+router.get('/:id/today-post', requireOrganizerAuth, async (req, res) => {
+  try {
+    const [post, draft] = await Promise.all([loadTodayPost(req.db, String(req.params.id)), buildTodayPostDraft(req.db, String(req.params.id), req.query.game)]);
+    return res.json({ ...post, draft });
+  } catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось подготовить пост' }); }
+});
+
+router.post('/:id/today-post/skip', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await skipTodayPost(req.db, String(req.params.id))); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось сохранить решение' }); }
+});
+
+router.post('/:id/today-post', requireOrganizerAuth, async (req, res) => {
+  try { return res.json(await publishTodayPost(req.db, String(req.params.id), req.body || {})); }
+  catch (error: any) { return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось опубликовать пост' }); }
 });
 
 router.post('/:id/closeout/walk-in', requireOrganizerAuth, async (req, res) => {

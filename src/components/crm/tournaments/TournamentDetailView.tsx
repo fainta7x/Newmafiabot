@@ -147,12 +147,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
               <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Telegram · Рейтинг и турниры</h3>
-              <p className="mt-1 text-[11px] leading-4 text-text-muted">Отдельная публикация в закрытом канале. Игровой статус турнира эта кнопка не меняет; повторное нажатие редактирует то же сообщение.</p>
+              <p className="mt-1 text-[11px] leading-4 text-text-muted">Берёт актуальный состав из турнира. Повторное нажатие обновляет прежний пост в закрытом канале и не меняет игровой статус.</p>
             </div>
           </div>
           {telegramMessage ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] font-bold text-success">{telegramMessage}</div> : null}
           <button type="button" disabled={telegramBusy} onClick={() => void publishTelegram()} className="mt-3 min-h-[44px] w-full rounded-xl bg-accent px-4 text-[11px] font-black text-white disabled:opacity-40">
-            {telegramBusy ? 'Обновляем Telegram…' : tournament.status === 'completed' ? 'Обновить закрытый анонс' : 'Опубликовать / обновить в Telegram'}
+            {telegramBusy ? 'Обновляем Telegram…' : tournament.status === 'completed' ? 'Обновить закрытый анонс' : 'Обновить пост актуальным составом'}
           </button>
         </section>
       ) : null}
@@ -254,6 +254,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         {currentStep === 'games' ? (
           <>
             <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
+            {telegramSection}
             {judgeSection}
           </>
         ) : null}

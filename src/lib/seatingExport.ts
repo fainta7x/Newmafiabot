@@ -82,6 +82,10 @@ export function getSafeFilename(title: string): string {
   return `rassadka_${safeTitle}.png`;
 }
 
+export function shouldUseNativeShareForDownload(userAgent: string, canShareFile: boolean): boolean {
+  return canShareFile && /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+}
+
 const escapeXml = (unsafe: string): string => unsafe
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
@@ -122,13 +126,14 @@ export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMa
   const font = NOIR_EXPORT_FONT_FAMILY;
   const titleLines = wrapText(tournament.title, 31, 2);
   const titleExtra = Math.max(0, titleLines.length - 1) * 48;
-  const headerHeight = 248 + titleExtra;
+  const headerHeight = 256 + titleExtra;
   const tableTop = headerHeight + 24;
   const nameColumnWidth = 286;
   const gameColumnWidth = (width - margin * 2 - nameColumnWidth) / 10;
   const tableWidth = width - margin * 2;
-  const tableHeaderHeight = 66;
-  const rowHeight = 86;
+  const tableHeaderHeight = 72;
+  const rowHeight = 82;
+  const tableRadius = 24;
 
   const date = tournament.date ? new Date(tournament.date) : null;
   const dateLabel = date && !Number.isNaN(date.getTime())
@@ -146,15 +151,21 @@ export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMa
     ${renderNoirExportBrandHeader('РАССАДКА ИГРОКОВ')}
     ${svgTextLines(titleLines, margin, 164, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}
     <text x="${margin}" y="${222 + titleExtra}" font-family="${font}" font-size="20" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
-    <text x="${width - margin}" y="${tableTop - 22}" text-anchor="end" font-family="${font}" font-size="15" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>
-    <line x1="${margin}" y1="${tableTop - 8}" x2="${width - margin}" y2="${tableTop - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
-    <rect x="${margin}" y="${tableTop}" width="${tableWidth}" height="${tableHeaderHeight}" fill="${NOIR_EXPORT_COLORS.surface}" opacity="0.72"/>
-    <text x="${margin + 18}" y="${tableTop + 42}" font-family="${font}" font-size="18" font-weight="850" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="1.2">ИГРОК</text>
-    <text x="${margin + nameColumnWidth - 18}" y="${tableTop + 42}" text-anchor="end" font-family="${font}" font-size="15" font-weight="750" fill="${NOIR_EXPORT_COLORS.subduedText}">ИГРА</text>`;
+    <g transform="translate(${margin}, ${tableTop - 31})">
+      <rect width="318" height="31" rx="15.5" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.14"/>
+      <circle cx="17" cy="15.5" r="4" fill="${NOIR_EXPORT_COLORS.wineSoft}"/>
+      <text x="31" y="21" font-family="${font}" font-size="14" font-weight="750" fill="${NOIR_EXPORT_COLORS.mutedText}">Цифра в круге — место за столом</text>
+    </g>
+    <rect x="${margin}" y="${tableTop}" width="${tableWidth}" height="${tableHeaderHeight + matrixRows.length * rowHeight}" rx="${tableRadius}" fill="${NOIR_EXPORT_COLORS.surface}" opacity="0.82" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1.5"/>
+    <rect x="${margin}" y="${tableTop}" width="${tableWidth}" height="${tableHeaderHeight}" rx="${tableRadius}" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.10"/>
+    <rect x="${margin}" y="${tableTop + tableHeaderHeight - tableRadius}" width="${tableWidth}" height="${tableRadius}" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.10"/>
+    <text x="${margin + 22}" y="${tableTop + 45}" font-family="${font}" font-size="17" font-weight="900" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="1.5">ИГРОК</text>
+    <text x="${margin + nameColumnWidth - 18}" y="${tableTop + 45}" text-anchor="end" font-family="${font}" font-size="13" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}" letter-spacing="1">ИГРА</text>`;
 
   for (let game = 1; game <= 10; game += 1) {
     const cx = margin + nameColumnWidth + (game - 0.5) * gameColumnWidth;
-    svg += `<text x="${cx}" y="${tableTop + 43}" text-anchor="middle" font-family="${font}" font-size="22" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${game}</text>`;
+    svg += `<circle cx="${cx}" cy="${tableTop + 36}" r="19" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.18"/>
+      <text x="${cx}" y="${tableTop + 43}" text-anchor="middle" font-family="${font}" font-size="19" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${game}</text>`;
   }
 
   const gridBottom = tableTop + tableHeaderHeight + matrixRows.length * rowHeight;
@@ -166,15 +177,17 @@ export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMa
   matrixRows.forEach((row, index) => {
     const y = tableTop + tableHeaderHeight + index * rowHeight;
     if (index % 2 === 0) {
-      svg += `<rect x="${margin}" y="${y}" width="${tableWidth}" height="${rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.32"/>`;
+      svg += `<rect x="${margin + 1}" y="${y}" width="${tableWidth - 2}" height="${rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.38"/>`;
     }
     svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1" opacity="0.76"/>`;
     const nameLines = wrapText(row.displayName, 18, 2);
-    svg += `<text x="${margin + 18}" y="${y + 34}" font-family="${font}" font-size="17" font-weight="900" fill="${NOIR_EXPORT_COLORS.wineSoft}" font-variant-numeric="tabular-nums">${String(index + 1).padStart(2, '0')}</text>`;
-    svg += svgTextLines(nameLines, margin + 58, y + (nameLines.length > 1 ? 29 : 48), 25, `font-family="${font}" font-size="22" font-weight="850" fill="${NOIR_EXPORT_COLORS.warmText}"`);
+    svg += `<circle cx="${margin + 27}" cy="${y + rowHeight / 2}" r="17" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.16"/>
+      <text x="${margin + 27}" y="${y + rowHeight / 2 + 6}" text-anchor="middle" font-family="${font}" font-size="14" font-weight="900" fill="${NOIR_EXPORT_COLORS.wineSoft}" font-variant-numeric="tabular-nums">${String(index + 1).padStart(2, '0')}</text>`;
+    svg += svgTextLines(nameLines, margin + 56, y + (nameLines.length > 1 ? 28 : 49), 25, `font-family="${font}" font-size="21" font-weight="850" fill="${NOIR_EXPORT_COLORS.warmText}"`);
     row.gameSeats.forEach((seat, gameIndex) => {
       const cx = margin + nameColumnWidth + (gameIndex + 0.5) * gameColumnWidth;
-      svg += `<text x="${cx}" y="${y + 52}" text-anchor="middle" font-family="${font}" font-size="27" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${seat ?? '—'}</text>`;
+      svg += `<circle cx="${cx}" cy="${y + rowHeight / 2}" r="22" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="${index % 2 === 0 ? '0.15' : '0.11'}" stroke="${NOIR_EXPORT_COLORS.wineSoft}" stroke-opacity="0.24"/>
+        <text x="${cx}" y="${y + rowHeight / 2 + 8}" text-anchor="middle" font-family="${font}" font-size="24" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${seat ?? '—'}</text>`;
     });
   });
 
@@ -209,6 +222,38 @@ export function renderSvgToPngDataUrl(svgString: string, width = 1080, height = 
       reject(err || new Error('Failed to load SVG into image element'));
     };
 
+    img.src = url;
+  });
+}
+
+export function renderSvgToPngBlob(svgString: string, width = 1080, height = 1350): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error('Canvas 2D context not available'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Не удалось сформировать PNG'));
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load SVG into image element'));
+    };
     img.src = url;
   });
 }

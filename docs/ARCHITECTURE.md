@@ -192,6 +192,10 @@ Before changing voting/fouls/removals/PPK/speech timing/zero round/game completi
 
 Current canonical launcher passes controlled hidden-role state. A bare direct `LiveGameEngine` fallback still starts internal role visibility as visible; treat this as low-priority cleanup, not evidence that the real club launcher exposes roles.
 
+### Online Poker persistence
+
+Poker UI and rules live in `PlayerPoker.tsx`, `pokerEngine.ts` and `pokerLobbyService.ts`; `/api/player/poker/*` is owned by `pokerRoutes.ts`. `pokerPersistenceService.ts` scopes the in-memory runtime to the request database and atomically snapshots changed state to `poker_runtime_state` after a successful action, before the API response. The snapshot contains tables, active hands/history and human bankrolls; public responses still redact the deck and opponents' hidden cards. Production and the signed in-app sandbox therefore cannot share poker state. Ordinary polling compares snapshots and does not create a continuous SQLite write loop.
+
 ### OBS broadcast relay
 
 The broadcast path is deliberately separate from final protocol persistence:

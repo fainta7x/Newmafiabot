@@ -39,6 +39,13 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Organizer evening games: `src/components/crm/EveningGamesView.tsx`, `EveningGameProtocolModal.tsx`, `EveningLiveGameModal.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
+### Online Poker
+
+- Player table UI: `src/components/player/PlayerPoker.tsx`.
+- Rules/hand engine: `src/server/services/pokerEngine.ts`; lobby lifecycle: `pokerLobbyService.ts`; bots: `pokerBot.ts`.
+- Durable tables, active hands, history and human chip stacks: `pokerPersistenceService.ts` + `src/db/ensurePokerRuntimeSchema.ts` (`poker_runtime_state`).
+- API: `src/server/routes/pokerRoutes.ts`; persistence regression: `src/tests/pokerPersistence.integration.test.ts`.
+
 ### Pending/final game save recovery
 
 When a final save is stuck or reports a roster conflict, start here:

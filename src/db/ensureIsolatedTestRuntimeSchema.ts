@@ -12,6 +12,7 @@ import { ensureJudgeMusicSchema } from './ensureJudgeMusicSchema.ts';
 import { ensureLegacyRegularWaiverProtection } from './ensureLegacyRegularWaiverProtection.ts';
 import { ensureNoviceSystemSchema } from './ensureNoviceSystemSchema.ts';
 import { ensureObsRemoteSchema } from './ensureObsRemoteSchema.ts';
+import { ensurePokerRuntimeSchema } from './ensurePokerRuntimeSchema.ts';
 import { ensurePlayerBettingSchema } from './ensurePlayerBettingSchema.ts';
 import { ensurePlayerConnectionsSchema } from './ensurePlayerConnectionsSchema.ts';
 import { ensurePlayerShopSchema } from './ensurePlayerShopSchema.ts';
@@ -53,4 +54,5 @@ export async function ensureIsolatedTestRuntimeSchema(db: DatabaseWrapper): Prom
   await ensureNoviceSystemSchema(db);
   await ensureCustomEventsSchema(db);
   await ensureObsRemoteSchema(db);
+  await ensurePokerRuntimeSchema(db);
 }

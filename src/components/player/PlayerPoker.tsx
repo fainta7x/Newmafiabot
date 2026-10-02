@@ -2,6 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { TELEGRAM_VIEWPORT_CHANGE_EVENT } from '../../lib/telegramWebAppViewport';
 
 type Card = { rank: string; suit: string };
+
+const CARD_RANK_VALUE: Record<string, number> = {
+  '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+  '10': 10, T: 10, J: 11, Q: 12, K: 13, A: 14,
+};
+
+const sortCardsHighFirst = (cards: Card[]) => [...cards].sort((a, b) =>
+  (CARD_RANK_VALUE[b.rank] || 0) - (CARD_RANK_VALUE[a.rank] || 0));
 type Player = { id: string; nickname: string; seat: number; chips: number; committed?: number; folded?: boolean; all_in?: boolean; is_bot?: boolean; sitting_out?: boolean };
 type Lobby = { id: string; title: string; status: string; players: Player[]; hand?: any };
 
@@ -341,7 +349,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   }, [current?.id]);
 
   const viewerId: string | null = current?.hand?.viewer_id || null;
-  const ownCards: Card[] = viewerId ? current.hand.hole_cards[viewerId] || [] : [];
+  const ownCards: Card[] = viewerId ? sortCardsHighFirst(current.hand.hole_cards[viewerId] || []) : [];
   const turnPlayer = current?.players?.find((player: Player) => player.seat === current?.hand?.current_seat);
   const isMyTurn = Boolean(current?.hand?.is_viewer_turn);
   const seconds = Number(current?.hand?.turn_remaining?.base_seconds || 0) + Number(current?.hand?.turn_remaining?.reserve_seconds || 0);
@@ -437,7 +445,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
           {waitingPlayers.slice(0, 8).map((player: Player, index: number) => {
             const spot = waitingLayout[index];
             const edge = spot.x < 20 ? 'left' : spot.x > 80 ? 'right' : 'centre';
-            const seatLeft = edge === 'left' ? `max(0px, calc(${spot.x}% - 24px))` : edge === 'right' ? `min(calc(100% - 84px), calc(${spot.x}% - 60px))` : `clamp(2px, calc(${spot.x}% - 42px), calc(100% - 86px))`;
+            const seatLeft = edge === 'left' ? `max(0px, calc(${spot.x}% - 24px))` : edge === 'right' ? `min(calc(100% - 84px), calc(${spot.x}% - 76px))` : `clamp(2px, calc(${spot.x}% - 42px), calc(100% - 86px))`;
             const isViewer = player.id === current.viewer_id;
             return <div key={player.id} className="absolute z-10 w-[84px] text-center" style={{ left: seatLeft, top: index === 0 ? `calc(${spot.y}% - 70px)` : `calc(${spot.y}% - 24px)` }}>
               <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full text-sm font-bold ${edge === 'left' ? 'ml-0' : edge === 'right' ? 'ml-auto' : 'mx-auto'}`}><span>{player.nickname?.slice(0, 1).toUpperCase()}</span>{!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[42px] w-[42px] rounded-full object-cover" /> : null}</div>
@@ -460,7 +468,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const heroIndex = orderedPlayers.findIndex((player) => player.id === viewerId);
     return (
     <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {stackDisplay === 'bb' ? '0,5 / 1 ББ' : `${hand.small_blind}/${hand.big_blind}`}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>Фишки</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="truncate whitespace-nowrap text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · {stackDisplay === 'bb' ? 'ББ 0,5/1' : `блайнды ${hand.small_blind}/${hand.big_blind}`}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>Фишки</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
       <div ref={tableFrameRef} data-testid="poker-table-frame" className="poker-table-frame flex flex-1 items-start justify-center" style={shortLandscape ? { minHeight: 760 } : undefined}>
@@ -485,7 +493,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const lastAction = [...(hand.action_log || [])].reverse().find((item: any) => item.player_id === player.id && item.street === hand.street);
             // Side seats keep the avatar on the chair: left ones align to the left edge, right ones to the right.
             const edge = spot.x < 20 ? 'left' : spot.x > 80 ? 'right' : 'centre';
-            const seatLeft = edge === 'left' ? `max(0px, calc(${spot.x}% - 24px))` : edge === 'right' ? `min(calc(100% - 84px), calc(${spot.x}% - 60px))` : `clamp(2px, calc(${spot.x}% - 42px), calc(100% - 86px))`;
+            const seatLeft = edge === 'left' ? `max(0px, calc(${spot.x}% - 24px))` : edge === 'right' ? `min(calc(100% - 84px), calc(${spot.x}% - 76px))` : `clamp(2px, calc(${spot.x}% - 42px), calc(100% - 86px))`;
             const timer = active ? turnTimer(hand) : null;
             return <div key={player.id} className={`absolute z-10 w-[84px] text-center ${folded || player.sitting_out ? 'poker-folded-seat' : ''}`} style={{ left: seatLeft, top: `calc(${spot.y}% - 24px)` }}>
               <div className={`relative h-12 w-12 ${edge === 'left' ? 'ml-0' : edge === 'right' ? 'ml-auto' : 'mx-auto'}`}>

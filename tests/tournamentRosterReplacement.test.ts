@@ -102,6 +102,11 @@ describe('TOURNAMENT-ROSTER-REPLACEMENT', () => {
     expect(replaced.body.confirmed).toHaveLength(10);
     expect(replaced.body.confirmed.some((row: any) => row.player_id === 'p1')).toBe(false);
     expect(replaced.body.confirmed.find((row: any) => row.player_id === 'p11')?.slot_number).toBe(outgoingRegistration.slot_number);
+    expect(replaced.body.registrations.find((row: any) => row.player_id === 'p1')).toMatchObject({
+      status: 'cancelled',
+      payment_state: 'confirmed',
+      confirmed_amount_rub: 500,
+    });
 
     const outgoingAfter = await db.get<any>(
       "SELECT status,response,slot_number FROM tournament_registrations WHERE tournament_id=? AND player_id='p1'",
@@ -136,6 +141,13 @@ describe('TOURNAMENT-ROSTER-REPLACEMENT', () => {
     );
     expect(oldPayment).toMatchObject({ state: 'confirmed', confirmed_amount_rub: 500 });
     expect(replacementPayment).toBeNull();
+
+    const notification = await db.get<any>(
+      "SELECT player_id,event_type,entity_id,text FROM personal_notification_deliveries WHERE player_id='p11' AND event_type='tournament_player_replaced_in' LIMIT 1",
+    );
+    expect(notification).toMatchObject({ player_id: 'p11', event_type: 'tournament_player_replaced_in', entity_id: tournamentId });
+    expect(String(notification.text)).toContain('основной состав');
+    expect(String(notification.text)).toContain('500');
 
     const audit = await db.get<any>(
       "SELECT actor_type,actor_id,reason,payload_json FROM tournament_evening_audit WHERE tournament_id=? AND action='replace_player'",
@@ -174,10 +186,21 @@ describe('TOURNAMENT-ROSTER-REPLACEMENT', () => {
     expect((await db.get<any>('SELECT player_id FROM tournament_participants WHERE id=?', [before.id]))?.player_id).toBe('late-replacement');
   });
 
-  it('locks replacements as soon as a game has started', async () => {
+  it('locks replacements after the managed game-start transition', async () => {
     const tournamentId = await createPreparedTournament();
     const firstGame = await db.get<any>('SELECT id FROM tournament_games WHERE tournament_id=? ORDER BY game_number LIMIT 1', [tournamentId]);
-    await db.run("UPDATE tournament_games SET status='active' WHERE id=?", [firstGame.id]);
+    const seats = await db.all<any>('SELECT id FROM tournament_game_seats WHERE game_id=? ORDER BY seat_number', [firstGame.id]);
+    const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+    for (let index = 0; index < seats.length; index += 1) {
+      await db.run('UPDATE tournament_game_seats SET role=? WHERE id=?', [roles[index], seats[index].id]);
+    }
+
+    const started = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${firstGame.id}/start`)
+      .set('Authorization', `Bearer ${organizerToken}`)
+      .send({});
+    expect(started.status).toBe(200);
+    expect(started.body.game.status).toBe('active');
 
     const detail = await request(app)
       .get(`/api/tournaments/evenings/${tournamentId}`)

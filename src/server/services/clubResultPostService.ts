@@ -1,11 +1,11 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod } from './clubResultData.ts';
+import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement } from './clubResultData.ts';
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg } from './clubResultImages.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
  * Club chat results (owner, 2026-10-01): after each completed game the bot posts the game blank,
@@ -210,6 +210,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
   }
   if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
+  posted += await runTournamentAnnouncements(db, fetchImpl, now);
   return posted;
 }
 
@@ -355,4 +356,50 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
     [key, eveningId, now, now, now],
   );
   return queued;
+}
+
+/** 36 hours before the start (owner, 2026-10-02) the tournament announcement goes to the rating group. */
+export const TOURNAMENT_ANNOUNCE_HOURS = 36;
+
+// The club's Twitch channel (owner, 2026-10-02: chagintv); TWITCH_CHANNEL_URL overrides it.
+const broadcastLink = () => String(process.env.TWITCH_CHANNEL_URL || 'https://www.twitch.tv/chagintv').trim().replace(/\/$/, '');
+
+export async function postTournamentAnnouncement(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
+  await ensureClubResultPostSchema(db);
+  const key = `tournament-announce:${tournamentId}`;
+  const announcement = await loadTournamentAnnouncement(db, tournamentId);
+  // Without a confirmed roster there is nothing to announce yet; the scan tries again later.
+  if (!announcement?.players.length) return false;
+  if (!(await claim(db, key, 'tournament-announce', '', null))) return false;
+  try {
+    const link = broadcastLink();
+    const caption = [
+      `🏆 Турнир «${announcement.title}» — ${announcement.dateLabel}${announcement.timeLabel ? `, начало в ${announcement.timeLabel}` : ''}!`,
+      announcement.venue ? `📍 ${announcement.venue}` : '',
+      announcement.judge ? `⚖️ Главный судья: ${announcement.judge}` : '',
+      `📺 Прямой эфир со старта игр${announcement.timeLabel ? ` (с ${announcement.timeLabel})` : ''}${link ? `: ${link}` : ' — на Twitch клуба'}`,
+      '',
+      `Играют (${announcement.players.length}): ${announcement.players.map((player) => player.nickname).join(', ')}`,
+      '',
+      'Приходите болеть за любимчиков и смотрите в эфире! 🖤',
+    ].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').slice(0, 1020);
+    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(tournamentAnnounceSvg(announcement, link ? link.replace(/^https?:\/\//, '') : 'Twitch клуба'))], caption, fetchImpl, 'rating');
+    await finish(db, key, result);
+    return result.ok;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return false;
+  }
+}
+
+async function runTournamentAnnouncements(db: DatabaseWrapper, fetchImpl: typeof fetch, now: number) {
+  const rows = await db.all<any>(
+    `SELECT id FROM tournaments
+      WHERE status IN ('draft', 'active') AND datetime(date) > datetime(?) AND datetime(date) <= datetime(?)
+        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'tournament-announce:' || tournaments.id AND p.status IN ('sent', 'failed', 'sending'))`,
+    [new Date(now).toISOString(), new Date(now + TOURNAMENT_ANNOUNCE_HOURS * 3_600_000).toISOString()],
+  ).catch(() => []);
+  let posted = 0;
+  for (const row of rows) if (await postTournamentAnnouncement(db, String(row.id), fetchImpl)) posted += 1;
+  return posted;
 }

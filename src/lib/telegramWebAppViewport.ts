@@ -21,6 +21,33 @@ const px = (value: number | undefined, fallback: string) => Number.isFinite(valu
 const isAppRoute = (pathname: string) => pathname === '/player' || pathname.startsWith('/player/') || pathname === '/admin' || pathname.startsWith('/admin/');
 const finitePositive = (value: number | undefined) => Number.isFinite(value) && Number(value) > 0 ? Number(value) : 0;
 
+export const resolveExpandedViewportHeight = (input: {
+  current?: number;
+  stable?: number;
+  browser?: number;
+  previousExpanded?: number;
+  width?: number;
+  previousWidth?: number;
+  expandedRoute: boolean;
+}) => {
+  const current = finitePositive(input.current);
+  const stable = finitePositive(input.stable);
+  const browser = finitePositive(input.browser);
+  const width = finitePositive(input.width);
+  const previousWidth = finitePositive(input.previousWidth);
+  const widthChanged = previousWidth > 0 && width > 0 && Math.abs(width - previousWidth) > 80;
+  const previousExpanded = widthChanged ? 0 : finitePositive(input.previousExpanded);
+
+  if (!input.expandedRoute) {
+    return { height: current || browser, widthChanged };
+  }
+
+  return {
+    height: Math.max(current, stable, browser, previousExpanded),
+    widthChanged,
+  };
+};
+
 // Telegram Android can keep reporting the compact viewportHeight for a while after
 // the Mini App is restored. Poker sizes its canvas from this CSS variable, so one
 // stale compact value used to permanently make the table narrower than the phone.
@@ -45,26 +72,26 @@ const setViewportVariables = (webApp?: TelegramWebAppLike) => {
     finitePositive(root().clientWidth),
   );
   const appRoute = isAppRoute(window.location.pathname);
+  const resolved = resolveExpandedViewportHeight({
+    current,
+    stable,
+    browser,
+    previousExpanded: lastExpandedViewportHeight,
+    width,
+    previousWidth: lastViewportWidth,
+    expandedRoute: appRoute,
+  });
 
-  let effectiveCurrent = current || browser;
   if (appRoute) {
-    if (lastViewportWidth > 0 && width > 0 && Math.abs(width - lastViewportWidth) > 80) {
-      lastExpandedViewportHeight = 0;
-    }
+    if (resolved.widthChanged) lastExpandedViewportHeight = 0;
     if (width > 0) lastViewportWidth = width;
-
-    // We explicitly expand player/admin Mini Apps below, so a smaller current
-    // height is never useful here. Prefer the stable/browser height and remember
-    // the largest settled value across background → foreground transitions.
-    const expandedCandidate = Math.max(current, stable, browser);
-    lastExpandedViewportHeight = Math.max(lastExpandedViewportHeight, expandedCandidate);
-    effectiveCurrent = lastExpandedViewportHeight || expandedCandidate;
+    lastExpandedViewportHeight = Math.max(lastExpandedViewportHeight, resolved.height);
   }
 
   const safe = webApp?.safeAreaInset;
   const content = webApp?.contentSafeAreaInset;
 
-  style.setProperty('--tg-viewport-height', px(effectiveCurrent || undefined, '100dvh'));
+  style.setProperty('--tg-viewport-height', px(resolved.height || undefined, '100dvh'));
   style.setProperty('--tg-viewport-stable-height', px(stable || undefined, '100svh'));
   style.setProperty('--tg-safe-area-top', px(safe?.top, 'env(safe-area-inset-top, 0px)'));
   style.setProperty('--tg-safe-area-bottom', px(safe?.bottom, 'env(safe-area-inset-bottom, 0px)'));

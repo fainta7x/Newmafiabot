@@ -5,6 +5,7 @@ import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
 import { loadAnnouncementOverview } from './eveningAnnouncementTrackingService.ts';
 import { loadGatheredPost } from './eveningGatheredPostService.ts';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
+import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
 /**
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
@@ -83,18 +84,15 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const pendingExpected = participants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item)) && item.attendance_status === 'pending').length;
   const debtors = participants.filter((item: any) => item.attendance_status === 'attended' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
 
-  const slots = has.has('evening_game_slots')
-    ? await db.all<any>(`SELECT s.id, s.slot_number, s.target_players,
-        (SELECT COUNT(*) FROM evening_slot_registrations r WHERE r.slot_id = s.id) AS registered
-        FROM evening_game_slots s WHERE s.evening_id = ? ORDER BY s.slot_number`, [eveningId])
-    : [];
-  // «Иду» without an exact plan counts for every game, as in the slot plan.
-  const wholeEvening = participants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item))).length
-    - (has.has('evening_slot_registrations')
-      ? Number((await db.get<any>(`SELECT COUNT(DISTINCT r.participant_id) AS count FROM evening_slot_registrations r
-          JOIN evening_game_slots s ON s.id = r.slot_id WHERE s.evening_id = ?`, [eveningId]))?.count || 0)
-      : 0);
-  const underfilled = slots.filter((slot: any) => Number(slot.registered || 0) + Math.max(0, wholeEvening) < Number(slot.target_players || 11));
+  // The same counts the roster and the public announcement use (owner, 2026-10-02): the evening is
+  // gathered once `required_slots` games (4 by default) have a full table, not only when every game does.
+  const plan = has.has('evening_game_slots') ? await loadEveningSlotPlan(db, eveningId).catch(() => null) : null;
+  const slots: Array<{ slot_number: number; registered_count: number }> = plan?.slots || [];
+  const perSlot = Number(plan?.event.required_players_per_slot || 11);
+  const neededSlots = Number(plan?.event.required_slots || 4);
+  const assembled = Boolean(plan?.event.assembled);
+  const fullSlots = slots.filter((slot) => slot.registered_count >= perSlot);
+  const gameList = slots.map((slot) => slot.registered_count >= perSlot ? `${slot.slot_number}-я ✓` : `${slot.slot_number}-я ${slot.registered_count}/${perSlot}`).join(' · ');
 
   const games = await db.all<any>('SELECT id, winner_team, protocol_text, archived_at FROM games WHERE evening_id = ? AND archived_at IS NULL', [eveningId]);
   const unfinishedGames = games.filter(isUnfinishedEveningGame).length;
@@ -145,8 +143,15 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const overview = await loadAnnouncementOverview(db, eveningId).catch(() => null);
   const silent = overview ? Number(overview.summary.unanswered || 0) + Number(overview.summary.not_sent || 0) + Number(overview.summary.failed || 0) : answers.unanswered;
   steps.gather.push(
-    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent || answers.thinking ? 'attention' : coming ? 'done' : 'todo', target: 'participants' },
-    { id: 'shortfall', title: 'Набор на игры', detail: slots.length ? (underfilled.length ? `Недобор в ${underfilled.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')}` : 'Все игры набраны') : 'Игры не настроены', status: slots.length && !underfilled.length ? 'done' : 'attention', target: 'participants' },
+    // «Думаю» is an answer too: the step is done once nobody is silent (owner, 2026-10-02).
+    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
+    {
+      id: 'shortfall',
+      title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
+      detail: slots.length ? `Стол — ${players(perSlot)}. ${gameList}` : 'Игры не настроены',
+      status: slots.length && assembled ? 'done' : 'attention',
+      target: 'participants',
+    },
   );
   if (format === 'NOVICE') {
     steps.gather.push({ id: 'novice-decision', title: 'Решение по вечеру новичков', detail: 'Проверка группы в четверг в 20:00, решение до пятницы 15:00. Автоотмены нет.', status: 'info' });

@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
-type RegistrationState = 'games' | 'coming' | 'thinking' | 'declined' | 'unknown';
+type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
 type Filter = 'all' | RegistrationState;
 type AudiencePlayer = {
   id: string;
@@ -30,8 +30,7 @@ type Row = {
 };
 
 const STATE_LABELS: Record<RegistrationState, string> = {
-  games: 'Игры выбраны',
-  coming: 'Будет, игры не выбраны',
+  games: 'Идёт',
   thinking: 'Думает',
   declined: 'Не будет',
   unknown: 'Нет ответа',
@@ -42,8 +41,9 @@ const STATE_LABELS: Record<RegistrationState, string> = {
 const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
   if (responseStatus === 'declined') return 'declined';
   if (responseStatus === 'thinking') return 'thinking';
-  if (slots.length) return 'games';
-  if (responseStatus === 'going' || responseStatus === 'late') return 'coming';
+  // «Иду» always means every game unless the player picked exact ones (owner, 2026-10-02): no «без игр» bucket.
+  // «Приду позже» without games still counts as coming; its games stay empty until chosen.
+  if (slots.length || responseStatus === 'going' || responseStatus === 'late') return 'games';
   return 'unknown';
 };
 
@@ -89,10 +89,12 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const participantByPlayer = new Map(participants.map((participant) => [String(participant.player_id), participant]));
       const audienceByPlayer = new Map(audiencePlayers.map((player) => [String(player.id), player]));
       const slotByPlayer = new Map<string, Slot[]>();
+      const wholeEveningIds = new Set<string>();
       for (const slot of slots) {
         for (const person of slot.participants || []) {
-          // «Иду» without an exact plan is counted in every game by the server; it is not a game choice.
-          if (person.whole_evening) continue;
+          // «Иду» without an exact plan is counted in every game by the server and shown as all games.
+          // «Приду позже» records only intent, never a slot plan (BUSINESS_RULES), so it is filtered below.
+          if (person.whole_evening) wholeEveningIds.add(String(person.id));
           const current = slotByPlayer.get(String(person.id)) || [];
           current.push(slot);
           slotByPlayer.set(String(person.id), current);
@@ -106,8 +108,10 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const nextRows: Row[] = Array.from(candidateIds).map((playerId) => {
         const participant = participantByPlayer.get(playerId) || null;
         const audience = audienceByPlayer.get(playerId);
-        const playerSlots = (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
         const responseStatus = participant ? getEveningResponse(participant) : String(audience?.response_status || 'unanswered');
+        const playerSlots = responseStatus === 'late' && wholeEveningIds.has(playerId)
+          ? []
+          : (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
         return {
           playerId,
           nickname: String(participant?.nickname || audience?.nickname || 'Игрок'),
@@ -117,7 +121,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           state: stateFor(responseStatus, playerSlots),
         };
       }).sort((a, b) => {
-        const priority: Record<RegistrationState, number> = { unknown: 0, coming: 1, thinking: 2, games: 3, declined: 4 };
+        const priority: Record<RegistrationState, number> = { unknown: 0, thinking: 2, games: 3, declined: 4 };
         return priority[a.state] - priority[b.state] || a.nickname.localeCompare(b.nickname, 'ru');
       });
 
@@ -139,7 +143,6 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
 
   const counts = useMemo(() => ({
     games: rows.filter((row) => row.state === 'games').length,
-    coming: rows.filter((row) => row.state === 'coming').length,
     thinking: rows.filter((row) => row.state === 'thinking').length,
     declined: rows.filter((row) => row.state === 'declined').length,
     unknown: rows.filter((row) => row.state === 'unknown').length,
@@ -259,8 +262,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
 
   const filterItems: Array<{ id: Filter; label: string; count: number }> = [
     { id: 'unknown', label: 'Нет ответа', count: counts.unknown },
-    { id: 'games', label: 'Идут, игры выбраны', count: counts.games },
-    { id: 'coming', label: 'Идут, без игр', count: counts.coming },
+    { id: 'games', label: 'Идут', count: counts.games },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
     { id: 'declined', label: 'Не будут', count: counts.declined },
     { id: 'all', label: 'Все', count: rows.length },

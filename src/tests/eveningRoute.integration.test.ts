@@ -43,7 +43,12 @@ describe('evening route', () => {
     const answers = gather.steps.find((step: any) => step.id === 'answers');
     expect(answers.detail).toContain('Идут: 1');
     expect(answers.detail).toContain('думают: 1');
-    expect(answers.status).toBe('attention');
+    // «Думаю» is an answer: nobody is silent, so the step is done (owner, 2026-10-02).
+    expect(answers.status).toBe('done');
+    const shortfall = gather.steps.find((step: any) => step.id === 'shortfall');
+    expect(shortfall.status).toBe('attention');
+    expect(shortfall.title).toMatch(/^Недобор: набрано 0 из 4 нужных игр/);
+    expect(shortfall.detail).toContain('1-я 1/11');
     const prepare = response.body.stages.find((stage: any) => stage.id === 'prepare');
     expect(prepare.steps.find((step: any) => step.id === 'publish').status).toBe('done');
 

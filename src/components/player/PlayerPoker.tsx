@@ -46,11 +46,12 @@ const seatOrder = (players: Player[], viewerId: string | null) => {
 /**
  * Bets lie on the felt between the player and the pot. Vertical offsets are in pixels from the seat,
  * because the seat plaques have a fixed size while the table picture changes height on short screens.
+ * Lower seats keep their bets below the action line under the board (owner, 2026-10-02).
  */
 const betSpot = (spot: { x: number; y: number }) => {
   const side = Math.abs(spot.x - 50) > 25;
-  if (spot.y > 80) return { x: 50, top: `calc(${spot.y}% - 150px)` };
-  if (spot.y > 60) return { x: spot.x + (50 - spot.x) * (side ? 0.6 : 0.3), top: `calc(${spot.y}% - 46px)` };
+  if (spot.y > 80) return { x: 50, top: `calc(${spot.y}% - 132px)` };
+  if (spot.y > 60) return { x: spot.x + (50 - spot.x) * (side ? 0.6 : 0.3), top: `calc(${spot.y}% - 28px)` };
   if (side && spot.y >= 30) return { x: spot.x + (50 - spot.x) * 0.62, top: `calc(${spot.y}% + 50px)` };
   if (spot.x > 45 && spot.x < 55) return { x: 50, top: `calc(${spot.y}% + 90px)` };
   return { x: spot.x + (50 - spot.x) * 0.42, top: `calc(${spot.y}% + 90px)` };

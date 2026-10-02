@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, CreditCard, UserPlus, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, CreditCard, UserPlus, Users, X } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
 
 type PaymentState = 'unpaid' | 'pending' | 'confirmed' | 'rejected' | 'waived' | 'refunded';
+type RosterEditMode = 'full' | 'replacement_only' | 'locked';
 
 type Registration = {
   id: string;
@@ -28,6 +29,7 @@ type TournamentDetail = {
   entry_fee_rub: number;
   confirmed: Registration[];
   reserves: Registration[];
+  roster_edit_mode?: RosterEditMode;
   payment_totals?: {
     expected_rub: number;
     reported_rub: number;
@@ -64,6 +66,8 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
   const [detail, setDetail] = useState<TournamentDetail | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [replaceFromPlayerId, setReplaceFromPlayerId] = useState('');
+  const [replaceToPlayerId, setReplaceToPlayerId] = useState('');
   const [reason, setReason] = useState('');
   const [reserveOrder, setReserveOrder] = useState<Registration[]>([]);
   const [busyKey, setBusyKey] = useState('');
@@ -95,12 +99,25 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     ...(detail?.reserves || []).map((row) => row.player_id),
   ]), [detail]);
 
+  const confirmedPlayerIds = useMemo(
+    () => new Set((detail?.confirmed || []).map((row) => row.player_id)),
+    [detail?.confirmed],
+  );
+
   const eligiblePlayers = useMemo(() => players
     .filter((player) => player.game_level === 'tournament')
     .filter((player) => player.id !== detail?.judge_player_id)
     .filter((player) => !activePlayerIds.has(player.id))
     .slice()
     .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')), [players, detail?.judge_player_id, activePlayerIds]);
+
+  // A waiting/reserve player is a valid replacement candidate; only the current confirmed ten are excluded.
+  const replacementPlayers = useMemo(() => players
+    .filter((player) => player.game_level === 'tournament')
+    .filter((player) => player.id !== detail?.judge_player_id)
+    .filter((player) => !confirmedPlayerIds.has(player.id))
+    .slice()
+    .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')), [players, detail?.judge_player_id, confirmedPlayerIds]);
 
   const mutate = async (key: string, url: string, method: 'POST' | 'PUT', payload: unknown, success: string) => {
     if (busyKey) return;
@@ -133,6 +150,19 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
   const removePlayer = async (playerId: string) => {
     if (!requireReason()) return;
     await mutate(`remove:${playerId}`, `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}/remove`, 'POST', { reason: reason.trim() }, 'Игрок снят с турнира.');
+  };
+
+  const replacePlayer = async () => {
+    if (!replaceFromPlayerId || !replaceToPlayerId || !requireReason()) return;
+    await mutate(
+      `replace:${replaceFromPlayerId}`,
+      `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(replaceFromPlayerId)}/replace`,
+      'POST',
+      { replacement_player_id: replaceToPlayerId, reason: reason.trim() },
+      'Игрок заменён. Его место в подготовленной рассадке сохранено.',
+    );
+    setReplaceFromPlayerId('');
+    setReplaceToPlayerId('');
   };
 
   const promote = async (playerId: string) => {
@@ -190,7 +220,10 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     });
   };
 
-  const locked = detail?.status !== 'draft';
+  const editMode: RosterEditMode = detail?.roster_edit_mode || (detail?.status === 'draft' ? 'full' : 'locked');
+  const fullEdit = editMode === 'full';
+  const replacementOnly = editMode === 'replacement_only';
+  const locked = editMode === 'locked';
   const payment = detail?.payment_totals;
 
   return (
@@ -212,11 +245,12 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
         </div>
       ) : null}
 
-      {locked ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[11px] font-bold text-warning">Состав заблокирован после запуска турнира. Оплаты можно продолжать отмечать отдельно.</div> : null}
+      {replacementOnly ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[11px] font-bold text-warning">Состав и рассадка уже подготовлены. До начала первой игры можно заменить участника — новый игрок займёт ровно его места без новой жеребьёвки.</div> : null}
+      {locked ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[11px] font-bold text-warning">Состав заблокирован: первая игра уже началась или турнир завершён. Оплаты можно продолжать отмечать отдельно.</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] font-bold text-success">{message}</div> : null}
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[11px] font-bold text-danger">{error}</div> : null}
 
-      {!locked ? (
+      {fullEdit ? (
         <div className="mt-3 space-y-2 rounded-xl border border-border-soft bg-surface-2 p-3">
           <label className="block text-[10px] font-black uppercase tracking-wide text-text-muted">Комментарий к изменению (необязательно)</label>
           <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Например: регистрация по телефону / замена игрока" className="min-h-[42px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary" />
@@ -227,6 +261,26 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
             </select>
             <button type="button" disabled={!selectedPlayerId || !!busyKey} onClick={() => void addPlayer()} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-white disabled:opacity-40" aria-label="Добавить игрока"><UserPlus className="h-4 w-4" /></button>
           </div>
+        </div>
+      ) : null}
+
+      {replacementOnly ? (
+        <div className="mt-3 space-y-2 rounded-xl border border-accent/25 bg-accent-soft p-3" data-testid="tournament-player-replacement">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-accent"><ArrowLeftRight className="h-4 w-4" /> Замена в подтверждённом составе</div>
+          <select value={replaceFromPlayerId} onChange={(event) => setReplaceFromPlayerId(event.target.value)} className="min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary">
+            <option value="">Кого заменить…</option>
+            {(detail?.confirmed || []).slice().sort((a, b) => Number(a.slot_number || 99) - Number(b.slot_number || 99)).map((row) => <option key={row.id} value={row.player_id}>№{row.slot_number} · {row.nickname}</option>)}
+          </select>
+          <select value={replaceToPlayerId} onChange={(event) => setReplaceToPlayerId(event.target.value)} className="min-h-[44px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary">
+            <option value="">На кого заменить…</option>
+            {replacementPlayers.map((player) => {
+              const reserve = detail?.reserves.find((row) => row.player_id === player.id);
+              return <option key={player.id} value={player.id}>{player.nickname}{reserve ? ' · ждёт места' : ''}</option>;
+            })}
+          </select>
+          <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Причина / комментарий (необязательно)" className="min-h-[42px] w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-sm text-text-primary" />
+          <button type="button" disabled={!replaceFromPlayerId || !replaceToPlayerId || !!busyKey} onClick={() => void replacePlayer()} className="min-h-[44px] w-full rounded-xl bg-accent px-4 text-xs font-black text-white disabled:opacity-40">{busyKey.startsWith('replace:') ? 'Заменяем…' : 'Заменить игрока'}</button>
+          <p className="text-[10px] leading-4 text-text-muted">Оплата не переносится автоматически: у снятого и нового игрока остаются свои статусы оплаты.</p>
         </div>
       ) : null}
 
@@ -247,7 +301,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
                     {row.payment_state === 'pending' ? <option value="pending" disabled>{paymentLabels.pending}</option> : null}
                     {organizerPaymentStates.map((value) => <option key={value} value={value}>{paymentLabels[value]}</option>)}
                   </select>
-                  {!locked ? <button type="button" disabled={!!busyKey} onClick={() => void removePlayer(row.player_id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-danger hover:bg-danger-soft" aria-label={`Снять ${row.nickname}`}><X className="h-4 w-4" /></button> : null}
+                  {fullEdit ? <button type="button" disabled={!!busyKey} onClick={() => void removePlayer(row.player_id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-danger hover:bg-danger-soft" aria-label={`Снять ${row.nickname}`}><X className="h-4 w-4" /></button> : null}
                 </>
               ) : <span className="text-[10px] font-bold text-success">Свободно</span>}
             </div>
@@ -258,7 +312,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-[11px] font-black uppercase tracking-wide text-text-muted">Ждут места и готовы подменить</h4>
-          {!locked && reserveOrder.length > 1 ? <button type="button" disabled={!!busyKey} onClick={() => void saveReserveOrder()} className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-[10px] font-black text-accent disabled:opacity-40">Сохранить порядок</button> : null}
+          {fullEdit && reserveOrder.length > 1 ? <button type="button" disabled={!!busyKey} onClick={() => void saveReserveOrder()} className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-[10px] font-black text-accent disabled:opacity-40">Сохранить порядок</button> : null}
         </div>
         {reserveOrder.length ? reserveOrder.map((row, index) => (
           <div key={row.id} className="flex min-h-[50px] items-center gap-2 rounded-xl border border-border-soft bg-surface-2 px-3 py-2">
@@ -267,7 +321,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
               <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
               <div className="text-[10px] text-text-muted">{row.response === 'substitute' ? 'Готов подменить' : 'Играю · ждёт места'}{row.reported_amount_rub != null ? ` · ${row.reported_amount_rub} ₽ заявлено` : ''}</div>
             </div>
-            {!locked ? (
+            {fullEdit ? (
               <div className="flex shrink-0 items-center gap-1">
                 <button type="button" disabled={index === 0 || !!busyKey} onClick={() => moveReserve(index, -1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Поднять в очереди"><ArrowUp className="h-3.5 w-3.5" /></button>
                 <button type="button" disabled={index === reserveOrder.length - 1 || !!busyKey} onClick={() => moveReserve(index, 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-1 text-text-muted disabled:opacity-30" aria-label="Опустить в очереди"><ArrowDown className="h-3.5 w-3.5" /></button>

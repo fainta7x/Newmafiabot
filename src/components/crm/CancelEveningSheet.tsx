@@ -19,7 +19,7 @@ export default function CancelEveningSheet({ eveningId, open, onClose, onDone }:
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.error || 'Не удалось подготовить пост');
-        setText(String(body?.draft?.text || ''));
+        setText(String(body?.text || body?.draft?.text || ''));
       })
       .catch((loadError: any) => setError(loadError?.message || 'Не удалось подготовить пост'));
   }, [open, eveningId]);

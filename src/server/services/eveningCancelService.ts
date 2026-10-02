@@ -89,7 +89,14 @@ export async function cancelEveningByOrganizer(db: DatabaseWrapper, eveningId: s
   await ensureGuestPlayerPlaceholderSchema(db);
   const evening = await db.get<any>('SELECT id, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
-  if (evening.status === 'cancelled') return loadCancelPost(db, eveningId);
+  // An evening cancelled earlier (here or by the old PATCH) gets the post retried on the legs that are not published yet.
+  if (evening.status === 'cancelled') {
+    const current = await loadCancelPost(db, eveningId);
+    if (current.state === 'published') return current;
+    const started = await db.get<any>('SELECT starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+    if (Date.now() - new Date(String(started?.starts_at)).getTime() > 12 * 3_600_000) throw Object.assign(new Error('Вечер уже прошёл'), { statusCode: 409 });
+    return publishCancelPost(db, eveningId, { text: input.text, reason: input.reason || 'organizer' }, fetchImpl);
+  }
   if (evening.status !== 'published' || evening.settled_at) throw Object.assign(new Error('Отменить можно только вечер, который ещё не начался'), { statusCode: 409 });
   const games = await db.get<any>('SELECT 1 AS present FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]);
   if (games) throw Object.assign(new Error('По вечеру уже есть игры'), { statusCode: 409 });

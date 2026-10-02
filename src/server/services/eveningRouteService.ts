@@ -159,7 +159,9 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const cancelPost = await loadCancelPost(db, eveningId);
   if (evening.status === 'cancelled') {
     const cancelLegs = [(cancelPost as any).telegram_status === 'published' ? 'Telegram ✓' : 'Telegram —', (cancelPost as any).vk_status === 'published' ? 'ВК ✓' : 'ВК —'].join(' · ');
-    steps.gather.push({ id: 'cancel', title: 'Вечер отменён', detail: cancelPost.state === 'none' ? 'Игроки предупреждены' : `Пост об отмене: ${cancelLegs}`, status: 'done' });
+    steps.gather.push(cancelPost.state === 'published'
+      ? { id: 'cancel', title: 'Вечер отменён', detail: `Пост об отмене: ${cancelLegs}`, status: 'done' }
+      : { id: 'cancel', title: cancelPost.state === 'none' ? 'Вечер отменён, поста об отмене нет' : 'Пост об отмене дошёл не везде', detail: cancelPost.state === 'none' ? 'Игроки предупреждены. Можно выложить пост в Telegram и ВК' : `${cancelLegs} — можно повторить`, status: 'attention', action: 'cancel_evening' });
   } else if (evening.status === 'published' && !evening.settled_at) {
     steps.gather.push({ id: 'cancel', title: 'Отменить вечер', detail: 'Не собрали игроков? Предупредим всех записавшихся и выложим пост в Telegram и ВК', status: 'info', action: 'cancel_evening' });
   }

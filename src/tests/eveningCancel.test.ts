@@ -56,13 +56,35 @@ describe('cancelling an evening from «Сбор»', () => {
 
     const after = await loadEveningRoute(db, 'nov');
     const done = after.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'cancel')!;
-    expect(done.title).toBe('Вечер отменён');
-    expect(done.status).toBe('done');
+    // VK is not configured in tests, so the post is only «partial» and can be repeated.
+    expect(done.title).toBe('Пост об отмене дошёл не везде');
+    expect(done.status).toBe('attention');
   });
 
   it('refuses an evening that already has games', async () => {
     const db = await setup();
     await db.run("UPDATE game_evenings SET status = 'active' WHERE id = 'club'");
     await expect(cancelEveningByOrganizer(db, 'club')).rejects.toThrow(/ещё не начался/);
+  });
+
+  it('retries a failed channel for an already cancelled evening', async () => {
+    const db = await setup();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const calls: any[] = [];
+    let fail = true;
+    const fetchImpl = (async (_url: string, init: any) => {
+      calls.push(JSON.parse(init.body));
+      return fail ? new Response(JSON.stringify({ ok: false, description: 'down' }), { status: 500 }) : new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as any;
+    await cancelEveningByOrganizer(db, 'nov', { text: 'Отмена' }, fetchImpl);
+    expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('failed');
+    const route = await loadEveningRoute(db, 'nov');
+    const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'cancel')!;
+    expect(step.status).toBe('attention');
+    expect(step.action).toBe('cancel_evening');
+    fail = false;
+    await cancelEveningByOrganizer(db, 'nov', {}, fetchImpl);
+    expect(calls).toHaveLength(2);
+    expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('published');
   });
 });

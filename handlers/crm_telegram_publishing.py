@@ -228,6 +228,10 @@ async def _sync_evening_telegram_locked(bot: Bot, evening_id: str, *, allow_crea
     for destination_id, publication in publications.items():
         if destination_id == "public" or destination_id in desired:
             continue
+        # A cancelled evening keeps its old post exactly as it was; the cancellation goes out as a
+        # new message in the same group (owner, 2026-10-02).
+        if cancelled:
+            continue
         edit_status = await _edit_message_status(
             bot,
             publication.get("chat_id"),

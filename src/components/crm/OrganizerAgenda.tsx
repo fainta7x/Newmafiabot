@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import CancelEveningSheet from './CancelEveningSheet.tsx';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, RefreshCw, Send } from 'lucide-react';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
@@ -51,6 +52,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   const [busy, setBusy] = useState('');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [snoozeFor, setSnoozeFor] = useState('');
+  const [cancelFor, setCancelFor] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -81,10 +83,9 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   const run = (item: Item) => {
     const action = item.action;
     if (!action) return;
-    if (action.type === 'cancel_evening') {
-      if (!window.confirm('Отменить вечер? Всем записавшимся придёт сообщение об отмене.')) return;
-      void act(item.id, () => post(`/api/evenings/${encodeURIComponent(action.evening_id)}`, { status: 'cancelled', cancel_reason: 'shortfall' }, 'PATCH'));
-    } else if (action.type === 'evening') onOpenEveningSection(action.evening_id, action.section);
+    // The same flow as «Сбор»: the post text is shown first, then the players and the group are told.
+    if (action.type === 'cancel_evening') setCancelFor(action.evening_id);
+    else if (action.type === 'evening') onOpenEveningSection(action.evening_id, action.section);
     else if (action.type === 'player') onOpenPlayer(action.player_id);
     else if (action.type === 'create_evening') onCreateEvening();
   };
@@ -168,6 +169,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
         </div>
         <button type="button" onClick={() => void load()} aria-label="Обновить дела" className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-text-muted"><RefreshCw className={`h-4 w-4 ${!data && !error ? 'animate-spin' : ''}`} /></button>
       </div>
+      {cancelFor ? <CancelEveningSheet eveningId={cancelFor} open onClose={() => setCancelFor('')} onDone={() => { setCancelFor(''); void load(); }} /> : null}
       {error ? <p className="mt-3 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{error}</p> : null}
       {data && !data.items.length ? (
         <div className="mt-3 flex min-h-11 items-center gap-2 rounded-[12px] bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> Дел нет — всё в порядке{data.snoozed ? ` (отложено: ${data.snoozed})` : ''}.</div>

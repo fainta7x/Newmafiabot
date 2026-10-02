@@ -5,7 +5,6 @@ import { loadEveningRecruitmentState } from './eveningRecruitmentService.ts';
 import { requestBotEveningRecruitment } from './botTelegramSyncService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
-import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 
 /**
@@ -40,7 +39,9 @@ export async function cancelEveningForShortfall(db: DatabaseWrapper, eveningId: 
   if (!changed.changes) return false;
   await recordEveningCancellation(db, eveningId, 'shortfall');
   await notifyEveningCancelled(db, eveningId, 'shortfall');
-  await finalizeExistingVkEveningPublications(db, eveningId).catch((error) => console.warn('[SHORTFALL] VK finalization failed:', error));
+  // The old announcements stay as they were; the group and VK get a new message about it (owner, 2026-10-02).
+  const { publishCancelPost } = await import('./eveningCancelService.ts');
+  await publishCancelPost(db, eveningId, { reason: 'shortfall' }).catch((error) => console.warn('[SHORTFALL] cancellation post failed:', error));
   return true;
 }
 

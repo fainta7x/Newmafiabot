@@ -24,7 +24,6 @@ import {
   updateGuestPlaceholder,
 } from '../services/guestPlayerService.ts';
 import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
-import { finalizeExistingVkEveningPublications } from '../services/vkDirectJoinPublishingService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
 import { assignDefaultEveningStaff, autoAssignEveningOrganizer, eveningOrganizerAssigned, eveningPublishProblem } from '../services/eveningStaffService.ts';
 
@@ -274,11 +273,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
         console.warn('[EVENING UPDATE] cancellation notices failed:', error instanceof Error ? error.message : String(error));
       }
     }
-    if (String(updated?.status || '') === 'cancelled') {
+    if (String(updated?.status || '') === 'cancelled' && String(evening.status || '') !== 'cancelled') {
+      // Old announcements stay untouched; the group and VK get a new message about the cancellation (owner, 2026-10-02).
       try {
-        await finalizeExistingVkEveningPublications(db, eveningId);
+        const { publishCancelPost } = await import('../services/eveningCancelService.ts');
+        await publishCancelPost(db, eveningId, { reason: typeof req.body?.cancel_reason === 'string' ? req.body.cancel_reason : null });
       } catch (error) {
-        console.warn('[EVENING UPDATE] VK cancellation finalization failed:', error instanceof Error ? error.message : String(error));
+        console.warn('[EVENING UPDATE] cancellation post failed:', error instanceof Error ? error.message : String(error));
       }
     }
     const pricePerGame = regular ? REGULAR_PRICE : await loadEveningPricePerGame(db, eveningId);

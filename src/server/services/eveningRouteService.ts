@@ -24,7 +24,7 @@ export type RouteStep = {
   action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post';
   task_id?: string;
 };
-export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'current' | 'upcoming'; steps: RouteStep[] };
+export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
 
 const STAGES: Array<{ id: RouteStageId; title: string; hint: string }> = [
   { id: 'prepare', title: 'Подготовка', hint: 'Вечер создан, игры настроены, анонс опубликован.' },
@@ -164,7 +164,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     (todayPost as any).vk_status === 'published' ? 'ВК ✓' : (todayPost as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
   ].join(' · ');
   const canPostToday = published && evening.status !== 'completed' && !evening.settled_at;
-  steps.day.push(
+  // The post closes the gathering (owner, 2026-10-02), so it sits under «Сбор» after the game set.
+  steps.gather.push(
     todayPost.state === 'published'
       ? { id: 'today-post', title: 'Пост «Сегодня играем»', detail: todayLegs, status: 'done' }
       : todayPost.skipped_at
@@ -222,13 +223,17 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const currentIndex = order.indexOf(stageNow);
   const stages: RouteStage[] = STAGES.map((stage, index) => ({
     ...stage,
-    state: index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'upcoming',
+    // A past stage with an open problem is not «done» (owner, 2026-10-02): it stays yellow and opens first.
+    state: index < currentIndex ? (steps[stage.id].some((step) => step.status === 'attention') ? 'attention' : 'done') : index === currentIndex ? 'current' : 'upcoming',
     steps: steps[stage.id],
   }));
+  // The nearest past stage with an open problem opens first; otherwise the current one.
+  const openStage = [...stages].reverse().find((stage) => stage.state === 'attention')?.id || stageNow;
 
   return {
     evening: { id: String(evening.id), title: String(evening.title || ''), status: String(evening.status), format, starts_at: evening.starts_at },
     current_stage: stageNow,
+    open_stage: openStage,
     stages,
   };
 }

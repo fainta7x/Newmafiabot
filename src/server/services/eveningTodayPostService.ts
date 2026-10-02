@@ -241,7 +241,7 @@ export async function runTodayPostSchedule(db: DatabaseWrapper, now = Date.now()
       messageKey: `evening-today-post:${id}`,
       eventType: 'evening_today_post',
       entityId: id,
-      text: `🤔 «${String(evening.title || 'Игровой вечер')}»: набрано ${plan.event.assembled_slots} из ${plan.event.required_slots} нужных игр. Играем сегодня? Пост «Сегодня играем» сам не ушёл — опубликуй его или реши, что не публикуем: кабинет организатора → вечер → «День вечера».`,
+      text: `🤔 «${String(evening.title || 'Игровой вечер')}»: набрано ${plan.event.assembled_slots} из ${plan.event.required_slots} нужных игр. Играем сегодня? Пост «Сегодня играем» сам не ушёл — опубликуй его или реши, что не публикуем: кабинет организатора → вечер → «Сбор».`,
     });
     actions += 1;
   }

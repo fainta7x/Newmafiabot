@@ -50,3 +50,18 @@ test('poker table recovers its full width after Telegram resumes', async ({ page
   await page.screenshot({ path: screenshot, fullPage: false });
   await info.attach('poker-after-telegram-resume-390x844.png', { path: screenshot, contentType: 'image/png' });
 });
+
+test('poker table remains scrollable in a short Telegram landscape viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 713, height: 390 });
+  await page.goto('/e2e/poker-harness.html');
+  await page.getByRole('button', { name: '+ Создать открытый стол' }).click();
+
+  const geometry = await page.evaluate(() => ({
+    viewportHeight: innerHeight,
+    documentHeight: document.documentElement.scrollHeight,
+    bodyOverflowY: getComputedStyle(document.body).overflowY,
+  }));
+  expect(geometry.documentHeight).toBeGreaterThan(geometry.viewportHeight);
+  expect(geometry.bodyOverflowY).not.toBe('hidden');
+  await expect(page.getByTestId('poker-table-frame')).toBeVisible();
+});

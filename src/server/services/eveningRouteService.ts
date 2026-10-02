@@ -164,7 +164,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     (todayPost as any).vk_status === 'published' ? 'ВК ✓' : (todayPost as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
   ].join(' · ');
   const canPostToday = published && evening.status !== 'completed' && !evening.settled_at;
-  steps.day.push(
+  // The post closes the gathering (owner, 2026-10-02), so it sits under «Сбор» after the game set.
+  steps.gather.push(
     todayPost.state === 'published'
       ? { id: 'today-post', title: 'Пост «Сегодня играем»', detail: todayLegs, status: 'done' }
       : todayPost.skipped_at

@@ -64,7 +64,7 @@ describe('«Сегодня играем» post', () => {
     expect((await loadTodayPost(db, 'ev')).telegram_status).toBe('published');
 
     const route = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T09:00:00Z'));
-    const step = route.stages.find((stage) => stage.id === 'day')!.steps.find((item) => item.id === 'today-post')!;
+    const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'today-post')!;
     expect(step.title).toContain('дошёл не везде');
     expect(step.action).toBe('today_post');
   });
@@ -83,12 +83,12 @@ describe('«Сегодня играем» post', () => {
     expect(post.decision_prompt_at).toBeTruthy();
     expect(await runTodayPostSchedule(db, Date.parse('2026-10-02T14:05:00Z'), fetchImpl)).toBe(0);
     const route = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:05:00Z'));
-    const step = route.stages.find((stage) => stage.id === 'day')!.steps.find((item) => item.id === 'today-post')!;
+    const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'today-post')!;
     expect(step.status).toBe('attention');
     expect(step.title).toBe('Играем сегодня? Реши про пост');
     await skipTodayPost(db, 'ev');
     const after = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:06:00Z'));
-    expect(after.stages.find((stage) => stage.id === 'day')!.steps.find((item) => item.id === 'today-post')!.status).toBe('done');
+    expect(after.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'today-post')!.status).toBe('done');
   });
 
   it('at 17:00 Moscow posts by itself when 4 games are full', async () => {

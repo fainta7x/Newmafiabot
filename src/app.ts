@@ -27,6 +27,7 @@ import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
 import { ensureVkPersonalMessageSchema } from './db/ensureVkPersonalMessageSchema.ts';
 import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
 import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
+import { ensurePokerRuntimeSchema } from './db/ensurePokerRuntimeSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -171,6 +172,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureNoviceSystemSchema(db);
   await ensureCustomEventsSchema(db);
   await ensureObsRemoteSchema(db);
+  await ensurePokerRuntimeSchema(db);
   await ensurePlayerProfileMergeSchema(db);
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {

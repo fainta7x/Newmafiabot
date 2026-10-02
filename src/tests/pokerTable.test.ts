@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { applyPokerAction } from '../server/services/pokerEngine.ts';
 import {
   MAIN_POKER_LOBBY_ID,
@@ -11,6 +11,7 @@ import {
   publicPokerHistory,
   publicPokerLobby,
   rebuyPoker,
+  resetDefaultPokerRuntimeForTesting,
   startPokerLobby,
   tickPokerLobby,
 } from '../server/services/pokerLobbyService.ts';
@@ -25,6 +26,7 @@ const finishByFolds = (lobby: NonNullable<ReturnType<typeof getPokerLobby>>) => 
 };
 
 describe('poker table: history, rebuy, permanent table (owner, 2026-10-02)', () => {
+  beforeEach(() => resetDefaultPokerRuntimeForTesting());
   it('keeps finished hands and shows other players\' cards only after a showdown', () => {
     const lobby = createPokerLobby({ id: 'alice', nickname: 'Alice' });
     joinPokerLobby(lobby, { id: 'bob', nickname: 'Bob' });

@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, createPokerLobby, leavePokerLobby, listPokerLobbies, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, createPokerLobby, leavePokerLobby, listPokerLobbies, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
 const seat = (state: PokerState, id: string) => state.players.find((player) => player.id === id)!;
 
 describe('poker rules (owner check 2026-10-01)', () => {
+  beforeEach(() => resetDefaultPokerRuntimeForTesting());
   it('compares hands as numbers: a pair of aces beats a pair of nines', () => {
     const hand = createPokerHand({ id: 'cmp', players: [{ id: 'a', nickname: 'A', seat: 1, chips: 1000 }, { id: 'b', nickname: 'B', seat: 2, chips: 1000 }] });
     hand.board = cards('2c 7d Jh 4s 3h');

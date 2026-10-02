@@ -43,7 +43,7 @@ const lobby = {
     },
     players: players.map((player, index) => ({ ...player, committed: index === 1 ? 20 : index === 2 ? 10 : index > 3 ? 20 : 0, folded: index === 3, all_in: false })),
     action_log: [{ player_id: 'bot-lucky', street: 'preflop', type: 'call', amount: 20, at: '2026-10-02T00:00:00.000Z' }],
-    hand_label: 'Валет-десятка, разномастные',
+    hand_label: 'Старшая карта: валет',
     showdown_labels: {},
     winning_cards: [],
     winner_ids: [],

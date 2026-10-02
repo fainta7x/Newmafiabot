@@ -148,12 +148,9 @@ export const pokerHandLabel = (state: PokerState, playerId: string) => {
     const hole = state.hole_cards[playerId] || [];
     if (hole.length !== 2) return '';
     const [high, low] = hole.map((card) => rankValue(card.rank)).sort((x, y) => y - x);
-    // Before the flop a hand is named by its two cards, the way players say it (owner, 2026-10-02):
-    // «Пара валетов», «Валет-десятка, одномастные» (JTs), «Туз-король, разномастные» (AKo).
-    // A kicker only matters when two equal combinations are compared, so it is not named here.
-    if (high === low) return `Пара ${RANK_OF[high]}`;
-    const first = RANK_ONE[high].charAt(0).toUpperCase() + RANK_ONE[high].slice(1);
-    return `${first}-${RANK_ONE[low]}, ${hole[0].suit === hole[1].suit ? 'одномастные' : 'разномастные'}`;
+    // Before the flop the hand is a combination like any other (owner, 2026-10-02): a pair or a high card.
+    // The high card is the whole combination — «Старшая карта: валет» — never a second «кикер» name.
+    return high === low ? `Пара ${RANK_OF[high]}` : `Старшая карта: ${RANK_ONE[high]}`;
   }
   return describeHand(handRank(cards));
 };

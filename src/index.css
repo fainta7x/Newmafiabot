@@ -460,4 +460,11 @@ select optgroup {
 .poker-action-ticker.is-bet, .poker-action-ticker.is-raise { color: #fcd34d; }
 .poker-action-ticker.is-all_in { color: #fca5a5; border-color: rgba(248,113,113,.5); }
 .poker-seat-plaque--active.poker-active-seat { animation: poker-seat-pulse 1.3s ease-in-out infinite; }
+.poker-active-avatar { box-shadow: 0 0 0 3px rgba(52,211,153,.9), 0 0 22px rgba(52,211,153,.75), 0 6px 14px rgba(0,0,0,.7); }
+.poker-hero-plaque--active { border-color: rgba(52,211,153,.95); box-shadow: 0 0 0 2px rgba(52,211,153,.45), 0 0 24px rgba(52,211,153,.5), inset 0 1px 0 rgba(255,255,255,.2), 0 8px 20px rgba(0,0,0,.7); animation: poker-seat-pulse 1.3s ease-in-out infinite; }
+.poker-hero-cards--active .poker-card-face { border-color: #6ee7b7; box-shadow: inset 0 0 0 2px #f7fff9, 0 0 0 2px rgba(52,211,153,.8), 0 0 24px rgba(52,211,153,.72), 0 8px 18px rgba(0,0,0,.65); }
+.poker-stack-toggle { display: inline-flex; overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); }
+.poker-stack-toggle button { min-height: 26px; padding: 0 7px; color: rgba(255,255,255,.55); font: 800 9px/1 Inter, Roboto, system-ui, sans-serif; }
+.poker-stack-toggle button.is-selected { color: #071b13; background: #6ee7b7; }
+.poker-seat-stack--bb { color: #9ff2ce; }
 .poker-street-banner-static { display: inline-block; padding: 8px 18px; border-radius: 999px; background: rgba(8, 9, 10, .82); border: 1px solid rgba(232, 196, 124, .6); color: #f3d491; font: 800 14px/1 Inter, Roboto, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 8px 22px rgba(0,0,0,.6); }

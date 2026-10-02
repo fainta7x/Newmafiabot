@@ -155,8 +155,9 @@ const chipBreakdown = (amount: number) => {
 
 const formatChipCount = (amount: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.max(0, Number(amount) || 0));
 
-function SeatStack({ amount, hero = false }: { amount: number; hero?: boolean }) {
-  return <span className={`poker-seat-stack ${hero ? 'poker-seat-stack--hero' : ''}`}><span aria-hidden="true" className="poker-seat-stack-chip" />{formatChipCount(amount)}</span>;
+function SeatStack({ amount, hero = false, bigBlind = 20, mode = 'chips' }: { amount: number; hero?: boolean; bigBlind?: number; mode?: 'chips' | 'bb' }) {
+  const value = mode === 'bb' ? `${(Math.max(0, Number(amount) || 0) / Math.max(1, bigBlind)).toFixed(1).replace('.0', '')} ББ` : formatChipCount(amount);
+  return <span className={`poker-seat-stack ${hero ? 'poker-seat-stack--hero' : ''} ${mode === 'bb' ? 'poker-seat-stack--bb' : ''}`}><span aria-hidden="true" className="poker-seat-stack-chip" />{value}</span>;
 }
 
 
@@ -229,6 +230,9 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const [title, setTitle] = useState('Открытая покерная комната');
   const [error, setError] = useState<string | null>(null);
   const [betAmount, setBetAmount] = useState(100);
+  const [stackDisplay, setStackDisplay] = useState<'chips' | 'bb'>(() => {
+    try { return window.localStorage.getItem('poker-stack-display') === 'bb' ? 'bb' : 'chips'; } catch { return 'chips'; }
+  });
   // The table canvas scales to the space between the header and the action panel (see TABLE_W/TABLE_H).
   const tableFrameRef = useRef<HTMLDivElement | null>(null);
   const [tableScale, setTableScale] = useState(0.9);
@@ -335,6 +339,10 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const presets = actions ? betPresets(current.hand, actions) : [];
   const meAway = Boolean(current?.players?.find((player: Player) => player.id === viewerId)?.sitting_out);
   const bigBlind = Number(current?.hand?.big_blind || 20);
+  const changeStackDisplay = (mode: 'chips' | 'bb') => {
+    setStackDisplay(mode);
+    try { window.localStorage.setItem('poker-stack-display', mode); } catch { /* private mode/storage disabled */ }
+  };
   const clampBet = (value: number) => Math.min(Number(actions?.max_bet_total || value), Math.max(Number(actions?.min_bet_total || 0), Math.round(value)));
 
   useEffect(() => {
@@ -435,7 +443,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     const heroIndex = orderedPlayers.findIndex((player) => player.id === viewerId);
     return (
     <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {hand.small_blind}/{hand.big_blind}</div></div><div className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></header>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · блайнды {hand.small_blind}/{hand.big_blind}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>Фишки</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ваш ход · ${seconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
       {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
 
       <div ref={tableFrameRef} data-testid="poker-table-frame" className="flex flex-1 items-start justify-center">
@@ -466,13 +474,13 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
               <div className={`relative h-12 w-12 ${edge === 'left' ? 'ml-0' : edge === 'right' ? 'ml-auto' : 'mx-auto'}`}>
                 {timer ? <span className="pointer-events-none absolute -inset-[4px] rounded-full transition-[background] duration-700" style={{ background: `conic-gradient(${timer.reserve ? '#fb923c' : timer.share < 0.3 ? '#fcd34d' : '#34d399'} ${timer.share * 360}deg, rgba(255,255,255,.12) 0deg)` }} /> : null}
                 {player.sitting_out ? <span className="absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/80 px-1.5 py-px text-[9px] font-black uppercase tracking-wide text-white/70 ring-1 ring-white/20">Отошёл</span> : !winner && !label && lastAction && lastAction.type !== 'small_blind' && lastAction.type !== 'big_blind' ? <span key={lastAction.at} className={`poker-action-bubble absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-wide shadow-[0_2px_6px_rgba(0,0,0,.6)] ${actionTag(lastAction.type)}`}>{actionWord(lastAction.type)}</span> : null}
-                <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full text-sm font-bold ${winner ? 'poker-winner-seat' : ''}`}>
+                <div className={`poker-seat-frame relative grid h-12 w-12 place-items-center overflow-hidden rounded-full text-sm font-bold ${winner ? 'poker-winner-seat' : ''} ${active ? 'poker-active-avatar' : ''}`}>
                   <span>{player.nickname?.slice(0, 1).toUpperCase() || player.seat}</span>
                   {!player.is_bot ? <img src={`/api/player/players/${encodeURIComponent(player.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[42px] w-[42px] rounded-full object-cover" /> : null}
                 </div>
                 {shown.length ? <div className="absolute left-[40px] top-1 z-30 flex -space-x-3">{shown.map((card, cardIndex) => <span key={cardIndex} className={winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}><PlayingCard card={card} tiny /></span>)}</div> : !folded && !finished ? <span className="poker-seat-backs" aria-label="Закрытые карты"><i /><i /></span> : null}
               </div>
-              <div role={player.is_bot && canAddBot ? 'button' : undefined} onClick={player.is_bot && canAddBot ? () => void removeBot(player) : undefined} title={player.is_bot && canAddBot ? 'Нажмите, чтобы убрать бота' : undefined} className={`poker-seat-plaque relative z-10 -mt-2 ${player.is_bot && canAddBot ? 'cursor-pointer' : ''} ${active ? 'poker-seat-plaque--active poker-active-seat' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} /></div>
+              <div role={player.is_bot && canAddBot ? 'button' : undefined} onClick={player.is_bot && canAddBot ? () => void removeBot(player) : undefined} title={player.is_bot && canAddBot ? 'Нажмите, чтобы убрать бота' : undefined} className={`poker-seat-plaque relative z-10 -mt-2 ${player.is_bot && canAddBot ? 'cursor-pointer' : ''} ${active ? 'poker-seat-plaque--active poker-active-seat' : ''}`}><div className="poker-seat-name truncate">{player.nickname}</div><SeatStack amount={handPlayer?.chips ?? player.chips} bigBlind={bigBlind} mode={stackDisplay} /></div>
               {winner ? <div className="-mx-5 mt-0.5 rounded-lg bg-amber-300 px-1.5 py-0.5 text-[9px] font-black leading-tight text-black">{label || 'Победитель'}</div> : label ? <div className="-mx-5 mt-0.5 text-[9px] leading-tight text-white/75">{label}</div> : null}
             </div>;
           })}
@@ -496,11 +504,11 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const handPlayer = hand.players?.find((item: Player) => item.id === hero.id);
             const winner = hand.winner_ids?.includes(hero.id);
             return <div className="absolute bottom-[2%] left-1/2 z-20 flex w-[92%] -translate-x-1/2 flex-col items-center">
-              <div className="flex gap-1.5">{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
-                            <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[340px] items-center gap-2.5 overflow-hidden py-1.5 pl-1.5 pr-3 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'ring-2 ring-emerald-400' : ''}`}>
+              <div className={`flex gap-1.5 ${isMyTurn ? 'poker-hero-cards--active' : ''}`}>{ownCards.map((card, index) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 160}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
+                            <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[340px] items-center gap-2.5 overflow-hidden py-1.5 pl-1.5 pr-3 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'poker-hero-plaque--active' : ''}`}>
                 {isMyTurn ? <span className="absolute inset-x-0 top-0"><TimerBar timer={turnTimer(hand)} thin /></span> : null}
                 <span className="poker-seat-frame relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[34px] w-[34px] rounded-full object-cover" /></span>
-                <span className="min-w-0 flex-1 text-left"><span className="flex items-center gap-2"><b className="poker-hero-name">Вы</b><SeatStack amount={handPlayer?.chips ?? hero.chips} hero />{handPlayer?.all_in ? <span className="rounded border border-rose-200/30 bg-[#721f24] px-1.5 py-0.5 text-[8px] font-black tracking-wide text-white shadow-inner">ALL-IN</span> : null}</span><span className="poker-hand-label block"><span className="poker-hand-kicker">Рука</span>{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
+                <span className="min-w-0 flex-1 text-left"><span className="flex items-center gap-2"><b className="poker-hero-name">Вы</b><SeatStack amount={handPlayer?.chips ?? hero.chips} hero bigBlind={bigBlind} mode={stackDisplay} />{handPlayer?.all_in ? <span className="rounded border border-rose-200/30 bg-[#721f24] px-1.5 py-0.5 text-[8px] font-black tracking-wide text-white shadow-inner">ALL-IN</span> : null}</span><span className="poker-hand-label block"><span className="poker-hand-kicker">Рука</span>{winner ? `Победа · ${hand.showdown_labels?.[hero.id] || ''}` : hand.hand_label || ''}</span></span>
               </div>
             </div>;
           })() : null}

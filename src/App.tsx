@@ -91,6 +91,16 @@ function RootMessage({
 export default function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
+  const [loadingSlow, setLoadingSlow] = useState(false);
+
+  useEffect(() => {
+    if (rootState.status !== 'loading') {
+      setLoadingSlow(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setLoadingSlow(true), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [rootState.status]);
 
   const navigatePath = useCallback((nextPath: string, replace = false) => {
     if (window.location.pathname === nextPath) {
@@ -166,8 +176,14 @@ export default function App() {
         if (!telegramResponse.ok) throw new Error('telegram-auth');
       }
 
-      const sessionResponse = await fetchOrRestarting('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+      // After Telegram auth the session cookie is already set. These reads are
+      // independent, so fetch them together to remove one full mobile round trip.
+      const [sessionResponse, profileResponse] = await Promise.all([
+        fetchOrRestarting('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' }),
+        fetchOrRestarting('/api/player/me', { credentials: 'same-origin', cache: 'no-store' }),
+      ]);
       if (isRestartingStatus(sessionResponse.status)) throw new ServerRestartingError();
+      if (isRestartingStatus(profileResponse.status)) throw new ServerRestartingError();
       if (!sessionResponse.ok) throw new Error('session');
       const session = await sessionResponse.json();
       const canOpenAdmin = session?.isOrganizer === true;
@@ -175,8 +191,6 @@ export default function App() {
       const canOpenEventHost = !canOpenAdmin && ((Array.isArray(session?.eventHostFormats) && session.eventHostFormats.length > 0) || session?.eventOrganizer === true);
 
       if (session?.linked === true) {
-        const profileResponse = await fetchOrRestarting('/api/player/me', { credentials: 'same-origin', cache: 'no-store' });
-        if (isRestartingStatus(profileResponse.status)) throw new ServerRestartingError();
         if (!profileResponse.ok) throw new Error('player-profile');
         const data = await profileResponse.json() as PlayerMeResponse;
         setRootState({ status: 'player', data, canOpenAdmin, canOpenEventHost });
@@ -240,7 +254,7 @@ export default function App() {
   }
 
   if (rootState.status === 'loading') {
-    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем вход…" />;
+    return <RootMessage kind="loading" title="Загружаем профиль" text={loadingSlow ? 'Сеть отвечает дольше обычного. Ещё немного — затем появится кнопка повтора.' : 'Проверяем вход…'} />;
   }
 
   if (rootState.status === 'unlinked') {

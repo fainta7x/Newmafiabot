@@ -1,7 +1,8 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement } from './clubResultData.ts';
+import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement, loadTournamentGameBlank } from './clubResultData.ts';
+import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from './tournamentSeatNotificationService.ts';
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
@@ -211,6 +212,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   }
   if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
   posted += await runTournamentAnnouncements(db, fetchImpl, now);
+  posted += await runTournamentGameFollowUps(db, fetchImpl, now, String(marker?.created_at || stamp));
   return posted;
 }
 
@@ -402,4 +404,59 @@ async function runTournamentAnnouncements(db: DatabaseWrapper, fetchImpl: typeof
   let posted = 0;
   for (const row of rows) if (await postTournamentAnnouncement(db, String(row.id), fetchImpl)) posted += 1;
   return posted;
+}
+
+/** One completed tournament game's blank goes to the rating group (owner, 2026-10-03). */
+export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGameId: string, fetchImpl: typeof fetch = fetch) {
+  await ensureClubResultPostSchema(db);
+  const key = `tournament-game:${tournamentGameId}`;
+  if (!(await claim(db, key, 'tournament-game', '', tournamentGameId))) return false;
+  try {
+    const blank = await loadTournamentGameBlank(db, tournamentGameId);
+    if (!blank) { await finish(db, key, { ok: false, temporary: false, error: 'Игра турнира не завершена' }); return false; }
+    const winner = blank.winnerTeam === 'red' ? 'победа красных' : blank.winnerTeam === 'black' ? 'победа чёрных' : 'игра завершена';
+    const result = await sendPhotos(db, 'TOURNAMENT', [renderPng(gameBlankSvg(blank))], `🎭 «${blank.eveningTitle}» · игра №${blank.gameNumber} · ${winner}`, fetchImpl, 'rating');
+    await finish(db, key, result);
+    return result.ok;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return false;
+  }
+}
+
+const SEAT_MESSAGE_WAIT_MS = 5 * 60_000;
+const TOURNAMENT_GAME_WINDOW_MS = 36 * 60 * 60 * 1000;
+
+/**
+ * Every minute: the first game's seat messages 30 minutes before the start; for each recently completed
+ * tournament game its result post, and then — once the result was posted (or gave up, or five minutes
+ * passed) — the seat messages for the next game.
+ */
+async function runTournamentGameFollowUps(db: DatabaseWrapper, fetchImpl: typeof fetch, now: number, enabledSince: string) {
+  let handled = 0;
+  handled += await runTournamentFirstSeatMessages(db, now).catch((error) => { console.error('[TOURNAMENT SEATS] first game failed:', error); return 0; });
+  const since = new Date(Math.max(now - TOURNAMENT_GAME_WINDOW_MS, new Date(enabledSince).getTime())).toISOString();
+  const games = await db.all<any>(`
+    SELECT g.id, g.tournament_id, g.game_number, g.completed_at FROM tournament_games g
+      JOIN tournaments t ON t.id = g.tournament_id
+     WHERE g.status = 'completed' AND t.status IN ('active', 'correction', 'completed')
+       AND g.completed_at IS NOT NULL AND datetime(g.completed_at) >= datetime(?)
+     ORDER BY g.completed_at
+  `, [since]).catch(() => []);
+  for (const game of games) {
+    try {
+      if (await postTournamentGameBlank(db, String(game.id), fetchImpl)) handled += 1;
+      const post = await db.get<any>('SELECT status FROM club_result_posts WHERE post_key = ?', [`tournament-game:${game.id}`]);
+      const waited = now - new Date(String(game.completed_at)).getTime();
+      if (!['sent', 'failed'].includes(String(post?.status || '')) && waited < SEAT_MESSAGE_WAIT_MS) continue;
+      const next = await db.get<any>(
+        "SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = ? AND status = 'planned' LIMIT 1",
+        [game.tournament_id, Number(game.game_number) + 1],
+      );
+      if (next) handled += await queueTournamentGameSeatMessages(db, String(next.id), 'next');
+    } catch (error) {
+      console.error('[TOURNAMENT RESULTS] follow-up failed:', game.id, error);
+    }
+  }
+  return handled;
 }

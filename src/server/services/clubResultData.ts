@@ -179,6 +179,90 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
 
 type Tally = { playerId: string; games: number; wins: number; points: number; byRole: Map<string, { games: number; wins: number; points: number }> };
 
+/**
+ * The blank of one completed tournament game (owner, 2026-10-03): the same picture as a club game,
+ * built from the tournament tables. Points are the game's total from the live standings
+ * (win point, judge/protocol bonuses, best move, penalties, CI), so they match the tournament table.
+ */
+export async function loadTournamentGameBlank(db: DatabaseWrapper, tournamentGameId: string): Promise<GameBlank | null> {
+  const game = await db.get<any>(`
+    SELECT g.id, g.tournament_id, g.game_number, g.judge_name, g.judge_player_id, g.status,
+           t.title, t.date, t.chief_judge_name, j.nickname AS judge_nickname
+      FROM tournament_games g
+      JOIN tournaments t ON t.id = g.tournament_id
+ LEFT JOIN players j ON j.id = g.judge_player_id
+     WHERE g.id = ? LIMIT 1
+  `, [tournamentGameId]);
+  if (!game || game.status !== 'completed') return null;
+  const protocol = await db.get<any>("SELECT * FROM tournament_game_protocols WHERE game_id = ? AND status = 'completed' LIMIT 1", [tournamentGameId]);
+  if (!protocol) return null;
+
+  const seatsRaw = await db.all<any>(`
+    SELECT tgs.participant_id, tgs.seat_number, tgs.role, tp.player_id, tp.display_name
+      FROM tournament_game_seats tgs
+      JOIN tournament_participants tp ON tp.id = tgs.participant_id
+     WHERE tgs.game_id = ? ORDER BY tgs.seat_number ASC
+  `, [tournamentGameId]);
+  const results = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ?', [tournamentGameId]);
+  const resultByParticipant = new Map<string, any>(results.map((row) => [String(row.participant_id), row]));
+  const bestMoves = await db.all<any>('SELECT participant_id, seat_numbers_json FROM tournament_game_best_moves WHERE game_id = ?', [tournamentGameId]).catch(() => []);
+  const ids = seatsRaw.map((seat) => String(seat.player_id || '')).filter(Boolean);
+  const judgeId = game.judge_player_id ? String(game.judge_player_id) : '';
+  const [names, avatars] = await Promise.all([loadNicknames(db, ids), loadAvatars(db, [...ids, judgeId])]);
+
+  const pointsByParticipant = new Map<string, number>();
+  try {
+    const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
+    const standings = await getFlexibleTournamentStandings(db, String(game.tournament_id));
+    for (const row of standings.standings || []) {
+      const entry = (row.games || []).find((item: any) => Number(item.game_number) === Number(game.game_number));
+      if (entry) pointsByParticipant.set(String(row.participant_id), roundToTwo(Number(entry.game_total || 0)));
+    }
+  } catch (error) {
+    console.error('[CLUB RESULTS] tournament game points failed:', error);
+  }
+
+  const winnerTeam = protocol.winner_team === 'red' || protocol.winner_team === 'black' ? protocol.winner_team : null;
+  const seats: BlankSeat[] = seatsRaw.map((seat) => {
+    const participantId = String(seat.participant_id);
+    const playerId = seat.player_id ? String(seat.player_id) : null;
+    const result = resultByParticipant.get(participantId);
+    const role = normalizeRole(seat.role);
+    const move = bestMoves.find((item) => String(item.participant_id) === participantId);
+    let moveSeats: number[] = [];
+    try { moveSeats = JSON.parse(move?.seat_numbers_json || '[]').map(Number).filter(Number.isFinite); } catch { moveSeats = []; }
+    return {
+      seat: Number(seat.seat_number) || 0,
+      playerId,
+      nickname: (playerId && names.get(playerId)) || String(seat.display_name || `Игрок ${seat.seat_number}`),
+      avatar: (playerId && avatars.get(playerId)) || null,
+      role,
+      won: won(role, winnerTeam),
+      firstKilled: participantId === String(protocol.first_killed_participant_id || ''),
+      bestMoveSeats: moveSeats,
+      fouls: Math.max(0, Math.trunc(Number(result?.regular_fouls || 0))),
+      technicalFouls: Math.max(0, Math.trunc(Number(result?.minor_technical_fouls || 0)) + Math.trunc(Number(result?.major_technical_fouls || 0))),
+      removed: result?.exit_type === 'removed',
+      points: pointsByParticipant.has(participantId) ? pointsByParticipant.get(participantId)! : null,
+      eloDelta: null,
+      eloAfter: null,
+    };
+  });
+
+  return {
+    gameId: String(game.id),
+    gameNumber: String(game.game_number),
+    eveningTitle: String(game.title || 'Турнир'),
+    dateLabel: dateLabel(game.date),
+    winnerTeam,
+    ppk: protocol.end_reason === 'ppk',
+    judge: game.judge_nickname ? String(game.judge_nickname) : game.judge_name ? String(game.judge_name) : game.chief_judge_name ? String(game.chief_judge_name) : null,
+    judgeAvatar: (judgeId && avatars.get(judgeId)) || null,
+    scored: true,
+    seats,
+  };
+}
+
 export async function loadEveningSummary(db: DatabaseWrapper, eveningId: string): Promise<EveningSummary | null> {
   const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;

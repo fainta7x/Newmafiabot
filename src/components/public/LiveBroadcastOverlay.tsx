@@ -255,7 +255,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
           ) : null}
         </section>
         <div className="live-broadcast-score" aria-label="Победы за вечер">
-          <div className="live-broadcast-score-caption">Счёт вечера</div>
+          <div className="live-broadcast-score-caption">{state.tableName === 'Турнир' ? 'Счёт турнира' : 'Счёт вечера'}</div>
           <div className="live-broadcast-score-row">
             <span className="is-red">Красные</span>
             <b className="is-red">{score.red}</b>

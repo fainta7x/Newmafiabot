@@ -274,4 +274,34 @@ describe('live broadcast routes', () => {
       .get(`/api/public/broadcast/${token}/avatar/outside-broadcast`)
       .expect(404);
   });
+
+  it('shows the tournament score (wins of its other finished games) on the tournament broadcast', async () => {
+    const created = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', cookie)
+      .send({
+        title: 'Турнир для эфира',
+        date: now,
+        chief_judge_name: 'Судья',
+        participants: canonicalPlayers.map((player) => ({ player_id: player.player_id, display_name: player.display_name })),
+      });
+    const tournamentId = created.body.id;
+    const games = created.body.games as Array<{ id: string }>;
+    expect(games.length).toBeGreaterThanOrEqual(3);
+    await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'red' WHERE id = ?", [games[0].id]);
+    await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'black' WHERE id = ?", [games[1].id]);
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [games[2].id]);
+
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+    await request(app)
+      .put(`/api/games/tournament/${tournamentId}/${games[2].id}/broadcast-state`)
+      .set('Cookie', cookie)
+      .send({ state: { ...audienceState(), eveningScore: { red: 99, black: 99 } } })
+      .expect(202);
+
+    const { body } = await request(app).get(`/api/public/broadcast/${token}`);
+    expect(body.state.tableName).toBe('Турнир');
+    expect(body.state.eveningScore).toEqual({ red: 1, black: 1 });
+  });
 });

@@ -120,12 +120,23 @@ const loadCanonicalTournamentBroadcastGame = async (
   if (!isSupportedTableSize(players.length)) return null;
   if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
 
+  // Red and black wins in the tournament's other finished games (the score shown on stream)
+  const finishedGames = await db.all<any>(
+    "SELECT winner_team FROM tournament_games WHERE tournament_id = ? AND status = 'completed' AND id <> ?",
+    [tournamentId, gameId],
+  );
+  const eveningScore = {
+    red: finishedGames.filter((finished: any) => finished.winner_team === 'red').length,
+    black: finishedGames.filter((finished: any) => finished.winner_team === 'black').length,
+  };
+
   const gameNumber = Math.max(1, Number(game.game_number || 1));
   return {
     gameId: gameNumber,
     globalGameNumber: gameNumber,
     eveningGameNumber: gameNumber,
     tableName: 'Турнир',
+    eveningScore,
     players,
   };
 };

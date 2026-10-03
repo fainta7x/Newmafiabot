@@ -1,3 +1,4 @@
+import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
@@ -996,9 +997,9 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           id, game_id, status, winner_team,
           first_killed_participant_id, zero_round_voted_participant_id,
           best_move_participant_id, best_move_source, best_move_seats_json,
-          votes_json, shots_json, replacement_json, judge_notes, end_reason, ppk_culprit_participant_id,
+          votes_json, shots_json, replacement_json, events_json, judge_notes, end_reason, ppk_culprit_participant_id,
           created_at, updated_at, completed_at
-        ) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        ) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
         [
           protocolId,
           gameId,
@@ -1011,6 +1012,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           JSON.stringify(protocol?.votes || []),
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
+          resolveEventsJson(protocol, existingProtocol),
           protocol?.judge_notes || null,
           protocol?.end_reason || 'normal',
           protocol?.ppk_culprit_participant_id || null,
@@ -1302,9 +1304,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           id, game_id, status, winner_team,
           first_killed_participant_id, zero_round_voted_participant_id,
           best_move_participant_id, best_move_source, best_move_seats_json,
-          votes_json, shots_json, replacement_json, judge_notes, end_reason, ppk_culprit_participant_id,
+          votes_json, shots_json, replacement_json, events_json, judge_notes, end_reason, ppk_culprit_participant_id,
           created_at, updated_at, completed_at
-        ) VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           protocolId,
           gameId,
@@ -1317,6 +1319,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           JSON.stringify(protocol?.votes || []),
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
+          resolveEventsJson(protocol, existingProtocol),
           protocol?.judge_notes || null,
           protocol?.end_reason || 'normal',
           protocol?.ppk_culprit_participant_id || null,
@@ -1567,6 +1570,15 @@ function processPPK(protocol: any, seats: any[]): string | null {
   return null;
 }
 
+/**
+ * The chronology of the live game is stored next to the protocol. A save that carries `events` replaces it (cleaned up);
+ * a save without them (the manual protocol screen) keeps what is already stored, so editing a protocol never wipes it.
+ */
+function resolveEventsJson(protocol: any, existingProtocol: any): string {
+  if (Array.isArray(protocol?.events)) return JSON.stringify(sanitizeLiveGameEvents(protocol.events));
+  return existingProtocol?.events_json || '[]';
+}
+
 function serializeProtocolOutput(savedProtocol: any, responseBestMoves: any[], best_move_score?: number) {
   return {
     id: savedProtocol.id,
@@ -1583,6 +1595,7 @@ function serializeProtocolOutput(savedProtocol: any, responseBestMoves: any[], b
     best_move_seats: (function(){ try { return JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch(e){return [];} })(),
     votes: (function(){ try { return JSON.parse(savedProtocol.votes_json || '[]'); } catch(e){return [];} })(),
     shots: (function(){ try { return JSON.parse(savedProtocol.shots_json || '[]'); } catch(e){return [];} })(),
+    events: (function(){ try { return JSON.parse(savedProtocol.events_json || '[]'); } catch(e){return [];} })(),
     replacement: (function(){ try { return JSON.parse(savedProtocol.replacement_json || 'null'); } catch(e){return null;} })(),
     judge_notes: savedProtocol.judge_notes,
     created_at: savedProtocol.created_at,

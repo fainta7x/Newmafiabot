@@ -10,9 +10,10 @@ import {
   mergeBroadcastDayVotes,
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
-import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
+import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols, readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
+  liveEvidenceSignature,
   renumberVotingRoundsSequentially,
   updateLiveProtocolEvidence,
   type LiveProtocolEvidence,
@@ -117,6 +118,8 @@ export const mapEngineResult = (
     // enter the votes again (owner, 2026-10-03).
     votes: Array.isArray(gameData?.votes) && gameData.votes.length ? renumberVotingRoundsSequentially(gameData.votes) : (previousProtocol.votes || []),
     shots: Array.isArray(gameData?.shots) && gameData.shots.length ? gameData.shots : (previousProtocol.shots || []),
+    // The chronology of the game — kept next to the protocol for analysis and statistics.
+    events: Array.isArray(gameData?.events) && gameData.events.length ? gameData.events : (previousProtocol.events || []),
     judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Проверьте журнал голосований/ночей перед финальным подтверждением.'].filter(Boolean).join('\n') || null,
   };
 
@@ -165,6 +168,7 @@ export default function TournamentLiveGameModal({
       if (stored && Array.isArray(stored.votes) && Array.isArray(stored.shots)) evidenceRef.current = stored;
     } catch {}
     let previous: any = null;
+    let lastSignature = '';
     const record = () => {
       try {
         const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
@@ -173,7 +177,11 @@ export default function TournamentLiveGameModal({
         if (!snapshot) return;
         evidenceRef.current = updateLiveProtocolEvidence(evidenceRef.current, snapshot, previous);
         previous = snapshot;
-        localStorage.setItem(evidenceKey, JSON.stringify(evidenceRef.current));
+        const signature = liveEvidenceSignature(evidenceRef.current);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          localStorage.setItem(evidenceKey, JSON.stringify(evidenceRef.current));
+        }
       } catch {}
     };
     record();
@@ -284,11 +292,23 @@ export default function TournamentLiveGameModal({
     setSaving(true);
     setError(null);
     try {
+      const now = new Date().toISOString();
+      const lastSeq = evidenceRef.current.events?.length ? evidenceRef.current.events[evidenceRef.current.events.length - 1].seq : 0;
+      const closing = [
+        ...Object.entries(readStoredDeathProtocols()).map(([seat, protocol]) => ({
+          kind: 'death_protocol', seat: Number(seat),
+          value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
+        })),
+        { kind: 'game_end', value: gameData?.winning_team === 'Красные' ? 'red' : 'black' },
+      ].map((event, index) => ({ seq: lastSeq + index + 1, at: now, round: 0, phase: '', ...event }));
       const next = mapEngineResult(payload.protocol, payload.player_results, {
         ...gameData,
         votes: evidenceRef.current.votes,
         shots: evidenceRef.current.shots,
+        events: [...(evidenceRef.current.events || []), ...closing],
       });
+      // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).
+      next.player_results = applyStoredDeathProtocolsToResults(next.player_results);
       const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
         method: 'PUT',
         credentials: 'include',
@@ -298,6 +318,7 @@ export default function TournamentLiveGameModal({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
       try { localStorage.removeItem(evidenceKey); } catch {}
+      clearStoredDeathProtocols();
       finishedGameRef.current = null;
       setReviewMode(true);
     } catch (saveError: any) {

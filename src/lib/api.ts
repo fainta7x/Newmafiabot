@@ -536,6 +536,11 @@ export interface BestMoveData {
   bonus_points?: number;
 }
 
+const withoutLiveEvents = <T extends { events?: unknown }>(protocol: T): Omit<T, 'events'> => {
+  const { events: _events, ...rest } = protocol;
+  return rest;
+};
+
 export interface TournamentGameProtocolData {
   id?: string;
   game_id: string;
@@ -552,6 +557,8 @@ export interface TournamentGameProtocolData {
   /** @deprecated */
   best_move_seats: number[];
   best_moves?: BestMoveData[];
+  /** Chronology of the live game (shots, votes, checks, fouls, ...) — see `shared/liveGameEvents.ts`. */
+  events?: import('../shared/liveGameEvents').LiveGameEvent[];
   votes: VotingRound[];
   shots: ShotEntry[];
   replacement: ReplacementData | null;
@@ -1094,7 +1101,8 @@ export const api = {
   ) =>
     request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`, {
       method: 'PUT',
-      body: JSON.stringify(payload),
+      // The chronology of the live game is written once by the engine; the manual protocol screen leaves it alone.
+      body: JSON.stringify({ ...payload, protocol: withoutLiveEvents(payload.protocol) }),
     }),
 
   completeGameProtocol: (
@@ -1107,7 +1115,7 @@ export const api = {
   ) =>
     request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, protocol: withoutLiveEvents(payload.protocol) }),
     }),
 
   revertGameProtocolToDraft: (tournamentId: string, gameId: string) =>

@@ -27,7 +27,7 @@ After the zero round, the active speaker may exchange **two ordinary fouls for +
 
 Approved constraints:
 
-- the exchange is unavailable on the zero round;
+- the exchange is unavailable on the zero round — the zero night, the zero day and its vote; the first night and the farewell speech of its victim come after the zero round, so the exchange works there (owner, 2026-10-03);
 - it is available only during an actual current player speech, including ordinary day speech, revote/split speech and farewell speech;
 - the player must start the exchange with **0 or 1 ordinary foul**;
 - `0 -> 2` grants +30 seconds to the current speech and does not create a third-foul penalty;

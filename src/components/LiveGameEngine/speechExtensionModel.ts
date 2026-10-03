@@ -31,7 +31,10 @@ export const getSpeechExtensionAvailability = ({
   hasPendingDisciplineAction,
 }: SpeechExtensionAvailabilityInput): SpeechExtensionAvailability => {
   if (activeSpeakerSlot === null) return { allowed: false, reason: 'Сейчас никто не говорит' };
-  if (roundNumber <= 1) return { allowed: false, reason: 'На нулевом круге обмен недоступен' };
+  // The zero circle is the zero night (agreement, sheriff call, seating) and the zero day with its vote.
+  // The first night — and the farewell speech of its victim — comes after it, although the engine still counts it as round 1.
+  const isZeroCircle = phase === 'zero_night' || (roundNumber <= 1 && phase !== 'night');
+  if (isZeroCircle) return { allowed: false, reason: 'На нулевом круге обмен недоступен' };
 
   const isRegularSpeech = phase === 'day_speeches';
   const isRevoteSpeech = phase === 'day_voting' && votingStage === 'revote_speeches';

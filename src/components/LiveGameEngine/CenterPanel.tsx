@@ -749,7 +749,9 @@ export default function CenterPanel(props: CenterPanelProps) {
   const showFooterAction = phase !== 'day_voting' || votingStage === 'resolved';
   const showFooterSummary = phase !== 'day_voting';
   const showFooter = showFooterSummary || (showFooterAction && Boolean(prevStep || nextStep));
-  const showPlayerActions = (phase === 'day_speeches' || phase === 'day_voting') && Boolean(onOpenPlayerActions);
+  // Fouls and the other player actions have to be reachable in every phase of a started game (at night the cards are
+  // busy with the shot and the checks, so the selector is the way in).
+  const showPlayerActions = phase !== 'setup' && Boolean(onOpenPlayerActions);
   const footerSingle = !(prevStep && nextStep);
 
   return (

@@ -51,6 +51,12 @@ describe('two fouls for +30 seconds of current speech', () => {
     expect(availability({ roundNumber: 1 }).allowed).toBe(false);
   });
 
+  it('is forbidden in the zero night, and allowed in the first night, whose farewell the engine still counts as round 1', () => {
+    expect(availability({ phase: 'zero_night', roundNumber: 1 }).allowed).toBe(false);
+    expect(availability({ phase: 'night', postNightStage: 'farewell', roundNumber: 1 }).allowed).toBe(true);
+    expect(availability({ phase: 'day_voting', votingStage: 'resolved', votingFarewellActive: true, roundNumber: 1 }).allowed).toBe(false);
+  });
+
   it('is allowed during regular, revote and farewell speeches after zero round', () => {
     expect(availability({ phase: 'day_speeches' }).allowed).toBe(true);
     expect(availability({ phase: 'day_voting', votingStage: 'revote_speeches' }).allowed).toBe(true);

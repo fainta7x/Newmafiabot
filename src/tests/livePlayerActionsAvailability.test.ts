@@ -14,7 +14,7 @@ describe('live player action availability', () => {
     expect(source).toContain('onSelectPlayer={setActionPlayerSlot}');
     expect(source).toContain('onOpenPlayerActions: setActionPlayerSlot');
     expect(centerSource).toContain('data-testid="live-player-actions-center-selector"');
-    expect(centerSource).toContain("phase === 'day_speeches' || phase === 'day_voting'");
+    expect(centerSource).toContain("const showPlayerActions = phase !== 'setup' && Boolean(onOpenPlayerActions);");
     expect(centerSource).toContain('onOpenPlayerActions?.(slot)');
   });
 

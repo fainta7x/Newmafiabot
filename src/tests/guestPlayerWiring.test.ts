@@ -29,6 +29,12 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");
   });
 
+  it('does not offer a «Новый гость» tab in the evening seat repair sheet that the server would refuse', () => {
+    const sheet = read('../components/crm/EveningGameSeatRepairSheet.tsx');
+    expect(sheet).not.toContain('Новый гость');
+    expect(sheet).toContain('replacement_player_id: playerId');
+  });
+
   it('keeps mixed guest and registered bulk participant updates atomic', () => {
     const bulkStart = eveningsRoute.indexOf("router.patch('/:id/participants/bulk'");
     const settleStart = eveningsRoute.indexOf("router.post('/:id/settle'", bulkStart);

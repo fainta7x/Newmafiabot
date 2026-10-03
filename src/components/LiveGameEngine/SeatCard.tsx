@@ -192,7 +192,9 @@ export default function SeatCard(props: SeatCardProps) {
         {presentation.target !== undefined && (
           <div className="live-seat-state__vote-line">
             <span className="live-seat-state__label">Голос</span>
-            <span className={`live-seat-state__value ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`}>{presentation.statusText}</span>
+            <span className={`live-seat-state__value live-seat-vote-chip ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`} data-testid={`seat-vote-target-${slotNum}`}>
+              →<span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
+            </span>
           </div>
         )}
         {received !== null && (

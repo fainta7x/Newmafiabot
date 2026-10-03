@@ -608,6 +608,60 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(completeRes.body.error).toContain('нет результатов игроков');
   });
 
+  // The browser sends results by participant, without seat numbers: a voted-out player must still complete
+  // (owner, 2026-10-03: «Игрок #undefined имеет статус ухода "Заголосован"…» blocked tournament game 2).
+  it('20a. Completes a game with a voted-out player although the payload carries no seat numbers', async () => {
+    const votedSeat = game1Seats.find((s) => Number(s.seat_number) === 3);
+    const body = {
+      protocol: {
+        winner_team: 'red',
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [3, 4],
+            vote_counts: { 3: 6, 4: 4 },
+            is_confirmed: true,
+            outcome: 'single_eliminated',
+            eliminated_seats: [3],
+          },
+        ],
+      },
+      player_results: game1Seats.map((s) => ({
+        participant_id: s.participant_id,
+        exit_type: s.participant_id === votedSeat.participant_id ? 'voted_day' : 'alive',
+      })),
+    };
+    expect((body.player_results[0] as any).seat_number).toBeUndefined();
+
+    const res = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send(body);
+
+    expect(res.body.error || '').not.toContain('#undefined');
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.protocol.status).toBe('completed');
+  });
+
+  it('20b. Still rejects a voted-out status that no confirmed round backs, naming the real seat', async () => {
+    const wrongSeat = game1Seats.find((s) => Number(s.seat_number) === 5);
+    const res = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red', votes: [] },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === wrongSeat.participant_id ? 'voted_day' : 'alive',
+        })),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Игрок #5 имеет статус ухода "Заголосован"');
+  });
+
   // Test 21: Rejects first killed player with exit_type != 'killed' even without Best Move
   it('21. Rejects first killed player with exit_type != killed even without Best Move', async () => {
     const p1Id = game1Seats[0].participant_id;

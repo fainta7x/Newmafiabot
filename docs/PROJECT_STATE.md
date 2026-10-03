@@ -587,6 +587,7 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 - Video links for the lessons; shop items and prices; texts of new articles and lessons (written only from the owner's explanations); split-vote trainers for other game stages (the owner explains how they work).
 - Deploy the latest `main` and do the post-deploy checks in «Handoff» above; upload club photos for announcements.
 - VK channel (owner, 2026-09-30): announcements reach the VK wall but not the VK community channel. VK gives no API for channels (checked 2026-09-23, see `docs/vk-runtime-health.md`); the CRM «В канал» button copies the text for manual posting. The community chat «Классическая мафия в Туле» (peer 2000000001) is reachable by the community key — auto-posting there is possible if the owner wants it.
+- Full game chronology for analysis and statistics (owner idea, 2026-10-03, proposed, waiting for «да»): the engine now saves voting rounds (candidates, counts, outcome, revotes), night shots, first killed, best move, fouls and statuses into the tournament protocol, but not who voted for whom, who nominated whom, the Don/Sheriff checks, the order of events, or the death (colour) protocols in the tournament path. Proposal: an additive event log written by the engine into the protocol, then a game-analysis screen, then statistics.
 - The cafe «Суп с Котом» is listed as open until 22:00, while club evenings end at 02:00 — confirm with the cafe.
 
 ## Intentionally incomplete / deferred

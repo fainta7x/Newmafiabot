@@ -9,6 +9,8 @@ interface TournamentStandingsViewProps {
   refreshTrigger?: number;
 }
 
+const signedPoints = (value: number | null | undefined) => { const n = Number(value || 0); return n > 0 ? `+${n}` : String(n); };
+
 export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = ({ tournamentId, refreshTrigger }) => {
   const [standings, setStandings] = useState<TournamentStandingItem[]>([]);
   const [completedGamesCount, setCompletedGamesCount] = useState<number>(0);
@@ -367,11 +369,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </span>
                                       </div>
                                       <div>
-                                        ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                        ЛХ: <span className="font-mono text-amber-400">{signedPoints(g.best_move_points)}</span>
                                       </div>
                                       {!!g.protocol_bonus && (
                                         <div>
-                                          Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                          Протокол: <span className={`font-mono ${(g.protocol_bonus ?? 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{(g.protocol_bonus ?? 0) > 0 ? `+${g.protocol_bonus}` : g.protocol_bonus}</span>
                                         </div>
                                       )}
                                       {!!g.disciplinary_penalty_points && (
@@ -386,7 +388,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-text-muted">Начисленный Ci:</span>
-                                          <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                          <span className="font-mono text-cyan-400 font-extrabold">{signedPoints(g.ci_points)}</span>
                                         </div>
                                         <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                           {g.ci_reason === 'red_loss_full'
@@ -399,6 +401,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                     </div>
                                     <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
                                       Итого за игру: {g.game_total}
+                                      <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(Math.round((g.game_total - g.win_point - g.ci_points) * 100) / 100)} доп. {signedPoints(g.ci_points)} Ci</span>
                                     </div>
                                   </div>
                                 ))}
@@ -612,11 +615,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </span>
                                       </div>
                                       <div>
-                                        ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                        ЛХ: <span className="font-mono text-amber-400">{signedPoints(g.best_move_points)}</span>
                                       </div>
                                       {!!g.protocol_bonus && (
                                         <div>
-                                          Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                          Протокол: <span className={`font-mono ${(g.protocol_bonus ?? 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{(g.protocol_bonus ?? 0) > 0 ? `+${g.protocol_bonus}` : g.protocol_bonus}</span>
                                         </div>
                                       )}
                                       {!!g.disciplinary_penalty_points && (
@@ -631,7 +634,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-text-muted">Начисленный Ci:</span>
-                                          <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                          <span className="font-mono text-cyan-400 font-extrabold">{signedPoints(g.ci_points)}</span>
                                         </div>
                                         <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                           {g.ci_reason === 'red_loss_full'
@@ -644,6 +647,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                     </div>
                                     <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
                                       Итого за игру: {g.game_total}
+                                      <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(Math.round((g.game_total - g.win_point - g.ci_points) * 100) / 100)} доп. {signedPoints(g.ci_points)} Ci</span>
                                     </div>
                                   </div>
                                 ))}
@@ -672,6 +676,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     <th className="py-3 px-3 text-center w-12">Место</th>
                     <th className="py-3 px-3">Игрок</th>
                     <th className="py-3 px-2 text-center text-accent">Σ</th>
+                    <th className="py-3 px-2 text-center text-emerald-400" title="Победы: 1 балл за каждую. Σ = П + Σдб + Ci">П</th>
                     <th className="py-3 px-2 text-center">Σдб</th>
                     <th className="py-3 px-2 text-center text-emerald-400" title="Доп. балл судьи">+</th>
                     <th className="py-3 px-2 text-center text-emerald-400/80" title="Доп. балл за протокол">+Пр</th>
@@ -680,7 +685,6 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     <th className="py-3 px-2 text-center text-rose-400/90" title="Дисциплинарный штраф">−Д</th>
                     <th className="py-3 px-2 text-center text-amber-400">ЛХ</th>
                     <th className="py-3 px-2 text-center text-cyan-400">Ci</th>
-                    <th className="py-3 px-2 text-center text-emerald-400">П</th>
                     <th className="py-3 px-2 text-center text-purple-400">Д</th>
                     <th className="py-3 px-2 text-center text-amber-400">Ш</th>
                     <th className="py-3 px-2 text-center text-rose-400">У</th>
@@ -733,6 +737,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             {item.total_points}
                           </td>
 
+                          {/* П (wins) */}
+                          <td className="py-3 px-2 text-center font-bold text-emerald-400">
+                            {item.wins}
+                          </td>
+
                           {/* Σдб (additional_total) */}
                           <td className="py-3 px-2 text-center font-bold text-text-primary">
                             {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
@@ -773,10 +782,6 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
                           </td>
 
-                          {/* П (wins) */}
-                          <td className="py-3 px-2 text-center font-bold text-emerald-400">
-                            {item.wins}
-                          </td>
 
                           {/* Д (don_wins) */}
                           <td className="py-3 px-2 text-center font-bold text-purple-400">
@@ -869,11 +874,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                             </span>
                                           </div>
                                           <div>
-                                            ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                            ЛХ: <span className="font-mono text-amber-400">{signedPoints(g.best_move_points)}</span>
                                           </div>
                                           {!!g.protocol_bonus && (
                                             <div>
-                                              Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                              Протокол: <span className={`font-mono ${(g.protocol_bonus ?? 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{(g.protocol_bonus ?? 0) > 0 ? `+${g.protocol_bonus}` : g.protocol_bonus}</span>
                                             </div>
                                           )}
                                           {!!g.disciplinary_penalty_points && (
@@ -888,7 +893,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                             </div>
                                             <div className="flex justify-between">
                                               <span className="text-text-muted">Начисленный Ci:</span>
-                                              <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                              <span className="font-mono text-cyan-400 font-extrabold">{signedPoints(g.ci_points)}</span>
                                             </div>
                                             <div className="text-[10px] text-text-muted italic leading-tight mt-0.5">
                                               {g.ci_reason === 'red_loss_full'
@@ -902,6 +907,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                                         <div className="pt-1 text-right font-extrabold text-xs text-accent border-t border-border-soft/60">
                                           Итого за игру: {g.game_total}
+                                          <span className="block text-[10px] font-normal text-text-muted">победа {g.win_point} {signedPoints(Math.round((g.game_total - g.win_point - g.ci_points) * 100) / 100)} доп. {signedPoints(g.ci_points)} Ci</span>
                                         </div>
                                       </div>
                                     ))}

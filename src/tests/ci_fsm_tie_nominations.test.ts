@@ -137,7 +137,7 @@ describe('Theme 1: FSM 2022 Ci расчет', () => {
     }).gameCi).toBe(0);
   });
 
-  it('10. calculateGameCi for red citizen loss first killed without best move points should return full rate', () => {
+  it('10. calculateGameCi for red citizen loss first killed without a black player in the best move gives no compensation', () => {
     expect(calculateGameCi({
       isFirstKilled: true,
       role: 'citizen',
@@ -146,7 +146,7 @@ describe('Theme 1: FSM 2022 Ci расчет', () => {
       participantId: 'p1',
       hasBlackInBestMove: false,
       playerRate: 0.5
-    }).gameCi).toBe(0.5);
+    }).gameCi).toBe(0);
   });
 });
 

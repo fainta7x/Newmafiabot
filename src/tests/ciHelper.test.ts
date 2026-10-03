@@ -53,7 +53,31 @@ describe('ciHelper unit tests', () => {
       }).gameCi).toBe(0);
     });
 
-    it('should return full rate for red citizen loss first killed', () => {
+    it('should return full rate for red citizen loss first killed with a black player in the best move', () => {
+      expect(calculateGameCi({
+        isFirstKilled: true,
+        role: 'citizen',
+        winnerTeam: 'black',
+        bestMoveParticipantId: 'p1',
+        participantId: 'p1',
+        hasBlackInBestMove: true,
+        playerRate: 0.4
+      })).toEqual({
+        gameCi: 0.4,
+        ciReason: 'red_loss_full'
+      });
+    });
+
+    it('should not compensate a red loss when the first-killed best move has no black player', () => {
+      expect(calculateGameCi({
+        isFirstKilled: true,
+        role: 'citizen',
+        winnerTeam: 'black',
+        bestMoveParticipantId: 'p1',
+        participantId: 'p1',
+        hasBlackInBestMove: false,
+        playerRate: 0.4
+      }).gameCi).toBe(0);
       expect(calculateGameCi({
         isFirstKilled: true,
         role: 'citizen',
@@ -62,10 +86,7 @@ describe('ciHelper unit tests', () => {
         participantId: 'p1',
         hasBlackInBestMove: false,
         playerRate: 0.4
-      })).toEqual({
-        gameCi: 0.4,
-        ciReason: 'red_loss_full'
-      });
+      }).gameCi).toBe(0);
     });
 
     it('should return half rate for red citizen win with best move and black in LHS', () => {

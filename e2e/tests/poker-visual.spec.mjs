@@ -30,12 +30,14 @@ test('poker table recovers its full width after Telegram resumes', async ({ page
   const frame = page.getByTestId('poker-table-frame');
   await expect.poll(async () => (await frame.locator('> div').boundingBox())?.width).toBeGreaterThan(380);
 
-  // Telegram briefly reports a compact viewport while the Mini App is hidden.
+  // Telegram briefly reports a compact viewport while the Mini App is hidden, and Android can keep
+  // that stale height after the restore. The table must not shrink into side bars (owner, 2026-10-02).
   await page.evaluate(() => {
     document.documentElement.style.setProperty('--tg-viewport-height', '430px');
     window.dispatchEvent(new Event('telegramviewportchange'));
   });
-  await expect.poll(async () => (await frame.locator('> div').boundingBox())?.width).toBeLessThan(300);
+  await page.waitForTimeout(400);
+  expect((await frame.locator('> div').boundingBox())?.width).toBeGreaterThan(380);
 
   // On return the native viewport recovers without a browser resize event.
   await page.evaluate(() => {

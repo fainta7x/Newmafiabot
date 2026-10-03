@@ -431,6 +431,11 @@ Approved high-level publication format for tournament summary graphics is three 
 
 Historical UI/visual requirements may evolve, so inspect current publication components before changing visuals. The three-part information model should not be collapsed without an explicit redesign decision.
 
+## Tournament seating
+
+- The generated seating of a tournament distance is balanced (owner, 2026-10-03): in every block of ten games each player takes each of the ten seats exactly once, so nobody sits on one seat a second time before all seats were used (a 10-game tournament: every player on every seat once). Within that rule the generator avoids putting the same two players next to each other (seats are a circle, 10 next to 1) game after game. Games are no longer shuffled independently: independent shuffles gave someone three or more games on one seat in every tournament.
+- An organizer may still regenerate the seating while the tournament is a draft; seating is locked after the start. Replacing a confirmed player keeps the prepared seats.
+
 ## Tournament evening registration and entry fee
 
 - `TOURNAMENT` is a distinct event format. Regular `CASUAL` price-per-game, 400 ₽ cap, historical debt reconciliation, wallet-token logic and betting must not rewrite tournament entry-fee truth.

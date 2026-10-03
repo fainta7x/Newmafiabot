@@ -1,19 +1,11 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { seatParticipants } from './tournamentSeatingPlan.ts';
 
 export const normalizeTournamentGameCount = (value: unknown, fallback = 10): number => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) return fallback;
   return parsed;
-};
-
-const shuffleArray = <T>(items: T[]): T[] => {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 };
 
 export async function regenerateTournamentGames(
@@ -32,6 +24,8 @@ export async function regenerateTournamentGames(
   }
   await db.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
 
+  // Every block of ten games is a Latin square: nobody sits on one seat again before all ten were used.
+  const seatingByGame = seatParticipants(participants, distance);
   for (let gameNumber = 1; gameNumber <= distance; gameNumber += 1) {
     const gameId = crypto.randomUUID();
     await db.run(
@@ -40,7 +34,7 @@ export async function regenerateTournamentGames(
       [gameId, tournamentId, gameNumber, chiefJudgeName || null],
     );
 
-    const shuffled = shuffleArray(participants);
+    const shuffled = seatingByGame[gameNumber - 1];
     for (let seatIndex = 0; seatIndex < 10; seatIndex += 1) {
       await db.run(
         `INSERT INTO tournament_game_seats (id, game_id, participant_id, seat_number, role)

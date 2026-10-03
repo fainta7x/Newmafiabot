@@ -69,6 +69,17 @@ export function normalizeYandexMusicUrl(rawValue: string): NormalizedMusicSource
     };
   }
 
+  // The current «Поделиться» link of a playlist has no owner: /playlists/lk.<uuid> (or /playlists/<number>).
+  const sharedPlaylist = url.pathname.match(/^\/playlists\/([A-Za-z0-9][A-Za-z0-9._-]*)\/?$/);
+  if (sharedPlaylist) {
+    return {
+      kind: 'yandex_playlist',
+      sourceUrl: raw,
+      normalizedUrl: `https://music.yandex.ru/playlists/${sharedPlaylist[1]}`,
+      embedUrl: null,
+    };
+  }
+
   throw new Error('Нужна ссылка на трек или плейлист Яндекс Музыки.');
 }
 

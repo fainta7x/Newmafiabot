@@ -98,3 +98,21 @@ describe('owner repairs a player\'s locked music slot', () => {
     expect((await request(app).put('/api/player/music-library/player-slots/2').set('Cookie', player).send({ url: 'https://music.yandex.ru/album/5/track/888' })).status).toBe(200);
   });
 });
+
+describe('players add tracks only, the organizer may add playlists', () => {
+  it('rejects a playlist link in a player slot and accepts it in the club library', async () => {
+    const { app, db } = await setup();
+    await db.run("DELETE FROM music_link_entries WHERE owner_player_id = 'seat1' AND slot_index = 2");
+    const player = `player_token=${generatePlayerSessionToken('seat1')}`;
+    const playlist = 'https://music.yandex.ru/playlists/lk.4f1e6b0a-2c1d-4a53-9a77-3d9d4e6a1b22';
+    const rejected = await request(app).put('/api/player/music-library/player-slots/2').set('Cookie', player).send({ url: playlist });
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.error).toContain('только ссылку на трек');
+    expect((await request(app).put('/api/player/music-library/player-slots/2').set('Cookie', player).send({ url: 'https://music.yandex.ru/album/5/track/999' })).status).toBe(200);
+
+    const organizer = `player_token=${generatePlayerSessionToken('judge')}`;
+    const added = await request(app).post('/api/player/music-library/organizer/links').set('Cookie', organizer).send({ url: playlist });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    expect(added.body.entry.source_kind).toBe('yandex_playlist');
+  });
+});

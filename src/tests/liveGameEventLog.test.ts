@@ -104,3 +104,25 @@ describe('game log text', () => {
     expect(lines[1].heading).toBe(false);
   });
 });
+
+import { deriveFinalGameEvents } from '../lib/liveGameEventLog';
+
+describe('events that happen in the very last moment of a game', () => {
+  it('recovers a PPK and the final exit from the result handed over by the engine', () => {
+    const last = snapshot({ phase: 'day_speeches' });
+    const events = deriveFinalGameEvents(last, {
+      slots: players({ 8: { ppk: true, alive: false, exit_reason: 'removed' }, 9: { alive: false, exit_reason: 'voted_day' } }) as any,
+      protocol_markers: { firstKilledSlot: null, zeroRoundVotedSlot: null, bestMoveSeats: [] },
+    }, 20, 'now');
+    expect(events.map((event) => `${event.kind}:${event.seat}`)).toEqual(['exit:8', 'ppk:8', 'exit:9']);
+    expect(events[0].seq).toBe(20);
+    expect(deriveFinalGameEvents(null, { slots: [] }, 1, 'now')).toEqual([]);
+  });
+
+  it('keeps the outcome of a voting round that was decided in the same step that left the voting', () => {
+    const voting = snapshot({ phase: 'day_voting', votingStage: 'round_result', votingRounds: [{ round_number: 1, outcome: 'pending', nominated_seats: [3, 4], vote_counts: { 3: 5, 4: 5 }, eligible_voters: 10, table_leave_votes: 4 } as any], votesByPlayer: { 1: 3 } });
+    const night = snapshot({ phase: 'night', votingRounds: [] });
+    const evidence = updateLiveProtocolEvidence({ votes: [], shots: [], events: [] }, night as any, voting as any);
+    expect(evidence.events?.some((event) => event.kind === 'vote_round_result')).toBe(true);
+  });
+});

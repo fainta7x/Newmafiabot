@@ -11,6 +11,7 @@ import {
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols, readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
+import { deriveFinalGameEvents } from '../../lib/liveGameEventLog.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
   liveEvidenceSignature,
@@ -157,6 +158,7 @@ export default function TournamentLiveGameModal({
   const [livePhase, setLivePhase] = useState<string>('setup');
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
+  const lastSnapshotRef = useRef<any>(null);
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
 
   // Records the votes and shots of the running game, exactly as the club evening does: the engine drops its
@@ -177,6 +179,7 @@ export default function TournamentLiveGameModal({
         if (!snapshot) return;
         evidenceRef.current = updateLiveProtocolEvidence(evidenceRef.current, snapshot, previous);
         previous = snapshot;
+        lastSnapshotRef.current = snapshot;
         const signature = liveEvidenceSignature(evidenceRef.current);
         if (signature !== lastSignature) {
           lastSignature = signature;
@@ -294,13 +297,20 @@ export default function TournamentLiveGameModal({
     try {
       const now = new Date().toISOString();
       const lastSeq = evidenceRef.current.events?.length ? evidenceRef.current.events[evidenceRef.current.events.length - 1].seq : 0;
+      // The last changes before the engine dropped its session (final exit, PPK, final fouls) may not have been seen.
+      const recovered = deriveFinalGameEvents(lastSnapshotRef.current, gameData, lastSeq + 1, now);
+      const round = Number(lastSnapshotRef.current?.roundNumber || 0);
+      const phase = String(lastSnapshotRef.current?.phase || '');
       const closing = [
-        ...Object.entries(readStoredDeathProtocols()).map(([seat, protocol]) => ({
-          kind: 'death_protocol', seat: Number(seat),
-          value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
-        })),
-        { kind: 'game_end', value: gameData?.winning_team === 'Красные' ? 'red' : 'black' },
-      ].map((event, index) => ({ seq: lastSeq + index + 1, at: now, round: 0, phase: '', ...event }));
+        ...recovered,
+        ...[
+          ...Object.entries(readStoredDeathProtocols()).map(([seat, protocol]) => ({
+            kind: 'death_protocol', seat: Number(seat),
+            value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
+          })),
+          { kind: 'game_end', value: gameData?.winning_team === 'Красные' ? 'red' : 'black' },
+        ].map((event) => ({ seq: 0, at: now, round, phase, ...event })),
+      ].map((event, index) => ({ ...event, seq: lastSeq + index + 1 }));
       const next = mapEngineResult(payload.protocol, payload.player_results, {
         ...gameData,
         votes: evidenceRef.current.votes,

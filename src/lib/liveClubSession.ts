@@ -162,10 +162,21 @@ export const updateLiveProtocolEvidence = (
   const existingEvents = evidence.events || [];
   const nextSeq = (existingEvents.length ? existingEvents[existingEvents.length - 1].seq : 0) + 1;
   const at = new Date().toISOString();
-  let events = appendLiveGameEvents(
-    existingEvents,
-    deriveLiveGameEvents(previous as LiveEventSnapshot | null, current as LiveEventSnapshot, nextSeq, at),
-  );
+  const derived = deriveLiveGameEvents(previous as LiveEventSnapshot | null, current as LiveEventSnapshot, nextSeq, at);
+  // A round decided in the same step that leaves the voting (no-elimination, a table decision, an auto result) never
+  // shows its outcome in a saved snapshot: take it from the finalized rounds of the last voting snapshot.
+  if (previous && shouldCommitPreviousVoting(previous, current)) {
+    for (const round of finalizeLiveVotingRounds(previous)) {
+      const before = (previous.votingRounds || []).find((item) => item.round_number === round.round_number);
+      if (round.outcome && round.outcome !== 'pending' && (!before || before.outcome === 'pending')) {
+        derived.push({
+          seq: nextSeq + derived.length, at, round: Number(previous.roundNumber || 0), phase: 'day_voting',
+          kind: 'vote_round_result', value: `${round.round_number}:${round.outcome}`,
+        });
+      }
+    }
+  }
+  let events = appendLiveGameEvents(existingEvents, derived);
   if (!previous && !existingEvents.length) {
     events = [{ seq: 1, at, round: Number(current.roundNumber || 0), phase: String(current.phase || ''), kind: 'game_start', value: String(current.phase || '') }];
   }

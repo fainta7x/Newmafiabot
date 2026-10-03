@@ -164,3 +164,32 @@ export const appendLiveGameEvents = (existing: LiveGameEvent[], added: LiveGameE
   const merged = [...existing, ...added];
   return merged.length > MAX_LIVE_GAME_EVENTS ? merged.slice(merged.length - MAX_LIVE_GAME_EVENTS) : merged;
 };
+
+/**
+ * The engine drops its saved session the moment a game ends, and the recorder only looks every 75 ms, so the very last
+ * changes (the final exit, a PPK, the final foul) can be missing from the log. They are recovered here by comparing the
+ * last recorded snapshot with the result the engine hands over (`gameData`).
+ */
+export const deriveFinalGameEvents = (
+  lastSnapshot: LiveEventSnapshot | null,
+  gameData: { slots?: Array<Record<string, any>>; protocol_markers?: LiveEventSnapshot['protocolMarkers'] } | null | undefined,
+  startSeq: number,
+  at: string,
+): LiveGameEvent[] => {
+  if (!lastSnapshot || !gameData || !Array.isArray(gameData.slots)) return [];
+  const finalPlayers = gameData.slots.map((slot) => ({
+    slot_num: slot.slot_num,
+    alive: slot.alive,
+    fouls: slot.fouls,
+    minor_tech_fouls: slot.minor_tech_fouls,
+    major_tech_fouls: slot.major_tech_fouls,
+    ppk: Boolean(slot.ppk),
+    exit_reason: slot.exit_reason,
+  }));
+  return deriveLiveGameEvents(
+    lastSnapshot,
+    { ...lastSnapshot, phase: lastSnapshot.phase, activePlayers: finalPlayers, protocolMarkers: gameData.protocol_markers || lastSnapshot.protocolMarkers },
+    startSeq,
+    at,
+  );
+};

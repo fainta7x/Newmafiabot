@@ -137,7 +137,7 @@ export default function TournamentLiveGameModal({
   const [error, setError] = useState<string | null>(null);
   const [rolesHidden, setRolesHidden] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
-  const [livePhase, setLivePhase] = useState<'setup' | 'day' | 'night' | 'finished'>('setup');
+  const [livePhase, setLivePhase] = useState<string>('setup');
 
   useEffect(() => {
     let cancelled = false;

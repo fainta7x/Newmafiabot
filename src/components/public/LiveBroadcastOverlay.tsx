@@ -195,6 +195,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
     }
   }
   const score = state.eveningScore || { red: 0, black: 0 };
+  const isTournament = state.tableName?.startsWith('Турнир') === true;
 
   return (
     <main
@@ -205,8 +206,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
         <div className="live-broadcast-brand-mark">2LA</div>
         <div className="live-broadcast-phase-block">
           <div className="live-broadcast-eyebrow">
-            Игра вечера №{state.eveningGameNumber || '—'}
-            <span>{state.tableName || 'Стол'} · общая №{state.globalGameNumber}</span>
+            {isTournament ? `Игра турнира №${state.eveningGameNumber || state.globalGameNumber}` : `Игра вечера №${state.eveningGameNumber || '—'}`}
+            <span>{isTournament ? (state.tableName || 'Турнир') : `${state.tableName || 'Стол'} · общая №${state.globalGameNumber}`}</span>
           </div>
           <div className="live-broadcast-phase-title">{state.phaseTitle}</div>
           {state.phaseDetail ? <div className="live-broadcast-phase-detail">{state.phaseDetail}</div> : null}
@@ -254,8 +255,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
             </div>
           ) : null}
         </section>
-        <div className="live-broadcast-score" aria-label="Победы за вечер">
-          <div className="live-broadcast-score-caption">Счёт вечера</div>
+        <div className="live-broadcast-score" aria-label={isTournament ? 'Победы в турнире' : 'Победы за вечер'}>
+          <div className="live-broadcast-score-caption">{isTournament ? 'Счёт турнира' : 'Счёт вечера'}</div>
           <div className="live-broadcast-score-row">
             <span className="is-red">Красные</span>
             <b className="is-red">{score.red}</b>

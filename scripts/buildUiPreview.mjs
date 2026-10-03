@@ -9,6 +9,7 @@ const pages = [
   'preview/index.html',
   'e2e/crm-evening-roster.html',
   'e2e/live-game.html',
+  'e2e/tournament-live-game.html',
   'e2e/live-game-overlay.html',
   'e2e/player-shell.html',
   'e2e/split-vote.html',

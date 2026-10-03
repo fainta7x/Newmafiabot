@@ -62,6 +62,29 @@ export const mergeLiveVotingRounds = (existing: VotingRound[], incoming: VotingR
   });
 };
 
+/**
+ * The live engine numbers voting rounds from 1 on every day, but a tournament protocol needs round numbers that are
+ * unique across the whole game (and revotes point to their parent by that number). Renumbers the rounds one after
+ * another in game order and re-points `parent_round_number` inside the same day.
+ */
+export const renumberVotingRoundsSequentially = (rounds: VotingRound[]): VotingRound[] => {
+  const ordered = rounds.map(cloneRound).sort((a, b) => {
+    const dayDiff = Number(a.day_number ?? 0) - Number(b.day_number ?? 0);
+    return dayDiff || Number(a.round_number ?? 0) - Number(b.round_number ?? 0);
+  });
+  const newNumberByKey = new Map<string, number>();
+  ordered.forEach((round, index) => newNumberByKey.set(roundKey(round), index + 1));
+  return ordered.map((round, index) => {
+    const parent = round.parent_round_number;
+    const parentKey = parent === null || parent === undefined ? null : `${Number(round.day_number ?? 0)}:${Number(parent)}`;
+    return {
+      ...round,
+      round_number: index + 1,
+      parent_round_number: parentKey === null ? (parent ?? null) : (newNumberByKey.get(parentKey) ?? parent ?? null),
+    };
+  });
+};
+
 export const finalizeLiveVotingRounds = (snapshot: LiveSessionSnapshot | null | undefined): VotingRound[] => {
   const rounds = (snapshot?.votingRounds || []).map(cloneRound);
   if (!rounds.length) return rounds;

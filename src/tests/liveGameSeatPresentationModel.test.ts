@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSeatVoteStatusPresentation,
+  countVotesReceived,
   getSeatGridPositionClass,
   resolveSeatContainerClass,
 } from '../components/LiveGameEngine/seatPresentationModel.js';
@@ -127,5 +128,14 @@ describe('Live Game seat presentation model', () => {
       statusText: '→ #4',
       statusColor: 'text-slate-500',
     });
+  });
+});
+
+describe('countVotesReceived', () => {
+  it('counts how many voters chose the seat and tolerates missing votes', () => {
+    expect(countVotesReceived(5, { 1: 5, 2: 5, 3: 7 })).toBe(2);
+    expect(countVotesReceived(7, { 1: 5, 2: 5, 3: 7 })).toBe(1);
+    expect(countVotesReceived(9, { 1: 5 })).toBe(0);
+    expect(countVotesReceived(5, undefined)).toBe(0);
   });
 });

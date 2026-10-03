@@ -274,3 +274,22 @@
     flex-shrink: 0;
   }
 }
+
+/* Voting on the seat card: what this player voted for, and what a candidate has collected. */
+.live-seat-state__votes {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.live-seat-state__vote-line {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+}
+
+.live-seat-state__vote-line--tally {
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+

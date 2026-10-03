@@ -187,7 +187,7 @@ export default function TournamentLiveGameModal({
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
-        <div className="tournament-live-shell">
+        <div className="tournament-live-shell evening-live-engine-shell">
           <LiveGameEngine
             players={legacyPlayers}
             initialJudgeId={10001}

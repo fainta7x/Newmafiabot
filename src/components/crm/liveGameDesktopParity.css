@@ -124,6 +124,22 @@
     flex: 0 0 auto !important;
   }
 
+  /* Tournament/direct engine shells do not render the CRM identity overlay.
+     Keep the nickname in the seat footer there so desktop parity does not make
+     the players anonymous. */
+  html body .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__name {
+    display: block !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__identity {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
   html body .evening-live-engine-shell .live-seat-quick-action--nomination {
     min-width: 43px !important;
     padding: 0 5px !important;

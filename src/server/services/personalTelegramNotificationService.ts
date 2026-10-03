@@ -17,8 +17,11 @@ const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 1
 // Evening messages depend on the player's answer; see eveningRsvpNudgeService.
 // Tournament payment deadlines ride the same worker: reminders, releasing unpaid places, calling in the next.
 // «Напомнить неответившим» goes out by itself two days before (eveningAutoReminderService).
-const queueEveningNotifications = async (db: DatabaseWrapper) => (await queueEveningRsvpNudges(db)) + (await enforceTournamentPaymentDeadlines(db))
-  + (await runEveningShortfallChecks(db)) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
+// Each step is isolated: a failure in an earlier one must not stop the later ones (the tournament results and
+// seat messages ride the club-results step).
+const isolated = (name: string, step: Promise<number>) => step.catch((error) => { console.error(`[${name}] failed:`, error); return 0; });
+const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated('RSVP NUDGES', queueEveningRsvpNudges(db))) + (await isolated('TOURNAMENT PAYMENTS', enforceTournamentPaymentDeadlines(db)))
+  + (await isolated('SHORTFALL', runEveningShortfallChecks(db))) + (await runAutomaticUnansweredReminders(db).catch((error) => { console.error('[AUTO REMINDER] failed:', error); return 0; }))
   // The game blank and the evening summary for the club chat (clubResultPostService).
   + (await runClubResultPosts(db).catch((error) => { console.error('[CLUB RESULTS] failed:', error); return 0; }))
   // «Сегодня играем» at 17:00 Moscow time, or the organizer's decision when the evening is short (eveningTodayPostService).

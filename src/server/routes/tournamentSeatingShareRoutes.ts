@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
+import { sendNextTournamentGameSeatMessages } from '../services/tournamentSeatNotificationService.ts';
 import { createSeatingImageLink, readSeatingImageLink } from '../services/seatingImageLinkService.ts';
 import { decodeSeatingImage, sendSeatingImage, SeatingShareError, type SeatingShareTarget } from '../services/tournamentSeatingShareService.ts';
 
@@ -27,6 +28,20 @@ router.post('/:id/seating-image/link', requireOrganizerAuth, async (req: Authent
   } catch (error: any) {
     const status = error instanceof SeatingShareError ? error.status : 500;
     return res.status(status).json({ error: error?.message || 'Не удалось подготовить ссылку на картинку' });
+  }
+});
+
+// POST /api/tournaments/:id/seat-messages -> sends «ты сидишь на месте N» for the next game to be played, right now
+router.post('/:id/seat-messages', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tournament = await req.db.get('SELECT id FROM tournaments WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (!tournament) throw new SeatingShareError('Турнир не найден', 404);
+    const result = await sendNextTournamentGameSeatMessages(req.db, String(req.params.id));
+    if (result.game_number == null) throw new SeatingShareError('Нет игры, которую ещё нужно играть', 409);
+    return res.json({ success: true, ...result });
+  } catch (error: any) {
+    const status = error instanceof SeatingShareError ? error.status : 500;
+    return res.status(status).json({ error: error?.message || 'Не удалось разослать места' });
   }
 });
 

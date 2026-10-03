@@ -33,7 +33,7 @@ describe('seating picture sent by the bot', () => {
     expect(() => decodeSeatingImage(Buffer.concat([PNG, Buffer.alloc(1_500_000)]).toString('base64'))).toThrow('слишком большая');
   });
 
-  it('posts to the rating group topic, or to the organizer\'s own Telegram', async () => {
+  it('posts to the rating group topic, or to the acting organizer\'s own Telegram', async () => {
     const { db } = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     const calls: any[] = [];
@@ -53,6 +53,11 @@ describe('seating picture sent by the bot', () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
     await expect(sendSeatingImage(db, { tournamentId: 'nope', target: 'group', image: PNG, fetchImpl: okFetch([]) })).rejects.toThrow('Турнир не найден');
     await expect(sendSeatingImage(db, { tournamentId: 't', target: 'me', image: PNG, fetchImpl: okFetch([]) })).rejects.toThrow('Не найден ваш Telegram');
+    // Another organizer's chat is never a fallback, even when the club has configured recipients.
+    vi.stubEnv('ORGANIZER_NOTIFICATION_IDS', '999');
+    const stray: any[] = [];
+    await expect(sendSeatingImage(db, { tournamentId: 't', target: 'me', image: PNG, fetchImpl: okFetch(stray) })).rejects.toThrow('Не найден ваш Telegram');
+    expect(stray).toHaveLength(0);
     await db.run("UPDATE telegram_destinations SET active = 0 WHERE id = 'rating'");
     await expect(sendSeatingImage(db, { tournamentId: 't', target: 'group', image: PNG, fetchImpl: okFetch([]) })).rejects.toThrow('«Рейтинг»');
     vi.stubEnv('TELEGRAM_BOT_TOKEN', '');

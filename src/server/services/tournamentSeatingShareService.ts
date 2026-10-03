@@ -1,5 +1,4 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { resolveOrganizerNotificationRecipientsWithAccess } from './organizerNotificationService.ts';
 
 /**
  * «Рассадка для игроков» picture sent by the server (owner, 2026-10-03). Inside the Telegram app the
@@ -64,13 +63,13 @@ export async function sendSeatingImage(db: DatabaseWrapper, input: {
     return { target: 'group' as const };
   }
 
-  // «Мне»: the acting organizer's own Telegram, else the club's organizer recipients.
+  // «Мне»: only the acting organizer's own Telegram. Never another organizer's chat: without a linked
+  // Telegram (for example the password-only session) the request is refused.
   let chatId = '';
   if (input.actorPlayerId) {
     const player = await db.get<any>('SELECT telegram_user_id FROM players WHERE id = ? LIMIT 1', [input.actorPlayerId]).catch(() => null);
     chatId = /^-?\d+$/.test(String(player?.telegram_user_id || '')) ? String(player.telegram_user_id) : '';
   }
-  if (!chatId) chatId = (await resolveOrganizerNotificationRecipientsWithAccess(db)).recipients[0] || '';
   if (!chatId) throw new SeatingShareError('Не найден ваш Telegram: войдите через Telegram или привяжите его в профиле', 409);
   await postPhoto(chatId, null, input.image, caption, fetchImpl);
   return { target: 'me' as const };

@@ -390,7 +390,8 @@ function withSeatNumbers(playerResults: any[], seats: any[]): any[] {
   const seatByParticipant = new Map<string, number>(seats.map((seat: any) => [String(seat.participant_id), Number(seat.seat_number)]));
   return playerResults.map((result: any) => ({
     ...result,
-    seat_number: result?.seat_number ?? seatByParticipant.get(String(result?.participant_id)),
+    // The game's own seating wins over whatever the browser sent; a seat number is only a fallback for an unknown participant.
+    seat_number: seatByParticipant.get(String(result?.participant_id)) ?? result?.seat_number,
   }));
 }
 

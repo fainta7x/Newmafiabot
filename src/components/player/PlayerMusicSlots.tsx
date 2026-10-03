@@ -65,7 +65,7 @@ export default function PlayerMusicSlots() {
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Моя музыка</div>
       <h3 className="mt-2 text-lg font-semibold text-white">2 трека для вечера</h3>
       <p className="mt-1 text-xs leading-5 text-white/35">
-        Добавьте трек или плейлист Яндекс Музыки. Он попадёт в общий плейлист только когда вы отмечены на месте.
+        Добавьте ссылку на трек Яндекс Музыки (плейлисты сюда не подходят). Он попадёт в общий плейлист только когда вы отмечены на месте.
       </p>
 
       {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-xs text-rose-100/75">{error}</div>}
@@ -92,7 +92,7 @@ export default function PlayerMusicSlots() {
               <input
                 value={draft.url}
                 onChange={(event) => setDrafts((current) => ({ ...current, [slot]: { ...draft, url: event.target.value } }))}
-                placeholder="Ссылка Яндекс Музыки"
+                placeholder="Ссылка на трек Яндекс Музыки"
                 inputMode="url"
                 className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-[#0c0d11] px-3 text-xs text-white outline-none placeholder:text-white/20"
               />

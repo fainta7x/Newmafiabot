@@ -26,6 +26,7 @@ import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
+import TournamentLiveGameModal from '../../player/TournamentLiveGameModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
 import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
@@ -90,6 +91,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
   // Protocol blank import modal state
   const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
+  const [liveGameId, setLiveGameId] = useState<string | null>(null);
   const [selectedImportGameId, setSelectedImportGameId] = useState<string | undefined>(undefined);
 
   // Manual Mobile Protocol modal state
@@ -1017,6 +1019,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   <span>Протокол игры</span>
                 </button>
 
+                {currentGame.status === 'active' && (
+                  <button
+                    type="button"
+                    data-testid="tournament-live-game-button"
+                    onClick={() => setLiveGameId(String(currentGame.id))}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Вести игру (движок)</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1364,6 +1378,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         onClose={() => setShowSeatingExportModal(false)}
         tournament={tournament}
       />
+
+      {/* Live Game engine for the active tournament game (owner, 2026-10-03): the same engine as the judge's cabinet */}
+      {liveGameId && (() => {
+        const liveGame = (tournament.games || []).find((game) => String(game.id) === liveGameId);
+        return liveGame && liveGame.status === 'active' ? (
+          <TournamentLiveGameModal
+            tournamentId={tournamentId}
+            gameId={liveGameId}
+            judgeName={liveGame.judge_name || tournament.chief_judge_name}
+            onClose={() => setLiveGameId(null)}
+            onCompleted={() => { setLiveGameId(null); loadDetail(); }}
+          />
+        ) : null;
+      })()}
 
       {/* Protocol Blank Import Modal */}
       {showProtocolImportModal && (

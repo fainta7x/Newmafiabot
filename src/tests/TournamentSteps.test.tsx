@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const tournament = {
@@ -7,8 +7,9 @@ const tournament = {
   tournament_evening_flow: 1, organizer_player_id: 'owner', judge_player_id: 'judge',
   participants: [{ id: 'a' }, { id: 'b' }], games: [],
 };
+const sendSeatMessages = vi.fn(async () => ({ success: true, game_number: 1, players: 10, new_sent: 8, reached: 8, unreachable: 2 }));
 vi.mock('../lib/api.ts', () => ({
-  api: { getTournament: vi.fn(async () => tournament), getPlayers: vi.fn(async () => []) },
+  api: { getTournament: vi.fn(async () => tournament), getPlayers: vi.fn(async () => []), sendTournamentSeatMessages: sendSeatMessages },
 }));
 vi.mock('../components/crm/tournaments/TournamentEveningSettingsPanel.tsx', () => ({ TournamentEveningSettingsPanel: () => <div>ПАРАМЕТРЫ</div> }));
 vi.mock('../components/crm/tournaments/TournamentParticipantsPanel.tsx', () => ({ TournamentParticipantsPanel: () => <div>УЧАСТНИКИ</div> }));
@@ -38,5 +39,34 @@ describe('tournament step screen', () => {
     expect(await screen.findByText('ИГРЫ:all')).toBeTruthy();
     expect(screen.queryByTestId('tournament-steps')).toBeNull();
     tournament.tournament_evening_flow = 1;
+  });
+
+  it('shows the «send seats» block on the players and games steps once there are games to play', async () => {
+    tournament.games = [{ id: 'g1', status: 'planned' }, { id: 'g2', status: 'planned' }] as any;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
+    expect(screen.getByTestId('tournament-seat-messages')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('tournament-step-games'));
+    fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
+    await waitFor(() => expect(sendSeatMessages).toHaveBeenCalledWith('t1'));
+    expect(await screen.findByText(/отправлены в личные сообщения: 8 из 10 игроков/)).toBeTruthy();
+    expect(screen.getByText(/У 2 из 10 нет привязанного Telegram\/VK/)).toBeTruthy();
+    cleanup();
+
+    // The page's game list can be stale: when the server says nothing is left to play, the block hides itself.
+    tournament.games = [{ id: 'g1', status: 'planned' }] as any;
+    sendSeatMessages.mockRejectedValueOnce(new Error('Нет игры, которую ещё нужно играть'));
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
+    await waitFor(() => expect(screen.queryByTestId('tournament-seat-messages')).toBeNull());
+    cleanup();
+
+    tournament.games = [{ id: 'g1', status: 'completed' }] as any;
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
+    expect(screen.queryByTestId('tournament-seat-messages')).toBeNull();
+    tournament.games = [];
   });
 });

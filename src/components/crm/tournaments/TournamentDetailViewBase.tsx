@@ -306,6 +306,23 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     }
   };
 
+  // Force majeure: drop the last game that was never started, so the tournament is shorter by one game.
+  const handleDropLastGame = async () => {
+    const total = (tournament.games || []).length;
+    if (!confirm(`Убрать игру №${total} и играть турнир в ${total - 1} игр? Сыгранные игры не затрагиваются.`)) return;
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      await api.setTournamentGameCount(tournamentId, total - 1);
+      setFeedbackMsg({ type: 'success', text: `Теперь в турнире ${total - 1} игр` });
+      await loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось убрать игру' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Sends «ты сидишь на месте N» to the players of the next game now (otherwise it goes by itself 30 minutes before the start).
   const handleSendSeatMessages = async () => {
     if (!confirm('Разослать игрокам личные сообщения, где они сидят в ближайшей игре?')) return;
@@ -1071,6 +1088,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   >
                     <Users className="w-3.5 h-3.5 text-accent" />
                     <span>Исправить роли</span>
+                  </button>
+                )}
+
+                {(tournament.status === 'active' || tournament.status === 'draft') && games.length > 1 && games[games.length - 1]?.status === 'planned' && !(games[games.length - 1] as any).protocol_status && (
+                  <button
+                    type="button"
+                    data-testid="drop-last-game-button"
+                    onClick={handleDropLastGame}
+                    disabled={actionLoading}
+                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                  >
+                    <span>Убрать игру №{games.length} ({games.length} → {games.length - 1})</span>
                   </button>
                 )}
 

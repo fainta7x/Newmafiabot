@@ -116,11 +116,13 @@ test('Tournament Live Game uses the same 4x3 desktop board as mobile', async ({ 
   await page.screenshot({ path: info.outputPath('tournament-live-game-desktop-1440x900.png'), fullPage: false });
 });
 
-test('Tournament Live Game shows the killed-player protocol overlay on desktop', async ({ page }, info) => {
+test('Tournament Live Game mounts the killed-player protocol overlay on desktop', async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/e2e/tournament-live-game.html?mode=death');
-  await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
 
+  // A saved death-protocol state is picked up by the scoped bridge as soon as
+  // the tournament engine shell mounts. The overlay intentionally owns the
+  // pointer before the underlying «Восстановить» action can be clicked.
   const overlay = page.locator('[class~="z-[126]"]').filter({ hasText: 'Красные' }).filter({ hasText: 'Чёрные' });
   await expect(overlay).toBeVisible();
   await expect(overlay.getByText('Протокол убитого', { exact: true })).toBeVisible();

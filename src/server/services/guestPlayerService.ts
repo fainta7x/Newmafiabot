@@ -242,3 +242,37 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
     return { changed:true,idempotent:false,guestId,playerId:String(player.id),participantId:String(participant.id),oldPlayerId:repaired.oldPlayerId || null,envelope:repaired.envelope,slots:repaired.slots };
   });
 }
+
+/**
+ * Owner, 2026-10-03: a seat may be handed to a guest without a profile ("Точка +1").
+ * A new guest placeholder of the game's evening takes the seat; role, fouls, voting and result stay with the seat.
+ */
+export async function replaceSeatWithGuest(db: DatabaseWrapper, input: {
+  gameId: number;
+  seatNumber: number;
+  nickname: string;
+}) {
+  const nickname = String(input.nickname || '').trim();
+  if (!nickname) throw new Error('Укажите имя или ник гостя');
+  await ensureGuestPlayerPlaceholderSchema(db);
+  return db.transaction(async (tx) => {
+    const game = await tx.get<any>('SELECT * FROM games WHERE id = ?', [input.gameId]);
+    if (!game) throw new Error('Игра не найдена');
+    if (!game.evening_id) throw new Error('Это не игра обычного вечера');
+    if (game.archived_at) throw new Error('Сначала восстановите игру из архива');
+    const envelope = safeJsonParse<any>(game.protocol_text, null);
+    if (!envelope || envelope.kind !== 'club_evening_protocol' || envelope.version !== 1) throw new Error('У игры отсутствует структурированный клубный протокол');
+    const current = (envelope.player_results || []).find((item: any) => Number(item.seat_number) === input.seatNumber);
+    if (!current) throw new Error('Выбранное место не найдено');
+    const guest = await createGuestPlaceholder(tx, { eveningId: String(game.evening_id), displayName: nickname, responseStatus: 'going' });
+    await setGuestAttendance(tx, guest.id, 'attended_on_time');
+    const repaired = replaceClubGameSeatIdentity(
+      envelope,
+      safeJsonParse<any[]>(game.slots_json, []),
+      input.seatNumber,
+      { participantId: guest.id, playerId: '', nickname: guest.nickname, guestPlaceholderId: guest.id },
+    );
+    await tx.run('UPDATE games SET protocol_text = ?, slots_json = ? WHERE id = ?', [JSON.stringify(repaired.envelope), JSON.stringify(repaired.slots), input.gameId]);
+    return { changed: true, idempotent: false, guestId: guest.id, playerId: '', participantId: guest.id, oldPlayerId: repaired.oldPlayerId || null, envelope: repaired.envelope, slots: repaired.slots };
+  });
+}

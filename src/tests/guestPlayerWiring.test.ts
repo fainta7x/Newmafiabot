@@ -20,13 +20,19 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(eveningUi).toContain('Профиль, рейтинг, жетоны и контакты игрока не создаются');
   });
 
-  it('exposes explicit guest-to-registered-player correction and never recreates a guest from seat repair', () => {
+  it('exposes explicit guest-to-registered-player correction and hands a seat to a guest only through the explicit guest flow', () => {
     expect(protocolUi).toContain('Заменить гостя на зарегистрированного игрока');
     expect(protocolUi).toContain('clubGamesApi.repairSeatIdentity');
     expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayer.id');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
-    expect(gamesRoute).toContain("if (req.body?.guest) return res.status(400)");
+    expect(gamesRoute).toContain('replaceSeatWithGuest');
     expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");
+  });
+
+  it('lets the seat repair sheet hand a seat to a new guest (owner, 2026-10-03)', () => {
+    const sheet = read('../components/crm/EveningGameSeatRepairSheet.tsx');
+    expect(sheet).toContain('Новый гость');
+    expect(sheet).toContain('guest: { nickname: nickname.trim() }');
   });
 
   it('keeps mixed guest and registered bulk participant updates atomic', () => {

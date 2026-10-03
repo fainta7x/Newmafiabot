@@ -10,6 +10,7 @@ import {
 import {
   createGuestPlaceholder,
   replaceGuestWithRegisteredPlayer,
+  replaceSeatWithGuest,
 } from '../server/services/guestPlayerService.ts';
 
 let db: DatabaseWrapper | null = null;
@@ -295,5 +296,43 @@ describe('seat repair for a registered player (owner, 2026-10-03)', () => {
 
     const again = await replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-2' });
     expect(again).toMatchObject({ changed: false, idempotent: true });
+  });
+
+  it('hands a registered player\'s seat to a new guest and keeps the seat facts (owner, 2026-10-03)', async () => {
+    const database = await initialize();
+    await seedEvening(database);
+    await seedPlayer(database, 'p-1', 'Фандорин');
+    const now = '2026-09-09T12:30:00.000Z';
+    await database.run(`
+      INSERT INTO evening_participants (
+        id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,
+        payment_status,amount_due,amount_paid,created_at,updated_at
+      ) VALUES ('ep-1','e-1','p-1','going','going','attended','on_time','unpaid',500,0,?,?)
+    `, [now, now]);
+    const envelope = {
+      version: 1, kind: 'club_evening_protocol',
+      protocol: { game_id: '1', status: 'draft', first_killed_participant_id: 'ep-1' },
+      player_results: [{ participant_id: 'ep-1', player_id: 'p-1', guest_placeholder_id: null, seat_number: 5, display_name: 'Фандорин', role: 'mafia', regular_fouls: 2 }],
+    };
+    const slots = [{ slot_num: 5, participant_id: 'ep-1', player_id: 'p-1', guest_placeholder_id: null, nickname: 'Фандорин', role: 'mafia' }];
+    await database.run(`
+      INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+      VALUES (1,'e-1',1,?,'draft','Черновик',?,?,?)
+    `, [now, JSON.stringify(envelope), JSON.stringify(slots), now]);
+    const playersBefore = Number((await database.get<any>('SELECT COUNT(*) AS cnt FROM players'))?.cnt || 0);
+
+    await expect(replaceSeatWithGuest(database, { gameId: 1, seatNumber: 5, nickname: '  ' })).rejects.toThrow('имя или ник');
+    const result = await replaceSeatWithGuest(database, { gameId: 1, seatNumber: 5, nickname: 'Точка +1' });
+
+    expect(result.changed).toBe(true);
+    expect(result.oldPlayerId).toBe('p-1');
+    const seat = result.envelope.player_results[0];
+    expect(seat).toMatchObject({ player_id: null, guest_placeholder_id: result.guestId, participant_id: result.guestId, display_name: 'Точка +1', role: 'mafia', regular_fouls: 2 });
+    expect(result.envelope.protocol.first_killed_participant_id).toBe(result.guestId);
+    expect(result.slots[0]).toMatchObject({ player_id: null, guest_placeholder_id: result.guestId, nickname: 'Точка +1' });
+    expect(Number((await database.get<any>('SELECT COUNT(*) AS cnt FROM players'))?.cnt || 0)).toBe(playersBefore);
+    expect(await database.get<any>('SELECT display_name, attendance_status FROM guest_player_placeholders WHERE id = ?', [result.guestId]))
+      .toEqual({ display_name: 'Точка +1', attendance_status: 'attended' });
+    expect(JSON.parse((await database.get<any>('SELECT protocol_text FROM games WHERE id = 1')).protocol_text).player_results[0].display_name).toBe('Точка +1');
   });
 });

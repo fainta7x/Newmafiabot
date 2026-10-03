@@ -92,9 +92,12 @@ const loadCanonicalTournamentBroadcastGame = async (
 ): Promise<CanonicalBroadcastGame | null> => {
   const db = req.db || (await getDb());
   const game = await db.get<any>(`
-    SELECT id, game_number
-      FROM tournament_games
-     WHERE id = ? AND tournament_id = ?
+    SELECT tg.id,
+           tg.game_number,
+           t.title AS tournament_title
+      FROM tournament_games tg
+      JOIN tournaments t ON t.id = tg.tournament_id
+     WHERE tg.id = ? AND tg.tournament_id = ?
      LIMIT 1
   `, [gameId, tournamentId]);
   if (!game) return null;
@@ -120,12 +123,27 @@ const loadCanonicalTournamentBroadcastGame = async (
   if (!isSupportedTableSize(players.length)) return null;
   if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
 
+  const finishedGames = await db.all<any>(`
+    SELECT winner_team
+      FROM tournament_games
+     WHERE tournament_id = ?
+       AND status = 'completed'
+       AND winner_team IS NOT NULL
+  `, [tournamentId]);
+  const eveningScore = { red: 0, black: 0 };
+  for (const finished of finishedGames) {
+    if (finished.winner_team === 'red') eveningScore.red += 1;
+    if (finished.winner_team === 'black') eveningScore.black += 1;
+  }
+
   const gameNumber = Math.max(1, Number(game.game_number || 1));
+  const tournamentTitle = String(game.tournament_title || '').trim();
   return {
     gameId: gameNumber,
     globalGameNumber: gameNumber,
     eveningGameNumber: gameNumber,
-    tableName: 'Турнир',
+    tableName: tournamentTitle ? `Турнир · ${tournamentTitle}` : 'Турнир',
+    eveningScore,
     players,
   };
 };

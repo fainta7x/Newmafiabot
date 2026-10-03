@@ -230,7 +230,7 @@ Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/
 
 ### Tournament seating generator
 
-- Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`. Test: `src/tests/tournamentSeatingPlan.test.ts`.
+- Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`, and `prepareTournamentEveningSeating` (with `regenerate`) in `src/server/services/tournamentEveningService.ts` for tournaments made through «Турнирный вечер». Test: `src/tests/tournamentSeatingPlan.test.ts`, `src/tests/tournamentEveningSeatingRegenerate.test.ts`.
 
 ### OBS / Twitch Live Game overlay
 

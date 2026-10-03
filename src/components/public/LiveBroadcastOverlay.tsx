@@ -255,7 +255,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
           ) : null}
         </section>
         <div className="live-broadcast-score" aria-label="Победы за вечер">
-          <div className="live-broadcast-score-caption">Счёт вечера</div>
+          <div className="live-broadcast-score-caption">{state.tableName === 'Турнир' ? 'Счёт турнира' : 'Счёт вечера'}</div>
           <div className="live-broadcast-score-row">
             <span className="is-red">Красные</span>
             <b className="is-red">{score.red}</b>
@@ -376,7 +376,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 {protocol?.sheriff.length ? <FactRow label="Шериф" seats={protocol.sheriff} kinds={kinds} tone="sheriff" /> : null}
               </div>
               {order && player.alive ? (
-                <div className="live-broadcast-nominated-strip"><Hand aria-hidden="true" />Выставлен · {order}-м</div>
+                <div className="live-broadcast-nominated-strip" role="img" aria-label={`Выставлен ${order}-м`} />
               ) : null}
               {hasDiscipline ? (
                 <div className="live-broadcast-player-footer">

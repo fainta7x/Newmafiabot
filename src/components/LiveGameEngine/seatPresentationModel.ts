@@ -133,3 +133,7 @@ export const buildSeatVoteStatusPresentation = ({
 
   return { target, automatic, hasVotedOther, statusColor, statusBg, statusText, title };
 };
+
+/** Votes a seat has received so far in the current voting (voter seat -> target seat). */
+export const countVotesReceived = (slotNum: number, votesByPlayer?: Record<number, number>): number =>
+  Object.values(votesByPlayer || {}).filter((target) => target === slotNum).length;

@@ -248,7 +248,7 @@ test.describe('Live Game browser stabilization', () => {
     }
     await expect(votingHud.locator('.live-judge-stat__value').first()).toHaveText('6');
     await expect(votingHud.locator('.live-judge-stat__value').nth(1)).toHaveText('4/10');
-    await expect(seatCard(page, 1).getByText('→ #2', { exact: true })).toBeVisible();
+    await expect(seatCard(page, 1).getByTestId('seat-vote-target-1')).toHaveText('→2');
     await attachViewport(page, testInfo, '04-voting-card-selection.png');
 
     await page.getByRole('button', { name: /Следующий/ }).click();

@@ -5,6 +5,7 @@ import { MafiaHatIcon, PistolIcon } from "./Icons.js";
 import { canToggleVoteAssignment } from "../../lib/liveVoting.js";
 import {
   buildSeatVoteStatusPresentation,
+  countVotesReceived,
   getSeatGridPositionClass,
   resolveSeatContainerClass,
 } from "./seatPresentationModel.js";
@@ -180,13 +181,38 @@ export default function SeatCard(props: SeatCardProps) {
       votesByPlayer,
     });
 
-    if (presentation.target === undefined) return null;
+    const received = isNominated ? countVotesReceived(slotNum, votesByPlayer) : null;
+    if (presentation.target === undefined && received === null) return null;
 
     const isCurrentTarget = !presentation.hasVotedOther;
+    // Two separate lines so it is clear whose vote it is and where it went: what this player voted for,
+    // and (for a candidate) how many votes the candidate has collected.
     return (
-      <div title={presentation.title}>
-        <div className="live-seat-state__label">Голос</div>
-        <div className={`live-seat-state__value ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`}>{presentation.statusText}</div>
+      <div className="live-seat-state__votes" title={presentation.title}>
+        {presentation.target !== undefined && (
+          <div className="live-seat-state__vote-line">
+            <span className="live-seat-state__label">Голос</span>
+            <span className={`live-seat-state__value live-seat-vote-chip ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`} data-testid={`seat-vote-target-${slotNum}`}>
+              →<span className="live-seat-mini-number" data-seat={presentation.target}>{presentation.target}</span>
+            </span>
+          </div>
+        )}
+        {received !== null && (
+          <div className="live-seat-state__vote-line live-seat-state__vote-line--tally" data-testid={`seat-votes-received-${slotNum}`}>
+            <span className="live-seat-state__label">Кандидат</span>
+            <span className="live-seat-state__value live-seat-state__value--warning">{received} гол.</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderResolvedTally = () => {
+    if (votingSubPhase !== 'resolved' || !isNominated) return null;
+    return (
+      <div>
+        <div className="live-seat-state__label">Голосов</div>
+        <div className="live-seat-state__value live-seat-state__value--warning">{votes[slotNum] || 0}</div>
       </div>
     );
   };
@@ -303,7 +329,7 @@ export default function SeatCard(props: SeatCardProps) {
             <div className="live-seat-state__value">{getExitLabel(player)}</div>
           </div>
         ) : phase === "day_voting" ? (
-          tableDecisionActive ? renderTableDecisionState() : isInteractiveVoting ? renderVoteState() : null
+          tableDecisionActive ? renderTableDecisionState() : isInteractiveVoting ? renderVoteState() : renderResolvedTally()
         ) : phase === "day_speeches" ? renderDayState() : renderShootoutState()}
       </div>
 

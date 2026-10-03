@@ -120,12 +120,23 @@ const loadCanonicalTournamentBroadcastGame = async (
   if (!isSupportedTableSize(players.length)) return null;
   if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
 
+  // Red and black wins in the tournament's other finished games (the score shown on stream)
+  const finishedGames = await db.all<any>(
+    "SELECT winner_team FROM tournament_games WHERE tournament_id = ? AND status = 'completed' AND id <> ?",
+    [tournamentId, gameId],
+  );
+  const eveningScore = {
+    red: finishedGames.filter((finished: any) => finished.winner_team === 'red').length,
+    black: finishedGames.filter((finished: any) => finished.winner_team === 'black').length,
+  };
+
   const gameNumber = Math.max(1, Number(game.game_number || 1));
   return {
     gameId: gameNumber,
     globalGameNumber: gameNumber,
     eveningGameNumber: gameNumber,
     tableName: 'Турнир',
+    eveningScore,
     players,
   };
 };
@@ -184,6 +195,25 @@ gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrgan
     return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить турнирную OBS-трансляцию' });
+  }
+});
+
+gameRouter.get('/tournament/:tournamentId/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tournamentId = String(req.params.tournamentId || '');
+    const gameId = String(req.params.gameId || '');
+    const game = await loadCanonicalTournamentBroadcastGame(req, tournamentId, gameId);
+    if (!game) return res.status(404).json({ error: 'Активная турнирная игра для трансляции не найдена' });
+    const overlayPath = `/broadcast/${encodeURIComponent(getLiveBroadcastToken())}`;
+    return res.json({
+      overlay_url: `${publicOrigin(req)}${overlayPath}`,
+      overlay_path: overlayPath,
+      width: 1920,
+      height: 1080,
+      game_id: game.gameId,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось подготовить OBS-ссылку' });
   }
 });
 

@@ -274,3 +274,40 @@
     flex-shrink: 0;
   }
 }
+
+/* Voting on the seat card: what this player voted for, and what a candidate has collected. */
+.live-seat-state__votes {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.live-seat-state__vote-line {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+}
+
+.live-seat-state__vote-line--tally {
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* The vote target is drawn with the same coloured badge as the target's own seat card. */
+.live-seat-vote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.live-seat-vote-chip .live-seat-mini-number {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 900;
+}
+

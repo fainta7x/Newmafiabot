@@ -569,6 +569,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 57. Revote-speech button cut off on a wide screen (owner, 2026-10-03, fixed): the «К переголосованию / Следующий игрок» button fell below the fixed centre cell on desktop widths; the revote-speech stack now has a compact layout from 768 px up (`liveGameEveningBugfixes.css`), checked at 1280×720, 1366×640 and 390×780.
 
+58. «Руками» cut off in the broadcast day log (owner, 2026-10-03, fixed): the day row of «Ход игры» had a fixed height, so when many players voted the second line of voter chips was clipped; the row now grows (`.live-broadcast-tl.is-day` in `liveBroadcastOverlay.css`) and the chips are a little smaller. Checked at 1920×1080 with 8 voters.
+
 ### Waiting on the owner
 - Owner decisions 2026-10-01, not built yet: the novice evening keeps the current price per chosen game («для опытных будет скидка»); the weekly evening automation fails once at startup with «cannot start a transaction within a transaction» — fix later; the old browser suites for CRM and live game (`e2e/`) are out of date (roster confirm step, list test ids) and do not block a release — update later; a weekly anonymized copy of the production database for development checks (branch `feat/weekly-db-snapshot`, unfinished: GitHub Action, script, docs).
 - Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.

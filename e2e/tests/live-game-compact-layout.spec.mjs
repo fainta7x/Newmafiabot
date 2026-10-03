@@ -43,6 +43,8 @@ for (const viewport of [
     await expect(center).toBeVisible();
     await expect(page.locator('.live-seat-card[data-seat="1"]')).toBeVisible();
     await expect(page.locator('.live-seat-card[data-seat="10"]')).toBeVisible();
+    // The «Восстановить» click leaves the pointer over a seat, whose hover scale (1.01) shifts it by a pixel.
+    await page.mouse.move(1, 1);
 
     const positions = await page.evaluate(() => {
       const box = (selector) => {

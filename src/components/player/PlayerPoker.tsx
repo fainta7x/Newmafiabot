@@ -266,10 +266,15 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       // Edge to edge (owner, 2026-10-02): the table takes the full width and the height between the header and the action panel.
       const width = frame?.clientWidth || window.innerWidth;
       const rootStyle = getComputedStyle(document.documentElement);
-      const viewport = Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-height'))
-        || Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-stable-height'))
-        || window.visualViewport?.height
-        || window.innerHeight;
+      // After the Mini App is collapsed and restored, Telegram Android can keep reporting a stale short
+      // height, which shrank the table into black side bars (owner, 2026-10-02). The table never needs to
+      // fit above a keyboard, so it takes the tallest of Telegram's and the browser's heights.
+      const viewport = Math.max(
+        Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-height')) || 0,
+        Number.parseFloat(rootStyle.getPropertyValue('--tg-viewport-stable-height')) || 0,
+        window.visualViewport?.height || 0,
+        window.innerHeight || 0,
+      );
       // The tallest action panel seen so far, so the table does not jump when pre-moves appear and disappear.
       bottomPanelMax.current = Math.max(bottomPanelMax.current, bottomPanelRef.current?.offsetHeight || 0);
       const top = frame ? frame.getBoundingClientRect().top + window.scrollY : 60;
@@ -287,12 +292,18 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     measure();
     window.addEventListener('resize', measure);
     window.addEventListener(TELEGRAM_VIEWPORT_CHANGE_EVENT, measure);
+    // Returning from the background: measure again once the restored viewport has settled.
+    const resume = () => { if (document.visibilityState === 'visible') { measure(); window.setTimeout(measure, 350); } };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     if (tableFrameRef.current) observer?.observe(tableFrameRef.current);
     if (bottomPanelRef.current) observer?.observe(bottomPanelRef.current);
     return () => {
       window.removeEventListener('resize', measure);
       window.removeEventListener(TELEGRAM_VIEWPORT_CHANGE_EVENT, measure);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
       observer?.disconnect();
     };
   }, [current?.id, Boolean(current?.hand)]);

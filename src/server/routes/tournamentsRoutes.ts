@@ -231,6 +231,50 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
   }
 });
 
+// Force majeure (owner request, 2026-10-03): the distance of a created tournament can be shortened.
+// Only trailing games that were never started can be dropped; played games and protocols are never touched.
+router.patch('/:id/game-count', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = req.db as DatabaseWrapper;
+  const tournamentId = String(req.params.id);
+  const requested = Number(req.body?.game_count);
+  if (!Number.isInteger(requested) || requested < 1) {
+    return res.status(400).json({ error: 'Количество игр должно быть положительным целым числом' });
+  }
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+    if (tournament.status !== 'draft' && tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Количество игр можно менять только в черновике или в идущем турнире' });
+    }
+    const games = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
+    const currentCount = games.length > 0 ? games.length : normalizeTournamentGameCount(tournament.game_count);
+    if (requested > currentCount) {
+      return res.status(400).json({ error: `Увеличить количество игр нельзя (сейчас ${currentCount}). Можно только сократить.` });
+    }
+    const dropped = games.filter((game: any) => Number(game.game_number) > requested);
+    for (const game of dropped) {
+      if (game.status !== 'planned') {
+        return res.status(400).json({ error: `Игра №${game.game_number} уже начата или сыграна — её нельзя убрать` });
+      }
+      const protocol = await db.get<any>('SELECT id FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
+      if (protocol || game.draft_protocol_json) {
+        return res.status(400).json({ error: `У игры №${game.game_number} уже есть протокол — её нельзя убрать` });
+      }
+    }
+    await db.transaction(async (tx: DatabaseWrapper) => {
+      for (const game of dropped) {
+        await tx.run('DELETE FROM tournament_game_seats WHERE game_id = ?', [game.id]);
+        await tx.run('DELETE FROM tournament_games WHERE id = ?', [game.id]);
+      }
+      await tx.run('UPDATE tournaments SET game_count = ?, updated_at = ? WHERE id = ?', [requested, new Date().toISOString(), tournamentId]);
+    });
+    const updated = await loadTournamentGames(db, tournamentId);
+    return res.json({ success: true, game_count: requested, removed_games: dropped.map((game: any) => game.game_number), games: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Ошибка изменения количества игр' });
+  }
+});
+
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {

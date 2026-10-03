@@ -997,6 +997,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ target, image: imageBase64 }),
     }),
+  setTournamentGameCount: (id: string, gameCount: number) =>
+    request<any>(`/api/tournaments/${id}/game-count`, {
+      method: 'PATCH',
+      body: JSON.stringify({ game_count: gameCount }),
+    }),
   generateTournamentSeating: (id: string) =>
     request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST' }),
   correctTournamentParticipant: (tournamentId: string, participantId: string, playerId: string) =>

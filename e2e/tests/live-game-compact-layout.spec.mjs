@@ -74,3 +74,57 @@ for (const viewport of [
     await page.screenshot({ path: info.outputPath(`live-game-desktop-${viewport.name}.png`), fullPage: false });
   });
 }
+
+test('Tournament Live Game uses the same 4x3 desktop board as mobile', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/e2e/tournament-live-game.html?mode=audit');
+  await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+
+  await expect(page.locator('.tournament-live-shell.evening-live-engine-shell')).toBeVisible();
+  await expect(page.getByText('Панель судейства', { exact: true })).toBeHidden();
+  await expect(page.locator('.live-seat-card[data-seat="1"]')).toBeVisible();
+  await expect(page.locator('.live-seat-card[data-seat="10"]')).toBeVisible();
+  await page.mouse.move(1, 1);
+
+  const positions = await page.evaluate(() => {
+    const box = (selector) => {
+      const rect = document.querySelector(selector)?.getBoundingClientRect();
+      return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
+    };
+    return {
+      s9: box('.live-seat-card[data-seat="9"]'),
+      s10: box('.live-seat-card[data-seat="10"]'),
+      s1: box('.live-seat-card[data-seat="1"]'),
+      s2: box('.live-seat-card[data-seat="2"]'),
+      s8: box('.live-seat-card[data-seat="8"]'),
+      hud: box('.live-judge-hud'),
+      s3: box('.live-seat-card[data-seat="3"]'),
+      name1: document.querySelector('.live-seat-card[data-seat="1"] .live-seat-footer__name')?.textContent?.trim() || '',
+      docWidth: document.documentElement.scrollWidth,
+    };
+  });
+
+  expect(positions.docWidth).toBeLessThanOrEqual(1441);
+  expect(Math.abs(positions.s9.y - positions.s10.y)).toBeLessThan(2);
+  expect(Math.abs(positions.s10.y - positions.s1.y)).toBeLessThan(2);
+  expect(Math.abs(positions.s1.y - positions.s2.y)).toBeLessThan(2);
+  expect(Math.abs(positions.s8.y - positions.hud.y)).toBeLessThan(2);
+  expect(Math.abs(positions.hud.y - positions.s3.y)).toBeLessThan(2);
+  expect(positions.hud.width).toBeGreaterThan(positions.s8.width * 1.8);
+  expect(positions.name1).toBe('Игрок 1');
+
+  await page.screenshot({ path: info.outputPath('tournament-live-game-desktop-1440x900.png'), fullPage: false });
+});
+
+test('Tournament Live Game shows the killed-player protocol overlay on desktop', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/e2e/tournament-live-game.html?mode=death');
+  await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+
+  const overlay = page.locator('[class~="z-[126]"]').filter({ hasText: 'Красные' }).filter({ hasText: 'Чёрные' });
+  await expect(overlay).toBeVisible();
+  await expect(overlay.getByText('Протокол убитого', { exact: true })).toBeVisible();
+  await expect(overlay.getByText('#2 · Игрок 2', { exact: true })).toBeVisible();
+
+  await page.screenshot({ path: info.outputPath('tournament-live-game-death-protocol-1440x900.png'), fullPage: false });
+});

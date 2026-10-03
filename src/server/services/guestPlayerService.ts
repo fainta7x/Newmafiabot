@@ -184,7 +184,22 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
     }
 
     const guestId = String(current?.guest_placeholder_id || (current?.player_id ? '' : current?.participant_id || '')).trim();
-    if (!guestId) throw new Error('На выбранном месте нет гостя');
+    if (!guestId) {
+      // A registered player sat on the wrong seat (owner, 2026-10-03): swap them for another player of this evening.
+      if (String(current.player_id || '') === String(player.id)) {
+        return { changed:false,idempotent:true,guestId:'',playerId:String(player.id),participantId:String(current.participant_id || ''),envelope,slots:safeJsonParse<any[]>(game.slots_json, []) };
+      }
+      const participant = await tx.get<any>('SELECT * FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [String(game.evening_id), String(player.id)]);
+      if (!participant) throw new Error('Этот игрок не записан на вечер — сначала добавьте его в состав вечера');
+      const repaired = replaceClubGameSeatIdentity(
+        envelope,
+        safeJsonParse<any[]>(game.slots_json, []),
+        input.seatNumber,
+        { participantId:String(participant.id),playerId:String(player.id),nickname:String(player.nickname) },
+      );
+      await tx.run('UPDATE games SET protocol_text = ?, slots_json = ? WHERE id = ?', [JSON.stringify(repaired.envelope),JSON.stringify(repaired.slots),input.gameId]);
+      return { changed:true,idempotent:false,guestId:'',playerId:String(player.id),participantId:String(participant.id),oldPlayerId:repaired.oldPlayerId || null,envelope:repaired.envelope,slots:repaired.slots };
+    }
     const guest = await tx.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ? AND evening_id = ?', [guestId, String(game.evening_id)]);
     if (!guest) throw new Error('Гостевая заглушка не найдена');
     if ((envelope.player_results || []).some((item: any) => Number(item.seat_number) !== input.seatNumber && String(item.player_id || '') === String(player.id))) throw new Error('Этот зарегистрированный игрок уже занимает другое место в игре');

@@ -248,3 +248,47 @@ describe('GUEST-PLAYER-001 placeholder lifecycle', () => {
     expect(JSON.parse(diagnostic.details_json).evidence).toContain('external:vk');
   });
 });
+
+describe('seat repair for a registered player (owner, 2026-10-03)', () => {
+  it('swaps a registered player for another player of the evening and keeps the seat facts', async () => {
+    const database = await initialize();
+    await seedEvening(database);
+    await seedPlayer(database, 'p-1', 'Millourt');
+    await seedPlayer(database, 'p-2', 'Точка');
+    await seedPlayer(database, 'p-3', 'Чужой');
+    const now = '2026-09-09T12:30:00.000Z';
+    for (const [id, player] of [['ep-1', 'p-1'], ['ep-2', 'p-2']]) {
+      await database.run(`
+        INSERT INTO evening_participants (
+          id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,
+          payment_status,amount_due,amount_paid,created_at,updated_at
+        ) VALUES (?,'e-1',?,'going','going','attended','on_time','waived',0,0,?,?)
+      `, [id, player, now, now]);
+    }
+    const envelope = {
+      version: 1,
+      kind: 'club_evening_protocol',
+      protocol: { game_id: '1', status: 'completed', winner_team: 'red', first_killed_participant_id: 'ep-1', votes: [] },
+      player_results: [
+        { participant_id: 'ep-1', player_id: 'p-1', guest_placeholder_id: null, seat_number: 8, display_name: 'Millourt', role: 'sheriff', exit_type: 'killed', regular_fouls: 2 },
+      ],
+    };
+    const slots = [{ slot_num: 8, participant_id: 'ep-1', player_id: 'p-1', guest_placeholder_id: null, nickname: 'Millourt', role: 'sheriff' }];
+    await database.run(`
+      INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+      VALUES (1,'e-1',1,?,'Красные','Победа Красных',?,?,?)
+    `, [now, JSON.stringify(envelope), JSON.stringify(slots), now]);
+
+    await expect(replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-3' }))
+      .rejects.toThrow('не записан на вечер');
+
+    const result = await replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-2' });
+    expect(result).toMatchObject({ changed: true, playerId: 'p-2', participantId: 'ep-2', oldPlayerId: 'p-1' });
+    expect(result.envelope.player_results[0]).toMatchObject({ player_id: 'p-2', participant_id: 'ep-2', display_name: 'Точка', role: 'sheriff', exit_type: 'killed', regular_fouls: 2 });
+    expect(result.envelope.protocol.first_killed_participant_id).toBe('ep-2');
+    expect(result.slots[0]).toMatchObject({ player_id: 'p-2', nickname: 'Точка', role: 'sheriff' });
+
+    const again = await replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-2' });
+    expect(again).toMatchObject({ changed: false, idempotent: true });
+  });
+});

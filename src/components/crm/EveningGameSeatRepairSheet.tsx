@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Search, UserRoundCog, X } from 'lucide-react';
-import { api, type Player } from '../../lib/api';
+import { api, type EveningParticipant } from '../../lib/api';
+import { getEveningResponse } from '../../lib/eveningResponse';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 
@@ -9,7 +10,8 @@ type Props = { game: ClubGameRecord; onClose: () => void; onUpdated: (game: Club
 export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onUpdated }) => {
   const results = useMemo(() => [...(game.club_protocol?.player_results || [])].sort((a, b) => a.seat_number - b.seat_number), [game]);
   const [seat, setSeat] = useState(results[0]?.seat_number || 1);
-  const [players, setPlayers] = useState<Player[]>([]);
+  // Only this evening's players (owner, 2026-10-03): those marked as come, else those who said they come.
+  const [players, setPlayers] = useState<Array<{ id: string; nickname: string; full_name?: string }>>([]);
   const [query, setQuery] = useState('');
   const [playerId, setPlayerId] = useState('');
   const [guest, setGuest] = useState(false);
@@ -21,13 +23,22 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
   const current = results.find((item) => item.seat_number === seat);
   const candidates = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
-    return players.filter((player) => !q || `${player.nickname} ${player.full_name || ''}`.toLocaleLowerCase('ru-RU').includes(q)).slice(0, 8);
-  }, [players, query]);
+    const seatedElsewhere = new Set(results.filter((item) => item.seat_number !== seat).map((item) => String(item.player_id || '')));
+    return players
+      .filter((player) => !seatedElsewhere.has(player.id) && player.id !== String(current?.player_id || ''))
+      .filter((player) => !q || `${player.nickname} ${player.full_name || ''}`.toLocaleLowerCase('ru-RU').includes(q));
+  }, [players, query, results, seat, current]);
 
   useEffect(() => {
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    void api.getPlayers().then(setPlayers).catch(() => setError('Не удалось загрузить игроков клуба'));
+    void api.getEvening(game.evening_id).then((evening: any) => {
+      const participants = ((evening?.participants || []) as EveningParticipant[]).filter((item) => item.player_id);
+      const attended = participants.filter((item) => item.attendance_status === 'attended');
+      const coming = participants.filter((item) => ['going', 'late'].includes(getEveningResponse(item)));
+      const list = (attended.length ? attended : coming).map((item) => ({ id: String(item.player_id), nickname: String(item.nickname || 'Игрок'), full_name: (item as any).full_name || '' }));
+      setPlayers(list.sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')));
+    }).catch(() => setError('Не удалось загрузить игроков вечера'));
     return () => { document.body.style.overflow = overflow; };
   }, []);
 
@@ -51,7 +62,7 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
         <div className="mt-4 grid grid-cols-5 gap-2">{results.map((item) => <button type="button" key={item.seat_number} onClick={() => setSeat(item.seat_number)} className={`min-h-[52px] rounded-[11px] border px-1 text-center ${seat === item.seat_number ? 'border-warning bg-warning-soft text-warning' : 'border-border-soft bg-surface-2'}`}><span className="block text-[10px]">#{item.seat_number}</span><span className="block truncate text-[10px] font-bold">{item.display_name}</span></button>)}</div>
         <div className="mt-4 rounded-[13px] border border-warning/25 bg-warning-soft p-3 text-[11px] text-warning"><AlertTriangle className="mr-2 inline h-4 w-4" />Сейчас на месте #{seat}: <strong>{current?.display_name || '—'}</strong></div>
         <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => setGuest(false)} className={`min-h-11 rounded-[11px] border text-[11px] font-black ${!guest ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>Игрок клуба</button><button type="button" onClick={() => setGuest(true)} className={`min-h-11 rounded-[11px] border text-[11px] font-black ${guest ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>Новый гость</button></div>
-        {guest ? <div className="mt-3 space-y-2"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Никнейм гостя" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Телефон (необязательно)" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /></div> : <div className="mt-3"><label className="flex min-h-12 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3"><Search className="h-4 w-4 text-text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти игрока" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" /></label><div className="mt-2 max-h-52 space-y-1 overflow-y-auto">{candidates.map((player) => <button type="button" key={player.id} onClick={() => setPlayerId(player.id)} className={`flex min-h-11 w-full items-center rounded-[11px] border px-3 text-left text-[12px] font-bold ${playerId === player.id ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>{player.nickname}<span className="ml-2 truncate text-[10px] font-normal text-text-muted">{player.full_name}</span></button>)}</div></div>}
+        {guest ? <div className="mt-3 space-y-2"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Никнейм гостя" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Телефон (необязательно)" className="min-h-12 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[13px] outline-none" /></div> : <div className="mt-3"><label className="flex min-h-12 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3"><Search className="h-4 w-4 text-text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти игрока вечера" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" /></label><div className="mt-2 max-h-52 space-y-1 overflow-y-auto">{candidates.map((player) => <button type="button" key={player.id} onClick={() => setPlayerId(player.id)} className={`flex min-h-11 w-full items-center rounded-[11px] border px-3 text-left text-[12px] font-bold ${playerId === player.id ? 'border-accent bg-accent/10 text-accent' : 'border-border-soft bg-surface-2'}`}>{player.nickname}<span className="ml-2 truncate text-[10px] font-normal text-text-muted">{player.full_name}</span></button>)}{!candidates.length ? <p className="px-1 py-2 text-[11px] text-text-muted">Нет свободных игроков этого вечера. Сначала отметь игрока пришедшим в «Вечере».</p> : null}</div></div>}
         {error ? <p className="mt-3 text-[11px] text-danger">{error}</p> : null}
         <button type="button" disabled={!canSubmit} onClick={() => setConfirm(true)} className="mt-4 min-h-[50px] w-full rounded-[13px] bg-warning text-[12px] font-black text-slate-950 disabled:opacity-40">Проверить и заменить</button>
       </div>

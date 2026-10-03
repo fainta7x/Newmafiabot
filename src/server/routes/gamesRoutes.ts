@@ -274,7 +274,8 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     const replacement = await replaceGuestWithRegisteredPlayer(db, { gameId, seatNumber, replacementPlayerId });
     if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed') {
       await db.transaction(async (tx) => reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'correction' }));
-      const playerIds = replacement.envelope.player_results.map((item: any) => String(item.player_id || '')).filter(Boolean);
+      // The player who left the seat gets their statistics recounted too.
+      const playerIds = [...new Set([...replacement.envelope.player_results.map((item: any) => String(item.player_id || '')), String((replacement as any).oldPlayerId || '')].filter(Boolean))];
       await runClubGamePostSaveTasks(db, { gameId, eveningId: String(existing.evening_id), previousStatus: 'completed', status: 'completed', playerIds, judgePlayerId: existing.judge_player_id || null });
     }
     const row = await db.get(`SELECT g.*, et.name AS table_name FROM games g LEFT JOIN evening_tables et ON et.id=g.evening_table_id WHERE g.id=?`, [gameId]);

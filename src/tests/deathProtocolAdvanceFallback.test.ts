@@ -16,4 +16,12 @@ describe('death protocol overlay never leaves the game stuck', () => {
     expect(engine).toContain('else finishNightToDay();');
     expect(engine).toContain("if (phase !== 'night' || postNightStage !== 'death_protocol') return;");
   });
+
+  it('does not write the saved session again once the game has been handed over, and a failed save can be retried', () => {
+    const modal = readFileSync('src/components/player/TournamentLiveGameModal.tsx', 'utf8');
+    expect(engine).toContain('if (gameFinishedRef.current) return;\n    const data = {');
+    expect(modal).toContain('Повторить сохранение');
+    expect(modal).toContain('Заполнить протокол вручную');
+    expect(modal).toContain('finishedGameRef.current = gameData;');
+  });
 });

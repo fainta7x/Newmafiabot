@@ -273,6 +273,39 @@ export default function TournamentLiveGameModal({
     };
   }, [payload, tournamentId, gameId, livePhase, reviewMode]);
 
+  const finishedGameRef = useRef<any>(null);
+
+  // Hands the finished game over to the tournament protocol. The result is kept, so a failed save can be retried
+  // or the protocol can be filled by hand — the engine itself cannot finish the game a second time.
+  const saveFinishedGame = async (gameData: any) => {
+    if (!payload) return;
+    finishedGameRef.current = gameData;
+    setSaving(true);
+    setError(null);
+    try {
+      const next = mapEngineResult(payload.protocol, payload.player_results, {
+        ...gameData,
+        votes: evidenceRef.current.votes,
+        shots: evidenceRef.current.shots,
+      });
+      const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
+      try { localStorage.removeItem(evidenceKey); } catch {}
+      finishedGameRef.current = null;
+      setReviewMode(true);
+    } catch (saveError: any) {
+      setError(saveError?.message || 'Не удалось сохранить результат игры');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const legacyPlayers = useMemo(() => payload ? buildLegacyPlayers(payload.player_results, judgeName) : [], [payload, judgeName]);
 
   if (reviewMode) {
@@ -366,7 +399,17 @@ export default function TournamentLiveGameModal({
       {broadcastOpen ? <TournamentBroadcastPanel tournamentId={tournamentId} gameId={gameId} obsRemote={obsRemote} onClose={() => setBroadcastOpen(false)} /> : null}
 
       {loading ? <div className="flex h-[70vh] items-center justify-center text-sm text-slate-400">Загрузка игры…</div> : null}
-      {error ? <div className="m-4 rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div> : null}
+      {error ? (
+        <div className="m-4 rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200" data-testid="tournament-live-error">
+          <div>{error}</div>
+          {finishedGameRef.current ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => void saveFinishedGame(finishedGameRef.current)} className="min-h-10 rounded-xl bg-white px-4 text-xs font-black text-black">Повторить сохранение</button>
+              <button type="button" onClick={() => { setError(null); setReviewMode(true); }} className="min-h-10 rounded-xl border border-white/20 px-4 text-xs font-bold text-white">Заполнить протокол вручную</button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
@@ -378,31 +421,7 @@ export default function TournamentLiveGameModal({
             onPhaseChange={setLivePhase}
             rolesHidden={rolesHidden}
             onRolesHiddenChange={setRolesHidden}
-            onGameFinished={async (gameData) => {
-              setSaving(true);
-              setError(null);
-              try {
-                const next = mapEngineResult(payload.protocol, payload.player_results, {
-                  ...gameData,
-                  votes: evidenceRef.current.votes,
-                  shots: evidenceRef.current.shots,
-                });
-                const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
-                  method: 'PUT',
-                  credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(next),
-                });
-                const body = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
-                try { localStorage.removeItem(evidenceKey); } catch {}
-                setReviewMode(true);
-              } catch (saveError: any) {
-                setError(saveError?.message || 'Не удалось сохранить результат игры');
-              } finally {
-                setSaving(false);
-              }
-            }}
+            onGameFinished={(gameData) => { void saveFinishedGame(gameData); }}
           />
         </div>
       ) : null}

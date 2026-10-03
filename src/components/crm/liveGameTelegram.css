@@ -359,6 +359,10 @@
     min-width: 0 !important;
   }
 
+  .live-judge-timer__buttons.live-judge-timer__buttons--with-extension {
+    grid-template-columns: 30px minmax(0, 1fr) 30px 30px 32px !important;
+  }
+
   .live-judge-timer__button {
     height: 27px !important;
     min-width: 0 !important;

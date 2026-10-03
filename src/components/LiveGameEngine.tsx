@@ -1457,6 +1457,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   function centerPanelProps() {
     return {
+      speechExtensionAvailability: getCurrentSpeechExtensionAvailability(),
+      onSpeechExtension: handleExchangeFoulsForSpeech,
       phase,
       roundNumber,
       nominations: currentVotingNominees(),

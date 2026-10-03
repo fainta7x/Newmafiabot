@@ -19,4 +19,11 @@ describe('live speech extension UI wiring', () => {
     expect(source).toContain('setTimeLeft((value) => value + 30)');
     expect(source).toContain('setIsTimerRunning(true)');
   });
+
+  it('also offers the extension in the centre panel next to the timer, because the judge toolbar is hidden by the engine CSS', () => {
+    const centerPanel = readFileSync('src/components/LiveGameEngine/CenterPanel.tsx', 'utf8');
+    expect(source).toContain('onSpeechExtension: handleExchangeFoulsForSpeech');
+    expect(centerPanel).toContain('data-testid="live-hud-speech-extension"');
+    expect(centerPanel).toContain('speechExtensionAvailability?.allowed');
+  });
 });

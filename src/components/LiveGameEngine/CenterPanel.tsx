@@ -104,6 +104,9 @@ interface CenterPanelProps {
   bestMoveGuesses?: number[];
   getSeatColor?: (player: ActivePlayerState) => string;
   onOpenPlayerActions?: (slot: number) => void;
+  /** «+30 с за 2 фола» during a speech — also in the centre panel, because the judge toolbar is hidden by the engine CSS. */
+  speechExtensionAvailability?: { allowed: boolean; reason: string };
+  onSpeechExtension?: () => void;
 }
 
 const normalizeJudgeCopy = (value: string): string => value
@@ -145,6 +148,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleInteractiveAutoRemainder,
     canUndoLastVote = false,
     handleUndoLastVote,
+    speechExtensionAvailability,
+    onSpeechExtension,
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
@@ -419,6 +424,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const renderTimer = () => {
     const timerLabel = normalizeJudgeCopy(customTimerLabel || (activeSpeakerSlot ? `Речь #${activeSpeakerSlot}` : 'Таймер'));
     const timerName = activeSpeaker?.nickname || (nightActionStatus ?? '');
+    const showSpeechExtension = Boolean(onSpeechExtension && speechExtensionAvailability?.allowed);
     return (
       <div className="live-judge-timer">
         <div className="live-judge-timer__label">{timerLabel}</div>
@@ -427,7 +433,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         </div>
         <div className={`live-judge-timer__time ${timeLeft <= 10 ? 'live-judge-timer__time--danger' : ''}`}>{timeLeft}с</div>
         <div className="live-judge-timer__bar"><div style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} /></div>
-        <div className="live-judge-timer__buttons">
+        <div className={`live-judge-timer__buttons ${showSpeechExtension ? 'live-judge-timer__buttons--with-extension' : ''}`}>
           <button type="button" onClick={() => adjustTimer(-10)} className="live-judge-timer__button">−10</button>
           {isTimerRunning ? (
             <button type="button" onClick={() => setIsTimerRunning(false)} className="live-judge-timer__button live-judge-timer__button--pause"><Pause />Пауза</button>
@@ -440,6 +446,16 @@ export default function CenterPanel(props: CenterPanelProps) {
               {isMuted ? <VolumeX /> : <Volume2 />}
             </button>
           ) : <span />}
+          {showSpeechExtension ? (
+            <button
+              type="button"
+              data-testid="live-hud-speech-extension"
+              onClick={() => onSpeechExtension?.()}
+              className="live-judge-timer__button live-judge-timer__button--extension"
+              title="Добавить 30 секунд текущей речи ценой двух обычных фолов"
+              aria-label="Добавить 30 секунд к речи за два обычных фола"
+            >+30</button>
+          ) : null}
         </div>
       </div>
     );

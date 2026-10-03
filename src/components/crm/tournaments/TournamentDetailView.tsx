@@ -6,6 +6,7 @@ import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDe
 import { TournamentLifecycleOverview } from './TournamentLifecycleOverview.tsx';
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
+import { TournamentSeatMessagesCard } from './TournamentSeatMessagesCard.tsx';
 
 type TournamentStep = 'setup' | 'players' | 'games' | 'results';
 const TOURNAMENT_STEPS: Array<{ id: TournamentStep; label: string }> = [
@@ -249,10 +250,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
         ) : null}
         {currentStep === 'players' ? (
-          <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+          <>
+            <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+            <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
+          </>
         ) : null}
         {currentStep === 'games' ? (
           <>
+            <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
             <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
             {telegramSection}
             {judgeSection}
@@ -282,6 +287,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       {telegramSection}
 
       {judgeSection}
+
+      {tournament ? <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} /> : null}
 
       <div id="tournament-workspace" className="scroll-mt-3">
         <TournamentDetailViewBase key={revision} tournamentId={tournamentId} onBack={onBack} />

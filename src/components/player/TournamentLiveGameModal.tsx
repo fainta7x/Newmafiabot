@@ -13,6 +13,7 @@ import {
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
+  renumberVotingRoundsSequentially,
   updateLiveProtocolEvidence,
   type LiveProtocolEvidence,
 } from '../../lib/liveClubSession.ts';
@@ -114,7 +115,7 @@ export const mapEngineResult = (
     best_move_seats: bestMoves[0]?.seat_numbers || [],
     // The voting rounds and nights recorded while the game was played — without them the protocol asks to
     // enter the votes again (owner, 2026-10-03).
-    votes: Array.isArray(gameData?.votes) && gameData.votes.length ? gameData.votes : (previousProtocol.votes || []),
+    votes: Array.isArray(gameData?.votes) && gameData.votes.length ? renumberVotingRoundsSequentially(gameData.votes) : (previousProtocol.votes || []),
     shots: Array.isArray(gameData?.shots) && gameData.shots.length ? gameData.shots : (previousProtocol.shots || []),
     judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Проверьте журнал голосований/ночей перед финальным подтверждением.'].filter(Boolean).join('\n') || null,
   };

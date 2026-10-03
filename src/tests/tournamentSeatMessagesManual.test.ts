@@ -31,17 +31,32 @@ describe('organizer sends the seats by hand', () => {
     const { db, app, cookie } = await setup();
     const first = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
     expect(first.status, JSON.stringify(first.body)).toBe(200);
-    expect(first.body).toMatchObject({ game_number: 1, queued: 10, players: 10 });
-    expect((await messages(db)).find((row) => row.player_id === 'p1')?.text).toContain('Игра №1: ты сидишь на месте №1');
+    expect(first.body).toMatchObject({ game_number: 1, players: 10, new_sent: 10, reached: 0, unreachable: 10 });
+    expect((await messages(db)).find((row) => row.player_id === 'p1')?.text).toContain('игра №1 из 2 — ты сидишь на месте №1');
 
     const again = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
-    expect(again.body).toMatchObject({ game_number: 1, queued: 0 });
+    expect(again.body).toMatchObject({ game_number: 1, new_sent: 0 });
     expect(await messages(db)).toHaveLength(10);
 
     await db.run("UPDATE tournament_games SET status = 'completed' WHERE id = 'g1'");
     const next = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
-    expect(next.body).toMatchObject({ game_number: 2, queued: 10 });
+    expect(next.body).toMatchObject({ game_number: 2, new_sent: 10 });
     expect((await messages(db)).find((row) => row.player_id === 'p1' && row.text.includes('игра №2'))?.text).toContain('месте №4');
+  });
+
+  it('reports who can actually be reached, and works while the game is already open', async () => {
+    const { db, app, cookie } = await setup();
+    // Four players have Telegram, one of them switched personal messages off.
+    for (const id of ['p1', 'p2', 'p3', 'p4']) await db.run('UPDATE players SET telegram_user_id = ? WHERE id = ?', [`10${id.slice(1)}`, id]);
+    await ensurePersonalNotificationRoutingSchema(db);
+    await db.run("INSERT INTO player_notification_preferences (player_id, preferred_channel, personal_enabled, updated_at) VALUES ('p4','auto',0,?)", [new Date().toISOString()]);
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = 'g1'");
+
+    const sent = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    expect(sent.body).toMatchObject({ game_number: 1, players: 10, new_sent: 10, reached: 3, unreachable: 7 });
+    const again = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
+    expect(again.body).toMatchObject({ new_sent: 0, reached: 3, unreachable: 7 });
   });
 
   it('is organizer-only and says so when nothing is left to play or the tournament is unknown', async () => {

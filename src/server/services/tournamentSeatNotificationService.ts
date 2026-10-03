@@ -18,7 +18,18 @@ const timeLabel = (value: unknown) => {
     : '';
 };
 
-export async function queueTournamentGameSeatMessages(db: DatabaseWrapper, gameId: string, kind: 'first' | 'next') {
+export type SeatMessageKind = 'first' | 'next' | 'manual';
+export type SeatMessageReport = {
+  created: number;
+  /** Players whose message has a delivery route (a linked Telegram/VK and personal messages on), new or sent before. */
+  reached: number;
+  /** Players without a route: no linked Telegram/VK, or personal messages switched off. */
+  unreachable: number;
+};
+
+const isRouted = (delivery: any) => !['unroutable', 'disabled'].includes(String(delivery?.status || ''));
+
+export async function reportTournamentGameSeatMessages(db: DatabaseWrapper, gameId: string, kind: SeatMessageKind): Promise<SeatMessageReport> {
   const game = await db.get<any>(`
     SELECT g.id, g.tournament_id, g.game_number, g.status, t.title, t.date,
            (SELECT COUNT(*) FROM tournament_games o WHERE o.tournament_id = g.tournament_id) AS total
@@ -26,18 +37,20 @@ export async function queueTournamentGameSeatMessages(db: DatabaseWrapper, gameI
      WHERE g.id = ? LIMIT 1
   `, [gameId]);
   // The next game may already have been opened by the judge before the worker's scan ran; a finished game never gets one.
-  if (!game || game.status === 'completed' || (kind === 'first' && game.status !== 'planned')) return 0;
+  if (!game || game.status === 'completed' || (kind === 'first' && game.status !== 'planned')) return { created: 0, reached: 0, unreachable: 0 };
   const seats = await db.all<any>(`
     SELECT tgs.seat_number, tp.player_id
       FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id = tgs.participant_id
      WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL ORDER BY tgs.seat_number
   `, [gameId]);
-  let queued = 0;
+  const report: SeatMessageReport = { created: 0, reached: 0, unreachable: 0 };
   for (const seat of seats) {
     const where = `ты сидишь на месте №${seat.seat_number}`;
     const text = kind === 'first'
       ? `🏆 «${game.title}» начинается${timeLabel(game.date) ? ` в ${timeLabel(game.date)}` : ''}. Игра №${game.game_number}: ${where}.`
-      : `🏆 «${game.title}»: следующая игра №${game.game_number}${game.total ? ` из ${game.total}` : ''} — ${where}.`;
+      : kind === 'manual'
+        ? `🏆 «${game.title}»: игра №${game.game_number}${game.total ? ` из ${game.total}` : ''} — ${where}.`
+        : `🏆 «${game.title}»: следующая игра №${game.game_number}${game.total ? ` из ${game.total}` : ''} — ${where}.`;
     const result = await queuePersonalNotification(db, {
       notificationKey: `tournament-seat:${gameId}:${seat.player_id}`,
       playerId: String(seat.player_id),
@@ -46,9 +59,15 @@ export async function queueTournamentGameSeatMessages(db: DatabaseWrapper, gameI
       text,
       actionPath: `/player/events/${game.tournament_id}`,
     });
-    if (result.created) queued += 1;
+    if (result.created) report.created += 1;
+    if (isRouted(result.delivery)) report.reached += 1; else report.unreachable += 1;
   }
-  return queued;
+  return report;
+}
+
+/** The count of new messages: what the scans use. */
+export async function queueTournamentGameSeatMessages(db: DatabaseWrapper, gameId: string, kind: 'first' | 'next') {
+  return (await reportTournamentGameSeatMessages(db, gameId, kind)).created;
 }
 
 /** Game 1 of tournaments that start within the next 30 minutes (and up to three hours after the nominal start). */
@@ -73,11 +92,14 @@ export async function sendNextTournamentGameSeatMessages(db: DatabaseWrapper, to
     "SELECT id, game_number FROM tournament_games WHERE tournament_id = ? AND status != 'completed' ORDER BY game_number ASC LIMIT 1",
     [tournamentId],
   );
-  if (!game) return { game_number: null as number | null, queued: 0, players: 0 };
-  const players = await db.get<any>(
-    'SELECT COUNT(*) AS c FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id = tgs.participant_id WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL',
-    [game.id],
-  );
-  const queued = await queueTournamentGameSeatMessages(db, String(game.id), Number(game.game_number) === 1 ? 'first' : 'next');
-  return { game_number: Number(game.game_number), queued, players: Number(players?.c || 0) };
+  if (!game) return { game_number: null as number | null, players: 0, new_sent: 0, reached: 0, unreachable: 0 };
+  // «manual» works for an opened game too (the first game may already be running).
+  const report = await reportTournamentGameSeatMessages(db, String(game.id), 'manual');
+  return {
+    game_number: Number(game.game_number),
+    players: report.reached + report.unreachable,
+    new_sent: report.created,
+    reached: report.reached,
+    unreachable: report.unreachable,
+  };
 }

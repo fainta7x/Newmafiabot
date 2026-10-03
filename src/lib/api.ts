@@ -984,7 +984,7 @@ export const api = {
       body: JSON.stringify({ image: imageBase64, file_name: fileName }),
     }),
   sendTournamentSeatMessages: (id: string) =>
-    request<{ success: boolean; game_number: number; queued: number; players: number }>(`/api/tournaments/${id}/seat-messages`, { method: 'POST' }),
+    request<{ success: boolean; game_number: number; players: number; new_sent: number; reached: number; unreachable: number }>(`/api/tournaments/${id}/seat-messages`, { method: 'POST' }),
   sendTournamentSeatingImage: (id: string, target: 'group' | 'me', imageBase64: string) =>
     request<{ success: boolean; target: 'group' | 'me' }>(`/api/tournaments/${id}/seating-image`, {
       method: 'POST',

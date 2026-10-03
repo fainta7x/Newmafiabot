@@ -309,12 +309,16 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     setFeedbackMsg(null);
     try {
       const result = await api.sendTournamentSeatMessages(tournamentId);
-      setFeedbackMsg({
-        type: 'success',
-        text: result.queued > 0
-          ? `Места игры №${result.game_number} отправлены в личные сообщения: ${result.queued} из ${result.players} игроков (у остальных нет привязанного Telegram/VK или личные сообщения выключены).`
-          : `Места игры №${result.game_number} уже были разосланы раньше.`,
-      });
+      const missing = result.unreachable > 0
+        ? ` У ${result.unreachable} из ${result.players} нет привязанного Telegram/VK или личные сообщения выключены, им не дойдёт.`
+        : '';
+      if (result.reached === 0) {
+        setFeedbackMsg({ type: 'error', text: `Места игры №${result.game_number} никому не дошли: ни у кого из игроков нет привязанного Telegram/VK или личные сообщения выключены.` });
+      } else if (result.new_sent === 0) {
+        setFeedbackMsg({ type: 'success', text: `Места игры №${result.game_number} уже были разосланы раньше (${result.reached} из ${result.players} игроков).${missing}` });
+      } else {
+        setFeedbackMsg({ type: 'success', text: `Места игры №${result.game_number} отправлены в личные сообщения: ${result.reached} из ${result.players} игроков.${missing}` });
+      }
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось разослать места' });
     } finally {
@@ -661,6 +665,16 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         {games.filter((g) => g.status === 'completed').length} из {countGames(games.length)} завершено
                       </span>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSendSeatMessages}
+                      disabled={actionLoading}
+                      className="bg-surface-3 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                    >
+                      <Send className="w-3.5 h-3.5 text-accent" />
+                      <span>Разослать места игрокам</span>
+                    </button>
 
                     <button
                       type="button"

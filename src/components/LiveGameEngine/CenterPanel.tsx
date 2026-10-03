@@ -10,6 +10,7 @@ import "../crm/liveGameHudReadability.css";
 import {
   BEST_MOVE_SECONDS,
   DEATH_PROTOCOL_SECONDS,
+  SPEECH_EXTENSION_SECONDS,
   buildTimerIdentity,
   createTimerDeadline,
   getRemainingTimerSeconds,
@@ -104,6 +105,11 @@ interface CenterPanelProps {
   bestMoveGuesses?: number[];
   getSeatColor?: (player: ActivePlayerState) => string;
   onOpenPlayerActions?: (slot: number) => void;
+  /** «+30 с за 2 фола» during a speech — also in the centre panel, because the judge toolbar is hidden by the engine CSS. */
+  speechExtensionAvailability?: { allowed: boolean; reason: string };
+  onSpeechExtension?: () => void;
+  /** The current speaker has already bought +30 s for two fouls: a revote speech then lasts 30 + 30 s, not 30. */
+  speechExtended?: boolean;
 }
 
 const normalizeJudgeCopy = (value: string): string => value
@@ -145,6 +151,9 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleInteractiveAutoRemainder,
     canUndoLastVote = false,
     handleUndoLastVote,
+    speechExtensionAvailability,
+    onSpeechExtension,
+    speechExtended = false,
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
@@ -189,9 +198,12 @@ export default function CenterPanel(props: CenterPanelProps) {
   const currentRound = votingRounds[activeVotingRoundIndex];
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
   const isDeathProtocolTimer = phase === 'night' && Boolean(customTimerLabel?.startsWith('Протокол убитого'));
+  const isRevoteSpeech = phase === 'day_voting' && votingStage === 'revote_speeches';
+  // A purchased extension (two fouls for +30 s) is the only way a revote speech may exceed its fixed 30 seconds.
+  const revoteExtensionSeconds = isRevoteSpeech && speechExtended ? SPEECH_EXTENSION_SECONDS : 0;
   const effectiveTimerMax = isDeathProtocolTimer
     ? DEATH_PROTOCOL_SECONDS
-    : resolveTimerDuration(phase, votingStage, timerMax);
+    : resolveTimerDuration(phase, votingStage, timerMax) + revoteExtensionSeconds;
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
   const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
@@ -203,10 +215,11 @@ export default function CenterPanel(props: CenterPanelProps) {
     : null;
 
   React.useEffect(() => {
-    if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > 30) {
-      setTimeLeft(30);
+    const revoteLimit = 30 + revoteExtensionSeconds;
+    if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > revoteLimit) {
+      setTimeLeft(revoteLimit);
     }
-  }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft]);
+  }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft, revoteExtensionSeconds]);
 
   React.useEffect(() => {
     if (tableDecisionKey) activateTableDecisionSelection(tableDecisionKey);
@@ -419,6 +432,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const renderTimer = () => {
     const timerLabel = normalizeJudgeCopy(customTimerLabel || (activeSpeakerSlot ? `Речь #${activeSpeakerSlot}` : 'Таймер'));
     const timerName = activeSpeaker?.nickname || (nightActionStatus ?? '');
+    const showSpeechExtension = Boolean(onSpeechExtension && speechExtensionAvailability?.allowed);
     return (
       <div className="live-judge-timer">
         <div className="live-judge-timer__label">{timerLabel}</div>
@@ -427,7 +441,7 @@ export default function CenterPanel(props: CenterPanelProps) {
         </div>
         <div className={`live-judge-timer__time ${timeLeft <= 10 ? 'live-judge-timer__time--danger' : ''}`}>{timeLeft}с</div>
         <div className="live-judge-timer__bar"><div style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} /></div>
-        <div className="live-judge-timer__buttons">
+        <div className={`live-judge-timer__buttons ${showSpeechExtension ? 'live-judge-timer__buttons--with-extension' : ''}`}>
           <button type="button" onClick={() => adjustTimer(-10)} className="live-judge-timer__button">−10</button>
           {isTimerRunning ? (
             <button type="button" onClick={() => setIsTimerRunning(false)} className="live-judge-timer__button live-judge-timer__button--pause"><Pause />Пауза</button>
@@ -440,6 +454,16 @@ export default function CenterPanel(props: CenterPanelProps) {
               {isMuted ? <VolumeX /> : <Volume2 />}
             </button>
           ) : <span />}
+          {showSpeechExtension ? (
+            <button
+              type="button"
+              data-testid="live-hud-speech-extension"
+              onClick={() => onSpeechExtension?.()}
+              className="live-judge-timer__button live-judge-timer__button--extension"
+              title="Добавить 30 секунд текущей речи ценой двух обычных фолов"
+              aria-label="Добавить 30 секунд к речи за два обычных фола"
+            >+30</button>
+          ) : null}
         </div>
       </div>
     );

@@ -262,6 +262,13 @@ export const EveningDeathProtocolBridge: React.FC = () => {
         return;
       }
 
+      // The engine's own button was not found: ask the engine to move on directly, then give it a moment.
+      if (attempt === 10) window.dispatchEvent(new CustomEvent('live-engine:advance-after-death-protocol'));
+      if (attempt < 25) {
+        window.setTimeout(() => tryAdvance(attempt + 1), 80);
+        return;
+      }
+
       setSubmitting(false);
       setError(session.winner
         ? 'Протокол сохранён, но не удалось запустить завершение игры. Нажмите ещё раз.'

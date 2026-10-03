@@ -133,6 +133,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     playBeep,
   } = useLiveGameClock();
   const [activeSpeakerSlot, setActiveSpeakerSlot] = useState<number | null>(null);
+  // The speaker who already bought +30 s for two fouls (needed so a revote speech may exceed its fixed 30 s).
+  const [speechExtendedSlot, setSpeechExtendedSlot] = useState<number | null>(null);
+  useEffect(() => {
+    setSpeechExtendedSlot((current) => (current === activeSpeakerSlot ? current : null));
+  }, [activeSpeakerSlot]);
   const [customTimerLabel, setCustomTimerLabel] = useState<string | null>(null);
   const [zeroNightSubPhase, setZeroNightSubPhase] = useState<"agreement" | "sheriff" | "seating" | null>(null);
   const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
@@ -665,6 +670,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     setDiscipline(next);
     syncDisciplinePlayer(next, activeSpeakerSlot);
+    setSpeechExtendedSlot(activeSpeakerSlot);
     setTimerMax((value) => value + 30);
     setTimeLeft((value) => value + 30);
     setIsTimerRunning(true);
@@ -1292,6 +1298,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return null;
   };
 
+  // The death-protocol overlay (a separate screen over the engine) confirms the protocol and then has to move the
+  // engine on. It normally presses the engine's own button; when it cannot find that button it asks the engine
+  // directly, so a lone black player who shot himself can never leave the game stuck on the protocol screen.
+  const advanceAfterDeathProtocolRef = useRef<() => void>(() => undefined);
+  advanceAfterDeathProtocolRef.current = () => {
+    if (phase !== 'night' || postNightStage !== 'death_protocol') return;
+    const winnerAfterNight = determineLiveWinner(activePlayers);
+    if (winnerAfterNight) handleEndGameWithWinner(winnerAfterNight);
+    else finishNightToDay();
+  };
+  useEffect(() => {
+    const handler = () => advanceAfterDeathProtocolRef.current();
+    window.addEventListener('live-engine:advance-after-death-protocol', handler);
+    return () => window.removeEventListener('live-engine:advance-after-death-protocol', handler);
+  }, []);
+
   const getPrevStepAction = () => {
     if (!historyStack.length) return null;
     return { label: 'Назад', onClick: handleUndoAction };
@@ -1457,6 +1479,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   function centerPanelProps() {
     return {
+      speechExtensionAvailability: getCurrentSpeechExtensionAvailability(),
+      onSpeechExtension: handleExchangeFoulsForSpeech,
+      speechExtended: speechExtendedSlot !== null && speechExtendedSlot === activeSpeakerSlot,
       phase,
       roundNumber,
       nominations: currentVotingNominees(),

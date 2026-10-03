@@ -135,7 +135,7 @@ export default function TournamentLiveGameModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rolesHidden, setRolesHidden] = useState(false);
+  const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
 

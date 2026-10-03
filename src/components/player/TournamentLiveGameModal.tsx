@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
@@ -10,6 +10,11 @@ import {
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
+import {
+  LEGACY_LIVE_SESSION_KEY,
+  updateLiveProtocolEvidence,
+  type LiveProtocolEvidence,
+} from '../../lib/liveClubSession.ts';
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
@@ -55,7 +60,7 @@ const buildLegacyPlayers = (results: PlayerResultData[], judgeName: string | nul
   return players;
 };
 
-const mapEngineResult = (
+export const mapEngineResult = (
   previousProtocol: TournamentGameProtocolData,
   previousResults: PlayerResultData[],
   gameData: any,
@@ -106,6 +111,10 @@ const mapEngineResult = (
     best_move_participant_id: bestMoves[0]?.participant_id || null,
     best_move_source: bestMoves[0]?.source || null,
     best_move_seats: bestMoves[0]?.seat_numbers || [],
+    // The voting rounds and nights recorded while the game was played — without them the protocol asks to
+    // enter the votes again (owner, 2026-10-03).
+    votes: Array.isArray(gameData?.votes) && gameData.votes.length ? gameData.votes : (previousProtocol.votes || []),
+    shots: Array.isArray(gameData?.shots) && gameData.shots.length ? gameData.shots : (previousProtocol.shots || []),
     judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Проверьте журнал голосований/ночей перед финальным подтверждением.'].filter(Boolean).join('\n') || null,
   };
 
@@ -138,6 +147,33 @@ export default function TournamentLiveGameModal({
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
+  const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
+  const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
+
+  // Records the votes and shots of the running game, exactly as the club evening does: the engine drops its
+  // session when the game ends, so the evidence has to be collected while it is being played.
+  useEffect(() => {
+    if (!payload || reviewMode) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(evidenceKey) || 'null');
+      if (stored && Array.isArray(stored.votes) && Array.isArray(stored.shots)) evidenceRef.current = stored;
+    } catch {}
+    let previous: any = null;
+    const record = () => {
+      try {
+        const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
+        if (!raw) return;
+        const snapshot = JSON.parse(raw);
+        if (!snapshot) return;
+        evidenceRef.current = updateLiveProtocolEvidence(evidenceRef.current, snapshot, previous);
+        previous = snapshot;
+        localStorage.setItem(evidenceKey, JSON.stringify(evidenceRef.current));
+      } catch {}
+    };
+    record();
+    const interval = window.setInterval(record, 75);
+    return () => window.clearInterval(interval);
+  }, [payload, reviewMode, evidenceKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -338,7 +374,11 @@ export default function TournamentLiveGameModal({
               setSaving(true);
               setError(null);
               try {
-                const next = mapEngineResult(payload.protocol, payload.player_results, gameData);
+                const next = mapEngineResult(payload.protocol, payload.player_results, {
+                  ...gameData,
+                  votes: evidenceRef.current.votes,
+                  shots: evidenceRef.current.shots,
+                });
                 const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
                   method: 'PUT',
                   credentials: 'include',
@@ -347,6 +387,7 @@ export default function TournamentLiveGameModal({
                 });
                 const body = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
+                try { localStorage.removeItem(evidenceKey); } catch {}
                 setReviewMode(true);
               } catch (saveError: any) {
                 setError(saveError?.message || 'Не удалось сохранить результат игры');

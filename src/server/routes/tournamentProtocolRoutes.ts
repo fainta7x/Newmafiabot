@@ -381,6 +381,20 @@ function validateShots(shots: any): string | null {
   return null;
 }
 
+/**
+ * The protocol payload from the browser carries results by participant, without the seat number, while the
+ * vote checks compare seats. Without this every voted-out player made completion fail with «Игрок #undefined…»
+ * (owner, 2026-10-03, tournament game 2). The seat comes from the game's own seating.
+ */
+function withSeatNumbers(playerResults: any[], seats: any[]): any[] {
+  const seatByParticipant = new Map<string, number>(seats.map((seat: any) => [String(seat.participant_id), Number(seat.seat_number)]));
+  return playerResults.map((result: any) => ({
+    ...result,
+    // The game's own seating wins over whatever the browser sent; a seat number is only a fallback for an unknown participant.
+    seat_number: seatByParticipant.get(String(result?.participant_id)) ?? result?.seat_number,
+  }));
+}
+
 function validateVotes(
   votes: any,
   isComplete: boolean = false,
@@ -929,7 +943,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes, false, player_results, protocol?.zero_round_voted_participant_id);
+    const votesErr = validateVotes(protocol?.votes, false, withSeatNumbers(player_results, seats), protocol?.zero_round_voted_participant_id);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }
@@ -1235,7 +1249,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes, true, player_results, protocol?.zero_round_voted_participant_id);
+    const votesErr = validateVotes(protocol?.votes, true, withSeatNumbers(player_results, seats), protocol?.zero_round_voted_participant_id);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }

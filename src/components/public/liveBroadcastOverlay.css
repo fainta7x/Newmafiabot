@@ -673,6 +673,11 @@ body.live-broadcast-document #root {
 .live-broadcast-tl-block.is-days .live-broadcast-tl-tag { color: var(--gold); }
 .live-broadcast-tl-block.is-days .live-broadcast-tl-head svg { color: var(--gold); }
 .live-broadcast-tl-cell.is-hands { gap: calc(4 * var(--u)); flex-wrap: wrap; }
+/* A day row grows with the voters («Руками»): with many hands the chips wrap into two or three lines instead of
+   being cut off by the fixed row height (owner, 2026-10-03). */
+.live-broadcast-tl.is-day { height: auto; min-height: calc(40 * var(--u)); padding-block: calc(5 * var(--u)); }
+.live-broadcast-tl.is-day .live-broadcast-tl-tag { align-self: center; }
+.live-broadcast-tl-cell.is-hands .live-broadcast-seat-chip { min-width: calc(24 * var(--u)); height: calc(24 * var(--u)); font-size: calc(14 * var(--u)); }
 .live-broadcast-tl-cell.is-wide { grid-column: 2 / -1; }
 
 .live-broadcast-tl-head,

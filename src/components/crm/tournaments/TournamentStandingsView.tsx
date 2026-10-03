@@ -676,6 +676,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     <th className="py-3 px-3 text-center w-12">Место</th>
                     <th className="py-3 px-3">Игрок</th>
                     <th className="py-3 px-2 text-center text-accent">Σ</th>
+                    <th className="py-3 px-2 text-center text-emerald-400" title="Победы: 1 балл за каждую. Σ = П + Σдб + Ci">П</th>
                     <th className="py-3 px-2 text-center">Σдб</th>
                     <th className="py-3 px-2 text-center text-emerald-400" title="Доп. балл судьи">+</th>
                     <th className="py-3 px-2 text-center text-emerald-400/80" title="Доп. балл за протокол">+Пр</th>
@@ -684,7 +685,6 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     <th className="py-3 px-2 text-center text-rose-400/90" title="Дисциплинарный штраф">−Д</th>
                     <th className="py-3 px-2 text-center text-amber-400">ЛХ</th>
                     <th className="py-3 px-2 text-center text-cyan-400">Ci</th>
-                    <th className="py-3 px-2 text-center text-emerald-400">П</th>
                     <th className="py-3 px-2 text-center text-purple-400">Д</th>
                     <th className="py-3 px-2 text-center text-amber-400">Ш</th>
                     <th className="py-3 px-2 text-center text-rose-400">У</th>
@@ -737,6 +737,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             {item.total_points}
                           </td>
 
+                          {/* П (wins) */}
+                          <td className="py-3 px-2 text-center font-bold text-emerald-400">
+                            {item.wins}
+                          </td>
+
                           {/* Σдб (additional_total) */}
                           <td className="py-3 px-2 text-center font-bold text-text-primary">
                             {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
@@ -777,10 +782,6 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
                           </td>
 
-                          {/* П (wins) */}
-                          <td className="py-3 px-2 text-center font-bold text-emerald-400">
-                            {item.wins}
-                          </td>
 
                           {/* Д (don_wins) */}
                           <td className="py-3 px-2 text-center font-bold text-purple-400">

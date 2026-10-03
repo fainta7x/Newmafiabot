@@ -92,7 +92,7 @@ const loadCanonicalTournamentBroadcastGame = async (
 ): Promise<CanonicalBroadcastGame | null> => {
   const db = req.db || (await getDb());
   const game = await db.get<any>(`
-    SELECT id, game_number, total_players
+    SELECT id, game_number
       FROM tournament_games
      WHERE id = ? AND tournament_id = ?
      LIMIT 1
@@ -102,19 +102,19 @@ const loadCanonicalTournamentBroadcastGame = async (
   const rows = await db.all<any>(`
     SELECT tgs.seat_number,
            tp.player_id,
-           tp.tournament_nickname,
+           tp.display_name,
            p.nickname AS club_nickname
       FROM tournament_game_seats tgs
-      JOIN tournament_players tp ON tp.id = tgs.tournament_player_id
+      JOIN tournament_participants tp ON tp.id = tgs.participant_id
  LEFT JOIN players p ON p.id = tp.player_id
-     WHERE tgs.tournament_game_id = ?
+     WHERE tgs.game_id = ?
      ORDER BY tgs.seat_number ASC
   `, [gameId]);
 
   const players = rows.map((player: any) => ({
     seat: Number(player.seat_number),
     playerId: player.player_id ? String(player.player_id) : null,
-    nickname: String(player.tournament_nickname || player.club_nickname || `Игрок ${player.seat_number}`),
+    nickname: String(player.display_name || player.club_nickname || `Игрок ${player.seat_number}`),
   }));
 
   if (!isSupportedTableSize(players.length)) return null;

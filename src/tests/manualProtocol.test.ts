@@ -664,9 +664,9 @@ describe('Manual Mobile Protocol Test Suite', () => {
           exit_type: s.participant_id === aliveSeat.participant_id ? 'voted_day' : 'alive',
         })),
       });
-    // The participant at seat 5 is marked voted out, but the confirmed round eliminated seat 3.
+    // The participant at seat 5 is marked voted out, but the confirmed round eliminated seat 3 (a participant who stays «alive»).
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Игрок #5 имеет статус ухода "Заголосован"');
+    expect(res.body.error).toContain('Игрок #3 заголосован днём');
   });
 
   it('20b. Still rejects a voted-out status that no confirmed round backs, naming the real seat', async () => {

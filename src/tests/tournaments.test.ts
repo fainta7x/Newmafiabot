@@ -286,7 +286,7 @@ describe('Tournament Module API Tests', () => {
   });
 
   // 8. After game start: roles and judge modifications are blocked
-  it('8. Roles and judge changes are blocked after game launch', async () => {
+  it('8. Judge changes are blocked after game launch; roles stay correctable', async () => {
     const validParticipants = playerIds.map((id) => ({ player_id: id }));
     const createRes = await request(app)
       .post('/api/tournaments')
@@ -326,12 +326,12 @@ describe('Tournament Module API Tests', () => {
       .post(`/api/tournaments/${tournamentId}/games/${game1Id}/start`)
       .set('Cookie', organizerCookie);
 
-    // Try modifying roles -> Fails
+    // Roles of a running game can be corrected (owner, 2026-10-03) until its protocol is completed
     const roleChange = await request(app)
       .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
       .set('Cookie', organizerCookie)
       .send({ roles: validRoles });
-    expect(roleChange.status).toBe(400);
+    expect(roleChange.status).toBe(200);
 
     // Try modifying judge -> Fails
     const judgeChange = await request(app)

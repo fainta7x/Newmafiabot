@@ -692,7 +692,8 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
 async function checkGameEditingPermission(
   db: DatabaseWrapper,
   tournament: any,
-  game: any
+  game: any,
+  purpose: 'roles' | 'other' = 'other'
 ): Promise<{ allowed: boolean; error?: string }> {
   if (tournament.status === 'completed') {
     return { allowed: false, error: 'Турнир завершён. Изменение параметров игры запрещено' };
@@ -700,6 +701,16 @@ async function checkGameEditingPermission(
 
   if (game.status === 'completed') {
     return { allowed: false, error: 'Сначала откройте протокол игры для правки' };
+  }
+
+  // A wrong role after the deal (owner, 2026-10-03): the roles of a game that is already running can be
+  // corrected until its protocol is completed (the judge and the seating stay locked).
+  if (purpose === 'roles' && game.status === 'active' && tournament.status === 'active') {
+    const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
+    if (protocol?.status === 'completed') {
+      return { allowed: false, error: 'Протокол игры завершён. Сначала откройте его для правки' };
+    }
+    return { allowed: true };
   }
 
   if (game.status === 'planned') {
@@ -751,7 +762,7 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    const check = await checkGameEditingPermission(db, tournament, game);
+    const check = await checkGameEditingPermission(db, tournament, game, 'roles');
     if (!check.allowed) {
       return res.status(400).json({ error: check.error || 'Изменение ролей запрещено' });
     }

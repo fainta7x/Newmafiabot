@@ -26,6 +26,7 @@ import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
+import { ActiveGameRolesModal } from './ActiveGameRolesModal.tsx';
 import TournamentLiveGameModal from '../../player/TournamentLiveGameModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
 import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
@@ -92,6 +93,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Protocol blank import modal state
   const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
   const [liveGameId, setLiveGameId] = useState<string | null>(null);
+  const [rolesFixGameId, setRolesFixGameId] = useState<string | null>(null);
   const [selectedImportGameId, setSelectedImportGameId] = useState<string | undefined>(undefined);
 
   // Manual Mobile Protocol modal state
@@ -1059,6 +1061,19 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   </button>
                 )}
 
+                {/* A wrong click while dealing the roles: fixable in a running game until its protocol is completed */}
+                {tournament.status === 'active' && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
+                  <button
+                    type="button"
+                    data-testid="fix-active-game-roles-button"
+                    onClick={() => setRolesFixGameId(String(currentGame.id))}
+                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                  >
+                    <Users className="w-3.5 h-3.5 text-accent" />
+                    <span>Исправить роли</span>
+                  </button>
+                )}
+
                 {/* Swap seats / Correct players on seats allowed in draft/planned or active game in correction mode with draft protocol */}
                 {canSwapSeatsCurrentGame && currentGame.status !== 'planned' && (
                   <button
@@ -1389,6 +1404,24 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             judgeName={liveGame.judge_name || tournament.chief_judge_name}
             onClose={() => setLiveGameId(null)}
             onCompleted={() => { setLiveGameId(null); loadDetail(); }}
+          />
+        ) : null;
+      })()}
+
+      {rolesFixGameId && (() => {
+        const fixGame = (tournament.games || []).find((game) => String(game.id) === rolesFixGameId);
+        return fixGame && fixGame.status === 'active' ? (
+          <ActiveGameRolesModal
+            tournamentId={tournamentId}
+            gameId={rolesFixGameId}
+            gameNumber={fixGame.game_number}
+            seats={fixGame.seats || []}
+            onClose={() => setRolesFixGameId(null)}
+            onSaved={() => {
+              setRolesFixGameId(null);
+              setFeedbackMsg({ type: 'success', text: `Роли игры №${fixGame.game_number} исправлены. Если игра открыта в движке, откройте её заново.` });
+              loadDetail();
+            }}
           />
         ) : null;
       })()}

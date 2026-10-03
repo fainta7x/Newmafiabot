@@ -383,4 +383,52 @@ describe('Tournament Role Assignment Limits & Protection Regression Tests', () =
       expect(validateRoleAssignmentChange(validSeats, 10, 'mafia').allowed).toBe(false);
     });
   });
+  describe('Role correction in a running game (owner, 2026-10-03)', () => {
+    const roleAt = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+    const startGame = async () => {
+      for (let i = 0; i < 10; i++) {
+        await db.run('UPDATE tournament_game_seats SET role = ? WHERE game_id = ? AND seat_number = ?', [roleAt[i], gameId, i + 1]);
+      }
+      await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+      const res = await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+    };
+
+    it('lets the organizer swap two roles after the game has started', async () => {
+      await startGame();
+      const res = await request(app)
+        .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+        .set('Cookie', organizerCookie)
+        .send({ roles: [{ seat_number: 1, role: 'sheriff' }, { seat_number: 7, role: 'citizen' }] });
+      expect(res.status).toBe(200);
+      const rows = await db.all<any>('SELECT seat_number, role FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number', [gameId]);
+      expect(rows[0].role).toBe('sheriff');
+      expect(rows[6].role).toBe('citizen');
+    });
+
+    it('still rejects a wrong composition in a running game', async () => {
+      await startGame();
+      const res = await request(app)
+        .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+        .set('Cookie', organizerCookie)
+        .send({ roles: [{ seat_number: 1, role: 'sheriff' }] });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects role edits once the protocol is completed', async () => {
+      await startGame();
+      await db.run(
+        "INSERT INTO tournament_game_protocols (id, game_id, status, created_at, updated_at) VALUES ('proto-r', ?, 'completed', ?, ?) ON CONFLICT(game_id) DO UPDATE SET status = 'completed'",
+        [gameId, new Date().toISOString(), new Date().toISOString()]
+      ).catch(async () => {
+        await db.run("UPDATE tournament_game_protocols SET status = 'completed' WHERE game_id = ?", [gameId]);
+      });
+      const res = await request(app)
+        .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+        .set('Cookie', organizerCookie)
+        .send({ roles: [{ seat_number: 1, role: 'sheriff' }, { seat_number: 7, role: 'citizen' }] });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Протокол игры завершён');
+    });
+  });
 });

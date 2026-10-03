@@ -219,6 +219,8 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper, options: { isolat
   addColumnIfNotExists('tournaments', 'results_published_at', 'TEXT');
   addColumnIfNotExists('tournament_game_protocols', 'end_reason', "TEXT NOT NULL DEFAULT 'normal'");
   addColumnIfNotExists('tournament_game_protocols', 'ppk_culprit_participant_id', 'TEXT');
+  // Chronology of the live game (additive; see shared/liveGameEvents.ts).
+  addColumnIfNotExists('tournament_game_protocols', 'events_json', "TEXT NOT NULL DEFAULT '[]'");
   addColumnIfNotExists('tournament_game_player_results', 'minor_technical_fouls', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'major_technical_fouls', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'disciplinary_penalty_points', 'REAL NOT NULL DEFAULT 0');

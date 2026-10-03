@@ -49,4 +49,46 @@ describe('saving a finished live tournament game with votes from several days', 
     expect(saved.status).toBe(200);
     expect((saved.body.protocol.votes as any[]).map((round) => round.round_number)).toEqual([1, 2, 3]);
   });
+
+  it('stores the chronology of the game with the protocol and keeps it when the protocol is edited by hand', async () => {
+    const loaded = await request(app).get(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`).set('Cookie', cookie);
+    const events = [
+      { seq: 1, at: '2026-10-03T12:00:00.000Z', round: 1, phase: 'zero_night', kind: 'game_start', value: 'zero_night' },
+      { seq: 2, at: '2026-10-03T12:05:00.000Z', round: 2, phase: 'day_speeches', kind: 'nomination', seat: 4, by: 1 },
+      { seq: 3, at: '2026-10-03T12:09:00.000Z', round: 2, phase: 'day_voting', kind: 'vote', seat: 2, target: 4, value: 1 },
+      { seq: 4, at: '2026-10-03T12:20:00.000Z', round: 2, phase: 'night', kind: 'shot_target', target: 6 },
+    ];
+    const first = mapEngineResult(loaded.body.protocol, loaded.body.player_results, { winning_team: 'Красные', slots: [], votes: [], shots: [], events });
+    const saved = await request(app).put(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`).set('Cookie', cookie).send(first);
+    expect(saved.status).toBe(200);
+    expect(saved.body.protocol.events).toHaveLength(4);
+
+    // The manual protocol screen sends the protocol it loaded; here without `events` at all.
+    const manual = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`)
+      .set('Cookie', cookie)
+      .send({ protocol: { winner_team: 'red', judge_notes: 'правка вручную' }, player_results: saved.body.player_results });
+    expect(manual.status).toBe(200);
+    expect(manual.body.protocol.events).toHaveLength(4);
+
+    const reread = await request(app).get(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`).set('Cookie', cookie);
+    expect(reread.body.protocol.events.map((event: any) => event.kind)).toEqual(['game_start', 'nomination', 'vote', 'shot_target']);
+    expect(reread.body.protocol.events[1]).toMatchObject({ seat: 4, by: 1 });
+  });
+
+  it('accepts a colour protocol of a killed player that the judge filled in during the game', async () => {
+    const loaded = await request(app).get(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`).set('Cookie', cookie);
+    const results = (loaded.body.player_results as any[]).map((player) => player.seat_number === 3
+      ? { ...player, exit_type: 'killed', color_protocol: [{ mark: 'red', seat_numbers: [1, 2] }, { mark: 'black', seat_numbers: [8] }, { mark: 'sheriff', seat_numbers: [7] }] }
+      : player);
+    const saved = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`)
+      .set('Cookie', cookie)
+      .send({ protocol: { ...loaded.body.protocol, winner_team: 'red', first_killed_participant_id: results.find((player) => player.seat_number === 3).participant_id, votes: [], shots: [] }, player_results: results });
+    if (saved.body.error) console.log('SERVER ERROR:', saved.body.error);
+    expect(saved.status).toBe(200);
+    const killed = (saved.body.player_results as any[]).find((player) => player.seat_number === 3);
+    expect(killed.color_protocol).toHaveLength(3);
+  });
 });
+

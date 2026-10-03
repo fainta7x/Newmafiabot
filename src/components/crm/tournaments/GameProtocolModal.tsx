@@ -29,6 +29,7 @@ import {
 } from '../../../shared/tournamentVoting';
 import { ProtocolVotingTab } from './protocol/ProtocolVotingTab';
 import { ProtocolNightsTab } from './protocol/ProtocolNightsTab';
+import { GameEventLog } from './protocol/GameEventLog.tsx';
 import { ProtocolSummaryTab } from './protocol/ProtocolSummaryTab';
 import { PlayerColorProtocolEditor } from './protocol/PlayerColorProtocolEditor';
 import { PointStepper, roundTenths } from './protocol/PointStepper';
@@ -1724,6 +1725,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   onJudgeNotesChange={handleJudgeNotesChange}
                 />
               )}
+              {activeTab === 'summary' && <GameEventLog events={protocol.events} playerResults={playerResults} />}
             </>
           )}
         </div>

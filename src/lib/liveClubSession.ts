@@ -1,5 +1,7 @@
 import { determineVotingResult, type VotingRound } from '../shared/tournamentVoting';
 import type { ShotEntry } from './api';
+import type { LiveGameEvent } from '../shared/liveGameEvents';
+import { appendLiveGameEvents, deriveLiveGameEvents, type LiveEventSnapshot } from './liveGameEventLog';
 
 export const LEGACY_LIVE_SESSION_KEY = 'mafia_live_session';
 export const LEGACY_DEATH_PROTOCOL_KEY = 'mafia_live_death_protocols';
@@ -22,6 +24,8 @@ export const getActiveClubLiveGameId = (): number | null => activeClubLiveGameId
 export type LiveProtocolEvidence = {
   votes: VotingRound[];
   shots: ShotEntry[];
+  /** Chronology of the game (owner, 2026-10-03). Optional: evidence saved by an older build has none. */
+  events?: LiveGameEvent[];
 };
 
 type LiveSessionSnapshot = {
@@ -155,8 +159,33 @@ export const updateLiveProtocolEvidence = (
   if (nightResolutionHappened(previous, current) && previous) {
     shots = mergeShots(shots, shotFromResolvedNight(previous));
   }
-  return { votes, shots };
+  const existingEvents = evidence.events || [];
+  const nextSeq = (existingEvents.length ? existingEvents[existingEvents.length - 1].seq : 0) + 1;
+  const at = new Date().toISOString();
+  const derived = deriveLiveGameEvents(previous as LiveEventSnapshot | null, current as LiveEventSnapshot, nextSeq, at);
+  // A round decided in the same step that leaves the voting (no-elimination, a table decision, an auto result) never
+  // shows its outcome in a saved snapshot: take it from the finalized rounds of the last voting snapshot.
+  if (previous && shouldCommitPreviousVoting(previous, current)) {
+    for (const round of finalizeLiveVotingRounds(previous)) {
+      const before = (previous.votingRounds || []).find((item) => item.round_number === round.round_number);
+      if (round.outcome && round.outcome !== 'pending' && (!before || before.outcome === 'pending')) {
+        derived.push({
+          seq: nextSeq + derived.length, at, round: Number(previous.roundNumber || 0), phase: 'day_voting',
+          kind: 'vote_round_result', value: `${round.round_number}:${round.outcome}`,
+        });
+      }
+    }
+  }
+  let events = appendLiveGameEvents(existingEvents, derived);
+  if (!previous && !existingEvents.length) {
+    events = [{ seq: 1, at, round: Number(current.roundNumber || 0), phase: String(current.phase || ''), kind: 'game_start', value: String(current.phase || '') }];
+  }
+  return { votes, shots, events };
 };
+
+/** A cheap fingerprint of the evidence, so the (growing) log is written to storage only when it changed. */
+export const liveEvidenceSignature = (evidence: LiveProtocolEvidence): string =>
+  `${evidence.events?.length ?? 0}:${evidence.events?.[evidence.events.length - 1]?.seq ?? 0}|${JSON.stringify(evidence.votes)}|${JSON.stringify(evidence.shots)}`;
 
 const parseJson = <T>(raw: string | null, fallback: T): T => {
   if (!raw) return fallback;
@@ -171,6 +200,7 @@ export class ClubLiveSessionRecorder {
   readonly protocolNotesKey: string;
   private evidence: LiveProtocolEvidence = { votes: [], shots: [] };
   private previousSnapshot: LiveSessionSnapshot | null = null;
+  private lastEvidenceSignature = '';
   private intervalId: number | null = null;
   private mounted = false;
   private readonly flushOnPageHide = () => this.sync();
@@ -220,7 +250,11 @@ export class ClubLiveSessionRecorder {
     localStorage.setItem(this.sessionKey, raw);
     this.evidence = updateLiveProtocolEvidence(this.evidence, snapshot, this.previousSnapshot);
     this.previousSnapshot = snapshot;
-    localStorage.setItem(this.evidenceKey, JSON.stringify(this.evidence));
+    const signature = liveEvidenceSignature(this.evidence);
+    if (signature !== this.lastEvidenceSignature) {
+      this.lastEvidenceSignature = signature;
+      localStorage.setItem(this.evidenceKey, JSON.stringify(this.evidence));
+    }
   }
 
   getEvidence(): LiveProtocolEvidence {
@@ -228,6 +262,7 @@ export class ClubLiveSessionRecorder {
     return {
       votes: this.evidence.votes.map(cloneRound),
       shots: this.evidence.shots.map((shot) => ({ ...shot })),
+      events: (this.evidence.events || []).map((event) => ({ ...event })),
     };
   }
 

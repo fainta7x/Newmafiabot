@@ -1,0 +1,93 @@
+/*
+ * Commentators' window frame for OBS. Sized in --u (1/1920 of the source width), so it keeps its
+ * proportions at any Browser Source size. The inside stays fully transparent.
+ */
+html.broadcast-frame-document,
+body.broadcast-frame-document {
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+body.broadcast-frame-document #root { min-height: 100vh; background: transparent; }
+
+.broadcast-frame {
+  --u: calc(100vw / 1920);
+  --gold: #d7b875;
+  --gold-deep: #9c7230;
+  --wine: #971836;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.broadcast-frame-edge {
+  position: absolute;
+  inset: calc(var(--u) * 3);
+  border-radius: calc(var(--u) * 18);
+  border: calc(var(--u) * 8) solid transparent;
+  background: linear-gradient(135deg, #f4d38b, var(--gold-deep) 45%, #f0cd85 70%, #7d5a22) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  box-shadow: 0 0 calc(var(--u) * 26) rgba(0, 0, 0, .55), inset 0 0 calc(var(--u) * 40) rgba(0, 0, 0, .45);
+}
+
+.broadcast-frame-corner {
+  position: absolute;
+  width: calc(var(--u) * 70);
+  height: calc(var(--u) * 70);
+  border: solid var(--gold);
+  border-width: 0;
+  filter: drop-shadow(0 0 calc(var(--u) * 6) rgba(215, 184, 117, .55));
+}
+.broadcast-frame-corner.is-tl { top: calc(var(--u) * 14); left: calc(var(--u) * 14); border-top-width: calc(var(--u) * 7); border-left-width: calc(var(--u) * 7); border-top-left-radius: calc(var(--u) * 14); }
+.broadcast-frame-corner.is-tr { top: calc(var(--u) * 14); right: calc(var(--u) * 14); border-top-width: calc(var(--u) * 7); border-right-width: calc(var(--u) * 7); border-top-right-radius: calc(var(--u) * 14); }
+.broadcast-frame-corner.is-bl { bottom: calc(var(--u) * 14); left: calc(var(--u) * 14); border-bottom-width: calc(var(--u) * 7); border-left-width: calc(var(--u) * 7); border-bottom-left-radius: calc(var(--u) * 14); }
+.broadcast-frame-corner.is-br { bottom: calc(var(--u) * 14); right: calc(var(--u) * 14); border-bottom-width: calc(var(--u) * 7); border-right-width: calc(var(--u) * 7); border-bottom-right-radius: calc(var(--u) * 14); }
+
+.broadcast-frame-plate {
+  position: absolute;
+  left: calc(var(--u) * 54);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 14);
+  max-width: calc(100% - var(--u) * 108);
+  padding: calc(var(--u) * 10) calc(var(--u) * 26) calc(var(--u) * 10) calc(var(--u) * 18);
+  border: calc(var(--u) * 2) solid rgba(215, 184, 117, .85);
+  border-radius: calc(var(--u) * 14);
+  background: linear-gradient(180deg, rgba(34, 22, 26, .96), rgba(14, 10, 12, .96));
+  box-shadow: 0 calc(var(--u) * 6) calc(var(--u) * 18) rgba(0, 0, 0, .55);
+  color: #f6ead0;
+  white-space: nowrap;
+}
+.broadcast-frame-plate.is-bottom { bottom: calc(var(--u) * 22); }
+.broadcast-frame-plate.is-top { top: calc(var(--u) * 22); }
+
+.broadcast-frame-plate b {
+  font-size: calc(var(--u) * 30);
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.broadcast-frame-names {
+  font-size: calc(var(--u) * 26);
+  font-weight: 600;
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.broadcast-frame-names::before { content: "·"; margin-right: calc(var(--u) * 14); color: rgba(215, 184, 117, .6); }
+
+.broadcast-frame-live {
+  width: calc(var(--u) * 16);
+  height: calc(var(--u) * 16);
+  border-radius: 50%;
+  background: var(--wine);
+  box-shadow: 0 0 calc(var(--u) * 12) rgba(220, 38, 80, .85);
+  animation: broadcast-frame-pulse 2.4s ease-in-out infinite;
+}
+@keyframes broadcast-frame-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .broadcast-frame-live { animation: none; } }

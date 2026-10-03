@@ -13,7 +13,7 @@ import { setParticipantAttendance } from '../services/eveningParticipantState.ts
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
-import { replaceGuestWithRegisteredPlayer, setGuestAttendance } from '../services/guestPlayerService.ts';
+import { replaceGuestWithRegisteredPlayer, replaceSeatWithGuest, setGuestAttendance } from '../services/guestPlayerService.ts';
 
 const router = Router();
 
@@ -262,8 +262,8 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Игра не найдена' });
     if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 10) return res.status(400).json({ error: 'Укажите место от 1 до 10' });
     const replacementPlayerId = String(req.body?.replacement_player_id || '').trim();
-    if (!replacementPlayerId) return res.status(400).json({ error: 'Выберите зарегистрированного игрока' });
-    if (req.body?.guest) return res.status(400).json({ error: 'Создание гостя через исправление состава больше не поддерживается' });
+    const guestNickname = String(req.body?.guest?.nickname || '').trim();
+    if (!replacementPlayerId && !guestNickname) return res.status(400).json({ error: 'Выберите игрока или укажите имя гостя' });
     const db = req.db || (await getDb());
     const existing = await db.get<any>('SELECT * FROM games WHERE id=?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
@@ -271,7 +271,9 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     if (existing.archived_at) return res.status(409).json({ error: 'Сначала восстановите игру из архива' });
     const previous = safeJsonParse<any>(existing.protocol_text, null);
     const previousStatus: 'draft' | 'completed' = previous?.protocol?.status === 'completed' ? 'completed' : 'draft';
-    const replacement = await replaceGuestWithRegisteredPlayer(db, { gameId, seatNumber, replacementPlayerId });
+    const replacement = guestNickname && !replacementPlayerId
+      ? await replaceSeatWithGuest(db, { gameId, seatNumber, nickname: guestNickname })
+      : await replaceGuestWithRegisteredPlayer(db, { gameId, seatNumber, replacementPlayerId });
     if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed') {
       await db.transaction(async (tx) => reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'correction' }));
       // The player who left the seat gets their statistics recounted too.

@@ -2,6 +2,8 @@ export type ClubGameSeatIdentity = {
   participantId: string;
   playerId: string;
   nickname: string;
+  /** Set when the seat is handed to a guest without a profile: then `playerId` is empty. */
+  guestPlaceholderId?: string | null;
 };
 
 const replaceParticipantReference = (value: any, from: string, to: string): any => {
@@ -24,7 +26,7 @@ export function replaceClubGameSeatIdentity(
   }
   const current = envelope.player_results.find((item: any) => Number(item.seat_number) === seatNumber);
   if (!current) throw new Error(`Место #${seatNumber} не найдено в протоколе`);
-  if (envelope.player_results.some((item: any) => Number(item.seat_number) !== seatNumber && String(item.player_id) === replacement.playerId)) {
+  if (replacement.playerId && envelope.player_results.some((item: any) => Number(item.seat_number) !== seatNumber && String(item.player_id) === replacement.playerId)) {
     throw new Error('Этот игрок уже занимает другое место в игре');
   }
 
@@ -35,8 +37,8 @@ export function replaceClubGameSeatIdentity(
     ? {
         ...item,
         participant_id: replacement.participantId,
-        player_id: replacement.playerId,
-        guest_placeholder_id: null,
+        player_id: replacement.playerId || null,
+        guest_placeholder_id: replacement.guestPlaceholderId || null,
         display_name: replacement.nickname,
       }
     : item);
@@ -45,8 +47,8 @@ export function replaceClubGameSeatIdentity(
     ? {
         ...slot,
         participant_id: replacement.participantId,
-        player_id: replacement.playerId,
-        guest_placeholder_id: null,
+        player_id: replacement.playerId || null,
+        guest_placeholder_id: replacement.guestPlaceholderId || null,
         nickname: replacement.nickname,
       }
     : slot);

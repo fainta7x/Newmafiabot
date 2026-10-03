@@ -54,6 +54,15 @@ describe('tournament step screen', () => {
     expect(screen.getByText(/У 2 из 10 нет привязанного Telegram\/VK/)).toBeTruthy();
     cleanup();
 
+    // The page's game list can be stale: when the server says nothing is left to play, the block hides itself.
+    tournament.games = [{ id: 'g1', status: 'planned' }] as any;
+    sendSeatMessages.mockRejectedValueOnce(new Error('Нет игры, которую ещё нужно играть'));
+    render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
+    expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Разослать места игрокам/ }));
+    await waitFor(() => expect(screen.queryByTestId('tournament-seat-messages')).toBeNull());
+    cleanup();
+
     tournament.games = [{ id: 'g1', status: 'completed' }] as any;
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
     expect(await screen.findByText('УЧАСТНИКИ')).toBeTruthy();

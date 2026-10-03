@@ -11,8 +11,10 @@ import { api } from '../../../lib/api.ts';
 export const TournamentSeatMessagesCard: React.FC<{ tournamentId: string; status: string; games: Array<{ status?: string }> }> = ({ tournamentId, status, games }) => {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // The parent's game list is a snapshot: when the server says nothing is left to play, the block hides itself.
+  const [nothingLeft, setNothingLeft] = useState(false);
   const hasGameToPlay = games.some((game) => game.status !== 'completed');
-  if (!['draft', 'active', 'correction'].includes(status) || !games.length || !hasGameToPlay) return null;
+  if (nothingLeft || !['draft', 'active', 'correction'].includes(status) || !games.length || !hasGameToPlay) return null;
 
   const send = async () => {
     if (busy) return;
@@ -32,6 +34,10 @@ export const TournamentSeatMessagesCard: React.FC<{ tournamentId: string; status
         setNote({ type: 'success', text: `Места игры №${result.game_number} отправлены в личные сообщения: ${result.reached} из ${result.players} игроков.${missing}` });
       }
     } catch (err: any) {
+      if (/Нет игры, которую ещё нужно играть/.test(String(err?.message || ''))) {
+        setNothingLeft(true);
+        return;
+      }
       setNote({ type: 'error', text: err?.message || 'Не удалось разослать места' });
     } finally {
       setBusy(false);

@@ -4,6 +4,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
 import { decodeSeatingImage, sendSeatingImage } from '../server/services/tournamentSeatingShareService.ts';
+import { createSeatingImageLink, readSeatingImageLink, SEATING_LINK_TTL_MS } from '../server/services/seatingImageLinkService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
@@ -66,5 +67,38 @@ describe('seating picture sent by the bot', () => {
     expect(bad.status).toBe(400);
     const noImage = await request(app).post('/api/tournaments/t/seating-image').set('Cookie', cookie).send({ target: 'me' });
     expect(noImage.status).toBe(400);
+  });
+});
+
+describe('public link to the seating picture', () => {
+  it('gives an organizer a link, serves the PNG without login (download or inline), and 404s for a wrong token', async () => {
+    const { app } = await setup();
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+    const made = await request(app).post('/api/tournaments/t/seating-image/link').set('Cookie', cookie).send({ image: PNG.toString('base64'), file_name: 'Кубок: рассадка.png' });
+    expect(made.status, JSON.stringify(made.body)).toBe(200);
+    const path = new URL(made.body.url).pathname;
+    expect(path).toMatch(/^\/api\/public\/seating-image\/[0-9a-f]{36}\//);
+
+    const download = await request(app).get(path).buffer(true).parse((res, cb) => { const chunks: Buffer[] = []; res.on('data', (c) => chunks.push(c)); res.on('end', () => cb(null, Buffer.concat(chunks))); });
+    expect(download.status).toBe(200);
+    expect(download.headers['content-type']).toBe('image/png');
+    expect(download.headers['content-disposition']).toMatch(/^attachment;/);
+    expect(Buffer.compare(download.body as Buffer, PNG)).toBe(0);
+    expect((await request(app).get(`${path}?inline=1`)).headers['content-disposition']).toMatch(/^inline;/);
+
+    expect((await request(app).get('/api/public/seating-image/wrongtoken/x.png')).status).toBe(404);
+    expect((await request(app).post('/api/tournaments/t/seating-image/link').send({ image: PNG.toString('base64') })).status).toBeGreaterThanOrEqual(401);
+    expect((await request(app).post('/api/tournaments/nope/seating-image/link').set('Cookie', cookie).send({ image: PNG.toString('base64') })).status).toBe(404);
+    expect((await request(app).post('/api/tournaments/t/seating-image/link').set('Cookie', cookie).send({ image: 'AAAA' })).status).toBe(400);
+  });
+
+  it('expires after 24 hours and keeps only the latest links', () => {
+    const t0 = 1_000_000;
+    const token = createSeatingImageLink(PNG, 'a.png', t0);
+    expect(readSeatingImageLink(token, t0 + SEATING_LINK_TTL_MS - 1)?.fileName).toBe('a.png');
+    expect(readSeatingImageLink(token, t0 + SEATING_LINK_TTL_MS)).toBeNull();
+    const first = createSeatingImageLink(PNG, 'first.png', t0);
+    for (let i = 0; i < 40; i += 1) createSeatingImageLink(PNG, `n${i}.png`, t0);
+    expect(readSeatingImageLink(first, t0)).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, Share2, AlertCircle, RefreshCw, Image as ImageIcon, Send, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { X, Download, AlertCircle, RefreshCw, Image as ImageIcon, Send, CheckCircle2 } from 'lucide-react';
 import { api, Tournament } from '../../../lib/api.ts';
 import {
   buildSeatingMatrix,
@@ -24,15 +24,17 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
   const [pngUrl, setPngUrl] = useState<string | null>(null);
   const [pngBlob, setPngBlob] = useState<Blob | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [sendingTo, setSendingTo] = useState<'group' | 'me' | null>(null);
+  const [sendingTo, setSendingTo] = useState<'group' | null>(null);
+  const [sharingTo, setSharingTo] = useState<'vk' | 'telegram' | null>(null);
   const [sentMsg, setSentMsg] = useState<string | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const linkRef = useRef<string | null>(null);
 
   const clearImage = () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = null;
+    linkRef.current = null;
     setPngUrl(null);
     setPngBlob(null);
   };
@@ -91,7 +93,6 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
   if (!isOpen) return null;
 
   const fileName = getSafeFilename(tournament.title);
-  const canWebShare = typeof navigator !== 'undefined' && Boolean(navigator.share);
 
   const file = pngBlob && typeof File !== 'undefined'
     ? new File([pngBlob], fileName, { type: 'image/png' })
@@ -103,13 +104,59 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
     canShareFile = false;
   }
 
-  const handleDownload = async () => {
+  type TelegramWebApp = {
+    downloadFile?: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
+    openLink?: (url: string) => void;
+    openTelegramLink?: (url: string) => void;
+    isVersionAtLeast?: (version: string) => boolean;
+  };
+  const telegram = (): TelegramWebApp | null => (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp || null;
+
+  const toBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').replace(/^data:image\/png;base64,/, ''));
+    reader.onerror = () => reject(new Error('Не удалось подготовить картинку'));
+    reader.readAsDataURL(blob);
+  });
+
+  // A plain https link to the picture: Telegram's own downloader, an external browser and the VK/Telegram
+  // share forms all need one. Made once per picture.
+  const ensureLink = async (): Promise<string> => {
+    if (linkRef.current) return linkRef.current;
+    if (!pngBlob) throw new Error('Картинка ещё не готова');
+    const result = await api.createTournamentSeatingImageLink(tournament.id, await toBase64(pngBlob), fileName);
+    linkRef.current = result.url;
+    return result.url;
+  };
+
+  const openExternal = (url: string, telegramLink = false) => {
+    const tg = telegram();
+    if (telegramLink && tg?.openTelegramLink) tg.openTelegramLink(url);
+    else if (tg?.openLink) tg.openLink(url);
+    else window.open(url, '_blank', 'noopener');
+  };
+
+  const handleSave = async () => {
     if (!pngUrl || !file || downloading) return;
     setDownloading(true);
     setErrorMsg(null);
+    setSentMsg(null);
     try {
-      // iOS and Telegram WebView ignore the download attribute. Their native share
-      // sheet offers a reliable "Save image / Save to Files" action instead.
+      const tg = telegram();
+      if (tg?.downloadFile && tg.isVersionAtLeast?.('8.0')) {
+        // Telegram saves the file itself and asks for confirmation: the reliable way inside the app.
+        const url = await ensureLink();
+        tg.downloadFile({ url, file_name: fileName });
+        setSentMsg('Telegram предложит сохранить файл. Подтвердите, и картинка будет в загрузках телефона.');
+        return;
+      }
+      if (tg?.openLink) {
+        // An older Telegram: the system browser opens the link and saves the picture.
+        openExternal(await ensureLink());
+        setSentMsg('Открыли картинку в браузере телефона: она сохранится в загрузки или нажмите и удерживайте её → «Сохранить».');
+        return;
+      }
+      // iOS Safari and similar ignore the download attribute; the native share sheet has «Сохранить изображение».
       if (shouldUseNativeShareForDownload(navigator.userAgent, canShareFile) && navigator.share) {
         await navigator.share({ title: `Рассадка: ${tournament.title}`, files: [file] });
         return;
@@ -122,56 +169,47 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
       anchor.click();
       anchor.remove();
     } catch (err: any) {
-      if (err?.name !== 'AbortError') setErrorMsg(err?.message || 'Не удалось сохранить PNG');
+      if (err?.name !== 'AbortError') setErrorMsg(err?.message || 'Не удалось сохранить картинку');
     } finally {
       setDownloading(false);
     }
   };
 
-  // Inside the Telegram app the browser save/share menu is often missing, so the bot sends the picture:
-  // to the rating group, or to the organizer's own Telegram to save or forward anywhere (VK chat included).
-  const handleSend = async (target: 'group' | 'me') => {
-    if (!pngBlob || sendingTo) return;
-    if (target === 'group' && !window.confirm('Отправить рассадку в группу «Рейтинг» в Telegram?')) return;
-    setSendingTo(target);
+  // The standard VK / Telegram share forms: the person picks the chat there.
+  const handleShareTo = async (where: 'vk' | 'telegram') => {
+    if (!pngBlob || sharingTo) return;
+    setSharingTo(where);
     setErrorMsg(null);
     setSentMsg(null);
     try {
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Не удалось подготовить картинку'));
-        reader.readAsDataURL(pngBlob);
-      });
-      await api.sendTournamentSeatingImage(tournament.id, target, dataUrl.replace(/^data:image\/png;base64,/, ''));
-      setSentMsg(target === 'group' ? 'Рассадка отправлена в группу «Рейтинг».' : 'Рассадка отправлена вам в Telegram. Откройте чат с ботом: оттуда её можно сохранить или переслать, в том числе в VK.');
+      const shown = `${await ensureLink()}?inline=1`;
+      const title = `Рассадка турнира «${tournament.title}»`;
+      if (where === 'vk') {
+        openExternal(`https://vk.com/share.php?url=${encodeURIComponent(shown)}&title=${encodeURIComponent(title)}&image=${encodeURIComponent(shown)}&noparse=true`);
+      } else {
+        openExternal(`https://t.me/share/url?url=${encodeURIComponent(shown)}&text=${encodeURIComponent(title)}`, true);
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Не удалось открыть окно отправки');
+    } finally {
+      setSharingTo(null);
+    }
+  };
+
+  // The bot posts the picture to the rating group.
+  const handleSendToGroup = async () => {
+    if (!pngBlob || sendingTo) return;
+    if (!window.confirm('Отправить рассадку в группу «Рейтинг» в Telegram?')) return;
+    setSendingTo('group');
+    setErrorMsg(null);
+    setSentMsg(null);
+    try {
+      await api.sendTournamentSeatingImage(tournament.id, 'group', await toBase64(pngBlob));
+      setSentMsg('Рассадка отправлена в группу «Рейтинг».');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Не удалось отправить рассадку');
     } finally {
       setSendingTo(null);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!file || sharing) return;
-    setSharing(true);
-    try {
-      if (canShareFile) {
-        await navigator.share({
-          title: `Рассадка: ${tournament.title}`,
-          text: `Общая рассадка игроков для турнира "${tournament.title}"`,
-          files: [file],
-        });
-      } else if (navigator.share) {
-        await navigator.share({
-          title: `Рассадка: ${tournament.title}`,
-          url: window.location.href,
-        });
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') setErrorMsg(err?.message || 'Не удалось открыть меню отправки');
-    } finally {
-      setSharing(false);
     }
   };
 
@@ -223,7 +261,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
                 Имя файла: <span className="text-text-primary font-bold">{fileName}</span> (1080×1350 px)
               </p>
               <p className="text-[11px] text-text-muted text-center">
-                Если «Скачать» не сработало: нажмите на картинку и удерживайте, затем «Сохранить», или отправьте её через Telegram кнопками ниже.
+                Нажмите «Сохранить на телефон». «В VK» и «В Telegram» открывают обычное окно пересылки, где вы выбираете чат.
               </p>
               {sentMsg && (
                 <div className="w-full rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-xs text-success flex items-start gap-2">
@@ -252,45 +290,42 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
           </button>
 
           {!loading && pngUrl && (
-            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
               <button
                 type="button"
-                onClick={() => void handleSend('group')}
-                disabled={sendingTo !== null}
-                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
-              >
-                <Send className="w-4 h-4 text-accent" />
-                <span>{sendingTo === 'group' ? 'Отправляем…' : 'В группу Telegram'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSend('me')}
-                disabled={sendingTo !== null}
-                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
-              >
-                <MessageCircle className="w-4 h-4 text-accent" />
-                <span>{sendingTo === 'me' ? 'Отправляем…' : 'Мне в Telegram'}</span>
-              </button>
-              {canWebShare && (
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  disabled={sharing}
-                  className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 sm:w-auto"
-                >
-                  <Share2 className="w-4 h-4 text-accent" />
-                  <span>Поделиться</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void handleDownload()}
+                onClick={() => void handleSave()}
                 disabled={downloading}
-                className="min-h-[44px] w-full rounded-2xl bg-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-all hover:bg-accent-hover cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50 sm:w-auto"
+                className="col-span-2 min-h-[48px] w-full rounded-2xl bg-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-all hover:bg-accent-hover cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50 sm:order-last sm:w-auto"
               >
                 <Download className="w-4 h-4" />
-                <span>{downloading ? 'Открываем…' : 'Скачать PNG'}</span>
+                <span>{downloading ? 'Готовим…' : 'Сохранить на телефон'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShareTo('vk')}
+                disabled={sharingTo !== null}
+                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
+              >
+                <Send className="w-4 h-4 text-accent" />
+                <span>{sharingTo === 'vk' ? 'Открываем…' : 'В VK'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShareTo('telegram')}
+                disabled={sharingTo !== null}
+                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
+              >
+                <Send className="w-4 h-4 text-accent" />
+                <span>{sharingTo === 'telegram' ? 'Открываем…' : 'В Telegram'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendToGroup()}
+                disabled={sendingTo !== null}
+                className="col-span-2 min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
+              >
+                <Send className="w-4 h-4 text-accent" />
+                <span>{sendingTo === 'group' ? 'Отправляем…' : 'В группу «Рейтинг»'}</span>
               </button>
             </div>
           )}

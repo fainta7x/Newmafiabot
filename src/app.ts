@@ -91,7 +91,7 @@ import { obsRemoteBridgeRoutes, obsRemoteOrganizerRoutes } from './server/routes
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
 import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
 import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.ts';
-import tournamentSeatingShareRoutes from './server/routes/tournamentSeatingShareRoutes.ts';
+import tournamentSeatingShareRoutes, { tournamentSeatingPublicRoutes } from './server/routes/tournamentSeatingShareRoutes.ts';
 import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
@@ -281,6 +281,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);
   app.use('/api/public', liveBroadcastPublicRoutes);
+  app.use('/api/public', tournamentSeatingPublicRoutes);
   app.use('/api/public/obs-bridge', obsRemoteBridgeRoutes);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);

@@ -4,6 +4,12 @@ import LiveGameEngine from '../LiveGameEngine.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import type { Player as LegacyPlayer, GameSlot } from '../../types.ts';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api.ts';
+import {
+  buildLiveBroadcastState,
+  mergeBroadcastDayVotes,
+  type LiveBroadcastDayVote,
+} from '../../lib/liveBroadcast.ts';
+import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
@@ -106,6 +112,12 @@ const mapEngineResult = (
   return { protocol, player_results: playerResults };
 };
 
+type TournamentLivePayload = {
+  protocol: TournamentGameProtocolData;
+  player_results: PlayerResultData[];
+  game: { game_number?: number | null } | null;
+};
+
 export default function TournamentLiveGameModal({
   tournamentId,
   gameId,
@@ -119,12 +131,13 @@ export default function TournamentLiveGameModal({
   onClose: () => void;
   onCompleted: () => void;
 }) {
-  const [payload, setPayload] = useState<{ protocol: TournamentGameProtocolData; player_results: PlayerResultData[] } | null>(null);
+  const [payload, setPayload] = useState<TournamentLivePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rolesHidden, setRolesHidden] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
+  const [livePhase, setLivePhase] = useState<'setup' | 'day' | 'night' | 'finished'>('setup');
 
   useEffect(() => {
     let cancelled = false;
@@ -135,7 +148,7 @@ export default function TournamentLiveGameModal({
         const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить турнирный протокол');
-        if (!cancelled) setPayload({ protocol: body.protocol, player_results: body.player_results || [] });
+        if (!cancelled) setPayload({ protocol: body.protocol, player_results: body.player_results || [], game: body.game || null });
       } catch (loadError: any) {
         if (!cancelled) setError(loadError?.message || 'Не удалось загрузить игру');
       } finally {
@@ -144,6 +157,80 @@ export default function TournamentLiveGameModal({
     })();
     return () => { cancelled = true; };
   }, [tournamentId, gameId]);
+
+  useEffect(() => {
+    if (!payload || livePhase === 'setup' || reviewMode) return;
+
+    const gameNumber = Math.max(1, Number(payload.game?.game_number || 1));
+    const metadata = {
+      gameId: gameNumber,
+      globalGameNumber: gameNumber,
+      eveningGameNumber: gameNumber,
+      tableName: 'Турнир',
+      players: payload.player_results.map((player) => ({
+        seat: Number(player.seat_number),
+        playerId: null,
+        nickname: player.display_name || `Игрок ${player.seat_number}`,
+      })),
+    };
+    const votesKey = `mafia_live_broadcast_votes:tournament:${tournamentId}:${gameId}`;
+    let disposed = false;
+    let inFlight = false;
+    let lastSentSignature = '';
+    let lastSuccessfulAt = 0;
+
+    const syncBroadcast = async () => {
+      if (disposed || inFlight) return;
+      try {
+        const raw = localStorage.getItem('mafia_live_session');
+        if (!raw) return;
+        const built = buildLiveBroadcastState(JSON.parse(raw), metadata);
+        if (!built) return;
+
+        let storedVotes: LiveBroadcastDayVote[] = [];
+        try {
+          const rawVotes = JSON.parse(localStorage.getItem(votesKey) || '[]');
+          if (Array.isArray(rawVotes)) storedVotes = rawVotes;
+        } catch {}
+        const dayVotes = mergeBroadcastDayVotes(storedVotes, built);
+        if (JSON.stringify(dayVotes) !== JSON.stringify(storedVotes)) {
+          try { localStorage.setItem(votesKey, JSON.stringify(dayVotes)); } catch {}
+        }
+        const protocols = Object.entries(readStoredDeathProtocols()).map(([seat, protocol]) => ({
+          seat: Number(seat),
+          red: protocol.red,
+          black: protocol.black,
+          sheriff: protocol.sheriff,
+        }));
+        const state = { ...built, dayVotes, protocols };
+        const signature = JSON.stringify(state);
+        const now = Date.now();
+        if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;
+
+        inFlight = true;
+        const response = await fetch(`/api/games/tournament/${encodeURIComponent(tournamentId)}/${encodeURIComponent(gameId)}/broadcast-state`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state }),
+        });
+        if (!response.ok) throw new Error('Tournament broadcast state rejected');
+        lastSentSignature = signature;
+        lastSuccessfulAt = now;
+      } catch {
+        lastSentSignature = '';
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void syncBroadcast();
+    const interval = window.setInterval(() => { void syncBroadcast(); }, 650);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [payload, tournamentId, gameId, livePhase, reviewMode]);
 
   const legacyPlayers = useMemo(() => payload ? buildLegacyPlayers(payload.player_results, judgeName) : [], [payload, judgeName]);
 
@@ -192,6 +279,7 @@ export default function TournamentLiveGameModal({
             players={legacyPlayers}
             initialJudgeId={10001}
             onCancel={onClose}
+            onPhaseChange={setLivePhase}
             onGameFinished={async (gameData) => {
               setSaving(true);
               setError(null);

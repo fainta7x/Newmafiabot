@@ -311,3 +311,45 @@
   font-weight: 900;
 }
 
+
+/* Revote speeches on a wide screen (owner, 2026-10-03): the order list, the timer and the «К переголосованию /
+   Следующий игрок» button did not fit the fixed centre cell and the button was cut off at the bottom.
+   Same compact layout as on a phone: the order list shares one line with its label, the timer is lower. */
+@media (min-width: 768px) {
+  .live-judge-hud__stack--revote-speech {
+    gap: 3px !important;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-voting-order {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+  }
+
+  .live-judge-hud__stack--revote-speech .live-judge-voting-order__seat {
+    height: 20px;
+    min-width: 28px;
+    font-size: 9px;
+  }
+
+  .live-judge-hud__stack--revote-speech .live-judge-timer {
+    row-gap: 2px;
+  }
+
+  .live-judge-hud__stack--revote-speech .live-judge-timer__time {
+    height: 28px;
+    font-size: 24px;
+  }
+
+  .live-judge-hud__stack--revote-speech .live-judge-timer__button {
+    height: 26px;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-action {
+    min-height: 28px;
+    flex-shrink: 0;
+    padding-block: 0;
+  }
+}

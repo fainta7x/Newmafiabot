@@ -231,6 +231,7 @@ Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/
 ### Tournament seating generator
 
 - Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`, and `prepareTournamentEveningSeating` (with `regenerate`) in `src/server/services/tournamentEveningService.ts` for tournaments made through «Турнирный вечер». Test: `src/tests/tournamentSeatingPlan.test.ts`, `src/tests/tournamentEveningSeatingRegenerate.test.ts`.
+- Sending the «Рассадка для игроков» PNG through the bot (to the rating group or to the organizer's own Telegram): `src/components/crm/tournaments/SeatingExportModal.tsx` → `POST /api/tournaments/:id/seating-image` in `src/server/routes/tournamentSeatingShareRoutes.ts` → `src/server/services/tournamentSeatingShareService.ts`; test `src/tests/tournamentSeatingShare.test.ts`.
 
 ### OBS / Twitch Live Game overlay
 

@@ -978,6 +978,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ participants }),
     }),
+  sendTournamentSeatingImage: (id: string, target: 'group' | 'me', imageBase64: string) =>
+    request<{ success: boolean; target: 'group' | 'me' }>(`/api/tournaments/${id}/seating-image`, {
+      method: 'POST',
+      body: JSON.stringify({ target, image: imageBase64 }),
+    }),
   generateTournamentSeating: (id: string) =>
     request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST' }),
   correctTournamentParticipant: (tournamentId: string, participantId: string, playerId: string) =>

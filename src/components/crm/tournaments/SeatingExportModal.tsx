@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, Share2, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { X, Download, Share2, AlertCircle, RefreshCw, Image as ImageIcon, Send, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { api, Tournament } from '../../../lib/api.ts';
 import {
   buildSeatingMatrix,
@@ -26,6 +26,8 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sendingTo, setSendingTo] = useState<'group' | 'me' | null>(null);
+  const [sentMsg, setSentMsg] = useState<string | null>(null);
   const objectUrlRef = useRef<string | null>(null);
 
   const clearImage = () => {
@@ -49,6 +51,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
     if (!isOpen) {
       clearImage();
       setErrorMsg(null);
+      setSentMsg(null);
       setLoading(true);
       return;
     }
@@ -125,6 +128,30 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
     }
   };
 
+  // Inside the Telegram app the browser save/share menu is often missing, so the bot sends the picture:
+  // to the rating group, or to the organizer's own Telegram to save or forward anywhere (VK chat included).
+  const handleSend = async (target: 'group' | 'me') => {
+    if (!pngBlob || sendingTo) return;
+    if (target === 'group' && !window.confirm('Отправить рассадку в группу «Рейтинг» в Telegram?')) return;
+    setSendingTo(target);
+    setErrorMsg(null);
+    setSentMsg(null);
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Не удалось подготовить картинку'));
+        reader.readAsDataURL(pngBlob);
+      });
+      await api.sendTournamentSeatingImage(tournament.id, target, dataUrl.replace(/^data:image\/png;base64,/, ''));
+      setSentMsg(target === 'group' ? 'Рассадка отправлена в группу «Рейтинг».' : 'Рассадка отправлена вам в Telegram. Откройте чат с ботом: оттуда её можно сохранить или переслать, в том числе в VK.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Не удалось отправить рассадку');
+    } finally {
+      setSendingTo(null);
+    }
+  };
+
   const handleShare = async () => {
     if (!file || sharing) return;
     setSharing(true);
@@ -177,7 +204,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
               <RefreshCw className="w-8 h-8 animate-spin text-accent" />
               <p className="text-xs font-semibold">Генерируем рассадку высокого разрешения…</p>
             </div>
-          ) : errorMsg ? (
+          ) : errorMsg && !pngUrl ? (
             <div className="p-5 bg-danger/10 border border-danger/30 rounded-2xl text-center max-w-md space-y-2">
               <AlertCircle className="w-8 h-8 text-danger mx-auto" />
               <h4 className="text-sm font-bold text-danger">Не удалось выгрузить рассадку</h4>
@@ -195,6 +222,21 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
               <p className="text-[11px] text-text-muted text-center font-mono">
                 Имя файла: <span className="text-text-primary font-bold">{fileName}</span> (1080×1350 px)
               </p>
+              <p className="text-[11px] text-text-muted text-center">
+                Если «Скачать» не сработало: нажмите на картинку и удерживайте, затем «Сохранить», или отправьте её через Telegram кнопками ниже.
+              </p>
+              {sentMsg && (
+                <div className="w-full rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-xs text-success flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{sentMsg}</span>
+                </div>
+              )}
+              {errorMsg && (
+                <div className="w-full rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
             </div>
           ) : null}
         </div>
@@ -209,8 +251,26 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
             Закрыть
           </button>
 
-          {!loading && !errorMsg && pngUrl && (
-            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
+          {!loading && pngUrl && (
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => void handleSend('group')}
+                disabled={sendingTo !== null}
+                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
+              >
+                <Send className="w-4 h-4 text-accent" />
+                <span>{sendingTo === 'group' ? 'Отправляем…' : 'В группу Telegram'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSend('me')}
+                disabled={sendingTo !== null}
+                className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 sm:w-auto"
+              >
+                <MessageCircle className="w-4 h-4 text-accent" />
+                <span>{sendingTo === 'me' ? 'Отправляем…' : 'Мне в Telegram'}</span>
+              </button>
               {canWebShare && (
                 <button
                   type="button"

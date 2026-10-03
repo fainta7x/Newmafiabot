@@ -131,7 +131,7 @@ router.put('/music-library/player-slots/:slot', async (req, res) => {
     const source = normalizeYandexMusicUrl(String(req.body?.url || ''));
     // Players put tracks only (owner, 2026-10-03); playlists are for the organizer's club library and may later come with a paid privilege.
     if (source.kind !== 'yandex_track') return res.status(400).json({ error: 'В слот можно добавить только ссылку на трек, не на плейлист.' });
-    const title = safeTitle(req.body?.title, source.kind === 'yandex_playlist' ? 'Мой плейлист' : 'Мой трек');
+    const title = safeTitle(req.body?.title, 'Мой трек');
     const now = new Date().toISOString();
     const existing = await req.db.get(
       `SELECT id FROM music_link_entries WHERE owner_player_id = ? AND scope = 'player' AND slot_index = ?`,

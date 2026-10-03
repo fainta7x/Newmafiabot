@@ -1232,7 +1232,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         statusClass
                       } = getProtocolPlayerPresentation(
                         player,
-                        protocol.ppk_culprit_participant_id
+                        protocol.ppk_culprit_participant_id,
+                        (() => {
+                          const moves = (protocol.best_moves || []).filter(
+                            (bm) => bm.participant_id === player.participant_id && (bm.seat_numbers || []).length > 0
+                          );
+                          if (!moves.length) return null;
+                          return moves.reduce(
+                            (sum, bm) => {
+                              const { guessedBlacks, bonusPoints } = calculateGuessedBlacks(bm.seat_numbers);
+                              return { guessedBlacks: sum.guessedBlacks + guessedBlacks, bonusPoints: sum.bonusPoints + bonusPoints };
+                            },
+                            { guessedBlacks: 0, bonusPoints: 0 }
+                          );
+                        })()
                       );
 
                       return (

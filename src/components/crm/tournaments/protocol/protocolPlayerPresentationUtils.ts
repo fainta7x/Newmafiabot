@@ -107,7 +107,8 @@ const getStatusPresentation = (
 
 export const getProtocolPlayerPresentation = (
   player: PlayerResultData,
-  ppkCulpritParticipantId?: string | null
+  ppkCulpritParticipantId?: string | null,
+  bestMove?: { guessedBlacks: number; bonusPoints: number } | null
 ): ProtocolPlayerPresentation => {
   const hasColorProtocol =
     Array.isArray(player.color_protocol) &&
@@ -185,6 +186,15 @@ export const getProtocolPlayerPresentation = (
       key: 'proto',
       label: `Прот. ${protocolBonus.formatted}`,
       className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+    });
+  }
+
+  // Best move (ЛХ) made by this player: shown with the points it gives, even when nobody was guessed
+  if (bestMove) {
+    briefBadges.push({
+      key: 'best_move',
+      label: `ЛХ +${Math.round(bestMove.bonusPoints * 100) / 100} (угадано ${bestMove.guessedBlacks})`,
+      className: 'bg-amber-500/10 text-amber-300 border-amber-500/30'
     });
   }
 

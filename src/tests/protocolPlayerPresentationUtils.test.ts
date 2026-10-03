@@ -133,4 +133,10 @@ describe('protocol player presentation utilities', () => {
       (badge) => badge.key === 'ppk'
     )).toBe(true);
   });
+
+  it('shows the best move with its points next to the other marks', () => {
+    const presentation = getProtocolPlayerPresentation(createPlayer(), null, { guessedBlacks: 2, bonusPoints: 0.3 });
+    expect(presentation.briefBadges.find((badge) => badge.key === 'best_move')?.label).toBe('ЛХ +0.3 (угадано 2)');
+    expect(getProtocolPlayerPresentation(createPlayer(), null, null).briefBadges).toEqual([]);
+  });
 });

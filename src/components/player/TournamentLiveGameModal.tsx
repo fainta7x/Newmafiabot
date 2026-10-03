@@ -135,7 +135,7 @@ export default function TournamentLiveGameModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rolesHidden, setRolesHidden] = useState(false);
+  const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
 
@@ -256,6 +256,58 @@ export default function TournamentLiveGameModal({
           .tournament-live-shell { height: calc(100dvh - 38px); overflow-y: auto; overscroll-behavior: contain; }
           .tournament-live-shell > div { max-width: none !important; padding: 3px !important; }
         }
+        @media (min-width: 768px) {
+          .tournament-live-shell .live-judge-hud__body:has(> .live-judge-hud__stack--voting-scroll > .live-judge-vote-summary) {
+            align-items: stretch !important;
+            overflow: hidden !important;
+            padding: 3px 5px !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) {
+            height: 100% !important;
+            max-height: 100% !important;
+            gap: 3px !important;
+            justify-content: flex-start !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-voting-order {
+            padding: 3px 4px !important;
+            gap: 4px !important;
+            border-radius: 8px !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__seat {
+            min-width: 26px !important;
+            height: 21px !important;
+            font-size: 8px !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__title {
+            font-size: 11px !important;
+            line-height: 1 !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat {
+            padding: 3px 5px !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voter-state,
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__hint {
+            max-height: 12px !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+            text-overflow: ellipsis !important;
+            font-size: 7px !important;
+            line-height: 1 !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            flex: 0 0 auto !important;
+            margin-top: auto !important;
+            padding-top: 2px !important;
+          }
+          .tournament-live-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions .live-judge-action {
+            min-height: 30px !important;
+            flex-shrink: 0 !important;
+            font-size: 9px !important;
+          }
+        }
         .tournament-live-roles-hidden .tournament-live-shell [title="Красный"],
         .tournament-live-roles-hidden .tournament-live-shell [title="Дон"],
         .tournament-live-roles-hidden .tournament-live-shell [title="Мафия"],
@@ -280,6 +332,8 @@ export default function TournamentLiveGameModal({
             initialJudgeId={10001}
             onCancel={onClose}
             onPhaseChange={setLivePhase}
+            rolesHidden={rolesHidden}
+            onRolesHiddenChange={setRolesHidden}
             onGameFinished={async (gameData) => {
               setSaving(true);
               setError(null);

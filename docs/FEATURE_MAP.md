@@ -228,6 +228,10 @@ Recent invariants to preserve:
 
 Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/live-game.spec.mjs`.
 
+### Tournament seating generator
+
+- Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`. Test: `src/tests/tournamentSeatingPlan.test.ts`.
+
 ### OBS / Twitch Live Game overlay
 
 - Audience-state contract: `src/lib/liveBroadcast.ts`.

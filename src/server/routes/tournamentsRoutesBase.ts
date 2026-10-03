@@ -21,6 +21,7 @@ import {
   SeatRoleInput
 } from '../../lib/tournamentRoleValidation.ts';
 import { compareTournamentNominationCandidates, type TournamentNominationCategory, type NominationHeadToHeadGame } from '../services/tournamentNominationComparator.ts';
+import { seatParticipants } from '../services/tournamentSeatingPlan.ts';
 
 const router = Router();
 
@@ -40,15 +41,6 @@ router.post('/checkpoint', requireOrganizerAuth, async (req: AuthenticatedReques
   }
 });
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
 // Helper to generate 10 games and random seating chart
 async function generateGamesAndSeating(db: DatabaseWrapper, tournamentId: string, chiefJudgeName: string | null, participants: Array<{ id: string }>) {
   // Delete existing seats and games for this tournament
@@ -58,7 +50,8 @@ async function generateGamesAndSeating(db: DatabaseWrapper, tournamentId: string
   }
   await db.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
 
-  // Create 10 games
+  // Create 10 games; every player takes each seat exactly once (see tournamentSeatingPlan.ts)
+  const seatingByGame = seatParticipants(participants, 10);
   for (let gNum = 1; gNum <= 10; gNum++) {
     const gameId = crypto.randomUUID();
     await db.run(
@@ -67,8 +60,7 @@ async function generateGamesAndSeating(db: DatabaseWrapper, tournamentId: string
       [gameId, tournamentId, gNum, chiefJudgeName || null]
     );
 
-    // Shuffle 10 participants for this game independently
-    const shuffledParticipants = shuffleArray(participants);
+    const shuffledParticipants = seatingByGame[gNum - 1];
 
     // Insert 10 seats
     for (let seatIdx = 0; seatIdx < 10; seatIdx++) {

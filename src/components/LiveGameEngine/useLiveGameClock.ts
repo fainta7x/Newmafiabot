@@ -6,9 +6,13 @@ type AudioContextWindow = Window & {
 
 /** Speech timer sounds (owner, 2026-10-03): one beep when 10 seconds are left, one when the speech ends. */
 export const SPEECH_WARNING_SECONDS = 10;
-/** The beep is 30% louder than before (was 0.06). */
-const BEEP_VOLUME = 0.078;
-const BEEP_FLOOR = 0.0052;
+/** Owner, 2026-10-03: the beeps were harsh — now soft sine chimes with a gentle attack, about half as loud (was 0.078). */
+const BEEP_VOLUME = 0.035;
+const BEEP_FLOOR = 0.0008;
+const BEEP_ATTACK_SECONDS = 0.04;
+/** Warning: a light higher note; end of speech: a lower, longer note. */
+const WARNING_TONE = { freq: 660, duration: 0.5 };
+const END_TONE = { freq: 523, duration: 0.8 };
 
 export function useLiveGameClock() {
   const [timeLeft, setTimeLeft] = useState(60);
@@ -28,8 +32,11 @@ export function useLiveGameClock() {
       const gain = context.createGain();
       oscillator.connect(gain);
       gain.connect(context.destination);
+      oscillator.type = 'sine';
       oscillator.frequency.value = freq;
-      gain.gain.setValueAtTime(BEEP_VOLUME, context.currentTime);
+      // Fade in and out instead of switching on abruptly — that click is what made the old beep sharp.
+      gain.gain.setValueAtTime(BEEP_FLOOR, context.currentTime);
+      gain.gain.linearRampToValueAtTime(BEEP_VOLUME, context.currentTime + BEEP_ATTACK_SECONDS);
       gain.gain.exponentialRampToValueAtTime(BEEP_FLOOR, context.currentTime + duration);
       oscillator.start();
       oscillator.stop(context.currentTime + duration);
@@ -47,7 +54,7 @@ export function useLiveGameClock() {
     }
     if (isTimerRunning && timeLeft === SPEECH_WARNING_SECONDS && timerMax > SPEECH_WARNING_SECONDS && !warnedRef.current) {
       warnedRef.current = true;
-      playBeep(1000, 0.4);
+      playBeep(WARNING_TONE.freq, WARNING_TONE.duration);
     }
   }, [timeLeft, isTimerRunning, timerMax, isMuted]);
 
@@ -61,7 +68,7 @@ export function useLiveGameClock() {
       setTimeLeft((value) => {
         if (value <= 1) {
           setIsTimerRunning(false);
-          playBeep(1000, 0.4);
+          playBeep(END_TONE.freq, END_TONE.duration);
           return 0;
         }
         return value - 1;

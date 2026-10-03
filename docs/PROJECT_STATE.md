@@ -561,6 +561,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 53. Best move in the protocol player list (owner, 2026-10-03, built): the «Игроки» tab of the game protocol now shows a «ЛХ +N (угадано K)» mark on the row of a player who made a best move, next to the existing fouls / judge / protocol / colour-protocol marks. Ci compensation is not shown there (it needs the player's rate and is calculated in the standings).
 
+54. Softer speech-timer signals and tournament score on air (owner, 2026-10-03, built, not merged yet): the 10-second warning and the end-of-speech signal in `useLiveGameClock.ts` are now soft sine chimes (660 Hz / 523 Hz, fade-in, about half the previous volume); the tournament Live Game overlay now shows «Счёт турнира» (wins of the tournament's other finished games) instead of 0:0 — `loadCanonicalTournamentBroadcastGame`.
+
 ### Waiting on the owner
 - Owner decisions 2026-10-01, not built yet: the novice evening keeps the current price per chosen game («для опытных будет скидка»); the weekly evening automation fails once at startup with «cannot start a transaction within a transaction» — fix later; the old browser suites for CRM and live game (`e2e/`) are out of date (roster confirm step, list test ids) and do not block a release — update later; a weekly anonymized copy of the production database for development checks (branch `feat/weekly-db-snapshot`, unfinished: GitHub Action, script, docs).
 - Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.

@@ -102,6 +102,7 @@ describe('Live Game clock', () => {
           connect: vi.fn(),
           gain: {
             setValueAtTime: vi.fn(),
+            linearRampToValueAtTime: vi.fn(),
             exponentialRampToValueAtTime: vi.fn(),
           },
         };
@@ -124,20 +125,22 @@ describe('Live Game clock', () => {
 
   describe('speech timer beeps', () => {
     let beeps: Array<{ volume: number }>;
+    let peaks: number[];
     beforeEach(() => {
       beeps = [];
+      peaks = [];
       class FakeAudioContext {
         currentTime = 0;
         destination = {};
         createOscillator() { return { connect: vi.fn(), frequency: { value: 0 }, start: vi.fn(), stop: vi.fn() }; }
         createGain() {
-          return { connect: vi.fn(), gain: { setValueAtTime: (value: number) => { beeps.push({ volume: value }); }, exponentialRampToValueAtTime: vi.fn() } };
+          return { connect: vi.fn(), gain: { setValueAtTime: (value: number) => { beeps.push({ volume: value }); }, linearRampToValueAtTime: (value: number) => { peaks.push(value); }, exponentialRampToValueAtTime: vi.fn() } };
         }
       }
       (window as unknown as { AudioContext?: unknown }).AudioContext = FakeAudioContext;
     });
 
-    it('beeps when ten seconds are left and again when the speech ends, 30% louder than before', () => {
+    it('beeps softly when ten seconds are left and again when the speech ends', () => {
       render(<ClockHarness />);
       fireEvent.click(screen.getByRole('button', { name: 'Start12' }));
       act(() => { vi.advanceTimersByTime(1_000); });
@@ -150,7 +153,9 @@ describe('Live Game clock', () => {
       act(() => { vi.advanceTimersByTime(1_000); });
       expect(screen.getByTestId('time-left').textContent).toBe('0');
       expect(beeps).toHaveLength(2);
-      expect(beeps[0].volume).toBeCloseTo(0.06 * 1.3, 5);
+      // soft chimes: well below the old 0.078 peak, with a fade-in rather than a hard start
+      expect(peaks).toHaveLength(2);
+      peaks.forEach((peak) => expect(peak).toBeLessThan(0.05));
     });
 
     it('does not repeat the warning when the clock is paused and resumed at ten seconds', () => {

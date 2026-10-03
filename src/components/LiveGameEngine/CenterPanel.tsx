@@ -10,6 +10,7 @@ import "../crm/liveGameHudReadability.css";
 import {
   BEST_MOVE_SECONDS,
   DEATH_PROTOCOL_SECONDS,
+  SPEECH_EXTENSION_SECONDS,
   buildTimerIdentity,
   createTimerDeadline,
   getRemainingTimerSeconds,
@@ -107,6 +108,8 @@ interface CenterPanelProps {
   /** «+30 с за 2 фола» during a speech — also in the centre panel, because the judge toolbar is hidden by the engine CSS. */
   speechExtensionAvailability?: { allowed: boolean; reason: string };
   onSpeechExtension?: () => void;
+  /** The current speaker has already bought +30 s for two fouls: a revote speech then lasts 30 + 30 s, not 30. */
+  speechExtended?: boolean;
 }
 
 const normalizeJudgeCopy = (value: string): string => value
@@ -150,6 +153,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleUndoLastVote,
     speechExtensionAvailability,
     onSpeechExtension,
+    speechExtended = false,
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
@@ -194,9 +198,12 @@ export default function CenterPanel(props: CenterPanelProps) {
   const currentRound = votingRounds[activeVotingRoundIndex];
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
   const isDeathProtocolTimer = phase === 'night' && Boolean(customTimerLabel?.startsWith('Протокол убитого'));
+  const isRevoteSpeech = phase === 'day_voting' && votingStage === 'revote_speeches';
+  // A purchased extension (two fouls for +30 s) is the only way a revote speech may exceed its fixed 30 seconds.
+  const revoteExtensionSeconds = isRevoteSpeech && speechExtended ? SPEECH_EXTENSION_SECONDS : 0;
   const effectiveTimerMax = isDeathProtocolTimer
     ? DEATH_PROTOCOL_SECONDS
-    : resolveTimerDuration(phase, votingStage, timerMax);
+    : resolveTimerDuration(phase, votingStage, timerMax) + revoteExtensionSeconds;
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
   const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
@@ -208,10 +215,11 @@ export default function CenterPanel(props: CenterPanelProps) {
     : null;
 
   React.useEffect(() => {
-    if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > 30) {
-      setTimeLeft(30);
+    const revoteLimit = 30 + revoteExtensionSeconds;
+    if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > revoteLimit) {
+      setTimeLeft(revoteLimit);
     }
-  }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft]);
+  }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft, revoteExtensionSeconds]);
 
   React.useEffect(() => {
     if (tableDecisionKey) activateTableDecisionSelection(tableDecisionKey);

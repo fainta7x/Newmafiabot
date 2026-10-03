@@ -133,6 +133,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     playBeep,
   } = useLiveGameClock();
   const [activeSpeakerSlot, setActiveSpeakerSlot] = useState<number | null>(null);
+  // The speaker who already bought +30 s for two fouls (needed so a revote speech may exceed its fixed 30 s).
+  const [speechExtendedSlot, setSpeechExtendedSlot] = useState<number | null>(null);
+  useEffect(() => {
+    setSpeechExtendedSlot((current) => (current === activeSpeakerSlot ? current : null));
+  }, [activeSpeakerSlot]);
   const [customTimerLabel, setCustomTimerLabel] = useState<string | null>(null);
   const [zeroNightSubPhase, setZeroNightSubPhase] = useState<"agreement" | "sheriff" | "seating" | null>(null);
   const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
@@ -665,6 +670,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     setDiscipline(next);
     syncDisciplinePlayer(next, activeSpeakerSlot);
+    setSpeechExtendedSlot(activeSpeakerSlot);
     setTimerMax((value) => value + 30);
     setTimeLeft((value) => value + 30);
     setIsTimerRunning(true);
@@ -1459,6 +1465,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return {
       speechExtensionAvailability: getCurrentSpeechExtensionAvailability(),
       onSpeechExtension: handleExchangeFoulsForSpeech,
+      speechExtended: speechExtendedSlot !== null && speechExtendedSlot === activeSpeakerSlot,
       phase,
       roundNumber,
       nominations: currentVotingNominees(),

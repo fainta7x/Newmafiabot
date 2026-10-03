@@ -25,7 +25,8 @@ export async function queueTournamentGameSeatMessages(db: DatabaseWrapper, gameI
       FROM tournament_games g JOIN tournaments t ON t.id = g.tournament_id
      WHERE g.id = ? LIMIT 1
   `, [gameId]);
-  if (!game || game.status !== 'planned') return 0;
+  // The next game may already have been opened by the judge before the worker's scan ran; a finished game never gets one.
+  if (!game || game.status === 'completed' || (kind === 'first' && game.status !== 'planned')) return 0;
   const seats = await db.all<any>(`
     SELECT tgs.seat_number, tp.player_id
       FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id = tgs.participant_id

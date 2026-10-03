@@ -92,6 +92,18 @@ describe('tournament game results and seat messages', () => {
     expect(await seatMessages(db)).toHaveLength(10);
   });
 
+  it('tells the next game\'s players the seat even if the judge already opened that game', async () => {
+    const db = await setup();
+    const done = new Date('2026-10-03T09:00:00.000Z');
+    await switchOn(db);
+    await addGame(db, 1, 'completed', done.toISOString());
+    await addGame(db, 2, 'planned');
+    await db.run("UPDATE tournament_games SET status = 'in_progress' WHERE id = 'g2'");
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    await runClubResultPosts(db, okFetch([]), done.getTime() + 60_000);
+    expect(await seatMessages(db)).toHaveLength(10);
+  });
+
   it('sends the first game seats 30 minutes before the start and not earlier', async () => {
     const db = await setup('draft');
     await addGame(db, 1, 'planned');

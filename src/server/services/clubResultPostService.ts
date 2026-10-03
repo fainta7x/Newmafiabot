@@ -450,7 +450,7 @@ async function runTournamentGameFollowUps(db: DatabaseWrapper, fetchImpl: typeof
       const waited = now - new Date(String(game.completed_at)).getTime();
       if (!['sent', 'failed'].includes(String(post?.status || '')) && waited < SEAT_MESSAGE_WAIT_MS) continue;
       const next = await db.get<any>(
-        "SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = ? AND status = 'planned' LIMIT 1",
+        "SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = ? AND status != 'completed' LIMIT 1",
         [game.tournament_id, Number(game.game_number) + 1],
       );
       if (next) handled += await queueTournamentGameSeatMessages(db, String(next.id), 'next');

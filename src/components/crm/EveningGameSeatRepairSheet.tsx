@@ -25,7 +25,7 @@ export const EveningGameSeatRepairSheet: React.FC<Props> = ({ game, onClose, onU
     const q = query.trim().toLocaleLowerCase('ru-RU');
     const seatedElsewhere = new Set(results.filter((item) => item.seat_number !== seat).map((item) => String(item.player_id || '')));
     return players
-      .filter((player) => !seatedElsewhere.has(player.id) && player.id !== String(current?.player_id || ''))
+      .filter((player) => !seatedElsewhere.has(player.id) && player.id !== String(current?.player_id || '') && player.id !== String(game.judge_player_id || ''))
       .filter((player) => !q || `${player.nickname} ${player.full_name || ''}`.toLocaleLowerCase('ru-RU').includes(q));
   }, [players, query, results, seat, current]);
 

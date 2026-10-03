@@ -281,6 +281,11 @@ describe('seat repair for a registered player (owner, 2026-10-03)', () => {
 
     await expect(replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-3' }))
       .rejects.toThrow('не записан на вечер');
+    // The game's judge cannot also take a seat.
+    await database.run("UPDATE games SET judge_player_id = 'p-2' WHERE id = 1");
+    await expect(replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-2' }))
+      .rejects.toThrow('Судья этой игры');
+    await database.run('UPDATE games SET judge_player_id = NULL WHERE id = 1');
 
     const result = await replaceGuestWithRegisteredPlayer(database, { gameId: 1, seatNumber: 8, replacementPlayerId: 'p-2' });
     expect(result).toMatchObject({ changed: true, playerId: 'p-2', participantId: 'ep-2', oldPlayerId: 'p-1' });

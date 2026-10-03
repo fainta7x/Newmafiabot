@@ -170,6 +170,7 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
 
     const player = await tx.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' AND COALESCE(lifecycle_status, 'normal') NOT IN ('archived', 'merged')", [input.replacementPlayerId]);
     if (!player) throw new Error('Выбранный зарегистрированный игрок не найден');
+    if (String(game.judge_player_id || '') === String(player.id)) throw new Error('Судья этой игры не может сидеть за столом');
 
     const current = (envelope.player_results || []).find((item: any) => Number(item.seat_number) === input.seatNumber);
     if (!current) throw new Error('Выбранное место не найдено');

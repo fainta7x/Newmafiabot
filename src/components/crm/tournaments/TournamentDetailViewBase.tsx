@@ -1402,6 +1402,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             tournamentId={tournamentId}
             gameId={liveGameId}
             judgeName={liveGame.judge_name || tournament.chief_judge_name}
+            obsRemote
             onClose={() => setLiveGameId(null)}
             onCompleted={() => { setLiveGameId(null); loadDetail(); }}
           />

@@ -198,6 +198,25 @@ gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrgan
   }
 });
 
+gameRouter.get('/tournament/:tournamentId/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tournamentId = String(req.params.tournamentId || '');
+    const gameId = String(req.params.gameId || '');
+    const game = await loadCanonicalTournamentBroadcastGame(req, tournamentId, gameId);
+    if (!game) return res.status(404).json({ error: 'Активная турнирная игра для трансляции не найдена' });
+    const overlayPath = `/broadcast/${encodeURIComponent(getLiveBroadcastToken())}`;
+    return res.json({
+      overlay_url: `${publicOrigin(req)}${overlayPath}`,
+      overlay_path: overlayPath,
+      width: 1920,
+      height: 1080,
+      game_id: game.gameId,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось подготовить OBS-ссылку' });
+  }
+});
+
 gameRouter.get('/:gameId/broadcast-config', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const gameId = Number(req.params.gameId);

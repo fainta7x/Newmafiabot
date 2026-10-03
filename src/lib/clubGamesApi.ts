@@ -278,6 +278,7 @@ export const clubGamesApi = {
     '/api/games/broadcast-overlay-layout',
     { method: 'PUT', body: JSON.stringify({ layout }) },
   ),
+  getTournamentBroadcastConfig: (tournamentId: string, gameId: string) => request<LiveBroadcastConfig>(`/api/games/tournament/${encodeURIComponent(tournamentId)}/${encodeURIComponent(gameId)}/broadcast-config`),
   getBroadcastConfig: (gameId: number) => request<LiveBroadcastConfig>(`/api/games/${gameId}/broadcast-config`),
   publishBroadcastState: (gameId: number, state: LiveBroadcastState) => request<{ ok: true; received_at: string }>(
     `/api/games/${gameId}/broadcast-state`,

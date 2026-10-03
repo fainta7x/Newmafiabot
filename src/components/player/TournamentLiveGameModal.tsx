@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { Eye, EyeOff, MonitorUp, X } from 'lucide-react';
+import TournamentBroadcastPanel from './TournamentBroadcastPanel.tsx';
 import LiveGameEngine from '../LiveGameEngine.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import type { Player as LegacyPlayer, GameSlot } from '../../types.ts';
@@ -131,12 +132,15 @@ export default function TournamentLiveGameModal({
   tournamentId,
   gameId,
   judgeName,
+  obsRemote = false,
   onClose,
   onCompleted,
 }: {
   tournamentId: string;
   gameId: string;
   judgeName?: string | null;
+  /** OBS remote control is an organizer tool; an assigned judge only gets the overlay link and the sizes. */
+  obsRemote?: boolean;
   onClose: () => void;
   onCompleted: () => void;
 }) {
@@ -147,6 +151,7 @@ export default function TournamentLiveGameModal({
   const [rolesHidden, setRolesHidden] = useState(true);
   const [reviewMode, setReviewMode] = useState(false);
   const [livePhase, setLivePhase] = useState<string>('setup');
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const evidenceRef = useRef<LiveProtocolEvidence>({ votes: [], shots: [] });
   const evidenceKey = `${LEGACY_LIVE_SESSION_KEY}:tournament:${gameId}:protocol`;
 
@@ -352,10 +357,13 @@ export default function TournamentLiveGameModal({
       <div className="flex h-[38px] items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/95 px-2">
         <div className="truncate text-xs font-black text-white">Турнир · живое ведение</div>
         <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => setBroadcastOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400" title="OBS-трансляция и размер графики" data-testid="tournament-obs-button"><MonitorUp className="h-4 w-4" /></button>
           <button type="button" onClick={() => setRolesHidden((value) => !value)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400" title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}>{rolesHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>
           <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400" title="Закрыть"><X className="h-4 w-4" /></button>
         </div>
       </div>
+
+      {broadcastOpen ? <TournamentBroadcastPanel tournamentId={tournamentId} gameId={gameId} obsRemote={obsRemote} onClose={() => setBroadcastOpen(false)} /> : null}
 
       {loading ? <div className="flex h-[70vh] items-center justify-center text-sm text-slate-400">Загрузка игры…</div> : null}
       {error ? <div className="m-4 rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div> : null}

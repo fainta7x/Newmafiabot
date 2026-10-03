@@ -304,4 +304,26 @@ describe('live broadcast routes', () => {
     expect(body.state.tableName).toBe('Турнир');
     expect(body.state.eveningScore).toEqual({ red: 1, black: 1 });
   });
+
+  it('gives the organizer the same overlay link for a tournament game', async () => {
+    const created = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', cookie)
+      .send({
+        title: 'Турнир со ссылкой',
+        date: now,
+        chief_judge_name: 'Судья',
+        participants: canonicalPlayers.map((player) => ({ player_id: player.player_id, display_name: player.display_name })),
+      });
+    const tournamentId = created.body.id;
+    const tournamentGameId = created.body.games[0].id;
+    const club = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const config = await request(app).get(`/api/games/tournament/${tournamentId}/${tournamentGameId}/broadcast-config`).set('Cookie', cookie);
+    expect(config.status).toBe(200);
+    expect(config.body.overlay_path).toBe(club.body.overlay_path);
+    expect(config.body).toMatchObject({ width: 1920, height: 1080 });
+
+    expect((await request(app).get(`/api/games/tournament/${tournamentId}/${tournamentGameId}/broadcast-config`)).status).toBe(401);
+    expect((await request(app).get(`/api/games/tournament/${tournamentId}/nope/broadcast-config`).set('Cookie', cookie)).status).toBe(404);
+  });
 });

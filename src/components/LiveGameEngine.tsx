@@ -350,6 +350,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   useEffect(() => {
     if (phase === 'setup') return;
+    // A finished game has already dropped its saved session; writing it again would bring the game (and the
+    // death-protocol screen) back after the result was handed over.
+    if (gameFinishedRef.current) return;
     const data = {
       ...takeSnapshot(),
       nightLogs,

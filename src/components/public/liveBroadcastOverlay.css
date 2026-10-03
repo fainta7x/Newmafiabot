@@ -579,7 +579,7 @@ body.live-broadcast-document #root {
 
 .live-broadcast-player.is-speaking .live-broadcast-player-name { color: #ffe3a8; }
 
-/* Nominated players carry an orange «Выставлен» strip at the bottom of the card. */
+/* Nominated players carry a plain orange strip at the bottom of the card (no text, owner 2026-10-03). */
 .live-broadcast-nominated-strip {
   position: absolute;
   left: 0;
@@ -599,7 +599,6 @@ body.live-broadcast-document #root {
   text-transform: uppercase;
 }
 
-.live-broadcast-nominated-strip svg { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
 .live-broadcast-player:has(.live-broadcast-nominated-strip) .live-broadcast-player-footer { bottom: calc(36 * var(--u)); }
 .live-broadcast-player.is-vote-candidate:not(.is-out) .live-broadcast-nominated-strip { box-shadow: 0 0 calc(18 * var(--u)) rgba(249, 115, 22, .55); }
 

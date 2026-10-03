@@ -230,7 +230,7 @@ Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/
 
 ### Tournament seating generator
 
-- Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`. Test: `src/tests/tournamentSeatingPlan.test.ts`.
+- Balanced plan (each player on each seat once per ten games, neighbours varied): `src/server/services/tournamentSeatingPlan.ts`; used by `src/server/services/tournamentDistanceService.ts` (`regenerateTournamentGames`) and `generateGamesAndSeating` in `src/server/routes/tournamentsRoutesBase.ts`, and `prepareTournamentEveningSeating` (with `regenerate`) in `src/server/services/tournamentEveningService.ts` for tournaments made through «Турнирный вечер». Test: `src/tests/tournamentSeatingPlan.test.ts`, `src/tests/tournamentEveningSeatingRegenerate.test.ts`.
 
 ### OBS / Twitch Live Game overlay
 
@@ -294,6 +294,7 @@ After registration/preparation, continue through the existing tournament seating
 - Python: `main.py`, `bot_api.py`, `bot_announcement_api.py`, `bot_profile_link_api.py`, `bot_telegram_api.py`, `handlers/`.
 - Runtime docs: `docs/telegram-runtime-health.md`, `docs/telegram-webapp-integration.md`.
 - Club chat pictures (game blank after each game, evening summary at closeout): data `src/server/services/clubResultData.ts`, drawing `clubResultImages.ts` (SVG → PNG with `@resvg/resvg-js`, fonts in `fonts/`), posting `clubResultPostService.ts` (run by the personal-notification worker, table `club_result_posts`).
+- Tournament game blank to the rating group and personal «you sit on seat N» messages (first game 30 min before the start, next games after the result post): `loadTournamentGameBlank` in `clubResultData.ts`, `postTournamentGameBlank` / `runTournamentGameFollowUps` in `clubResultPostService.ts` (same worker scan), `tournamentSeatNotificationService.ts`; test `src/tests/tournamentGameFollowUps.test.ts`.
 - Personal evening message in the bot and «Позвать друга»: `queueEveningPlayerCards` in `src/server/services/clubResultPostService.ts` (points and invite link helpers in `gameResultCardService.ts`); the invite link `/start ref_<id>` → `handlers/registration.py` → `POST /api/bot/players/register {invited_by}` → `recordInviteLinkReferral` in `premiumPlayerConnectionsService.ts`.
 - Bot home card (/start, «📋 Меню», /events, /faq): `handlers/bot_home.py`. Two menus chosen by `audience_for` (player `game_level` from `GET /api/bot/players/by-telegram/:id/home`): newcomers (no profile, unrated, novice) get «Записаться на вечер» (novice evenings), «Что за игра?» and «Вопросы»; club players (club/tournament/rating) get the app, «Расписание», «Мои записи», «Составы» and «☰ Ещё» (`more_view`: stats, rating, tokens and shop, learning, groups, questions). Keep menus short: two buttons per row (`_pairs`). Command list and bot description: `commands.py`.
 - Green CI does not prove live token/webhook/deployed SHA.

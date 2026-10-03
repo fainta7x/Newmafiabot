@@ -235,6 +235,7 @@ Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/
 - Token/transient relay: `src/server/services/liveBroadcastService.ts`.
 - API: `src/server/routes/liveBroadcastRoutes.ts`, mounted under authorized `/api/games/*` and secret `/api/public/broadcast/*` paths.
 - Browser Source UI: `src/components/public/LiveBroadcastOverlay.tsx` + `liveBroadcastOverlay.css`, route `/broadcast/:token` in `src/App.tsx`.
+- Commentators' window frame (static transparent Browser Source, no token): `src/components/public/BroadcastCommentatorFrame.tsx` + `broadcastCommentatorFrame.css`, route `/broadcast/frame` in `src/App.tsx`; test `src/tests/broadcastCommentatorFrame.test.ts`.
 - Focused coverage: `src/tests/liveBroadcast.test.ts`, `src/tests/liveBroadcastRoutes.test.ts`, `e2e/tests/live-broadcast.spec.mjs`.
 
 Current contract: one stable secret main-channel URL, one streamed game at a time, roles/statuses and ordered nominations visible, and voter assignments withheld until the judge fixes the round result. This relay is transient and must not become a second in-progress game database.

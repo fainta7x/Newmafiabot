@@ -85,6 +85,51 @@ const loadCanonicalBroadcastGame = async (
   };
 };
 
+const loadCanonicalTournamentBroadcastGame = async (
+  req: AuthenticatedRequest,
+  tournamentId: string,
+  gameId: string,
+): Promise<CanonicalBroadcastGame | null> => {
+  const db = req.db || (await getDb());
+  const game = await db.get<any>(`
+    SELECT id, game_number, total_players
+      FROM tournament_games
+     WHERE id = ? AND tournament_id = ?
+     LIMIT 1
+  `, [gameId, tournamentId]);
+  if (!game) return null;
+
+  const rows = await db.all<any>(`
+    SELECT tgs.seat_number,
+           tp.player_id,
+           tp.tournament_nickname,
+           p.nickname AS club_nickname
+      FROM tournament_game_seats tgs
+      JOIN tournament_players tp ON tp.id = tgs.tournament_player_id
+ LEFT JOIN players p ON p.id = tp.player_id
+     WHERE tgs.tournament_game_id = ?
+     ORDER BY tgs.seat_number ASC
+  `, [gameId]);
+
+  const players = rows.map((player: any) => ({
+    seat: Number(player.seat_number),
+    playerId: player.player_id ? String(player.player_id) : null,
+    nickname: String(player.tournament_nickname || player.club_nickname || `Игрок ${player.seat_number}`),
+  }));
+
+  if (!isSupportedTableSize(players.length)) return null;
+  if (players.some((player: any, index: number) => player.seat !== index + 1)) return null;
+
+  const gameNumber = Math.max(1, Number(game.game_number || 1));
+  return {
+    gameId: gameNumber,
+    globalGameNumber: gameNumber,
+    eveningGameNumber: gameNumber,
+    tableName: 'Турнир',
+    players,
+  };
+};
+
 const publicOrigin = (req: Request): string => {
   const configured = String(process.env.PLAYER_APP_URL || '').trim().replace(/\/+$/, '');
   if (configured) return configured;
@@ -121,6 +166,24 @@ gameRouter.put('/broadcast-overlay-layout', requireOrganizerAuth, async (req: Au
     return res.json({ layout: await saveLiveBroadcastLayout(db, req.body?.layout) });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить размеры графики' });
+  }
+});
+
+gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tournamentId = String(req.params.tournamentId || '');
+    const gameId = String(req.params.gameId || '');
+    if (!tournamentId || !gameId) return res.status(400).json({ error: 'Турнирная игра не найдена' });
+    const game = await loadCanonicalTournamentBroadcastGame(req, tournamentId, gameId);
+    if (!game) return res.status(404).json({ error: 'Активная турнирная игра для трансляции не найдена' });
+
+    const receivedAt = new Date();
+    const state = normalizeLiveBroadcastState(req.body?.state, game, receivedAt);
+    if (!state) return res.status(400).json({ error: 'Некорректное состояние Live Game для трансляции' });
+    publishLiveBroadcastState(state, receivedAt.getTime());
+    return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось обновить турнирную OBS-трансляцию' });
   }
 });
 

@@ -31,7 +31,7 @@ import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { CorrectParticipantModal } from './CorrectParticipantModal.tsx';
-import { UserCheck, FileSpreadsheet, FileCheck, Award } from 'lucide-react';
+import { UserCheck, FileSpreadsheet, FileCheck, Award, Send } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
@@ -297,6 +297,26 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       loadDetail();
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка генерации рассадки' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Sends «ты сидишь на месте N» to the players of the next game now (otherwise it goes by itself 30 minutes before the start).
+  const handleSendSeatMessages = async () => {
+    if (!confirm('Разослать игрокам личные сообщения, где они сидят в ближайшей игре?')) return;
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      const result = await api.sendTournamentSeatMessages(tournamentId);
+      setFeedbackMsg({
+        type: 'success',
+        text: result.queued > 0
+          ? `Места игры №${result.game_number} отправлены в личные сообщения: ${result.queued} из ${result.players} игроков (у остальных нет привязанного Telegram/VK или личные сообщения выключены).`
+          : `Места игры №${result.game_number} уже были разосланы раньше.`,
+      });
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось разослать места' });
     } finally {
       setActionLoading(false);
     }
@@ -598,6 +618,16 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
                 <span>Перегенерировать рассадку</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendSeatMessages}
+                disabled={actionLoading}
+                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <Send className="w-3.5 h-3.5 text-accent" />
+                <span>Разослать места игрокам</span>
               </button>
 
               <button

@@ -62,3 +62,22 @@ export async function runTournamentFirstSeatMessages(db: DatabaseWrapper, now = 
   for (const row of rows) queued += await queueTournamentGameSeatMessages(db, String(row.id), 'first');
   return queued;
 }
+
+/**
+ * The organizer's own «Разослать места игрокам» (owner, 2026-10-03): the seat messages of the next game to be
+ * played (the first game that is not completed), right now, whatever the clock says. Keyed per game and player,
+ * so pressing it twice never sends a message twice; after a regenerated seating the new games get new messages.
+ */
+export async function sendNextTournamentGameSeatMessages(db: DatabaseWrapper, tournamentId: string) {
+  const game = await db.get<any>(
+    "SELECT id, game_number FROM tournament_games WHERE tournament_id = ? AND status != 'completed' ORDER BY game_number ASC LIMIT 1",
+    [tournamentId],
+  );
+  if (!game) return { game_number: null as number | null, queued: 0, players: 0 };
+  const players = await db.get<any>(
+    'SELECT COUNT(*) AS c FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id = tgs.participant_id WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL',
+    [game.id],
+  );
+  const queued = await queueTournamentGameSeatMessages(db, String(game.id), Number(game.game_number) === 1 ? 'first' : 'next');
+  return { game_number: Number(game.game_number), queued, players: Number(players?.c || 0) };
+}

@@ -4,6 +4,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { seatParticipants } from './tournamentSeatingPlan.ts';
+import { normalizeTournamentGameCount } from './tournamentDistanceService.ts';
 
 export const TOURNAMENT_PLAYER_CAPACITY = 10;
 export type TournamentPaymentState = 'unpaid' | 'pending' | 'confirmed' | 'rejected' | 'waived' | 'refunded';
@@ -78,6 +79,7 @@ export async function loadTournamentEvening(db: DatabaseWrapper, tournamentId: s
   const entryFee = Number(tournament.entry_fee_rub || 0);
   const canonicalParticipants = await db.all<any>('SELECT id,player_id,participant_number FROM tournament_participants WHERE tournament_id=? ORDER BY participant_number ASC', [tournamentId]);
   const canonicalGames = await db.all<any>('SELECT id FROM tournament_games WHERE tournament_id=?', [tournamentId]);
+  const distanceGames = normalizeTournamentGameCount(tournament.game_count);
   let canonicalSeatsCount = 0;
   for (const game of canonicalGames) {
     const count = await db.get<any>('SELECT COUNT(*) AS count FROM tournament_game_seats WHERE game_id=?', [game.id]);
@@ -87,7 +89,7 @@ export async function loadTournamentEvening(db: DatabaseWrapper, tournamentId: s
   const canonicalIds = canonicalParticipants.map((row) => String(row.player_id));
   const rosterInSync = registrationIds.length === canonicalIds.length && registrationIds.every((id, index) => id === canonicalIds[index]);
   const startReadiness = {
-    ready: confirmed.length === 10 && canonicalParticipants.length === 10 && rosterInSync && canonicalGames.length === 10 && canonicalSeatsCount === 100,
+    ready: confirmed.length === 10 && canonicalParticipants.length === 10 && rosterInSync && canonicalGames.length === distanceGames && canonicalSeatsCount === distanceGames * 10,
     confirmed_count: confirmed.length,
     participants_count: canonicalParticipants.length,
     games_count: canonicalGames.length,
@@ -157,6 +159,7 @@ export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tourn
     const confirmed = await tx.all<any>("SELECT player_id,slot_number FROM tournament_registrations WHERE tournament_id=? AND status='confirmed' ORDER BY slot_number ASC", [tournamentId]);
     if (confirmed.length !== TOURNAMENT_PLAYER_CAPACITY) throw new Error('ROSTER_NOT_READY');
     const registrationIds = confirmed.map((row) => String(row.player_id));
+    const distanceGames = normalizeTournamentGameCount(tournament.game_count);
     let existingGames = await tx.all<any>('SELECT id,status FROM tournament_games WHERE tournament_id=? ORDER BY game_number ASC', [tournamentId]);
     if (options.regenerate && existingGames.length > 0) {
       if (existingGames.some((game) => String(game.status) !== 'planned')) throw new Error('ROSTER_LOCKED');
@@ -173,7 +176,7 @@ export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tourn
         const count = await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_game_seats WHERE game_id=?', [game.id]);
         seats += Number(count?.count || 0);
       }
-      if (existingGames.length === 10 && seats === 100) return { ready: true, participants_count: 10, games_count: 10, seats_count: 100, already_prepared: true };
+      if (existingGames.length === distanceGames && seats === distanceGames * 10) return { ready: true, participants_count: 10, games_count: distanceGames, seats_count: distanceGames * 10, already_prepared: true };
       throw new Error('ROSTER_ALREADY_SEATED');
     }
     await syncCanonicalParticipants(tx, tournamentId);
@@ -181,8 +184,8 @@ export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tourn
     const canonicalIds = participants.map((row) => String(row.player_id));
     if (participants.length !== 10 || !registrationIds.every((id, index) => id === canonicalIds[index])) throw new Error('ROSTER_MISMATCH');
     // Every player takes each seat once in the ten games (owner, 2026-10-03; see tournamentSeatingPlan.ts).
-    const seatingByGame = seatParticipants(participants, 10);
-    for (let gameNumber = 1; gameNumber <= 10; gameNumber += 1) {
+    const seatingByGame = seatParticipants(participants, distanceGames);
+    for (let gameNumber = 1; gameNumber <= distanceGames; gameNumber += 1) {
       const gameId = crypto.randomUUID();
       await tx.run(`INSERT INTO tournament_games (id,tournament_id,game_number,judge_name,status) VALUES (?,?,?,?, 'planned')`, [gameId, tournamentId, gameNumber, tournament.chief_judge_name || null]);
       const shuffled = seatingByGame[gameNumber - 1];
@@ -192,8 +195,8 @@ export async function prepareTournamentEveningSeating(db: DatabaseWrapper, tourn
     }
     const preparedAt = nowIso();
     await tx.run('UPDATE tournaments SET tournament_evening_seating_prepared_at=?,updated_at=? WHERE id=?', [preparedAt, preparedAt, tournamentId]);
-    await audit(tx, tournamentId, options.regenerate ? 'regenerate_seating' : 'prepare_seating', 'organizer', actor, null, options.regenerate ? 'tournament seating regenerated by the organizer' : 'canonical tournament seating generated', { participants_count: 10, games_count: 10, seats_count: 100 });
-    return { ready: true, participants_count: 10, games_count: 10, seats_count: 100, already_prepared: false };
+    await audit(tx, tournamentId, options.regenerate ? 'regenerate_seating' : 'prepare_seating', 'organizer', actor, null, options.regenerate ? 'tournament seating regenerated by the organizer' : 'canonical tournament seating generated', { participants_count: 10, games_count: distanceGames, seats_count: distanceGames * 10 });
+    return { ready: true, participants_count: 10, games_count: distanceGames, seats_count: distanceGames * 10, already_prepared: false };
   }));
 }
 

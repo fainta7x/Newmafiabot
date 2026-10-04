@@ -224,7 +224,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold">Рассадка для игроков (PNG)</h3>
-              <p className="text-[11px] text-text-secondary">Общая рассадка: 10 игроков × 10 игр</p>
+              <p className="text-[11px] text-text-secondary">Общая рассадка: 10 игроков × {Number((tournament as { game_count?: number }).game_count || (tournament.games || []).length || 10)} игр</p>
             </div>
           </div>
           <button

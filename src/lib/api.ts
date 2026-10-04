@@ -1037,6 +1037,10 @@ export const api = {
     request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/start`, {
       method: 'POST',
     }),
+  resetTournamentGameToPlanned: (tournamentId: string, gameId: string) =>
+    request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/reset-to-planned`, {
+      method: 'POST',
+    }),
 
   // Protocol Blank Imports
   uploadProtocolBlank: async (tournamentId: string, file: File): Promise<{

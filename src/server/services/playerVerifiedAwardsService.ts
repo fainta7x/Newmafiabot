@@ -203,11 +203,15 @@ export async function syncTrustedTournamentAwards(db: DatabaseWrapper, playerId:
   const gameProfile = await loadPlayerGameProfile(db, playerId);
   let created = 0;
   const now = new Date().toISOString();
+  // Keys of the trophies that are valid right now. A reopened or recounted tournament changes its winners,
+  // so persisted automatic trophies that are no longer earned are removed below (owner audit, 2026-10-04).
+  const currentKeys = new Set<string>();
   for (const award of gameProfile.tournamentAwards || []) {
     if (!award.tournament_id || award.source === 'historical') continue;
     const tournament = await db.get<any>('SELECT id, title, date, status FROM tournaments WHERE id = ? LIMIT 1', [award.tournament_id]);
     if (!tournament || String(tournament.status) !== 'completed') continue;
     const sourceKey = `trusted-tournament:${award.id}`;
+    currentKeys.add(sourceKey);
     const id = `award_${crypto.randomUUID()}`;
     const kind: VerifiedAwardKind = award.kind === 'placement' ? 'placement' : 'nomination';
     const placeResult = award.place ? `${award.place} место` : award.category || null;
@@ -223,6 +227,13 @@ export async function syncTrustedTournamentAwards(db: DatabaseWrapper, playerId:
         placeResult, award.comment || null, `Trusted completed tournament ${award.tournament_id}`, sourceKey, now, now, now],
     );
     if (result.changes) created += 1;
+  }
+  const persisted = await db.all<any>(
+    "SELECT id, source_key FROM player_verified_awards WHERE player_id = ? AND source_type = 'automatic' AND source_key LIKE 'trusted-tournament:%'",
+    [playerId],
+  );
+  for (const row of persisted) {
+    if (!currentKeys.has(String(row.source_key))) await db.run('DELETE FROM player_verified_awards WHERE id = ?', [row.id]);
   }
   return created;
 }

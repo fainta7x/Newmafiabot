@@ -333,12 +333,12 @@ describe('Tournament Module API Tests', () => {
       .send({ roles: validRoles });
     expect(roleChange.status).toBe(200);
 
-    // Try modifying judge -> Fails
+    // The judge of a running game can be replaced too (owner audit, 2026-10-04), until the protocol is completed
     const judgeChange = await request(app)
       .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/judge`)
       .set('Cookie', organizerCookie)
       .send({ judge_name: 'Новый Судья' });
-    expect(judgeChange.status).toBe(400);
+    expect(judgeChange.status).toBe(200);
   });
 
   // 9. Generic PATCH tournament ignores status field

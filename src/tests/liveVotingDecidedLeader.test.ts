@@ -16,4 +16,10 @@ describe('voting leader that is already decided', () => {
     expect(findDecidedVoteLeader(null)).toBeNull();
     expect(findDecidedVoteLeader({ nominated_seats: [3], vote_counts: {}, eligible_voters: 0 })).toBeNull();
   });
+
+  it('stops being decided when a removed voter took a ballot from the leader', () => {
+    expect(findDecidedVoteLeader({ nominated_seats: [3, 5], vote_counts: { 3: 6, 5: 3 }, eligible_voters: 10 })).toBe(3);
+    // one of the six voters was removed: his ballot is free again, 5 is no longer more than 3 + 2
+    expect(findDecidedVoteLeader({ nominated_seats: [3, 5], vote_counts: { 3: 5, 5: 3 }, eligible_voters: 10 })).toBeNull();
+  });
 });

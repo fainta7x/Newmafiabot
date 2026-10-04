@@ -104,7 +104,11 @@ export function setBestMove(
     bestMoveSource: source,
     bestMoveSourceSlot: sourceSlot,
     bestMoveSeats: [...seats],
-    bestMoves: { ...(state.bestMoves || {}), [source]: { slot: sourceSlot, seats: [...seats] } },
+    // Seeded from every move already confirmed, a legacy single-move marker of an older saved session included.
+    bestMoves: {
+      ...Object.fromEntries(confirmedBestMoves(state).map((move) => [move.source, { slot: move.slot, seats: move.seats }])),
+      [source]: { slot: sourceSlot, seats: [...seats] },
+    },
   };
 }
 

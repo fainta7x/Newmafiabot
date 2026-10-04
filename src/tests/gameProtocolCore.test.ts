@@ -131,4 +131,11 @@ describe('both best moves of a game survive', () => {
     expect(confirmedBestMoves({ ...emptyMarkers(), bestMoveSource: 'first_killed', bestMoveSourceSlot: 7, bestMoveSeats: [1, 2] }))
       .toEqual([{ source: 'first_killed', slot: 7, seats: [1, 2] }]);
   });
+
+  it('keeps a legacy move of an older saved session when the second one is confirmed', () => {
+    let markers = markFirstKilled(markZeroRound(emptyMarkers(), 4), 7);
+    markers = { ...markers, bestMoveSource: 'zero_round_voted', bestMoveSourceSlot: 4, bestMoveSeats: [1, 2, 3] };
+    markers = confirmBestMove(markers, 'first_killed', [8, 9]);
+    expect(confirmedBestMoves(markers).map((move) => move.source)).toEqual(['zero_round_voted', 'first_killed']);
+  });
 });

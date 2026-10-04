@@ -20,9 +20,23 @@ Scope: tournament lifecycle, live game engine, protocol, registration/payments, 
 - Correct-player change rebuilds Elo atomically; stale evaluator achievements revoked.
 - Evening awards: one «Игрок вечера» vote (3-day window), yearly counter and «Игрок года», single win-rate rule (`winRatePercent`), season = rating period (`clubSeasonService`).
 
-### Open — engine / protocol correctness
+### Engine / protocol correctness — re-audit 2026-10-04 (replaces the lost «B1–B7»)
 
-The detailed list «B1–B7» of the first pass was produced in a session whose context was compacted and its item text was **not saved**; it is lost. It is being re-audited from the code (see the entry below once written). Do not rely on the old labels.
+Read-only sweep by a subagent; traced from code, not reproduced. Status is updated as each is verified and fixed.
+
+1. HIGH `open` — only one ЛХ survives: `gameProtocolCore.ts:59-80` (`setBestMove`) keeps a single best-move marker, `EveningLiveGameModal.tsx:105-117` / `TournamentLiveGameModal.tsx:82-88` build `best_moves` from it, so the zero-round ЛХ is overwritten by the first-killed ЛХ (servers accept two).
+2. HIGH `open` — removal during the voting farewell cancels the voting and jumps to night: `LiveGameEngine.tsx:629-657` treats stage `resolved` as voting in progress; `startNightPhase` (1078-1102) does not clear `votingFarewellQueue` (winner effect stays blocked); `gameDiscipline.ts:161-208` `confirmAction` ignores `alive`, so removing an already-out player cancels the next voting.
+3. HIGH `open` — tournament: night without a shot (`liveClubSession.ts:133` emits `target_seat: 0, result: 'agreement_failed'`) is rejected by `tournamentProtocolRoutes.ts:372-375` (`validateShots`) on draft and complete.
+4. MEDIUM-HIGH `open` — «decided leader» exception counts the removed voter's ballot as unspent (`LiveGameEngine.tsx:629-635` passes old `eligible_voters` to `findDecidedVoteLeader`); also the round keeps `eligible_voters` 10 with 9 voters (`handleFinalizeVote` 826-835).
+5. MEDIUM `open` — 3rd foul / bought extension during a revote speech is consumed at once (`LiveGameEngine.tsx:438-444` effect on `discipline`).
+6. MEDIUM `open` — removing an already-out player overwrites `exit_reason` with `removed` (`LiveGameEngine.tsx:432`); tournament validators (`tournamentProtocolRoutes.ts:84,126,138,691-702`) then refuse the game, club save loses «killed».
+7. MEDIUM-LOW `open` — tournament `validateFirstKilled` (`:62-80`) cannot be satisfied when the first-night victim is black.
+8. MEDIUM-LOW `open` — voting cancelled by a mid-voting removal leaves a `pending` round (`LiveGameEngine.tsx:648-654`, `liveClubSession.ts:55-67,153-158`) that blocks tournament completion (`validateVotes` 555/589).
+9. MEDIUM-LOW `open` — club server does not enforce tournament invariants: free `ci_points`, no first-killed/zero-round/best-move consistency (`clubGameProtocolService.ts:119,143-145`).
+10. LOW `open` — judge/protocol bonus not bounded or rounded on the tournament server (`tournamentProtocolRoutes.ts:272-278`); club rounding is not sign-symmetric (`clubGameProtocolService.ts:35-39`).
+11. LOW `open` — undo does not restore `speechExtendedSlot` (`LiveGameEngine.tsx:140-143`).
+
+Checked, no defect: win condition, raise/leave and 7-alive rules, best-move seat limits, foul/removal penalties and PPK winner, starter rotation.
 
 ### Open — notification reliability (not fixed)
 

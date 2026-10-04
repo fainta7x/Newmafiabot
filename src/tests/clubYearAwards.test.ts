@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { buildAwards } from '../server/services/playerEveningSummaryService.ts';
 import { buildYearPodium, loadEveningTitles, loadPlayerEveningTitles, moscowYear, syncClubYearAwards } from '../server/services/clubYearAwardsService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -82,5 +83,19 @@ describe('club evening titles and yearly awards', () => {
       { player_id: 'a', place: 1, titles: 3 }, { player_id: 'b', place: 1, titles: 3 },
       { player_id: 'c', place: 3, titles: 2 }, { player_id: 'd', place: 3, titles: 2 },
     ]);
+  });
+
+  it('names every tied winner of the evening summary, and only after the voting is closed', async () => {
+    const db = await setup();
+    await evening(db, 'closed', '2026-03-06T17:00:00Z');
+    await vote(db, 'closed', 'v1', 'a'); await vote(db, 'closed', 'v2', 'b'); await vote(db, 'closed', 'v3', 'a'); await vote(db, 'closed', 'a', 'b');
+    const awards = await buildAwards(db, 'closed', new Map(), true);
+    expect(awards.map((award: any) => award.player_id).sort()).toEqual(['a', 'b']);
+    expect(awards.every((award: any) => award.votes === 2 && award.label === 'Игрок вечера')).toBe(true);
+
+    const justNow = new Date(Date.now() - 3_600_000).toISOString();
+    await evening(db, 'open', justNow);
+    await vote(db, 'open', 'v1', 'a');
+    expect(await buildAwards(db, 'open', new Map(), true)).toEqual([]);
   });
 });

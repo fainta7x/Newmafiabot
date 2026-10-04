@@ -4,6 +4,7 @@ import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 import { ensurePremiumPlayerConnectionsSchema } from '../services/premiumPlayerConnectionsService.ts';
+import { EVENING_VOTING_WINDOW_MS } from '../services/clubYearAwardsService.ts';
 
 const router = Router();
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -228,23 +229,23 @@ const buildNotifications = async (db: any, playerId: string) => {
   const votesTableExists = await safeTableExists(db, 'evening_player_votes');
   for (const evening of attendedRecent) {
     const baseMs = new Date(String(evening.settled_at || evening.starts_at)).getTime();
-    if (!Number.isFinite(baseMs) || baseMs + SEVEN_DAYS <= now) continue;
-    let votedCount = 0;
+    if (!Number.isFinite(baseMs) || baseMs + EVENING_VOTING_WINDOW_MS <= now) continue;
+    let voted = false;
     if (votesTableExists) {
       const row = await db.get(`
-        SELECT COUNT(DISTINCT category) AS count
+        SELECT COUNT(*) AS count
           FROM evening_player_votes
-         WHERE evening_id = ? AND voter_player_id = ?
+         WHERE evening_id = ? AND voter_player_id = ? AND category = 'best_player'
       `, [evening.id, playerId]);
-      votedCount = Number(row?.count || 0);
+      voted = Number(row?.count || 0) > 0;
     }
-    if (votedCount < 4) {
+    if (!voted) {
       items.push({
-        key: `vote:${evening.id}:${votedCount}`,
+        key: `vote:${evening.id}`,
         type: 'evening_vote',
         icon: '🗳️',
-        title: votedCount ? `Голосование: ${votedCount}/4` : 'Выбери героев вечера',
-        text: `${String(evening.title || 'Игровой вечер')} · симпатия, красный, чёрный и Шериф`,
+        title: 'Кто сыграл лучше всех?',
+        text: `${String(evening.title || 'Игровой вечер')} · выбери «Игрока вечера»`,
         date: new Date(baseMs).toISOString(),
         action: { kind: 'club', target: String(evening.id) },
         priority: 80,

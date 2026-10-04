@@ -7,7 +7,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
  * from zero every January. When a year is over, the three players with the most titles get «Игрок года» awards in their
  * profile showcase; past years stay there.
  */
-export const EVENING_VOTING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// Three days after the evening is closed: a Friday evening is voted on until Monday, before the next one is announced.
+export const EVENING_VOTING_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const VOTE_CATEGORY = 'best_player';
 const AWARD_KEY_PREFIX = 'club-year:';
 

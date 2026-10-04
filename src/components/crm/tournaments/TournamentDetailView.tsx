@@ -54,7 +54,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           .filter((player) => (player as any).judge_level === 'judge')
           .slice()
           .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')));
-        setSelectedGameId((current) => current || nextTournament.games?.[0]?.id || '');
+        setSelectedGameId((current) => {
+          if (current) return current;
+          const list: any[] = nextTournament.games || [];
+          // The game being played, or the next one to play, not game 1.
+          return (list.find((game) => game.status === 'active') || list.find((game) => game.status !== 'completed') || list[0])?.id || '';
+        });
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -82,6 +87,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     if (!tournament || !selectedGame || tournament.status === 'completed') return false;
     if (tournament.status === 'correction' && selectedGame.status === 'completed') return true;
     if (selectedGame.status === 'planned') return tournament.status === 'draft' || tournament.status === 'active';
+    // A judge who cannot continue can be replaced in the running game until its protocol is completed (audit 2026-10-04).
+    if (tournament.status === 'active' && selectedGame.status === 'active') return selectedGame.protocol_status !== 'completed';
     if (tournament.status === 'correction' && selectedGame.status === 'active') {
       const otherActive = games.some((game: any) => game.id !== selectedGame.id && game.status === 'active');
       return selectedGame.protocol_status === 'draft' && !otherActive;

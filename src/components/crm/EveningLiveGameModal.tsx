@@ -1,3 +1,4 @@
+import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
@@ -100,16 +101,9 @@ export const mapEngineResultToProtocol = (
   const ppkPlayer = ppkSlot ? bySeat.get(ppkSlot) : null;
 
   const bestMoves: NonNullable<TournamentGameProtocolData['best_moves']> = [];
-  const confirmedSource = markers.bestMoveSource as 'first_killed' | 'zero_round_voted' | null | undefined;
-  const confirmedSourceSlot = Number(markers.bestMoveSourceSlot || 0);
-  const confirmedSeats = Array.isArray(markers.bestMoveSeats) ? markers.bestMoveSeats.slice(0, 3) : [];
-  const confirmedPlayer = confirmedSourceSlot ? bySeat.get(confirmedSourceSlot) : null;
-  if (confirmedSource && confirmedPlayer && confirmedSeats.length > 0) {
-    bestMoves.push({
-      participant_id: confirmedPlayer.participant_id,
-      source: confirmedSource,
-      seat_numbers: confirmedSeats,
-    });
+  for (const move of confirmedBestMoves(markers)) {
+    const player = bySeat.get(move.slot);
+    if (player) bestMoves.push({ participant_id: player.participant_id, source: move.source, seat_numbers: move.seats });
   }
 
   const playerResults = applyStoredDeathProtocolsToResults(previousResults.map((previous) => {

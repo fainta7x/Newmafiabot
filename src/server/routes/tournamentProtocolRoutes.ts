@@ -53,7 +53,15 @@ export function calculateBestMovePoints(
 const VALID_EXIT_TYPES = ['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed'];
 const VALID_COLOR_MARKS = ['red', 'black', 'sheriff'];
 
-function validateFirstKilled(
+/**
+ * A player who already left the game (killed, voted out) may later be removed by the judge; he then shows as
+ * «removed» with a removal reason, and everything recorded before (first killed, ЛХ, death protocol) stays
+ * (owner decision, 2026-10-04).
+ */
+const leftAs = (pr: any, expected: 'killed' | 'voted_zero_round' | 'voted_day'): boolean =>
+  pr?.exit_type === expected || (pr?.exit_type === 'removed' && Boolean(pr?.removal_reason));
+
+export function validateFirstKilled(
   firstKilledParticipantId: string | null | undefined,
   seats: any[],
   playerResults: any[],
@@ -63,6 +71,10 @@ function validateFirstKilled(
     if (Array.isArray(shots)) {
       const night1 = shots.find((s) => s && Number(s.night_number) === 1);
       if (night1 && night1.result === 'killed') {
+        // A black victim (e.g. a lone mafia who shot himself) never becomes a "first killed" — the engine registers none.
+        const victim = seats.find((s) => Number(s.seat_number) === Number(night1.target_seat));
+        const victimRole = normalizeRole(victim?.role);
+        if (victimRole === 'mafia' || victimRole === 'don') return null;
         return 'В первую ночь был убит игрок, но первоубиенный не выбран в протоколе';
       }
     }
@@ -81,7 +93,7 @@ function validateFirstKilled(
 
   if (playerResults && Array.isArray(playerResults)) {
     const fkResult = playerResults.find((pr) => pr.participant_id === firstKilledParticipantId);
-    if (fkResult && fkResult.exit_type !== 'killed') {
+    if (fkResult && !leftAs(fkResult, 'killed')) {
       return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
     }
   }
@@ -123,7 +135,7 @@ function validateBestMoves(
     }
     if (playerResults && Array.isArray(playerResults)) {
       const fkResult = playerResults.find((pr) => pr.participant_id === firstKilledParticipantId);
-      if (fkResult && fkResult.exit_type !== 'killed') {
+      if (fkResult && !leftAs(fkResult, 'killed')) {
         return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
       }
     }
@@ -135,7 +147,7 @@ function validateBestMoves(
     }
     if (playerResults && Array.isArray(playerResults)) {
       const zrResult = playerResults.find((pr) => pr.participant_id === zeroRoundVotedParticipantId);
-      if (zrResult && zrResult.exit_type !== 'voted_zero_round') {
+      if (zrResult && !leftAs(zrResult, 'voted_zero_round')) {
         return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
       }
     }
@@ -204,7 +216,7 @@ function validateBestMoves(
   return null;
 }
 
-function validatePlayerResults(
+export function validatePlayerResults(
   playerResults: any[],
   gameSeats: any[],
   firstKilledParticipantId?: string | null
@@ -273,8 +285,16 @@ function validatePlayerResults(
       return 'Бонусные баллы судьи должны быть числом';
     }
 
+    if (pr.judge_bonus !== undefined && Math.abs(pr.judge_bonus) > 1) {
+      return 'Бонусные баллы судьи: допустимо от -1 до 1';
+    }
+
     if (pr.protocol_bonus !== undefined && (typeof pr.protocol_bonus !== 'number' || !Number.isFinite(pr.protocol_bonus))) {
       return 'Баллы протокола должны быть числом';
+    }
+
+    if (pr.protocol_bonus !== undefined && Math.abs(pr.protocol_bonus) > 1) {
+      return 'Баллы протокола: допустимо от -1 до 1';
     }
 
     if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points))) {
@@ -312,7 +332,7 @@ function validatePlayerResults(
       if (!Array.isArray(pr.color_protocol)) {
         return 'Цветовой протокол должен быть массивом';
       }
-      if (pr.color_protocol.length > 0 && pr.exit_type !== 'killed') {
+      if (pr.color_protocol.length > 0 && !leftAs(pr, 'killed')) {
         return 'Цветовой протокол разрешён только для убитого игрока';
       }
       for (const entry of pr.color_protocol) {
@@ -346,7 +366,7 @@ function validatePlayerResults(
   return null;
 }
 
-function validateShots(shots: any): string | null {
+export function validateShots(shots: any): string | null {
   if (shots === undefined || shots === null) return null;
   if (!Array.isArray(shots)) {
     return 'Ночной журнал (shots) должен быть массивом';
@@ -370,7 +390,9 @@ function validateShots(shots: any): string | null {
     }
 
     const ts = Number(s.target_seat);
-    if (!Number.isInteger(ts) || ts < 1 || ts > 10) {
+    // A night where the mafia did not agree on a target has no seat (the live recorder writes 0 for it).
+    const noTarget = s.result === 'agreement_failed' && (s.target_seat === 0 || s.target_seat === null || s.target_seat === undefined);
+    if (!noTarget && (!Number.isInteger(ts) || ts < 1 || ts > 10)) {
       return 'Номер цели должен быть целым числом от 1 до 10';
     }
 
@@ -694,10 +716,10 @@ function validateVotes(
       if (pr.exit_type === 'voted_day' && !otherDayEliminated.has(Number(pr.seat_number))) {
         return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован", но не был заголосован в подтверждённых кругах последующих дней.`;
       }
-      if (zeroRoundEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_zero_round') {
+      if (zeroRoundEliminated.has(Number(pr.seat_number)) && !leftAs(pr, 'voted_zero_round')) {
         return `Игрок #${pr.seat_number} заголосован в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`;
       }
-      if (otherDayEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_day') {
+      if (otherDayEliminated.has(Number(pr.seat_number)) && !leftAs(pr, 'voted_day')) {
         return `Игрок #${pr.seat_number} заголосован днём, но его статус ухода в списке игроков не "Заголосован".`;
       }
     }

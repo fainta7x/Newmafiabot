@@ -609,6 +609,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 77. Season = rating period (owner-approved 2026-10-04, built): the career profile «Текущий сезон» and «Клуб → Итоги сезона» take their bounds from the RATING periods (active/completed, `loadRatingSeasons`) instead of two copies of the calendar-quarter code; the period end is inclusive; calendar quarters remain only as a fallback while no period covers the date. Counted by date range — the period's per-evening/per-game overrides are not applied to these club statistics. Needs a deploy.
 
+78. Engine / protocol bug fixes from the re-audit (owner: «делай все что нужно», built): both ЛХ of a game are kept and saved (zero-round and first-killed); a removal during the voting farewell no longer cancels the voting or blocks the winner check; removing a player who already left the table cancels nothing; the «decided leader» exception counts only surviving voters; a penalty foul during a revote speech is served at the next speech; a night without a shot and a black first-night victim no longer make the tournament server refuse the game; a cancelled voting leaves no pending round; Undo takes back a speech extension; completed club saves enforce first-killed/ЛХ consistency; tournament judge/protocol bonus is bounded to ±1. A player who already left the game and is removed later becomes «removed» but keeps first-killed, ЛХ and death protocols (owner, 2026-10-04); the tournament validators accept it. Details and the item still open (free `ci_points`) in `docs/AUDIT_LOG.md`. Needs a deploy.
+
 Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Waiting on the owner

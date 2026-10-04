@@ -154,7 +154,12 @@ export const updateLiveProtocolEvidence = (
   let shots = [...evidence.shots];
 
   if (shouldCommitPreviousVoting(previous, current) && previous) {
-    votes = mergeLiveVotingRounds(votes, finalizeLiveVotingRounds(previous));
+    const finalized = finalizeLiveVotingRounds(previous);
+    votes = mergeLiveVotingRounds(votes, finalized);
+    // A voting that was left without a result (cancelled by a removal) is not a voting of the protocol: a round stuck
+    // at "pending" would make the tournament refuse to complete the game.
+    const abandoned = new Set(finalized.filter((round) => round.outcome === 'pending').map(roundKey));
+    if (abandoned.size) votes = votes.filter((round) => !abandoned.has(roundKey(round)));
   }
   if (nightResolutionHappened(previous, current) && previous) {
     shots = mergeShots(shots, shotFromResolvedNight(previous));

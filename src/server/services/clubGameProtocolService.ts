@@ -140,9 +140,24 @@ export const canonicalizeClubGameSave = (
     } else if (!winnerTeam) throw new Error('Для завершения игры укажите победившую команду');
   }
 
-  referencedParticipant(participantIds, incomingProtocol?.first_killed_participant_id, 'Первый убитый');
-  referencedParticipant(participantIds, incomingProtocol?.zero_round_voted_participant_id, 'Нулевой круг');
+  const firstKilledId = referencedParticipant(participantIds, incomingProtocol?.first_killed_participant_id, 'Первый убитый');
+  const zeroRoundId = referencedParticipant(participantIds, incomingProtocol?.zero_round_voted_participant_id, 'Нулевой круг');
   validateBestMoves(incomingProtocol, participantIds, tableSize);
+  if (status === 'completed') {
+    // The same consistency the tournament protocol demands: one player cannot be both, a ЛХ belongs to its source player,
+    // and there is at most one ЛХ per source.
+    if (firstKilledId && firstKilledId === zeroRoundId) throw new Error('Первый убитый и заголосованный в нулевой круг не могут быть одним игроком');
+    const moves: any[] = Array.isArray(incomingProtocol?.best_moves) ? incomingProtocol.best_moves : [];
+    if (moves.length > 2) throw new Error('Лучший ход: в игре не может быть больше двух');
+    const sources = new Set<string>();
+    for (const move of moves) {
+      const source = String(move?.source || '');
+      if (sources.has(source)) throw new Error('Лучший ход: два хода от одного источника');
+      sources.add(source);
+      const owner = source === 'first_killed' ? firstKilledId : zeroRoundId;
+      if (!owner || String(move?.participant_id || '') !== owner) throw new Error('Лучший ход: игрок не совпадает с первым убитым / заголосованным в нулевой круг');
+    }
+  }
   // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const protocol = { ...incomingProtocol, events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };

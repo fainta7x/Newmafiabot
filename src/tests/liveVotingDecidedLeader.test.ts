@@ -22,4 +22,10 @@ describe('voting leader that is already decided', () => {
     // one of the six voters was removed: his ballot is free again, 5 is no longer more than 3 + 2
     expect(findDecidedVoteLeader({ nominated_seats: [3, 5], vote_counts: { 3: 5, 5: 3 }, eligible_voters: 10 })).toBeNull();
   });
+
+  it('counts only the surviving voters when a non-voter is removed', () => {
+    // 10 alive, #3 has 5, #5 has 0, five have not voted. One non-voter is removed: 9 voters, #3 needs more than 4.
+    expect(findDecidedVoteLeader({ nominated_seats: [3, 5], vote_counts: { 3: 5, 5: 0 }, eligible_voters: 10 })).toBeNull();
+    expect(findDecidedVoteLeader({ nominated_seats: [3, 5], vote_counts: { 3: 5, 5: 0 }, eligible_voters: 9 })).toBe(3);
+  });
 });

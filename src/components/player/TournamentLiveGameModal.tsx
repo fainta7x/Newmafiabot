@@ -1,3 +1,4 @@
+import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import TournamentBroadcastPanel from './TournamentBroadcastPanel.tsx';
@@ -79,12 +80,9 @@ export const mapEngineResult = (
   const ppkPlayer = ppkSlot ? bySeat.get(Number(ppkSlot)) : null;
 
   const bestMoves: NonNullable<TournamentGameProtocolData['best_moves']> = [];
-  const source = markers.bestMoveSource as 'first_killed' | 'zero_round_voted' | null | undefined;
-  const sourceSlot = Number(markers.bestMoveSourceSlot || 0);
-  const sourcePlayer = sourceSlot ? bySeat.get(sourceSlot) : null;
-  const bestMoveSeats = Array.isArray(markers.bestMoveSeats) ? markers.bestMoveSeats.slice(0, 3) : [];
-  if (source && sourcePlayer && bestMoveSeats.length) {
-    bestMoves.push({ participant_id: sourcePlayer.participant_id, source, seat_numbers: bestMoveSeats });
+  for (const move of confirmedBestMoves(markers)) {
+    const player = bySeat.get(move.slot);
+    if (player) bestMoves.push({ participant_id: player.participant_id, source: move.source, seat_numbers: move.seats });
   }
 
   const playerResults = previousResults.map((previous) => {

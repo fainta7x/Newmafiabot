@@ -93,6 +93,8 @@ const discipline = createInitialGameDiscipline(activePlayers.map((player) => ({
 })));
 
 localStorage.setItem('mafia_live_session', JSON.stringify({
+  // A saved session belongs to one game and is offered only to it.
+  sessionKey: 'tournament:game-e2e',
   activePlayers,
   nominations: deathMode ? [] : [3, 4],
   nominationsMap: deathMode ? {} : { 1: 3, 2: 4 },

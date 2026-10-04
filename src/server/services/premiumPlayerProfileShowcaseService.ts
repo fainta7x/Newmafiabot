@@ -9,6 +9,19 @@ const dateTime = (value: unknown) => {
   return Number.isFinite(time) ? time : 0;
 };
 
+/**
+ * The cheap variant for the profile overview: only the persisted verified awards. It never reconciles tournament trophies
+ * (that scans the whole game history); trophies are reconciled when a tournament is completed and when the awards tab is
+ * opened.
+ */
+export async function loadPremiumProfileAwardsLight(db: DatabaseWrapper, playerId: string) {
+  const awards = (await listVerifiedAwards(db, playerId, false)).slice(0, 30);
+  const pinned = awards
+    .filter((award: any) => Number(award.pinned_position || 0) >= 1 && Number(award.pinned_position || 0) <= 3)
+    .sort((a: any, b: any) => Number(a.pinned_position) - Number(b.pinned_position));
+  return { awards, pinned_awards: pinned, earned_achievements: [], timeline: [], achievements: { earned: 0, total: 0, percentage: 0 }, stats: { verified_awards: awards.length, achievements_earned: 0, achievements_total: 0, completed_games: 0, manual_milestones: 0 } };
+}
+
 export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: string, isSelf: boolean) {
   await syncTrustedTournamentAwards(db, playerId);
   const [player, awards, achievements, profile, manualMilestones] = await Promise.all([

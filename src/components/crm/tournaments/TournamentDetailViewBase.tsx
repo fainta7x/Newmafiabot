@@ -322,7 +322,11 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     setFeedbackMsg(null);
     try {
       await api.resetTournamentGameToPlanned(tournamentId, String(currentGame.id));
-      try { Object.keys(localStorage).filter((key) => key.startsWith('mafia_live_session')).forEach((key) => localStorage.removeItem(key)); } catch { /* storage may be blocked */ }
+      // Only this game's leftovers: the shared engine session and this game's evidence/votes (club or other games stay).
+      try {
+        ['mafia_live_session', `mafia_live_session:tournament:${currentGame.id}:protocol`, `mafia_live_broadcast_votes:tournament:${tournamentId}:${currentGame.id}`]
+          .forEach((key) => localStorage.removeItem(key));
+      } catch { /* storage may be blocked */ }
       setFeedbackMsg({ type: 'success', text: `Игра №${currentGame.game_number} снова запланирована` });
       await loadDetail();
     } catch (err: any) {

@@ -330,6 +330,28 @@ export const evaluatePlayerAchievements = async (db: any, playerId: string): Pro
   return newlyEarned;
 };
 
+/**
+ * After games were moved between players (participant correction) the evaluator-sourced achievements that a player
+ * no longer qualifies for are removed. Manual, legacy and override grants are never touched.
+ */
+export const reconcileEvaluatorAchievements = async (db: any, playerId: string) => {
+  const [stats, definitions, overrideRows] = await Promise.all([
+    collectPlayerAchievementStats(db, playerId),
+    loadAchievementDefinitions(db),
+    loadAchievementOverrides(db, playerId),
+  ]);
+  const overrides = new Map(overrideRows.map((row: any) => [String(row.achievement_id), String(row.state)]));
+  const qualifying = new Set(definitions
+    .filter((achievement) => overrides.get(achievement.id) !== 'revoke' && qualifiesForAchievement(achievement, stats))
+    .map((achievement) => achievement.id));
+  const earned = await db.all("SELECT id, achievement_id FROM player_achievements WHERE player_id = ? AND source = 'evaluator'", [playerId]);
+  for (const row of earned) {
+    if (!qualifying.has(String(row.achievement_id)) && overrides.get(String(row.achievement_id)) !== 'grant') {
+      await db.run('DELETE FROM player_achievements WHERE id = ?', [row.id]);
+    }
+  }
+};
+
 export const evaluateAchievementsForPlayers = async (db: any, playerIds: Iterable<string>) => {
   const ids = [...new Set([...playerIds].map(String).filter(Boolean))];
   for (const playerId of ids) await evaluatePlayerAchievements(db, playerId);

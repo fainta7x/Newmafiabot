@@ -83,4 +83,15 @@ describe('shortening a created tournament', () => {
     const res = await request(app).patch(`/api/tournaments/${tournamentId}/games/${first.id}/judge`).set('Cookie', cookie).send({ judge_name: 'Новый судья' });
     expect(res.status).toBe(200);
   });
+
+  it('corrects a participant after a played game without failing the rating rebuild', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    await db.run("UPDATE tournament_games SET status = 'completed' WHERE tournament_id = ? AND game_number = 1", [tournamentId]);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO players (id, nickname, phone, contact_status, created_at, updated_at) VALUES ('gc-new', 'Новичок', '+79001119999', 'NEW_LEAD', ?, ?)`, [now, now]);
+    const participant = await db.get<any>('SELECT id FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number LIMIT 1', [tournamentId]);
+    const res = await request(app).patch(`/api/tournaments/${tournamentId}/participants/${participant.id}/correct-player`).set('Cookie', cookie).send({ player_id: 'gc-new' });
+    expect(res.status).toBe(200);
+    expect((await db.get<any>('SELECT player_id FROM tournament_participants WHERE id = ?', [participant.id]))?.player_id).toBe('gc-new');
+  });
 });

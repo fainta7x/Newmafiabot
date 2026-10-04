@@ -229,7 +229,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
   };
 
-  const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
+  const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-59), takeSnapshot()]);
 
   const restoreSnapshot = (snapshot: LiveSnapshot) => {
     const restored = normalizeLiveSnapshotForRestore(snapshot);

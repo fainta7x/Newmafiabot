@@ -133,4 +133,12 @@ describe('session ownership by game', () => {
     expect(readRestorableLiveSession(storage, 10, 'tournament:g6')).toBeNull();
     expect(readRestorableLiveSession(storage, 10)).not.toBeNull();
   });
+
+  it('offers a keyless club session to its own club game only', () => {
+    const storage = makeStorage();
+    writeLiveSession(makeSnapshot(), storage);
+    expect(readRestorableLiveSession(storage, 10, 'club:61')).not.toBeNull();
+    writeLiveSession({ ...makeSnapshot(), sessionKey: 'club:62' }, storage);
+    expect(readRestorableLiveSession(storage, 10, 'club:61')).toBeNull();
+  });
 });

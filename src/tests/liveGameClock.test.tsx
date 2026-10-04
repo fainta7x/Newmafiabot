@@ -194,4 +194,21 @@ describe('Live Game clock', () => {
     // 1 s of timer plus the 4 s the page spent in the background
     expect(screen.getByTestId('time-left').textContent).toBe('7');
   });
+
+  it('still gives the ten-second warning when a catch-up step jumps over ten', () => {
+    const beeps: number[] = [];
+    class FakeAudioContext {
+      currentTime = 0;
+      destination = {};
+      createOscillator() { return { connect: vi.fn(), frequency: { value: 0 }, start: () => { beeps.push(1); }, stop: vi.fn() }; }
+      createGain() { return { connect: vi.fn(), gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() } }; }
+    }
+    (window as unknown as { AudioContext?: unknown }).AudioContext = FakeAudioContext;
+    render(<ClockHarness />);
+    fireEvent.click(screen.getByText('Start12'));
+    act(() => { vi.setSystemTime(Date.now() + 4000); });
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByTestId('time-left').textContent).toBe('7');
+    expect(beeps.length).toBe(1);
+  });
 });

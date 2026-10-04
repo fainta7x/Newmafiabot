@@ -14,6 +14,15 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 const browserStorage = (): StorageLike => localStorage;
 
+/**
+ * Club evening sessions are already scoped to their game by the club recorder (it swaps the shared key per game), so a club
+ * session saved before the key existed is still offered to its own game. Other games need an exact match.
+ */
+const sessionKeyMatches = (stored: string | undefined, expected: string | undefined) => {
+  if ((stored || undefined) === (expected || undefined)) return true;
+  return Boolean(expected?.startsWith('club:') && !stored);
+};
+
 export function readRestorableLiveSession(
   storage: StorageLike = browserStorage(),
   /** Seats of the game being opened: a stored game of another table size is never offered. */
@@ -27,7 +36,7 @@ export function readRestorableLiveSession(
 
     const parsed = JSON.parse(raw) as PersistedLiveSession;
     const size = Number(parsed?.activePlayers?.length);
-    if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(size) && (expectedTableSize === undefined || size === expectedTableSize) && (parsed.sessionKey || undefined) === (expectedSessionKey || undefined)) {
+    if (parsed?.phase && parsed.phase !== 'setup' && isSupportedTableSize(size) && (expectedTableSize === undefined || size === expectedTableSize) && sessionKeyMatches(parsed.sessionKey, expectedSessionKey)) {
       return parsed;
     }
   } catch {

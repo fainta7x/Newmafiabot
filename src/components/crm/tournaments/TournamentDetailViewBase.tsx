@@ -1,5 +1,5 @@
 import { countGames } from '../../../lib/russianPlural';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   RefreshCw,
@@ -73,6 +73,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
+  const autoSelectedGameRef = useRef(false);
   const [activeTab, setActiveTabRaw] = useState<TournamentTab>(tabs[0] || 'organization');
   // A step screen shows only its own tabs; a jump to another tab (e.g. to games after the start) stays inside them.
   const setActiveTab = (tab: TournamentTab) => setActiveTabRaw(tabs.includes(tab) ? tab : tabs[0]);
@@ -128,6 +129,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   useEffect(() => {
     loadDetail();
   }, [tournamentId, refreshTrigger]);
+
+  // The card opens on the game that is being played (or the next one to play), not on game 1 (audit 2026-10-04).
+  useEffect(() => {
+    const list: any[] = tournament?.games || [];
+    if (autoSelectedGameRef.current || list.length === 0) return;
+    autoSelectedGameRef.current = true;
+    const live = list.findIndex((game) => game.status === 'active');
+    const next = list.findIndex((game) => game.status !== 'completed');
+    const target = live >= 0 ? live : next >= 0 ? next : 0;
+    if (target > 0) setSelectedGameIdx(target);
+  }, [tournament]);
 
   const loadDetail = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
@@ -988,6 +1000,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               return (
                 <button
                   key={g.id}
+                  ref={isSel ? (node) => { node?.scrollIntoView?.({ block: 'nearest', inline: 'center' }); } : undefined}
                   onClick={() => setSelectedGameIdx(idx)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
                     isSel
@@ -1020,7 +1033,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-2 p-4 rounded-2xl border border-border-soft">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-text-primary">Игра №{currentGame.game_number}</h3>
+                  <h3 className="text-base font-bold text-text-primary whitespace-nowrap">Игра №{currentGame.game_number}</h3>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                       currentGame.status === 'active'
@@ -1075,8 +1088,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* Game Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Game Action Buttons: two columns on a phone so the card does not grow by one screen */}
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center [&>button]:w-full [&>button]:justify-center [&>button]:text-center sm:[&>button]:w-auto">
                 <button
                   type="button"
                   disabled={currentGame.status === 'planned'}
@@ -1170,7 +1183,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                     disabled={actionLoading}
                     className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
                   >
-                    <span>Убрать игру №{games.length} ({games.length} → {games.length - 1})</span>
+                    <span title={`${games.length} → ${games.length - 1} игр`}>Убрать игру №{games.length}</span>
                   </button>
                 )}
 

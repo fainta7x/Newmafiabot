@@ -64,19 +64,31 @@ export function useLiveGameClock() {
       return;
     }
 
-    timerRef.current = setInterval(() => {
+    // Count real elapsed seconds, not ticks: a backgrounded Telegram WebApp throttles intervals and a tick counter lags
+    // behind the clock (engine audit, 2026-10-04).
+    let lastTickAt = Date.now();
+    const tick = () => {
+      const now = Date.now();
+      const elapsed = Math.max(1, Math.floor((now - lastTickAt) / 1000));
+      lastTickAt += elapsed * 1000;
       setTimeLeft((value) => {
-        if (value <= 1) {
+        if (value <= elapsed) {
           setIsTimerRunning(false);
           playBeep(END_TONE.freq, END_TONE.duration);
           return 0;
         }
-        return value - 1;
+        return value - elapsed;
       });
-    }, 1000);
+    };
+    timerRef.current = setInterval(tick, 1000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastTickAt >= 1000) tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [isTimerRunning, isMuted]);
 

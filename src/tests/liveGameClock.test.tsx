@@ -185,4 +185,13 @@ describe('Live Game clock', () => {
       expect(beeps).toHaveLength(0);
     });
   });
+
+  it('counts real elapsed seconds when the interval was throttled in the background', () => {
+    render(<ClockHarness />);
+    fireEvent.click(screen.getByText('Start12'));
+    act(() => { vi.setSystemTime(Date.now() + 4000); });
+    act(() => { vi.advanceTimersByTime(1000); });
+    // 1 s of timer plus the 4 s the page spent in the background
+    expect(screen.getByTestId('time-left').textContent).toBe('7');
+  });
 });

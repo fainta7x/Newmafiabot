@@ -286,12 +286,25 @@ export default function TournamentLiveGameModal({
   }, [payload, tournamentId, gameId, livePhase, reviewMode]);
 
   const finishedGameRef = useRef<any>(null);
+  // The finished result is kept in the browser until it is saved: if the app is reloaded after a failed save, the judge
+  // can still retry instead of losing the whole game (engine audit, 2026-10-04).
+  const pendingSaveKey = `mafia_live_pending_save:tournament:${gameId}`;
+  useEffect(() => {
+    if (!payload || finishedGameRef.current) return;
+    try {
+      const raw = localStorage.getItem(pendingSaveKey);
+      if (!raw) return;
+      finishedGameRef.current = JSON.parse(raw);
+      setError('Результат прошлого раза не успел сохраниться. Повторите сохранение или заполните протокол вручную.');
+    } catch { /* an unreadable copy is ignored */ }
+  }, [payload, pendingSaveKey]);
 
   // Hands the finished game over to the tournament protocol. The result is kept, so a failed save can be retried
   // or the protocol can be filled by hand — the engine itself cannot finish the game a second time.
   const saveFinishedGame = async (gameData: any) => {
     if (!payload) return;
     finishedGameRef.current = gameData;
+    try { localStorage.setItem(pendingSaveKey, JSON.stringify(gameData)); } catch { /* storage may be blocked */ }
     setSaving(true);
     setError(null);
     try {
@@ -330,6 +343,7 @@ export default function TournamentLiveGameModal({
       try { localStorage.removeItem(evidenceKey); } catch {}
       clearStoredDeathProtocols();
       finishedGameRef.current = null;
+      try { localStorage.removeItem(pendingSaveKey); } catch {}
       setReviewMode(true);
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить результат игры');
@@ -437,7 +451,7 @@ export default function TournamentLiveGameModal({
           {finishedGameRef.current ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => void saveFinishedGame(finishedGameRef.current)} className="min-h-10 rounded-xl bg-white px-4 text-xs font-black text-black">Повторить сохранение</button>
-              <button type="button" onClick={() => { setError(null); setReviewMode(true); }} className="min-h-10 rounded-xl border border-white/20 px-4 text-xs font-bold text-white">Заполнить протокол вручную</button>
+              <button type="button" onClick={() => { try { localStorage.removeItem(pendingSaveKey); } catch {} finishedGameRef.current = null; setError(null); setReviewMode(true); }} className="min-h-10 rounded-xl border border-white/20 px-4 text-xs font-bold text-white">Заполнить протокол вручную</button>
             </div>
           ) : null}
         </div>
@@ -449,6 +463,7 @@ export default function TournamentLiveGameModal({
           <LiveGameEngine
             players={legacyPlayers}
             initialJudgeId={10001}
+            sessionKey={`tournament:${gameId}`}
             onCancel={onClose}
             onPhaseChange={setLivePhase}
             rolesHidden={rolesHidden}

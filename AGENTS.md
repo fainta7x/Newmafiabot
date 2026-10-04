@@ -160,7 +160,8 @@ In the same PR when practical:
 - update `RUNBOOK` when safe work/deploy/recovery procedure changes;
 - update `DESIGN_SYSTEM` only when the durable visual contract changes;
 - update `BUSINESS_RULES` only after explicit user-approved product/rule change;
-- update `FEATURE_MAP` only when first-hop ownership changes.
+- update `FEATURE_MAP` only when first-hop ownership changes;
+- **record every audit or bug hunt in `docs/AUDIT_LOG.md` in the same session, before fixing** (scope, each finding with file and one-line defect, status open/fixed/wontfix). Findings that exist only in chat or in a context summary are lost.
 
 Do not maintain detailed chronological completed-work lists in multiple docs. Git history is the history.
 

@@ -609,6 +609,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 77. Season = rating period (owner-approved 2026-10-04, built): the career profile «Текущий сезон» and «Клуб → Итоги сезона» take their bounds from the RATING periods (active/completed, `loadRatingSeasons`) instead of two copies of the calendar-quarter code; the period end is inclusive; calendar quarters remain only as a fallback while no period covers the date. Counted by date range — the period's per-evening/per-game overrides are not applied to these club statistics. Needs a deploy.
 
+Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
+
 ### Waiting on the owner
 - Owner decisions 2026-10-01, not built yet: the novice evening keeps the current price per chosen game («для опытных будет скидка»); the weekly evening automation fails once at startup with «cannot start a transaction within a transaction» — fix later; the old browser suites for CRM and live game (`e2e/`) are out of date (roster confirm step, list test ids) and do not block a release — update later; a weekly anonymized copy of the production database for development checks (branch `feat/weekly-db-snapshot`, unfinished: GitHub Action, script, docs).
 - Check the bot's frequent-question answers in `handlers/bot_home.py` (`FAQ`), rewritten in a friendly tone on 2026-09-28 without rating/tournament details; «Можно прийти с другом?» and «Как оплатить?» still need the owner's confirmation.

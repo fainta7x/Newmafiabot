@@ -116,6 +116,8 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                         ? 'Корректировка'
                         : isCompleted
                         ? 'Турнир завершён'
+                        : t.status === ('cancelled' as string)
+                        ? 'Отменён'
                         : draftLabel}
                     </span>
 

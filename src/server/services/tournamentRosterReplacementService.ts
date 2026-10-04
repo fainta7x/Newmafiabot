@@ -202,6 +202,15 @@ export async function replaceConfirmedTournamentPlayer(
   // channel must never roll back the already valid replacement. The routing ledger is idempotent.
   try {
     await notifyReplacementPlayer(db, tournamentId, replacementPlayerId, result.slot_number);
+    const tournamentRow = await db.get<any>('SELECT title FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
+    await queuePersonalNotification(db, {
+      notificationKey: `tournament:${tournamentId}:replaced-out:${outgoingPlayerId}:${result.slot_number}`,
+      playerId: outgoingPlayerId,
+      eventType: 'tournament_player_replaced_out',
+      entityId: tournamentId,
+      text: `Организатор заменил вас в составе турнира «${String(tournamentRow?.title || 'Турнир')}». Ваше место освобождено. Если это ошибка, напишите организатору.`,
+      actionPath: tournamentPlayerPath(tournamentId),
+    });
   } catch (error) {
     console.warn('[TOURNAMENT] Replacement notification could not be queued', tournamentId, replacementPlayerId, error);
   }

@@ -4,7 +4,7 @@ import { queuePersonalNotification } from './personalNotificationRouterService.t
 /**
  * Personal «where you sit» messages for tournament games (owner, 2026-10-03). Tournament and rating
  * games only. The first one goes out 30 minutes before the nominal start, the next ones right after
- * the previous game's result is posted. Each message is keyed by game and player, so a scan or a
+ * the previous game's result is posted. Each message is keyed by game, player and seat, so a scan or a
  * retry never sends it twice, and a roster replacement or a regenerated seating (new game ids) still
  * reaches the people whose seat changed.
  */
@@ -52,7 +52,8 @@ export async function reportTournamentGameSeatMessages(db: DatabaseWrapper, game
         ? `🏆 «${game.title}»: игра №${game.game_number}${game.total ? ` из ${game.total}` : ''} — ${where}.`
         : `🏆 «${game.title}»: следующая игра №${game.game_number}${game.total ? ` из ${game.total}` : ''} — ${where}.`;
     const result = await queuePersonalNotification(db, {
-      notificationKey: `tournament-seat:${gameId}:${seat.player_id}`,
+      // The seat is part of the key: a swap of seats changes it and the player gets the new place (audit 2026-10-04).
+      notificationKey: `tournament-seat:${gameId}:${seat.player_id}:${seat.seat_number}`,
       playerId: String(seat.player_id),
       eventType: 'tournament_game_seat',
       entityId: gameId,

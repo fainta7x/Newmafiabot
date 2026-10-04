@@ -105,7 +105,7 @@ export async function loadTournamentEvening(db: DatabaseWrapper, tournamentId: s
   }).length;
   return {
     ...tournament, format: 'TOURNAMENT',
-    lifecycle: tournament.status === 'completed' ? 'completed' : ['active','correction'].includes(tournament.status) ? 'active' : tournament.registration_closed_at ? 'registration_closed' : tournament.published_at ? 'registration_open' : 'draft',
+    lifecycle: tournament.status === 'cancelled' ? 'cancelled' : tournament.status === 'completed' ? 'completed' : ['active','correction'].includes(tournament.status) ? 'active' : tournament.registration_closed_at ? 'registration_closed' : tournament.published_at ? 'registration_open' : 'draft',
     player_capacity: TOURNAMENT_PLAYER_CAPACITY,
     prize_allocations: JSON.parse(tournament.prize_allocations_json || '[]'),
     confirmed_count: confirmed.length, remaining_places: Math.max(0, TOURNAMENT_PLAYER_CAPACITY-confirmed.length),
@@ -271,6 +271,48 @@ export async function cancelTournamentRegistration(db:DatabaseWrapper,tournament
   const result=await serializeTournamentMutation(db,()=>db.transaction(async(tx)=>{const tournament=await assertManagedTournamentEvening(tx,tournamentId);if(tournament.status!=='draft')throw new Error('ROSTER_LOCKED');const games=await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?',[tournamentId]);if(Number(games?.count||0)>0)throw new Error('ROSTER_ALREADY_SEATED');const registration=await tx.get<any>('SELECT * FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);if(!registration||['cancelled','declined'].includes(registration.status))return{cancelled:false,promotedPlayerId:null};const wasConfirmed=registration.status==='confirmed';const freedSlot=registration.slot_number;const now=nowIso();await tx.run("UPDATE tournament_registrations SET status='cancelled',slot_number=NULL,queue_order=NULL,response=CASE WHEN ?='player' THEN 'declined' ELSE response END,cancelled_at=?,updated_at=?,organizer_reason=? WHERE id=?",[actorType,now,now,reason||null,registration.id]);await audit(tx,tournamentId,'cancel',actorType,actor,playerId,reason||null);if(wasConfirmed&&freedSlot!=null){await renumberReserve(tx,tournamentId);const [next]=await fillFreeSlots(tx,tournament,now);if(next){promotedPlayerId=next.player_id;promotedName=next.nickname;}}await renumberReserve(tx,tournamentId);await syncCanonicalParticipants(tx,tournamentId);return{cancelled:true,promotedPlayerId};}));
   if(promotedPlayerId){await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:promotion:${promotedPlayerId}:${nowIso()}`,playerId:promotedPlayerId,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:await reservePromotionText(db,tournamentId,promotedPlayerId,false),actionPath:tournamentPlayerPath(tournamentId)});await enqueueOrganizerNotification(db,{messageKey:`tournament:${tournamentId}:promotion:${promotedPlayerId}:${nowIso()}`,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:`♟ ${promotedName} автоматически получил(а) освободившееся место в турнире.`});}
   return result;
+}
+
+/** The games a confirmed player sits in: number, seat, status and the table, for the player's own screen. */
+export async function loadPlayerTournamentGames(db: DatabaseWrapper, tournamentId: string, playerId?: string | null) {
+  if (!playerId) return [];
+  const mine = await db.get<any>("SELECT id FROM tournament_participants WHERE tournament_id = ? AND player_id = ? LIMIT 1", [tournamentId, playerId]);
+  if (!mine) return [];
+  const games = await db.all<any>('SELECT id, game_number, status FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
+  const result: Array<{ game_number: number; status: string; seat: number | null; table: Array<{ seat: number; nickname: string; is_me: boolean }> }> = [];
+  for (const game of games) {
+    const seats = await db.all<any>(
+      `SELECT tgs.seat_number, tp.display_name, tp.player_id FROM tournament_game_seats tgs
+         JOIN tournament_participants tp ON tp.id = tgs.participant_id WHERE tgs.game_id = ? ORDER BY tgs.seat_number ASC`,
+      [game.id],
+    );
+    result.push({
+      game_number: Number(game.game_number),
+      status: String(game.status),
+      seat: seats.find((row: any) => String(row.player_id) === String(playerId))?.seat_number ?? null,
+      table: seats.map((row: any) => ({ seat: Number(row.seat_number), nickname: String(row.display_name || ''), is_me: String(row.player_id) === String(playerId) })),
+    });
+  }
+  return result;
+}
+
+/** Time or venue of a published tournament changed: everybody registered (main list and reserve) is told once per new value. */
+export async function notifyTournamentDetailsChanged(db: DatabaseWrapper, tournamentId: string, title: string, date: Date, venue: string) {
+  const rows = await db.all<any>("SELECT player_id FROM tournament_registrations WHERE tournament_id = ? AND status IN ('confirmed','reserve')", [tournamentId]);
+  const when = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
+  let queued = 0;
+  for (const row of rows) {
+    const result = await queuePersonalNotification(db, {
+      notificationKey: `tournament:${tournamentId}:details:${row.player_id}:${date.toISOString()}:${venue}`,
+      playerId: String(row.player_id),
+      eventType: 'tournament_details_changed',
+      entityId: tournamentId,
+      text: `Изменились условия турнира «${title}»: ${when}, ${venue}.`,
+      actionPath: `/player/events/${tournamentId}`,
+    });
+    if (result?.created) queued += 1;
+  }
+  return queued;
 }
 
 export async function notifyTournamentAudience(db:DatabaseWrapper,tournamentId:string){

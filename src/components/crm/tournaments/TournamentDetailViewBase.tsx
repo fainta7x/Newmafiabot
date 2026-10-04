@@ -314,6 +314,22 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     }
   };
 
+  // The tournament will not be played: registered players are told, the card stays as «Отменён».
+  const handleCancelTournament = async () => {
+    if (!confirm('Отменить турнир? Все записанные игроки получат сообщение об отмене. Это нельзя вернуть.')) return;
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      const result = await api.cancelTournament(tournamentId);
+      setFeedbackMsg({ type: 'success', text: `Турнир отменён. Игроков уведомлено: ${result.notified}` });
+      await loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось отменить турнир' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // A game started by mistake: back to «planned», its unfinished draft protocol is discarded.
   const handleResetGameToPlanned = async () => {
     if (!currentGame) return;
@@ -466,8 +482,21 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 ? 'Режим корректировки'
                 : tournament.status === 'completed'
                 ? 'Завершён'
+                : (tournament.status as string) === 'cancelled'
+                ? 'Отменён'
                 : 'Черновик'}
             </span>
+            {(tournament.status === 'draft' || tournament.status === 'active') && !games.some((g: any) => g.status === 'active' || g.status === 'completed') && (
+              <button
+                type="button"
+                data-testid="cancel-tournament-button"
+                onClick={handleCancelTournament}
+                disabled={actionLoading}
+                className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 px-2 py-1 rounded-lg border border-rose-500/30 cursor-pointer"
+              >
+                Отменить турнир
+              </button>
+            )}
           </div>
         </div>
 

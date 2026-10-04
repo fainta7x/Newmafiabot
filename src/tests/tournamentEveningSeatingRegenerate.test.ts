@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { prepareTournamentEveningSeating } from '../server/services/tournamentEveningService.ts';
+import { loadPlayerTournamentGames, notifyTournamentDetailsChanged, prepareTournamentEveningSeating } from '../server/services/tournamentEveningService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -65,5 +65,22 @@ describe('tournament evening seating', () => {
     const result = await prepareTournamentEveningSeating(db, 't', 'organizer');
     expect(result).toMatchObject({ games_count: 8, seats_count: 80, already_prepared: false });
     expect(await prepareTournamentEveningSeating(db, 't', 'organizer')).toMatchObject({ already_prepared: true, games_count: 8 });
+  });
+
+  it('shows a player his games, seats and tables', async () => {
+    const db = await setup();
+    await prepareTournamentEveningSeating(db, 't', 'organizer');
+    const games = await loadPlayerTournamentGames(db, 't', 'p1');
+    expect(games).toHaveLength(10);
+    expect(games.every((game) => game.seat && game.table.length === 10 && game.table.filter((row) => row.is_me).length === 1)).toBe(true);
+    expect(await loadPlayerTournamentGames(db, 't', 'stranger')).toEqual([]);
+  });
+
+  it('tells registered players once when time or venue changed', async () => {
+    const db = await setup();
+    const when = new Date(Date.now() + 86_400_000);
+    expect(await notifyTournamentDetailsChanged(db, 't', 'Кубок', when, 'Клуб')).toBe(10);
+    expect(await notifyTournamentDetailsChanged(db, 't', 'Кубок', when, 'Клуб')).toBe(0);
+    expect(await notifyTournamentDetailsChanged(db, 't', 'Кубок', when, 'Другой клуб')).toBe(10);
   });
 });

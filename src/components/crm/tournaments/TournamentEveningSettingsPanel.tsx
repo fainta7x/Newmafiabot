@@ -12,7 +12,7 @@ type TournamentDetail = {
   organizer_player_id?: string | null;
   judge_nickname?: string | null;
   chief_judge_name?: string | null;
-  lifecycle: 'draft' | 'registration_open' | 'registration_closed' | 'active' | 'completed';
+  lifecycle: 'draft' | 'registration_open' | 'registration_closed' | 'active' | 'completed' | 'cancelled';
   entry_fee_rub: number;
   prize_fund_rub: number;
   prize_allocations: PrizeRow[];
@@ -140,7 +140,7 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
   if (!detail) return <section className="rounded-[18px] border border-danger/25 bg-danger-soft p-4 text-xs text-danger">{error}</section>;
 
   const field = 'min-h-11 w-full rounded-xl border border-border-soft bg-surface-2 px-3 text-sm text-text-primary outline-none focus:border-accent disabled:opacity-50';
-  const lifecycleLabel = detail.lifecycle === 'draft' ? 'Черновик' : detail.lifecycle === 'registration_open' ? 'Запись открыта' : detail.lifecycle === 'registration_closed' ? 'Запись закрыта' : detail.lifecycle === 'active' ? 'Турнир идёт' : 'Завершён';
+  const lifecycleLabel = detail.lifecycle === 'draft' ? 'Черновик' : detail.lifecycle === 'registration_open' ? 'Запись открыта' : detail.lifecycle === 'registration_closed' ? 'Запись закрыта' : detail.lifecycle === 'active' ? 'Турнир идёт' : detail.lifecycle === 'cancelled' ? 'Отменён' : 'Завершён';
 
   return <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5 sm:p-4">
     <div className="flex items-start justify-between gap-3">

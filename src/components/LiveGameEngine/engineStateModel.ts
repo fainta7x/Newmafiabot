@@ -41,6 +41,8 @@ export type LiveSnapshot = {
   votes: Record<number, number>;
   votingStage: VotingStage;
   revoteSpeakerIndex: number;
+  /** Seat whose speech was extended by +30 s for two fouls; part of the snapshot so Undo takes the extension back too. */
+  speechExtendedSlot?: number | null;
   tableLeaveVotesInput: number | null;
   /** Exact raised-hand selection for the raise/leave table decision. Optional for legacy recovery snapshots. */
   tableDecisionSelectionKey?: string | null;
@@ -193,6 +195,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     votes: snapshot.votes || {},
     votingStage: snapshot.votingStage || 'setup',
     revoteSpeakerIndex: snapshot.revoteSpeakerIndex || 0,
+    speechExtendedSlot: snapshot.speechExtendedSlot ?? null,
     tableLeaveVotesInput: snapshot.tableLeaveVotesInput ?? null,
     tableDecisionSelectionKey: snapshot.tableDecisionSelectionKey ?? null,
     tableDecisionSelectedVoterSlots: snapshot.tableDecisionSelectedVoterSlots || [],

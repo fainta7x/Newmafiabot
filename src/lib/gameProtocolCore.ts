@@ -6,6 +6,35 @@ export interface LiveProtocolMarkers {
   bestMoveSource: BestMoveSource | null;
   bestMoveSourceSlot: number | null;
   bestMoveSeats: number[];
+  /**
+   * Every confirmed ЛХ by its source. The single `bestMove*` fields above only describe the latest one (kept for
+   * sessions saved before this existed); a game can have two — the zero-round one and the first-killed one.
+   */
+  bestMoves?: Partial<Record<BestMoveSource, { slot: number; seats: number[] }>>;
+}
+
+export interface ConfirmedBestMove { source: BestMoveSource; slot: number; seats: number[]; }
+
+/** All confirmed ЛХ of the game, the zero-round one first; reads a legacy single-move marker too. */
+export function confirmedBestMoves(state: Partial<LiveProtocolMarkers> | null | undefined): ConfirmedBestMove[] {
+  if (!state) return [];
+  const moves: ConfirmedBestMove[] = [];
+  for (const source of ['zero_round_voted', 'first_killed'] as BestMoveSource[]) {
+    const move = state.bestMoves?.[source];
+    if (move && Number(move.slot) > 0 && Array.isArray(move.seats) && move.seats.length) {
+      moves.push({ source, slot: Number(move.slot), seats: move.seats.slice(0, 3).map(Number) });
+    }
+  }
+  if (!moves.length && state.bestMoveSource && Number(state.bestMoveSourceSlot) > 0 && Array.isArray(state.bestMoveSeats) && state.bestMoveSeats.length) {
+    moves.push({ source: state.bestMoveSource, slot: Number(state.bestMoveSourceSlot), seats: state.bestMoveSeats.slice(0, 3).map(Number) });
+  }
+  return moves;
+}
+
+/** The seats already confirmed for a source and a player, so the best-move sheet reopens with them. */
+export function savedBestMoveSeats(state: LiveProtocolMarkers, source: BestMoveSource, slot: number): number[] {
+  const move = confirmedBestMoves(state).find((item) => item.source === source && item.slot === slot);
+  return move ? [...move.seats] : [];
 }
 
 export function createEmptyLiveProtocolMarkers(): LiveProtocolMarkers {
@@ -75,6 +104,7 @@ export function setBestMove(
     bestMoveSource: source,
     bestMoveSourceSlot: sourceSlot,
     bestMoveSeats: [...seats],
+    bestMoves: { ...(state.bestMoves || {}), [source]: { slot: sourceSlot, seats: [...seats] } },
   };
 }
 
@@ -92,6 +122,11 @@ export function clearBestMove(state: LiveProtocolMarkers, slotNum: number): Live
     next.bestMoveSource = null;
     next.bestMoveSourceSlot = null;
     next.bestMoveSeats = [];
+  }
+  if (next.bestMoves) {
+    const kept = Object.fromEntries(Object.entries(next.bestMoves).filter(([, move]) => move && move.slot !== slotNum));
+    if (Object.keys(kept).length) next.bestMoves = kept;
+    else delete next.bestMoves;
   }
   return next;
 }

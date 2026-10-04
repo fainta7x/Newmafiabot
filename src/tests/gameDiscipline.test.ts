@@ -254,3 +254,15 @@ describe('Game Discipline Module', () => {
     expect(getPlayerPenaltyStatus(state.players[player1.id]).disciplinaryPenalty).toBe(0.3);
   });
 });
+
+describe('removing a player who already left the table', () => {
+  it('does not cancel any voting', async () => {
+    const { confirmAction, requestDirectRemoval, createInitialGameDiscipline } = await import('../lib/gameDiscipline.ts');
+    const base = createInitialGameDiscipline([{ id: '1', team: 'red' }, { id: '2', team: 'red' }, { id: '3', team: 'black' }]);
+    const out = confirmAction(requestDirectRemoval(base, '2'), '2', { suppressVotingCancellation: true });
+    expect(out.players['2'].isRemoved).toBe(true);
+    expect(out.isNextVotingCancelled).toBe(false);
+    const sitting = confirmAction(requestDirectRemoval(base, '2'), '2');
+    expect(sitting.isNextVotingCancelled).toBe(true);
+  });
+});

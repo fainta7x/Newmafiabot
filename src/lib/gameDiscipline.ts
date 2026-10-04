@@ -152,17 +152,28 @@ export const requestPpk = (state: GameDiscipline, playerId: string): GameDiscipl
   return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'ppk' } } };
 };
 
-const registerVotingCancellation = (state: GameDiscipline, playerId: string) => {
+const registerVotingCancellationFor = (state: GameDiscipline, playerId: string) => {
   const pending = state.pendingVotingCancellationPlayerIds || [];
   state.pendingVotingCancellationPlayerIds = pending.includes(playerId) ? pending : [...pending, playerId];
   state.isNextVotingCancelled = true;
 };
 
-export const confirmAction = (state: GameDiscipline, playerId: string): GameDiscipline => {
+/**
+ * `suppressVotingCancellation`: the player is already out of the game (killed or voted out), so removing them
+ * must not cancel anybody's voting.
+ */
+export const confirmAction = (
+  state: GameDiscipline,
+  playerId: string,
+  options: { suppressVotingCancellation?: boolean } = {},
+): GameDiscipline => {
   const player = state.players[playerId];
   if (!player || !player.pendingAction) return state;
 
   const updatedPlayer = { ...player, pendingAction: null as PendingActionType | null };
+  const registerVotingCancellation = options.suppressVotingCancellation
+    ? (_state: GameDiscipline, _playerId: string) => {}
+    : registerVotingCancellationFor;
   const newState = {
     ...state,
     pendingVotingCancellationPlayerIds: [...(state.pendingVotingCancellationPlayerIds || [])],

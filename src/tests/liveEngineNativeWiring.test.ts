@@ -53,12 +53,13 @@ describe('live engine native wiring', () => {
     expect(farewellLabels).toHaveLength(2);
   });
 
-  it('consumes a pending third-foul penalty for every active revote speaker', () => {
+  it('consumes a pending third-foul penalty when each revote speech starts, not whenever fouls change', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
-    expect(engine).toContain("phase !== 'day_voting' || votingStage !== 'revote_speeches'");
-    expect(engine).toContain('const consumed = consumeNextSpeech(discipline, String(activeSpeakerSlot));');
-    expect(engine).toContain('syncDisciplinePlayer(consumed.newState, activeSpeakerSlot);');
-    expect(engine).toContain('[phase, votingStage, revoteSpeakerIndex, activeSpeakerSlot, discipline]');
+    const advance = engine.slice(engine.indexOf('const handleAdvanceRevoteSpeaker ='), engine.indexOf('const handleBackWithinRevoteSpeeches'));
+    expect(advance).toContain('const consumed = consumeNextSpeech(discipline, String(slot));');
+    expect(advance).toContain('syncDisciplinePlayer(consumed.newState, slot);');
+    // A foul given during the speech must not be cleared at once by an effect watching `discipline`.
+    expect(engine).not.toContain('[phase, votingStage, revoteSpeakerIndex, activeSpeakerSlot, discipline]');
     expect(engine).toContain('handleStartTimer(winners[0], 30);');
   });
 

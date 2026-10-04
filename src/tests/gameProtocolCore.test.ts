@@ -102,3 +102,33 @@ describe('Game Protocol Core shared rules', () => {
     expect(markers.bestMoveSourceSlot).toBe(6);
   });
 });
+
+import { clearBestMove as clearBestMoveCore, confirmedBestMoves, createEmptyLiveProtocolMarkers as emptyMarkers, registerFirstKilled as markFirstKilled, registerZeroRoundVoted as markZeroRound, savedBestMoveSeats, setBestMove as confirmBestMove } from '../lib/gameProtocolCore.ts';
+
+describe('both best moves of a game survive', () => {
+  const both = () => {
+    let markers = markZeroRound(emptyMarkers(), 4);
+    markers = confirmBestMove(markers, 'zero_round_voted', [1, 2, 3]);
+    markers = markFirstKilled(markers, 7);
+    return confirmBestMove(markers, 'first_killed', [8, 9, 10]);
+  };
+
+  it('keeps the zero-round move when the first-killed one is confirmed', () => {
+    expect(confirmedBestMoves(both())).toEqual([
+      { source: 'zero_round_voted', slot: 4, seats: [1, 2, 3] },
+      { source: 'first_killed', slot: 7, seats: [8, 9, 10] },
+    ]);
+    expect(savedBestMoveSeats(both(), 'first_killed', 7)).toEqual([8, 9, 10]);
+    expect(savedBestMoveSeats(both(), 'first_killed', 4)).toEqual([]);
+  });
+
+  it('clears only the move of the player who is cleared', () => {
+    expect(confirmedBestMoves(clearBestMoveCore(both(), 7)).map((move) => move.source)).toEqual(['zero_round_voted']);
+    expect(clearBestMoveCore(clearBestMoveCore(both(), 7), 4).bestMoves).toBeUndefined();
+  });
+
+  it('reads a legacy single-move marker', () => {
+    expect(confirmedBestMoves({ ...emptyMarkers(), bestMoveSource: 'first_killed', bestMoveSourceSlot: 7, bestMoveSeats: [1, 2] }))
+      .toEqual([{ source: 'first_killed', slot: 7, seats: [1, 2] }]);
+  });
+});

@@ -219,3 +219,15 @@ describe('club live session evidence', () => {
     })).toEqual({ night_number: 2, target_seat: 0, result: 'agreement_failed' });
   });
 });
+
+describe('a voting cancelled without a result', () => {
+  it('leaves no pending round in the protocol evidence', () => {
+    const pending = round({ round_number: 1, nominated_seats: [2, 5], vote_counts: { 2: 3, 5: 0 } });
+    const voting = { phase: 'day_voting', votingRounds: [pending], activeVotingRoundIndex: 0, roundNumber: 1 } as any;
+    const night = { phase: 'night', votingRounds: [], roundNumber: 1 } as any;
+    const during = updateLiveProtocolEvidence({ votes: [], shots: [] }, voting, null);
+    expect(during.votes).toHaveLength(1);
+    const after = updateLiveProtocolEvidence(during, night, voting);
+    expect(after.votes).toEqual([]);
+  });
+});

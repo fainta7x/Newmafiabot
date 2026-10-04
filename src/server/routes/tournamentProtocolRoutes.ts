@@ -53,7 +53,7 @@ export function calculateBestMovePoints(
 const VALID_EXIT_TYPES = ['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed'];
 const VALID_COLOR_MARKS = ['red', 'black', 'sheriff'];
 
-function validateFirstKilled(
+export function validateFirstKilled(
   firstKilledParticipantId: string | null | undefined,
   seats: any[],
   playerResults: any[],
@@ -63,6 +63,10 @@ function validateFirstKilled(
     if (Array.isArray(shots)) {
       const night1 = shots.find((s) => s && Number(s.night_number) === 1);
       if (night1 && night1.result === 'killed') {
+        // A black victim (e.g. a lone mafia who shot himself) never becomes a "first killed" — the engine registers none.
+        const victim = seats.find((s) => Number(s.seat_number) === Number(night1.target_seat));
+        const victimRole = normalizeRole(victim?.role);
+        if (victimRole === 'mafia' || victimRole === 'don') return null;
         return 'В первую ночь был убит игрок, но первоубиенный не выбран в протоколе';
       }
     }
@@ -204,7 +208,7 @@ function validateBestMoves(
   return null;
 }
 
-function validatePlayerResults(
+export function validatePlayerResults(
   playerResults: any[],
   gameSeats: any[],
   firstKilledParticipantId?: string | null
@@ -273,8 +277,16 @@ function validatePlayerResults(
       return 'Бонусные баллы судьи должны быть числом';
     }
 
+    if (pr.judge_bonus !== undefined && Math.abs(pr.judge_bonus) > 1) {
+      return 'Бонусные баллы судьи: допустимо от -1 до 1';
+    }
+
     if (pr.protocol_bonus !== undefined && (typeof pr.protocol_bonus !== 'number' || !Number.isFinite(pr.protocol_bonus))) {
       return 'Баллы протокола должны быть числом';
+    }
+
+    if (pr.protocol_bonus !== undefined && Math.abs(pr.protocol_bonus) > 1) {
+      return 'Баллы протокола: допустимо от -1 до 1';
     }
 
     if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points))) {
@@ -346,7 +358,7 @@ function validatePlayerResults(
   return null;
 }
 
-function validateShots(shots: any): string | null {
+export function validateShots(shots: any): string | null {
   if (shots === undefined || shots === null) return null;
   if (!Array.isArray(shots)) {
     return 'Ночной журнал (shots) должен быть массивом';
@@ -370,7 +382,9 @@ function validateShots(shots: any): string | null {
     }
 
     const ts = Number(s.target_seat);
-    if (!Number.isInteger(ts) || ts < 1 || ts > 10) {
+    // A night where the mafia did not agree on a target has no seat (the live recorder writes 0 for it).
+    const noTarget = s.result === 'agreement_failed' && (s.target_seat === 0 || s.target_seat === null || s.target_seat === undefined);
+    if (!noTarget && (!Number.isInteger(ts) || ts < 1 || ts > 10)) {
       return 'Номер цели должен быть целым числом от 1 до 10';
     }
 

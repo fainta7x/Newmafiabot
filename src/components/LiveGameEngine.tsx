@@ -94,6 +94,7 @@ import {
   LiveProtocolMarkers,
   clearBestMove,
   createEmptyLiveProtocolMarkers,
+  savedBestMoveSeats,
   registerFirstKilled,
   registerZeroRoundVoted,
   setBestMove,
@@ -207,6 +208,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       votes,
       votingStage,
       revoteSpeakerIndex,
+      speechExtendedSlot,
       tableLeaveVotesInput,
       tableDecisionSelectionKey: tableDecisionSelection.key,
       tableDecisionSelectedVoterSlots: tableDecisionSelection.selectedVoterSlots,
@@ -257,6 +259,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotes(restored.votes);
     setVotingStage(restored.votingStage);
     setRevoteSpeakerIndex(restored.revoteSpeakerIndex);
+    setSpeechExtendedSlot(restored.speechExtendedSlot ?? null);
     setTableLeaveVotesInput(restored.tableLeaveVotesInput);
     setCurrentVotingNomineeIndex(restored.currentVotingNomineeIndex);
     setActiveSpeakerSlot(restored.activeSpeakerSlot);
@@ -287,6 +290,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleAdvanceRevoteSpeaker = (slot: number, nextIndex: number) => {
     saveSnapshot();
+    // The pending 30-second penalty is served by this speech (a revote speech is 30 s long). It is consumed when the
+    // speech starts, not whenever the discipline changes: a foul given during the speech belongs to the next one.
+    const consumed = consumeNextSpeech(discipline, String(slot));
+    if (consumed.newState !== discipline) {
+      setDiscipline(consumed.newState);
+      syncDisciplinePlayer(consumed.newState, slot);
+    }
     setRevoteSpeakerIndex(nextIndex);
     setActiveSpeakerSlot(slot);
     setCustomTimerLabel(null);
@@ -372,7 +382,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   }, [
     activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
-    votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
+    votesByPlayer, votes, votingStage, revoteSpeakerIndex, speechExtendedSlot, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,
@@ -434,14 +444,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       };
     }));
   };
-
-  useEffect(() => {
-    if (phase !== 'day_voting' || votingStage !== 'revote_speeches' || activeSpeakerSlot === null) return;
-    const consumed = consumeNextSpeech(discipline, String(activeSpeakerSlot));
-    if (consumed.newState === discipline) return;
-    setDiscipline(consumed.newState);
-    syncDisciplinePlayer(consumed.newState, activeSpeakerSlot);
-  }, [phase, votingStage, revoteSpeakerIndex, activeSpeakerSlot, discipline]);
 
   const handleAdjustTime = (amount: number) => setTimeLeft((value) => Math.max(0, value + amount));
 
@@ -622,18 +624,23 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
 
     saveSnapshot();
-    next = confirmAction(next, id);
+    // Somebody who already left the table (killed or voted out) may still be removed, but that cancels nothing.
+    const wasAtTable = activePlayers.find((player) => player.slot_num === pending.slot)?.alive !== false;
+    next = confirmAction(next, id, { suppressVotingCancellation: !wasAtTable });
     const removalApplied = pending.action !== 'ppk' && Boolean(next.players[id]?.isRemoved);
     // A removal cancels the voting in progress, unless a candidate is already voted out for certain: nobody else can reach
     // or share his votes (owner rule, 2026-10-04). Then the voting goes on, the removal only uses up the cancellation.
     const votingRound = votingRounds[activeVotingRoundIndex];
-    // Decide from the ballots that survive the removal: a removed voter's ballot is no longer counted for anybody.
+    // Decide from the ballots that survive the removal: a removed voter's ballot is no longer counted for anybody,
+    // neither as a cast vote nor as one still to be cast.
     const survivingVoters = activePlayers.filter((player) => player.alive && player.slot_num !== pending.slot).map((player) => player.slot_num);
     const decidedLeader = findDecidedVoteLeader(votingRound && votingStage !== 'round_result'
-      ? { ...votingRound, vote_counts: getExplicitVoteCounts(votingRound.nominated_seats, votesByPlayer, survivingVoters) }
+      ? { ...votingRound, vote_counts: getExplicitVoteCounts(votingRound.nominated_seats, votesByPlayer, survivingVoters), eligible_voters: survivingVoters.length }
       : votingRound);
     const votingAlreadyDecided = decidedLeader !== null && decidedLeader !== pending.slot;
-    const currentVotingIsCancelled = removalApplied && phase === 'day_voting' && !votingAlreadyDecided;
+    // After the result (stage «resolved», the farewell speeches) there is no voting left to cancel.
+    const votingInProgress = phase === 'day_voting' && votingStage !== 'resolved';
+    const currentVotingIsCancelled = removalApplied && wasAtTable && votingInProgress && !votingAlreadyDecided;
     const committedDiscipline = removalApplied && phase === 'day_voting' ? resetNextVotingCancelled(next) : next;
     setDiscipline(committedDiscipline);
     syncDisciplinePlayer(committedDiscipline, pending.slot);
@@ -652,7 +659,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       }]);
       showToast(`Голосование отменено: игрок #${pending.slot} удалён`, 'warning');
       startNightPhase();
-    } else if (removalApplied && phase === 'day_voting' && votingAlreadyDecided) {
+    } else if (removalApplied && wasAtTable && votingInProgress && votingAlreadyDecided) {
+      // The removed voter no longer votes: the round counts the ballots that are left.
+      setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? { ...round, eligible_voters: survivingVoters.length } : round));
       showToast(`Игрок #${pending.slot} удалён. Голосование продолжается: #${decidedLeader} уже заголосован`, 'info');
     }
   };
@@ -1076,6 +1085,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const startNightPhase = () => {
+    // A farewell queue left over from a voting that ended early must not keep blocking the winner check.
+    setVotingFarewellQueue([]);
+    setVotingFarewellIndex(0);
     setNominations([]);
     setNominationsMap({});
     setVotingRounds([]);
@@ -1131,9 +1143,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNightSubPhase('best_move');
     setCustomTimerLabel(null);
     setIsTimerRunning(false);
-    const savedSeats = nextMarkers.bestMoveSource === 'first_killed' && nextMarkers.bestMoveSourceSlot === target.slot_num
-      ? nextMarkers.bestMoveSeats
-      : [];
+    const savedSeats = savedBestMoveSeats(nextMarkers, 'first_killed', target.slot_num);
     openBestMoveProtocol('first_killed', target.slot_num, savedSeats);
   };
 

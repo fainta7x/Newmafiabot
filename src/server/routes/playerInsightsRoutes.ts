@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -24,7 +25,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return playerId;
 };
 
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const rate = winRatePercent;
 const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
 
 const summarize = (games: PersonalResult[]) => {

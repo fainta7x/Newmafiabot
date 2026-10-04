@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadPlayerGameProfile, type PlayerGameHistoryItem } from './playerProfileService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
 export type PremiumGameRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
@@ -100,7 +101,7 @@ const strongestRole = (games: PlayerGameHistoryItem[]) => {
   const candidates = ROLES.map((role) => {
     const roleGames = games.filter((game) => roleOf(game) === role && isCompleted(game));
     const wins = roleGames.filter((game) => game.won).length;
-    return { role, games: roleGames.length, wins, win_rate: roleGames.length ? round((wins / roleGames.length) * 100) : 0 };
+    return { role, games: roleGames.length, wins, win_rate: winRatePercent(wins, roleGames.length) };
   }).filter((item) => item.games > 0);
   if (!candidates.length) return null;
   const reliable = candidates.filter((item) => item.games >= 3);
@@ -181,7 +182,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     stats: visibility.game_statistics || canSeePrivate ? {
       games: games.length,
       wins,
-      win_rate: games.length ? round((wins / games.length) * 100) : 0,
+      win_rate: winRatePercent(wins, games.length),
       recent_form: recent.map((game) => game.won ? 'W' : 'L'),
       recent_wins: recentWins,
       strongest_role: strongestRole(games),
@@ -243,7 +244,7 @@ export async function loadPremiumProfileRoles(db: DatabaseWrapper, playerId: str
       label: ROLE_LABELS[role],
       games: sample.length,
       wins,
-      win_rate: sample.length ? round((wins / sample.length) * 100) : 0,
+      win_rate: winRatePercent(wins, sample.length),
       average_score: sample.length ? round(points.reduce((sum, value) => sum + value, 0) / sample.length, 2) : 0,
       best_score: points.length ? Math.max(...points) : null,
       recent_form: recent.map((game) => game.won ? 'W' : 'L'),

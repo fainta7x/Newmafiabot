@@ -1,4 +1,5 @@
 import type { CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const WEEK = 7 * DAY;
@@ -47,7 +48,7 @@ type RelationshipEvent = {
   share_text: string;
 };
 
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const rate = winRatePercent;
 
 const aggregate = (games: CompletedGameSnapshot[]) => {
   const map = new Map<string, { player_id: string; nickname: string; games: number; wins: number }>();

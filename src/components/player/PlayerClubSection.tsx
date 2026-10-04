@@ -2,6 +2,7 @@ import { countGames, countWins } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import PlayerProgressionPanel from './PlayerProgressionPanel.tsx';
 import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
+import { winRatePercent } from '../../shared/stats';
 
 type FormGame = {
   id: string;
@@ -132,7 +133,7 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
       role,
       games: roleGames.length,
       wins,
-      winRate: roleGames.length ? Math.round((wins / roleGames.length) * 100) : 0,
+      winRate: winRatePercent(wins, roleGames.length),
       streak,
     };
   }), [games]);

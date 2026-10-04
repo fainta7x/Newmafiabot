@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
 };
 
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
-const winRate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const winRate = winRatePercent;
 
 const summarizeEvening = (evening: any, games: CompletedGameSnapshot[], attendanceCount: number) => {
   const chronological = games.slice().sort((a, b) => a.dateMs - b.dateMs || a.game_number - b.game_number);

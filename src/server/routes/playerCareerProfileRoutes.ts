@@ -3,6 +3,7 @@ import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
 import { getPlayerTitleMeta } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -16,7 +17,7 @@ const requireViewer = (req: AuthenticatedRequest, res: any) => {
   return null;
 };
 
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const rate = winRatePercent;
 const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
 const roleLabel = (role: Role) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : 'Дон';
 

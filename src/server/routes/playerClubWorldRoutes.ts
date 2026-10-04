@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 import {
   buildPersonalHooks,
   buildRelationshipEvents,
@@ -36,7 +37,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
 };
 
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
-const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const rate = winRatePercent;
 
 function seasonForDate(value: string | number | Date) {
   const date = new Date(value);

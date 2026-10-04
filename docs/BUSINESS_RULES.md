@@ -107,6 +107,12 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 - Nominations are a tool that determines which candidates may be voted on.
 - Do not infer a player’s final vote from whom they nominated.
 
+### Removal during a voting (owner, 2026-10-04)
+
+- A player removed by the judge or by fouls while a voting is in progress **cancels that voting**, as before.
+- **Exception:** if a candidate is already voted out for certain — his votes are so many that nobody else can reach or share them, even if all remaining ballots went elsewhere — the voting is **not** cancelled. It goes on, and that candidate is voted out. The removal only uses up the cancellation of the nearest voting.
+- The removed player being that candidate himself does not count as the exception.
+
 ### Zero round
 
 - The zero round happens **after the agreement** with **10 alive players**.

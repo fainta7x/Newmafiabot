@@ -26,7 +26,9 @@ When the user asks what remains or what to build next:
 
 A stale open PR is not a product requirement. In particular, old stacked UI PRs and historical CRM roadmap PRs may remain visible after their functionality has been superseded.
 
-## 2. Hard PR budget
+## 2. Hard PR budget (GPT/Codex only)
+
+**Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.
 
 For one user message/request:
 

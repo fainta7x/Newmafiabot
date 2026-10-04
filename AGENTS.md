@@ -63,7 +63,9 @@ Other docs should link to the owner instead of restating mutable facts.
 - **Ask before starting new product work (owner rule, 2026-09-29).** Without asking you may fix bugs, clarify wording, and finish what the owner asked for in the current conversation. Before starting anything else — a new feature or queue item from `docs/PROJECT_STATE.md`, a new screen, a new integration, even one listed as «next» — tell the owner in one or two plain sentences what you propose and why, and wait for a «да». A queue or a handoff list is a plan to discuss, not permission to build. Autonomous routine runs follow the same rule: fix and verify, but propose new features instead of building them.
 - Record every new idea, request or open question from the owner in `docs/PROJECT_STATE.md` (current queue or «Waiting on the owner») in the same session, even if it is not built now. Ideas that live only in chat get lost.
 
-## 5. PR budget — hard rule
+## 5. PR budget — hard rule (GPT/Codex only)
+
+**Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.
 
 For **one user message/request**, create at most **3 pull requests total**.
 

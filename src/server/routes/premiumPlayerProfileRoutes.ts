@@ -10,6 +10,7 @@ import {
 } from '../services/premiumPlayerProfileService.ts';
 import {
   createVerifiedClubMilestone,
+  loadPremiumProfileAwardsLight,
   loadPremiumProfileShowcase,
   setPinnedVerifiedAwards,
 } from '../services/premiumPlayerProfileShowcaseService.ts';
@@ -140,6 +141,7 @@ router.get('/profiles/:playerId/showcase', async (req, res) => {
     const playerId = String(req.params.playerId);
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
+    if (String(req.query.light || '') === '1') return res.json(await loadPremiumProfileAwardsLight(req.db, playerId));
     return res.json(await loadPremiumProfileShowcase(req.db, playerId, viewer.organizer || viewer.viewerId === playerId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить награды и историю клуба' });

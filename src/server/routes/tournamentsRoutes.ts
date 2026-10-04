@@ -7,6 +7,7 @@ export { internalGetStandings, internalGetNominations, validateTournamentBackupD
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { syncTrustedTournamentAwards } from '../services/playerVerifiedAwardsService.ts';
 import { queuePersonalNotification } from '../services/personalNotificationRouterService.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import {
@@ -397,6 +398,15 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
     const now = new Date().toISOString();
     await db.run("UPDATE tournaments SET status = 'completed', updated_at = ? WHERE id = ?", [now, String(req.params.id)]);
     await rebuildCanonicalEloRatings(db);
+    // Trophies are reconciled right away (in the background), so the profile overview can read persisted awards only.
+    void (async () => {
+      try {
+        const rows = await db.all<any>('SELECT DISTINCT player_id FROM tournament_participants WHERE tournament_id = ? AND player_id IS NOT NULL', [String(req.params.id)]);
+        for (const row of rows) await syncTrustedTournamentAwards(db, String(row.player_id));
+      } catch (error) {
+        console.warn('[TOURNAMENT] Trophy reconciliation after completion failed', req.params.id, error);
+      }
+    })();
     return res.json({ success: true, tournament_id: String(req.params.id), status: 'completed' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка завершения турнира' });

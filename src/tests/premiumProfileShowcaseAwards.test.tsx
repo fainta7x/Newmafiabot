@@ -20,6 +20,23 @@ describe('player award showcase', () => {
     expect(screen.getByText(/🎖️ Лучший Дон/)).toBeTruthy();
   });
 
+  it('recognizes ordinal spellings of a place', async () => {
+    mockShowcase(showcase([award('a', 'Победитель', '1-е место'), award('b', 'Второе', '2-е место'), award('c', 'Третье', '3 место'), award('d', 'Одиннадцатое', '11 место')]));
+    render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="awards" />);
+    await waitFor(() => expect(screen.getByText(/Победитель/)).toBeTruthy());
+    expect(screen.getByText(/🥇 Победитель/)).toBeTruthy();
+    expect(screen.getByText(/🥈 Второе/)).toBeTruthy();
+    expect(screen.getByText(/🥉 Третье/)).toBeTruthy();
+    expect(screen.getByText(/🏆 Одиннадцатое/)).toBeTruthy();
+  });
+
+  it('asks the cheap endpoint for the overview strip', async () => {
+    mockShowcase(showcase([award('w', 'Победитель', '1 место')]));
+    render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="pinned" />);
+    await waitFor(() => expect(screen.getByTestId('profile-pinned-awards')).toBeTruthy());
+    expect(String((globalThis.fetch as any).mock.calls[0][0])).toContain('/showcase?light=1');
+  });
+
   it('shows the best awards on the overview when nothing is pinned, and nothing when there are no awards', async () => {
     mockShowcase(showcase([award('n', 'Номинация', null, 'nomination'), award('w', 'Победитель', '1 место')]));
     const first = render(<PremiumProfileShowcase playerId="p1" isSelf={false} section="pinned" />);

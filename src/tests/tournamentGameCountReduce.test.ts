@@ -54,4 +54,33 @@ describe('shortening a created tournament', () => {
     expect(state.status).toBe(200);
     expect(state.body.games).toHaveLength(9);
   });
+
+  it('returns a game started by mistake to planned, then lets the distance be shortened', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    const last = await db.get<any>('SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = 10', [tournamentId]);
+    await db.run("UPDATE tournament_games SET status = 'active', started_at = ? WHERE id = ?", [new Date().toISOString(), last.id]);
+    expect((await setCount(9)).status).toBe(400);
+
+    const reset = await request(app).post(`/api/tournaments/${tournamentId}/games/${last.id}/reset-to-planned`).set('Cookie', cookie);
+    expect(reset.status).toBe(200);
+    expect(reset.body.game.status).toBe('planned');
+    expect((await setCount(9)).status).toBe(200);
+  });
+
+  it('does not reset a game whose protocol is completed', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    const first = await db.get<any>('SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = 1', [tournamentId]);
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [first.id]);
+    await db.run("INSERT INTO tournament_game_protocols (id, game_id, status, created_at, updated_at) VALUES ('pr1', ?, 'completed', ?, ?)", [first.id, new Date().toISOString(), new Date().toISOString()]);
+    const res = await request(app).post(`/api/tournaments/${tournamentId}/games/${first.id}/reset-to-planned`).set('Cookie', cookie);
+    expect(res.status).toBe(400);
+  });
+
+  it('lets the judge of a running game be replaced', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    const first = await db.get<any>('SELECT id FROM tournament_games WHERE tournament_id = ? AND game_number = 1', [tournamentId]);
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [first.id]);
+    const res = await request(app).patch(`/api/tournaments/${tournamentId}/games/${first.id}/judge`).set('Cookie', cookie).send({ judge_name: 'Новый судья' });
+    expect(res.status).toBe(200);
+  });
 });

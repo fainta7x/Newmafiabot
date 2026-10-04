@@ -1,3 +1,6 @@
+import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
+import { normalizeTournamentGameCount } from '../services/tournamentDistanceService.ts';
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -552,6 +555,13 @@ router.patch('/:id/participants/:participantId/correct-player', requireOrganizer
       'UPDATE tournament_participants SET player_id = ?, display_name = ? WHERE id = ?',
       [player_id, displayName, participantId]
     );
+
+    // Played games stay with the participant slot, so the rating and achievements of both players must be recounted.
+    const playedGame = await db.get<any>("SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'completed' LIMIT 1", [tournamentId]);
+    if (playedGame && String(participant.player_id) !== String(player_id)) {
+      await rebuildCanonicalEloRatings(db);
+      await evaluateAchievementsForPlayers(db, [String(participant.player_id), String(player_id)]);
+    }
 
     const updatedParticipant = await db.get<any>('SELECT * FROM tournament_participants WHERE id = ?', [participantId]);
     res.json({ success: true, participant: updatedParticipant });
@@ -2131,8 +2141,9 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
   }
 
   const games = payload.tournament_games || [];
-  if (!Array.isArray(games) || games.length !== 10) {
-    return { valid: false, error: `В копии должно быть ровно 10 игр, найдено: ${games.length}` };
+  const expectedGames = normalizeTournamentGameCount(payload.tournament?.game_count);
+  if (!Array.isArray(games) || games.length !== expectedGames) {
+    return { valid: false, error: `В копии должно быть ровно ${expectedGames} игр, найдено: ${games.length}` };
   }
 
   const players = payload.players || [];

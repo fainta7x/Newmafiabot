@@ -254,6 +254,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           !isAnotherGameActive))
   );
 
+  // A judge who cannot continue can be replaced in the middle of the running game (until its protocol is completed).
+  const canEditJudgeInline = canEditCurrentGameJudgeAndRoles || Boolean(
+    currentGame &&
+      tournament.status === 'active' &&
+      currentGame.status === 'active' &&
+      (currentGame as any).protocol_status !== 'completed'
+  );
+
   const canSwapSeatsCurrentGame = Boolean(
     currentGame &&
       tournament.status !== 'completed' &&
@@ -292,15 +300,33 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleRegenerateSeating = async () => {
-    if (!confirm('Сгенерировать новую случайную рассадку для всех 10 игр?')) return;
+    if (!confirm(`Сгенерировать новую случайную рассадку для всех ${(tournament.games || []).length || 10} игр?`)) return;
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
       await api.generateTournamentSeating(tournamentId);
-      setFeedbackMsg({ type: 'success', text: 'Случайная рассадка для 10 игр успешно перегенерирована!' });
+      setFeedbackMsg({ type: 'success', text: 'Случайная рассадка успешно перегенерирована!' });
       loadDetail();
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка генерации рассадки' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // A game started by mistake: back to «planned», its unfinished draft protocol is discarded.
+  const handleResetGameToPlanned = async () => {
+    if (!currentGame) return;
+    if (!confirm(`Вернуть игру №${currentGame.game_number} в план? Незавершённый протокол и ход игры будут сброшены, рассадка и роли останутся.`)) return;
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      await api.resetTournamentGameToPlanned(tournamentId, String(currentGame.id));
+      try { Object.keys(localStorage).filter((key) => key.startsWith('mafia_live_session')).forEach((key) => localStorage.removeItem(key)); } catch { /* storage may be blocked */ }
+      setFeedbackMsg({ type: 'success', text: `Игра №${currentGame.game_number} снова запланирована` });
+      await loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось вернуть игру в план' });
     } finally {
       setActionLoading(false);
     }
@@ -883,7 +909,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   {p.player_nickname && p.player_nickname !== p.display_name && (
                     <span className="text-[10px] text-text-muted block truncate">({p.player_nickname})</span>
                   )}
-                  {tournament.status !== 'completed' && (
+                  {tournament.status !== 'completed' && !registrationFlow && (
                     <button
                       type="button"
                       onClick={() => setCorrectingParticipant(p)}
@@ -981,7 +1007,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   {!editingJudge && (currentGame.judge_name || tournament.chief_judge_name) && (
                     <PlayerAvatar nickname={currentGame.judge_name || tournament.chief_judge_name} size="xs" />
                   )}
-                  {editingJudge && canEditCurrentGameJudgeAndRoles ? (
+                  {editingJudge && canEditJudgeInline ? (
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -997,7 +1023,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  ) : canEditCurrentGameJudgeAndRoles ? (
+                  ) : canEditJudgeInline ? (
                     <button
                       onClick={() => {
                         setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
@@ -1088,6 +1114,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   >
                     <Users className="w-3.5 h-3.5 text-accent" />
                     <span>Исправить роли</span>
+                  </button>
+                )}
+
+                {tournament.status === 'active' && currentGame.status === 'active' && (currentGame as any).protocol_status !== 'completed' && (
+                  <button
+                    type="button"
+                    data-testid="reset-game-to-planned-button"
+                    onClick={handleResetGameToPlanned}
+                    disabled={actionLoading}
+                    className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                  >
+                    <span>Вернуть игру в план</span>
                   </button>
                 )}
 

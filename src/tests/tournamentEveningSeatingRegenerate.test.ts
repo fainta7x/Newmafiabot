@@ -58,4 +58,12 @@ describe('tournament evening seating', () => {
     await db.run("UPDATE tournament_games SET status = 'completed' WHERE tournament_id = 't' AND game_number = 1");
     await expect(prepareTournamentEveningSeating(db, 't', 'organizer', { regenerate: true })).rejects.toThrow('ROSTER_LOCKED');
   });
+
+  it('follows the shortened distance of the tournament', async () => {
+    const db = await setup();
+    await db.run("UPDATE tournaments SET game_count = 8 WHERE id = 't'");
+    const result = await prepareTournamentEveningSeating(db, 't', 'organizer');
+    expect(result).toMatchObject({ games_count: 8, seats_count: 80, already_prepared: false });
+    expect(await prepareTournamentEveningSeating(db, 't', 'organizer')).toMatchObject({ already_prepared: true, games_count: 8 });
+  });
 });

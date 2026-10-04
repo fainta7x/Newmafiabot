@@ -275,6 +275,37 @@ router.patch('/:id/game-count', requireOrganizerAuth, async (req: AuthenticatedR
   }
 });
 
+// A game started by mistake goes back to «planned»: its unfinished draft protocol is discarded, the seats and roles stay.
+router.post('/:id/games/:gameId/reset-to-planned', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = req.db as DatabaseWrapper;
+  const tournamentId = String(req.params.id);
+  const gameId = String(req.params.gameId);
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+    if (tournament.status !== 'active') return res.status(400).json({ error: 'Вернуть игру в план можно только в идущем турнире' });
+    const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
+    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Вернуть в план можно только идущую игру' });
+    const protocol = await db.get<any>('SELECT id, status FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+    if (protocol?.status === 'completed') {
+      return res.status(400).json({ error: 'Протокол игры уже завершён. Откройте его для правки, а не сбрасывайте игру' });
+    }
+    await db.transaction(async (tx: DatabaseWrapper) => {
+      await tx.run('DELETE FROM tournament_game_player_results WHERE game_id = ?', [gameId]);
+      await tx.run('DELETE FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+      await tx.run('DELETE FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+      await tx.run(
+        "UPDATE tournament_games SET status = 'planned', started_at = NULL, completed_at = NULL, winner_team = NULL, draft_protocol_json = NULL, protocol_import_id = NULL WHERE id = ?",
+        [gameId],
+      );
+    });
+    return res.json({ success: true, game: await db.get<any>('SELECT * FROM tournament_games WHERE id = ?', [gameId]) });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Ошибка сброса игры' });
+  }
+});
+
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
@@ -345,6 +376,13 @@ const checkJudgeEditingPermission = async (db: DatabaseWrapper, tournament: any,
     );
     if (otherActive) return { allowed: false, error: 'В турнире уже есть другая активная игра' };
     return { allowed: true };
+  }
+
+  // A judge who cannot continue must be replaceable in the middle of the game (owner audit, 2026-10-04):
+  // allowed in an active tournament while the protocol of the running game is not completed.
+  if (tournament.status === 'active' && game.status === 'active') {
+    const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
+    if (!protocol || protocol.status !== 'completed') return { allowed: true };
   }
 
   return { allowed: false, error: 'Изменение судьи запрещено после запуска игры' };

@@ -257,6 +257,11 @@ export class ClubLiveSessionRecorder {
     }
   }
 
+  /** The last engine snapshot the recorder saw (the engine drops its session when the game ends). */
+  getLastSnapshot(): LiveSessionSnapshot | null {
+    return this.previousSnapshot;
+  }
+
   getEvidence(): LiveProtocolEvidence {
     this.sync();
     return {

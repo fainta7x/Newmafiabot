@@ -10,6 +10,8 @@ import {
 import { ProtocolVotingTab } from './tournaments/protocol/ProtocolVotingTab';
 import { ProtocolNightsTab } from './tournaments/protocol/ProtocolNightsTab';
 import { ProtocolSummaryTab } from './tournaments/protocol/ProtocolSummaryTab';
+import { GameAnalysis } from './tournaments/protocol/GameAnalysis';
+import { GameEventLog } from './tournaments/protocol/GameEventLog';
 import {
   calculateGuessedBlacks,
   getOppositeTeam,
@@ -441,6 +443,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
               />
             )}
 
+            {activeTab === 'summary' && protocol.status === 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
             {activeTab === 'summary' && (
               <ProtocolSummaryTab
                 protocol={protocol}
@@ -450,6 +453,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
                 onJudgeNotesChange={(judge_notes) => setProtocol((prev) => ({ ...prev, judge_notes }))}
               />
             )}
+            {activeTab === 'summary' && protocol.status !== 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
+            {activeTab === 'summary' && <GameEventLog events={protocol.events} playerResults={playerResults} />}
           </div>
 
           <div className="p-4 border-t border-slate-800 bg-slate-900 flex flex-wrap justify-between gap-2">

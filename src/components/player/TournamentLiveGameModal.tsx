@@ -11,7 +11,7 @@ import {
   type LiveBroadcastDayVote,
 } from '../../lib/liveBroadcast.ts';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols, readStoredDeathProtocols } from '../../lib/liveDeathProtocol.ts';
-import { deriveFinalGameEvents } from '../../lib/liveGameEventLog.ts';
+import { buildFinalChronology } from '../../lib/liveGameEventLog.ts';
 import {
   LEGACY_LIVE_SESSION_KEY,
   liveEvidenceSignature,
@@ -309,26 +309,18 @@ export default function TournamentLiveGameModal({
     setError(null);
     try {
       const now = new Date().toISOString();
-      const lastSeq = evidenceRef.current.events?.length ? evidenceRef.current.events[evidenceRef.current.events.length - 1].seq : 0;
-      // The last changes before the engine dropped its session (final exit, PPK, final fouls) may not have been seen.
-      const recovered = deriveFinalGameEvents(lastSnapshotRef.current, gameData, lastSeq + 1, now);
-      const round = Number(lastSnapshotRef.current?.roundNumber || 0);
-      const phase = String(lastSnapshotRef.current?.phase || '');
-      const closing = [
-        ...recovered,
-        ...[
-          ...Object.entries(readStoredDeathProtocols()).map(([seat, protocol]) => ({
-            kind: 'death_protocol', seat: Number(seat),
-            value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
-          })),
-          { kind: 'game_end', value: gameData?.winning_team === 'Красные' ? 'red' : 'black' },
-        ].map((event) => ({ seq: 0, at: now, round, phase, ...event })),
-      ].map((event, index) => ({ ...event, seq: lastSeq + index + 1 }));
+      const events = buildFinalChronology({
+        events: evidenceRef.current.events,
+        lastSnapshot: lastSnapshotRef.current,
+        gameData,
+        deathProtocols: readStoredDeathProtocols(),
+        at: now,
+      });
       const next = mapEngineResult(payload.protocol, payload.player_results, {
         ...gameData,
         votes: evidenceRef.current.votes,
         shots: evidenceRef.current.shots,
-        events: [...(evidenceRef.current.events || []), ...closing],
+        events,
       });
       // The colour protocols the judge filled in for the killed players go into the protocol (as in the club evening).
       next.player_results = applyStoredDeathProtocolsToResults(next.player_results);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { NO_SEASON_KEY, loadRatingSeasons, previousSeason, seasonForDate, type ClubSeason } from '../services/clubSeasonService.ts';
 import {
   buildPersonalHooks,
   buildRelationshipEvents,
@@ -25,7 +26,7 @@ type PlayerAggregate = {
   results: Array<{ dateMs: number; won: boolean }>;
 };
 
-type Season = ReturnType<typeof seasonForDate>;
+type Season = ClubSeason;
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -39,18 +40,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
 const rate = winRatePercent;
 
-function seasonForDate(value: string | number | Date) {
-  const date = new Date(value);
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  if (month === 11) return { key: `winter-${year}-${year + 1}`, label: `Зима ${year}/${String(year + 1).slice(-2)}`, start: Date.UTC(year, 11, 1), end: Date.UTC(year + 1, 2, 1) };
-  if (month <= 1) return { key: `winter-${year - 1}-${year}`, label: `Зима ${year - 1}/${String(year).slice(-2)}`, start: Date.UTC(year - 1, 11, 1), end: Date.UTC(year, 2, 1) };
-  if (month <= 4) return { key: `spring-${year}`, label: `Весна ${year}`, start: Date.UTC(year, 2, 1), end: Date.UTC(year, 5, 1) };
-  if (month <= 7) return { key: `summer-${year}`, label: `Лето ${year}`, start: Date.UTC(year, 5, 1), end: Date.UTC(year, 8, 1) };
-  return { key: `autumn-${year}`, label: `Осень ${year}`, start: Date.UTC(year, 8, 1), end: Date.UTC(year, 11, 1) };
-}
-
-const previousSeason = (season: Season) => seasonForDate(new Date(season.start - 1));
 const inRange = (game: CompletedGameSnapshot, season: Season) => game.dateMs >= season.start && game.dateMs < season.end;
 
 const aggregatePlayers = (games: CompletedGameSnapshot[]) => {
@@ -152,8 +141,9 @@ router.get('/club-world', async (req, res) => {
     const snapshots = await loadCompletedGameSnapshots(db);
     const now = new Date();
     const nowMs = now.getTime();
-    const currentSeason = seasonForDate(now);
-    const prevSeason = previousSeason(currentSeason);
+    const seasons = await loadRatingSeasons(db);
+    const currentSeason = seasonForDate(seasons, now);
+    const prevSeason = previousSeason(seasons, currentSeason);
     const currentGames = snapshots.filter((game) => inRange(game, currentSeason));
     const previousGames = snapshots.filter((game) => inRange(game, prevSeason));
     const currentStats = aggregatePlayers(currentGames);
@@ -208,10 +198,10 @@ router.get('/club-world', async (req, res) => {
     ].filter(Boolean);
 
     const seasonMap = new Map<string, Season>();
-    seasonMap.set(currentSeason.key, currentSeason);
+    if (currentSeason.key !== NO_SEASON_KEY) seasonMap.set(currentSeason.key, currentSeason);
     for (const game of snapshots) {
-      const season = seasonForDate(game.dateMs);
-      seasonMap.set(season.key, season);
+      const season = seasonForDate(seasons, game.dateMs);
+      if (season.key !== NO_SEASON_KEY) seasonMap.set(season.key, season);
     }
     const seasonHistory = [...seasonMap.values()]
       .sort((a, b) => b.start - a.start)

@@ -591,7 +591,7 @@ Registration eligibility (user-approved 2026-09-23):
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
 - Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
-The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). Calendar seasons (winter/spring/summer/autumn wins) are club statistics shown under «Клуб → Активность» as «Итоги сезона», not a rating.
+The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
 
 ## Elo / rating principles
 

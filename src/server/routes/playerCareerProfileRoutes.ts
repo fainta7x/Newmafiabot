@@ -4,6 +4,7 @@ import { getPlayerTitleMeta } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { loadRatingSeasons, seasonForDate } from '../services/clubSeasonService.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -20,17 +21,6 @@ const requireViewer = (req: AuthenticatedRequest, res: any) => {
 const rate = winRatePercent;
 const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
 const roleLabel = (role: Role) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : 'Дон';
-
-const currentSeasonBounds = () => {
-  const date = new Date();
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  if (month === 11) return { label: `Зима ${year}/${String(year + 1).slice(-2)}`, start: Date.UTC(year, 11, 1), end: Date.UTC(year + 1, 2, 1) };
-  if (month <= 1) return { label: `Зима ${year - 1}/${String(year).slice(-2)}`, start: Date.UTC(year - 1, 11, 1), end: Date.UTC(year, 2, 1) };
-  if (month <= 4) return { label: `Весна ${year}`, start: Date.UTC(year, 2, 1), end: Date.UTC(year, 5, 1) };
-  if (month <= 7) return { label: `Лето ${year}`, start: Date.UTC(year, 5, 1), end: Date.UTC(year, 8, 1) };
-  return { label: `Осень ${year}`, start: Date.UTC(year, 8, 1), end: Date.UTC(year, 11, 1) };
-};
 
 const safeTable = async (db: any, name: string) => {
   try {
@@ -92,7 +82,7 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
     const redWins = redGames.filter((item) => item.result.won).length;
     const blackWins = blackGames.filter((item) => item.result.won).length;
 
-    const season = currentSeasonBounds();
+    const season = seasonForDate(await loadRatingSeasons(db), Date.now());
     const seasonGames = personal.filter((item) => item.game.dateMs >= season.start && item.game.dateMs < season.end);
     const seasonWins = seasonGames.filter((item) => item.result.won).length;
     const seasonAll = new Map<string, { player_id: string; nickname: string; games: number; wins: number }>();

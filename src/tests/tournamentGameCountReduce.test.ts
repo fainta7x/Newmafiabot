@@ -94,4 +94,18 @@ describe('shortening a created tournament', () => {
     expect(res.status).toBe(200);
     expect((await db.get<any>('SELECT player_id FROM tournament_participants WHERE id = ?', [participant.id]))?.player_id).toBe('gc-new');
   });
+
+  it('cancels a tournament nobody played and refuses once a game was started', async () => {
+    const cancelled = await request(app).post(`/api/tournaments/${tournamentId}/cancel`).set('Cookie', cookie);
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body).toMatchObject({ success: true, status: 'cancelled', audience: 10 });
+    expect((await db.get<any>('SELECT status FROM tournaments WHERE id = ?', [tournamentId]))?.status).toBe('cancelled');
+    expect((await request(app).post(`/api/tournaments/${tournamentId}/cancel`).set('Cookie', cookie)).status).toBe(400);
+  });
+
+  it('does not cancel a tournament with a started game', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE tournament_id = ? AND game_number = 1", [tournamentId]);
+    expect((await request(app).post(`/api/tournaments/${tournamentId}/cancel`).set('Cookie', cookie)).status).toBe(400);
+  });
 });

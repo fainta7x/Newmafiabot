@@ -1260,6 +1260,7 @@ describe('Tournament Module API Tests', () => {
       .post(`/api/tournaments/${tournamentId}/publish`)
       .set('Cookie', organizerCookie);
     expect(firstPublish.status).toBe(200);
+    expect(typeof firstPublish.body.notified).toBe('number');
     const token = firstPublish.body.public_token;
 
     const firstPublic = await request(app).get(`/api/public/tournaments/results/${token}`);

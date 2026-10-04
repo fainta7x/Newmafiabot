@@ -66,4 +66,14 @@ describe('organizer sends the seats by hand', () => {
     await db.run("UPDATE tournament_games SET status = 'completed'");
     expect((await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie)).status).toBe(409);
   });
+
+  it('tells the players again when two seats were swapped after the first send', async () => {
+    const { db, app, cookie } = await setup();
+    await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
+    await db.run("UPDATE tournament_game_seats SET seat_number = 99 WHERE id = 's1-1'");
+    await db.run("UPDATE tournament_game_seats SET seat_number = 1 WHERE id = 's1-2'");
+    await db.run("UPDATE tournament_game_seats SET seat_number = 2 WHERE id = 's1-1'");
+    const again = await request(app).post('/api/tournaments/t/seat-messages').set('Cookie', cookie);
+    expect(again.body).toMatchObject({ game_number: 1, new_sent: 2 });
+  });
 });

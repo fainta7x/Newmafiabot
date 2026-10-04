@@ -1037,6 +1037,8 @@ export const api = {
     request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/start`, {
       method: 'POST',
     }),
+  cancelTournament: (id: string) =>
+    request<{ success: boolean; notified: number; audience: number }>(`/api/tournaments/${id}/cancel`, { method: 'POST' }),
   resetTournamentGameToPlanned: (tournamentId: string, gameId: string) =>
     request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/reset-to-planned`, {
       method: 'POST',

@@ -7,6 +7,7 @@ export { internalGetStandings, internalGetNominations, validateTournamentBackupD
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { queuePersonalNotification } from '../services/personalNotificationRouterService.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import {
   computeFlexibleCompleteReadiness,
@@ -303,6 +304,56 @@ router.post('/:id/games/:gameId/reset-to-planned', requireOrganizerAuth, async (
     return res.json({ success: true, game: await db.get<any>('SELECT * FROM tournament_games WHERE id = ?', [gameId]) });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка сброса игры' });
+  }
+});
+
+// Cancel a tournament that will not be played (owner audit, 2026-10-04). A tournament with a played game is
+// finished (or corrected), never cancelled. Registered players are told.
+router.post('/:id/cancel', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = req.db as DatabaseWrapper;
+  const tournamentId = String(req.params.id);
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+    if (tournament.status !== 'draft' && tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Отменить можно только турнир в черновике или идущий турнир без сыгранных игр' });
+    }
+    const played = await db.get<any>("SELECT COUNT(*) AS c FROM tournament_games WHERE tournament_id = ? AND status IN ('completed', 'active')", [tournamentId]);
+    if (Number(played?.c || 0) > 0) {
+      return res.status(400).json({ error: 'В турнире уже есть начатые или сыгранные игры. Завершите турнир вместо отмены' });
+    }
+    const now = new Date().toISOString();
+    await db.run(
+      "UPDATE tournaments SET status = 'cancelled', registration_closed_at = COALESCE(registration_closed_at, ?), updated_at = ? WHERE id = ?",
+      [now, now, tournamentId],
+    );
+    const audience = new Set<string>();
+    const hasRegistrations = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'tournament_registrations'");
+    if (hasRegistrations) {
+      const rows = await db.all<any>("SELECT player_id FROM tournament_registrations WHERE tournament_id = ? AND status IN ('confirmed', 'reserve')", [tournamentId]);
+      rows.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
+    }
+    const participants = await db.all<any>('SELECT player_id FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    participants.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
+    let notified = 0;
+    for (const playerId of audience) {
+      try {
+        const result = await queuePersonalNotification(db, {
+          notificationKey: `tournament:${tournamentId}:cancelled:${playerId}`,
+          playerId,
+          eventType: 'tournament_cancelled',
+          entityId: tournamentId,
+          text: `Турнир «${String(tournament.title || 'Турнир')}» отменён. Мы напишем, когда будет новая дата.`,
+          actionPath: `/player/events/${tournamentId}`,
+        });
+        if (result?.created) notified += 1;
+      } catch (error) {
+        console.warn('[TOURNAMENT] Cancellation notice could not be queued', tournamentId, playerId, error);
+      }
+    }
+    return res.json({ success: true, status: 'cancelled', notified, audience: audience.size });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Ошибка отмены турнира' });
   }
 });
 

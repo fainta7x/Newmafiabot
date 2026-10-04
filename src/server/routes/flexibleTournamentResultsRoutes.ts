@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { internalGetNominations } from './tournamentsRoutesBase.ts';
+import { notifyTournamentResultsPublished } from '../services/tournamentResultsNotificationService.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 
 const router = Router();
@@ -155,7 +156,15 @@ router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedReque
       'UPDATE tournaments SET public_token = ?, results_published_at = ?, updated_at = ? WHERE id = ?',
       [publicToken, now, now, String(req.params.id)],
     );
-    res.json({ success: true, public_token: publicToken });
+    // Every participant hears about the published results once, with his place (owner audit, 2026-10-04).
+    let notified = 0;
+    try {
+      const standings = await getFlexibleTournamentStandings(db, String(req.params.id));
+      notified = await notifyTournamentResultsPublished(db, String(req.params.id), String(tournament.title || 'Турнир'), String(publicToken), standings.standings || []);
+    } catch (error) {
+      console.warn('[TOURNAMENT] Results notifications could not be queued', req.params.id, error);
+    }
+    res.json({ success: true, public_token: publicToken, notified });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Ошибка публикации результатов' });
   }

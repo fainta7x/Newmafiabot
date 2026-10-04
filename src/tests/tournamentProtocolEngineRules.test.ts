@@ -17,4 +17,14 @@ describe('tournament protocol validators accept what the live engine records', (
     expect(validateFirstKilled(null, seats, [], [{ night_number: 1, target_seat: 1, result: 'killed' }])).toBeNull();
     expect(validateFirstKilled(null, seats, [], [{ night_number: 1, target_seat: 2, result: 'killed' }])).not.toBeNull();
   });
+
+  it('accepts a first-killed player who was removed later, keeping him as first killed', () => {
+    const seats = [{ participant_id: 'p2', seat_number: 2, role: 'citizen' }];
+    const shots = [{ night_number: 1, target_seat: 2, result: 'killed' }];
+    const removed = [{ participant_id: 'p2', exit_type: 'removed', removal_reason: 'direct' }];
+    expect(validateFirstKilled('p2', seats, removed, shots)).toBeNull();
+    // «removed» without a reason is still not a killed player
+    expect(validateFirstKilled('p2', seats, [{ participant_id: 'p2', exit_type: 'removed' }], shots)).not.toBeNull();
+    expect(validateFirstKilled('p2', seats, [{ participant_id: 'p2', exit_type: 'alive' }], shots)).not.toBeNull();
+  });
 });

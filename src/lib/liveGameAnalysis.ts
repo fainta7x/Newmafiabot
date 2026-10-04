@@ -66,7 +66,6 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
   };
   let currentVotingNumber = 1;
   let winner: GameAnalysis['winner'] = null;
-  let votesCast = 0;
 
   for (const event of [...events].sort((a, b) => a.seq - b.seq)) {
     const circle = circleOf(Math.max(1, Number(event.round) || 1));
@@ -77,19 +76,20 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
         if (seat && !circle.nominations.some((item) => item.seat === seat)) circle.nominations.push({ seat, by: event.by ?? null });
         break;
       case 'nomination_removed':
-        circle.nominations = circle.nominations.filter((item) => item.seat !== seat);
+        // Only a correction made while nominating counts: when the day ends the engine clears the nominations as housekeeping.
+        if (event.phase === 'day_speeches') circle.nominations = circle.nominations.filter((item) => item.seat !== seat);
         break;
       case 'vote': {
         if (!seat || !target) break;
         const number = typeof event.value === 'number' ? event.value : Number(event.value) || currentVotingNumber;
         currentVotingNumber = number;
         ballots.get(noteVoting(circle.round, number))!.set(seat, target);
-        votesCast += 1;
         break;
       }
       case 'vote_removed': {
         if (!seat) break;
-        for (const [key, map] of ballots) if (key.startsWith(`${circle.round}:`)) map.delete(seat);
+        // A voting that already has its result is history: the engine clears the ballots when it moves on (night, revote).
+        for (const [key, map] of ballots) if (key.startsWith(`${circle.round}:`) && !outcomes.has(key)) map.delete(seat);
         break;
       }
       case 'table_vote': {
@@ -101,7 +101,7 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
       }
       case 'table_vote_removed': {
         if (!seat) break;
-        tableVotes.get(`${circle.round}:${currentVotingNumber}`)?.delete(seat);
+        if (!outcomes.has(`${circle.round}:${currentVotingNumber}`)) tableVotes.get(`${circle.round}:${currentVotingNumber}`)?.delete(seat);
         break;
       }
       case 'vote_round_result': {
@@ -140,6 +140,8 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
     circleOf(round).votings.push({ number, votes, tableVoters: [...(tableVotes.get(key) || [])].sort((a, b) => a - b), outcome: outcomes.get(key) || null });
   }
 
+  // Final ballots, not edit events: a moved or re-cast vote still counts once.
+  const votesCast = [...ballots.values()].reduce((sum, map) => sum + map.size, 0);
   const ordered = [...circles.values()].sort((a, b) => a.round - b.round);
   const firstKilled = ordered.find((circle) => circle.firstKilled)?.firstKilled ?? null;
   return {

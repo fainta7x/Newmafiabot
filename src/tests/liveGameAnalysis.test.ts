@@ -12,7 +12,7 @@ describe('game analysis', () => {
       ev(1, 'nomination', { seat: 3, by: 1 }),
       ev(1, 'nomination', { seat: 5, by: 2 }),
       ev(1, 'nomination', { seat: 7, by: 4 }),
-      ev(1, 'nomination_removed', { seat: 7 }),
+      ev(1, 'nomination_removed', { seat: 7, phase: 'day_speeches' }),
       ev(1, 'vote', { seat: 1, target: 3, value: 1 }),
       ev(1, 'vote', { seat: 2, target: 3, value: 1 }),
       ev(1, 'vote', { seat: 4, target: 5, value: 1 }),
@@ -28,7 +28,7 @@ describe('game analysis', () => {
       ev(3, 'game_end', { value: 'black' }),
     ]);
     expect(analysis.winner).toBe('black');
-    expect(analysis.votesCast).toBe(4);
+    expect(analysis.votesCast).toBe(3);
     expect(analysis.firstKilled).toBe(6);
     expect(analysis.bestMoveSeats).toEqual([2, 8]);
     const first = analysis.circles.find((circle) => circle.round === 1)!;
@@ -60,5 +60,40 @@ describe('game analysis', () => {
 
   it('returns an empty analysis without events', () => {
     expect(buildGameAnalysis([])).toMatchObject({ circles: [], winner: null, votesCast: 0 });
+  });
+
+  it('keeps resolved ballots and nominations when the engine clears them as housekeeping', () => {
+    seq = 0;
+    const analysis = buildGameAnalysis([
+      ev(2, 'nomination', { seat: 3, by: 1, phase: 'day_speeches' }),
+      ev(2, 'nomination', { seat: 5, by: 2, phase: 'day_speeches' }),
+      ev(2, 'vote', { seat: 1, target: 3, value: 1 }),
+      ev(2, 'vote', { seat: 2, target: 5, value: 1 }),
+      ev(2, 'vote_round_result', { value: '1:tie_revote' }),
+      // launching the revote clears the ballots of the resolved voting
+      ev(2, 'vote_removed', { seat: 1, target: 3 }),
+      ev(2, 'vote_removed', { seat: 2, target: 5 }),
+      ev(2, 'vote', { seat: 1, target: 3, value: 2 }),
+      ev(2, 'vote_round_result', { value: '2:single_eliminated' }),
+      // night starts: the nominations are cleared
+      ev(2, 'nomination_removed', { seat: 3, phase: 'night' }),
+      ev(2, 'nomination_removed', { seat: 5, phase: 'night' }),
+      ev(2, 'vote_removed', { seat: 1, target: 3 }),
+    ]);
+    const circle = analysis.circles[0];
+    expect(circle.nominations.map((item) => item.seat)).toEqual([3, 5]);
+    expect(circle.votings[0].votes).toEqual([{ candidate: 3, voters: [1] }, { candidate: 5, voters: [2] }]);
+    expect(circle.votings[1].votes).toEqual([{ candidate: 3, voters: [1] }]);
+    expect(analysis.votesCast).toBe(3);
+  });
+
+  it('counts a moved vote once', () => {
+    seq = 0;
+    const analysis = buildGameAnalysis([
+      ev(2, 'vote', { seat: 1, target: 3, value: 1 }),
+      ev(2, 'vote', { seat: 1, target: 5, value: 1 }),
+    ]);
+    expect(analysis.votesCast).toBe(1);
+    expect(analysis.circles[0].votings[0].votes).toEqual([{ candidate: 5, voters: [1] }]);
   });
 });

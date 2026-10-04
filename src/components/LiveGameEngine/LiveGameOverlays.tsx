@@ -59,6 +59,36 @@ export function DisciplineConfirmationOverlay({ pending, player, onCancel, onCon
   );
 }
 
+interface WinnerConfirmationOverlayProps {
+  winner: 'Красные' | 'Чёрные' | null;
+  canUndo: boolean;
+  onUndo: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * The game does not end on its own the moment a win condition becomes true: a misclick (a wrong removal, a wrong shot)
+ * must be reversible before the result is handed over and the session is dropped (engine audit, 2026-10-04).
+ */
+export function WinnerConfirmationOverlay({ winner, canUndo, onUndo, onConfirm }: WinnerConfirmationOverlayProps) {
+  if (!winner) return null;
+  return (
+    <div className="fixed inset-0 z-[127] flex items-center justify-center bg-black/78 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md">
+      <div data-testid="live-winner-confirmation" className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-[#121318] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/70">Условие победы выполнено</div>
+          <h3 className="mt-1 text-xl font-semibold text-white">Победили {winner}</h3>
+          <p className="mt-2 text-xs leading-relaxed text-white/45">Проверьте, что это не случайное нажатие. После подтверждения игра завершится и результат уйдёт в протокол.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          <button type="button" data-testid="live-winner-confirm" onClick={onConfirm} className="min-h-12 rounded-2xl border border-emerald-200/20 bg-emerald-300/[0.12] text-sm font-semibold text-emerald-50/90">Завершить игру</button>
+          {canUndo ? <button type="button" data-testid="live-winner-undo" onClick={onUndo} className="min-h-12 rounded-2xl border border-white/[0.07] bg-black/20 text-xs font-semibold text-white/60">Вернуть последнее действие</button> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PlayerActionOverlayProps {
   player: ActivePlayerState | null;
   mode?: 'standard' | 'farewell';

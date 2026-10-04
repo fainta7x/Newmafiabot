@@ -555,6 +555,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={getClubJudgeIdentity(game)}
+          sessionKey={`club:${game.id}`}
           onCancel={onClose}
           onPhaseChange={setLivePhase}
           rolesHidden={rolesHidden}

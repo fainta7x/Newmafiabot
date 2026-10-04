@@ -40,4 +40,6 @@ export interface LiveGameEngineProps {
   onPhaseChange?: (phase: string) => void;
   rolesHidden?: boolean;
   onRolesHiddenChange?: (hidden: boolean) => void;
+  /** Identity of the game this engine runs (for example `tournament:<gameId>`): a saved session of another game is never offered. */
+  sessionKey?: string;
 }

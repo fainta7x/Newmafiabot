@@ -45,14 +45,19 @@ export function useLiveGameClock() {
     }
   };
 
-  // The warning beep: once per countdown, when exactly ten seconds are left. A timer that is only ten
-  // seconds long (or shorter) has nothing to warn about, and pausing/resuming at ten never repeats it.
+  // The warning beep: once per countdown, when ten seconds are reached. A catch-up step after the page was in the
+  // background can jump from above ten to below it, so the crossing is detected, not only the exact value. A timer
+  // that is only ten seconds long (or shorter) has nothing to warn about, and pausing/resuming at ten never repeats it.
+  const previousTimeLeftRef = useRef(timeLeft);
   useEffect(() => {
+    const previous = previousTimeLeftRef.current;
+    previousTimeLeftRef.current = timeLeft;
     if (timeLeft > SPEECH_WARNING_SECONDS) {
       warnedRef.current = false;
       return;
     }
-    if (isTimerRunning && timeLeft === SPEECH_WARNING_SECONDS && timerMax > SPEECH_WARNING_SECONDS && !warnedRef.current) {
+    const reachedWarning = timeLeft === SPEECH_WARNING_SECONDS || (previous > SPEECH_WARNING_SECONDS && timeLeft > 0);
+    if (isTimerRunning && reachedWarning && timerMax > SPEECH_WARNING_SECONDS && !warnedRef.current) {
       warnedRef.current = true;
       playBeep(WARNING_TONE.freq, WARNING_TONE.duration);
     }
@@ -64,19 +69,31 @@ export function useLiveGameClock() {
       return;
     }
 
-    timerRef.current = setInterval(() => {
+    // Count real elapsed seconds, not ticks: a backgrounded Telegram WebApp throttles intervals and a tick counter lags
+    // behind the clock (engine audit, 2026-10-04).
+    let lastTickAt = Date.now();
+    const tick = () => {
+      const now = Date.now();
+      const elapsed = Math.max(1, Math.floor((now - lastTickAt) / 1000));
+      lastTickAt += elapsed * 1000;
       setTimeLeft((value) => {
-        if (value <= 1) {
+        if (value <= elapsed) {
           setIsTimerRunning(false);
           playBeep(END_TONE.freq, END_TONE.duration);
           return 0;
         }
-        return value - 1;
+        return value - elapsed;
       });
-    }, 1000);
+    };
+    timerRef.current = setInterval(tick, 1000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastTickAt >= 1000) tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [isTimerRunning, isMuted]);
 

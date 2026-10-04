@@ -9,6 +9,8 @@ interface TournamentStandingsViewProps {
   refreshTrigger?: number;
 }
 
+/** Points are shown with at most two decimals, whatever float noise a sum carries. */
+const roundPts = (value: number | null | undefined) => Number(Number(value || 0).toFixed(2));
 const signedPoints = (value: number | null | undefined) => { const n = Number(value || 0); return n > 0 ? `+${n}` : String(n); };
 
 export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = ({ tournamentId, refreshTrigger }) => {
@@ -209,7 +211,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                           <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
                             <div className="text-right">
                               <div className="text-[10px] text-text-muted">Σ</div>
-                              <div className="font-black text-sm text-accent">{item.total_points}</div>
+                              <div className="font-black text-sm text-accent">{roundPts(item.total_points)}</div>
                             </div>
                             <div className="text-right">
                               <div className="text-[10px] text-text-muted">Σдб</div>
@@ -455,7 +457,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                           <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
                             <div className="text-right">
                               <div className="text-[10px] text-text-muted">Σ</div>
-                              <div className="font-black text-sm text-accent">{item.total_points}</div>
+                              <div className="font-black text-sm text-accent">{roundPts(item.total_points)}</div>
                             </div>
                             <div className="text-right">
                               <div className="text-[10px] text-text-muted">Σдб</div>
@@ -734,7 +736,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                           {/* Σ (total_points) */}
                           <td className="py-3 px-2 text-center font-black text-sm text-accent">
-                            {item.total_points}
+                            {roundPts(item.total_points)}
                           </td>
 
                           {/* П (wins) */}

@@ -37,6 +37,7 @@ import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
   BestMoveProtocolOverlay,
   DisciplineConfirmationOverlay,
+  WinnerConfirmationOverlay,
   LiveGameToast,
   PlayerActionOverlay,
   RestorableSessionBanner,
@@ -98,7 +99,7 @@ import {
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange, sessionKey }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -113,6 +114,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [discipline, setDiscipline] = useState<GameDiscipline>(() => createInitialLiveDiscipline(tableSize));
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
   const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
+  const [pendingWinner, setPendingWinner] = useState<'Красные' | 'Чёрные' | null>(null);
 
   const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
   const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
@@ -227,7 +229,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
   };
 
-  const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
+  const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-59), takeSnapshot()]);
 
   const restoreSnapshot = (snapshot: LiveSnapshot) => {
     const restored = normalizeLiveSnapshotForRestore(snapshot);
@@ -343,7 +345,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   useEffect(() => {
-    const storedSession = readRestorableLiveSession(undefined, tableSize);
+    const storedSession = readRestorableLiveSession(undefined, tableSize, sessionKey);
     if (storedSession) setRestorableSession(storedSession);
     // The table size is fixed for the lifetime of this engine instance.
   }, [tableSize]);
@@ -362,6 +364,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       sheriffCheckSlot,
       sheriffCheckResult,
       historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),
+      sessionKey,
       savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }),
     };
     writeLiveSession(data);
@@ -877,9 +880,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       startNightPhase();
       return;
     }
-    if (nominations.length === 0) return startNightPhase();
-    if (roundNumber === 1 && nominations.length === 1) {
-      const onlyNominee = nominations[0];
+    // A nominee who left the game (removed, 4th foul) is not on the ballot (engine audit, 2026-10-04).
+    const liveNominations = nominations.filter((slot) => activePlayers.some((player) => player.slot_num === slot && player.alive));
+    if (liveNominations.length === 0) return startNightPhase();
+    if (roundNumber === 1 && liveNominations.length === 1) {
+      const onlyNominee = liveNominations[0];
       setNightLogs((previous) => [...previous, {
         round: roundNumber,
         log: `Д1: в нулевом круге выставлена только одна кандидатура #${onlyNominee}; голосование не проводится, наступает ночь.`,
@@ -890,11 +895,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
     const eligible = eligibleSeats.length;
-    const explicit = getExplicitVoteCounts(nominations, {}, eligibleSeats);
+    const explicit = getExplicitVoteCounts(liveNominations, {}, eligibleSeats);
     const initialRound: VotingRound = {
       round_number: 1,
       is_revote: false,
-      nominated_seats: [...nominations],
+      nominated_seats: [...liveNominations],
       vote_counts: explicit,
       day_number: liveRoundToTournamentDay(roundNumber),
       eligible_voters: eligible,
@@ -1384,8 +1389,14 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       postNightStage !== 'none';
     if (requiredFinalActionInProgress) return;
 
-    handleEndGameWithWinner(winner);
+    // Ask first: a misclick that made a win condition true can still be taken back.
+    setPendingWinner(winner);
   }, [activePlayers, phase, activeBestMoveSource, votingFarewellQueue.length, postNightStage]);
+
+  // The win condition may stop being true (undo, a restored player): the question goes away with it.
+  useEffect(() => {
+    if (pendingWinner && !determineLiveWinner(activePlayers)) setPendingWinner(null);
+  }, [pendingWinner, activePlayers]);
 
   const handlePpkFromMenu = (slot: number) => {
     requestDisciplineConfirmation(slot, 'ppk');
@@ -1570,6 +1581,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
+      <WinnerConfirmationOverlay
+        winner={pendingWinner}
+        canUndo={historyStack.length > 0}
+        onUndo={() => { setPendingWinner(null); handleUndoAction(); }}
+        onConfirm={() => { const winner = pendingWinner; setPendingWinner(null); if (winner) handleEndGameWithWinner(winner); }}
+      />
       <DisciplineConfirmationOverlay
         pending={pendingDisciplineConfirmation}
         player={pendingConfirmationPlayer}

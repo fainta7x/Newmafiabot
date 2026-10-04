@@ -8,6 +8,7 @@ import {
 } from "../shared/tournamentVoting.js";
 import {
   canRegisterFirstKilled,
+  findDecidedVoteLeader,
   getExplicitVoteCounts,
   getSingularZeroRoundElimination,
   liveRoundToTournamentDay,
@@ -623,8 +624,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     next = confirmAction(next, id);
     const removalApplied = pending.action !== 'ppk' && Boolean(next.players[id]?.isRemoved);
-    const currentVotingIsCancelled = removalApplied && phase === 'day_voting';
-    const committedDiscipline = currentVotingIsCancelled ? resetNextVotingCancelled(next) : next;
+    // A removal cancels the voting in progress, unless a candidate is already voted out for certain: nobody else can reach
+    // or share his votes (owner rule, 2026-10-04). Then the voting goes on, the removal only uses up the cancellation.
+    const votingRound = votingRounds[activeVotingRoundIndex];
+    // Decide from the ballots that survive the removal: a removed voter's ballot is no longer counted for anybody.
+    const survivingVoters = activePlayers.filter((player) => player.alive && player.slot_num !== pending.slot).map((player) => player.slot_num);
+    const decidedLeader = findDecidedVoteLeader(votingRound && votingStage !== 'round_result'
+      ? { ...votingRound, vote_counts: getExplicitVoteCounts(votingRound.nominated_seats, votesByPlayer, survivingVoters) }
+      : votingRound);
+    const votingAlreadyDecided = decidedLeader !== null && decidedLeader !== pending.slot;
+    const currentVotingIsCancelled = removalApplied && phase === 'day_voting' && !votingAlreadyDecided;
+    const committedDiscipline = removalApplied && phase === 'day_voting' ? resetNextVotingCancelled(next) : next;
     setDiscipline(committedDiscipline);
     syncDisciplinePlayer(committedDiscipline, pending.slot);
     setPendingDisciplineConfirmation(null);
@@ -642,6 +652,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       }]);
       showToast(`Голосование отменено: игрок #${pending.slot} удалён`, 'warning');
       startNightPhase();
+    } else if (removalApplied && phase === 'day_voting' && votingAlreadyDecided) {
+      showToast(`Игрок #${pending.slot} удалён. Голосование продолжается: #${decidedLeader} уже заголосован`, 'info');
     }
   };
 

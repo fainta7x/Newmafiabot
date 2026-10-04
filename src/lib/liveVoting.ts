@@ -45,6 +45,22 @@ export function isVoteDecided(
 }
 
 /**
+ * The candidate who is already voted out for certain in a round that is still being counted: his votes cannot be
+ * reached or shared by anybody else. Null when nobody is decided yet (owner rule 2026-10-04: a removal during voting
+ * cancels it only when there is no such candidate).
+ */
+export function findDecidedVoteLeader(round: {
+  nominated_seats: number[];
+  vote_counts?: Record<number, number>;
+  eligible_voters?: number | null;
+} | null | undefined): number | null {
+  if (!round || !round.eligible_voters) return null;
+  const counts = round.vote_counts || {};
+  if (!isVoteDecided(round.nominated_seats, counts, round.eligible_voters)) return null;
+  return [...round.nominated_seats].sort((a, b) => (counts[b] || 0) - (counts[a] || 0))[0] ?? null;
+}
+
+/**
  * Live voting intentionally never reports an early "decided" state.
  * Even when the leader cannot mathematically be caught, sports-mafia procedure
  * continues through every nominated player before the final result is fixed.

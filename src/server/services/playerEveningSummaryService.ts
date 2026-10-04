@@ -2,7 +2,7 @@ import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGa
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 
 export type EveningSummaryAward = {
-  category: 'sympathy' | 'best_red' | 'best_black' | 'best_sheriff';
+  category: 'best_player';
   label: string;
   player_id: string;
   nickname: string;
@@ -71,12 +71,7 @@ const safeTableExists = async (db: any, table: string) => {
   }
 };
 
-const categoryLabel = (category: string) => {
-  if (category === 'sympathy') return 'Симпатия вечера';
-  if (category === 'best_red') return 'Лучший красный';
-  if (category === 'best_black') return 'Лучший чёрный';
-  return 'Лучший Шериф';
-};
+const categoryLabel = (_category: string) => 'Игрок вечера';
 
 const sourceId = (snapshot: CompletedGameSnapshot) => snapshot.id.startsWith('club:')
   ? snapshot.id.slice('club:'.length)
@@ -92,7 +87,7 @@ const buildAwards = async (
   const rows = await db.all(`
     SELECT category, nominee_player_id, COUNT(*) AS votes
       FROM evening_player_votes
-     WHERE evening_id = ?
+     WHERE evening_id = ? AND category = 'best_player'
      GROUP BY category, nominee_player_id
      ORDER BY category ASC, votes DESC
   `, [eveningId]);
@@ -114,7 +109,7 @@ const buildAwards = async (
     if (!current || votes > Number(current.votes || 0)) bestByCategory.set(category, row);
   }
 
-  return ['sympathy', 'best_red', 'best_black', 'best_sheriff'].flatMap((category) => {
+  return ['best_player'].flatMap((category) => {
     const row = bestByCategory.get(category);
     if (!row) return [];
     const playerId = String(row.nominee_player_id);
@@ -227,8 +222,8 @@ export async function loadPlayerEveningSummaries(
     if (bestElo && bestElo.player_id !== playerId && bestElo.elo_delta > 0.01) {
       facts.push(`Лучший рост Elo: ${bestElo.nickname} +${round(bestElo.elo_delta)}`);
     }
-    const sympathy = awards.find((award) => award.category === 'sympathy');
-    if (sympathy) facts.push(`Симпатия вечера: ${sympathy.nickname}`);
+    const voted = awards.find((award) => award.category === 'best_player');
+    if (voted) facts.push(`Игрок вечера по голосованию: ${voted.nickname}`);
 
     summaries.push({
       id: eveningId,

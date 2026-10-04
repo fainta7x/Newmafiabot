@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
-import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { EVENING_VOTING_WINDOW_MS } from '../services/clubYearAwardsService.ts';
 
 const router = Router();
-const CATEGORIES = new Set(['sympathy', 'best_red', 'best_black', 'best_sheriff']);
-const VOTING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// One question for the whole evening (owner, 2026-10-04): «Кто сыграл лучше всех?». The old role categories are retired;
+// their stored votes stay in the table but are no longer offered or counted.
+export const EVENING_VOTE_CATEGORY = 'best_player';
+const CATEGORIES = new Set([EVENING_VOTE_CATEGORY]);
 
 type VotingContext =
   | { error: 'not_completed' }
@@ -68,7 +70,7 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string): 
   if (!viewer) return { error: 'not_attended', evening };
 
   const baseTime = new Date(String(evening.settled_at || evening.starts_at || '')).getTime();
-  const deadlineMs = Number.isFinite(baseTime) ? baseTime + VOTING_WINDOW_MS : 0;
+  const deadlineMs = Number.isFinite(baseTime) ? baseTime + EVENING_VOTING_WINDOW_MS : 0;
   const votingOpen = deadlineMs > Date.now();
 
   const attendeeRows = await db.all(`
@@ -79,19 +81,6 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string): 
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [eveningId]);
 
-  const snapshots = (await loadCompletedGameSnapshots(db))
-    .filter((game) => game.source === 'club' && game.event_id === eveningId);
-  const red = new Set<string>();
-  const black = new Set<string>();
-  const sheriff = new Set<string>();
-  for (const game of snapshots) {
-    for (const player of game.players) {
-      if (player.team === 'red') red.add(player.player_id);
-      if (player.team === 'black') black.add(player.player_id);
-      if (player.role === 'sheriff') sheriff.add(player.player_id);
-    }
-  }
-
   const attendeeIds = new Set<string>(attendeeRows.map((row: any) => String(row.id)));
   const nominees = attendeeRows
     .filter((row: any) => String(row.id) !== String(viewerId))
@@ -99,12 +88,7 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string): 
       player_id: String(row.id),
       nickname: String(row.nickname || 'Игрок'),
       avatar_url: `/api/player/players/${encodeURIComponent(String(row.id))}/avatar`,
-      categories: [
-        'sympathy',
-        ...(red.has(String(row.id)) ? ['best_red'] : []),
-        ...(black.has(String(row.id)) ? ['best_black'] : []),
-        ...(sheriff.has(String(row.id)) ? ['best_sheriff'] : []),
-      ],
+      categories: [EVENING_VOTE_CATEGORY],
     }));
 
   return { error: null, evening, votingOpen, deadlineMs, attendeeIds, nominees };
@@ -125,12 +109,12 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
       db.all(`
         SELECT category, nominee_player_id
           FROM evening_player_votes
-         WHERE evening_id = ? AND voter_player_id = ?
+         WHERE evening_id = ? AND voter_player_id = ? AND category = 'best_player'
       `, [req.params.eveningId, viewerId]),
       db.all(`
         SELECT category, nominee_player_id, COUNT(*) AS votes
           FROM evening_player_votes
-         WHERE evening_id = ?
+         WHERE evening_id = ? AND category = 'best_player'
          GROUP BY category, nominee_player_id
       `, [req.params.eveningId]),
     ]);
@@ -146,7 +130,7 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
       evening: { id: String(context.evening.id), title: String(context.evening.title || 'Игровой вечер') },
       voting_open: context.votingOpen,
       deadline: context.deadlineMs ? new Date(context.deadlineMs).toISOString() : null,
-      categories: ['sympathy', 'best_red', 'best_black', 'best_sheriff'],
+      categories: [EVENING_VOTE_CATEGORY],
       nominees: context.nominees,
       my_votes: myVoteMap,
       results,

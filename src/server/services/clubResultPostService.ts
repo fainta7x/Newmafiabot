@@ -335,6 +335,7 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
       lines.push(`Баллы за вечер: ${comma(player.points)} · в среднем ${comma(player.points / player.games.length)}`);
     }
     if (player.eloDelta != null) lines.push(`Эло: ${comma(Math.round(player.eloDelta))} · теперь ${Math.round(player.eloAfter || 0)}`);
+    lines.push('🏆 Кто сыграл лучше всех? Отдай свой голос за «Игрока вечера»: Клуб → Истории (голосование 7 дней).');
     const invite = await inviteFriendUrl(player.playerId, botUsername);
     const row = [
       ...(gamesUrl ? [{ text: '📋 Мои игры', web_app: { url: gamesUrl } }] : []),

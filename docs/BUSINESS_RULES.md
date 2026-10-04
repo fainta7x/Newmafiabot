@@ -290,6 +290,14 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - If a stale local protocol references outdated player identities, recovery may rebind gameplay results to the **current canonical server roster by seat**; it must not use the stale local save to replace server player/participant identities.
 - A pending game must remain openable in correction mode rather than trapping the organizer behind only a retry button.
 
+## Club evening awards (user-approved 2026-10-04)
+
+- A completed club evening has **one** vote for its attendees: «Кто сыграл лучше всех?» («Игрок вечера»). The earlier role votes («Симпатия», best red / black / sheriff) are retired; their stored votes stay in the database but are neither offered nor counted.
+- Voting stays open for 7 days after the evening is closed. The title goes to the nominee with the most votes; a tie shares it. An evening with no votes has no title.
+- Titles are counted **per calendar year** (Moscow time); the counter starts from zero every January and is shown in the player's showcase as «Игрок вечера · год: N».
+- When a year is over, the three places with the most titles get an automatic **«Игрок года <год>»** award (equal counts share a place; past years stay in the showcase). The current year has no award yet, only the counter.
+- Tournament awards are separate and unchanged.
+
 ## Evening registration
 
 ### Current club focus

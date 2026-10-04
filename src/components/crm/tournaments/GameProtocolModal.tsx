@@ -30,6 +30,7 @@ import {
 import { ProtocolVotingTab } from './protocol/ProtocolVotingTab';
 import { ProtocolNightsTab } from './protocol/ProtocolNightsTab';
 import { GameEventLog } from './protocol/GameEventLog.tsx';
+import { GameAnalysis } from './protocol/GameAnalysis.tsx';
 import { ProtocolSummaryTab } from './protocol/ProtocolSummaryTab';
 import { PlayerColorProtocolEditor } from './protocol/PlayerColorProtocolEditor';
 import { PointStepper, roundTenths } from './protocol/PointStepper';
@@ -1715,7 +1716,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 />
               )}
 
-              {/* TAB 4: SUMMARY & FINALIZATION */}
+              {/* TAB 4: SUMMARY & FINALIZATION. A finished game opens on its analysis; a game still being filled keeps it below the form. */}
+              {activeTab === 'summary' && protocol.status === 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
               {activeTab === 'summary' && (
                 <ProtocolSummaryTab
                   protocol={protocol}
@@ -1725,6 +1727,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   onJudgeNotesChange={handleJudgeNotesChange}
                 />
               )}
+              {activeTab === 'summary' && protocol.status !== 'completed' && <GameAnalysis events={protocol.events} playerResults={playerResults} />}
               {activeTab === 'summary' && <GameEventLog events={protocol.events} playerResults={playerResults} />}
             </>
           )}

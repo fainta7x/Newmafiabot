@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ const playerOfEvening = (games: any[]) => {
   const winner = pool.sort((a, b) => b.wins - a.wins || (b.wins / Math.max(1, b.games)) - (a.wins / Math.max(1, a.games)) || b.games - a.games)[0];
   return winner ? {
     ...winner,
-    win_rate: Math.round((winner.wins / Math.max(1, winner.games)) * 100),
+    win_rate: winRatePercent(winner.wins, winner.games),
     avatar_url: `/api/player/players/${encodeURIComponent(winner.player_id)}/avatar`,
   } : null;
 };

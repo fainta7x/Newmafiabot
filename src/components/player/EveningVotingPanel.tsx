@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-type Category = 'sympathy' | 'best_red' | 'best_black' | 'best_sheriff';
+type Category = 'best_player';
 
 type VotingData = {
   evening: { id: string; title: string };
@@ -18,10 +18,7 @@ type VotingData = {
 };
 
 const CATEGORY_META: Record<Category, { label: string; icon: string; hint: string }> = {
-  sympathy: { label: 'Симпатия', icon: '❤️', hint: 'Кому хочется отдать личную симпатию вечера' },
-  best_red: { label: 'Красный', icon: '🔴', hint: 'Лучший игрок за красную команду' },
-  best_black: { label: 'Чёрный', icon: '⚫', hint: 'Лучший игрок за чёрную команду' },
-  best_sheriff: { label: 'Шериф', icon: '⭐', hint: 'Лучшее выступление за Шерифа' },
+  best_player: { label: 'Игрок вечера', icon: '🏆', hint: 'Кто сыграл лучше всех на этом вечере' },
 };
 
 const deadlineText = (value: string | null) => {
@@ -33,7 +30,7 @@ const deadlineText = (value: string | null) => {
 
 export default function EveningVotingPanel({ eveningId }: { eveningId: string }) {
   const [data, setData] = useState<VotingData | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Category>('sympathy');
+  const activeCategory: Category = 'best_player';
   const [savingPlayerId, setSavingPlayerId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
@@ -97,9 +94,6 @@ export default function EveningVotingPanel({ eveningId }: { eveningId: string })
         <div className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${data.voting_open ? 'bg-emerald-300/10 text-emerald-200/70' : 'bg-white/[0.06] text-white/35'}`}>{data.voting_open ? 'открыто' : 'закрыто'}</div>
       </div>
 
-      <div className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-black/20 p-1">
-        {(Object.keys(CATEGORY_META) as Category[]).map((category) => <button key={category} type="button" onClick={() => { setActiveCategory(category); setMessage(null); }} className={`min-h-10 rounded-lg px-1 text-[11px] font-semibold ${activeCategory === category ? 'bg-white text-black' : 'text-white/40'}`}><span className="block text-sm">{CATEGORY_META[category].icon}</span>{CATEGORY_META[category].label}</button>)}
-      </div>
 
       <p className="mt-3 text-[11px] leading-4 text-white/30">{CATEGORY_META[activeCategory].hint}{data.voting_open && data.deadline ? ` · до ${deadlineText(data.deadline)}` : ''}</p>
 

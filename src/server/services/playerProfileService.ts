@@ -1,4 +1,5 @@
 import { loadPlayerTournamentAwards } from './tournamentAwardsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 export type PlayerGameSource = 'club' | 'tournament';
 export type PlayerGameTeam = 'red' | 'black' | null;
@@ -114,7 +115,7 @@ export const buildPlayerProfileStats = (games: PlayerGameHistoryItem[]): PlayerG
     completedGames: completed.length,
     wins,
     losses: Math.max(0, completed.length - wins),
-    winRate: completed.length ? Math.round((wins / completed.length) * 100) : 0,
+    winRate: winRatePercent(wins, completed.length),
     clubGames: games.filter((game) => game.source === 'club').length,
     tournamentGames: games.filter((game) => game.source === 'tournament').length,
     redGames: games.filter((game) => game.team === 'red').length,

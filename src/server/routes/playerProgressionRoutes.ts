@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PLAYER_TITLES, type PlayerTitleId } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -151,7 +152,7 @@ const buildStats = (games: PersonalGame[]): ProgressStats => {
   return {
     games: games.length,
     wins,
-    winRate: games.length ? Math.round((wins / games.length) * 100) : 0,
+    winRate: winRatePercent(wins, games.length),
     redGames,
     redWins,
     blackGames,
@@ -362,7 +363,7 @@ const buildProgression = async (db: any, playerId: string) => {
         label: roleLabel(stats.strongestRole),
         games: stats.roleGames[stats.strongestRole],
         wins: stats.roleWins[stats.strongestRole],
-        win_rate: stats.roleGames[stats.strongestRole] ? Math.round((stats.roleWins[stats.strongestRole] / stats.roleGames[stats.strongestRole]) * 100) : 0,
+        win_rate: winRatePercent(stats.roleWins[stats.strongestRole], stats.roleGames[stats.strongestRole]),
       } : null,
       form: stats.form,
     },

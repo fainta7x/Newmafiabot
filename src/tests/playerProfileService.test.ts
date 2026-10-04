@@ -24,7 +24,7 @@ describe('player profile stats', () => {
     expect(stats.completedGames).toBe(3);
     expect(stats.wins).toBe(2);
     expect(stats.losses).toBe(1);
-    expect(stats.winRate).toBe(67);
+    expect(stats.winRate).toBe(66.7);
     expect(stats.clubGames).toBe(2);
     expect(stats.tournamentGames).toBe(2);
     expect(stats.roleCounts).toEqual({ citizen: 1, sheriff: 1, mafia: 1, don: 1, unknown: 0 });

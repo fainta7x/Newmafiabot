@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsTeam } from '../services/clubGameAnalyticsService.ts';
+import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
 
@@ -26,7 +27,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
 };
 
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
-const winRate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
+const winRate = winRatePercent;
 
 const lastResultsAt = (results: Result[], cutoffMs = Number.POSITIVE_INFINITY) => results
   .filter((result) => result.dateMs <= cutoffMs)
@@ -93,7 +94,7 @@ router.get('/pulse', async (req, res) => {
         elo: Number(player.elo || 0),
         games: results.length,
         wins,
-        win_rate: Math.round((wins / results.length) * 100),
+        win_rate: winRatePercent(wins, results.length),
         last5_wins: recentFive.filter((result) => result.won).length,
         streak: winStreak(results),
         score: powerScore(results),

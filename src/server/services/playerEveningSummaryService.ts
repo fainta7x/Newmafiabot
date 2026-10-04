@@ -1,8 +1,9 @@
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
+import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
 
 export type EveningSummaryAward = {
-  category: 'sympathy' | 'best_red' | 'best_black' | 'best_sheriff';
+  category: 'best_player';
   label: string;
   player_id: string;
   nickname: string;
@@ -71,18 +72,13 @@ const safeTableExists = async (db: any, table: string) => {
   }
 };
 
-const categoryLabel = (category: string) => {
-  if (category === 'sympathy') return 'Симпатия вечера';
-  if (category === 'best_red') return 'Лучший красный';
-  if (category === 'best_black') return 'Лучший чёрный';
-  return 'Лучший Шериф';
-};
+const categoryLabel = (_category: string) => 'Игрок вечера';
 
 const sourceId = (snapshot: CompletedGameSnapshot) => snapshot.id.startsWith('club:')
   ? snapshot.id.slice('club:'.length)
   : snapshot.id;
 
-const buildAwards = async (
+export const buildAwards = async (
   db: any,
   eveningId: string,
   nicknames: Map<string, string>,
@@ -92,7 +88,7 @@ const buildAwards = async (
   const rows = await db.all(`
     SELECT category, nominee_player_id, COUNT(*) AS votes
       FROM evening_player_votes
-     WHERE evening_id = ?
+     WHERE evening_id = ? AND category = 'best_player'
      GROUP BY category, nominee_player_id
      ORDER BY category ASC, votes DESC
   `, [eveningId]);
@@ -106,27 +102,26 @@ const buildAwards = async (
     for (const player of players) nicknames.set(String(player.id), String(player.nickname || 'Игрок'));
   }
 
-  const bestByCategory = new Map<string, any>();
-  for (const row of rows) {
-    const category = String(row.category);
-    const current = bestByCategory.get(category);
-    const votes = Number(row.votes || 0);
-    if (!current || votes > Number(current.votes || 0)) bestByCategory.set(category, row);
-  }
+  // The title is official only when the voting is closed; before that the leader can still change.
+  const evening = await db.get('SELECT starts_at, settled_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  const baseMs = new Date(String(evening?.settled_at || evening?.starts_at || '')).getTime();
+  if (!Number.isFinite(baseMs) || baseMs + EVENING_VOTING_WINDOW_MS > Date.now()) return [];
 
-  return ['sympathy', 'best_red', 'best_black', 'best_sheriff'].flatMap((category) => {
-    const row = bestByCategory.get(category);
-    if (!row) return [];
-    const playerId = String(row.nominee_player_id);
-    return [{
-      category: category as EveningSummaryAward['category'],
-      label: categoryLabel(category),
-      player_id: playerId,
-      nickname: nicknames.get(playerId) || 'Игрок',
-      avatar_url: avatarUrl(playerId),
-      votes: Number(row.votes || 0),
-    }];
-  });
+  // Every nominee with the most votes gets it (a tie shares the title).
+  const best = Math.max(...rows.map((row: any) => Number(row.votes || 0)));
+  return rows
+    .filter((row: any) => String(row.category) === 'best_player' && Number(row.votes || 0) === best && best > 0)
+    .map((row: any) => {
+      const playerId = String(row.nominee_player_id);
+      return {
+        category: 'best_player' as const,
+        label: categoryLabel('best_player'),
+        player_id: playerId,
+        nickname: nicknames.get(playerId) || 'Игрок',
+        avatar_url: avatarUrl(playerId),
+        votes: Number(row.votes || 0),
+      };
+    });
 };
 
 export async function loadPlayerEveningSummaries(
@@ -227,8 +222,7 @@ export async function loadPlayerEveningSummaries(
     if (bestElo && bestElo.player_id !== playerId && bestElo.elo_delta > 0.01) {
       facts.push(`Лучший рост Elo: ${bestElo.nickname} +${round(bestElo.elo_delta)}`);
     }
-    const sympathy = awards.find((award) => award.category === 'sympathy');
-    if (sympathy) facts.push(`Симпатия вечера: ${sympathy.nickname}`);
+    if (awards.length) facts.push(`Игрок вечера по голосованию: ${awards.map((award) => award.nickname).join(', ')}`);
 
     summaries.push({
       id: eveningId,

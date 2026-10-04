@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { calendarSeasonForDate, loadRatingSeasons, previousSeason, seasonForDate } from '../server/services/clubSeasonService.ts';
+import { NO_SEASON_KEY, loadRatingSeasons, previousSeason, seasonForDate } from '../server/services/clubSeasonService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -30,7 +30,9 @@ describe('club seasons follow rating periods', () => {
     expect(now.label).toBe('Лето-осень 2026');
     // The period's last instant still belongs to it; the next moment does not.
     expect(seasonForDate(seasons, Date.parse('2026-12-31T23:59:59.999Z')).label).toBe('Лето-осень 2026');
-    expect(seasonForDate(seasons, Date.parse('2027-01-01T00:00:00.000Z')).label).toBe(calendarSeasonForDate(Date.UTC(2027, 0, 1)).label);
+    // A gap between periods is "no season", not an invented calendar quarter.
+    const gap = seasonForDate(seasons, Date.parse('2027-01-01T00:00:00.000Z'));
+    expect(gap).toMatchObject({ key: NO_SEASON_KEY, start: gap.end });
 
     expect(previousSeason(seasons, now).label).toBe('Весна 2026');
     const first = seasons[0];

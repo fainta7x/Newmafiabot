@@ -1,5 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 
+export const NO_SEASON_KEY = 'none';
+
 export interface ClubSeason { key: string; label: string; start: number; end: number; }
 
 const tableExists = async (db: DatabaseWrapper, name: string) => Boolean(
@@ -40,13 +42,16 @@ export const loadRatingSeasons = async (db: DatabaseWrapper): Promise<ClubSeason
 export const seasonForDate = (seasons: ClubSeason[], value: number | string | Date): ClubSeason => {
   const ms = new Date(value).getTime();
   const match = seasons.filter((season) => ms >= season.start && ms < season.end).sort((a, b) => b.start - a.start)[0];
-  return match || calendarSeasonForDate(ms);
+  if (match) return match;
+  // Between periods there is no season: an empty one, never an invented calendar quarter that could overlap a real period.
+  if (seasons.length) return { key: NO_SEASON_KEY, label: 'Вне сезона', start: ms, end: ms };
+  return calendarSeasonForDate(ms);
 };
 
 export const previousSeason = (seasons: ClubSeason[], season: ClubSeason): ClubSeason => {
   const earlier = seasons.filter((item) => item.end <= season.start).sort((a, b) => b.end - a.end)[0];
   if (earlier) return earlier;
   // With rating periods defined, "before the first one" is simply empty rather than an overlapping calendar quarter.
-  if (seasons.length) return { key: 'none', label: 'Предыдущий сезон', start: season.start, end: season.start };
+  if (seasons.length) return { key: NO_SEASON_KEY, label: 'Предыдущий сезон', start: season.start, end: season.start };
   return calendarSeasonForDate(season.start - 1);
 };

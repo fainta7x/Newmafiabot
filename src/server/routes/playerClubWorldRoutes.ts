@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
-import { loadRatingSeasons, previousSeason, seasonForDate, type ClubSeason } from '../services/clubSeasonService.ts';
+import { NO_SEASON_KEY, loadRatingSeasons, previousSeason, seasonForDate, type ClubSeason } from '../services/clubSeasonService.ts';
 import {
   buildPersonalHooks,
   buildRelationshipEvents,
@@ -198,10 +198,10 @@ router.get('/club-world', async (req, res) => {
     ].filter(Boolean);
 
     const seasonMap = new Map<string, Season>();
-    seasonMap.set(currentSeason.key, currentSeason);
+    if (currentSeason.key !== NO_SEASON_KEY) seasonMap.set(currentSeason.key, currentSeason);
     for (const game of snapshots) {
       const season = seasonForDate(seasons, game.dateMs);
-      seasonMap.set(season.key, season);
+      if (season.key !== NO_SEASON_KEY) seasonMap.set(season.key, season);
     }
     const seasonHistory = [...seasonMap.values()]
       .sort((a, b) => b.start - a.start)

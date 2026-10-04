@@ -1,3 +1,4 @@
+import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 
@@ -142,6 +143,8 @@ export const canonicalizeClubGameSave = (
   referencedParticipant(participantIds, incomingProtocol?.first_killed_participant_id, 'Первый убитый');
   referencedParticipant(participantIds, incomingProtocol?.zero_round_voted_participant_id, 'Нулевой круг');
   validateBestMoves(incomingProtocol, participantIds, tableSize);
-  const protocol = { ...incomingProtocol, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
+  // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.
+  const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
+  const protocol = { ...incomingProtocol, events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
   return { protocol, playerResults };
 };

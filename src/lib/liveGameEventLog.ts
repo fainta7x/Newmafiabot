@@ -193,3 +193,35 @@ export const deriveFinalGameEvents = (
     at,
   );
 };
+
+export type StoredDeathProtocolsLike = Record<string, { red: number[]; black: number[]; sheriff: number[] }>;
+
+/**
+ * The full chronology of a finished game, the same for every game mode (tournament, club evening, novice table): the
+ * events the recorder saw, the last changes the recorder may have missed when the engine dropped its session, the colour
+ * protocols of the killed players and the end of the game.
+ */
+export const buildFinalChronology = (input: {
+  events?: LiveGameEvent[];
+  lastSnapshot: LiveEventSnapshot | null;
+  gameData: { slots?: Array<Record<string, any>>; protocol_markers?: LiveEventSnapshot['protocolMarkers']; winning_team?: string } | null | undefined;
+  deathProtocols: StoredDeathProtocolsLike;
+  at: string;
+}): LiveGameEvent[] => {
+  const existing = input.events || [];
+  const lastSeq = existing.length ? existing[existing.length - 1].seq : 0;
+  const recovered = deriveFinalGameEvents(input.lastSnapshot, input.gameData, lastSeq + 1, input.at);
+  const round = Number(input.lastSnapshot?.roundNumber || 0);
+  const phase = String(input.lastSnapshot?.phase || '');
+  const closing = [
+    ...recovered,
+    ...[
+      ...Object.entries(input.deathProtocols).map(([seat, protocol]) => ({
+        kind: 'death_protocol', seat: Number(seat),
+        value: `red:${protocol.red.join('.')}|black:${protocol.black.join('.')}|sheriff:${protocol.sheriff.join('.')}`,
+      })),
+      { kind: 'game_end', value: input.gameData?.winning_team === 'Красные' ? 'red' : 'black' },
+    ].map((event) => ({ seq: 0, at: input.at, round, phase, ...event })),
+  ].map((event, index) => ({ ...event, seq: lastSeq + index + 1 }));
+  return [...existing, ...closing];
+};

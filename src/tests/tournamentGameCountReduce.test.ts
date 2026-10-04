@@ -108,4 +108,16 @@ describe('shortening a created tournament', () => {
     await db.run("UPDATE tournament_games SET status = 'active' WHERE tournament_id = ? AND game_number = 1", [tournamentId]);
     expect((await request(app).post(`/api/tournaments/${tournamentId}/cancel`).set('Cookie', cookie)).status).toBe(400);
   });
+
+  it('tells the players of a running tournament that the distance is shorter', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    const res = await setCount(9);
+    expect(res.status).toBe(200);
+    expect(res.body.notified).toBe(10);
+  });
+
+  it('does not message the players of a draft whose distance changes', async () => {
+    const res = await setCount(9);
+    expect(res.body.notified).toBe(0);
+  });
 });

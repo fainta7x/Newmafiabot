@@ -9,6 +9,7 @@ import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayV
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
+import { buildFinalChronology } from '../../lib/liveGameEventLog';
 import { MUSIC_EVENING_CONTEXT_KEY, MUSIC_JUDGE_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 import ObsRemoteCRM from './ObsRemoteCRM.tsx';
 import BroadcastLayoutControls from './BroadcastLayoutControls.tsx';
@@ -148,6 +149,7 @@ export const mapEngineResultToProtocol = (
     best_move_seats: bestMoves[0]?.seat_numbers || previousProtocol.best_move_seats || [],
     votes: Array.isArray(gameData.votes) ? gameData.votes : (previousProtocol.votes || []),
     shots: Array.isArray(gameData.shots) ? gameData.shots : (previousProtocol.shots || []),
+    events: Array.isArray(gameData.events) ? gameData.events : (previousProtocol.events || []),
     judge_notes: [previousProtocol.judge_notes, gameData.protocol_text].filter(Boolean).join('\n') || null,
   };
 
@@ -565,7 +567,16 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             setSaveError(null);
             try {
               const evidence = liveRecorder.getEvidence();
-              const next = mapEngineResultToProtocol(game, { ...gameData, votes: evidence.votes, shots: evidence.shots });
+              // The same chronology as in a tournament game: recorded events, the last changes the recorder could miss,
+              // the colour protocols of the killed players and the end of the game.
+              const events = buildFinalChronology({
+                events: evidence.events,
+                lastSnapshot: liveRecorder.getLastSnapshot(),
+                gameData,
+                deathProtocols: readStoredDeathProtocols(),
+                at: new Date().toISOString(),
+              });
+              const next = mapEngineResultToProtocol(game, { ...gameData, votes: evidence.votes, shots: evidence.shots, events });
               const updated = await clubGamesApi.saveProtocol(game.id, next);
               finishConfirmedSave(updated);
             } catch (err: any) {

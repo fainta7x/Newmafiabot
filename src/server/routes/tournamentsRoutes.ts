@@ -263,15 +263,33 @@ router.patch('/:id/game-count', requireOrganizerAuth, async (req: AuthenticatedR
         return res.status(400).json({ error: `У игры №${game.game_number} уже есть протокол — её нельзя убрать` });
       }
     }
+    // The distance and the messages to the players of a running tournament are one transaction: if the messages cannot be
+    // queued nothing changes and the same request can simply be repeated.
+    let notified = 0;
     await db.transaction(async (tx: DatabaseWrapper) => {
       for (const game of dropped) {
         await tx.run('DELETE FROM tournament_game_seats WHERE game_id = ?', [game.id]);
         await tx.run('DELETE FROM tournament_games WHERE id = ?', [game.id]);
       }
       await tx.run('UPDATE tournaments SET game_count = ?, updated_at = ? WHERE id = ?', [requested, new Date().toISOString(), tournamentId]);
+      if (tournament.status !== 'active' || dropped.length === 0) return;
+      // Only a tournament with registration has the player's own page to link to.
+      const actionPath = Number(tournament.tournament_evening_flow || 0) === 1 ? `/player/events/${tournamentId}` : undefined;
+      const people = await tx.all<any>('SELECT DISTINCT player_id FROM tournament_participants WHERE tournament_id = ? AND player_id IS NOT NULL', [tournamentId]);
+      for (const person of people) {
+        const result = await queuePersonalNotification(tx, {
+          notificationKey: `tournament:${tournamentId}:game-count:${requested}:${person.player_id}`,
+          playerId: String(person.player_id),
+          eventType: 'tournament_game_count_changed',
+          entityId: tournamentId,
+          text: `В турнире «${String(tournament.title || 'Турнир')}» теперь ${requested} игр вместо ${currentCount}. Порядок оставшихся игр не меняется.`,
+          actionPath,
+        });
+        if (result?.created) notified += 1;
+      }
     });
     const updated = await loadTournamentGames(db, tournamentId);
-    return res.json({ success: true, game_count: requested, removed_games: dropped.map((game: any) => game.game_number), games: updated });
+    return res.json({ success: true, game_count: requested, removed_games: dropped.map((game: any) => game.game_number), games: updated, notified });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка изменения количества игр' });
   }
@@ -345,7 +363,7 @@ router.post('/:id/cancel', requireOrganizerAuth, async (req: AuthenticatedReques
           eventType: 'tournament_cancelled',
           entityId: tournamentId,
           text: `Турнир «${String(tournament.title || 'Турнир')}» отменён. Мы напишем, когда будет новая дата.`,
-          actionPath: `/player/events/${tournamentId}`,
+          actionPath: Number(tournament.tournament_evening_flow || 0) === 1 ? `/player/events/${tournamentId}` : undefined,
         });
         if (result?.created) notified += 1;
       } catch (error) {

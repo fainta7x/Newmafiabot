@@ -271,7 +271,27 @@ router.patch('/:id/game-count', requireOrganizerAuth, async (req: AuthenticatedR
       await tx.run('UPDATE tournaments SET game_count = ?, updated_at = ? WHERE id = ?', [requested, new Date().toISOString(), tournamentId]);
     });
     const updated = await loadTournamentGames(db, tournamentId);
-    return res.json({ success: true, game_count: requested, removed_games: dropped.map((game: any) => game.game_number), games: updated });
+    // Players of a running tournament are told that the distance is shorter now.
+    let notified = 0;
+    if (tournament.status === 'active' && dropped.length > 0) {
+      const people = await db.all<any>('SELECT DISTINCT player_id FROM tournament_participants WHERE tournament_id = ? AND player_id IS NOT NULL', [tournamentId]);
+      for (const person of people) {
+        try {
+          const result = await queuePersonalNotification(db, {
+            notificationKey: `tournament:${tournamentId}:game-count:${requested}:${person.player_id}`,
+            playerId: String(person.player_id),
+            eventType: 'tournament_game_count_changed',
+            entityId: tournamentId,
+            text: `В турнире «${String(tournament.title || 'Турнир')}» теперь ${requested} игр вместо ${currentCount}. Порядок оставшихся игр не меняется.`,
+            actionPath: `/player/events/${tournamentId}`,
+          });
+          if (result?.created) notified += 1;
+        } catch (error) {
+          console.warn('[TOURNAMENT] Game count notice could not be queued', tournamentId, person.player_id, error);
+        }
+      }
+    }
+    return res.json({ success: true, game_count: requested, removed_games: dropped.map((game: any) => game.game_number), games: updated, notified });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка изменения количества игр' });
   }

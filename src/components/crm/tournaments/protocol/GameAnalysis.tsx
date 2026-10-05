@@ -88,7 +88,7 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
           </ul>
         </div>
       ) : null}
-      {circle.bestMove ? <div>Лучший ход {circle.bestMove.seat ? `(${who(circle.bestMove.seat)})` : ''}: {circle.bestMove.seats.map((seat) => seatChip(seat))}</div> : null}
+      {circle.bestMoves.map((move) => <div key={move.seat ?? 'x'}>Лучший ход {move.seat ? `(${who(move.seat)})` : ''}: {move.seats.map((seat) => seatChip(seat))}</div>)}
       {circle.fouls.length ? (
         <div className="text-slate-400">Фолы: {circle.fouls.map((item) => `#${item.seat} ${item.kind === 'foul' ? `Ф${item.value}` : item.kind === 'tech_minor' ? `Т${item.value}` : `ТБ${item.value}`}`).join(' · ')}</div>
       ) : null}

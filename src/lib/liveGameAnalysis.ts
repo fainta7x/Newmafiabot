@@ -27,7 +27,9 @@ export type AnalysisCircle = {
   sheriffCheck: { target: number; result: string | null } | null;
   exits: AnalysisExit[];
   fouls: AnalysisFoul[];
+  /** The latest best move of the circle; `bestMoves` holds all of them (the zero-round and the first-killed one share round 1). */
   bestMove: { seat: number | null; seats: number[] } | null;
+  bestMoves: Array<{ seat: number | null; seats: number[] }>;
   firstKilled: number | null;
   zeroRoundVoted: number | null;
   ppk: number[];
@@ -44,7 +46,7 @@ export type GameAnalysis = {
 
 const emptyCircle = (round: number): AnalysisCircle => ({
   round, nominations: [], votings: [], shot: null, donCheck: null, sheriffCheck: null, exits: [], fouls: [],
-  bestMove: null, firstKilled: null, zeroRoundVoted: null, ppk: [], deathProtocols: [],
+  bestMove: null, bestMoves: [], firstKilled: null, zeroRoundVoted: null, ppk: [], deathProtocols: [],
 });
 
 export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
@@ -122,7 +124,13 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
           circle.fouls.push({ seat, kind: event.kind, value: Number(event.value) || 0 });
         }
         break;
-      case 'best_move': circle.bestMove = { seat, seats: String(event.value || '').split(',').map(Number).filter(Boolean) }; break;
+      case 'best_move': {
+        const move = { seat, seats: String(event.value || '').split(',').map(Number).filter(Boolean) };
+        circle.bestMove = move;
+        // A re-confirmed move of the same player replaces his earlier one; another player's move is kept next to it.
+        circle.bestMoves = [...circle.bestMoves.filter((item) => item.seat !== seat), move];
+        break;
+      }
       case 'first_killed': circle.firstKilled = seat; break;
       case 'zero_round_voted': circle.zeroRoundVoted = seat; break;
       case 'ppk': if (seat) circle.ppk.push(seat); break;

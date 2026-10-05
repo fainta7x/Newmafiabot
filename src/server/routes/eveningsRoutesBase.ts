@@ -356,8 +356,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     let addedCount = 0;
     let skippedCount = 0;
 
-    await db.exec('BEGIN TRANSACTION');
-    try {
+    await db.transaction(async () => {
       for (const playerId of player_ids) {
         const existing = await db.get(
           'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
@@ -393,11 +392,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
           );
         }
       }
-      await db.exec('COMMIT');
-    } catch (e: any) {
-      try { await db.exec('ROLLBACK'); } catch (_) {}
-      throw e;
-    }
+    });
 
     // Run CRM automations
     await runCrmAutomations(db);
@@ -441,8 +436,8 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
 
     const now = new Date().toISOString();
 
-    await db.exec('BEGIN TRANSACTION');
     try {
+      await db.transaction(async () => {
       for (const item of updates) {
         if (!item.id) continue;
 
@@ -472,9 +467,8 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
           await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ? AND evening_id = ?`, [...values, String(req.params.id)]);
         }
       }
-      await db.exec('COMMIT');
+      });
     } catch (err: any) {
-      try { await db.exec('ROLLBACK'); } catch (_) {}
       const status = err.status || 400;
       return res.status(status).json({ error: err.message || 'Database transaction error' });
     }
@@ -638,8 +632,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
     const participants = await db.all('SELECT * FROM evening_participants WHERE evening_id = ?', [String(req.params.id)]);
     const now = new Date().toISOString();
 
-    await db.exec('BEGIN TRANSACTION');
-    try {
+    await db.transaction(async () => {
       // 3. Atomic status update
       await db.run(
         `UPDATE game_evenings SET status = 'completed', settled_at = ?, updated_at = ? WHERE id = ? AND status != 'completed'`,
@@ -692,12 +685,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
           );
         }
       }
-
-      await db.exec('COMMIT');
-    } catch (e: any) {
-      try { await db.exec('ROLLBACK'); } catch (_) {}
-      throw e;
-    }
+    });
 
     // Run CRM automations after closing the evening
     await runCrmAutomations(db);

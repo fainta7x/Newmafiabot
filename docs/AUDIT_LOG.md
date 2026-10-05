@@ -73,6 +73,12 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 
 1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged. Owner decision: a game with a guest seat is rated from the remaining players instead of being skipped; both copies now do that (a full unification into one module is not done).
 
+### Database transactions (owner's known-bug list, 2026-10-05)
+
+1. MEDIUM `fixed (db-transaction-queue PR)` — `db.transaction` was `BEGIN … await … COMMIT` on one shared connection: any two overlapping transactions (weekly evening automation at startup, concurrent requests) failed with «cannot start a transaction within a transaction» (`src/db/index.ts`).
+2. MEDIUM `fixed (db-transaction-queue PR)` — three routes opened a transaction by hand with `db.exec('BEGIN TRANSACTION')` and could collide with it (`eveningsRoutesBase.ts`: add participants, bulk update, close evening).
+3. LOW `open` — statements of other requests that run while a transaction is open still share the connection (a rollback also undoes them); needs a connection-level queue for all statements, not done.
+
 ### Open — parity gaps between modes (not fixed)
 
 - Club evening winners get no trophies (tournament winners do).

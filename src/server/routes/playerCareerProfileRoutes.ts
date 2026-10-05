@@ -5,6 +5,8 @@ import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 import { loadRatingSeasons, seasonForDate } from '../services/clubSeasonService.ts';
+import { loadStatGames } from '../services/gameStatisticsService.ts';
+import { buildPlayerGameStatistics } from '../../lib/gameStatistics.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -114,6 +116,9 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
     // Staff work shown in the career profile (same counts as the organizer/judge achievements).
     const staffStats = await loadPlayerStaffStats(db, playerId).catch(() => null);
 
+    // «Игра в цифрах»: from the chronology of the player's own games (only games saved after it shipped have one).
+    const gameStats = buildPlayerGameStatistics(await loadStatGames(db).catch(() => []), playerId);
+
     const recent = personal.slice(0, 20).map(({ game, result }) => ({
       game_key: game.id,
       date: game.played_at,
@@ -162,6 +167,7 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
         place: seasonPlace || null,
         total_players: seasonRanking.length,
       },
+      game_stats: gameStats,
       recent_games: recent,
     });
   } catch (error: any) {

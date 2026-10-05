@@ -4,6 +4,7 @@ import { api, type AnalyticsData } from '../../lib/api.ts';
 import { AppUsagePanel } from './AppUsagePanel.tsx';
 import { StaffReportPanel } from './StaffReportPanel.tsx';
 import { OnlineNowPanel } from './OnlineNowPanel.tsx';
+import { GameStatsPanel } from './GameStatsPanel.tsx';
 
 type AnalyticsViewData = AnalyticsData & {
   playerJourney?: {
@@ -71,6 +72,8 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
           {['7d', '30d', '90d', 'all'].map((value) => <button key={value} onClick={() => setPeriod(value)} className={`min-h-9 rounded-[9px] px-3 font-bold transition-colors ${period === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>{value === 'all' ? 'Всё' : `${parseInt(value, 10)} дн.`}</button>)}
         </div>
       </section>
+
+      <GameStatsPanel period={period} />
 
       <section className={card}>
         <div className="flex items-start justify-between gap-3">

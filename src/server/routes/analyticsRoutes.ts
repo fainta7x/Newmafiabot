@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { isClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { ensureEveningAnnouncementTrackingSchema } from '../services/eveningAnnouncementTrackingService.ts';
+import { loadStatGames } from '../services/gameStatisticsService.ts';
+import { buildClubGameStatistics } from '../../lib/gameStatistics.ts';
 
 const router = Router();
 
@@ -110,6 +112,19 @@ router.get('/staff', requireOrganizerAuth, async (req, res) => {
     return res.json({ period: range.period, label: range.label, since: range.since === ALL_SINCE ? null : range.since, until: range.until === ALL_UNTIL ? null : range.until, staff });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось собрать отчёт по организаторам и судьям' });
+  }
+});
+
+/** The club overview of finished games (voting days, revotes, nights, best moves), for the organizer. */
+router.get('/game-stats', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const period = String(req.query.period || 'all');
+    const days = ({ '7d': 7, '30d': 30, '90d': 90 } as Record<string, number>)[period];
+    const games = await loadStatGames(db, { sinceMs: days ? Date.now() - days * 86_400_000 : null });
+    return res.json({ period, ...buildClubGameStatistics(games) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать статистику игр' });
   }
 });
 

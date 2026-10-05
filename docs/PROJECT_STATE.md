@@ -646,6 +646,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask the owner whether to publish a digest after about ten merged PRs; clear the lines once published. The first digest (profile and games, evening awards, poker, the bot's old links, payment reminders, tournament results) was approved by the owner on 2026-10-05 for the club group in Telegram; the app has no way to post it, so the finished text was handed to the owner to post, and the lines it covered were cleared. The lines below were not in that text and wait for the next digest.
 
 - «Игрок вечера»: a vote with a button right in Telegram; «Игры в цифрах» in the player profile; the season follows the club's rating period.
+- Poker table: cards are dealt faster and each one flies straight to its place in the hand; bets are swept into the pot first and only then the next cards appear; moves are announced one at a time, each seat keeps its last move, and a countdown shows when the next hand starts.
 - Notifications: reminders at registration, cancellations as a new post instead of rewriting the old one, retries up to two hours.
 
 ### Waiting on the owner

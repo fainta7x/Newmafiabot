@@ -99,9 +99,12 @@ const isBlindEntry = (item: any) => item.type === 'small_blind' || item.type ===
 const actionSentence = (hand: any, mode: 'chips' | 'bb' = 'chips', picked?: any) => {
   const entry = picked || [...(hand?.action_log || [])].reverse().find((item: any) => !isBlindEntry(item));
   if (!entry) return null;
-  const latest = [...(hand?.action_log || [])].reverse().find((item: any) => !isBlindEntry(item));
-  // Only the newest action can lean on the seat's current stake; a replayed older one uses what its own entry recorded.
-  const committed = Number((entry === latest ? hand.players?.find((player: any) => player.id === entry.player_id)?.committed : 0) || entry.amount || 0);
+  // The log keeps the chips paid by each action, not the resulting stake: the total is rebuilt from the same player's earlier
+  // entries on that street, so a replayed older raise still reads «до 100», not «до 80».
+  const log: any[] = hand?.action_log || [];
+  const at = log.indexOf(entry);
+  const committed = at < 0 ? Number(entry.amount || 0)
+    : log.slice(0, at + 1).filter((item: any) => item.player_id === entry.player_id && item.street === entry.street).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const amount = (value: number) => formatPokerAmount(value, mode, Number(hand.big_blind || 20));
   const phrase = entry.type === 'fold' ? 'пас' : entry.type === 'check' ? 'чек'
     : entry.type === 'call' ? `колл ${amount(entry.amount)}` : entry.type === 'bet' ? `бет ${amount(committed)}`
@@ -248,6 +251,8 @@ type SweepState = { key: string; bets: Array<{ id: string; amount: number }>; bo
  */
 function useStreetSweep(hand: any): SweepState | null {
   const [sweep, setSweep] = useState<SweepState | null>(null);
+  const sweepTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(sweepTimer.current), []);
   const previous = useRef<{ id: string; street: string; boardLength: number; bets: Array<{ id: string; amount: number }> } | null>(null);
   useLayoutEffect(() => {
     if (!hand) { previous.current = null; return undefined; }
@@ -258,8 +263,10 @@ function useStreetSweep(hand: any): SweepState | null {
     };
     if (!before || before.id !== hand.id || before.street === hand.street || hand.street === 'finished' || !before.bets.length) return undefined;
     setSweep({ key: `${hand.id}-${hand.street}`, bets: before.bets, boardLength: before.boardLength });
-    const timer = window.setTimeout(() => setSweep(null), SWEEP_MS);
-    return () => window.clearTimeout(timer);
+    // The timer is not tied to this effect: an all-in runout deals cards faster than the sweep lasts, and each new card reruns it.
+    window.clearTimeout(sweepTimer.current);
+    sweepTimer.current = window.setTimeout(() => setSweep(null), SWEEP_MS);
+    return undefined;
   }, [hand?.id, hand?.street, hand?.board?.length]);
   return sweep;
 }

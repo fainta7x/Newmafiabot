@@ -73,6 +73,8 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 
 1. LOW `fixed (profiles-audit PR)` — the mafia nomination read «Лучшая мафия» / «Лучший черный игрок» / «ЛУЧШАЯ МАФИЯ» in five places; now «Лучший чёрный» everywhere (awards definitions, nominations list, public results, CRM player card, result pictures); stored automatic trophies are renamed by the next trophy sync. Manually typed award titles are left as the organizer wrote them.
 
+- 2026-10-05 measurements (mirrored deals, `src/scripts/pokerBotCompare.ts`, `src/scripts/pokerBotVsProfile.ts`): the current bot against the bot before the day's work was inside the noise at every table size (heads-up about −25 ± 65, 3-max −12/+47, 4-max +6, 6-max +33 ± 29 bb/100 on 800–1250 deals). A tight double of the owner's play (opens ~18%, bluffs ~17%) wins against both versions only slightly: −36 (3-max) and −49 (6-max) bb/100 for the double against the current bot; heads-up about 0.
+
 ### Poker table, round 2 (owner reports, 2026-10-05)
 
 1. HIGH `fixed (games-elo-unification PR)` — people who left the app stayed seated: the backgrounded WebView kept polling the table, which counted as presence (`PlayerPoker.tsx` poll, `touchPokerSeat`).
@@ -105,7 +107,7 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 7. MEDIUM `fixed (profiles-audit PR)` — privacy settings: a failed load leaves «Загрузка приватности…» for ever; a failed save leaves the switch flipped while the message says it failed (`PlayerProfilePrivacySettings.tsx`).
 8. LOW `fixed (profiles-audit PR)` — career screen shows an empty hole when the avatar is missing/broken (the other profile shows an initial); overview «Последние игры» are not clickable.
 9. LOW `fixed (profiles-audit PR)` — wording: tab «История клуба» vs section «История в клубе»; «Текущий период» vs «Текущий сезон» (season = rating period since 2026-10-04).
-10. LOW `open` — the birth year 2000 cannot be saved (the date picker's default year 2000 means «no year», `PlayerProfileSettings.tsx`).
+10. LOW `fixed (birth-year PR)` — the birth year 2000 could not be saved (the date picker's default year 2000 meant «no year», `PlayerProfileSettings.tsx`): a fresh pick now keeps 2000; only a date that was already stored without a year keeps showing the placeholder 2000 as «no year».
 11. HIGH `fixed (profiles-audit PR; owner: «привести к единому виду»)` — the same statistics (games, wins, win rate, roles, red/black, awards) were shown in three places from different sources: «Игры → Карьера», «Игры → Статистика», «Профиль»; they could disagree. One profile now (PROJECT_STATE 89). «Моя аналитика» repeated the win rate and best role and sat under the overview; moved to «Связи» without the duplicates.
 12. MEDIUM `fixed (games-elo-unification PR)` — `PlayerHistoryStatsView.tsx` held unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition, and «Игры → История → Мои игры» repeated the profile's «Игры» tab; the personal Elo history was shown three times (`PlayerEloJourney`, the profile's Elo tab, the chart in «Моя аналитика»). One place each now (PROJECT_STATE 93); a game got its own address, so the profile's links work.
 13. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.

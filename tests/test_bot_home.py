@@ -104,3 +104,27 @@ def test_novice_answer_asks_for_a_nickname_and_links_rules_and_an_example_game()
     assert "никнейм" in text
     flat = [button.text for row in markup.inline_keyboard for button in row]
     assert "🎬 Пример игры" in flat
+
+
+def test_known_start_payloads_are_recognised_and_old_links_are_not():
+    for payload in ("", "players", "club_access", "event_abc", "profile_42"):
+        assert bot_home.is_known_start_payload(payload)
+    for payload in ("old_promo", "tournament_7", "x"):
+        assert not bot_home.is_known_start_payload(payload)
+
+
+def test_old_link_gets_a_plain_note_and_fresh_buttons(monkeypatch):
+    monkeypatch.setattr(bot_home.bot_menu, "player_app_url", lambda path="/player": f"https://app.test{path}")
+    text, markup = bot_home.stale_link_view(EVENINGS, event_gone=True)
+    assert "больше не работает" in text and "уже прошёл или запись на него закрыта" in text
+    assert "Ближайший вечер:" in text
+    labels = [t for row in _texts(markup) for t in row]
+    assert labels == ["📅 Ближайший вечер", "🎭 Открыть 2LA Noire"]
+    assert markup.inline_keyboard[0][0].web_app.url == "https://app.test/player/events?event=n"
+
+
+def test_old_link_without_open_evenings_still_offers_the_app(monkeypatch):
+    monkeypatch.setattr(bot_home.bot_menu, "player_app_url", lambda path="/player": f"https://app.test{path}")
+    text, markup = bot_home.stale_link_view([])
+    assert "Ближайших вечеров пока нет" in text
+    assert [t for row in _texts(markup) for t in row] == ["🎭 Открыть 2LA Noire"]

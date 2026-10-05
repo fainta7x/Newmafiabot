@@ -72,9 +72,9 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
   }
 };
 
-export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number; animate?: boolean }): PokerState => {
+export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number; animate?: boolean; /** A fixed deck (benchmarks deal the same cards twice with the seats swapped); shuffled when omitted. */ deck?: PokerCard[] }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
-  const deck = shuffleDeck();
+  const deck = input.deck ? input.deck.slice() : shuffleDeck();
   const players: PokerPlayer[] = input.players.map((player) => ({ ...player, start_chips: player.chips, committed: 0, total_committed: 0, folded: false, all_in: player.chips <= 0, acted: false, reserve_seconds: player.reserve_seconds ?? 60, reserve_recovery_at: player.reserve_recovery_at ?? Date.now() }));
   const state: PokerState = {
     id: input.id, players, dealer_seat: input.dealer_seat ?? players[0].seat, current_seat: null, small_blind_seat: null, big_blind_seat: null,

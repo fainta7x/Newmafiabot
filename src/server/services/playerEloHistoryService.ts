@@ -115,14 +115,16 @@ const sortTime = (value: string) => {
   return Number.isFinite(time) ? time : 0;
 };
 
-const validatePreparedEvent = (event: PreparedEvent) => {
-  if (event.players.length !== 10 || new Set(event.players.map((player) => player.playerId)).size !== 10) {
-    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 10 unique linked players.`);
+/** `guests` are the seats of guests without a profile: they are left out of the rating, so fewer players are expected. */
+const validatePreparedEvent = (event: PreparedEvent, guests: { red: number; black: number } = { red: 0, black: 0 }) => {
+  const expected = 10 - guests.red - guests.black;
+  if (event.players.length !== expected || new Set(event.players.map((player) => player.playerId)).size !== expected) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${expected} unique linked players.`);
   }
   const red = event.players.filter((player) => player.team === 'red').length;
   const black = event.players.filter((player) => player.team === 'black').length;
-  if (red !== 7 || black !== 3) {
-    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 7 red and 3 black roles.`);
+  if (red !== 7 - guests.red || black !== 3 - guests.black) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${7 - guests.red} red and ${3 - guests.black} black roles.`);
   }
 };
 
@@ -133,6 +135,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     [DEFAULT_ELO],
   );
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') = 'legacy_guest_migrated'");
+  const guestPlayerIds = new Set(guestPlayerRows.map((player: any) => String(player.id)));
   const seedByPlayer = new Map<string, number>(players.map((player) => {
     const seed = Number(player.elo_seed);
     return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
@@ -218,7 +222,19 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     const winner = normalizeWinner(payload.protocol?.winner_team || game.winner_team);
     if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
-    const eventPlayers: PreparedPlayer[] = results.map((result: any) => {
+    // Same rule as the canonical Elo rebuild (`eloRatingService`): a guest without a profile is never an Elo subject, but
+    // the game still counts (owner, 2026-10-05) — it is rated from the remaining registered players, the guest's seat left out.
+    const isGuestSeat = (result: any) => {
+      const playerId = String(result?.player_id || '').trim();
+      return Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId);
+    };
+    const guests = { red: 0, black: 0 };
+    for (const result of results.filter(isGuestSeat)) {
+      const team = teamFromRole(result?.role);
+      if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
+      guests[team] += 1;
+    }
+    const eventPlayers: PreparedPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) {
         throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
@@ -240,7 +256,7 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
       winnerTeam: winner,
       players: eventPlayers,
     };
-    validatePreparedEvent(event);
+    validatePreparedEvent(event, guests);
     events.push(event);
   }
 

@@ -132,13 +132,17 @@ const sortTime = (value: string) => {
   return Number.isFinite(time) ? time : 0;
 };
 
-const validatePreparedEvent = (event: PreparedEloEvent) => {
-  if (event.players.length !== 10 || new Set(event.players.map((player) => player.playerId)).size !== 10) {
-    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 10 unique linked players.`);
+/** `guests` are the seats of guests without a profile: they are left out of the rating, so fewer players are expected. */
+const validatePreparedEvent = (event: PreparedEloEvent, guests: { red: number; black: number } = { red: 0, black: 0 }) => {
+  const expected = 10 - guests.red - guests.black;
+  if (event.players.length !== expected || new Set(event.players.map((player) => player.playerId)).size !== expected) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${expected} unique linked players.`);
   }
   const red = event.players.filter((player) => player.team === 'red').length;
   const black = event.players.filter((player) => player.team === 'black').length;
-  if (red !== 7 || black !== 3) throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 7 red and 3 black roles.`);
+  if (red !== 7 - guests.red || black !== 3 - guests.black) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected ${7 - guests.red} red and ${3 - guests.black} black roles.`);
+  }
 };
 
 export interface EloRebuildRow { player_id: string; nickname: string; elo: number; games: number; }
@@ -221,17 +225,21 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
 
-    // A canonical placeholder is never an Elo subject. Until an organizer explicitly
-    // resolves that seat to a registered player, the whole game is withheld from Elo.
-    // Ambiguous quick_guest rows with external identity are intentionally not treated
-    // as placeholders until migration diagnostics are resolved.
-    const guestSeat = results.some((result: any) => {
+    // A guest without a profile is never an Elo subject, but the game still counts (owner, 2026-10-05): it is rated
+    // from the remaining registered players (9 of 10 with one guest), the guest's seat is simply left out.
+    // Ambiguous quick_guest rows with external identity are intentionally not treated as guests until migration
+    // diagnostics are resolved.
+    const isGuestSeat = (result: any) => {
       const playerId = String(result?.player_id || '').trim();
       return Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId);
-    });
-    if (guestSeat) continue;
-
-    const eventPlayers: PreparedEloPlayer[] = results.map((result: any) => {
+    };
+    const guests = { red: 0, black: 0 };
+    for (const result of results.filter(isGuestSeat)) {
+      const team = teamFromRole(result?.role);
+      if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
+      guests[team] += 1;
+    }
+    const eventPlayers: PreparedEloPlayer[] = results.filter((result: any) => !isGuestSeat(result)).map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
       const team = teamFromRole(result?.role);
@@ -239,7 +247,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       return { playerId, team, canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results) };
     });
     const event: PreparedEloEvent = { source:'club', sourceId:String(game.id), sortAt:String(game.game_date || game.created_at || ''), sortOrder:Number(game.global_game_number || game.id || 0), winnerTeam:winner, players:eventPlayers };
-    validatePreparedEvent(event);
+    validatePreparedEvent(event, guests);
     events.push(event);
   }
 

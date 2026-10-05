@@ -5,18 +5,19 @@ import { sendText } from './clubResultPostService.ts';
 /**
  * «Опубликовать сводку» (owner, 2026-10-05): the club owner writes (or pastes) a digest of what changed for the players and
  * posts it from the CRM to the chosen Telegram destinations, instead of pasting it into the group by hand. Nothing is sent
- * without an explicit press, every post is recorded, and the same text to the same destination is not sent twice in a day.
+ * without an explicit press, every post is recorded, and the same text to the same destination is not sent twice in a day (the claim is atomic).
  */
 export const DIGEST_DESTINATIONS = ['club', 'public', 'rating', 'novice'] as const;
 export type DigestDestination = (typeof DIGEST_DESTINATIONS)[number];
 export const DIGEST_MIN_LENGTH = 20;
 export const DIGEST_MAX_LENGTH = 3800;
-const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const TELEGRAM_MARKUP_LIMIT = 4000;
 
 export async function ensureClubDigestSchema(db: DatabaseWrapper) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS club_digest_posts (
       id TEXT PRIMARY KEY,
+      claim_key TEXT NOT NULL UNIQUE,
       created_at TEXT NOT NULL,
       created_by TEXT,
       text TEXT NOT NULL,
@@ -39,7 +40,9 @@ export const normalizeDigestDestinations = (value: unknown): DigestDestination[]
   return [...new Set(list)].filter((item): item is DigestDestination => (DIGEST_DESTINATIONS as readonly string[]).includes(item));
 };
 
-export type DigestResult = { destination: DigestDestination; status: 'sent' | 'failed' | 'duplicate'; error?: string };
+export type DigestResult = { destination: DigestDestination; status: 'sent' | 'failed' | 'duplicate' | 'uncertain'; error?: string };
+
+const moscowDay = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(ms);
 
 export async function publishClubDigest(
   db: DatabaseWrapper,
@@ -55,19 +58,32 @@ export async function publishClubDigest(
   if (!destinations.length) throw Object.assign(new Error('Выберите, куда публиковать'), { statusCode: 400 });
   const hash = createHash('sha256').update(text).digest('hex');
   const html = digestToTelegramHtml(text);
+  // The limit counts the markup that is actually sent: escaping can make a valid text longer, and markup is never cut.
+  if (html.length > TELEGRAM_MARKUP_LIMIT) throw Object.assign(new Error('Сводка слишком длинная после оформления: сократите текст'), { statusCode: 400 });
+  const stamp = new Date(now).toISOString();
+  const day = moscowDay(now);
   const results: DigestResult[] = [];
   for (const destination of destinations) {
-    const recent = await db.get<{ id: string }>(
-      `SELECT id FROM club_digest_posts WHERE text_hash = ? AND destination_id = ? AND status = 'sent' AND created_at >= ? LIMIT 1`,
-      [hash, destination, new Date(now - DUPLICATE_WINDOW_MS).toISOString()],
+    // One claim per text, destination and day, taken before the external call (two overlapping requests cannot both send it).
+    // A failed claim can be taken again; a claim left «sending» (the outcome is not known) is never repeated automatically.
+    const claimKey = `${hash}:${destination}:${day}`;
+    const id = randomUUID();
+    const inserted = await db.run(
+      `INSERT OR IGNORE INTO club_digest_posts (id, claim_key, created_at, created_by, text, text_hash, destination_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'sending')`,
+      [id, claimKey, stamp, input.createdBy || null, text, hash, destination],
     );
-    if (recent) { results.push({ destination, status: 'duplicate' }); continue; }
+    let claimId: string | null = inserted.changes ? id : null;
+    if (!claimId) {
+      const existing = await db.get<{ id: string; status: string }>('SELECT id, status FROM club_digest_posts WHERE claim_key = ?', [claimKey]);
+      if (existing?.status === 'failed') {
+        const retaken = await db.run(`UPDATE club_digest_posts SET status = 'sending', error = NULL, created_at = ? WHERE id = ? AND status = 'failed'`, [stamp, existing.id]);
+        if (retaken.changes) claimId = existing.id;
+      }
+      if (!claimId) { results.push({ destination, status: existing?.status === 'sending' ? 'uncertain' : 'duplicate' }); continue; }
+    }
     let outcome: { ok: boolean; error?: string };
     try { outcome = await sendText(db, destination, html, fetchImpl, 'HTML'); } catch (error: any) { outcome = { ok: false, error: error?.message || 'Не удалось отправить' }; }
-    await db.run(
-      'INSERT INTO club_digest_posts (id, created_at, created_by, text, text_hash, destination_id, status, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [randomUUID(), new Date(now).toISOString(), input.createdBy || null, text, hash, destination, outcome.ok ? 'sent' : 'failed', outcome.ok ? null : String(outcome.error || '').slice(0, 300)],
-    );
+    await db.run('UPDATE club_digest_posts SET status = ?, error = ? WHERE id = ?', [outcome.ok ? 'sent' : 'failed', outcome.ok ? null : String(outcome.error || '').slice(0, 300), claimId]);
     results.push({ destination, status: outcome.ok ? 'sent' : 'failed', ...(outcome.ok ? {} : { error: String(outcome.error || 'Не удалось отправить') }) });
   }
   return results;

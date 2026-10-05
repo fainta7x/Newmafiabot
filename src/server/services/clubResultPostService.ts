@@ -455,7 +455,9 @@ export async function sendText(db: DatabaseWrapper, destinationId: string, text:
   if (!destination?.chat_id || Number(destination.active ?? 1) === 0) {
     return { ok: false, temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа рейтинга' };
   }
-  const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
+  // Markup is never cut: a slice could break a tag or an entity and Telegram would reject the whole message.
+  if (parseMode && text.length > 4000) return { ok: false, temporary: false, error: 'Сообщение слишком длинное для Telegram' };
+  const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: parseMode ? text : text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
   if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

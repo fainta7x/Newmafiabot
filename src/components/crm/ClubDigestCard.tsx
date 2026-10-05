@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 type Destination = { id: string; name: string; ready: boolean };
 type Recent = { created_at: string; destination_id: string; status: string; error?: string | null; preview: string };
 type State = { destinations: Destination[]; recent: Recent[]; max_length: number };
-type Result = { destination: string; status: 'sent' | 'failed' | 'duplicate'; error?: string };
+type Result = { destination: string; status: 'sent' | 'failed' | 'duplicate' | 'uncertain'; error?: string };
 
 const request = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
@@ -18,7 +18,7 @@ const request = async (url: string, init?: RequestInit) => {
   return data;
 };
 
-const STATUS_LABEL: Record<string, string> = { sent: 'отправлено', failed: 'не отправлено', duplicate: 'уже отправлено сегодня' };
+const STATUS_LABEL: Record<string, string> = { sent: 'отправлено', failed: 'не отправлено', duplicate: 'уже отправлено сегодня', uncertain: 'результат неизвестен: проверьте группу' };
 
 export function ClubDigestCard() {
   const [state, setState] = useState<State | null>(null);
@@ -38,12 +38,15 @@ export function ClubDigestCard() {
 
   const names = useMemo(() => Object.fromEntries((state?.destinations || []).map((item) => [item.id, item.name])), [state]);
   const max = state?.max_length || 3800;
-  const ready = text.trim().length >= 20 && text.trim().length <= max && selected.length > 0;
+  // Only configured destinations count: a hidden or disabled one must never be sent to or shown in the confirmation.
+  const readyIds = useMemo(() => new Set((state?.destinations || []).filter((item) => item.ready).map((item) => item.id)), [state]);
+  const chosen = selected.filter((id) => readyIds.has(id));
+  const ready = text.trim().length >= 20 && text.trim().length <= max && chosen.length > 0;
 
   const publish = async () => {
     setBusy(true); setError(''); setResults(null);
     try {
-      const data = await request('/api/club-digest', { method: 'POST', body: JSON.stringify({ text, destinations: selected }) });
+      const data = await request('/api/club-digest', { method: 'POST', body: JSON.stringify({ text, destinations: chosen }) });
       setResults(data.results || []);
       await load();
     } catch (publishError: any) {
@@ -71,7 +74,7 @@ export function ClubDigestCard() {
       <div className="mt-1 grid gap-1.5">
         {(state?.destinations || []).map((item) => (
           <label key={item.id} className={`flex min-h-11 items-center gap-2 rounded-[11px] bg-surface-2 px-3 text-[13px] ${item.ready ? 'text-text-primary' : 'text-text-muted'}`}>
-            <input type="checkbox" disabled={!item.ready} checked={selected.includes(item.id) && item.ready} onChange={(event) => setSelected((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
+            <input type="checkbox" disabled={!item.ready} checked={chosen.includes(item.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
             <span className="min-w-0 flex-1 truncate">{item.name}</span>
             {!item.ready ? <span className="text-[11px]">не настроено</span> : null}
           </label>
@@ -100,7 +103,7 @@ export function ClubDigestCard() {
       <ConfirmDialog
         open={confirm}
         title="Опубликовать сводку?"
-        description={`Сообщение сразу уйдёт в: ${selected.map((id) => names[id] || id).join(', ')}. Отменить отправку будет нельзя.`}
+        description={`Сообщение сразу уйдёт в: ${chosen.map((id) => names[id] || id).join(', ')}. Отменить отправку будет нельзя.`}
         confirmLabel="Опубликовать"
         busy={busy}
         onCancel={() => setConfirm(false)}

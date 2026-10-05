@@ -285,9 +285,8 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
 };
 
 /** What range each opponent still in the hand probably holds, from their preflop actions. */
-const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
+export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   const { raisers } = preflopRaises(hand);
-  const reraised = preflopRaises(hand).count >= 2;
   // Popular lines (owner, 2026-10-02): a bet after the flop narrows the bettor's range, and how much
   // depends on who bets — a tight or passive player rarely bets or c-bets a weak hand.
   // Strength of each aggressive action, from common reads in poker guides: a raise after the flop
@@ -295,6 +294,7 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   const lineWeight = new Map<string, number>();
   const streetHadBet = new Map<string, boolean>();
   const checkedOn = new Set<string>();
+  const streetHadBetBefore = new Set<string>();
   for (const entry of hand.action_log) {
     if (entry.street === 'preflop') continue;
     if (entry.type === 'check') { checkedOn.add(`${entry.street}:${entry.player_id}`); continue; }
@@ -305,21 +305,59 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     // Check-raise (owner, 2026-10-05): checking and then raising a bet is a trap line — read it as very strong, so the bot
     // neither folds a good hand at once nor calls it down with a marginal one.
     const checkRaise = isRaise && checkedOn.has(`${entry.street}:${entry.player_id}`);
-    // Size matters (owner, 2026-10-05): a min-raise or a tiny bet is often a probe or a bluff, not strength.
+    // The line decides, not the size (owner, 2026-10-05): a third-pot bet can be a monster and a pot-size bet a bluff.
+    // What counts is who bets: the preflop raiser's first bet is a wide continuation bet, and a player in late position
+    // bets (and raises) with a wider range than one from early position.
+    const bettor = hand.players.find((item) => item.id === entry.player_id);
+    const lateness = bettor ? openerLateness(hand, bettor.seat) : 0.5;
+    const positionScale = 1.15 - 0.3 * lateness;
+    const continuation = !isRaise && raisers.has(entry.player_id) && !streetHadBetBefore.has(entry.player_id);
+    // Size only nudges the line (0.85 for a third of the pot .. 1.15 for a pot-size bet): the same size reads differently
+    // from a preflop raiser (wide continuation bet), from a late position and from a player who called before the flop.
     const potBefore = entry.pot ?? 0;
-    const sizeScale = potBefore > 0 ? Math.min(1.25, Math.max(0.45, entry.amount / potBefore / 0.66)) : 1;
-    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * sizeScale + (checkRaise ? 1.2 : 0));
+    const sizeNudge = potBefore > 0 ? 0.85 + 0.3 * Math.min(1, Math.max(0, (entry.amount / potBefore - 0.33) / 0.67)) : 1;
+    const lineScale = positionScale * (continuation ? 0.7 : 1) * sizeNudge;
+    streetHadBetBefore.add(entry.player_id);
+    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * lineScale + (checkRaise ? 1.2 : 0));
     streetHadBet.set(entry.street, true);
+  }
+  // How each re-raiser (3-bet and later) raised: his raise-to over the bet he faced. Chips paid per action add up to his total.
+  const reraiseLine = new Map<string, { level: number; ratio: number }>();
+  {
+    const total = new Map<string, number>();
+    let bet = 0;
+    let level = 0;
+    for (const entry of hand.action_log) {
+      if (entry.street !== 'preflop') break;
+      total.set(entry.player_id, (total.get(entry.player_id) || 0) + (entry.amount || 0));
+      const mine = total.get(entry.player_id) || 0;
+      const raised = entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && mine > bet);
+      if (!raised) continue;
+      level += 1;
+      if (level >= 2) reraiseLine.set(entry.player_id, { level: level + 1, ratio: bet > 0 ? mine / bet : 3 });
+      bet = Math.max(bet, mine);
+    }
   }
   return hand.players
     .filter((player) => player.id !== bot.id && !player.folded)
     .map((player) => {
       const profile = pokerOpponentProfile(player.id);
       const loose = profile.known ? Math.min(0.7, Math.max(0.12, profile.vpip)) : 0.45;
-      let range = raisers.has(player.id) ? (reraised ? 0.08 : Math.min(0.25, loose)) : loose;
-      // A min-raise before the flop (up to ~2.5 big blinds in total) is much weaker than a standard open.
-      const smallOpen = raisers.has(player.id) && hand.action_log.some((entry) => entry.player_id === player.id && entry.street === 'preflop' && entry.type === 'raise' && entry.amount <= hand.big_blind * 2.5);
-      if (smallOpen) range = Math.min(0.6, range * 1.8);
+      // GTO-like opening ranges by position (owner, 2026-10-05): under the gun opens ~12% of hands, the button ~32%;
+      // a re-raised pot is much tighter. A known player's own VPIP pulls the range toward how he really plays.
+      const opened = openerLateness(hand, player.seat);
+      const positional = 0.12 + 0.2 * opened;
+      const openRangeOf = profile.known ? (positional + Math.min(0.5, loose)) / 2 : positional;
+      // A re-raise narrows only the player who made it, and by how he made it: a 3-bet from the button or a blind is
+      // wider than from early position, and a small one (to ~4 big blinds over a 2 bb open) is wider than a standard
+      // 3x — it is mostly a merged or bluffing range, not a monster (owner, 2026-10-05).
+      const reraise = reraiseLine.get(player.id);
+      let range = raisers.has(player.id) ? openRangeOf : loose;
+      if (reraise) {
+        const base = reraise.level >= 3 ? 0.05 : 0.07 + 0.06 * opened;
+        const sizeFactor = reraise.ratio <= 2.2 ? 1.5 : reraise.ratio >= 3.2 ? 0.85 : 1;
+        range = Math.min(0.3, base * sizeFactor * (profile.known && profile.vpip > 0.45 ? 1.3 : 1));
+      }
       if (player.seat === hand.big_blind_seat && preflopRaises(hand).count === 0) range = 1;
       const bets = lineWeight.get(player.id) || 0;
       let boardMin = 0;

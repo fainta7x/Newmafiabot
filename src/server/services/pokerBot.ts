@@ -391,7 +391,7 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
         const me = hand.players.find((item) => item.id === entry.player_id);
         const opener = hand.players.find((item) => item.id === openerId);
         const inPosition = Boolean(me && opener) && openerLateness(hand, me!.seat) > openerLateness(hand, opener!.seat);
-        reraiseLine.set(entry.player_id, { level: level + 1, ratio: bet > 0 ? mine / bet : 3, inPosition });
+        reraiseLine.set(entry.player_id, { level, ratio: bet > 0 ? mine / bet : 3, inPosition });
       }
       bet = Math.max(bet, mine);
     }

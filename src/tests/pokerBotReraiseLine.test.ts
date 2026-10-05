@@ -25,6 +25,10 @@ describe('bots read a 3-bet by its size and position', () => {
   it('treats a small 3-bet as a wider range than a standard one', () => {
     expect(threeBettorRange(4)).toBeGreaterThan(threeBettorRange(7));
   });
+  it('gives a first 3-bet the positional range, not the tight 4-bet one', () => {
+    // 6 players, p4 opens, p5 3-bets (standard ~3x): positional 0.07–0.13 base, never the 0.05 of a 4-bet.
+    expect(threeBettorRange(6)).toBeGreaterThanOrEqual(0.06);
+  });
 });
 
 import { drawPotential } from '../server/services/pokerBot.ts';

@@ -33,9 +33,9 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Telegram RSVP integration: `src/server/routes/botTelegramRoutes.ts` / related bot announcement handlers and Python bot bridge.
 - Current behavior: `going` selects all slots; `late`/`thinking` do not invent exact slots; `declined` clears slots; manual exact selection persists through the canonical PUT/save path.
 
-## Games / stats / career / replay
+## Games / replay (the player's statistics live in the one profile)
 
-- Player UI: `PlayerGamesHub.tsx`, `PlayerHistoryStatsView.tsx`, `PlayerCareerProfile.tsx`, `PlayerReplayScreen.tsx`.
+- Player UI: `PlayerGamesHub.tsx` (История, Итоги вечеров), `PlayerHistoryStatsView.tsx` (its history tab), `PlayerReplayScreen.tsx`. Statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» are in the one profile: `CanonicalPremiumPlayerProfile.tsx` + `PlayerProfileCareerSections.tsx`, all numbers from `premiumPlayerProfileService.ts` (`/api/player/profiles/:id/summary`). The old «Карьера»/«Статистика» screens and `/api/player/career/:id` are gone; `/player/career` and `/player/stats` open the profile.
 - Organizer evening games: `src/components/crm/EveningGamesView.tsx`, `EveningGameProtocolModal.tsx`, `EveningLiveGameModal.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
@@ -165,7 +165,7 @@ When music behaves incorrectly, trace `library/pool selection -> controller stat
 - UI: `CRMOverview.tsx`, `EveningsList.tsx`, `EveningWorkspace.tsx`, `PlayersCRM.tsx`, `TasksCRM.tsx`, `AnalyticsCRM.tsx`, `MoreCRM.tsx`.
 - «Дела» (organizer to-do, replaces «Задачи» + «Порядок в клубе» on screen): `organizerAgendaService.ts` (uses `clubOrderService.ts` checks and open `organizer_tasks`), UI `OrganizerAgenda.tsx`.
 - «Игрок вечера» vote: rules `eveningVotingService.ts` (app route `playerEveningVotingRoutes.ts`, bot route `POST /api/bot/evenings/:id/vote` in `botRoutes.ts`), bot message `eveningVoteMessageService.ts`, bot handler `evv:` in `handlers/crm_evening_response.py` (`bot_api.cast_evening_vote`); coverage `eveningVoteBot.test.ts`, `tests/test_evening_vote_bot.py`.
-- «Игры в цифрах» (statistics across games from the chronology): pure `src/lib/gameStatistics.ts`, data `gameStatisticsService.ts` (`loadStatGames`), organizer `GET /api/analytics/game-stats` → `GameStatsPanel.tsx` in «Аналитика»; player `game_stats` in `/api/player/career/:id` → `PlayerGameNumbers.tsx` in the career profile; coverage `gameStatistics.test.ts`, `gameStatisticsRoutes.test.ts`.
+- «Игры в цифрах» (statistics across games from the chronology): pure `src/lib/gameStatistics.ts`, data `gameStatisticsService.ts` (`loadStatGames`), organizer `GET /api/analytics/game-stats` → `GameStatsPanel.tsx` in «Аналитика»; player `game_stats` in `/api/player/profiles/:id/summary` → `PlayerGameNumbers.tsx` in the career profile; coverage `gameStatistics.test.ts`, `gameStatisticsRoutes.test.ts`.
 - «Сейчас в приложении» (who is online, owner only): `src/lib/presence.ts` → `presenceRoutes.ts` / `presenceService.ts` (memory only) → `OnlineNowPanel.tsx` in «Аналитика».
 - Curators («Куратор направления»): `src/lib/curatorAreas.ts`, set in `PlayerAccessSettings.tsx` / `PlayerAccessBulkCRM.tsx`; visits: `playerVisitsService.ts`.
 - API: `crmRoutes.ts`, `tasksRoutes.ts`, `analyticsRoutes.ts`, `adminDataRoutes.ts`.

@@ -72,7 +72,7 @@ const awardSlots: TournamentAwardSlot[] = [
   ...[
     ['nomination_mvp', 'MVP', 'mvp', 'p1'],
     ['nomination_best_citizen', 'Лучший мирный', 'best_citizen', 'p2'],
-    ['nomination_best_mafia', 'Лучшая мафия', 'best_mafia', 'p3'],
+    ['nomination_best_mafia', 'Лучший чёрный', 'best_mafia', 'p3'],
     ['nomination_best_sheriff', 'Лучший Шериф', 'best_sheriff', 'p4'],
     ['nomination_best_don', 'Лучший Дон', 'best_don', 'p5'],
   ].map(([key, title, category, participant_id]) => ({ key, kind: 'nomination', title, category, source: 'automatic', participant_id, player_id: `player-${participant_id.slice(1)}` } as TournamentAwardSlot)),
@@ -168,7 +168,7 @@ describe('result export publication assets', () => {
     expect(pages[2].svg).toContain('НОМИНАЦИИ ТУРНИРА');
     expect(pages[2].svg).toContain('MVP ТУРНИРА');
     expect(pages[2].svg).toContain('ЛУЧШИЙ МИРНЫЙ');
-    expect(pages[2].svg).toContain('ЛУЧШАЯ МАФИЯ');
+    expect(pages[2].svg).toContain('ЛУЧШИЙ ЧЁРНЫЙ');
     expect(pages[2].svg).toContain('ЛУЧШИЙ ШЕРИФ');
     expect(pages[2].svg).toContain('ЛУЧШИЙ ДОН');
     expect(pages[2].svg).not.toContain('Игровые начисления');

@@ -13,10 +13,13 @@ describe('player cabinet navigation model', () => {
     expect(normalizePlayerCabinetSection('payments')).toBe('wallet');
     expect(normalizePlayerCabinetSection('home')).toBe('home');
     expect(normalizePlayerCabinetSection('games')).toBe('games');
+    // «Карьера» and «Статистика» live in the one profile now.
+    expect(normalizePlayerCabinetSection('stats')).toBe('profile');
+    expect(normalizePlayerCabinetSection('career')).toBe('profile');
   });
 
   it('keeps game and rating sub-sections in their canonical groups', () => {
-    for (const section of ['games', 'stats', 'career', 'recaps'] as const) {
+    for (const section of ['games', 'recaps'] as const) {
       expect(isPlayerGameSection(section)).toBe(true);
       expect(isPlayerRatingSection(section)).toBe(false);
     }
@@ -29,8 +32,8 @@ describe('player cabinet navigation model', () => {
 
   it('maps nested sections to the correct primary navigation item', () => {
     expect(isPlayerCabinetNavActive('games', 'games')).toBe(true);
-    expect(isPlayerCabinetNavActive('games', 'stats')).toBe(true);
-    expect(isPlayerCabinetNavActive('games', 'career')).toBe(true);
+    expect(isPlayerCabinetNavActive('games', 'recaps')).toBe(true);
+    expect(isPlayerCabinetNavActive('games', 'career')).toBe(false);
     expect(isPlayerCabinetNavActive('rating', 'elo')).toBe(true);
     expect(isPlayerCabinetNavActive('rating', 'clubworld')).toBe(false);
     expect(isPlayerCabinetNavActive('club', 'clubworld')).toBe(true);

@@ -1060,7 +1060,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
 
   const categoriesDef: Array<{ category: TournamentNominationCategory; title: string; targetRoles: string[] }> = [
     { category: 'best_citizen', title: 'Лучший мирный', targetRoles: ['citizen'] },
-    { category: 'best_mafia', title: 'Лучшая мафия', targetRoles: ['mafia'] },
+    { category: 'best_mafia', title: 'Лучший чёрный', targetRoles: ['mafia'] },
     { category: 'best_sheriff', title: 'Лучший Шериф', targetRoles: ['sheriff'] },
     { category: 'best_don', title: 'Лучший Дон', targetRoles: ['don'] },
     { category: 'mvp', title: 'MVP', targetRoles: ['citizen', 'sheriff', 'mafia', 'don'] },

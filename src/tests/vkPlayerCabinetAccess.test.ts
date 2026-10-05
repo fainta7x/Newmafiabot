@@ -6,9 +6,7 @@ const canonicalSections = [
   ['events', '/player/events'],
   ['games', '/player/games'],
   ['rating', '/player/rating'],
-  ['stats', '/player/stats'],
   ['elo', '/player/elo'],
-  ['career', '/player/career'],
   ['clubworld', '/player/seasons'],
   ['club', '/player/club'],
   ['wallet', '/player/wallet'],
@@ -23,6 +21,13 @@ describe('VK canonical player cabinet access', () => {
       expect(playerPathForSection(section)).toBe(path);
       expect(path.startsWith('/player')).toBe(true);
       expect(parsePlayerRoute(path).section).toBe(section);
+    }
+  });
+
+  it('lands the old «Статистика» and «Карьера» links on the one profile', () => {
+    for (const path of ['/player/stats', '/player/career']) {
+      expect(parsePlayerRoute(path).section).toBe('profile');
+      expect(parsePlayerRoute(path).canonicalPath).toBe('/player/profile');
     }
   });
 

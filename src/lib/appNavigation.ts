@@ -90,7 +90,7 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   if (parts[1] === 'payments') return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };
 
   const sectionBySegment: Record<string, PlayerRouteSection> = {
-    events: 'events', games: 'games', rating: 'rating', stats: 'stats', club: 'club', wallet: 'wallet', profile: 'profile', elo: 'elo', career: 'career', seasons: 'clubworld', poker: 'poker',
+    events: 'events', games: 'games', rating: 'rating', stats: 'profile', club: 'club', wallet: 'wallet', profile: 'profile', elo: 'elo', career: 'profile', seasons: 'clubworld', poker: 'poker',
   };
   const section = sectionBySegment[parts[1] || ''] || 'home';
   return { section, target: null, replayGameKey: null, canonicalPath: playerPathForSection(section) };
@@ -110,7 +110,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
-    if (parts[1] === 'stats' || parts[1] === 'career' || parts[1] === 'recaps') return '/player/games';
+    if (parts[1] === 'recaps') return '/player/games';
     if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) || parts[1] === 'elo') return '/player/rating';
     if (parts[1] === 'seasons') return '/player/club';
     if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';

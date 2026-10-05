@@ -16,7 +16,7 @@ const W = NOIR_EXPORT_LAYOUT.width;
 const M = NOIR_EXPORT_LAYOUT.margin;
 const ROLE_LABELS: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
 const ROLE_COLORS: Record<string, string> = { citizen: '#F87171', sheriff: '#FBBF24', mafia: '#A1A1AA', don: '#C4B5FD' };
-const ROLE_BEST: Record<string, string> = { citizen: 'ЛУЧШИЙ МИРНЫЙ', sheriff: 'ЛУЧШИЙ ШЕРИФ', mafia: 'ЛУЧШАЯ МАФИЯ', don: 'ЛУЧШИЙ ДОН' };
+const ROLE_BEST: Record<string, string> = { citizen: 'ЛУЧШИЙ МИРНЫЙ', sheriff: 'ЛУЧШИЙ ШЕРИФ', mafia: 'ЛУЧШИЙ ЧЁРНЫЙ', don: 'ЛУЧШИЙ ДОН' };
 const RED = '#E63261';
 const BLACK = '#C4B5FD';
 

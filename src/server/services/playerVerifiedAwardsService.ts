@@ -227,6 +227,8 @@ export async function syncTrustedTournamentAwards(db: DatabaseWrapper, playerId:
         placeResult, award.comment || null, `Trusted completed tournament ${award.tournament_id}`, sourceKey, now, now, now],
     );
     if (result.changes) created += 1;
+    // A wording change of a nomination (2026-10-05: «Лучшая мафия» → «Лучший чёрный») reaches the trophies already saved.
+    else await db.run("UPDATE player_verified_awards SET title = ?, updated_at = ? WHERE source_key = ? AND source_type = 'automatic' AND title <> ?", [award.title, now, sourceKey, award.title]);
   }
   const persisted = await db.all<any>(
     "SELECT id, source_key FROM player_verified_awards WHERE player_id = ? AND source_type = 'automatic' AND source_key LIKE 'trusted-tournament:%'",

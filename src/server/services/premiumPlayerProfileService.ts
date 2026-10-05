@@ -4,6 +4,10 @@ import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadPlayerGameProfile, type PlayerGameHistoryItem } from './playerProfileService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { buildPlayerGameStatistics } from '../../lib/gameStatistics.ts';
+import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
+import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
+import { loadStatGames } from './gameStatisticsService.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
 export type PremiumGameRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
@@ -110,6 +114,47 @@ const strongestRole = (games: PlayerGameHistoryItem[]) => {
   return { ...source[0], label: ROLE_LABELS[source[0].role], small_sample: source[0].games < 5 };
 };
 
+/** Win streaks from the player's finished games, newest first. */
+const winStreaks = (games: PlayerGameHistoryItem[]) => {
+  let current = 0;
+  for (const game of games) { if (!game.won) break; current += 1; }
+  let best = 0;
+  let run = 0;
+  for (const game of [...games].reverse()) {
+    if (game.won) { run += 1; best = Math.max(best, run); } else run = 0;
+  }
+  return { current, best };
+};
+
+const teamSplit = (games: PlayerGameHistoryItem[], team: 'red' | 'black') => {
+  const sample = games.filter((game) => game.team === team);
+  const wins = sample.filter((game) => game.won).length;
+  return { games: sample.length, wins, win_rate: winRatePercent(wins, sample.length) };
+};
+
+/**
+ * The current season (= the club's rating period): the player's own games come from the same list as every other number of
+ * the profile; only the place among the players needs the other players' results.
+ */
+const loadSeasonBlock = async (db: DatabaseWrapper, playerId: string, games: PlayerGameHistoryItem[]) => {
+  const season = seasonForDate(await loadRatingSeasons(db), Date.now());
+  const inSeason = (value: string | null | undefined) => { const time = dateTime(value); return time >= season.start && time < season.end; };
+  const own = games.filter((game) => inSeason(game.date));
+  const wins = own.filter((game) => game.won).length;
+  const table = new Map<string, { id: string; nickname: string; games: number; wins: number }>();
+  for (const snapshot of (await loadCompletedGameSnapshots(db)).filter((item) => item.dateMs >= season.start && item.dateMs < season.end)) {
+    for (const result of snapshot.players) {
+      const row = table.get(result.player_id) || { id: result.player_id, nickname: result.nickname, games: 0, wins: 0 };
+      row.games += 1;
+      if (result.won) row.wins += 1;
+      table.set(result.player_id, row);
+    }
+  }
+  const ranking = [...table.values()].sort((a, b) => b.wins - a.wins || winRatePercent(b.wins, b.games) - winRatePercent(a.wins, a.games) || b.games - a.games || a.nickname.localeCompare(b.nickname, 'ru'));
+  const place = ranking.findIndex((row) => row.id === playerId) + 1;
+  return { label: season.label, games: own.length, wins, win_rate: winRatePercent(wins, own.length), place: place || null, total_players: ranking.length };
+};
+
 const buildFacts = (games: PlayerGameHistoryItem[], elo: Awaited<ReturnType<typeof eloRowsForPlayer>>) => {
   const completed = games.filter(isCompleted);
   const facts: Array<{ id: string; text: string; sample_size?: number }> = [];
@@ -141,6 +186,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   const visibility = publicVisibility(player.profile_visibility_json);
   const isSelf = viewerId === playerId;
   const canSeePrivate = organizer || isSelf;
+  const statsVisible = visibility.game_statistics || canSeePrivate;
   const [profile, elo, achievements, rankRow] = await Promise.all([
     loadPlayerGameProfile(db, playerId),
     eloRowsForPlayer(db, playerId),
@@ -187,7 +233,16 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
       recent_wins: recentWins,
       strongest_role: strongestRole(games),
       personal_elo_max: elo.length ? Math.max(numeric(player.elo), ...elo.map((item) => item.elo_after)) : numeric(player.elo),
+      current_streak: winStreaks(games).current,
+      best_streak: winStreaks(games).best,
+      red: teamSplit(games, 'red'),
+      black: teamSplit(games, 'black'),
+      first_killed: profile.gameStats.firstKilled,
+      best_moves: profile.gameStats.bestMoves,
+      zero_round_voted: profile.gameStats.zeroRoundVoted,
     } : null,
+    season: statsVisible ? await loadSeasonBlock(db, playerId, games) : null,
+    game_stats: statsVisible ? buildPlayerGameStatistics(await loadStatGames(db).catch(() => []), playerId) : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,
     })) : [],

@@ -67,11 +67,12 @@ describe('statistics across games', () => {
     expect((await request(app).get('/api/analytics/game-stats')).status).toBe(401);
   });
 
-  it('shows a player the numbers of his own games in the career profile', async () => {
+  it('shows a player the numbers of his own games in his profile summary (the one profile)', async () => {
     const { app } = await setup();
-    const career = await request(app).get('/api/player/career/p1').set('Cookie', `player_token=${generatePlayerSessionToken('p1')}`);
-    expect(career.status).toBe(200);
-    expect(career.body.game_stats).toMatchObject({ games: 1 });
-    expect(career.body.game_stats.votesAsRed).toMatchObject({ count: 1, total: 1, percent: 100 });
+    const summary = await request(app).get('/api/player/profiles/p1/summary').set('Cookie', `player_token=${generatePlayerSessionToken('p1')}`);
+    expect(summary.status).toBe(200);
+    expect(summary.body.game_stats).toMatchObject({ games: 1 });
+    expect(summary.body.game_stats.votesAsRed).toMatchObject({ count: 1, total: 1, percent: 100 });
+    expect(summary.body.season).toMatchObject({ games: expect.any(Number) });
   });
 });

@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
-import careerProfileRoutes from './playerCareerProfileRoutes.ts';
 import clubWorldRoutes from './playerClubWorldRoutes.ts';
 import notificationsRoutes from './playerNotificationsRoutes.ts';
 import tournamentResultsRoutes from './playerTournamentResultsRoutes.ts';
@@ -11,7 +10,6 @@ import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryServ
 
 const router = Router();
 
-router.use(careerProfileRoutes);
 router.use(clubWorldRoutes);
 router.use(notificationsRoutes);
 router.use(tournamentResultsRoutes);

@@ -10,7 +10,7 @@ export const TOURNAMENT_AWARD_DEFINITIONS = [
   { key: 'place_2', kind: 'placement', title: '2 место', place: 2, category: null },
   { key: 'place_3', kind: 'placement', title: '3 место', place: 3, category: null },
   { key: 'nomination_best_citizen', kind: 'nomination', title: 'Лучший мирный', place: null, category: 'best_citizen' },
-  { key: 'nomination_best_mafia', kind: 'nomination', title: 'Лучшая мафия', place: null, category: 'best_mafia' },
+  { key: 'nomination_best_mafia', kind: 'nomination', title: 'Лучший чёрный', place: null, category: 'best_mafia' },
   { key: 'nomination_best_sheriff', kind: 'nomination', title: 'Лучший Шериф', place: null, category: 'best_sheriff' },
   { key: 'nomination_best_don', kind: 'nomination', title: 'Лучший Дон', place: null, category: 'best_don' },
   { key: 'nomination_mvp', kind: 'nomination', title: 'MVP', place: null, category: 'mvp' },

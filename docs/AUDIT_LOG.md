@@ -69,6 +69,10 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 4. MEDIUM `fixed (poker-bot-strength PR)` — opponent ranges ignored what board and betting imply (`estimateEquity`/`opponentRanges`); c-bet too rare (~30%).
 5. LOW `open` — river all-ins are still frequent (~14% of hands); not verified against real players.
 
+### Terminology: «Лучшая мафия» (owner, 2026-10-05)
+
+1. LOW `fixed (profiles-audit PR)` — the mafia nomination read «Лучшая мафия» / «Лучший черный игрок» / «ЛУЧШАЯ МАФИЯ» in five places; now «Лучший чёрный» everywhere (awards definitions, nominations list, public results, CRM player card, result pictures); stored automatic trophies are renamed by the next trophy sync. Manually typed award titles are left as the organizer wrote them.
+
 ### Elo history vs canonical rebuild (owner bug report, 2026-10-05)
 
 1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged. Owner decision: a game with a guest seat is rated from the remaining players instead of being skipped; both copies now do that (a full unification into one module is not done).
@@ -87,14 +91,15 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 2. HIGH `fixed (profiles-audit PR)` — «Игры» tab prints raw codes (`citizen`/`mafia`, `red`/`black`) and shows neither the game title, number, Elo change nor a link to the game, although the API returns them (`CanonicalPremiumPlayerProfile.tsx`).
 3. MEDIUM `fixed (profiles-audit PR)` — «Elo» tab: raw role code, fractional Elo («1003.45», «+12.35») next to an integer Elo in the header, a duplicated «До игры → после» line, no link to the game.
 4. MEDIUM `fixed (profiles-audit PR)` — when the player hid his statistics, the overview shows «—» tiles with no explanation and the «Elo»/«Роли» tabs print «Истории Elo пока нет» (a lie: it is hidden, not absent; the 403 text is never shown there).
-5. MEDIUM `fixed (profiles-audit PR)` — `/api/player/career/:playerId` ignored the «Игровая статистика» privacy switch (anyone could read another player's games, win rates and roles) (`playerCareerProfileRoutes.ts`).
+5. MEDIUM `fixed (profiles-audit PR)` — `/api/player/career/:playerId` ignored the «Игровая статистика» privacy switch (anyone could read another player's games, win rates and roles): the route is removed with the career screen; the profile endpoints already check the switch.
 6. MEDIUM `fixed (profiles-audit PR)` — «По 21 играм» (wrong case after a number) and the clumsy hint «за чёрных: 5 из 7 (красным)» in «Игра в цифрах» (`PlayerGameNumbers.tsx`).
 7. MEDIUM `fixed (profiles-audit PR)` — privacy settings: a failed load leaves «Загрузка приватности…» for ever; a failed save leaves the switch flipped while the message says it failed (`PlayerProfilePrivacySettings.tsx`).
 8. LOW `fixed (profiles-audit PR)` — career screen shows an empty hole when the avatar is missing/broken (the other profile shows an initial); overview «Последние игры» are not clickable.
 9. LOW `fixed (profiles-audit PR)` — wording: tab «История клуба» vs section «История в клубе»; «Текущий период» vs «Текущий сезон» (season = rating period since 2026-10-04).
 10. LOW `open` — the birth year 2000 cannot be saved (the date picker's default year 2000 means «no year», `PlayerProfileSettings.tsx`).
-11. QUESTION `see PROJECT_STATE` — two profile screens (career in «Игры», canonical in «Профиль») show overlapping numbers from different sources; whether to merge them is the owner's call.
-12. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.
+11. HIGH `fixed (profiles-audit PR; owner: «привести к единому виду»)` — the same statistics (games, wins, win rate, roles, red/black, awards) were shown in three places from different sources: «Игры → Карьера», «Игры → Статистика», «Профиль»; they could disagree. One profile now (PROJECT_STATE 89). «Моя аналитика» repeated the win rate and best role and sat under the overview; moved to «Связи» without the duplicates.
+12. LOW `open (next PR)` — `PlayerHistoryStatsView.tsx` still holds unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition; `PlayerEloJourney` vs the profile's Elo tab not compared yet.
+13. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.
 
 ### Open — parity gaps between modes (not fixed)
 

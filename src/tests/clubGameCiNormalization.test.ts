@@ -8,19 +8,34 @@ const base = () => roles.map((role, index) => ({
   judge_bonus: 0, protocol_bonus: 0, penalty_points: 0, ci_points: 0, color_protocol: [],
 }));
 const previous = { version: 1, kind: 'club_evening_protocol', protocol: { status: 'draft' }, player_results: base() };
-const save = (mutate: (rows: any[]) => void, firstKilled: string | null = 'pt1') => {
+// pt1 is the first-killed red player; seats 2 and 6 are mafia, 8 is the don.
+const goodMove = [{ participant_id: 'pt1', source: 'first_killed', seat_numbers: [2, 3, 5] }];
+const save = (mutate: (rows: any[]) => void, options: { firstKilled?: string | null; winner?: 'red' | 'black'; bestMoves?: any[] } = {}) => {
   const rows = base();
   mutate(rows);
-  const saved = canonicalizeClubGameSave(previous, { status: 'completed', winner_team: 'red', first_killed_participant_id: firstKilled }, rows, 'completed');
+  const firstKilled = options.firstKilled === undefined ? 'pt1' : options.firstKilled;
+  const saved = canonicalizeClubGameSave(previous, {
+    status: 'completed', winner_team: options.winner || 'black', first_killed_participant_id: firstKilled, best_moves: options.bestMoves === undefined ? goodMove : options.bestMoves,
+  }, rows, 'completed');
   return Object.fromEntries(saved.playerResults.map((row: any) => [row.participant_id, row.ci_points]));
 };
 
 describe('Ci compensation on a club save', () => {
-  it('keeps the first-killed red player value up to the 0.4 rate and drops it everywhere else', () => {
+  it('keeps the first-killed red player value (reds lost) up to the 0.4 rate and drops it everywhere else', () => {
     const ci = save((rows) => { rows[0].ci_points = 0.25; rows[2].ci_points = 0.3; rows[1].ci_points = 0.4; });
     expect(ci.pt1).toBe(0.25);
     expect(ci.pt3).toBe(0);
     expect(ci.pt2).toBe(0);
+  });
+
+  it('allows only half the rate when the reds won', () => {
+    expect(save((rows) => { rows[0].ci_points = 0.4; }, { winner: 'red' }).pt1).toBe(0.2);
+    expect(save((rows) => { rows[0].ci_points = 0.1; }, { winner: 'red' }).pt1).toBe(0.1);
+  });
+
+  it('gives nothing unless the first-killed best move names a black player', () => {
+    expect(save((rows) => { rows[0].ci_points = 0.3; }, { bestMoves: [{ participant_id: 'pt1', source: 'first_killed', seat_numbers: [3, 5, 7] }] }).pt1).toBe(0);
+    expect(save((rows) => { rows[0].ci_points = 0.3; }, { bestMoves: [] }).pt1).toBe(0);
   });
 
   it('caps the rate at 0.4 and never allows a negative value', () => {
@@ -29,11 +44,11 @@ describe('Ci compensation on a club save', () => {
   });
 
   it('gives nobody Ci when there is no first-killed player', () => {
-    expect(Object.values(save((rows) => { rows[0].ci_points = 0.3; rows[3].ci_points = 0.2; }, null)).every((value) => value === 0)).toBe(true);
+    expect(Object.values(save((rows) => { rows[0].ci_points = 0.3; rows[3].ci_points = 0.2; }, { firstKilled: null, bestMoves: [] })).every((value) => value === 0)).toBe(true);
   });
 
   it('gives no Ci to a first-killed player who is black', () => {
-    expect(save((rows) => { rows[1].ci_points = 0.3; }, 'pt2').pt2).toBe(0);
+    expect(save((rows) => { rows[1].ci_points = 0.3; }, { firstKilled: 'pt2', bestMoves: [{ participant_id: 'pt2', source: 'first_killed', seat_numbers: [6] }] }).pt2).toBe(0);
   });
 });
 

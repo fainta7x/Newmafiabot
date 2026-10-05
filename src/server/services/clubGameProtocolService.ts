@@ -62,13 +62,9 @@ const validateBestMoves = (protocol: any, participantIds: Set<string>, tableSize
 };
 
 
-/**
- * Ci compensation (BUSINESS_RULES): only the first-killed red player can get it, at most the 0.4 rate and never
- * negative. Anything else a client sends is dropped, because the value goes straight into the club Elo.
- */
-const normalizeCi = (value: number, eligible: boolean): number => {
+const normalizeCi = (value: number, eligible: boolean, ceiling: number): number => {
   if (!eligible) return 0;
-  return Math.round(Math.min(0.4, Math.max(0, value)) * 100) / 100;
+  return Math.round(Math.min(ceiling, Math.max(0, value)) * 100) / 100;
 };
 
 export interface CanonicalClubGameSave { protocol: any; playerResults: any[]; }
@@ -129,7 +125,7 @@ export const canonicalizeClubGameSave = (
       protocol_bonus: tenthInRange(incoming.protocol_bonus, -1, 1, `Игрок #${seat}: балл за протокол`),
       penalty_points: finite(incoming.penalty_points, `Игрок #${seat}: игровой штраф`),
       disciplinary_penalty_points: disciplinaryPenalty,
-      ci_points: normalizeCi(finite(incoming.ci_points, `Игрок #${seat}: Ci`), participantId === firstKilledParticipantId && (role === 'citizen' || role === 'sheriff')),
+      ci_points: finite(incoming.ci_points, `Игрок #${seat}: Ci`),
       removal_reason: removalReason,
       color_protocol: Array.isArray(incoming.color_protocol) ? incoming.color_protocol : [],
     };
@@ -172,6 +168,18 @@ export const canonicalizeClubGameSave = (
     }
   }
   // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.
+  // Ci compensation (BUSINESS_RULES «Ci compensation»): only the first-killed red player, and only when his own best move
+  // names a black player; at most the 0.4 rate when the reds lost and half of it when they won. The value goes straight
+  // into the club Elo, so whatever a client sends beyond that is dropped.
+  const blackSeats = new Set(playerResults.filter((result) => result.role === 'mafia' || result.role === 'don').map((result) => result.seat_number));
+  const firstKilledMove = (Array.isArray(incomingProtocol?.best_moves) ? incomingProtocol.best_moves : [])
+    .find((move: any) => move?.source === 'first_killed' && String(move?.participant_id || '') === firstKilledParticipantId);
+  const firstKilledNamesBlack = Boolean(firstKilledMove) && (Array.isArray(firstKilledMove.seat_numbers) ? firstKilledMove.seat_numbers : []).some((seat: any) => blackSeats.has(Number(seat)));
+  const ciCeiling = winnerTeam === 'black' ? 0.4 : winnerTeam === 'red' ? 0.2 : 0.4;
+  for (const result of playerResults) {
+    const eligible = result.participant_id === firstKilledParticipantId && (result.role === 'citizen' || result.role === 'sheriff') && firstKilledNamesBlack;
+    result.ci_points = normalizeCi(result.ci_points, eligible, ciCeiling);
+  }
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const protocol = { ...incomingProtocol, events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
   return { protocol, playerResults };

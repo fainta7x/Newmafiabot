@@ -55,7 +55,7 @@ describe('club evening titles and yearly awards', () => {
     expect(moscowYear('2025-12-31T22:00:00Z')).toBe(2026);
   });
 
-  it('awards «Игрок года» for closed years only, and takes it back when the count changes', async () => {
+  it('awards «MVP года» (the vote) for closed years only, and takes it back when the count changes', async () => {
     const db = await setup();
     for (const [index, winner] of ['a', 'a', 'b'].entries()) {
       const id = `p${index}`;
@@ -68,8 +68,8 @@ describe('club evening titles and yearly awards', () => {
     await syncClubYearAwards(db, 'b', now);
     const awards = await db.all<any>("SELECT player_id, title, place_result FROM player_verified_awards WHERE source_key LIKE 'club-year:%' ORDER BY player_id");
     expect(awards).toEqual([
-      { player_id: 'a', title: 'Игрок года 2025', place_result: '1 место' },
-      { player_id: 'b', title: 'Игрок года 2025', place_result: '2 место' },
+      { player_id: 'a', title: 'MVP года 2025', place_result: '1 место' },
+      { player_id: 'b', title: 'MVP года 2025', place_result: '2 место' },
     ]);
     // a recounted vote: b is no longer on the podium
     await db.run("DELETE FROM evening_player_votes WHERE nominee_player_id = 'b'");
@@ -79,7 +79,7 @@ describe('club evening titles and yearly awards', () => {
 
   it('ranks equal counts on the same place and stops after the third place', () => {
     const titles = ['a', 'b', 'c', 'd', 'e'].flatMap((player, index) => Array.from({ length: index < 2 ? 3 : index < 4 ? 2 : 1 }, (_, n) => ({ evening_id: `${player}${n}`, year: 2025, player_id: player, votes: 1 })));
-    expect(buildYearPodium(titles, 2025)).toEqual([
+    expect(buildYearPodium(titles, 2025).map((row) => ({ player_id: row.player_id, place: row.place, titles: row.titles }))).toEqual([
       { player_id: 'a', place: 1, titles: 3 }, { player_id: 'b', place: 1, titles: 3 },
       { player_id: 'c', place: 3, titles: 2 }, { player_id: 'd', place: 3, titles: 2 },
     ]);
@@ -139,5 +139,52 @@ describe('«Игрок вечера» by wins and the evening trophies (owner, 2
     await db.run("DELETE FROM evening_player_votes WHERE evening_id = 'w1'");
     await syncClubEveningTrophies(db, 'b', now);
     expect(await trophies('b')).toEqual([]);
+  });
+});
+
+
+describe('yearly rating: the weighted rating and the two yearly titles (owner, 2026-10-05)', () => {
+  const titlesOf = (player: string, count: number) => Array.from({ length: count }, (_, index) => ({ evening_id: `${player}${index}`, year: 2026, player_id: player }));
+
+  it('does not let two evenings with two titles beat a regular with ten evenings and seven titles', () => {
+    const titles = [...titlesOf('lucky', 2), ...titlesOf('regular', 7)];
+    const attendance = new Map([['lucky', 2], ['regular', 10], ['other', 8]]);
+    const podium = buildYearPodium(titles, 2026, attendance);
+    expect(podium.map((row) => row.player_id)).toEqual(['regular', 'lucky']);
+    // the lucky one is pulled toward the club average: his rating is far below his raw 100%
+    expect(podium[1].rating).toBeLessThan(0.7);
+  });
+
+  it('still lets a newcomer in the podium when he wins a lot, and never ranks someone without a title', () => {
+    const titles = [...titlesOf('newcomer', 4), ...titlesOf('regular', 3)];
+    const attendance = new Map([['newcomer', 4], ['regular', 14], ['nothing', 14]]);
+    const podium = buildYearPodium(titles, 2026, attendance);
+    expect(podium.map((row) => row.player_id)).toEqual(['newcomer', 'regular']);
+    expect(podium.some((row) => row.player_id === 'nothing')).toBe(false);
+  });
+
+  it('gives the two yearly titles from the two kinds of evening titles, each with its own podium', async () => {
+    const db = await setup();
+    // 2025: x wins every game, y gets every vote
+    for (const [index, month] of ['03', '04', '05'].entries()) {
+      const id = `y${index}`;
+      await evening(db, id, `2025-${month}-07T17:00:00Z`);
+      await vote(db, id, 'v1', 'y');
+      await db.run(`INSERT INTO games (evening_id, global_game_number, game_date, winner_team, winner_label, judge_name, protocol_text, slots_json, created_at)
+        VALUES (?, 1, '2025-03-07', 'red', 'red', 'Судья', ?, '[]', '2025-03-07T18:00:00Z')`,
+        [id, JSON.stringify({ kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: 'red' }, player_results: [{ player_id: 'a', role: 'citizen', display_name: 'A', seat_number: 1 }, { player_id: 'b', role: 'mafia', display_name: 'B', seat_number: 2 }] })]);
+      for (const player of ['a', 'b', 'c']) {
+        await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,payment_status,created_at,updated_at) VALUES (?,?,?,'going','confirmed','attended','paid','2025-03-01','2025-03-01')`, [`${id}-${player}`, id, player]);
+      }
+    }
+    const now = new Date('2026-06-01T00:00:00Z').getTime();
+    await syncClubYearAwards(db, 'a', now); await syncClubYearAwards(db, 'c', now);
+    await syncClubYearAwards(db, 'v1', now);
+    const awards = async (player: string) => db.all<any>("SELECT title, place_result, description FROM player_verified_awards WHERE player_id = ? AND source_key LIKE 'club-year:%'", [player]);
+    expect(await awards('a')).toEqual([{ title: 'Игрок года 2025', place_result: '1 место', description: 'Званий «Игрок вечера»: 3 за 3 вечеров' }]);
+    expect(await awards('c')).toEqual([]);
+    await db.run("INSERT OR IGNORE INTO players (id, nickname, created_at, updated_at) VALUES ('y', 'Y', '2025-01-01', '2025-01-01')");
+    await syncClubYearAwards(db, 'y', now);
+    expect((await awards('y')).map((row) => row.title)).toEqual(['MVP года 2025']);
   });
 });

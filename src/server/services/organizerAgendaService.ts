@@ -85,7 +85,7 @@ const dayLabel = (value: unknown) => {
   const date = new Date(String(value || ''));
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' });
 };
-const MEMBER_SQL = `COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'merged', 'blocked', 'guest_placeholder', 'legacy_guest_migrated')
+export const MEMBER_SQL = `COALESCE(p.lifecycle_status, 'normal') NOT IN ('archived', 'merged', 'blocked', 'guest_placeholder', 'legacy_guest_migrated')
   AND COALESCE(p.source, '') <> 'legacy_guest_migrated'`;
 // Automation tasks replaced by grouped items; they are no longer created and old open ones are closed once.
 const REPLACED_TASK_PREFIXES = ['profile-missing:', 'lapsed-return:'];

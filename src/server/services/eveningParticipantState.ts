@@ -52,12 +52,14 @@ export async function setParticipantResponse(
     ? (await db.get<{ response_status: string | null }>('SELECT response_status FROM evening_participants WHERE id = ?', [participantId]))?.response_status
     : null;
   const now = new Date().toISOString();
-  const confirmedAt = status === 'going' || status === 'late' ? now : null;
+  const isPositive = status === 'going' || status === 'late';
   await db.run(
     `UPDATE evening_participants
-        SET response_status = ?, registration_status = ?, confirmed_at = ?, updated_at = ?
+        SET response_status = ?, registration_status = ?,
+            confirmed_at = CASE WHEN ? THEN COALESCE(confirmed_at, ?) ELSE confirmed_at END,
+            updated_at = ?
       WHERE id = ?`,
-    [status, status, confirmedAt, now, participantId],
+    [status, status, isPositive ? 1 : 0, now, now, participantId],
   );
 
   // A changed answer can move an already arrived player between 500 and 400.

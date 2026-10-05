@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import path from 'path';
 import { DatabaseWrapper, getDb, getIsolatedTestDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
+import { ensureEveningAnnouncementTrackingSchema } from './server/services/eveningAnnouncementTrackingService.ts';
+import { ensureUiUsageSchema } from './server/services/uiUsageService.ts';
 import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
@@ -151,6 +153,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   // schema during startup so a fresh/legacy DB can serve CRM GETs immediately and
   // a PATCH can never mutate successfully only to fail while reading price_per_game.
   await ensureEveningSlotsSchema(db);
+  await ensureEveningAnnouncementTrackingSchema(db);
+  await ensureUiUsageSchema(db);
   // Protect historical waived rows before the original CRM-PAY-003 migration can
   // recalculate them. This must precede ensureClubOperationsSchema, which runs v1.
   await ensureLegacyRegularWaiverProtection(db);

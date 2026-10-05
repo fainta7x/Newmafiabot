@@ -18,6 +18,7 @@ const pages = [
   'e2e/crm-overview.html',
   'e2e/crm-login.html',
   'e2e/organizer-crm.html',
+  'e2e/crm-analytics.html',
   'e2e/crm-evenings.html',
   'e2e/crm-players.html',
   'e2e/crm-more.html',

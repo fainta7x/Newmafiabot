@@ -282,7 +282,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <ClubOwnerContext.Provider value={isClubOwner}>
-    <div className="crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
+    <div className={`crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col ${activeTab === 'analytics' ? 'overflow-x-clip' : 'overflow-x-hidden'} bg-app-bg font-sans text-text-primary transition-colors duration-200`}>
       <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
@@ -427,7 +427,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
             </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
-            {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
+            {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
                 evenings={evenings}

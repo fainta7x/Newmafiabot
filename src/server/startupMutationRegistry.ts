@@ -18,6 +18,8 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 10, name: 'ensureInviteAudienceSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 20, name: 'ensureJudgeAuthoritySchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed', notes: 'one-time app_data_migrations marker adds the «Турниры» mark to old «Рейтинг и турниры» holders' },
   { order: 30, name: 'ensureEveningSlotsSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
+  { order: 32, name: 'ensureEveningAnnouncementTrackingSchema', kind: 'compatibility', idempotency: 'CREATE/ALTER + INSERT OR IGNORE legacy delivery backfill', notes: 'initialized before analytics reads, never from the analytics GET path' },
+  { order: 34, name: 'ensureUiUsageSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed', notes: 'initialized before summary reads; retention stays on ingestion' },
   { order: 40, name: 'ensureLegacyRegularWaiverProtection', kind: 'compatibility', idempotency: 'guarded compatibility repair', notes: 'must precede club operations migration' },
   { order: 50, name: 'ensureClubOperationsSchema', kind: 'data_migration', idempotency: 'application migration markers + schema guards' },
   { order: 60, name: 'ensureCanonicalEveningParticipantState', kind: 'compatibility', idempotency: 'state reconciliation' },

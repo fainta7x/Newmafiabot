@@ -7,6 +7,7 @@ import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
+import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
@@ -229,6 +230,8 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   }
   if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
   posted += await runTournamentAnnouncements(db, fetchImpl, now);
+  posted += await runTournamentResultPosts(db, fetchImpl, now);
+  posted += await runEveningPaymentReminders(db, now).catch((error) => { console.error('[PAYMENT REMINDERS] scan failed:', error); return 0; });
   posted += await runTournamentGameFollowUps(db, fetchImpl, now, String(marker?.created_at || stamp));
   return posted;
 }
@@ -442,6 +445,99 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
     await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
     return false;
   }
+}
+
+/** A plain text message to a Telegram destination (the rating group, the entry channel), with the same error contract as `sendPhotos`. */
+async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
+  const destination = await db.get<any>('SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1', [destinationId]).catch(() => null);
+  if (!destination?.chat_id || Number(destination.active ?? 1) === 0) {
+    return { ok: false, temporary: false, error: destinationId === 'public' ? 'Не настроен входной Telegram-канал' : 'Не настроена Telegram-группа рейтинга' };
+  }
+  const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: text.slice(0, 4000), disable_web_page_preview: true };
+  if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
+  try {
+    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const payload: any = await response.json().catch(() => null);
+    if (response.ok && payload?.ok !== false) return { ok: true };
+    return { ok: false, temporary: response.status === 429 || response.status >= 500, error: String(payload?.description || `Telegram HTTP ${response.status}`) };
+  } catch (error: any) {
+    return { ok: false, temporary: true, error: error?.message || 'Telegram недоступен' };
+  }
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** The text of the official results: the top of the table (up to ten places) and the link to the full results. */
+export const tournamentResultsText = (title: string, dateLabel: string, rows: Array<{ place: number; name: string; points: number }>, link: string | null) => {
+  const lines = [`🏆 Итоги турнира «${title}»${dateLabel ? ` — ${dateLabel}` : ''}`, ''];
+  for (const row of rows.slice(0, 10)) {
+    const mark = MEDALS[row.place - 1] || `${row.place}.`;
+    const points = Number.isInteger(row.points) ? String(row.points) : String(Math.round(row.points * 100) / 100);
+    lines.push(`${mark} ${row.name} — ${points}`);
+  }
+  if (rows.length > 10) lines.push(`… и ещё ${rows.length - 10}`);
+  if (link) lines.push('', `Полные результаты: ${link}`);
+  lines.push('', 'Поздравляем победителей и всех участников! 🖤');
+  return lines.join('\n');
+};
+
+const TOURNAMENT_RESULTS_DESTINATIONS = ['rating', 'public'] as const;
+const tournamentResultsKey = (tournamentId: string, destination: string) => `tournament-results:${tournamentId}:${destination}`;
+
+/**
+ * The official results of a tournament go to the rating group and the entry channel (owner, 2026-10-05: «В Telegram и в
+ * группу») once the organizer has published them. Each destination is claimed on its own, so a retry never posts twice.
+ */
+export async function postTournamentResults(db: DatabaseWrapper, tournamentId: string, fetchImpl: typeof fetch = fetch) {
+  await ensureClubResultPostSchema(db);
+  const tournament = await db.get<any>('SELECT id, title, date, status, public_token, results_published_at FROM tournaments WHERE id = ?', [tournamentId]);
+  if (!tournament || tournament.status !== 'completed' || !tournament.results_published_at) return false;
+  const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
+  const standings = await getFlexibleTournamentStandings(db, tournamentId);
+  const rows = (standings.standings || [])
+    .map((row: any) => ({ place: Number(row.place || row.official_place || row.calculated_place || 0), name: String(row.display_name || 'Участник'), points: Number(row.total_points || 0) }))
+    .filter((row: { place: number }) => row.place > 0)
+    .sort((a: { place: number }, b: { place: number }) => a.place - b.place);
+  if (!rows.length) return false;
+  let link: string | null = null;
+  if (tournament.public_token) {
+    try { link = (await import('./publicAppOriginService.ts')).buildTrustedPublicAppUrl(`/tournaments/results/${encodeURIComponent(String(tournament.public_token))}`); } catch { link = null; }
+  }
+  const dateLabel = tournament.date ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(String(tournament.date))) : '';
+  const text = tournamentResultsText(String(tournament.title || 'Турнир 2LA Noire'), dateLabel.replace(/\s*г\.?$/, ''), rows, link);
+  let posted = false;
+  for (const destination of TOURNAMENT_RESULTS_DESTINATIONS) {
+    const key = tournamentResultsKey(tournamentId, destination);
+    if (!(await claim(db, key, 'tournament-results', '', null))) continue;
+    try {
+      const result = await sendText(db, destination, text, fetchImpl);
+      await finish(db, key, result);
+      if (result.ok) posted = true;
+    } catch (error: any) {
+      await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    }
+  }
+  return posted;
+}
+
+/** Retries the results of tournaments published in the last day whose posts are not yet sent (or never tried). */
+async function runTournamentResultPosts(db: DatabaseWrapper, fetchImpl: typeof fetch, now: number) {
+  const candidates = await db.all<any>(
+    `SELECT id FROM tournaments WHERE status = 'completed' AND results_published_at IS NOT NULL AND datetime(results_published_at) >= datetime(?)`,
+    [new Date(now - 24 * 3_600_000).toISOString()],
+  ).catch(() => []);
+  let posted = 0;
+  for (const row of candidates) {
+    const done = await db.get<any>(
+      `SELECT COUNT(*) AS c FROM club_result_posts WHERE post_key IN (?, ?) AND status IN ('sent', 'failed')`,
+      TOURNAMENT_RESULTS_DESTINATIONS.map((destination) => tournamentResultsKey(String(row.id), destination)),
+    );
+    if (Number(done?.c || 0) >= TOURNAMENT_RESULTS_DESTINATIONS.length) continue;
+    try { if (await postTournamentResults(db, String(row.id), fetchImpl)) posted += 1; } catch (error) { console.error('[TOURNAMENT RESULTS] post failed:', row.id, error); }
+  }
+  return posted;
 }
 
 const SEAT_MESSAGE_WAIT_MS = 5 * 60_000;

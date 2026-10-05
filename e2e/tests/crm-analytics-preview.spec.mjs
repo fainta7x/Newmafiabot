@@ -6,12 +6,13 @@ for(const width of [360,390]) test(`analytics all tabs at ${width}px`,async({pag
   await expect(page.getByTestId('crm-analytics')).toBeVisible();
   await expect(page.getByText(/визитов — 62/)).toBeVisible();
   const analytics=page.getByTestId('crm-analytics');
-  await page.evaluate(()=>window.scrollTo(0,500));
+  const scrollPage=(top)=>page.evaluate((to)=>{const c=document.querySelector('[data-testid="analytics-controls"]');for(let el=c&&c.parentElement;el;el=el.parentElement){if(el.scrollHeight>el.clientHeight+1&&['auto','scroll'].includes(getComputedStyle(el).overflowY)){el.scrollTop=to;return;}}window.scrollTo(0,to);},top);
+  await scrollPage(500);
   const controls=await page.getByTestId('analytics-controls').boundingBox();
   const header=await page.locator('.crm-premium-header').boundingBox();
   expect(controls.y).toBeGreaterThanOrEqual(header.y+header.height-1);
   expect(controls.y).toBeLessThanOrEqual(header.y+header.height+16);
-  await page.evaluate(()=>window.scrollTo(0,0));
+  await scrollPage(0);
   for(const name of ['Клуб','Деньги','Сейчас','Игры и люди']) {
     await analytics.getByRole('tab',{name,exact:true}).click();
     await expect(analytics.getByRole('tabpanel')).toBeVisible();

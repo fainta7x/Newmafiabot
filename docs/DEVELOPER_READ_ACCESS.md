@@ -24,6 +24,7 @@ Available reads:
 - `/evenings/:id` — one evening plus participant nicknames, RSVP state, actual attendance state, and payment totals.
 - `/evenings/by-date/YYYY-MM-DD` — same participant data for every evening on the requested date.
 - `/poker/stats` — how each person plays at the poker tables (hands, VPIP, PFR, fold to bet, aggression), counted from the stored hands; no hands are returned.
+- `/payment-reminders` — whether the evening payment reminders went out: one row per reminder (evening, nickname, channel, delivery state); no message text.
 
 The returned participant fields are deliberately bounded to operational club data needed for diagnostics: player id, nickname, response/registration/attendance/arrival state, payment state, amount due/paid, and registration/check-in timestamps. It does not expose phone numbers, Telegram usernames, tokens, secrets, or arbitrary database access.
 

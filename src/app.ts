@@ -79,6 +79,7 @@ import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
 import developerTestModeRoutes from './server/routes/developerTestModeRoutes.ts';
 import developerReadRoutes from './server/routes/developerReadRoutes.ts';
+import clubDigestRoutes from './server/routes/clubDigestRoutes.ts';
 import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
@@ -263,6 +264,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/announcement-photos', announcementPhotoRoutes);
+  app.use('/api/club-digest', clubDigestRoutes);
   app.use('/api/system-status', systemStatusRoutes);
   app.use('/api/obs-remote', obsRemoteOrganizerRoutes);
   app.use('/api/custom-events', customEventRoutes);

@@ -69,6 +69,23 @@ router.post('/poker/stats', async (req, res) => {
   }
 });
 
+/**
+ * Did the payment reminders go out (read-only, no text of the messages): one row per reminder with its channel and delivery state.
+ */
+router.post('/payment-reminders', async (req, res) => {
+  try {
+    const rows = await req.db.all<any>(
+      `SELECT d.entity_id AS evening_id, p.nickname, d.selected_channel, d.status, d.reason, d.created_at, d.updated_at,
+              (SELECT o.status FROM telegram_message_outbox o WHERE o.message_key = d.notification_key LIMIT 1) AS telegram_outbox_status
+         FROM personal_notification_deliveries d LEFT JOIN players p ON p.id = d.player_id
+        WHERE d.event_type = 'evening_payment_reminder' ORDER BY d.created_at DESC LIMIT 200`,
+    ).catch(() => []);
+    return res.json({ count: rows.length, reminders: rows });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to load payment reminders' });
+  }
+});
+
 router.post('/evenings', async (req, res) => {
   try {
     const rows = await req.db.all<any>(

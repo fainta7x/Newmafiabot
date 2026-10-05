@@ -630,7 +630,7 @@ See `AGENTS.md` and `docs/RUNBOOK.md` for the operational safeguards.
 - Only an organizer may replace the identity attached to a seat in a completed, non-archived club game.
 - The correction moves identity references; role, fouls, voting, exit and other gameplay facts remain attached to the seat.
 - Payments, token settlement, rating and achievements must be reconciled for both the previous and replacement player.
-- A seat may be handed either to another registered player of the evening or (owner, 2026-10-03) to a new guest without a profile: a guest placeholder of the same evening is created and marked as attended; it gets no profile, Elo, tokens or contacts, and the previous player's statistics are recounted.
+- A seat may be handed either to another registered player of the evening or (owner, 2026-10-03) to a new guest without a profile: a guest placeholder of the same evening is created and marked as attended; it gets no profile, Elo, tokens or contacts, and the previous player's statistics are recounted. A game with a guest seat still counts for Elo (owner, 2026-10-05): it is rated from the remaining registered players (9 of 10 with one guest); the guest's seat is simply left out, the team averages use the players who are there (`eloRatingService.ts`, `playerEloHistoryService.ts`).
 - Historical games must never be rewritten automatically from a date or nickname guess. Every correction is an explicit, confirmed action.
 
 ## Organizer player profile roles and CRM entitlement

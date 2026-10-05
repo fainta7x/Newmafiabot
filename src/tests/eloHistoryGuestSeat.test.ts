@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDatabaseConnection } from '../db/index';
 import { loadPlayerEloHistory } from '../server/services/playerEloHistoryService';
+import { rebuildCanonicalEloRatings } from '../server/services/eloRatingService';
 
 const ROLES = ['Дон', 'Мафия', 'Мафия', 'Шериф', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный'];
 
@@ -39,13 +40,26 @@ const seedGame = async (db: ReturnType<typeof createDatabaseConnection>, number:
   );
 };
 
-describe('player Elo history and a guest seat', () => {
-  it('withholds a game with a guest seat from Elo instead of failing every profile', async () => {
+describe('Elo and a guest seat (owner, 2026-10-05: rate the game from the remaining 9 players)', () => {
+  it('history rates a game with a guest seat from the nine registered players', async () => {
     const db = createDatabaseConnection(':memory:');
     await seedGame(db, 4, true, 'guest');
     await seedGame(db, 5, false, 'full');
     const events = await loadPlayerEloHistory(db);
-    expect(events.filter((event: any) => String(event.player_id || event.playerId || '').startsWith('guest-'))).toHaveLength(0);
-    expect(events.length).toBeGreaterThan(0);
+    const guestGame = events.find((event) => event.players.some((player: any) => String(player.playerId).startsWith('guest-')));
+    expect(guestGame?.players).toHaveLength(9);
+    expect(guestGame?.players.some((player: any) => String(player.playerId) === 'guest-p10')).toBe(false);
+    const fullGame = events.find((event) => event.players.some((player: any) => String(player.playerId).startsWith('full-')));
+    expect(fullGame?.players).toHaveLength(10);
+  });
+
+  it('the canonical rebuild counts the same game for the nine registered players only', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await seedGame(db, 4, true, 'guest');
+    const rows = await rebuildCanonicalEloRatings(db);
+    const byId = new Map(rows.map((row) => [row.player_id, row]));
+    expect(byId.get('guest-p1')?.games).toBe(1);
+    expect(byId.get('guest-p9')?.games).toBe(1);
+    expect(byId.get('guest-p10')?.games ?? 0).toBe(0);
   });
 });

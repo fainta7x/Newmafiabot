@@ -71,7 +71,7 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 
 ### Elo history vs canonical rebuild (owner bug report, 2026-10-05)
 
-1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged; they now agree (a full unification into one module is not done).
+1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged. Owner decision: a game with a guest seat is rated from the remaining players instead of being skipped; both copies now do that (a full unification into one module is not done).
 
 ### Open — parity gaps between modes (not fixed)
 

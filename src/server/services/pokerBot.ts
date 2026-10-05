@@ -305,7 +305,10 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     // Check-raise (owner, 2026-10-05): checking and then raising a bet is a trap line — read it as very strong, so the bot
     // neither folds a good hand at once nor calls it down with a marginal one.
     const checkRaise = isRaise && checkedOn.has(`${entry.street}:${entry.player_id}`);
-    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight + (checkRaise ? 1.2 : 0));
+    // Size matters (owner, 2026-10-05): a min-raise or a tiny bet is often a probe or a bluff, not strength.
+    const potBefore = entry.pot ?? 0;
+    const sizeScale = potBefore > 0 ? Math.min(1.25, Math.max(0.45, entry.amount / potBefore / 0.66)) : 1;
+    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * sizeScale + (checkRaise ? 1.2 : 0));
     streetHadBet.set(entry.street, true);
   }
   return hand.players
@@ -314,6 +317,9 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
       const profile = pokerOpponentProfile(player.id);
       const loose = profile.known ? Math.min(0.7, Math.max(0.12, profile.vpip)) : 0.45;
       let range = raisers.has(player.id) ? (reraised ? 0.08 : Math.min(0.25, loose)) : loose;
+      // A min-raise before the flop (up to ~2.5 big blinds in total) is much weaker than a standard open.
+      const smallOpen = raisers.has(player.id) && hand.action_log.some((entry) => entry.player_id === player.id && entry.street === 'preflop' && entry.type === 'raise' && entry.amount <= hand.big_blind * 2.5);
+      if (smallOpen) range = Math.min(0.6, range * 1.8);
       if (player.seat === hand.big_blind_seat && preflopRaises(hand).count === 0) range = 1;
       const bets = lineWeight.get(player.id) || 0;
       let boardMin = 0;

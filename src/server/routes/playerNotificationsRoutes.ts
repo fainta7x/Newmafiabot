@@ -245,7 +245,7 @@ const buildNotifications = async (db: any, playerId: string) => {
         type: 'evening_vote',
         icon: '🗳️',
         title: 'Кто сыграл лучше всех?',
-        text: `${String(evening.title || 'Игровой вечер')} · выбери «Игрока вечера»`,
+        text: `${String(evening.title || 'Игровой вечер')} · выбери «MVP вечера»`,
         date: new Date(baseMs).toISOString(),
         action: { kind: 'club', target: String(evening.id) },
         priority: 80,

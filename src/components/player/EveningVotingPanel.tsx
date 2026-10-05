@@ -18,7 +18,7 @@ type VotingData = {
 };
 
 const CATEGORY_META: Record<Category, { label: string; icon: string; hint: string }> = {
-  best_player: { label: 'Игрок вечера', icon: '🏆', hint: 'Кто сыграл лучше всех на этом вечере' },
+  best_player: { label: 'MVP вечера', icon: '🏆', hint: 'Кто сыграл лучше всех на этом вечере' },
 };
 
 const deadlineText = (value: string | null) => {

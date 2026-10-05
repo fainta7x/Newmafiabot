@@ -386,6 +386,15 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     setError(null);
     return body;
   };
+  // Answers can arrive out of order on a slow connection: an older one must never replace a newer one (the table flipped
+  // back to an earlier state, then forward again — owner, 2026-10-05). Each request gets a number when it is sent.
+  const requestSeq = useRef(0);
+  const appliedSeq = useRef(0);
+  const applyLobby = async (url: string, init?: RequestInit, stillWanted: () => boolean = () => true) => {
+    const seq = ++requestSeq.current;
+    const body = await readBody(await fetch(url, init));
+    if (seq > appliedSeq.current && stillWanted()) { appliedSeq.current = seq; setCurrent(body.lobby); }
+  };
   const load = async () => setLobbies((await readBody(await fetch('/api/player/poker/lobbies', { credentials: 'include' }))).lobbies || []);
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, []);
   // The list of tables is refreshed while it is on screen: people sit down and leave all the time.
@@ -399,24 +408,24 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const [openRosters, setOpenRosters] = useState<Record<string, boolean>>({});
 
   const create = async () => {
-    try { setCurrent((await readBody(await fetch('/api/player/poker/lobbies', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }))).lobby); }
+    try { await applyLobby('/api/player/poker/lobbies', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }); }
     catch (e: any) { setError(e.message); }
   };
   const lobbyAction = async (id: string, method: 'join' | 'start' | 'bot' | 'leave') => {
     if (method === 'join') leftTables.current.delete(id);
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${id}/${method}`, { method: 'POST', credentials: 'include' }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${id}/${method}`, { method: 'POST', credentials: 'include' }); }
     catch (e: any) { setError(e.message); }
   };
   /** A bot gets up from the table: its cards in a running hand are folded (owner, 2026-10-02). */
   /** Only the club owner gets this (the server decides; `can_kick` shows the button). */
   const kickPlayer = async (person: Player) => {
     if (!window.confirm(`Убрать игрока «${person.nickname}» со стола?`)) return;
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/kick`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: person.id }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/kick`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: person.id }) }); }
     catch (e: any) { setError(e.message); }
   };
   const removeBot = async (bot: Player) => {
     if (!window.confirm(`Убрать «${bot.nickname}» из-за стола?`)) return;
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/bot/remove`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ botId: bot.id }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/bot/remove`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ botId: bot.id }) }); }
     catch (e: any) { setError(e.message); }
   };
   /** Like getting up from a poker table: cards in a running hand are folded, the seat is freed. */
@@ -437,23 +446,31 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     void load().catch(() => {});
   };
   const setAway = async (away: boolean) => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/sit-out`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ away }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/sit-out`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ away }) }); }
     catch (e: any) { setError(e.message); }
   };
   const pokerAction = async (type: string, amount?: number) => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/action`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, amount }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/action`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, amount }) }); }
     catch (e: any) { setError(e.message); }
   };
 
   useEffect(() => {
     if (!current?.id) return undefined;
     let cancelled = false;
+    let inFlight = 0;
+    let startedAt = 0;
     const poll = async () => {
       // A hidden screen (the app in the background) does not ask for the table: the server counts only a person who looks
       // at it as present, so somebody who walked away with the app left open is taken off after five minutes.
       if (document.visibilityState === 'hidden') return;
-      try { const body = await readBody(await fetch(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' })); if (!cancelled && !leftTables.current.has(current.id)) setCurrent(body.lobby); }
+      // One request at a time: on a slow connection a new one every 250 ms piled up and the answers overtook each other.
+      // A request that has hung for over 1.5 s no longer holds the line (its late answer is dropped by its number).
+      if (inFlight && Date.now() - startedAt < 1500) return;
+      const mine = ++inFlight;
+      startedAt = Date.now();
+      try { await applyLobby(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' }, () => !cancelled && !leftTables.current.has(current.id)); }
       catch (e: any) { if (!cancelled) setError(e.message); }
+      finally { if (inFlight === mine) inFlight = 0; }
     };
     // Waiting for the bots is polled quickly so their moves show up at once; waiting for the person himself needs only a slow pulse.
     const timer = window.setInterval(() => void poll(), current?.hand?.animation_phase === 'playing' && current?.hand?.is_viewer_turn ? 900 : 250);
@@ -561,7 +578,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     } catch (e: any) { setError(e.message); }
   };
   const rebuy = async () => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/rebuy`, { method: 'POST', credentials: 'include' }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/rebuy`, { method: 'POST', credentials: 'include' }); }
     catch (e: any) { setError(e.message); }
   };
 

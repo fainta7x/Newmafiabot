@@ -156,3 +156,6 @@ Mobile and clarity (DESIGN_SYSTEM: CRM is a work tool, analytics is secondary, t
 17. MEDIUM `open` — period buttons are 36 px (`min-h-9`) and scroll away; labels 10–11 px; the funnel is a 7-column grid that does not fit 390 px; cards use 16 px radius vs the documented 24–28 px.
 18. MEDIUM `open` — jargon without explanation: «нулевой круг», «ПУ/ЛХ», «зах.», «cohort retention»; the same usage data in three views (online now, usage, staff) with different period and online rules.
 19. LOW `open` — `FEATURE_MAP.md` analytics line is stale («no player ids»); no tests for the main `/api/analytics` numbers, for the components or for the period handling.
+
+### Poker table flips between screens (owner bug report, 2026-10-05)
+1. HIGH `fixed (poker-poll-race PR)` — `PlayerPoker.tsx` asked for the table every 250 ms without waiting for the previous answer and applied every answer as it came: on a slow connection an older answer could arrive after a newer one and put the table back (cards, bets, seats of an earlier moment), then the next answer moved it forward again. Reproduced in `PlayerPokerTable.test.tsx` (slow first answer overwrote the newer one). Now each request has a number, an older answer is dropped, one poll runs at a time (a request hung for over 1.5 s stops holding the line), and the action/join/leave/rebuy answers go through the same check.

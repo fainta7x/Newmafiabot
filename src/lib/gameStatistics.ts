@@ -94,8 +94,9 @@ export const buildClubGameStatistics = (games: StatGame[]): ClubGameStatistics =
       if (circle.shot) shots += 1;
       if (circle.sheriffCheck) { sheriffChecks += 1; if (isBlack(roleOf(circle.sheriffCheck.target))) sheriffFoundBlack += 1; }
       if (circle.donCheck) { donChecks += 1; if (roleOf(circle.donCheck.target) === 'sheriff') donFoundSheriff += 1; }
-      if (circle.bestMove && circle.bestMove.seat && circle.bestMove.seats.length) {
-        const blacks = circle.bestMove.seats.filter((seat) => isBlack(roleOf(seat))).length;
+      for (const move of circle.bestMoves) {
+        if (!move.seat || !move.seats.length) continue;
+        const blacks = move.seats.filter((seat) => isBlack(roleOf(seat))).length;
         lhCount += 1; lhBlackSum += blacks; if (blacks > 0) lhWithBlack += 1;
       }
     }
@@ -168,8 +169,9 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string): 
         }
       }
       if (circle.firstKilled === seat && isRed(mine.role)) firstKilledCount += 1;
-      if (circle.bestMove?.seat === seat && circle.bestMove.seats.length) {
-        const blacks = circle.bestMove.seats.filter((target) => isBlack(roleOf(target))).length;
+      for (const move of circle.bestMoves) {
+        if (move.seat !== seat || !move.seats.length) continue;
+        const blacks = move.seats.filter((target) => isBlack(roleOf(target))).length;
         lhCount += 1; lhBlackSum += blacks; if (blacks > 0) lhWithBlack += 1;
       }
       if (mine.role === 'sheriff' && circle.sheriffCheck) { sheriffChecks += 1; if (isBlack(roleOf(circle.sheriffCheck.target))) sheriffHits += 1; }

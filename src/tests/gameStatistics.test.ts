@@ -98,3 +98,28 @@ describe('statistics of one player', () => {
     expect(buildPlayerGameStatistics([game('old', 'red', [])], 'p1').games).toBe(0);
   });
 });
+
+describe('two best moves in the same engine round', () => {
+  // The zero-round best move of seat 2 (a red player voted out would give it; here seat 4) and the first-killed one of seat 7.
+  const twoMoves = () => { seq = 0; return [
+    ev(1, 'zero_round_voted', { seat: 4 }),
+    ev(1, 'best_move', { seat: 4, value: '2,3,6' }),
+    ev(1, 'first_killed', { seat: 7 }),
+    ev(1, 'best_move', { seat: 7, value: '2,5,3' }),
+  ]; };
+
+  it('counts both in the club overview and for each player', () => {
+    const games = [game('g1', 'black', twoMoves())];
+    const club = buildClubGameStatistics(games);
+    expect(club.firstKilled.bestMoveWithBlack).toMatchObject({ count: 2, total: 2 });
+    expect(club.firstKilled.averageBlackInBestMove).toBe(1.5);
+    expect(buildPlayerGameStatistics(games, 'p4').bestMove).toMatchObject({ count: 1, averageBlack: 1 });
+    expect(buildPlayerGameStatistics(games, 'p7').bestMove).toMatchObject({ count: 1, averageBlack: 2 });
+  });
+
+  it('keeps a re-confirmed move of the same player once', () => {
+    seq = 0;
+    const games = [game('g1', 'red', [ev(1, 'best_move', { seat: 7, value: '1,3' }), ev(1, 'best_move', { seat: 7, value: '2,5,3' })])];
+    expect(buildPlayerGameStatistics(games, 'p7').bestMove).toMatchObject({ count: 1, averageBlack: 2 });
+  });
+});

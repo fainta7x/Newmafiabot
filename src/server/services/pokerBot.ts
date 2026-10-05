@@ -68,7 +68,8 @@ const opponents = new Map<string, OpponentStats>();
 const blankStats = (): OpponentStats => ({ hands: 0, vpip: 0, pfr: 0, facedBet: 0, foldedToBet: 0, postflopAggro: 0, postflopPassive: 0 });
 
 /** Called once per finished hand: what every human (and bot) did, for the bots to adapt. */
-export const observePokerHand = (hand: PokerState) => {
+export type ObservedPokerHand = { action_log: Array<{ player_id: string; street: string; type: string }>; players: Array<{ id: string }> };
+export const observePokerHand = (hand: ObservedPokerHand) => {
   const seen = new Set<string>();
   const voluntary = new Set<string>();
   const raisedPre = new Set<string>();

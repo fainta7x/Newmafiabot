@@ -1,12 +1,19 @@
+import { observePokerHand } from './pokerBot.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerRuntimeSchema } from '../../db/ensurePokerRuntimeSchema.ts';
 import {
   createPokerRuntimeState,
+  drainPokerHandLog,
   exportPokerRuntimeSnapshot,
+  type StoredPokerHand,
   type PokerRuntimeSnapshot,
   type PokerRuntimeState,
   withPokerRuntimeState,
 } from './pokerLobbyService.ts';
+
+/** How many finished hands are kept, and how many of the newest ones the bots re-learn from at start. */
+export const POKER_HAND_LOG_KEEP = 20000;
+const POKER_HAND_LOG_REPLAY = 5000;
 
 type CachedRuntime = { state: PokerRuntimeState; queue: Promise<void> };
 let runtimes = new WeakMap<DatabaseWrapper, Promise<CachedRuntime>>();
@@ -19,10 +26,30 @@ const parseSnapshot = (value: string): PokerRuntimeSnapshot => {
   return parsed as PokerRuntimeSnapshot;
 };
 
+/** The bots' memory of the players lives in the process: after a restart it is rebuilt from the stored hands. */
+const replayStoredHands = async (db: DatabaseWrapper) => {
+  const rows = await db.all<{ hand_json: string }>(`SELECT hand_json FROM poker_hand_log ORDER BY played_at DESC LIMIT ?`, [POKER_HAND_LOG_REPLAY]).catch(() => []);
+  for (const row of rows.reverse()) {
+    try {
+      const hand = JSON.parse(row.hand_json) as StoredPokerHand;
+      observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type]) => ({ street, player_id, type })) });
+    } catch { /* a damaged row is skipped, the rest still teach */ }
+  }
+};
+
+const writeHandLog = async (db: DatabaseWrapper, hands: StoredPokerHand[]) => {
+  if (!hands.length) return;
+  for (const hand of hands) {
+    await db.run(`INSERT OR IGNORE INTO poker_hand_log (id, played_at, hand_json) VALUES (?,?,?)`, [hand.id, hand.at, JSON.stringify(hand)]);
+  }
+  await db.run(`DELETE FROM poker_hand_log WHERE id IN (SELECT id FROM poker_hand_log ORDER BY played_at DESC LIMIT -1 OFFSET ?)`, [POKER_HAND_LOG_KEEP]);
+};
+
 const loadRuntime = async (db: DatabaseWrapper): Promise<CachedRuntime> => {
   await ensurePokerRuntimeSchema(db);
   const row = await db.get<{ state_json: string }>(`SELECT state_json FROM poker_runtime_state WHERE id='main' LIMIT 1`);
   const snapshot = row?.state_json ? parseSnapshot(row.state_json) : undefined;
+  await replayStoredHands(db);
   return { state: createPokerRuntimeState(snapshot), queue: Promise.resolve() };
 };
 
@@ -50,6 +77,7 @@ export async function withPersistedPokerRuntime<T>(db: DatabaseWrapper, callback
       const before = JSON.stringify(exportPokerRuntimeSnapshot());
       const result = await callback();
       const after = JSON.stringify(exportPokerRuntimeSnapshot());
+      await writeHandLog(db, drainPokerHandLog());
       if (after !== before) {
         await db.run(
           `INSERT INTO poker_runtime_state (id,state_json,updated_at) VALUES ('main',?,?)

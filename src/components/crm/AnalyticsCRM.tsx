@@ -40,7 +40,7 @@ export function AnalyticsCRM() {
   const funnel = data?.communicationFunnel;
   return <div className="mx-auto max-w-5xl space-y-4 pb-4" data-testid="crm-analytics">
     <header><h2 className="text-2xl font-semibold">Аналитика клуба</h2><p className="mt-1 text-xs text-text-secondary">{subtitle(range)}{range.id!==period?' · обновляем выбранный период':''}</p></header>
-    <div className="sticky top-0 z-10 space-y-2 rounded-2xl border border-border-soft bg-surface-1 p-2">
+    <div data-testid="analytics-controls" className="sticky top-[var(--app-content-top,60px)] z-10 space-y-2 rounded-2xl border border-border-soft bg-app-bg/95 p-2 backdrop-blur-xl">
       <label className="flex items-center gap-3 text-xs"><span className="shrink-0 text-text-secondary">Период</span><select aria-label="Период аналитики" value={period} onChange={event=>setPeriod(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-sm">
         {presets.map(([id,label])=><option key={id} value={id}>{label}</option>)}
         {(effectiveTab==='games' || period==='month' || period==='prev_month') && <><option value="month">Этот месяц</option><option value="prev_month">Прошлый месяц</option></>}

@@ -282,7 +282,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <ClubOwnerContext.Provider value={isClubOwner}>
-    <div className="crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
+    <div className={`crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col ${activeTab === 'analytics' ? 'overflow-x-clip' : 'overflow-x-hidden'} bg-app-bg font-sans text-text-primary transition-colors duration-200`}>
       <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">

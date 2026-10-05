@@ -31,7 +31,8 @@ for (const width of [360, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('player-home.png') });
     await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('button', { name: 'Игры', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Статистика', exact: true })).toBeInViewport();
+    // «Статистика» and «Карьера» moved into the one profile: the games hub keeps «История» and «Итоги вечеров».
+    await expect(page.getByRole('button', { name: 'Итоги вечеров', exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath('player-games.png') });
     await page.goto('/e2e/live-game.html?mode=audit');
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();

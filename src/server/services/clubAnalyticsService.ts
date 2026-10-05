@@ -117,7 +117,7 @@ export async function loadClubOverview(db: DatabaseWrapper, range: AnalyticsRang
   for (const source of sources) { const label = playerSourceLabel(source.source); sourceBreakdown[label] = (sourceBreakdown[label] || 0) + source.count; }
   const participantStats = await db.get<any>(`SELECT
       SUM(CASE WHEN COALESCE(ep.response_status,'')<>'declined' AND (ep.response_status IN ('going','late') OR ep.registration_status IN ('going','confirmed','registered') OR ep.attendance_status IN ('attended','no_show')) THEN 1 ELSE 0 END) totalRegistrations,
-      SUM(CASE WHEN ep.response_status='declined' AND ep.registered_at IS NOT NULL THEN 1 ELSE 0 END) totalCancelled,
+      SUM(CASE WHEN ep.response_status='declined' AND ep.confirmed_at IS NOT NULL THEN 1 ELSE 0 END) totalCancelled,
       SUM(CASE WHEN ep.attendance_status='no_show' AND COALESCE(ep.response_status,'')<>'declined' THEN 1 ELSE 0 END) totalNoShow
     FROM evening_participants ep JOIN players p ON p.id=ep.player_id JOIN game_evenings e ON e.id=ep.evening_id
     WHERE ${MEMBER_SQL} AND e.status='completed' AND julianday(e.starts_at)>=julianday(?) AND julianday(e.starts_at)<julianday(?)`, [range.since, range.until]);

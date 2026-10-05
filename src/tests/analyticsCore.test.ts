@@ -18,7 +18,7 @@ async function fixture() {
     DROP TABLE IF EXISTS financial_transactions;
     CREATE TABLE players(id TEXT, lifecycle_status TEXT, source TEXT, game_level TEXT DEFAULT 'club');
     CREATE TABLE game_evenings(id TEXT, title TEXT, starts_at TEXT, status TEXT, settled_at TEXT);
-    CREATE TABLE evening_participants(id TEXT, evening_id TEXT, player_id TEXT, attendance_status TEXT, payment_status TEXT, amount_due INTEGER, amount_paid INTEGER, response_status TEXT, registration_status TEXT, registered_at TEXT);
+    CREATE TABLE evening_participants(id TEXT, evening_id TEXT, player_id TEXT, attendance_status TEXT, payment_status TEXT, amount_due INTEGER, amount_paid INTEGER, response_status TEXT, registration_status TEXT, registered_at TEXT, confirmed_at TEXT);
     CREATE TABLE evening_game_slots(evening_id TEXT, status TEXT);
     CREATE TABLE evening_announcement_dm_tracking(evening_id TEXT,player_id TEXT,first_sent_at TEXT,delivery_status TEXT,reminder_count INTEGER);
     CREATE TABLE games(evening_id TEXT, slots_json TEXT, archived_at TEXT);
@@ -68,6 +68,13 @@ describe('canonical analytics foundation', () => {
     expect(result).toMatchObject({fillRate:.05,fillEvenings:1,fillSkipped:1,totalRegistrations:2,totalCancelled:0,registrationBase:2,sourceBreakdown:{Telegram:1,'Не указан':1}});
     expect(result.communicationFunnel).toMatchObject({delivered:2,answered:2,positive:1,attended:2});
     expect((await loadClubOverview(db,parseAnalyticsPeriod('30d',Date.parse('2026-10-05T12:00:00Z')))).sourceBreakdown).toEqual({'Не указан':1});
+  });
+  it('counts only a refusal after a recorded positive answer as a cancellation',async()=>{
+    const db=await fixture();
+    await db.exec(`INSERT INTO evening_participants(id,evening_id,player_id,attendance_status,response_status,registration_status,registered_at,confirmed_at)
+      VALUES ('initial-refusal','old','recent','pending','declined','declined','2026-06-20',NULL),
+             ('later-cancellation','second','recent','pending','declined','declined','2026-06-20','2026-06-21');`);
+    expect(await loadClubOverview(db,parseAnalyticsPeriod('all'))).toMatchObject({totalCancelled:1,registrationBase:3});
   });
   it('deduplicates seated and attended visits, excludes guests, and censors new cohorts', async () => {
     const db = await fixture();

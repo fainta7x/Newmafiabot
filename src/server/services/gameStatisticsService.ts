@@ -20,17 +20,19 @@ export async function loadStatGames(db: any, options: { sinceMs?: number | null;
   const limit = options.limit ? Math.max(1, Math.min(2000, Math.trunc(options.limit))) : null;
 
   const clubRows = await db.all(`
-    SELECT g.id, g.created_at, g.game_date, g.protocol_text, e.starts_at AS evening_date
+    SELECT g.id, g.created_at, g.game_date, g.protocol_text, e.starts_at AS evening_date,
+      COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at) AS completed_at
       FROM games g LEFT JOIN game_evenings e ON e.id = g.evening_id
      WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL
        AND CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text,'$.kind')='club_evening_protocol' AND json_extract(g.protocol_text,'$.protocol.status')='completed' AND json_type(g.protocol_text,'$.player_results')='array' ELSE 0 END
-       AND julianday(COALESCE(g.created_at,g.game_date,e.starts_at))>=julianday(?) AND julianday(COALESCE(g.created_at,g.game_date,e.starts_at))<julianday(?)
-       ORDER BY julianday(COALESCE(g.created_at,g.game_date,e.starts_at)) DESC,g.id DESC ${limit ? 'LIMIT ?' : ''}
+       AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))>=julianday(?)
+       AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))<julianday(?)
+       ORDER BY julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at)) DESC,g.id DESC ${limit ? 'LIMIT ?' : ''}
   `, limit ? [since,until,limit] : [since,until]);
   for (const row of clubRows) {
     const payload = parse(row.protocol_text);
     if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
-    const date = new Date(String(row.created_at || row.game_date || row.evening_date || ''));
+    const date = new Date(String(row.completed_at || row.created_at || row.game_date || row.evening_date || ''));
     if (!Number.isFinite(date.getTime())) continue;
     if (options.sinceMs && date.getTime() < options.sinceMs) continue;
     games.push({

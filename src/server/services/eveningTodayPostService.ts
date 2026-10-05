@@ -4,7 +4,9 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
+import { canEditVkWallPosts, createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
+import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
@@ -123,11 +125,18 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
     [format === 'NOVICE' ? 'novice' : format === 'CASUAL' ? 'club' : 'rating'],
   ).catch(() => null);
   if (!destination?.chat_id) return { status: 'failed', error: 'Не настроена Telegram-группа для этого вечера' };
+  const cover = await announcementCoverUrl(db, getPublicAppBaseUrl(), String(evening.id), evening.format).catch(() => null);
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: destination.chat_id, ...(destination.topic_id ? { message_thread_id: Number(destination.topic_id) } : {}), text, disable_web_page_preview: true }),
+      // The club photo above the text, as in the evening announcement (owner, 2026-10-05: every post comes with a photo).
+      body: JSON.stringify({
+        chat_id: destination.chat_id,
+        ...(destination.topic_id ? { message_thread_id: Number(destination.topic_id) } : {}),
+        text,
+        ...(cover ? { link_preview_options: { url: cover, prefer_large_media: true, show_above_text: true } } : { disable_web_page_preview: true }),
+      }),
     });
     const payload: any = await response.json().catch(() => null);
     if (response.ok && payload?.ok !== false) return { status: 'published', error: null };
@@ -137,11 +146,21 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
   }
 }
 
-export async function sendVk(text: string) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
-    const post = await createVkWallPost({ groupId, message: text });
+    // The club photo on the wall post, as in the evening announcement; without the photo the text post still goes out.
+    let attachments: string[] | undefined;
+    if (photo && canEditVkWallPosts()) {
+      try {
+        const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
+        if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+      } catch (error) {
+        console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
+      }
+    }
+    const post = await createVkWallPost({ groupId, message: text, attachments });
     return { status: 'published', error: null, url: post.externalUrl || null };
   } catch (error: any) {
     return { status: 'failed', error: error?.message || 'ВК недоступен', url: null };
@@ -171,7 +190,7 @@ export async function publishTodayPost(db: DatabaseWrapper, eveningId: string, i
     // Channels that already have the post are never posted to again.
     const [telegram, vk] = await Promise.all([
       existing?.telegram_status === 'published' ? { status: 'published', error: null } : sendTelegram(db, evening, text, fetchImpl),
-      existing?.vk_status === 'published' ? { status: 'published', error: null, url: existing.vk_url || null } : sendVk(text),
+      existing?.vk_status === 'published' ? { status: 'published', error: null, url: existing.vk_url || null } : sendVk(text, { db, eveningId, format: evening.format }),
     ]);
     const done = new Date().toISOString();
     const reached = telegram.status === 'published' || vk.status === 'published';

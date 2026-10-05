@@ -3,6 +3,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { buildTodayPostDraft, loadTodayPost, publishTodayPost, runTodayPostSchedule, skipTodayPost } from '../server/services/eveningTodayPostService.ts';
 import { loadEveningRoute } from '../server/services/eveningRouteService.ts';
+import { addAnnouncementPhoto } from '../server/services/announcementPhotoService.ts';
 import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -60,6 +61,22 @@ describe('«Сегодня играем» post', () => {
     expect(draft.text).toContain('Вера (с 3-й игры)');
     expect(draft.text).not.toContain('Гоша');
     expect(draft.text).toMatch(/не хватает \d+ человек/);
+  });
+
+  it('puts the club photo above the text, and sends no preview when there is no photo (owner, 2026-10-05)', async () => {
+    const db = await setup();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const calls: any[] = [];
+    const fetchImpl = (async (_url: string, init: any) => { calls.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
+    await publishTodayPost(db, 'ev', { text: 'Сегодня играем' }, fetchImpl);
+    expect(calls[0].disable_web_page_preview).toBe(true);
+    expect(calls[0].link_preview_options).toBeUndefined();
+
+    await db.run("DELETE FROM evening_today_posts WHERE evening_id = 'ev'");
+    const photo = await addAnnouncementPhoto(db, { base64: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64'), audience: 'NOVICE' });
+    await publishTodayPost(db, 'ev', { text: 'Сегодня играем' }, fetchImpl);
+    expect(calls[1].disable_web_page_preview).toBeUndefined();
+    expect(calls[1].link_preview_options).toEqual({ url: expect.stringMatching(new RegExp(`^https://.*/announce-photo/${photo.id}\\.jpg$`)), prefer_large_media: true, show_above_text: true });
   });
 
   it('publishes to the evening group once and shows in the route', async () => {

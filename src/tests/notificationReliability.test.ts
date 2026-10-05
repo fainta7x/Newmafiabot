@@ -76,3 +76,26 @@ describe('a VK message that can no longer be delivered', () => {
     expect(await db.get<any>("SELECT selected_channel, status FROM personal_notification_deliveries WHERE notification_key='seat:vk2'")).toMatchObject({ selected_channel: 'vk', status: 'pending_channel' });
   });
 });
+
+describe('messages queued inside a transaction', () => {
+  it('are not sent before it commits, and never when it rolls back', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const db = await setup();
+    await db.run("UPDATE players SET telegram_user_id = '555' WHERE id = 'p1'");
+    const sent: string[] = [];
+    vi.stubGlobal('fetch', (async (_url: any, init: any) => { sent.push(JSON.parse(String(init.body)).text); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as typeof fetch);
+
+    await expect(db.transaction(async (tx) => {
+      await queuePersonalNotification(tx, note('tx:rolled-back'));
+      const { drainTelegramMessageOutbox } = await import('../server/services/telegramMessageOutboxService.ts');
+      expect(await drainTelegramMessageOutbox(tx)).toMatchObject({ processed: 0 });
+      throw new Error('rollback');
+    })).rejects.toThrow('rollback');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(sent).toEqual([]);
+    expect(await db.get<any>("SELECT 1 FROM telegram_message_outbox WHERE message_key = 'tx:rolled-back'")).toBeNull();
+
+    await db.transaction(async (tx) => { await queuePersonalNotification(tx, note('tx:committed')); });
+    await vi.waitFor(() => expect(sent).toHaveLength(1), { timeout: 2000 });
+  });
+});

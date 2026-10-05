@@ -291,6 +291,7 @@ describe('live broadcast routes', () => {
     await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'red' WHERE id = ?", [games[0].id]);
     await db.run("UPDATE tournament_games SET status = 'completed', winner_team = 'black' WHERE id = ?", [games[1].id]);
     await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [games[2].id]);
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
 
     const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
     const token = String(config.body.overlay_path).split('/').pop()!;
@@ -325,5 +326,37 @@ describe('live broadcast routes', () => {
 
     expect((await request(app).get(`/api/games/tournament/${tournamentId}/${tournamentGameId}/broadcast-config`)).status).toBe(401);
     expect((await request(app).get(`/api/games/tournament/${tournamentId}/nope/broadcast-config`).set('Cookie', cookie)).status).toBe(404);
+  });
+
+  it('does not let a controller publish for a finished game or for a tournament that is not running', async () => {
+    const created = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', cookie)
+      .send({
+        title: 'Турнир не в эфире',
+        date: now,
+        chief_judge_name: 'Судья',
+        participants: canonicalPlayers.map((player) => ({ player_id: player.player_id, display_name: player.display_name })),
+      });
+    const tournamentId = created.body.id;
+    const gameId0 = created.body.games[0].id;
+    const publish = () => request(app)
+      .put(`/api/games/tournament/${tournamentId}/${gameId0}/broadcast-state`)
+      .set('Cookie', cookie)
+      .send({ state: audienceState() });
+
+    // a draft tournament is not on air yet, but its overlay link can already be set up in OBS
+    expect((await publish()).status).toBe(404);
+    expect((await request(app).get(`/api/games/tournament/${tournamentId}/${gameId0}/broadcast-config`).set('Cookie', cookie)).status).toBe(200);
+
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+    expect((await publish()).status).toBe(202);
+
+    await db.run("UPDATE tournament_games SET status = 'completed' WHERE id = ?", [gameId0]);
+    expect((await publish()).status).toBe(404);
+
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [gameId0]);
+    await db.run("UPDATE tournaments SET status = 'cancelled' WHERE id = ?", [tournamentId]);
+    expect((await publish()).status).toBe(404);
   });
 });

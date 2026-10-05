@@ -14,7 +14,14 @@ import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentA
  * group (the same place as «Мы собрались»). Each post goes out once.
  */
 
-const MAX_ATTEMPTS = 5;
+// 12 attempts with a growing pause (30 s doubling to 15 min) keep a result post alive for about two hours, so a Telegram
+// outage or a redeploy does not lose the game blank or the evening summary for good. A post stuck «sending» after a
+// crash is taken back after STALE_SENDING_MS.
+const MAX_ATTEMPTS = 12;
+const RETRY_BASE_MS = 30_000;
+const RETRY_MAX_MS = 15 * 60_000;
+const STALE_SENDING_MS = 15 * 60_000;
+const retryPauseMs = (attempts: number) => Math.min(RETRY_MAX_MS, RETRY_BASE_MS * (2 ** Math.max(0, attempts - 1)));
 const WINDOW_MS = 36 * 60 * 60 * 1000;
 const CLOSED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const ENABLED_KEY = 'enabled';
@@ -84,6 +91,14 @@ async function claim(db: DatabaseWrapper, key: string, kind: string, eveningId: 
      VALUES (?, ?, ?, ?, 'pending', 0, ?, ?)`,
     [key, kind, eveningId, gameId, now, now],
   );
+  // A process that died while sending leaves the post «sending» for ever: take it back after a while.
+  await db.run(
+    `UPDATE club_result_posts SET status = 'retry'
+      WHERE post_key = ? AND status = 'sending' AND datetime(updated_at) <= datetime(?)`,
+    [key, new Date(Date.now() - STALE_SENDING_MS).toISOString()],
+  );
+  const current = await db.get<any>('SELECT status, attempts, updated_at FROM club_result_posts WHERE post_key = ?', [key]);
+  if (current?.status === 'retry' && Date.now() - new Date(String(current.updated_at)).getTime() < retryPauseMs(Number(current.attempts || 0))) return false;
   const claimed = await db.run(
     `UPDATE club_result_posts SET status = 'sending', attempts = attempts + 1, updated_at = ?
       WHERE post_key = ? AND status IN ('pending', 'retry') AND attempts < ?`,
@@ -95,8 +110,9 @@ async function claim(db: DatabaseWrapper, key: string, kind: string, eveningId: 
 async function finish(db: DatabaseWrapper, key: string, result: { ok: boolean; temporary?: boolean; error?: string }) {
   const now = new Date().toISOString();
   await db.run(
-    `UPDATE club_result_posts SET status = ?, last_error = ?, sent_at = ?, updated_at = ? WHERE post_key = ?`,
-    [result.ok ? 'sent' : result.temporary ? 'retry' : 'failed', result.ok ? null : String(result.error || '').slice(0, 500), result.ok ? now : null, now, key],
+    `UPDATE club_result_posts SET status = CASE WHEN ? THEN 'sent' WHEN ? AND attempts < ? THEN 'retry' ELSE 'failed' END,
+            last_error = ?, sent_at = ?, updated_at = ? WHERE post_key = ?`,
+    [result.ok ? 1 : 0, result.temporary ? 1 : 0, MAX_ATTEMPTS, result.ok ? null : String(result.error || '').slice(0, 500), result.ok ? now : null, now, key],
   );
 }
 
@@ -170,7 +186,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     const games = await db.all<any>(`
       SELECT g.id, g.protocol_text FROM games g
        WHERE g.evening_id = ? AND g.archived_at IS NULL
-         AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND p.status IN ('sent', 'failed', 'sending'))
+         AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'game:' || g.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
        ORDER BY g.global_game_number, g.id
     `, [evening.id]);
     for (const game of games) {
@@ -189,9 +205,9 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
        AND datetime(e.starts_at) >= datetime(?)
        AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
        AND (NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
-         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND p.status IN ('sent', 'failed', 'sending'))
+         OR NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'evening:' || e.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
          OR (datetime(e.starts_at) >= datetime(?)
-           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND p.status IN ('sent', 'failed', 'sending'))))
+           AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-evening:' || e.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))))
   `, [String(marker?.created_at || stamp), new Date(now - CLOSED_WINDOW_MS).toISOString(), publicSince]);
   for (const evening of closed) {
     if (await postEveningSummary(db, String(evening.id), evening.format, fetchImpl)) posted += 1;
@@ -205,7 +221,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
      WHERE gp.telegram_status = 'published' AND gp.image_data IS NOT NULL
        AND datetime(e.starts_at) >= datetime(?) AND datetime(e.starts_at) >= datetime(?)
-       AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND p.status IN ('sent', 'failed', 'sending'))
+       AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'public-gathered:' || gp.evening_id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))
   `, [publicSince, new Date(now - CLOSED_WINDOW_MS).toISOString()]).catch(() => []);
   for (const row of gathered) {
     if (await postPublicGathered(db, String(row.evening_id), fetchImpl)) posted += 1;
@@ -272,7 +288,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   const moscow = moscowParts(now);
   if (moscow.weekday !== 'Mon' || moscow.hour < 12 || moscow.hour >= 21) return false;
   const key = `public-season:${moscow.date}`;
-  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND status IN ('sent', 'failed', 'sending')", [key])) return false;
+  if (await db.get("SELECT 1 FROM club_result_posts WHERE post_key = ? AND (status IN ('sent', 'failed') OR (status = 'sending' AND datetime(updated_at) > datetime('now', '-15 minutes')))", [key])) return false;
   const stamp = new Date(now).toISOString();
   const periods = await db.all<any>(`
     SELECT * FROM rating_periods
@@ -399,7 +415,7 @@ async function runTournamentAnnouncements(db: DatabaseWrapper, fetchImpl: typeof
   const rows = await db.all<any>(
     `SELECT id FROM tournaments
       WHERE status IN ('draft', 'active') AND datetime(date) > datetime(?) AND datetime(date) <= datetime(?)
-        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'tournament-announce:' || tournaments.id AND p.status IN ('sent', 'failed', 'sending'))`,
+        AND NOT EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'tournament-announce:' || tournaments.id AND (p.status IN ('sent', 'failed') OR (p.status = 'sending' AND datetime(p.updated_at) > datetime('now', '-15 minutes'))))`,
     [new Date(now).toISOString(), new Date(now + TOURNAMENT_ANNOUNCE_HOURS * 3_600_000).toISOString()],
   ).catch(() => []);
   let posted = 0;

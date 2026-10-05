@@ -33,7 +33,9 @@ const integerInRange = (value: unknown, min: number, max: number, label: string)
 };
 
 const tenthInRange = (value: unknown, min: number, max: number, label: string): number => {
-  const number = Math.round(finite(value, label) * 10) / 10;
+  // Sign-symmetric: +0.05 and -0.05 round away from zero alike (Math.round alone sends -0.05 to 0 but +0.05 to 0.1).
+  const raw = finite(value, label);
+  const number = Math.sign(raw) * Math.round(Math.abs(raw) * 10) / 10;
   if (number < min || number > max) throw new Error(`${label}: допустимо от ${min} до ${max}`);
   return number;
 };
@@ -59,6 +61,12 @@ const validateBestMoves = (protocol: any, participantIds: Set<string>, tableSize
   }
 };
 
+
+const normalizeCi = (value: number, eligible: boolean, ceiling: number): number => {
+  if (!eligible) return 0;
+  return Math.round(Math.min(ceiling, Math.max(0, value)) * 100) / 100;
+};
+
 export interface CanonicalClubGameSave { protocol: any; playerResults: any[]; }
 
 export const canonicalizeClubGameSave = (
@@ -78,6 +86,7 @@ export const canonicalizeClubGameSave = (
   if (incomingIds.some((id) => !id) || new Set(incomingIds).size !== tableSize) throw new Error(`В протоколе должны быть ${tableSize} уникальных участников`);
   if (incomingIds.some((id) => !previousByParticipant.has(id))) throw new Error('Нельзя заменить состав уже созданной игры через протокол');
 
+  const firstKilledParticipantId = String(incomingProtocol?.first_killed_participant_id || '').trim() || null;
   const ppkCulpritId = String(incomingProtocol?.ppk_culprit_participant_id || '').trim() || null;
   const participantIds = new Set(incomingIds);
   if (ppkCulpritId && !participantIds.has(ppkCulpritId)) throw new Error('Виновник ППК не относится к этой игре');
@@ -159,6 +168,18 @@ export const canonicalizeClubGameSave = (
     }
   }
   // The chronology of the live game rides along with the protocol; manual saves that carry none keep the stored one.
+  // Ci compensation (BUSINESS_RULES «Ci compensation»): only the first-killed red player, and only when his own best move
+  // names a black player; at most the 0.4 rate when the reds lost and half of it when they won. The value goes straight
+  // into the club Elo, so whatever a client sends beyond that is dropped.
+  const blackSeats = new Set(playerResults.filter((result) => result.role === 'mafia' || result.role === 'don').map((result) => result.seat_number));
+  const firstKilledMove = (Array.isArray(incomingProtocol?.best_moves) ? incomingProtocol.best_moves : [])
+    .find((move: any) => move?.source === 'first_killed' && String(move?.participant_id || '') === firstKilledParticipantId);
+  const firstKilledNamesBlack = Boolean(firstKilledMove) && (Array.isArray(firstKilledMove.seat_numbers) ? firstKilledMove.seat_numbers : []).some((seat: any) => blackSeats.has(Number(seat)));
+  const ciCeiling = winnerTeam === 'black' ? 0.4 : winnerTeam === 'red' ? 0.2 : 0.4;
+  for (const result of playerResults) {
+    const eligible = result.participant_id === firstKilledParticipantId && (result.role === 'citizen' || result.role === 'sheriff') && firstKilledNamesBlack;
+    result.ci_points = normalizeCi(result.ci_points, eligible, ciCeiling);
+  }
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const protocol = { ...incomingProtocol, events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
   return { protocol, playerResults };

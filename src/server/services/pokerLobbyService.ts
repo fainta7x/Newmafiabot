@@ -68,7 +68,8 @@ export const exportPokerRuntimeSnapshot = (): PokerRuntimeSnapshot => {
 /** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
 export const NEXT_HAND_DELAY_MS = 4000;
 /** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
-const BOT_NAMES = ['Бот Лаки', 'Бот Блеф', 'Бот Скала', 'Бот Акула', 'Бот Профи', 'Бот Ниндзя', 'Бот Фортуна'];
+// Neutral names: the style of a bot is hidden and random (see botStyle), and a name must not hint at it.
+const BOT_NAMES = ['Бот Лаки', 'Бот Алекс', 'Бот Макс', 'Бот Дима', 'Бот Вадим', 'Бот Ниндзя', 'Бот Фортуна'];
 /**
  * How long a bot «thinks» before it acts (owner, 2026-10-05: the wait before the preflop action was far too long, with seven
  * bots it added up to ten seconds before a person was on turn). A fold or a check comes quickly, a call a bit later, a raise

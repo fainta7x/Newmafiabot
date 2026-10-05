@@ -91,7 +91,7 @@ describe('messages queued inside a transaction', () => {
       expect(await drainTelegramMessageOutbox(tx)).toMatchObject({ processed: 0 });
       throw new Error('rollback');
     })).rejects.toThrow('rollback');
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 250); });
     expect(sent).toEqual([]);
     expect(await db.get<any>("SELECT 1 FROM telegram_message_outbox WHERE message_key = 'tx:rolled-back'")).toBeNull();
 

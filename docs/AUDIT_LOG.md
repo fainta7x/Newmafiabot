@@ -115,7 +115,7 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 ### Open — parity gaps between modes (not fixed)
 
 - Club evening winners get no trophies (tournament winners do): `fixed (evening-awards PR)` — «Игрок вечера» (by wins) and «MVP вечера» (by vote) are trophies in the showcase.
-- Tournament results are not posted to channels.
+- Tournament results are not posted to channels: `fixed (tournament-results PR)` — published results go to the rating group and the entry channel.
 - Exit-reason and role wording duplicated in several places.
 - Two protocol editors (tournament vs club) differ in behaviour.
 - Tournament save path has no backoff/rebase like the club one.

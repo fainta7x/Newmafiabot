@@ -4,6 +4,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { internalGetNominations } from './tournamentsRoutesBase.ts';
 import { notifyTournamentResultsPublished } from '../services/tournamentResultsNotificationService.ts';
+import { postTournamentResults } from '../services/clubResultPostService.ts';
+import { isEveningPublishingPaused } from '../services/eveningPublishingPause.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 
 const router = Router();
@@ -164,6 +166,8 @@ router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedReque
     } catch (error) {
       console.warn('[TOURNAMENT] Results notifications could not be queued', req.params.id, error);
     }
+    // The official results also go to the rating group and the entry channel (owner, 2026-10-05); a failure is retried by the scan.
+    if (!isEveningPublishingPaused()) void postTournamentResults(db, String(req.params.id)).catch((error) => console.warn('[TOURNAMENT] Results post failed', req.params.id, error));
     res.json({ success: true, public_token: publicToken, notified });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Ошибка публикации результатов' });

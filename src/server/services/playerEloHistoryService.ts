@@ -133,6 +133,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     [DEFAULT_ELO],
   );
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') = 'legacy_guest_migrated'");
+  const guestPlayerIds = new Set(guestPlayerRows.map((player: any) => String(player.id)));
   const seedByPlayer = new Map<string, number>(players.map((player) => {
     const seed = Number(player.elo_seed);
     return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
@@ -218,6 +220,14 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     const winner = normalizeWinner(payload.protocol?.winner_team || game.winner_team);
     if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
+    // Same rule as the canonical Elo rebuild (`eloRatingService`): a seat held by a guest without a profile is never an
+    // Elo subject, and until the organizer resolves it to a registered player the whole game is withheld from Elo.
+    // Throwing here instead would break every profile page that reads the history.
+    const guestSeat = results.some((result: any) => {
+      const playerId = String(result?.player_id || '').trim();
+      return Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId);
+    });
+    if (guestSeat) continue;
     const eventPlayers: PreparedPlayer[] = results.map((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       if (!playerId || !knownPlayerIds.has(playerId)) {

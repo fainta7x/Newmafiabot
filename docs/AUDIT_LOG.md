@@ -69,6 +69,10 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 4. MEDIUM `fixed (poker-bot-strength PR)` — opponent ranges ignored what board and betting imply (`estimateEquity`/`opponentRanges`); c-bet too rare (~30%).
 5. LOW `open` — river all-ins are still frequent (~14% of hands); not verified against real players.
 
+### Elo history vs canonical rebuild (owner bug report, 2026-10-05)
+
+1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged; they now agree (a full unification into one module is not done).
+
 ### Open — parity gaps between modes (not fixed)
 
 - Club evening winners get no trophies (tournament winners do).

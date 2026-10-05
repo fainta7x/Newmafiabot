@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { minRaiseTotal, pokerHandRank, compareRanks, createDeck, type PokerCard, type PokerPlayer, type PokerState } from './pokerEngine.ts';
 
 /**
@@ -64,7 +65,13 @@ const isBluff3Bet = (cls: string) => /^A[2-5]s$/.test(cls) || ['76s', '87s', '98
 
 // ---------- Opponent memory ----------
 type OpponentStats = { hands: number; vpip: number; pfr: number; facedBet: number; foldedToBet: number; postflopAggro: number; postflopPassive: number };
-const opponents = new Map<string, OpponentStats>();
+export type OpponentMemory = Map<string, OpponentStats>;
+const defaultOpponents: OpponentMemory = new Map();
+const memoryStorage = new AsyncLocalStorage<OpponentMemory>();
+/** The memory of the current scope: each database (production, sandbox) keeps its own, see `withOpponentMemory`. */
+const memory = () => memoryStorage.getStore() || defaultOpponents;
+export const createOpponentMemory = (): OpponentMemory => new Map();
+export const withOpponentMemory = <T>(opponentMemory: OpponentMemory, callback: () => T) => memoryStorage.run(opponentMemory, callback);
 const blankStats = (): OpponentStats => ({ hands: 0, vpip: 0, pfr: 0, facedBet: 0, foldedToBet: 0, postflopAggro: 0, postflopPassive: 0 });
 
 /** Called once per finished hand: what every human (and bot) did, for the bots to adapt. */
@@ -76,8 +83,8 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
   const betOnStreet = new Map<string, boolean>();
   for (const entry of hand.action_log) {
     seen.add(entry.player_id);
-    const stats = opponents.get(entry.player_id) || blankStats();
-    opponents.set(entry.player_id, stats);
+    const stats = memory().get(entry.player_id) || blankStats();
+    memory().set(entry.player_id, stats);
     if (entry.street === 'preflop') {
       if (entry.type === 'call' || entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') voluntary.add(entry.player_id);
       if (entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') raisedPre.add(entry.player_id);
@@ -94,7 +101,7 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
   }
   for (const player of hand.players) {
     if (!seen.has(player.id)) continue;
-    const stats = opponents.get(player.id)!;
+    const stats = memory().get(player.id)!;
     stats.hands += 1;
     if (voluntary.has(player.id)) stats.vpip += 1;
     if (raisedPre.has(player.id)) stats.pfr += 1;
@@ -109,7 +116,7 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
 const PRIOR = { vpip: 0.25, pfr: 0.15, foldToBet: 0.4, aggression: 1, weight: 8 };
 
 export const pokerOpponentProfile = (playerId: string) => {
-  const stats = opponents.get(playerId);
+  const stats = memory().get(playerId);
   if (!stats) return { known: false, vpip: PRIOR.vpip, pfr: PRIOR.pfr, foldToBet: PRIOR.foldToBet, aggression: PRIOR.aggression };
   const w = PRIOR.weight;
   return {
@@ -121,7 +128,7 @@ export const pokerOpponentProfile = (playerId: string) => {
   };
 };
 
-export const resetPokerBotMemoryForTests = () => opponents.clear();
+export const resetPokerBotMemoryForTests = () => defaultOpponents.clear();
 
 // ---------- Helpers ----------
 const cardKey = (card: PokerCard) => `${card.rank}${card.suit}`;

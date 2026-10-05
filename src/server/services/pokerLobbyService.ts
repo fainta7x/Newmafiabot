@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { chooseStrongBotAction, observePokerHand } from './pokerBot.ts';
+import { chooseStrongBotAction, createOpponentMemory, observePokerHand, withOpponentMemory, type OpponentMemory } from './pokerBot.ts';
 import { type PokerCard, advancePokerAnimation, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, POKER_DEAL_CARD_MS, POKER_DEAL_SETTLE_MS, pokerHandLabel, pokerTurnRemaining, refreshPokerReserve, type PokerState } from './pokerEngine.ts';
 
 export type PokerHistoryEntry = {
@@ -22,7 +22,7 @@ export type StoredPokerHand = {
   /** [street, player id, action, amount] */
   actions: Array<[string, string, string, number]>;
 };
-export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number>; handLog: StoredPokerHand[] };
+export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number>; handLog: StoredPokerHand[]; /** What the bots learned about the players of this database only. */ memory?: OpponentMemory };
 
 const defaultRuntime: PokerRuntimeState = { lobbies: new Map(), bankrolls: new Map(), handLog: [] };
 const runtimeStorage = new AsyncLocalStorage<PokerRuntimeState>();
@@ -38,11 +38,17 @@ export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerR
   })),
   bankrolls: new Map(Object.entries(snapshot?.bankrolls || {}).map(([id, chips]) => [id, Math.max(0, Math.floor(Number(chips) || 0))])),
   handLog: [],
+  memory: createOpponentMemory(),
 });
-export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () => T | Promise<T>) => runtimeStorage.run(state, callback);
+export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () => T | Promise<T>) => runtimeStorage.run(
+  state,
+  () => (state.memory ? withOpponentMemory(state.memory, callback) : callback()),
+);
 export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); defaultRuntime.handLog.length = 0; };
 /** Hands finished since the last call; the persistence layer writes them to the database. */
-export const drainPokerHandLog = (): StoredPokerHand[] => runtime().handLog.splice(0);
+export const pendingPokerHandLog = (): StoredPokerHand[] => runtime().handLog.slice();
+/** Drops the first `count` pending hands once they are safely stored; hands of a failed write stay queued for the next request. */
+export const confirmPokerHandLog = (count: number) => { runtime().handLog.splice(0, count); };
 
 const effectiveStack = (lobby: PokerLobby, playerId: string) => {
   const seat = lobby.players.find((player) => player.id === playerId);

@@ -62,34 +62,82 @@ export async function loadPlayerEveningTitles(db: DatabaseWrapper, playerId: str
   return [...counts.entries()].map(([year, count]) => ({ year, count })).sort((a, b) => b.year - a.year);
 }
 
-/** The podium of a year: titles descending, equal counts share a place; at most three places. */
-export function buildYearPodium(titles: EveningTitle[], year: number) {
+/**
+ * How many evenings of «benefit of the doubt» a player gets in the yearly rating (owner, 2026-10-05: a minimum of
+ * evenings «or a coefficient people already invented»). It is the weighted rating used by IMDb-style charts: until a
+ * player has about this many evenings, his title rate is pulled toward the club average, so two evenings with two titles do
+ * not beat a regular with ten evenings and seven titles.
+ */
+export const YEAR_RATING_PRIOR_EVENINGS = 5;
+
+/**
+ * The podium of a year: players with at least one title, ranked by the weighted rating
+ * `(titles + m × clubRate) / (evenings + m)` (`clubRate` = all titles of the year over all attendances, `m` = 5), then by
+ * more titles, then by more evenings; equal ratings share a place; at most three places. Without attendance data the rank is
+ * simply by titles.
+ */
+export function buildYearPodium(titles: Array<{ year: number; player_id: string }>, year: number, attendance?: Map<string, number>) {
   const counts = new Map<string, number>();
   for (const title of titles) if (title.year === year) counts.set(title.player_id, (counts.get(title.player_id) || 0) + 1);
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const podium: Array<{ player_id: string; place: number; titles: number }> = [];
+  const totalTitles = [...counts.values()].reduce((sum, value) => sum + value, 0);
+  const totalAttendances = attendance ? [...attendance.values()].reduce((sum, value) => sum + value, 0) : 0;
+  const clubRate = totalAttendances > 0 ? totalTitles / totalAttendances : 0;
+  const rows = [...counts.entries()].map(([playerId, count]) => {
+    const evenings = attendance ? Math.max(attendance.get(playerId) || 0, count) : count;
+    const rating = attendance ? (count + YEAR_RATING_PRIOR_EVENINGS * clubRate) / (evenings + YEAR_RATING_PRIOR_EVENINGS) : count;
+    return { player_id: playerId, titles: count, evenings, rating };
+  }).sort((a, b) => b.rating - a.rating || b.titles - a.titles || b.evenings - a.evenings || a.player_id.localeCompare(b.player_id));
+  const podium: Array<{ player_id: string; place: number; titles: number; evenings: number; rating: number }> = [];
   let place = 0;
-  let previous = -1;
-  for (const [playerId, count] of ranked) {
-    if (count !== previous) { place = podium.length + 1; previous = count; }
+  let previous: { rating: number; titles: number; evenings: number } | null = null;
+  for (const row of rows) {
+    const same = previous && Math.abs(previous.rating - row.rating) < 1e-9 && previous.titles === row.titles && previous.evenings === row.evenings;
+    if (!same) place = podium.length + 1;
+    previous = row;
     if (place > 3) break;
-    podium.push({ player_id: playerId, place, titles: count });
+    podium.push({ ...row, place });
   }
   return podium;
 }
 
+/** Evenings attended per player per calendar year (completed evenings; the base of the yearly rating). */
+export async function loadYearAttendance(db: DatabaseWrapper): Promise<Map<number, Map<string, number>>> {
+  const rows = await db.all<any>(
+    `SELECT ep.player_id, e.starts_at, e.settled_at
+       FROM evening_participants ep JOIN game_evenings e ON e.id = ep.evening_id
+      WHERE ep.attendance_status = 'attended' AND ep.player_id IS NOT NULL AND (e.status = 'completed' OR e.settled_at IS NOT NULL)`,
+  ).catch(() => []);
+  const byYear = new Map<number, Map<string, number>>();
+  for (const row of rows) {
+    const year = moscowYear(row.starts_at || row.settled_at);
+    if (!year) continue;
+    const players = byYear.get(year) || new Map<string, number>();
+    players.set(String(row.player_id), (players.get(String(row.player_id)) || 0) + 1);
+    byYear.set(year, players);
+  }
+  return byYear;
+}
+
 /**
- * Keeps the player's «Игрок года» awards in line with the closed years: adds the ones earned, removes the ones that no
- * longer hold (a recounted vote). The current year has no award yet, only the counter.
+ * Keeps the player's yearly awards in line with the closed years (owner, 2026-10-05: two yearly titles): «Игрок года» for
+ * the evening titles «Игрок вечера» (by wins) and «MVP года» for «MVP вечера» (by vote), each with its own podium of three,
+ * ranked by the weighted rating. Adds the ones earned, removes the ones that no longer hold (a recounted vote or game).
+ * The current year has no award yet, only the counters.
  */
 export async function syncClubYearAwards(db: DatabaseWrapper, playerId: string, now = Date.now()) {
-  const titles = await loadEveningTitles(db, now);
+  const [mvpTitles, winTitles, attendance] = await Promise.all([loadEveningTitles(db, now), loadEveningWinTitles(db), loadYearAttendance(db)]);
   const currentYear = moscowYear(new Date(now).toISOString()) || new Date(now).getUTCFullYear();
-  const years = [...new Set(titles.map((title) => title.year))].filter((year) => year < currentYear);
-  const wanted = new Map<string, { year: number; place: number; count: number }>();
-  for (const year of years) {
-    const mine = buildYearPodium(titles, year).find((row) => row.player_id === playerId);
-    if (mine) wanted.set(`${AWARD_KEY_PREFIX}${year}:${mine.place}:${playerId}`, { year, place: mine.place, count: mine.titles });
+  const families = [
+    { prefix: `${AWARD_KEY_PREFIX}wins:`, name: 'Игрок года', source: 'Игрок вечера', titles: winTitles },
+    { prefix: `${AWARD_KEY_PREFIX}mvp:`, name: 'MVP года', source: 'MVP вечера', titles: mvpTitles },
+  ];
+  const wanted = new Map<string, { year: number; place: number; count: number; evenings: number; name: string; source: string }>();
+  for (const family of families) {
+    const years = [...new Set(family.titles.map((title) => title.year))].filter((year) => year < currentYear);
+    for (const year of years) {
+      const mine = buildYearPodium(family.titles, year, attendance.get(year) || new Map()).find((row) => row.player_id === playerId);
+      if (mine) wanted.set(`${family.prefix}${year}:${mine.place}:${playerId}`, { year, place: mine.place, count: mine.titles, evenings: mine.evenings, name: family.name, source: family.source });
+    }
   }
   const stamp = new Date(now).toISOString();
   for (const [sourceKey, award] of wanted) {
@@ -98,10 +146,11 @@ export async function syncClubYearAwards(db: DatabaseWrapper, playerId: string, 
          id, player_id, kind, title, tournament_name, award_date, award_year, place_result, description,
          source, source_type, source_key, verification_status, created_by, verified_by, verified_at, created_at, updated_at
        ) VALUES (?, ?, 'placement', ?, 'Клуб 2LA Noire', ?, ?, ?, ?, ?, 'automatic', ?, 'verified', 'system:club-year', 'system:club-year', ?, ?, ?)`,
-      [`award_${crypto.randomUUID()}`, playerId, `Игрок года ${award.year}`, `${award.year}-12-31`, award.year, `${award.place} место`,
-        `Званий «MVP вечера»: ${award.count}`, `Club year ${award.year}`, sourceKey, stamp, stamp, stamp],
+      [`award_${crypto.randomUUID()}`, playerId, `${award.name} ${award.year}`, `${award.year}-12-31`, award.year, `${award.place} место`,
+        `Званий «${award.source}»: ${award.count} за ${award.evenings} вечеров`, `Club year ${award.year}`, sourceKey, stamp, stamp, stamp],
     );
   }
+  // Every yearly award, including the single-family ones of the first release (`club-year:`), is reconciled.
   const persisted = await db.all<any>(
     "SELECT id, source_key FROM player_verified_awards WHERE player_id = ? AND source_type = 'automatic' AND source_key LIKE ?",
     [playerId, `${AWARD_KEY_PREFIX}%`],

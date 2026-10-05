@@ -6,6 +6,7 @@ import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from 
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
+import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
@@ -351,7 +352,7 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
       lines.push(`Баллы за вечер: ${comma(player.points)} · в среднем ${comma(player.points / player.games.length)}`);
     }
     if (player.eloDelta != null) lines.push(`Эло: ${comma(Math.round(player.eloDelta))} · теперь ${Math.round(player.eloAfter || 0)}`);
-    lines.push('🏆 Кто сыграл лучше всех? Отдай свой голос за «Игрока вечера»: Клуб → Истории (голосование открыто 3 дня, до понедельника).');
+    lines.push('🏆 Кто сыграл лучше всех? Отдай свой голос за «Игрока вечера»: кнопками в следующем сообщении или в приложении (Клуб → Истории), голосование открыто 3 дня.');
     const invite = await inviteFriendUrl(player.playerId, botUsername);
     const row = [
       ...(gamesUrl ? [{ text: '📋 Мои игры', web_app: { url: gamesUrl } }] : []),
@@ -368,6 +369,8 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
     });
     if (result.created) queued += 1;
   }
+  // The «Игрок вечера» vote as buttons, right after the card; a failure here must not hold back the cards.
+  await queueEveningVoteMessages(db, eveningId, evening.title).catch((error) => console.error('[CLUB RESULTS] vote messages failed:', error));
   const now = new Date().toISOString();
   await db.run(
     `INSERT INTO club_result_posts (post_key, kind, evening_id, status, attempts, sent_at, created_at, updated_at)

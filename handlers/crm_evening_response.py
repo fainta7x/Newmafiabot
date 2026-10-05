@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 import bot_menu
 import config
 import database
-from bot_api import schedule_evening_followup, submit_evening_response
+from bot_api import cast_evening_vote, schedule_evening_followup, submit_evening_response
 from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
@@ -244,3 +244,54 @@ async def handle_evening_followup(callback: CallbackQuery):
     else:
         text = "Не удалось сохранить. Попробуй позже."
     await callback.answer(text, show_alert=True)
+
+
+_VOTE_MARK = "✅ "
+_VOTE_ERRORS = {
+    "closed": "Голосование по этому вечеру уже закрыто.",
+    "not_attended": "Голосовать могут только игроки, которые были на этом вечере.",
+    "not_completed": "Вечер ещё не завершён.",
+    "not_found": "Профиль клуба не найден. Нажми /start.",
+    "bad_nominee": "Этого игрока нельзя выбрать.",
+    "ambiguous_nominee": "Не получилось определить игрока. Проголосуй в приложении: Клуб → Истории.",
+}
+
+
+def _mark_vote_choice(markup: InlineKeyboardMarkup | None, chosen_data: str) -> InlineKeyboardMarkup | None:
+    """The same voting keyboard with a check mark on the player the voter chose (and on nobody else)."""
+    if markup is None:
+        return None
+    rows = []
+    for row in markup.inline_keyboard:
+        new_row = []
+        for button in row:
+            text = button.text[len(_VOTE_MARK):] if button.text.startswith(_VOTE_MARK) else button.text
+            if button.callback_data == chosen_data:
+                text = f"{_VOTE_MARK}{text}"
+            new_row.append(button.model_copy(update={"text": text}))
+        rows.append(new_row)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data.startswith("evv:"))
+async def handle_evening_vote(callback: CallbackQuery):
+    """A tap on a player under «Кто сыграл лучше всех?» is the vote for «Игрок вечера»; another tap changes it."""
+    try:
+        _, evening_id, nominee = callback.data.split(":", 2)
+    except (AttributeError, ValueError):
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    if not evening_id or not nominee:
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    result = await cast_evening_vote(evening_id, callback.from_user.id, nominee)
+    if result.get("success"):
+        chosen = (result.get("data") or {}).get("nominee") or "игрок"
+        await callback.answer(f"✅ Твой голос: {chosen}", show_alert=False)
+        try:
+            if callback.message:
+                await callback.message.edit_reply_markup(reply_markup=_mark_vote_choice(callback.message.reply_markup, callback.data))
+        except Exception as exc:
+            print(f"[EVENING VOTE] Vote saved, but the keyboard was not updated: {exc}")
+        return
+    await callback.answer(_VOTE_ERRORS.get(result.get("error"), "Не удалось сохранить голос. Попробуй позже."), show_alert=True)

@@ -4,15 +4,11 @@ import { cardIdentity, orderOwnCards } from '../components/player/pokerCards.ts'
 const seven = { rank: '7', suit: 'hearts' };
 const ace = { rank: 'A', suit: 'spades' };
 
-describe('the player\'s own cards while they are dealt', () => {
-  it('keep the order they arrive in during the deal, so the first card does not move when the second comes', () => {
-    expect(orderOwnCards([seven], true)).toEqual([seven]);
-    expect(orderOwnCards([seven, ace], true)).toEqual([seven, ace]);
-  });
-
-  it('are put high card first once the deal is over', () => {
-    expect(orderOwnCards([seven, ace], false)).toEqual([ace, seven]);
-    expect(orderOwnCards([{ rank: '10', suit: 'clubs' }, { rank: 'K', suit: 'clubs' }], false)[0].rank).toBe('K');
+describe('the player\'s own cards', () => {
+  it('are laid out high card first from the first card, so each one flies to the slot it keeps', () => {
+    expect(orderOwnCards([seven, ace])).toEqual([ace, seven]);
+    expect(orderOwnCards([ace, seven])).toEqual([ace, seven]);
+    expect(orderOwnCards([{ rank: '10', suit: 'clubs' }, { rank: 'K', suit: 'clubs' }])[0].rank).toBe('K');
   });
 
   it('have an identity that does not depend on their place: moving a card never rebuilds it', () => {

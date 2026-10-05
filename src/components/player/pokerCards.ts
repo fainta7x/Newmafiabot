@@ -6,10 +6,10 @@ const RANK_VALUE: Record<string, number> = { '2': 2, '3': 3, '4': 4, '5': 5, '6'
 export const cardIdentity = (card: PokerCardFace) => `${card.rank}-${card.suit}`;
 
 /**
- * The player's own cards as shown. While they are being dealt they stay in the order they arrive: the first card lies still
- * and the second one flies to its side (owner, 2026-10-05: «прилетает одна карта, потом заново обе»). After the deal the pair
- * is put high card first, and since every card keeps its identity nothing animates again.
+ * The player's own cards as laid out: high card first, from the very first card. While the cards are being dealt each one
+ * flies straight to the slot it keeps (owner, 2026-10-05: «нужно чтобы при раздаче уже было понятно, на какое место должна
+ * упасть карта»), and since every card keeps its identity nothing moves again afterwards.
  */
-export const orderOwnCards = (cards: PokerCardFace[], dealing: boolean): PokerCardFace[] => (
-  dealing ? [...cards] : [...cards].sort((a, b) => (RANK_VALUE[b.rank] || 0) - (RANK_VALUE[a.rank] || 0))
+export const orderOwnCards = (cards: PokerCardFace[]): PokerCardFace[] => (
+  [...cards].sort((a, b) => (RANK_VALUE[b.rank] || 0) - (RANK_VALUE[a.rank] || 0))
 );

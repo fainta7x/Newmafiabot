@@ -52,7 +52,9 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
   it('keeps unresolved guests outside player-level derived effects', () => {
     expect(tokenSettlement).toContain("results.filter((result: any) => String(result?.player_id || '').trim())");
     expect(eloService).toContain('Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId)');
-    expect(eloService).toContain('if (guestSeat) continue;');
+    // Owner decision 2026-10-05: the game still counts, rated from the registered players; the guest's seat is left out.
+    expect(eloService).toContain('results.filter((result: any) => !isGuestSeat(result))');
+    expect(eloService).not.toContain('if (guestSeat) continue;');
     expect(postSave).toContain('...[...input.playerIds].map(String).filter(Boolean)');
   });
 

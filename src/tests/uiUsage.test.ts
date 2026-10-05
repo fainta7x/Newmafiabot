@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../server/services/uiUsageService.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { normalizeScreenPath, surfaceForPath } from '../lib/uiTelemetry.ts';
 import { sanitizeUiActionName } from '../lib/uiUsageNames.ts';
 
@@ -91,5 +92,46 @@ describe('UI usage tracking', () => {
     // the anonymous summary still has no player in it
     const summary = await getUiUsageSummary(db, 30, now);
     expect(JSON.stringify(summary)).not.toContain('p1');
+  });
+
+  describe('honest numbers: the owner and repeats do not count (owner, 2026-10-05)', () => {
+    const at = (minutes: number) => new Date(Date.parse('2026-09-23T10:00:00Z') + minutes * 60_000).toISOString();
+    const now = new Date('2026-09-23T20:00:00Z');
+    const events = (items: Array<[number, 'screen' | 'action', string]>) => items.map(([minutes, kind, name]) => ({ kind, name, at: at(minutes) }));
+
+    it('counts a person once per screen however many times he refreshes or goes back and forth inside a visit', async () => {
+      const db = makeDb();
+      await recordUiEvents(db, { sessionKey: 'session-aaaa', surface: 'player', role: 'player', playerId: 'ann', events: events([
+        [0, 'screen', '/player/rating'], [1, 'screen', '/player'], [2, 'screen', '/player/rating'], [3, 'screen', '/player'], [4, 'screen', '/player/rating'],
+        [5, 'action', 'player-nav-rating'], [5, 'action', 'player-nav-rating'], [6, 'action', 'player-nav-rating'],
+      ]) }, now);
+      const summary = await getUiUsageSummary(db, 30, now);
+      expect(summary.screens.find((row) => row.name === '/player/rating')).toMatchObject({ people: 1, visits: 1, events: 3 });
+      expect(summary.actions.find((row) => row.name === 'player-nav-rating')).toMatchObject({ people: 1, visits: 1, events: 3 });
+      expect(summary.people.player).toBe(1);
+      expect(summary.visits.player).toBe(1);
+    });
+
+    it('counts a second visit after a pause of more than half an hour, and the same person only once among people', async () => {
+      const db = makeDb();
+      await recordUiEvents(db, { sessionKey: 'session-aaaa', surface: 'player', role: 'player', playerId: 'ann', events: events([[0, 'screen', '/player/rating'], [61, 'screen', '/player/rating']]) }, now);
+      await recordUiEvents(db, { sessionKey: 'session-bbbb', surface: 'player', role: 'player', playerId: 'ann', events: events([[200, 'screen', '/player/rating']]) }, now);
+      await recordUiEvents(db, { sessionKey: 'session-cccc', surface: 'player', role: 'player', playerId: 'bob', events: events([[5, 'screen', '/player/rating']]) }, now);
+      const summary = await getUiUsageSummary(db, 30, now);
+      expect(summary.screens.find((row) => row.name === '/player/rating')).toMatchObject({ people: 2, visits: 4, events: 4 });
+      expect(summary.people.player).toBe(2);
+    });
+
+    it('leaves the club owner out, and organizers browsing the player app, but keeps the CRM surface', async () => {
+      const db = makeDb();
+      await recordUiEvents(db, { sessionKey: 'session-owner', surface: 'player', role: 'player', playerId: PRIMARY_ORGANIZER_PLAYER_ID, events: events([[0, 'screen', '/player/poker'], [1, 'action', 'poker-start']]) }, now);
+      await recordUiEvents(db, { sessionKey: 'session-orgp', surface: 'player', role: 'organizer', events: events([[0, 'screen', '/player/poker']]) }, now);
+      await recordUiEvents(db, { sessionKey: 'session-crm1', surface: 'crm', role: 'organizer', events: events([[0, 'screen', '/admin']]) }, now);
+      await recordUiEvents(db, { sessionKey: 'session-real', surface: 'player', role: 'player', playerId: 'ann', events: events([[0, 'screen', '/player/poker']]) }, now);
+      const summary = await getUiUsageSummary(db, 30, now);
+      expect(summary.screens.find((row) => row.surface === 'player' && row.name === '/player/poker')).toMatchObject({ people: 1, visits: 1 });
+      expect(summary.actions.some((row) => row.name === 'poker-start')).toBe(false);
+      expect(summary.people).toMatchObject({ player: 1, crm: 1 });
+    });
   });
 });

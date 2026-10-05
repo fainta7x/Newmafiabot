@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sanitizeUiActionName, sanitizeUiScreenName } from '../../lib/uiUsageNames.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 
 /**
  * UI usage events: which screens are opened and which buttons are pressed. No free text is stored — only a per-tab
@@ -83,44 +84,80 @@ export async function recordUiEvents(
   return stored;
 }
 
-export type UiUsageRow = { surface: string; name: string; events: number; sessions: number };
+/**
+ * `people` = different people (a signed-in player by his id, otherwise by the browser session), `visits` = visits (the events
+ * of one session without a gap longer than 30 minutes), `events` = every recorded event, kept for reference only. `sessions`
+ * equals `visits` (the old name, kept for the API). Refreshes, back-and-forth and repeated presses inside one visit count once.
+ */
+export type UiUsageRow = { surface: string; name: string; events: number; sessions: number; visits: number; people: number };
 export type UiUsageSummary = {
   days: number;
   sessions: { player: number; crm: number; public: number };
+  visits: { player: number; crm: number; public: number };
+  people: { player: number; crm: number; public: number };
   screens: UiUsageRow[];
   actions: UiUsageRow[];
 };
 
+const VISIT_GAP_MS = 30 * 60 * 1000;
+
+/**
+ * Honest usage numbers (owner, 2026-10-05): the club owner's own player activity is left out (he opens everything many times),
+ * organizers browsing the player app are not players, and inside one visit a repeated screen or button counts once.
+ * Computed when shown, so older events are recounted by the same rules. The CRM surface keeps every organizer session, as it
+ * cannot tell one organizer from another.
+ */
 export async function getUiUsageSummary(db: DatabaseWrapper, days: number, now = new Date()): Promise<UiUsageSummary> {
   await ensureUiUsageSchema(db);
   await purgeExpired(db, now);
   const safeDays = Math.min(Math.max(Math.round(days) || 30, 1), RETENTION_DAYS);
   const since = new Date(now.getTime() - safeDays * 86_400_000).toISOString();
-  const sessionRows = await db.all<{ surface: string; sessions: number }>(
-    'SELECT surface, COUNT(DISTINCT session_key) AS sessions FROM ui_usage_events WHERE created_at >= ? GROUP BY surface',
-    [since],
+  const rows = await db.all<{ created_at: string; session_key: string; surface: string; kind: string; name: string; player_id: string | null }>(
+    `SELECT created_at, session_key, surface, kind, name, player_id FROM ui_usage_events
+      WHERE created_at >= ? AND COALESCE(player_id, '') <> ? AND NOT (role = 'organizer' AND surface <> 'crm')
+      ORDER BY session_key, created_at ASC LIMIT 400000`,
+    [since, PRIMARY_ORGANIZER_PLAYER_ID],
   );
+  type Counter = { surface: string; name: string; events: number; people: Set<string>; visits: Set<string> };
+  const surfaceTotals = { player: { people: new Set<string>(), visits: new Set<string>() }, crm: { people: new Set<string>(), visits: new Set<string>() }, public: { people: new Set<string>(), visits: new Set<string>() } };
+  const counters = new Map<string, Counter>();
+  let lastSession = '';
+  let lastAt = 0;
+  let visitNo = 0;
+  for (const row of rows) {
+    const at = Date.parse(row.created_at);
+    if (row.session_key !== lastSession || at - lastAt > VISIT_GAP_MS) visitNo += 1;
+    lastSession = row.session_key;
+    lastAt = at;
+    const surface = row.surface as keyof typeof surfaceTotals;
+    if (!(surface in surfaceTotals)) continue;
+    const person = row.player_id ? `p:${row.player_id}` : `s:${row.session_key}`;
+    const visit = `v${visitNo}`;
+    surfaceTotals[surface].people.add(person);
+    surfaceTotals[surface].visits.add(visit);
+    const key = `${row.kind}|${surface}|${row.name}`;
+    const counter = counters.get(key) || { surface, name: row.name, events: 0, people: new Set<string>(), visits: new Set<string>() };
+    counter.events += 1;
+    counter.people.add(person);
+    counter.visits.add(visit);
+    counters.set(key, counter);
+  }
   // Ranked per surface so one surface can never crowd the other out of the result.
-  const top = async (kind: UiEventKind) => {
-    const rows: UiUsageRow[] = [];
+  const top = (kind: UiEventKind) => {
+    const result: UiUsageRow[] = [];
     for (const surface of ['player', 'crm', 'public'] as const) {
-      rows.push(...await db.all<UiUsageRow>(
-        `SELECT surface, name, COUNT(*) AS events, COUNT(DISTINCT session_key) AS sessions
-         FROM ui_usage_events WHERE created_at >= ? AND kind = ? AND surface = ?
-         GROUP BY name ORDER BY sessions DESC, events DESC LIMIT 30`,
-        [since, kind, surface],
-      ));
+      result.push(...[...counters.entries()]
+        .filter(([key, counter]) => key.startsWith(`${kind}|`) && counter.surface === surface)
+        .map(([, counter]) => ({ surface, name: counter.name, events: counter.events, sessions: counter.visits.size, visits: counter.visits.size, people: counter.people.size }))
+        .sort((a, b) => b.people - a.people || b.visits - a.visits || b.events - a.events || a.name.localeCompare(b.name))
+        .slice(0, 30));
     }
-    return rows;
+    return result;
   };
-  const sessions = { player: 0, crm: 0, public: 0 };
-  for (const row of sessionRows) if (row.surface in sessions) sessions[row.surface as keyof typeof sessions] = Number(row.sessions) || 0;
-  const cast = (rows: UiUsageRow[]) => rows.map((row) => ({ ...row, events: Number(row.events) || 0, sessions: Number(row.sessions) || 0 }));
-  return { days: safeDays, sessions, screens: cast(await top('screen')), actions: cast(await top('action')) };
+  const count = (pick: 'people' | 'visits') => ({ player: surfaceTotals.player[pick].size, crm: surfaceTotals.crm[pick].size, public: surfaceTotals.public[pick].size });
+  return { days: safeDays, sessions: count('visits'), visits: count('visits'), people: count('people'), screens: top('screen'), actions: top('action') };
 }
 
-
-const VISIT_GAP_MS = 30 * 60 * 1000;
 const clubDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
 
 /**

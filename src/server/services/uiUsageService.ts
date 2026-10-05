@@ -2,9 +2,10 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { sanitizeUiActionName, sanitizeUiScreenName } from '../../lib/uiUsageNames.ts';
 
 /**
- * Anonymous UI usage events: which screens are opened and which buttons are
- * pressed. No player ids or free text are stored — only a per-tab random
- * session key, the surface (player / crm / public) and a normalized name.
+ * UI usage events: which screens are opened and which buttons are pressed. No free text is stored — only a per-tab
+ * random session key, the surface (player / crm / public) and a normalized name. Events of a signed-in player also carry
+ * his id (owner request, 2026-10-05: per-player visits and clicks in the CRM player card; players are not told, only the
+ * owner and organizers see it); the anonymous summaries (`getUiUsageSummary`) never expose it.
  */
 export type UiEventKind = 'screen' | 'action';
 export type UiSurface = 'player' | 'crm' | 'public';
@@ -30,6 +31,9 @@ export async function ensureUiUsageSchema(db: DatabaseWrapper) {
     )
   `);
   await db.run('CREATE INDEX IF NOT EXISTS idx_ui_usage_events_created ON ui_usage_events(created_at)');
+  const columns = await db.all<{ name: string }>('PRAGMA table_info(ui_usage_events)');
+  if (!columns.some((column) => column.name === 'player_id')) await db.run('ALTER TABLE ui_usage_events ADD COLUMN player_id TEXT');
+  await db.run('CREATE INDEX IF NOT EXISTS idx_ui_usage_events_player ON ui_usage_events(player_id, created_at)');
   ensured.add(db);
 }
 
@@ -49,7 +53,7 @@ async function purgeExpired(db: DatabaseWrapper, now: Date) {
 
 export async function recordUiEvents(
   db: DatabaseWrapper,
-  input: { sessionKey: unknown; surface: unknown; role: 'player' | 'organizer'; events: unknown },
+  input: { sessionKey: unknown; surface: unknown; role: 'player' | 'organizer'; events: unknown; playerId?: string | null },
   now = new Date(),
 ): Promise<number> {
   const sessionKey = String(input.sessionKey || '').toLowerCase();
@@ -66,8 +70,8 @@ export async function recordUiEvents(
     // Client clocks are only trusted within the last day; otherwise use server time.
     const createdAt = Number.isFinite(atMs) && atMs <= nowMs && nowMs - atMs < 86_400_000 ? new Date(atMs) : now;
     await db.run(
-      'INSERT INTO ui_usage_events (created_at, session_key, surface, role, kind, name) VALUES (?, ?, ?, ?, ?, ?)',
-      [createdAt.toISOString(), sessionKey, surface, input.role, kind, name],
+      'INSERT INTO ui_usage_events (created_at, session_key, surface, role, kind, name, player_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [createdAt.toISOString(), sessionKey, surface, input.role, kind, name, input.role === 'player' && input.playerId ? String(input.playerId) : null],
     );
     stored += 1;
   }
@@ -113,4 +117,61 @@ export async function getUiUsageSummary(db: DatabaseWrapper, days: number, now =
   for (const row of sessionRows) if (row.surface in sessions) sessions[row.surface as keyof typeof sessions] = Number(row.sessions) || 0;
   const cast = (rows: UiUsageRow[]) => rows.map((row) => ({ ...row, events: Number(row.events) || 0, sessions: Number(row.sessions) || 0 }));
   return { days: safeDays, sessions, screens: cast(await top('screen')), actions: cast(await top('action')) };
+}
+
+
+const VISIT_GAP_MS = 30 * 60 * 1000;
+const clubDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
+
+/**
+ * One player's app activity for the CRM card: when he was last seen, how many visits (a visit = events with no gap longer
+ * than 30 minutes), the days he came, the screens he opened, the buttons he pressed and the latest steps in order.
+ * History exists only from the moment events started to carry the player id.
+ */
+export async function loadPlayerActivity(db: DatabaseWrapper, playerId: string, days = 30, now = new Date()) {
+  await ensureUiUsageSchema(db);
+  const span = Math.min(180, Math.max(1, Math.trunc(days) || 30));
+  const since = new Date(now.getTime() - span * 86_400_000).toISOString();
+  const rows = await db.all<{ created_at: string; kind: string; name: string }>(
+    'SELECT created_at, kind, name FROM ui_usage_events WHERE player_id = ? AND created_at >= ? ORDER BY created_at ASC LIMIT 20000',
+    [playerId, since],
+  );
+  const edge = await db.get<{ first_at: string | null; last_at: string | null }>(
+    'SELECT MIN(created_at) AS first_at, MAX(created_at) AS last_at FROM ui_usage_events WHERE player_id = ?', [playerId],
+  );
+
+  const visitsByDay = new Map<string, { visits: number; events: number }>();
+  const screens = new Map<string, number>();
+  const actions = new Map<string, number>();
+  let visits = 0;
+  let lastAt = 0;
+  const sevenDays = now.getTime() - 7 * 86_400_000;
+  let visitsLast7 = 0;
+  for (const row of rows) {
+    const at = Date.parse(row.created_at);
+    const day = clubDay(row.created_at);
+    const bucket = visitsByDay.get(day) || { visits: 0, events: 0 };
+    if (!lastAt || at - lastAt > VISIT_GAP_MS) {
+      visits += 1;
+      bucket.visits += 1;
+      if (at >= sevenDays) visitsLast7 += 1;
+    }
+    bucket.events += 1;
+    visitsByDay.set(day, bucket);
+    lastAt = at;
+    const target = row.kind === 'screen' ? screens : actions;
+    target.set(row.name, (target.get(row.name) || 0) + 1);
+  }
+  const top = (map: Map<string, number>) => [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+  return {
+    days: span,
+    tracking_since: edge?.first_at || null,
+    last_seen_at: edge?.last_at || null,
+    visits: { total: visits, last_7_days: visitsLast7, today: visitsByDay.get(clubDay(now.toISOString()))?.visits || 0 },
+    active_days: visitsByDay.size,
+    by_day: [...visitsByDay.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14).map(([day, value]) => ({ day, ...value })),
+    top_screens: top(screens).map(([name, opens]) => ({ name, opens })),
+    top_actions: top(actions).map(([name, count]) => ({ name, count })),
+    recent: rows.slice(-40).reverse().map((row) => ({ at: row.created_at, kind: row.kind, name: row.name })),
+  };
 }

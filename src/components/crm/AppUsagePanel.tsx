@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MousePointerClick } from 'lucide-react';
 import { api, type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
-import { SCREEN_LABELS } from '../../lib/screenLabels.ts';
+import { SCREEN_LABELS, actionLabel } from '../../lib/screenLabels.ts';
 
 // Screen names are shared with «Сейчас в приложении» (src/lib/screenLabels.ts).
 
@@ -9,20 +9,6 @@ import { SCREEN_LABELS } from '../../lib/screenLabels.ts';
 const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы', public: 'Публичные' } as const;
 
 const screenLabel = (row: UiUsageRow) => SCREEN_LABELS[row.name] || row.name;
-
-const NAV_LABELS: Record<string, string> = { home: 'Главная', events: 'События', games: 'Игры', rating: 'Рейтинг', club: 'Клуб', profile: 'Профиль' };
-const ACTION_LABELS: Record<string, string> = {
-  'player-quick-profile': 'Кнопка «Профиль»',
-  'player-quick-wallet': 'Кнопка жетонов',
-  'crm-today-evening-card': 'Карточка вечера на «Сегодня»',
-};
-
-const actionLabel = (name: string) => {
-  if (ACTION_LABELS[name]) return ACTION_LABELS[name];
-  const nav = name.match(/^player-nav-(.+)$/);
-  if (nav) return `Меню · ${NAV_LABELS[nav[1]] || nav[1]}`;
-  return name;
-};
 
 const PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, all: 180 };
 

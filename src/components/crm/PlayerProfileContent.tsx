@@ -1,6 +1,7 @@
 import React from 'react';
 import { PlayerProfileContent as PlayerProfileContentBase } from './PlayerProfileContentBase.tsx';
 import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
+import PlayerActivityCard from './PlayerActivityCard.tsx';
 
 export type PlayerProfileContentProps = React.ComponentProps<typeof PlayerProfileContentBase>;
 
@@ -12,6 +13,7 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = (props)
   <div className="space-y-3">
     <PlayerProfileIntegrityPanel player={props.player} />
     <PlayerProfileContentBase {...props} />
+    <PlayerActivityCard playerId={String(props.player.id)} />
   </div>
 );
 

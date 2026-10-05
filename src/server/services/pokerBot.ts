@@ -318,15 +318,16 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     const sizeNudge = potBefore > 0 ? 0.85 + 0.3 * Math.min(1, Math.max(0, (entry.amount / potBefore - 0.33) / 0.67)) : 1;
     const lineScale = positionScale * (continuation ? 0.7 : 1) * sizeNudge;
     streetHadBetBefore.add(entry.player_id);
-    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * lineScale + (checkRaise ? 1.2 : 0));
+    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * lineScale + (checkRaise ? 0.9 : 0));
     streetHadBet.set(entry.street, true);
   }
   // How each re-raiser (3-bet and later) raised: his raise-to over the bet he faced. Chips paid per action add up to his total.
-  const reraiseLine = new Map<string, { level: number; ratio: number }>();
+  const reraiseLine = new Map<string, { level: number; ratio: number; inPosition: boolean }>();
   {
     const total = new Map<string, number>();
     let bet = 0;
     let level = 0;
+    let openerId = '';
     for (const entry of hand.action_log) {
       if (entry.street !== 'preflop') break;
       total.set(entry.player_id, (total.get(entry.player_id) || 0) + (entry.amount || 0));
@@ -334,7 +335,13 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
       const raised = entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && mine > bet);
       if (!raised) continue;
       level += 1;
-      if (level >= 2) reraiseLine.set(entry.player_id, { level: level + 1, ratio: bet > 0 ? mine / bet : 3 });
+      if (level === 1) openerId = entry.player_id;
+      if (level >= 2) {
+        const me = hand.players.find((item) => item.id === entry.player_id);
+        const opener = hand.players.find((item) => item.id === openerId);
+        const inPosition = Boolean(me && opener) && openerLateness(hand, me!.seat) > openerLateness(hand, opener!.seat);
+        reraiseLine.set(entry.player_id, { level: level + 1, ratio: bet > 0 ? mine / bet : 3, inPosition });
+      }
       bet = Math.max(bet, mine);
     }
   }
@@ -343,10 +350,10 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     .map((player) => {
       const profile = pokerOpponentProfile(player.id);
       const loose = profile.known ? Math.min(0.7, Math.max(0.12, profile.vpip)) : 0.45;
-      // GTO-like opening ranges by position (owner, 2026-10-05): under the gun opens ~12% of hands, the button ~32%;
+      // GTO-like opening ranges by position (owner, 2026-10-05): under the gun opens ~14% of hands, the button ~42% (6-max charts);
       // a re-raised pot is much tighter. A known player's own VPIP pulls the range toward how he really plays.
       const opened = openerLateness(hand, player.seat);
-      const positional = 0.12 + 0.2 * opened;
+      const positional = 0.14 + 0.28 * opened;
       const openRangeOf = profile.known ? (positional + Math.min(0.5, loose)) / 2 : positional;
       // A re-raise narrows only the player who made it, and by how he made it: a 3-bet from the button or a blind is
       // wider than from early position, and a small one (to ~4 big blinds over a 2 bb open) is wider than a standard
@@ -355,7 +362,9 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
       let range = raisers.has(player.id) ? openRangeOf : loose;
       if (reraise) {
         const base = reraise.level >= 3 ? 0.05 : 0.07 + 0.06 * opened;
-        const sizeFactor = reraise.ratio <= 2.2 ? 1.5 : reraise.ratio >= 3.2 ? 0.85 : 1;
+        // Charts: ~3x the open in position, ~3.5–4x out of position, so a size is judged against what its position normally uses.
+        const typical = reraise.inPosition ? 3 : 3.8;
+        const sizeFactor = reraise.ratio <= typical * 0.75 ? 1.4 : reraise.ratio >= typical * 1.2 ? 0.85 : 1;
         range = Math.min(0.3, base * sizeFactor * (profile.known && profile.vpip > 0.45 ? 1.3 : 1));
       }
       if (player.seat === hand.big_blind_seat && preflopRaises(hand).count === 0) range = 1;

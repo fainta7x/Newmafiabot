@@ -593,7 +593,7 @@ Registration eligibility (user-approved 2026-09-23):
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
 - Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
-The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
+The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (the club table; the personal Elo dynamics are the «Elo» tab of the profile), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
 
 ## Elo / rating principles
 
@@ -692,6 +692,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 
 ## Player profile and terminology (owner, 2026-10-05)
 
+- **One place each.** A player's own games and his Elo history are in his profile only; «Игры» holds the club archive of games and the evening summaries (every game has its own page); «Рейтинг» holds the club table, seasons and tournaments.
 - **One profile.** A player's statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» live in one place — the player profile («Профиль»; another player's profile opens as an overlay with the same sections). No other screen repeats them; the «Игры» section holds the history of games and the evening summaries only. All its numbers come from one source (`premiumPlayerProfileService.ts`).
 - **Overlay menu.** The profile of another player opened over the cabinet always carries the usual bottom menu next to the «←» button.
 - **Hidden statistics.** When a player switched «Игровая статистика» off, others see a plain note instead of numbers; his games, roles and Elo are not available to them.
@@ -701,5 +702,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 ## Poker table seats (owner, 2026-10-05)
 
 - A person who is completely AFK for **more than 5 minutes** — the app closed or the screen left, or «Отойти»/missed turns without coming back — is taken off the table; his cards are folded in a running hand and his chips stay in his bankroll. Bots are never kicked this way.
-- Closing the poker screen leaves the table at once.
+- Closing the poker screen leaves the table at once. A person whose app is in the background does not count as present; a person with no chips counts as away (he can press «Отойти», a rebuy brings him back).
+- Only the club owner can take a person off a table by hand; everybody else cannot.
+- Dealing runs at 0.8 of the old time; a bot waits 0.45 s to fold or check, 0.7 s to call and 0.95 s to raise; a player's own cards fade after he folds.
 - The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».

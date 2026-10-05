@@ -11,14 +11,12 @@ const TABS: Array<{ id: PlayerGamesSection; label: string }> = [
 
 export default function PlayerGamesHub({
   data,
-  canOpenAdmin,
   section,
   target = null,
   onOpen,
   onOpenProfile,
 }: {
   data: PlayerMeResponse;
-  canOpenAdmin: boolean;
   section: PlayerGamesSection;
   target?: string | null;
   onOpen: (section: PlayerGamesSection, target?: string | null) => void;
@@ -57,12 +55,8 @@ export default function PlayerGamesHub({
         <div className="player-games-v2">
           <PlayerHistoryStatsView
             data={data}
-            canOpenAdmin={canOpenAdmin}
-            initialTab="games"
-            embedded
-            onTabChange={(next) => {
-              if (next === 'games') onOpen(next);
-            }}
+            initialGameKey={target}
+            onGameChange={(gameKey) => onOpen('games', gameKey)}
           />
         </div>
       )}

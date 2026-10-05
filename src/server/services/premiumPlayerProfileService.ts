@@ -15,8 +15,8 @@ export type PremiumGameRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
 const ROLES: PremiumGameRole[] = ['citizen', 'sheriff', 'mafia', 'don'];
 const ROLE_LABELS: Record<PremiumGameRole, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
 
-/** The only screen of one game is its replay, and it exists for club games (the tournament protocol has no player screen). */
-const replayPath = (gameKey: string) => (String(gameKey).startsWith('club:') ? `/player/replay/${encodeURIComponent(String(gameKey))}` : null);
+/** The page of one game in the app (club and tournament games alike). */
+const gamePagePath = (gameKey: string) => `/player/games/${encodeURIComponent(String(gameKey))}`;
 
 const numeric = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const round = (value: number, digits = 1) => {
@@ -280,7 +280,7 @@ export async function loadPremiumProfileGames(db: DatabaseWrapper, playerId: str
       elo_after: eloItem?.elo_after ?? null,
       elo_delta: eloItem?.elo_delta ?? null,
       game_points: eloItem?.personal_game_points ?? fallbackGamePoints(game),
-      protocol_path: replayPath(game.id),
+      protocol_path: gamePagePath(game.id),
     };
   });
   return { games: page, total, offset, limit, next_offset: offset + page.length < total ? offset + page.length : null };
@@ -356,7 +356,7 @@ export async function loadPremiumProfileElo(db: DatabaseWrapper, playerId: strin
       elo_after: round(own.eloAfter, 2),
       elo_delta: round(own.totalDelta, 2),
       rating_position: position,
-      game_path: replayPath(key),
+      game_path: gamePagePath(key),
     });
   }
   const now = Date.now();

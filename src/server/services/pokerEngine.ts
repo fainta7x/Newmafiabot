@@ -10,7 +10,7 @@ export type PokerPlayer = { id: string; nickname: string; seat: number; chips: n
   total_committed: number;
   /** The stack before the blinds: the hand history shows what each player won or lost. */
   start_chips?: number };
-export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all_in'; amount: number; street: PokerStreet; at: number };
+export type PokerActionLogEntry = { player_id: string; player_name: string; type: 'small_blind' | 'big_blind' | 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all_in'; amount: number; street: PokerStreet; at: number; /** Pot before this action: lets the bots judge how big a bet or raise was. */ pot?: number };
 export type PokerState = {
   id: string; players: PokerPlayer[]; dealer_seat: number; current_seat: number | null;
   small_blind_seat: number | null; big_blind_seat: number | null;
@@ -36,10 +36,11 @@ export type PokerState = {
   animations_enabled: boolean;
 };
 
-export const POKER_DEAL_CARD_MS = 420;
-export const POKER_DEAL_SETTLE_MS = 500;
-export const POKER_RUNOUT_START_MS = 700;
-const POKER_RUNOUT_DELAYS_MS = [520, 520, 950, 1050, 1150, 0];
+// Dealing runs 20% faster than before (owner, 2026-10-05): every pause and card interval was cut to 80%.
+export const POKER_DEAL_CARD_MS = 336;
+export const POKER_DEAL_SETTLE_MS = 400;
+export const POKER_RUNOUT_START_MS = 560;
+const POKER_RUNOUT_DELAYS_MS = [416, 416, 760, 840, 920, 0];
 
 const SUITS: PokerSuit[] = ['clubs', 'diamonds', 'hearts', 'spades'];
 const RANKS: PokerRank[] = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
@@ -263,7 +264,7 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
     actionAmount = paid; player.chips -= paid; player.committed += paid; player.total_committed += paid; state.pot += paid; state.current_bet = Math.max(state.current_bet, player.committed); player.all_in = player.chips === 0;
   } else throw new Error('Некорректное действие.');
   player.acted = true; state.last_action = `${player.id}:${action.type}:${actionAmount}`;
-  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type === 'bet' && betBefore > 0 ? 'raise' : action.type, amount: actionAmount, street: state.street, at: Date.now() });
+  state.action_log.push({ player_id: player.id, player_name: player.nickname, type: player.all_in && actionAmount > 0 ? 'all_in' : action.type === 'bet' && betBefore > 0 ? 'raise' : action.type, amount: actionAmount, street: state.street, at: Date.now(), pot: state.pot - actionAmount });
   // Long enough for a whole hand: the bots read who raised before the flop.
   state.action_log = state.action_log.slice(-80);
   const active = activePlayers(state);
@@ -282,6 +283,8 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
       state.current_seat = null;
       state.turn_started_at = null;
       state.animation_phase = 'runout';
+      // Everyone is all-in and betting is closed: the cards are turned face up before the board runs out.
+      state.revealed_ids = active.map((item) => item.id);
       state.animation_step = state.street === 'preflop' ? 0 : state.street === 'flop' ? 3 : 4;
       state.animation_next_at = Date.now() + POKER_RUNOUT_START_MS;
       return state;

@@ -376,8 +376,8 @@ select optgroup {
   50% { box-shadow: 0 4px 12px rgba(0,0,0,.65), 0 0 16px rgba(220,38,38,.7); }
 }
 
-.poker-hole-card { display: inline-flex; opacity: 0; animation: poker-card-deal .64s cubic-bezier(.2,.8,.2,1) forwards; }
-.poker-board-card { display: inline-flex; opacity: 0; animation: poker-board-reveal .54s ease-out forwards; transform-style: preserve-3d; }
+.poker-hole-card { display: inline-flex; opacity: 0; animation: poker-card-deal .51s cubic-bezier(.2,.8,.2,1) forwards; }
+.poker-board-card { display: inline-flex; opacity: 0; animation: poker-board-reveal .43s ease-out forwards; transform-style: preserve-3d; }
 .poker-chip-flight { animation: poker-chip-flight .54s ease-out; }
 .poker-active-seat { animation: poker-seat-pulse 1.5s ease-in-out infinite; }
 .poker-winner-seat { animation: poker-winner-glow 1.1s ease-in-out infinite; }
@@ -423,6 +423,8 @@ select optgroup {
 .poker-seat-plaque--active { border-color: rgba(52,211,153,.85); box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 16px rgba(52,211,153,.35), 0 8px 18px rgba(0,0,0,.7); }
 .poker-folded-seat > :not(.poker-action-bubble) { opacity: .38; filter: grayscale(.85); }
 .poker-folded-seat .poker-action-bubble { opacity: 1; filter: none; }
+/* After a fold the player's own cards fade too, like the seat (owner, 2026-10-05): a face-up pair must not look playable. */
+.poker-hero-cards--folded { opacity: .38; filter: grayscale(.85); }
 .poker-room-bg {
   background:
     radial-gradient(circle at 15% 12%, rgba(196, 129, 48, .14), transparent 22%),

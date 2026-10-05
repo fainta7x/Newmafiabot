@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, POKER_AFK_LEAVE_MS, removeIdlePokerSeats, touchPokerSeat, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, botThinkMs, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, kickPokerPlayer, POKER_AFK_LEAVE_MS, removeIdlePokerSeats, touchPokerSeat, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, rebuyPoker, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -66,6 +66,53 @@ describe('poker rules (owner check 2026-10-01)', () => {
       expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(2);
       expect(lobby.players.every((player) => player.is_bot)).toBe(true);
     });
+  });
+
+  it('takes a person with no chips off the table after five minutes: he cannot go «away» himself', () => {
+    const MIN = 60_000;
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+    lobby.players.find((player) => player.id === 'b')!.chips = 0;
+    const t0 = Date.now();
+    touchPokerSeat(lobby, 'a', t0);
+    // his screen stays open, he only has no chips
+    for (let minute = 0; minute <= 6; minute += 1) { touchPokerSeat(lobby, 'a', t0 + minute * MIN); touchPokerSeat(lobby, 'b', t0 + minute * MIN); }
+    expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
+    expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
+    expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(1);
+    expect(lobby.players.map((player) => player.id)).toEqual(['a']);
+  });
+
+  it('a rebuy brings a person who was away back to the table', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+    const seat = lobby.players.find((player) => player.id === 'b')!;
+    seat.chips = 0;
+    setPokerSitOut(lobby, 'b', true);
+    expect(seat.sitting_out).toBe(true);
+    rebuyPoker(lobby, 'b');
+    expect(seat.sitting_out).toBe(false);
+    expect(seat.chips).toBeGreaterThan(0);
+  });
+
+  it('the owner can take a person off the table, a bot has its own button', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+    addPokerBot(lobby);
+    const bot = lobby.players.find((player) => player.is_bot)!;
+    expect(() => kickPokerPlayer(lobby, bot.id)).toThrow();
+    expect(() => kickPokerPlayer(lobby, 'nobody')).toThrow();
+    kickPokerPlayer(lobby, 'b');
+    expect(lobby.players.map((player) => player.id)).not.toContain('b');
+  });
+
+  it('a bot folds and checks quickly, calls a bit later and raises last, never longer than BOT_THINK_MS', () => {
+    expect(botThinkMs({ type: 'fold' })).toBeLessThan(botThinkMs({ type: 'call' }));
+    expect(botThinkMs({ type: 'check' })).toBe(botThinkMs({ type: 'fold' }));
+    expect(botThinkMs({ type: 'call' })).toBeLessThan(botThinkMs({ type: 'bet' }));
+    for (const type of ['fold', 'check', 'call', 'bet', 'all_in']) expect(botThinkMs({ type })).toBeLessThanOrEqual(BOT_THINK_MS);
+    // a whole round of seven bots now takes seconds, not tens of seconds
+    expect(7 * botThinkMs({ type: 'fold' })).toBeLessThan(4000);
   });
 
   it('shows «Мест нет» only when nobody can take a seat, and marks the table the viewer sits at', () => {

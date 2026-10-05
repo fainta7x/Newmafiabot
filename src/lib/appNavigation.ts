@@ -36,7 +36,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
   const paths: Record<PlayerRouteSection, string> = {
     home: '/player',
     events: target ? `/player/events/${encodeURIComponent(target)}` : '/player/events',
-    games: '/player/games',
+    games: target ? `/player/games/${encodeURIComponent(target)}` : '/player/games',
     conduct: target === 'music' ? '/player/conduct/music' : '/player/conduct',
     rating: '/player/rating',
     ratingperiods: '/player/rating/periods',
@@ -45,9 +45,9 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     club: '/player/club',
     payments: '/player/wallet',
     wallet: '/player/wallet',
-    profile: '/player/profile',
+    profile: target?.startsWith('tab:') ? `/player/profile/${encodeURIComponent(target.slice(4))}` : '/player/profile',
     more: '/player/club',
-    elo: '/player/elo',
+    elo: '/player/profile/elo',
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
     career: '/player/career',
     clubworld: '/player/seasons',
@@ -78,6 +78,16 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   if (parts[1] === 'events') {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'events', target, replayGameKey: null, canonicalPath: playerPathForSection('events', target) };
+  }
+  // Personal Elo history is a tab of the one profile: «/player/elo» and «/player/profile/elo» open it.
+  if (parts[1] === 'elo' || (parts[1] === 'profile' && parts[2])) {
+    const tab = parts[1] === 'elo' ? 'elo' : safeDecode(parts[2]);
+    const target = `tab:${tab}`;
+    return { section: 'profile', target, replayGameKey: null, canonicalPath: playerPathForSection('profile', target) };
+  }
+  if (parts[1] === 'games' && parts[2]) {
+    const target = safeDecode(parts[2]);
+    return { section: 'games', target, replayGameKey: null, canonicalPath: playerPathForSection('games', target) };
   }
   if (parts[1] === 'poker') return { section: 'poker', target: null, replayGameKey: null, canonicalPath: '/player/poker' };
   if (parts[1] === 'recaps') {
@@ -110,8 +120,12 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
+    if (parts[1] === 'games' && parts.length > 2) {
+      const state = typeof window !== 'undefined' ? window.history.state : null;
+      return typeof state?.gameReturn === 'string' && state.gameReturn.startsWith('/player') ? state.gameReturn : '/player/games';
+    }
     if (parts[1] === 'recaps') return '/player/games';
-    if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) || parts[1] === 'elo') return '/player/rating';
+    if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) ) return '/player/rating';
     if (parts[1] === 'seasons') return '/player/club';
     if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';
     if (parts[1] === 'conduct' || parts[1] === 'judging' || parts[1] === 'host' || parts[1] === 'table') return '/player';

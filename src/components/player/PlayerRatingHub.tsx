@@ -1,11 +1,10 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
-import PlayerEloJourney from './PlayerEloJourney.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 import PlayerRatingTable from './PlayerRatingTable.tsx';
 import PlayerTournamentResults from './PlayerTournamentResults.tsx';
 
-export type PlayerRatingSection = 'rating' | 'elo' | 'ratingperiods' | 'ratingtournaments';
+export type PlayerRatingSection = 'rating' | 'ratingperiods' | 'ratingtournaments';
 
 type RatingTab = 'elo' | 'season' | 'tournaments';
 
@@ -16,11 +15,6 @@ const TABS: Array<{ value: RatingTab; label: string }> = [
   { value: 'elo', label: 'Elo' },
   { value: 'season', label: 'Сезон' },
   { value: 'tournaments', label: 'Турниры' },
-];
-
-const ELO_VIEWS: Array<{ value: 'rating' | 'elo'; label: string }> = [
-  { value: 'rating', label: 'Таблица' },
-  { value: 'elo', label: 'Моя динамика' },
 ];
 
 const tabFor = (section: PlayerRatingSection): RatingTab => (
@@ -35,10 +29,13 @@ export default function PlayerRatingHub({
   data,
   section,
   onOpen,
+  onOpenProfileElo,
 }: {
   data: PlayerMeResponse;
   section: PlayerRatingSection;
   onOpen: (section: PlayerRatingSection) => void;
+  /** The personal Elo history is a tab of the profile, not a second screen here. */
+  onOpenProfileElo?: () => void;
 }) {
   const tab = tabFor(section);
 
@@ -56,20 +53,12 @@ export default function PlayerRatingHub({
           onValueChange={(next) => onOpen(sectionFor(next))}
           itemClassName="px-1 text-[12px]"
         />
-        {tab === 'elo' ? (
-          <SegmentedControl
-            ariaLabel="Вид Elo"
-            value={section === 'elo' ? 'elo' : 'rating'}
-            items={ELO_VIEWS}
-            onValueChange={onOpen}
-            itemClassName="px-1 text-[11px]"
-          />
+        {tab === 'elo' && onOpenProfileElo ? (
+          <button type="button" onClick={onOpenProfileElo} data-testid="rating-open-profile-elo" className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-left text-[13px] text-white/60">Моя динамика Elo, график и «что если» — в профиле ›</button>
         ) : null}
       </div>
 
-      {section === 'elo' ? (
-        <PlayerEloJourney embedded />
-      ) : tab === 'elo' ? (
+      {tab === 'elo' ? (
         <PlayerRatingTable playerId={data.player.id} />
       ) : tab === 'season' ? (
         <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">

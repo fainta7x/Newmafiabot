@@ -17,7 +17,7 @@ describe('player cabinet legacy decoupling', () => {
     const games = read('src/components/player/PlayerGamesHub.tsx');
     expect(games).not.toContain('PlayerCabinetShellLegacy');
     expect(games).toContain("import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx'");
-    expect(games).toContain("next === 'games'");
+    expect(games).toContain('initialGameKey={target}');
     // «Карьера» and «Статистика» moved into the one profile: the games hub no longer owns them.
     expect(games).not.toContain('PlayerCareerProfile');
   });

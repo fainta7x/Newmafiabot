@@ -6,7 +6,6 @@ const canonicalSections = [
   ['events', '/player/events'],
   ['games', '/player/games'],
   ['rating', '/player/rating'],
-  ['elo', '/player/elo'],
   ['clubworld', '/player/seasons'],
   ['club', '/player/club'],
   ['wallet', '/player/wallet'],

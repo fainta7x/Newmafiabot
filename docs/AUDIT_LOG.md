@@ -73,6 +73,15 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 
 1. LOW `fixed (profiles-audit PR)` — the mafia nomination read «Лучшая мафия» / «Лучший черный игрок» / «ЛУЧШАЯ МАФИЯ» in five places; now «Лучший чёрный» everywhere (awards definitions, nominations list, public results, CRM player card, result pictures); stored automatic trophies are renamed by the next trophy sync. Manually typed award titles are left as the organizer wrote them.
 
+### Poker table, round 2 (owner reports, 2026-10-05)
+
+1. HIGH `fixed (games-elo-unification PR)` — people who left the app stayed seated: the backgrounded WebView kept polling the table, which counted as presence (`PlayerPoker.tsx` poll, `touchPokerSeat`).
+2. MEDIUM `fixed` — a person with 0 chips was never counted as away (no `sitting_out`) and had no «Отойти» button, so the AFK timer never ran for him (`removeIdlePokerSeats`, busted panel).
+3. MEDIUM `fixed` — dealing animation: hole cards keyed by position and sorted high-first, so the second card rebuilt the first and both flew in again (`PlayerPoker.tsx`, now `pokerCards.ts`).
+4. MEDIUM `fixed` — the wait before a bot's preflop action: fixed 1.2 s think time plus a 0.9 s poll while it was not the person's turn (`tickPokerLobby`, poll interval).
+5. LOW `fixed` — a folded player's own cards did not fade although his seat did.
+6. NOTE — kicking a person is limited to the club owner (new server route, checked on the server).
+
 ### Elo history vs canonical rebuild (owner bug report, 2026-10-05)
 
 1. HIGH `fixed (elo-guest-seat PR)` — profile pages fail with «Canonical Elo cannot rate club game N: linked player is missing»: `playerEloHistoryService.ts` threw on a guest seat (no `player_id`), `eloRatingService.ts` skips the game. Two copies of the same rule had diverged. Owner decision: a game with a guest seat is rated from the remaining players instead of being skipped; both copies now do that (a full unification into one module is not done).
@@ -98,7 +107,7 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 9. LOW `fixed (profiles-audit PR)` — wording: tab «История клуба» vs section «История в клубе»; «Текущий период» vs «Текущий сезон» (season = rating period since 2026-10-04).
 10. LOW `open` — the birth year 2000 cannot be saved (the date picker's default year 2000 means «no year», `PlayerProfileSettings.tsx`).
 11. HIGH `fixed (profiles-audit PR; owner: «привести к единому виду»)` — the same statistics (games, wins, win rate, roles, red/black, awards) were shown in three places from different sources: «Игры → Карьера», «Игры → Статистика», «Профиль»; they could disagree. One profile now (PROJECT_STATE 89). «Моя аналитика» repeated the win rate and best role and sat under the overview; moved to «Связи» without the duplicates.
-12. LOW `open (next PR)` — `PlayerHistoryStatsView.tsx` still holds unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition; `PlayerEloJourney` vs the profile's Elo tab not compared yet.
+12. MEDIUM `fixed (games-elo-unification PR)` — `PlayerHistoryStatsView.tsx` held unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition, and «Игры → История → Мои игры» repeated the profile's «Игры» tab; the personal Elo history was shown three times (`PlayerEloJourney`, the profile's Elo tab, the chart in «Моя аналитика»). One place each now (PROJECT_STATE 93); a game got its own address, so the profile's links work.
 13. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.
 
 ### Open — parity gaps between modes (not fixed)

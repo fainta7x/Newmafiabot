@@ -427,7 +427,7 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
     // Every opponent must fold, each by his own profile (not the first one's profile for all).
     const foldEquity = opponentProfiles.reduce((all, other) => all * Math.min(0.85, (other.foldToBet + (hasInitiative ? 0.12 : 0)) * versusBettor * sizeFactor), 1);
     // A raise over a bet is called by the stronger part of the range: the caller's equity drops more than for a bet.
-    const calledEquity = Math.max(0, realized - (toCall > 0 ? 0.18 : 0.1) * Math.min(1.5, ratio));
+    const calledEquity = Math.max(0, realized - (toCall > 0 ? (river ? 0.3 : 0.18) : 0.1) * Math.min(1.5, ratio));
     const finalPot = pot + put * (1 + Math.min(1, opponentsLeft));
     const ev = foldEquity * pot + (1 - foldEquity) * (calledEquity * finalPot - put) - riskPremium * put;
     candidates.push({ action: raiseTo(hand, bot, bot.committed + put), ev });

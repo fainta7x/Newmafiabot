@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, createPokerLobby, leavePokerLobby, listPokerLobbies, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -178,6 +178,69 @@ describe('poker rules (owner check 2026-10-01)', () => {
     tickPokerLobby(lobby);
     vi.useRealTimers();
     expect(lobby.hand!.action_log.length).toBe(3);
+  });
+
+  it('a bot that lost all its chips leaves the table, so a full table of bots does not lock newcomers out', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-05T10:00:00Z'));
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
+    startPokerLobby(lobby, 'o');
+    expect(lobby.players).toHaveLength(8);
+    const bots = lobby.players.filter((player) => player.is_bot);
+    // the hand ends with three bots without chips; the human and the other bots still have theirs
+    lobby.hand!.street = 'finished'; lobby.hand!.finished_at = Date.now();
+    for (const bot of bots.slice(0, 3)) lobby.hand!.players.find((player) => player.id === bot.id)!.chips = 0;
+    tickPokerLobby(lobby);
+    // the seats are free at once, before the pause between hands is over
+    expect(lobby.players).toHaveLength(5);
+    expect(lobby.players.some((player) => bots.slice(0, 3).some((bot) => bot.id === player.id))).toBe(false);
+    expect(() => joinPokerLobby(lobby, { id: 'late', nickname: 'Late' })).not.toThrow();
+    expect(lobby.players).toHaveLength(6);
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS);
+    tickPokerLobby(lobby);
+    vi.useRealTimers();
+    // the next hand is dealt without them; the human is still seated
+    expect(lobby.hand!.players.map((player) => player.id)).not.toContain(bots[0].id);
+    expect(lobby.players.some((player) => player.id === 'o')).toBe(true);
+  });
+
+  it('a person can sit down at a table that is full of bots: the weakest bot gives up its seat', () => {
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
+    const bots = lobby.players.filter((player) => player.is_bot);
+    bots[3].chips = 400;
+    startPokerLobby(lobby, 'o');
+    joinPokerLobby(lobby, { id: 'late', nickname: 'Late' });
+    expect(lobby.players).toHaveLength(8);
+    expect(lobby.players.some((player) => player.id === 'late')).toBe(true);
+    expect(lobby.players.some((player) => player.id === bots[3].id)).toBe(false);
+    expect(lobby.players.filter((player) => player.is_bot)).toHaveLength(6);
+    // the person who was there keeps the seat
+    expect(lobby.players.some((player) => player.id === 'o')).toBe(true);
+  });
+
+  it('a table full of people is still full', () => {
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    for (let i = 1; i < 8; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+    expect(() => joinPokerLobby(lobby, { id: 'extra', nickname: 'Extra' })).toThrow('максимум 8');
+  });
+
+  it('a person without chips keeps the seat (rebuy), only bots are sent away', () => {
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    addPokerBot(lobby);
+    startPokerLobby(lobby, 'o');
+    lobby.hand!.street = 'finished'; lobby.hand!.finished_at = Date.now();
+    lobby.hand!.players.find((player) => player.id === 'o')!.chips = 0;
+    expect(removeBustedPokerBots(lobby)).toBe(0);
+    expect(lobby.players.map((player) => player.id)).toContain('o');
+  });
+
+  it('a waiting table drops a bot with an empty stack too', () => {
+    const lobby = createPokerLobby({ id: 'o', nickname: 'Owner' });
+    addPokerBot(lobby);
+    lobby.players.find((player) => player.is_bot)!.chips = 0;
+    expect(removeBustedPokerBots(lobby)).toBe(1);
+    expect(lobby.players.map((player) => player.id)).toEqual(['o']);
   });
 
   it('the table stays open: a newcomer sits down mid-hand and plays from the next hand', () => {

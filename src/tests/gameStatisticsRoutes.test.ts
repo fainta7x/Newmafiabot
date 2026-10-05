@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
@@ -65,6 +65,15 @@ describe('statistics across games', () => {
     expect(overview.body).toMatchObject({ games: 1, gamesTotal: 2 });
     expect(overview.body.zeroRound.blackVotedOut).toMatchObject({ count: 1, total: 1 });
     expect((await request(app).get('/api/analytics/game-stats')).status).toBe(401);
+  });
+  it('bounds the latest games across both sources without a per-game seat query',async()=>{
+    const {db}=await setup();
+    const all=vi.spyOn(db,'all');
+    const games=await loadStatGames(db,{limit:1});
+    expect(games).toHaveLength(1);
+    expect(all).toHaveBeenCalledTimes(2);
+    expect(all.mock.calls.every(([sql])=>String(sql).includes('LIMIT ?'))).toBe(true);
+    expect(await loadStatGames(db,{sinceMs:Date.now()+86400000,limit:2000})).toEqual([]);
   });
 
   it('shows a player the numbers of his own games in his profile summary (the one profile)', async () => {

@@ -681,14 +681,37 @@ Repository tests and GitHub checks verify code only. They do not prove the deplo
 
 ## Analytics definitions (owner-approved 2026-10-05)
 
-- Analytics members match `MEMBER_SQL` in `organizerAgendaService.ts`: archived, merged, blocked and guest-placeholder/legacy-migrated rows are excluded.
-- A visit uses `playerVisitsService.ts`: factual attendance OR a non-archived game's seat, deduplicated per player and evening. The evening must have started and not be draft/cancelled. This is the existing canonical rule, not an analytics-only restriction to active/completed statuses.
-- A new player has their first visit inside the chosen period; an active player has at least one visit there.
-- Inactivity is measured today from the last visit, in exclusive 30–59, 60–89 and 90+ day groups. Players without any visit are not inactive. CRM 14/28-day thresholds are unchanged.
-- Returning within 30 days means a second distinct evening within 30 days of the first visit. Only first visits inside the period with a full 30-day observation window enter the denominator. More recent first visits are pending; fewer than five mature players show a fraction, not a percentage.
-- Calendar months use Moscow time. The season is the active RATING period containing today, otherwise the latest active RATING period. No season means all time with an explicit explanation. Ranges have an inclusive start and exclusive end; date-only season ends include the entire last Moscow day.
-- Evening-date finances sum factual attended participants of completed/settled evenings by the evening's start date. Non-waived charges are accrued, recorded payments are paid, and unpaid balances are current debt; planned RSVP is not debt. Receipts from `income`/`debt_paid` use payment date and are a separate number, never added to evening-date payments. Financial details are owner-only; refunds/expenses are not a panel in this redesign.
-- Approved remaining UI definitions: fill rate uses game-slot seat capacity; invitation funnel percentages use the previous step; raw source keys receive plain Russian labels. These await the subsequent implementation slice.
+Canonical implementation: `MEMBER_SQL` and `playerVisitsService.ts`; half-open period boundaries in `analyticsPeriod.ts` (Moscow calendar months; active RATING season containing now, otherwise latest active; missing season explicitly falls back to all time). No changes to CRM 14/28-day cut-offs, game/pricing/award rules or data collection.
+
+The help wording below is mirrored verbatim in `src/lib/analyticsHelp.ts` and checked by a regression test. All counts are period-based unless the text explicitly says today/all time.
+
+- **members:** Участники клуба: без архивных, объединённых, заблокированных и гостевых профилей. Число на сегодня.
+- **newPlayers:** Новый игрок — участник клуба, чей первый визит попал в выбранный период.
+- **activePlayers:** Активный игрок — участник клуба хотя бы с одним визитом в выбранном периоде.
+- **visits:** Визит — отметка «пришёл» или место в неархивной игре начавшегося вечера, который не отменён и не является черновиком. Один игрок за вечер считается один раз.
+- **fill:** Заполняемость — визиты участников клуба, делённые на число мест игровых слотов (10 мест на слот), в среднем по завершённым вечерам периода. Вечера без слотов пропускаются.
+- **retention:** Возвращаются — участники клуба, которые пришли на второй вечер в течение 30 дней после первого. Учитываются первые визиты периода, с которых прошло 30 дней. При группе меньше пяти показываем только долю; остальные ещё считаются.
+- **inactive:** На сегодня: 30–59 дней, 60–89 дней и 90+ дней с последнего визита. Группы не пересекаются; игроки без визитов сюда не входят. Пороги CRM 14/28 дней не меняются.
+- **registrations:** Записи — участники клуба, ответившие «иду» / «приду позже», добавленные организатором или фактически пришедшие, без текущего отказа. Отказ сам по себе не запись. Отмена — отказ после записи (с сохранённой датой регистрации); её доля считается среди записей и этих отмен. Неявки — среди записей.
+- **sources:** Источники новых участников клуба, чей первый визит попал в выбранный период. Показываем 30 ведущих источников, остальные объединены в «Другие источники».
+- **finance:** По дате вечера: начисления без освобождённых от оплаты, фактическая оплата и текущий неоплаченный остаток пришедших участников завершённых или рассчитанных вечеров периода. Запланированная запись не создаёт долг.
+- **receipts:** Поступило в период — платежи income / debt_paid по дате платежа. Это другая база: не прибавляем их к оплате вечеров периода.
+- **funnel:** Личные приглашения за период по дате вечера. Каждая доля относится к предыдущему шагу: доставлено → ответили → идут → пришли. Числа сохраняют фактические ответы и посещения, поэтому доля может быть больше 100%.
+- **games:** Завершённые игры за период по дате сохранения протокола (турниры — по времени завершения). Игры без журнала ходов входят только в общее число. Не больше 2000 последних игр.
+- **zeroRound:** Первое голосование (круг 0) — голосование после нулевой ночи. Показана доля игр, где им заголосовали мафию или дона.
+- **bestMove:** Первый убитый — игрок, убитый первой ночью. Лучший ход — названные им три места. Здесь считаем ходы, среди которых есть чёрный игрок.
+- **gameDays:** День голосования — игровой круг, в котором было хотя бы одно голосование. Показываем среднее число таких дней на завершённую игру с журналом ходов.
+- **revotes:** Доля дней голосования, в которых было больше одного голосования (переголосование после ничьей).
+- **tableDecision:** Доля голосований с решением стола поднять или оставить спорных игроков; знаменатель — все голосования в журналах игр периода.
+- **sheriff:** Доля проверок шерифа, где проверенное место принадлежало мафии или дону; знаменатель — все записанные проверки шерифа.
+- **don:** Доля проверок дона, где проверенное место принадлежало шерифу; знаменатель — все записанные проверки дона.
+- **redWins:** Победы красных делим на игры с известным победителем при данной длине игры. Длина — число дней с голосованием; 6+ дней объединены.
+- **levels:** На сегодня: игровой уровень и допуски хранятся в профиле. Число посещений не меняет уровень или допуск автоматически.
+- **staff:** За период: завершённые или рассчитанные вечера назначенного организатора и завершённые игры клубного судьи. Завершённые турниры тоже считаются вечерами.
+- **usage:** Разные люди: игрок по профилю, иначе по сеансу браузера. Заход — события без паузы больше 30 минут в одном сеансе. Повтор экрана или кнопки в одном заходе считается один раз. Собственная игровая активность владельца и просмотр игрока организатором исключены. Храним последние 180 дней.
+- **now:** На сегодня, время Москвы: неотменённые вечера сегодня и ближайший будущий вечер. Онлайн — приложение открывали последние 90 секунд. Число долгов — неоплаченные записи фактически пришедших в завершённые или рассчитанные вечера, только для владельца.
+
+Shares ≥10% show an integer, smaller shares one decimal; zero denominator shows «—» via `formatShare`. Return percentage is suppressed for fewer than five mature first visits. Finance details show the latest 200 evenings, but totals include the entire period. Usage lists at most 30 rows per kind and surface; daily retention cleanup stays on ingestion, never on the summary read. The legacy analytics paths delegate to the same calculations for one release.
 
 ## Rule-change workflow
 

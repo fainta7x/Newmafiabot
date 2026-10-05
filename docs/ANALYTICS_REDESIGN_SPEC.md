@@ -1,6 +1,6 @@
 # Analytics redesign — implementation spec (for Codex/ChatGPT)
 
-Status: **owner-requested spec, not built.** Findings and numbering («A1…A19») refer to the 2026-10-05 «Analytics audit» in `docs/AUDIT_LOG.md`. Read `AGENTS.md` first (mobile-first 390 px, PR rules, docs rules, ask-before-new-product-work). This spec is the owner's approval for the work below; anything marked **ASK** needs the owner's «да» first.
+Status: **implemented in [PR #708](https://github.com/fainta7x/Newmafiabot/pull/708), awaiting final CI/mobile evidence and merge.** The owner approved all four §9 defaults on 2026-10-05; the subsequent instruction is to finish the whole specification without stopping at a foundation slice. Findings and numbering («A1…A19») refer to the 2026-10-05 «Analytics audit» in `docs/AUDIT_LOG.md`. Read `AGENTS.md` first (mobile-first 390 px, PR rules, docs rules, ask-before-new-product-work). This spec is the owner's approval for the work below; anything marked **ASK** needs the owner's «да» first.
 
 Goal: the owner opens «Аналитика» and in ten seconds understands how the club is doing, without knowing the jargon, and can trust every number because each has one written definition.
 

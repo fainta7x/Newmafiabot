@@ -3,6 +3,7 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../services/uiUsageService.ts';
 import { loadPresence } from '../services/presenceService.ts';
+import { resolveAnalyticsRange } from '../services/clubAnalyticsService.ts';
 
 const router = Router();
 
@@ -23,7 +24,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 router.get('/summary', requireOrganizerAuth, async (req, res) => {
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
-    res.json(await getUiUsageSummary(db, Number(req.query.days) || 30));
+    const period = req.query.period ? await resolveAnalyticsRange(db, String(req.query.period)) : Number(req.query.days) || 30;
+    res.json(await getUiUsageSummary(db, period));
   } catch (error) {
     console.error('[UI USAGE] summary failed', error);
     res.status(500).json({ error: 'Не удалось загрузить статистику использования' });

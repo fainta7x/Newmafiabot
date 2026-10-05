@@ -25,6 +25,10 @@ The Telegram viewport matrix covers representative Android narrow portrait, iOS 
 
 Before claiming visual approval, download the artifact for the intended PR run, check its source SHA, and inspect the actual images. Follow BINARY_ARTIFACT_SAFETY for ZIP downloads.
 
+### Analytics checks
+
+`crm-analytics-preview.spec.mjs` opens the real organizer shell at `/e2e/crm-analytics.html`, with fixture-only fetches. At 360 and 390 px it switches all four analytics tabs, checks overflow, 44 px targets, minimum 12 px panel text and a width-bounded help dialog, and saves fresh screenshots for inspection. No production/API workers or real player data are used.
+
 ## Private hosted copy and agent access
 
 The owner-private Sites copy is a snapshot built from this repository; generated bundles must never be edited by hand. Rebuild here and copy temp/ui-preview into the same Sites checkout's dist directory, preserving its .openai/hosting.json identity. Follow Sites hosting to commit, push, package and update that Site. GitHub automatically builds artifacts/screenshots; publishing the private Site is a separate agent action, not an unattended GitHub deployment.

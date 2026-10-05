@@ -6,6 +6,8 @@ import { ensureCommerceSchema } from './ensureCommerceSchema.ts';
 import { ensureCustomEventsSchema } from './ensureCustomEventsSchema.ts';
 import { ensureEloSeedSchema } from './ensureEloSeedSchema.ts';
 import { ensureEveningSlotsSchema } from './ensureEveningSlotsSchema.ts';
+import { ensureEveningAnnouncementTrackingSchema } from '../server/services/eveningAnnouncementTrackingService.ts';
+import { ensureUiUsageSchema } from '../server/services/uiUsageService.ts';
 import { ensureInviteAudienceSchema } from './ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './ensureJudgeAuthoritySchema.ts';
 import { ensureJudgeMusicSchema } from './ensureJudgeMusicSchema.ts';
@@ -33,6 +35,8 @@ export async function ensureIsolatedTestRuntimeSchema(db: DatabaseWrapper): Prom
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
   await ensureEveningSlotsSchema(db);
+  await ensureEveningAnnouncementTrackingSchema(db);
+  await ensureUiUsageSchema(db);
   await ensureLegacyRegularWaiverProtection(db);
   await ensureClubOperationsSchema(db);
   await ensureCanonicalEveningParticipantState(db);

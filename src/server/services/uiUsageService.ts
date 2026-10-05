@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { sanitizeUiActionName, sanitizeUiScreenName } from '../../lib/uiUsageNames.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { parseAnalyticsPeriod, type AnalyticsRange } from '../../lib/analyticsPeriod.ts';
 
 /**
  * UI usage events: which screens are opened and which buttons are pressed. No free text is stored — only a per-tab
@@ -45,9 +46,9 @@ export const normalizeUiEventName = (kind: UiEventKind, value: unknown): string 
   return kind === 'screen' ? sanitizeUiScreenName(raw) : sanitizeUiActionName(raw);
 };
 
-let lastPurgeDay = '';
+const lastPurgeDay = new WeakMap<object,string>();
 
-/** Deterministic retention: expired rows are removed at least once per day of use and on every summary. */
+/** Retention runs once per database per day on event ingestion, never on a summary read. */
 async function purgeExpired(db: DatabaseWrapper, now: Date) {
   await db.run('DELETE FROM ui_usage_events WHERE created_at < ?', [new Date(now.getTime() - RETENTION_DAYS * 86_400_000).toISOString()]);
 }
@@ -77,9 +78,9 @@ export async function recordUiEvents(
     stored += 1;
   }
   const today = now.toISOString().slice(0, 10);
-  if (stored && lastPurgeDay !== today) {
-    lastPurgeDay = today;
+  if (stored && lastPurgeDay.get(db) !== today) {
     await purgeExpired(db, now);
+    lastPurgeDay.set(db,today);
   }
   return stored;
 }
@@ -91,6 +92,8 @@ export async function recordUiEvents(
  */
 export type UiUsageRow = { surface: string; name: string; events: number; sessions: number; visits: number; people: number };
 export type UiUsageSummary = {
+  range?: AnalyticsRange;
+  retentionDays?: number;
   days: number;
   sessions: { player: number; crm: number; public: number };
   visits: { player: number; crm: number; public: number };
@@ -107,55 +110,32 @@ const VISIT_GAP_MS = 30 * 60 * 1000;
  * Computed when shown, so older events are recounted by the same rules. The CRM surface keeps every organizer session, as it
  * cannot tell one organizer from another.
  */
-export async function getUiUsageSummary(db: DatabaseWrapper, days: number, now = new Date()): Promise<UiUsageSummary> {
-  await ensureUiUsageSchema(db);
-  await purgeExpired(db, now);
-  const safeDays = Math.min(Math.max(Math.round(days) || 30, 1), RETENTION_DAYS);
-  const since = new Date(now.getTime() - safeDays * 86_400_000).toISOString();
-  const rows = await db.all<{ created_at: string; session_key: string; surface: string; kind: string; name: string; player_id: string | null }>(
-    `SELECT created_at, session_key, surface, kind, name, player_id FROM ui_usage_events
-      WHERE created_at >= ? AND COALESCE(player_id, '') <> ? AND NOT (role = 'organizer' AND surface <> 'crm')
-      ORDER BY session_key, created_at ASC LIMIT 400000`,
-    [since, PRIMARY_ORGANIZER_PLAYER_ID],
-  );
-  type Counter = { surface: string; name: string; events: number; people: Set<string>; visits: Set<string> };
-  const surfaceTotals = { player: { people: new Set<string>(), visits: new Set<string>() }, crm: { people: new Set<string>(), visits: new Set<string>() }, public: { people: new Set<string>(), visits: new Set<string>() } };
-  const counters = new Map<string, Counter>();
-  let lastSession = '';
-  let lastAt = 0;
-  let visitNo = 0;
-  for (const row of rows) {
-    const at = Date.parse(row.created_at);
-    if (row.session_key !== lastSession || at - lastAt > VISIT_GAP_MS) visitNo += 1;
-    lastSession = row.session_key;
-    lastAt = at;
-    const surface = row.surface as keyof typeof surfaceTotals;
-    if (!(surface in surfaceTotals)) continue;
-    const person = row.player_id ? `p:${row.player_id}` : `s:${row.session_key}`;
-    const visit = `v${visitNo}`;
-    surfaceTotals[surface].people.add(person);
-    surfaceTotals[surface].visits.add(visit);
-    const key = `${row.kind}|${surface}|${row.name}`;
-    const counter = counters.get(key) || { surface, name: row.name, events: 0, people: new Set<string>(), visits: new Set<string>() };
-    counter.events += 1;
-    counter.people.add(person);
-    counter.visits.add(visit);
-    counters.set(key, counter);
-  }
-  // Ranked per surface so one surface can never crowd the other out of the result.
-  const top = (kind: UiEventKind) => {
-    const result: UiUsageRow[] = [];
-    for (const surface of ['player', 'crm', 'public'] as const) {
-      result.push(...[...counters.entries()]
-        .filter(([key, counter]) => key.startsWith(`${kind}|`) && counter.surface === surface)
-        .map(([, counter]) => ({ surface, name: counter.name, events: counter.events, sessions: counter.visits.size, visits: counter.visits.size, people: counter.people.size }))
-        .sort((a, b) => b.people - a.people || b.visits - a.visits || b.events - a.events || a.name.localeCompare(b.name))
-        .slice(0, 30));
-    }
-    return result;
-  };
-  const count = (pick: 'people' | 'visits') => ({ player: surfaceTotals.player[pick].size, crm: surfaceTotals.crm[pick].size, public: surfaceTotals.public[pick].size });
-  return { days: safeDays, sessions: count('visits'), visits: count('visits'), people: count('people'), screens: top('screen'), actions: top('action') };
+export async function getUiUsageSummary(db: DatabaseWrapper, period: number | AnalyticsRange, now = new Date()): Promise<UiUsageSummary> {
+  const safeDays = typeof period === 'number' ? Math.min(Math.max(Math.round(period) || 30,1),RETENTION_DAYS) : RETENTION_DAYS;
+  const range = typeof period === 'number' ? parseAnalyticsPeriod(safeDays + 'd',now.getTime()) : period;
+  const retentionSince = new Date(now.getTime()-RETENTION_DAYS*86_400_000).toISOString();
+  const since = typeof period === 'number' ? new Date(now.getTime()-safeDays*86_400_000).toISOString() : (range.since > retentionSince ? range.since : retentionSince);
+  const until = range.until;
+  const cte = `WITH filtered AS (
+    SELECT id,created_at,CAST(ROUND((julianday(created_at)-2440587.5)*86400000) AS INTEGER) event_ms,session_key,surface,kind,name,COALESCE('p:'||NULLIF(player_id,''),'s:'||session_key) person
+    FROM ui_usage_events WHERE julianday(created_at)>=julianday(?) AND julianday(created_at)<julianday(?)
+      AND COALESCE(player_id,'')<>? AND NOT (role='organizer' AND surface<>'crm')
+  ), gaps AS (
+    SELECT *, LAG(event_ms) OVER (PARTITION BY session_key ORDER BY created_at,id) previous FROM filtered
+  ), numbered AS (
+    SELECT *, SUM(CASE WHEN previous IS NULL OR event_ms-previous>1800000 THEN 1 ELSE 0 END)
+      OVER (PARTITION BY session_key ORDER BY created_at,id ROWS UNBOUNDED PRECEDING) visit_no FROM gaps
+  ), visits AS (SELECT *,session_key||':'||visit_no visit FROM numbered)`;
+  const params = [since,until,PRIMARY_ORGANIZER_PLAYER_ID];
+  const totals = await db.all<{ surface: string; people: number; visits: number }>(`${cte} SELECT surface,COUNT(DISTINCT person) people,COUNT(DISTINCT visit) visits FROM visits GROUP BY surface`,params);
+  const rows = await db.all<UiUsageRow & { kind: UiEventKind }>(`${cte}, grouped AS (
+    SELECT kind,surface,name,COUNT(*) events,COUNT(DISTINCT person) people,COUNT(DISTINCT visit) visits,COUNT(DISTINCT visit) sessions FROM visits GROUP BY kind,surface,name
+  ), ranked AS (SELECT *,ROW_NUMBER() OVER (PARTITION BY kind,surface ORDER BY people DESC,visits DESC,events DESC,name) ranking FROM grouped)
+    SELECT kind,surface,name,events,people,visits,sessions FROM ranked WHERE ranking<=30 ORDER BY kind,surface,ranking`,params);
+  const people = { player:0,crm:0,public:0 }, visits = { player:0,crm:0,public:0 };
+  for (const row of totals) if (row.surface in people) { people[row.surface as keyof typeof people]=row.people; visits[row.surface as keyof typeof visits]=row.visits; }
+  const top = (kind: UiEventKind) => rows.filter(row => row.kind===kind).map(({ kind: _kind,...row })=>row);
+  return { days:safeDays, range:{...range,since}, retentionDays:RETENTION_DAYS, sessions:visits, visits, people, screens:top('screen'), actions:top('action') };
 }
 
 const clubDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Radio } from 'lucide-react';
 import { screenLabel } from '../../lib/screenLabels.ts';
 import { useClubOwner } from './useClubOwner.ts';
+import { AnalyticsHeading, analyticsCard } from './analyticsShared.tsx';
 
 type Online = { player_id: string; nickname: string; screen: string; on_screen_seconds: number };
 
@@ -11,15 +12,17 @@ const duration = (seconds: number) => (seconds < 60 ? 'меньше минуты
  * «Сейчас в приложении» (owner, 2026-09-30): who has the app open and on which screen, refreshed every
  * 15 seconds. Only the club owner sees it; players are not told.
  */
-export function OnlineNowPanel() {
+export function OnlineNowPanel({ active = true }: { active?: boolean }) {
   const owner = useClubOwner();
   const [online, setOnline] = useState<Online[] | null>(null);
   const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    if (owner === false) return undefined;
+    if (owner !== true || !active) return undefined;
     let stopped = false;
     const load = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         const response = await fetch('/api/presence', { credentials: 'include', cache: 'no-store' });
         const body = await response.json().catch(() => ({}));
@@ -29,18 +32,21 @@ export function OnlineNowPanel() {
     };
     void load();
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15_000);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, [owner]);
+    const visible = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange',visible);
+    return () => { stopped = true; window.clearInterval(timer); document.removeEventListener('visibilitychange',visible); };
+  }, [owner, active, revision]);
 
-  if (owner === false) return null;
+  if (owner !== true) return null;
   return (
-    <section data-testid="online-now" className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
+    <section data-testid="online-now" className={analyticsCard}>
+      <AnalyticsHeading title="Сейчас в приложении" help="now" caption="На сегодня · последние 90 секунд · видит только владелец" />
       <div className="flex items-center gap-2">
         <Radio className="h-4 w-4 text-success" />
-        <h3 className="text-[14px] font-black">Сейчас в приложении{online ? ` · ${online.length}` : ''}</h3>
+        <span className="text-[14px] font-semibold">Онлайн{online ? ` · ${online.length}` : ''}</span>
       </div>
-      <p className="mt-1 text-[11px] leading-4 text-text-muted">Кто открыл приложение за последние полторы минуты и на каком экране. Видите только вы, игрокам это не показывается.</p>
-      {error ? <p className="mt-2 text-[12px] text-danger">{error}</p> : null}
+      {error ? <div className="mt-2 text-xs text-danger">{error}<button type="button" onClick={()=>setRevision(value=>value+1)} className="ml-2 min-h-11 rounded-xl bg-surface-2 px-3 text-text-primary">Повторить</button></div> : null}
+      {!online && !error && <p className="mt-3 text-xs text-text-secondary">Загрузка списка…</p>}
       {online && !online.length ? <p className="mt-3 text-[12px] text-text-secondary">Сейчас никого.</p> : null}
       {online?.length ? <div className="mt-3 space-y-1.5">
         {online.map((person) => (
@@ -49,7 +55,7 @@ export function OnlineNowPanel() {
             <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[13px] text-text-primary">{person.nickname}</strong>
-              <span className="block truncate text-[11px] text-text-muted">{screenLabel(person.screen)} · {duration(person.on_screen_seconds)}</span>
+              <span className="block truncate text-[12px] text-text-muted">{screenLabel(person.screen)} · {duration(person.on_screen_seconds)}</span>
             </span>
           </div>
         ))}

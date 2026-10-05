@@ -393,7 +393,7 @@ export interface AnalyticsData {
   inactive90: number;
   cohortFirstVisits: number;
   cohortReturnedIn30Days: number;
-  cohortRetention30dRate: number;
+  cohortRetention30dRate: number | null;
   completedEvenings: number;
   totalRegistrations: number;
   totalAttended: number;
@@ -401,14 +401,11 @@ export interface AnalyticsData {
   totalNoShow: number;
   cancellationRate: number;
   noShowRate: number;
-  avgAttendance: string | number;
   /** Null unless the viewer is the club owner. */
   financials: {
     accrued: number;
     incomePaid: number;
     outstandingDebt: number;
-    refunds: number;
-    expenses: number;
     avgRevenuePerEvening: number;
   } | null;
   sourceBreakdown: Record<string, number>;

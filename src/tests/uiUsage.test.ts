@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { parseAnalyticsPeriod } from '../lib/analyticsPeriod.ts';
 import { getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../server/services/uiUsageService.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { normalizeScreenPath, surfaceForPath } from '../lib/uiTelemetry.ts';
@@ -58,6 +59,9 @@ describe('UI usage tracking', () => {
     await db.run("INSERT INTO ui_usage_events (created_at, session_key, surface, role, kind, name) VALUES ('2025-01-01T00:00:00.000Z', 'old-session-1', 'crm', 'organizer', 'screen', '/admin')");
     const fresh = await getUiUsageSummary(db, 180, now);
     expect(fresh.sessions.crm).toBe(0);
+    // Summary is read-only; ingestion owns daily retention cleanup.
+    expect(await db.get("SELECT COUNT(*) AS n FROM ui_usage_events WHERE session_key = 'old-session-1'")).toEqual({ n: 1 });
+    await recordUiEvents(db, { sessionKey:'next-day-session',surface:'crm',role:'organizer',events:[{kind:'screen',name:'/admin'}] },new Date(now.getTime()+86400000));
     expect(await db.get("SELECT COUNT(*) AS n FROM ui_usage_events WHERE session_key = 'old-session-1'")).toEqual({ n: 0 });
   });
 
@@ -92,6 +96,22 @@ describe('UI usage tracking', () => {
     // the anonymous summary still has no player in it
     const summary = await getUiUsageSummary(db, 30, now);
     expect(JSON.stringify(summary)).not.toContain('p1');
+  });
+  it('keeps exact 30-minute boundaries and returns bounded SQL groups without writes',async()=>{
+    const db=makeDb();
+    const now=new Date('2026-10-05T12:00:00Z');
+    await recordUiEvents(db,{sessionKey:'boundary-session',surface:'player',role:'player',events:[
+      {kind:'screen',name:'/player',at:'2026-10-05T08:00:00.000Z'},
+      {kind:'screen',name:'/player',at:'2026-10-05T08:30:00.000Z'},
+      {kind:'screen',name:'/player',at:'2026-10-05T09:00:00.001Z'},
+    ]},now);
+    const read=vi.spyOn(db,'all');const write=vi.spyOn(db,'run');
+    const summary=await getUiUsageSummary(db,parseAnalyticsPeriod('month',now.getTime()),now);
+    expect(summary.visits.player).toBe(2);
+    expect(summary.screens[0]).toMatchObject({events:3,visits:2,people:1});
+    expect(read).toHaveBeenCalledTimes(2);expect(write).not.toHaveBeenCalled();
+    expect(read.mock.calls.every(([sql])=>String(sql).includes('GROUP BY'))).toBe(true);
+    expect(summary).toMatchObject({range:{id:'month'},retentionDays:180});
   });
 
   describe('honest numbers: the owner and repeats do not count (owner, 2026-10-05)', () => {

@@ -10,7 +10,7 @@ const boundary = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
 /** Half-open ranges; calendar boundaries follow Moscow, not the machine timezone. */
 export function parseAnalyticsPeriod(value: string, now = Date.now(), season?: AnalyticsSeason | null): AnalyticsRange {
   const days = ({ '7d': 7, '30d': 30, '90d': 90 } as Record<string, number>)[value];
-  if (days) return { id: value, label: `${days} дней`, since: new Date(now - days * 86_400_000).toISOString(), until: new Date(now + 1).toISOString() };
+  if (typeof days === 'number') return { id: value, label: `${days} дней`, since: new Date(now - days * 86_400_000).toISOString(), until: new Date(now + 1).toISOString() };
   if (value === 'month' || value === 'prev_month') {
     const local = new Date(now + 3 * 3_600_000);
     const month = local.getUTCMonth() - (value === 'prev_month' ? 1 : 0);

@@ -427,7 +427,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
             </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
-            {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
+            {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
                 evenings={evenings}

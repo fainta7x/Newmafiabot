@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { MousePointerClick } from 'lucide-react';
-import { api, type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
+import React, { useState } from 'react';
+import { AnalyticsHeading, AnalyticsStatus, analyticsCard, useAnalyticsQuery } from './analyticsShared.tsx';
+import { type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
 import { SCREEN_LABELS, actionLabel } from '../../lib/screenLabels.ts';
 
 // Screen names are shared with «Сейчас в приложении» (src/lib/screenLabels.ts).
@@ -10,56 +10,46 @@ const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы'
 
 const screenLabel = (row: UiUsageRow) => SCREEN_LABELS[row.name] || row.name;
 
-const PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, all: 180 };
+
 
 /** Which screens and buttons people actually use — anonymous, from uiTelemetry. */
-export const AppUsagePanel: React.FC<{ period: string }> = ({ period }) => {
-  const [data, setData] = useState<UiUsageSummary | null>(null);
-  const [surface, setSurface] = useState<'player' | 'crm'>('player');
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(false);
-    api.getUiUsageSummary(PERIOD_DAYS[period] || 30)
-      .then((summary) => { if (!cancelled) setData(summary); })
-      .catch(() => { if (!cancelled) setError(true); });
-    return () => { cancelled = true; };
-  }, [period]);
+export const AppUsagePanel: React.FC<{ period:string; active?:boolean }> = ({ period,active=true }) => {
+  const query=useAnalyticsQuery<UiUsageSummary>('/api/ui-events/summary?period='+encodeURIComponent(period),active);
+  const data=query.data;
+  const [surface,setSurface]=useState<'player'|'crm'>('player');
 
   const screens = (data?.screens || []).filter((row) => row.surface === surface);
   const actions = (data?.actions || []).filter((row) => row.surface === surface);
   const maxPeople = Math.max(1, ...screens.map((row) => row.people));
 
   return (
-    <section className="rounded-[16px] border border-border-soft bg-surface-1 p-4" data-testid="crm-app-usage">
-      <div className="flex items-center gap-2"><MousePointerClick className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black">Как пользуются приложением</h3></div>
-      <p className="mt-1 text-[12px] leading-4 text-text-secondary">Анонимно, без имён: какие экраны открывают и что нажимают. Считаются разные люди и заходы (заход = действия без паузы больше 30 минут): обновления и «вперёд-назад» внутри захода не накручивают цифры. Твоя собственная игровая активность не учитывается.</p>
+    <section className={analyticsCard} data-testid="crm-app-usage">
+      <AnalyticsHeading title="Как пользуются приложением" help="usage" caption="За период · история ограничена последними 180 днями · без имён" />
+      <AnalyticsStatus {...query} />
       <div className="mt-3 grid grid-cols-2 gap-1 rounded-[12px] border border-border-soft bg-surface-2 p-1 text-[13px]">
         {(['player', 'crm'] as const).map((value) => (
-          <button key={value} type="button" onClick={() => setSurface(value)} className={`min-h-9 rounded-[9px] font-bold ${surface === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>
+          <button key={value} type="button" onClick={() => setSurface(value)} className={`min-h-11 rounded-[9px] font-bold ${surface === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>
             {SURFACE_LABELS[value]}{data ? ` · ${data.people[value]} чел.` : ''}
           </button>
         ))}
       </div>
-      {error ? <p className="mt-3 text-[12px] text-danger">Не удалось загрузить статистику использования.</p> : null}
       {data && !screens.length ? <p className="mt-3 rounded-[11px] bg-surface-2 p-3 text-[12px] text-text-secondary">Данных пока нет — они начнут появляться, когда {surface === 'player' ? 'игроки' : 'организаторы'} откроют приложение после обновления.</p> : null}
       {screens.length ? (
         <div className="mt-3 space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">Экраны · людей и заходов</div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-text-muted">Экраны · людей и заходов</div>
           {screens.slice(0, 15).map((row) => (
             <div key={row.name} className="relative overflow-hidden rounded-[10px] bg-surface-2 px-3 py-2">
               <div className="absolute inset-y-0 left-0 bg-accent/15" style={{ width: `${Math.round((row.people / maxPeople) * 100)}%` }} />
-              <div className="relative flex items-center justify-between gap-3 text-[12px]"><span className="min-w-0 truncate text-text-primary">{screenLabel(row)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} зах.</strong></div>
+              <div className="relative flex items-center justify-between gap-3 text-[12px]"><span className="min-w-0 truncate text-text-primary">{screenLabel(row)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} заходов</strong></div>
             </div>
           ))}
         </div>
       ) : null}
       {actions.length ? (
         <div className="mt-4 space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">Нажатия · людей и заходов</div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-text-muted">Нажатия · людей и заходов</div>
           {actions.slice(0, 15).map((row) => (
-            <div key={row.name} className="flex items-center justify-between gap-3 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px]"><span className="min-w-0 truncate text-text-primary">{actionLabel(row.name)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} зах.</strong></div>
+            <div key={row.name} className="flex items-center justify-between gap-3 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px]"><span className="min-w-0 truncate text-text-primary">{actionLabel(row.name)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} заходов</strong></div>
           ))}
         </div>
       ) : null}

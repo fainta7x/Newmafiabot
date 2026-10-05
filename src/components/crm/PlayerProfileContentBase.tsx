@@ -32,7 +32,7 @@ interface PlayerProfileContentProps {
 
 const nominationOptions: Array<{ key: PlayerAwardKey; label: string }> = [
   { key: 'nomination_best_citizen', label: 'Лучший мирный' },
-  { key: 'nomination_best_mafia', label: 'Лучшая мафия' },
+  { key: 'nomination_best_mafia', label: 'Лучший чёрный' },
   { key: 'nomination_best_sheriff', label: 'Лучший Шериф' },
   { key: 'nomination_best_don', label: 'Лучший Дон' },
   { key: 'nomination_mvp', label: 'MVP' },

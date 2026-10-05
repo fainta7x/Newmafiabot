@@ -22,9 +22,9 @@ export type StoredPokerHand = {
   /** [street, player id, action, amount] */
   actions: Array<[string, string, string, number]>;
 };
-export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number>; handLog: StoredPokerHand[]; /** What the bots learned about the players of this database only. */ memory?: OpponentMemory };
+export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number>; handLog: StoredPokerHand[]; /** What the bots learned about the players of this database only. */ memory?: OpponentMemory; /** When each person at a table last asked for it (memory only: a poll must not rewrite the saved snapshot). */ seen?: Map<string, number> };
 
-const defaultRuntime: PokerRuntimeState = { lobbies: new Map(), bankrolls: new Map(), handLog: [] };
+const defaultRuntime: PokerRuntimeState = { lobbies: new Map(), bankrolls: new Map(), handLog: [], seen: new Map() };
 const runtimeStorage = new AsyncLocalStorage<PokerRuntimeState>();
 const runtime = () => runtimeStorage.getStore() || defaultRuntime;
 const lobbyStore = () => runtime().lobbies;
@@ -39,12 +39,13 @@ export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerR
   bankrolls: new Map(Object.entries(snapshot?.bankrolls || {}).map(([id, chips]) => [id, Math.max(0, Math.floor(Number(chips) || 0))])),
   handLog: [],
   memory: createOpponentMemory(),
+  seen: new Map(),
 });
 export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () => T | Promise<T>) => runtimeStorage.run(
   state,
   () => (state.memory ? withOpponentMemory(state.memory, callback) : callback()),
 );
-export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); defaultRuntime.handLog.length = 0; };
+export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); defaultRuntime.handLog.length = 0; defaultRuntime.seen?.clear(); };
 /** Hands finished since the last call; the persistence layer writes them to the database. */
 export const pendingPokerHandLog = (): StoredPokerHand[] => runtime().handLog.slice();
 /** Drops the first `count` pending hands once they are safely stored; hands of a failed write stay queued for the next request. */
@@ -203,8 +204,48 @@ const autoDealMainLobby = (lobby: PokerLobby) => {
   if (lobby.status === 'waiting') nextPokerHand(lobby);
 };
 
-export const listPokerLobbies = () => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent)).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8, players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), createdAt: lobby.createdAt }))
+export const listPokerLobbies = (viewerId?: string) => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent || lobby.players.some((player) => player.is_bot) || (Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId)))).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8 && !lobby.players.some((player) => player.is_bot), players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), joined: Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId), createdAt: lobby.createdAt }))
   .sort((a, b) => Number(b.permanent) - Number(a.permanent)); };
+
+/**
+ * A person who is completely AFK for POKER_AFK_LEAVE_MS (owner, 2026-10-05: «кикать полностью АФК, кто больше 5 минут») is
+ * taken off his table. Two kinds: he stopped asking for the table (closed the app, left the screen, lost the connection), or he
+ * is away («Отойти» / his turn timed out) and stays away. The seats of people who walked off used to stay for ever, so the
+ * shared table read 8/8 and still showed them. Leaving folds his cards in a running hand and keeps his chips in the bankroll,
+ * like pressing «Выйти».
+ */
+export const POKER_AFK_LEAVE_MS = 5 * 60 * 1000;
+const seenKey = (lobbyId: string, playerId: string) => `${lobbyId}:${playerId}`;
+const awayKey = (lobbyId: string, playerId: string) => `away:${lobbyId}:${playerId}`;
+export const touchPokerSeat = (lobby: PokerLobby, playerId: string, now = Date.now()) => {
+  if (lobby.players.some((player) => player.id === playerId)) runtime().seen?.set(seenKey(lobby.id, playerId), now);
+};
+export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()) => {
+  const seen = runtime().seen;
+  if (!seen) return 0;
+  let removed = 0;
+  for (const seat of [...lobby.players]) {
+    if (seat.is_bot) continue;
+    const key = seenKey(lobby.id, seat.id);
+    const last = seen.get(key);
+    // After a restart nobody has been heard yet: the clock starts now instead of kicking everybody at once.
+    if (last === undefined) seen.set(key, now);
+    let afk = last !== undefined && now - last > POKER_AFK_LEAVE_MS;
+    // A person who is away is counted from the moment he went away, even if his screen is still open.
+    if (seat.sitting_out) {
+      const since = seen.get(awayKey(lobby.id, seat.id)) ?? now;
+      seen.set(awayKey(lobby.id, seat.id), since);
+      if (now - since > POKER_AFK_LEAVE_MS) afk = true;
+    } else seen.delete(awayKey(lobby.id, seat.id));
+    if (afk) { seen.delete(key); seen.delete(awayKey(lobby.id, seat.id)); leavePokerLobby(lobby, seat.id); removed += 1; }
+  }
+  return removed;
+};
+export const sweepIdlePokerSeats = (now = Date.now()) => {
+  let removed = 0;
+  for (const lobby of [...lobbyStore().values()]) removed += removeIdlePokerSeats(lobby, now);
+  return removed;
+};
 const otherTableFor = (playerId: string, lobbyId?: string) => [...lobbyStore().values()].find((table) => table.id !== lobbyId && table.players.some((player) => player.id === playerId));
 export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната') => {
   if (otherTableFor(owner.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
@@ -218,7 +259,7 @@ const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => 
 /** Like a poker room: the table stays open; someone who sits down during a hand plays from the next one. */
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
-  if (lobby.players.some((item) => item.id === player.id)) return lobby;
+  if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
   if (otherTableFor(player.id, lobby.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
   if (lobby.players.length >= 8) {
     // A person comes before a bot: a table full of bots that somebody left running must not lock people out, so the bot
@@ -229,6 +270,7 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
     leavePokerLobby(lobby, weakestBot.id);
   }
   lobby.players.push({ ...player, seat: freeSeat(lobby), chips: runtime().bankrolls.get(player.id) ?? POKER_REBUY_CHIPS });
+  touchPokerSeat(lobby, player.id);
   autoDealMainLobby(lobby);
   return lobby;
 };
@@ -321,6 +363,7 @@ export const setPokerSitOut = (lobby: PokerLobby, playerId: string, away: boolea
 };
 export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => publicState(lobby, viewerId);
 export const tickPokerLobby = (lobby: PokerLobby) => {
+  removeIdlePokerSeats(lobby);
   if (lobby.permanent && !lobby.hand) autoDealMainLobby(lobby);
   if (!lobby.hand || lobby.status === 'finished') return;
   const now = Date.now();

@@ -72,7 +72,7 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
       case 'best_sheriff':
         return 'Лучший шериф';
       case 'best_mafia':
-        return 'Лучший черный игрок';
+        return 'Лучший чёрный';
       case 'best_don':
         return 'Лучший дон';
       default:

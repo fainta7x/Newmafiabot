@@ -17,7 +17,9 @@ describe('player cabinet legacy decoupling', () => {
     const games = read('src/components/player/PlayerGamesHub.tsx');
     expect(games).not.toContain('PlayerCabinetShellLegacy');
     expect(games).toContain("import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx'");
-    expect(games).toContain("next === 'games' || next === 'stats'");
+    expect(games).toContain("next === 'games'");
+    // «Карьера» and «Статистика» moved into the one profile: the games hub no longer owns them.
+    expect(games).not.toContain('PlayerCareerProfile');
   });
 
   it('keeps conduct mode as the single owner of staff tools', () => {
@@ -28,5 +30,13 @@ describe('player cabinet legacy decoupling', () => {
     const profile = read('src/components/player/PlayerProfileSettings.tsx');
     expect(profile).not.toContain('JudgeGameLauncher');
     expect(profile).not.toContain('JudgeMusicPlaylist');
+  });
+});
+
+describe('profile overlay keeps the way back to the usual menu', () => {
+  it('renders the cabinet bottom navigation inside the profile overlay', () => {
+    const shell = read('src/components/player/PlayerCabinetShell.tsx');
+    const overlay = shell.slice(shell.indexOf('canonical-player-profile-overlay'));
+    expect(overlay).toContain('<PlayerBottomNavigation');
   });
 });

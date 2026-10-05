@@ -688,3 +688,18 @@ In the whole-table level, nominees are processed in their randomized nomination 
 ## Ci compensation (owner-approved 2026-10-03)
 
 The first-killed red player gets Ci compensation only if their best move (ЛХ) names at least one black player: the full rate when the reds lost, half of it when the reds won. No best move, or no black in it — no compensation. Standings total: Σ = wins + Σдб + Ci.
+
+
+## Player profile and terminology (owner, 2026-10-05)
+
+- **One profile.** A player's statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» live in one place — the player profile («Профиль»; another player's profile opens as an overlay with the same sections). No other screen repeats them; the «Игры» section holds the history of games and the evening summaries only. All its numbers come from one source (`premiumPlayerProfileService.ts`).
+- **Overlay menu.** The profile of another player opened over the cabinet always carries the usual bottom menu next to the «←» button.
+- **Hidden statistics.** When a player switched «Игровая статистика» off, others see a plain note instead of numbers; his games, roles and Elo are not available to them.
+- **Sports terms.** The mafia nomination of tournaments and evening/season results is «Лучший чёрный» (not «Лучшая мафия»); the others stay «Лучший мирный», «Лучший шериф», «Лучший дон».
+- **App activity (owner, 2026-10-05).** The club owner and organizers see, per player, when he was last in the app, how often he came, which screens he opened and which controls he pressed (CRM player card, «Активность в приложении»). Players are not told and cannot see it; other players never see it. History starts at the day the feature went live and is kept 180 days. Only tracked controls appear as clicks.
+
+## Poker table seats (owner, 2026-10-05)
+
+- A person who is completely AFK for **more than 5 minutes** — the app closed or the screen left, or «Отойти»/missed turns without coming back — is taken off the table; his cards are folded in a running hand and his chips stay in his bankroll. Bots are never kicked this way.
+- Closing the poker screen leaves the table at once.
+- The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».

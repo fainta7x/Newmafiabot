@@ -81,7 +81,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : section === 'events' ? (
         <PlayerEventsCalendar initialEventId={initialTarget} onEventChange={(eventId) => open('events', eventId)} />
       ) : isPlayerGameSection(section) ? (
-        <PlayerGamesHub data={currentData} canOpenAdmin={canOpenAdmin} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} />
+        <PlayerGamesHub data={currentData} canOpenAdmin={canOpenAdmin} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} onOpenProfile={() => open('profile')} />
       ) : isPlayerRatingSection(section) ? (
         <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} />
       ) : section === 'club' || section === 'clubworld' ? (
@@ -101,6 +101,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       {profilePlayerId ? (
         <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-hidden bg-[#090a0d]">
           <CanonicalPremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} selfPlayerId={player.id} onClose={() => window.history.back()} />
+          {/* The overlay covers the cabinet, so it carries the same menu: a section opens and the profile closes (the target resets). */}
+          <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
         </div>
       ) : null}
     </div>

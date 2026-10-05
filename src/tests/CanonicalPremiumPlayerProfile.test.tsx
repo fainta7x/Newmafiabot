@@ -67,7 +67,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     })).toBe(true));
   });
 
-  it('renders elo_after as the primary Elo value and keeps before/delta metadata', async () => {
+  it('renders elo_after as the primary Elo value with the rounded delta (the old «До игры» line duplicated them)', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/summary')) return response(summary('self', 'Игрок'));
@@ -80,7 +80,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Elo' }));
     expect(await screen.findByText('1205')).toBeDefined();
     expect(screen.getByText('+15')).toBeDefined();
-    expect(screen.getByText(/До игры: 1190/)).toBeDefined();
+    expect(screen.queryByText(/До игры/)).toBeNull();
   });
 
   it('shows owner-only award suggestion and smart friend suggestions', async () => {
@@ -91,5 +91,63 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByTestId('award-suggestion-stub')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Связи' }));
     expect(screen.getByTestId('smart-friends-stub')).toBeDefined();
+  });
+
+  it('shows the games with Russian labels, the title, the Elo change and a link to the game', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/summary')) return response(summary('self', 'Игрок'));
+      if (url.includes('/birthday')) return response({});
+      if (url.includes('/games?')) return response({ total: 2, games: [{ id: 'club:g9', title: 'Вечер 3 октября', game_number: 4, date: '2026-10-03T18:00:00.000Z', role: 'mafia', team: 'black', won: true, elo_delta: 12.4 }, { id: 'tournament:t1', title: 'Турнир', game_number: 2, date: '2026-10-02T18:00:00.000Z', role: 'citizen', team: 'red', won: false, elo_delta: -5 }] });
+      return response({});
+    }));
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
+    await screen.findByText('Игрок');
+    fireEvent.click(screen.getByRole('button', { name: 'Игры' }));
+    expect(await screen.findByText(/Вечер 3 октября · №4/)).toBeDefined();
+    expect(screen.getByText(/Мафия · Чёрные · победа/)).toBeDefined();
+    expect(screen.queryByText('mafia')).toBeNull();
+    expect(screen.getByText('Elo +12')).toBeDefined();
+    // a club game opens its replay; a tournament game has no screen of its own, so it gets no dead link
+    const links = screen.getAllByRole('link', { name: /Replay/ });
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute('href')).toBe('/player/replay/club%3Ag9');
+  });
+
+  it('says so when another player has hidden his statistics instead of showing dashes', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/summary')) return response({ player: { id: 'other', nickname: 'Скрытный', elo: null, avatar_url: null }, stats: null, recent_games: [] });
+      if (url.includes('/birthday')) return response({});
+      if (url.includes('/elo?')) return response({ error: 'Игровая статистика скрыта игроком' }, 403);
+      return response({});
+    }));
+    render(<CanonicalPremiumPlayerProfile playerId="other" selfPlayerId="self" mode="public" />);
+    await screen.findByText('Скрытный');
+    expect(screen.getByTestId('profile-stats-hidden')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Elo' }));
+    expect(await screen.findByText('Игровая статистика скрыта игроком')).toBeDefined();
+    expect(screen.queryByText(/Истории Elo пока нет/)).toBeNull();
+  });
+
+  it('carries the former «Карьера» numbers in the overview: streaks, season, red and black', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/summary')) return response({
+        ...summary('self', 'Игрок'),
+        stats: { games: 21, wins: 12, win_rate: 57, current_streak: 3, best_streak: 5, red: { games: 15, wins: 9, win_rate: 60 }, black: { games: 6, wins: 3, win_rate: 50 }, first_killed: 2, best_moves: 1, zero_round_voted: 0 },
+        season: { label: 'Осень 2026', games: 4, wins: 3, win_rate: 75, place: 2, total_players: 18 },
+        game_stats: { games: 21, votesAsRed: { count: 5, total: 7, percent: 71 }, nominationsAsRed: { count: 0, total: 0, percent: null }, bestMove: { count: 0, averageBlack: null, withBlack: { count: 0, total: 0, percent: null } }, firstKilled: { count: 0, total: 0, percent: null }, sheriffChecks: { count: 0, total: 0, percent: null }, donChecks: { count: 0, total: 0, percent: null } },
+      });
+      if (url.includes('/birthday')) return response({});
+      return response({});
+    }));
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
+    await screen.findByText('Игрок');
+    expect(await screen.findByText('Осень 2026')).toBeDefined();
+    expect(screen.getByText('#2')).toBeDefined();
+    expect(screen.getByText('рекорд серии')).toBeDefined();
+    expect(screen.getByText('За красных')).toBeDefined();
+    expect(screen.getByText(/По 21 игре с журналом ходов/)).toBeDefined();
   });
 });

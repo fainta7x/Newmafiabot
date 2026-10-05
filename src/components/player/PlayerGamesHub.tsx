@@ -1,16 +1,12 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx';
-import PlayerCareerProfile from './PlayerCareerProfile.tsx';
 import PlayerEveningSummaries from './PlayerEveningSummaries.tsx';
 
-export type PlayerGamesSection = 'games' | 'stats' | 'career' | 'recaps';
+export type PlayerGamesSection = 'games' | 'recaps';
 
-type PrimaryGamesSection = 'games' | 'stats' | 'overview';
-
-const PRIMARY_TABS: Array<{ id: PrimaryGamesSection; label: string }> = [
+const TABS: Array<{ id: PlayerGamesSection; label: string }> = [
   { id: 'games', label: 'История' },
-  { id: 'stats', label: 'Статистика' },
-  { id: 'overview', label: 'Обзор' },
+  { id: 'recaps', label: 'Итоги вечеров' },
 ];
 
 export default function PlayerGamesHub({
@@ -19,31 +15,31 @@ export default function PlayerGamesHub({
   section,
   target = null,
   onOpen,
+  onOpenProfile,
 }: {
   data: PlayerMeResponse;
   canOpenAdmin: boolean;
   section: PlayerGamesSection;
   target?: string | null;
   onOpen: (section: PlayerGamesSection, target?: string | null) => void;
+  /** Statistics, roles, Elo and awards live in the one player profile. */
+  onOpenProfile?: () => void;
 }) {
-  const primarySection: PrimaryGamesSection = section === 'career' || section === 'recaps' ? 'overview' : section;
-
   return (
     <div className="bg-[#090a0d] text-white">
       <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
         <header className="px-1 pb-3 pt-1">
           <h1 className="text-2xl font-semibold">Игры</h1>
-          <p className="mt-1 text-sm leading-5 text-white/50">История партий, показатели и развитие игрока</p>
+          <p className="mt-1 text-sm leading-5 text-white/50">История партий и итоги вечеров</p>
         </header>
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1" aria-label="Раздел игр">
-          {PRIMARY_TABS.map((tab) => {
-            const active = primarySection === tab.id;
-            const destination: PlayerGamesSection = tab.id === 'overview' ? 'career' : tab.id;
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1" aria-label="Раздел игр">
+          {TABS.map((tab) => {
+            const active = section === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => onOpen(destination)}
+                onClick={() => onOpen(tab.id)}
                 aria-current={active ? 'page' : undefined}
                 className={`min-h-11 rounded-xl px-2 text-[14px] font-semibold transition ${active ? 'bg-white text-black' : 'text-white/55 active:bg-white/[0.05]'}`}
               >
@@ -52,41 +48,20 @@ export default function PlayerGamesHub({
             );
           })}
         </div>
-        {primarySection === 'overview' ? (
-          <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.025] p-1" aria-label="Обзор игр">
-            <button
-              type="button"
-              onClick={() => onOpen('career')}
-              aria-current={section === 'career' ? 'page' : undefined}
-              className={`min-h-11 rounded-xl px-3 text-[14px] font-semibold transition ${section === 'career' ? 'bg-white/[0.12] text-white' : 'text-white/50'}`}
-            >
-              Карьера
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpen('recaps')}
-              aria-current={section === 'recaps' ? 'page' : undefined}
-              className={`min-h-11 rounded-xl px-3 text-[14px] font-semibold transition ${section === 'recaps' ? 'bg-white/[0.12] text-white' : 'text-white/50'}`}
-            >
-              Итоги вечеров
-            </button>
-          </div>
-        ) : null}
+        {onOpenProfile ? <button type="button" onClick={onOpenProfile} data-testid="games-open-profile" className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-left text-[13px] text-white/60">Статистика, роли, Elo и награды — в профиле ›</button> : null}
       </div>
 
-      {section === 'career' ? (
-        <PlayerCareerProfile playerId={data.player.id} embedded />
-      ) : section === 'recaps' ? (
+      {section === 'recaps' ? (
         <PlayerEveningSummaries initialEveningId={target} embedded />
       ) : (
         <div className="player-games-v2">
           <PlayerHistoryStatsView
             data={data}
             canOpenAdmin={canOpenAdmin}
-            initialTab={section}
+            initialTab="games"
             embedded
             onTabChange={(next) => {
-              if (next === 'games' || next === 'stats') onOpen(next);
+              if (next === 'games') onOpen(next);
             }}
           />
         </div>

@@ -17,7 +17,8 @@ describe('player app navigation', () => {
   });
 
   it('keeps game and rating sub-sections inside their hubs', () => {
-    expect(appBackTarget('/player/career')).toBe('/player/games');
+    // «Карьера» is part of the profile now: its old link opens the profile and goes back to the main screen.
+    expect(appBackTarget('/player/career')).toBe('/player');
     expect(appBackTarget('/player/elo')).toBe('/player/rating');
   });
 

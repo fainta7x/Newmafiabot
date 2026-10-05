@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, POKER_AFK_LEAVE_MS, removeIdlePokerSeats, touchPokerSeat, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -19,6 +19,70 @@ describe('poker rules (owner check 2026-10-01)', () => {
     leavePokerLobby(lobby, 'b');
     expect(listed().map((player) => player.id)).not.toContain('b');
   });
+  describe('AFK people are taken off the table (owner, 2026-10-05: more than 5 minutes)', () => {
+    const MIN = 60_000;
+    const table = () => {
+      const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+      joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+      addPokerBot(lobby);
+      return lobby;
+    };
+    const ids = (lobby: ReturnType<typeof table>) => lobby.players.map((player) => player.id);
+
+    it('removes a person who stopped asking for the table, and only him', () => {
+      const lobby = table();
+      const t0 = Date.now();
+      touchPokerSeat(lobby, 'a', t0); touchPokerSeat(lobby, 'b', t0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
+      touchPokerSeat(lobby, 'a', t0 + 4 * MIN);
+      expect(removeIdlePokerSeats(lobby, t0 + POKER_AFK_LEAVE_MS + MIN)).toBe(1);
+      expect(ids(lobby)).toContain('a');
+      expect(ids(lobby)).not.toContain('b');
+      expect(lobby.players.some((player) => player.is_bot)).toBe(true);
+    });
+
+    it('removes a person who is away for more than five minutes even while his screen stays open', () => {
+      const lobby = table();
+      const t0 = Date.now();
+      setPokerSitOut(lobby, 'b', true);
+      for (let minute = 0; minute <= 6; minute += 1) { touchPokerSeat(lobby, 'a', t0 + minute * MIN); touchPokerSeat(lobby, 'b', t0 + minute * MIN); }
+      expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(1);
+      expect(ids(lobby)).not.toContain('b');
+      expect(ids(lobby)).toContain('a');
+    });
+
+    it('starts the clock after a restart instead of kicking everybody at once, and never kicks bots', () => {
+      resetDefaultPokerRuntimeForTesting();
+      const lobby = table();
+      const t0 = Date.now() + 10 * MIN;
+      resetDefaultPokerRuntimeForTesting();
+      const restored = createPokerLobby({ id: 'c', nickname: 'Ваня' });
+      addPokerBot(restored);
+      resetDefaultPokerRuntimeForTesting();
+      expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(2);
+      expect(lobby.players.every((player) => player.is_bot)).toBe(true);
+    });
+  });
+
+  it('shows «Мест нет» only when nobody can take a seat, and marks the table the viewer sits at', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
+    const entry = (viewer?: string) => listPokerLobbies(viewer).find((item) => item.id === lobby.id)!;
+    expect(entry().full).toBe(false);
+    expect(entry('a').joined).toBe(true);
+    expect(entry('z').joined).toBe(false);
+    // each newcomer takes the seat of a bot; when eight people sit there, nobody can join any more
+    for (let i = 0; i < 7; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+    expect(lobby.players.filter((player) => !player.is_bot)).toHaveLength(8);
+    expect(entry('h0')).toMatchObject({ full: true, joined: true });
+    // a full table of people is not offered to outsiders at all (only the permanent table always is)
+    expect(entry('z')).toBeUndefined();
+  });
+
   it('compares hands as numbers: a pair of aces beats a pair of nines', () => {
     const hand = createPokerHand({ id: 'cmp', players: [{ id: 'a', nickname: 'A', seat: 1, chips: 1000 }, { id: 'b', nickname: 'B', seat: 2, chips: 1000 }] });
     hand.board = cards('2c 7d Jh 4s 3h');

@@ -49,7 +49,7 @@ for (const width of [360, 390]) {
 
     await nav.getByRole('button', { name: 'Игры', exact: true }).click();
     await expect(page.getByLabel('Раздел игр')).toBeVisible();
-    await expect(page.getByLabel('Раздел игр').getByRole('button')).toHaveCount(3);
+    await expect(page.getByLabel('Раздел игр').getByRole('button')).toHaveCount(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('games-simplified.png'), fullPage: true });
 

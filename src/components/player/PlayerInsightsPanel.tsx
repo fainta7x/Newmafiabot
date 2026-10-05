@@ -1,5 +1,5 @@
 import { countGames } from '../../lib/russianPlural';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 type Summary = { games: number; wins: number; win_rate: number };
 type RoleStat = Summary & { role: string };
@@ -35,7 +35,6 @@ type InsightsData = {
   meta?: { opponents?: string; elo_history?: string };
 };
 
-const roleIcon = (role: string) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : '🎩';
 
 const Avatar = ({ src, size = 36 }: { src: string; size?: number }) => (
   <img src={src} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover" />
@@ -119,7 +118,6 @@ export default function PlayerInsightsPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  const bestRole = useMemo(() => data?.performance.roles.filter((item) => item.games >= 2).sort((a, b) => b.win_rate - a.win_rate || b.games - a.games)[0] || null, [data]);
 
   if (loading) return <div className="mt-4 rounded-2xl bg-white/[0.03] px-3 py-6 text-center text-[11px] text-white/25">Считаем личную аналитику…</div>;
   if (error || !data) return <div className="mt-4 rounded-2xl bg-rose-400/[0.06] px-3 py-3 text-[11px] text-rose-200/55">{error || 'Аналитика недоступна'}</div>;
@@ -129,7 +127,7 @@ export default function PlayerInsightsPanel() {
       <span><span className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">🧠 Моя аналитика</span><span className="mt-1 block text-[11px] text-white/30">Форма, Elo, соперники и карта связей</span></span><span className="text-white/25">{expanded ? '⌃' : '⌄'}</span>
     </button>
 
-    <div className="mt-3 grid grid-cols-3 gap-1.5 text-center"><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.career.win_rate}%</div><div className="text-[11px] text-white/25">карьера</div></div><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.recent10.win_rate}%</div><div className="text-[11px] text-white/25">последние 10</div></div><div className="rounded-xl bg-black/15 p-2"><div className="truncate text-[11px] font-black">{bestRole ? `${roleIcon(bestRole.role)} ${bestRole.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">лучшая роль</div></div></div>
+    <div className="mt-3 grid grid-cols-3 gap-1.5 text-center" aria-label="Форма"><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.recent10.games ? `${data.performance.recent10.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">последние 10 игр</div></div><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.recent20.games ? `${data.performance.recent20.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">последние 20 игр</div></div><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.last30_days.games ? `${data.performance.last30_days.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">за 30 дней</div></div></div>
 
     {data.insights.length > 0 && <div className="mt-2 space-y-1">{data.insights.slice(0, expanded ? 5 : 1).map((item, index) => <div key={`${item.kind}:${index}`} className="rounded-xl bg-sky-300/[0.035] px-2.5 py-2"><div className="text-[11px] font-semibold text-sky-100/60">{item.title}</div><div className="mt-0.5 text-[11px] leading-3 text-white/30">{item.text}</div></div>)}</div>}
 

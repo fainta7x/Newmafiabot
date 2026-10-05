@@ -1,8 +1,18 @@
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { serializeTournamentRosterMutation } from './tournamentRosterMutationSerializer.ts';
+
+/** The same player can be replaced out of (or back into) the same slot more than once: each time is news, so a repeat gets its own key. */
+const repeatableKey = async (db: DatabaseWrapper, base: string) => {
+  await ensurePersonalNotificationRoutingSchema(db);
+  const row = await db.get<any>('SELECT COUNT(*) AS count FROM personal_notification_deliveries WHERE notification_key = ? OR notification_key LIKE ?', [base, `${base}:%`]);
+  const count = Number(row?.count || 0);
+  return count ? `${base}:${count + 1}` : base;
+};
+
 
 export type TournamentRosterEditMode = 'full' | 'replacement_only' | 'locked';
 
@@ -69,7 +79,7 @@ async function notifyReplacementPlayer(
     ? ` Взнос ${fee.toLocaleString('ru-RU')} ₽: отметьте оплату в приложении.`
     : '';
   await queuePersonalNotification(db, {
-    notificationKey: `tournament:${tournamentId}:replacement:${replacementPlayerId}:${slotNumber}`,
+    notificationKey: await repeatableKey(db, `tournament:${tournamentId}:replacement:${replacementPlayerId}:${slotNumber}`),
     playerId: replacementPlayerId,
     eventType: 'tournament_player_replaced_in',
     entityId: tournamentId,
@@ -204,7 +214,7 @@ export async function replaceConfirmedTournamentPlayer(
     await notifyReplacementPlayer(db, tournamentId, replacementPlayerId, result.slot_number);
     const tournamentRow = await db.get<any>('SELECT title FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
     await queuePersonalNotification(db, {
-      notificationKey: `tournament:${tournamentId}:replaced-out:${outgoingPlayerId}:${result.slot_number}`,
+      notificationKey: await repeatableKey(db, `tournament:${tournamentId}:replaced-out:${outgoingPlayerId}:${result.slot_number}`),
       playerId: outgoingPlayerId,
       eventType: 'tournament_player_replaced_out',
       entityId: tournamentId,

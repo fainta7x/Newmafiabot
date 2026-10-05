@@ -146,7 +146,7 @@ router.get('/tournaments/:tournamentId/telegram-plan', async (req, res) => {
     );
     const destinations = await listDestinations(db);
     const publications = await db.all(
-      `SELECT tournament_id, destination_id, chat_id, message_id, sent_at, updated_at
+      `SELECT tournament_id, destination_id, chat_id, message_id, cancel_notice_message_id, sent_at, updated_at
          FROM tournament_telegram_publications
         WHERE tournament_id = ?`,
       [req.params.tournamentId],
@@ -155,7 +155,8 @@ router.get('/tournaments/:tournamentId/telegram-plan', async (req, res) => {
       tournament,
       participants,
       destinations,
-      desired_destination_ids: String(tournament.status || '') === 'completed' ? [] : ['rating'],
+      // A completed or cancelled tournament is no longer announced; a cancelled one gets a separate notice instead.
+      desired_destination_ids: ['completed', 'cancelled'].includes(String(tournament.status || '')) ? [] : ['rating'],
       publications,
     });
   } catch (error: any) {
@@ -172,21 +173,30 @@ router.put('/tournaments/:tournamentId/telegram-publications/:destinationId', as
     const destination = await db.get('SELECT id FROM telegram_destinations WHERE id = ?', [destinationId]);
     if (!tournament || !destination) return res.status(404).json({ error: 'Турнир или Telegram-направление не найдены' });
 
+    const now = new Date().toISOString();
+    if (req.body?.cancel_notice_message_id !== undefined) {
+      const noticeId = Number(req.body.cancel_notice_message_id || 0);
+      if (!Number.isInteger(noticeId) || noticeId <= 0) return res.status(400).json({ error: 'Некорректный номер сообщения об отмене' });
+      const updated = await db.run(
+        'UPDATE tournament_telegram_publications SET cancel_notice_message_id = ?, updated_at = ? WHERE tournament_id = ? AND destination_id = ?',
+        [noticeId, now, req.params.tournamentId, destinationId],
+      );
+      if (!updated.changes) return res.status(404).json({ error: 'Публикация турнира не найдена' });
+      return res.json({ success: true, updated_at: now });
+    }
     const chatId = String(req.body?.chat_id ?? '').trim();
     const messageId = Number(req.body?.message_id || 0);
     if (!chatId || !Number.isInteger(messageId) || messageId <= 0) {
       return res.status(400).json({ error: 'Некорректные данные Telegram-публикации турнира' });
     }
-    const now = new Date().toISOString();
-    const existing = await db.get(
-      'SELECT sent_at FROM tournament_telegram_publications WHERE tournament_id = ? AND destination_id = ?',
-      [req.params.tournamentId, destinationId],
-    );
+    // An upsert, not a replace: the id of an already sent cancellation notice must survive.
     await db.run(
-      `INSERT OR REPLACE INTO tournament_telegram_publications
+      `INSERT INTO tournament_telegram_publications
          (tournament_id, destination_id, chat_id, message_id, sent_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.params.tournamentId, destinationId, chatId, messageId, existing?.sent_at || now, now],
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(tournament_id, destination_id) DO UPDATE SET
+         chat_id = excluded.chat_id, message_id = excluded.message_id, updated_at = excluded.updated_at`,
+      [req.params.tournamentId, destinationId, chatId, messageId, now, now],
     );
     res.json({ success: true, updated_at: now });
   } catch (error: any) {

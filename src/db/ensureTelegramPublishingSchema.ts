@@ -132,6 +132,11 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     CREATE INDEX IF NOT EXISTS idx_telegram_dispatch_outbox_due
       ON telegram_dispatch_outbox(next_attempt_at, requested_at);
   `);
+  // The id of the separate «турнир отменён» message: the announcement itself stays as it was (owner, 2026-10-05).
+  const publicationColumns = await db.all<any>('PRAGMA table_info(tournament_telegram_publications)');
+  if (!publicationColumns.some((column: any) => column.name === 'cancel_notice_message_id')) {
+    await db.exec('ALTER TABLE tournament_telegram_publications ADD COLUMN cancel_notice_message_id INTEGER');
+  }
 
   // Keep CREATE TRIGGER as single statements. Turso's exec compatibility splits scripts on semicolons,
   // while run() passes the whole trigger body through unchanged.

@@ -87,6 +87,18 @@ async def save_tournament_telegram_publication(
     )
 
 
+async def save_tournament_cancel_notice(
+    tournament_id: str,
+    destination_id: str,
+    message_id: int,
+) -> dict[str, Any]:
+    return await _request(
+        "PUT",
+        f"/api/bot/tournaments/{tournament_id}/telegram-publications/{destination_id}",
+        {"cancel_notice_message_id": int(message_id)},
+    )
+
+
 async def get_public_router_payload() -> dict[str, Any]:
     return await _request("GET", "/api/bot/telegram/public-router")
 

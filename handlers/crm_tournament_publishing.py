@@ -1,16 +1,28 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from html import escape
 
 from aiogram import Bot
 
-from bot_telegram_api import get_tournament_telegram_plan, save_tournament_telegram_publication
+from bot_telegram_api import (
+    get_tournament_telegram_plan,
+    save_tournament_cancel_notice,
+    save_tournament_telegram_publication,
+)
 from handlers.crm_telegram_publishing import _edit_message, _send_message
+
+
+MOSCOW = ZoneInfo("Europe/Moscow")
 
 
 def _format_date(value: object) -> str:
     raw = str(value or "")
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%d.%m.%Y · %H:%M")
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+        # The date is stored in UTC; the club's time is Moscow time.
+        return parsed.astimezone(MOSCOW).strftime("%d.%m.%Y · %H:%M")
     except (TypeError, ValueError):
         return raw or "Дата уточняется"
 
@@ -45,6 +57,32 @@ def _closed_text(tournament: dict, participants: list[dict]) -> str:
     return f"🔒 <b>Турнир завершён</b>\n\n{_tournament_text(tournament, participants)}"
 
 
+def _cancelled_text(tournament: dict) -> str:
+    title = escape(str(tournament.get("title") or "Турнир 2LA noire"))
+    return f"❌ <b>Турнир отменён</b>\n\n<b>{title}</b>\n📅 {_format_date(tournament.get('date'))}\n\nЗапись закрыта. Следите за новыми анонсами."
+
+
+async def _announce_cancellation(bot: Bot, tournament_id: str, tournament: dict, publications: dict) -> list[dict]:
+    """The announcement stays as it was; the cancellation goes out as one new message per group (owner, 2026-10-05)."""
+    results = []
+    for destination_id, publication in publications.items():
+        if publication.get("cancel_notice_message_id"):
+            results.append({"destination_id": destination_id, "action": "cancel_notice_exists", "success": True})
+            continue
+        try:
+            message = await _send_message(bot, str(publication.get("chat_id")), None, _cancelled_text(tournament), None)
+            saved = await save_tournament_cancel_notice(tournament_id, destination_id, message.message_id)
+            results.append({
+                "destination_id": destination_id,
+                "action": "cancel_notice",
+                "success": bool(saved.get("success")),
+                "message_id": message.message_id,
+            })
+        except Exception as exc:
+            results.append({"destination_id": destination_id, "action": "cancel_notice_failed", "success": False, "error": str(exc)})
+    return results
+
+
 async def sync_tournament_telegram(bot: Bot, tournament_id: str, *, allow_create: bool = True) -> dict:
     plan_result = await get_tournament_telegram_plan(tournament_id)
     if not plan_result.get("success"):
@@ -57,6 +95,14 @@ async def sync_tournament_telegram(bot: Bot, tournament_id: str, *, allow_create
     publications = {str(item.get("destination_id")): item for item in (plan.get("publications") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
     results = []
+
+    if str(tournament.get("status") or "") == "cancelled":
+        results = await _announce_cancellation(bot, tournament_id, tournament, publications)
+        return {
+            "success": not any(not item.get("success") for item in results),
+            "tournament_id": tournament_id,
+            "results": results,
+        }
 
     for destination_id, publication in publications.items():
         if destination_id in desired:

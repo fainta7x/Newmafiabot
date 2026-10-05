@@ -1,3 +1,5 @@
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
+import { escapeTelegramHtml } from './personalNotificationText.ts';
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
@@ -242,10 +244,12 @@ async function upsertRegistration(db:DatabaseWrapper,tournamentId:string,playerI
   const slot=await nextFreeSlot(db,tournamentId);
   const status=slot==null?'reserve':'confirmed'; const id=existing?.id||crypto.randomUUID(); const now=nowIso();
   // Registering (or being added by the organizer) is the «Играю» answer.
+  if(existing&&['cancelled','declined'].includes(String(existing.status)))await resetRefundedPaymentClaim(db,tournamentId,playerId,now);
   if(existing) await db.run(`UPDATE tournament_registrations SET status=?,slot_number=?,registered_at=?,queue_order=NULL,response='play',cancelled_at=NULL,updated_at=?,organizer_reason=? WHERE id=?`,[status,slot,now,now,reason||null,id]);
   else await db.run(`INSERT INTO tournament_registrations (id,tournament_id,player_id,status,slot_number,response,registered_at,updated_at,organizer_reason) VALUES (?,?,?,?,?,'play',?,?,?)`,[id,tournamentId,playerId,status,slot,now,now,reason||null]);
   await renumberReserve(db,tournamentId); await syncCanonicalParticipants(db,tournamentId);
   await audit(db,tournamentId,actorType==='player'?'register':'organizer_add',actorType,actorId||playerId,playerId,reason||null,{status,slot_number:slot});
+  await remindLateRegistrant(db,tournament,playerId);
   return db.get<any>('SELECT * FROM tournament_registrations WHERE id=?',[id]);
 }
 
@@ -259,17 +263,14 @@ export async function reorderTournamentReserve(db:DatabaseWrapper,tournamentId:s
 
 export async function promoteTournamentReserve(db:DatabaseWrapper,tournamentId:string,playerId:string,reason:string,actorId?:string|null){
   if(!reason.trim())throw new Error('REASON_REQUIRED'); const actor=requireOrganizerActor(actorId); let promotedName='';
-  const promoted=await serializeTournamentMutation(db,()=>db.transaction(async(tx)=>{const tournament=await assertManagedTournamentEvening(tx,tournamentId);if(tournament.status!=='draft')throw new Error('ROSTER_LOCKED');const games=await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?',[tournamentId]);if(Number(games?.count||0)>0)throw new Error('ROSTER_ALREADY_SEATED');const row=await tx.get<any>("SELECT r.*,p.nickname FROM tournament_registrations r JOIN players p ON p.id=r.player_id WHERE r.tournament_id=? AND r.player_id=? AND r.status='reserve'",[tournamentId,playerId]);if(!row)throw new Error('NOT_IN_RESERVE');promotedName=String(row.nickname||'Игрок');const slot=await nextFreeSlot(tx,tournamentId);if(slot==null)throw new Error('TOURNAMENT_FULL');const now=nowIso();await tx.run("UPDATE tournament_registrations SET status='confirmed',slot_number=?,queue_order=NULL,updated_at=?,organizer_reason=? WHERE id=?",[slot,now,reason,row.id]);await renumberReserve(tx,tournamentId);await syncCanonicalParticipants(tx,tournamentId);await audit(tx,tournamentId,'manual_promote','organizer',actor,playerId,reason,{slot_number:slot});return {playerId,slot};}));
-  await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:manual-promotion:${playerId}:${nowIso()}`,playerId,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:await reservePromotionText(db,tournamentId,playerId,true),actionPath:tournamentPlayerPath(tournamentId)});
-  await enqueueOrganizerNotification(db,{messageKey:`tournament:${tournamentId}:manual-promotion:${playerId}:${nowIso()}`,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:`♟ ${promotedName} вручную получил(а) место в составе турнира.`});
+  const promoted=await serializeTournamentMutation(db,()=>db.transaction(async(tx)=>{const tournament=await assertManagedTournamentEvening(tx,tournamentId);if(tournament.status!=='draft')throw new Error('ROSTER_LOCKED');const games=await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?',[tournamentId]);if(Number(games?.count||0)>0)throw new Error('ROSTER_ALREADY_SEATED');const row=await tx.get<any>("SELECT r.*,p.nickname FROM tournament_registrations r JOIN players p ON p.id=r.player_id WHERE r.tournament_id=? AND r.player_id=? AND r.status='reserve'",[tournamentId,playerId]);if(!row)throw new Error('NOT_IN_RESERVE');promotedName=String(row.nickname||'Игрок');const slot=await nextFreeSlot(tx,tournamentId);if(slot==null)throw new Error('TOURNAMENT_FULL');const now=nowIso();await tx.run("UPDATE tournament_registrations SET status='confirmed',slot_number=?,queue_order=NULL,updated_at=?,organizer_reason=? WHERE id=?",[slot,now,reason,row.id]);await renumberReserve(tx,tournamentId);await syncCanonicalParticipants(tx,tournamentId);await audit(tx,tournamentId,'manual_promote','organizer',actor,playerId,reason,{slot_number:slot});await queuePersonalNotification(tx,{notificationKey:`tournament:${tournamentId}:manual-promotion:${playerId}:${nowIso()}`,playerId,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:await reservePromotionText(tx,tournamentId,playerId,true),actionPath:tournamentPlayerPath(tournamentId)});await enqueueOrganizerNotification(tx,{messageKey:`tournament:${tournamentId}:manual-promotion:${playerId}:${nowIso()}`,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:`♟ ${escapeTelegramHtml(String(promotedName))} вручную получил(а) место в составе турнира.`});return {playerId,slot};}));
   return promoted;
 }
 
 export async function cancelTournamentRegistration(db:DatabaseWrapper,tournamentId:string,playerId:string,actorType:'player'|'organizer'='player',actorId?:string|null,reason?:string|null){
   const actor = actorType === 'organizer' ? requireOrganizerActor(actorId) : playerId;
   let promotedPlayerId:string|null=null; let promotedName='';
-  const result=await serializeTournamentMutation(db,()=>db.transaction(async(tx)=>{const tournament=await assertManagedTournamentEvening(tx,tournamentId);if(tournament.status!=='draft')throw new Error('ROSTER_LOCKED');const games=await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?',[tournamentId]);if(Number(games?.count||0)>0)throw new Error('ROSTER_ALREADY_SEATED');const registration=await tx.get<any>('SELECT * FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);if(!registration||['cancelled','declined'].includes(registration.status))return{cancelled:false,promotedPlayerId:null};const wasConfirmed=registration.status==='confirmed';const freedSlot=registration.slot_number;const now=nowIso();await tx.run("UPDATE tournament_registrations SET status='cancelled',slot_number=NULL,queue_order=NULL,response=CASE WHEN ?='player' THEN 'declined' ELSE response END,cancelled_at=?,updated_at=?,organizer_reason=? WHERE id=?",[actorType,now,now,reason||null,registration.id]);await audit(tx,tournamentId,'cancel',actorType,actor,playerId,reason||null);if(wasConfirmed&&freedSlot!=null){await renumberReserve(tx,tournamentId);const [next]=await fillFreeSlots(tx,tournament,now);if(next){promotedPlayerId=next.player_id;promotedName=next.nickname;}}await renumberReserve(tx,tournamentId);await syncCanonicalParticipants(tx,tournamentId);return{cancelled:true,promotedPlayerId};}));
-  if(promotedPlayerId){await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:promotion:${promotedPlayerId}:${nowIso()}`,playerId:promotedPlayerId,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:await reservePromotionText(db,tournamentId,promotedPlayerId,false),actionPath:tournamentPlayerPath(tournamentId)});await enqueueOrganizerNotification(db,{messageKey:`tournament:${tournamentId}:promotion:${promotedPlayerId}:${nowIso()}`,eventType:'tournament_reserve_promoted',entityId:tournamentId,text:`♟ ${promotedName} автоматически получил(а) освободившееся место в турнире.`});}
+  const result=await serializeTournamentMutation(db,()=>db.transaction(async(tx)=>{const tournament=await assertManagedTournamentEvening(tx,tournamentId);if(tournament.status!=='draft')throw new Error('ROSTER_LOCKED');const games=await tx.get<any>('SELECT COUNT(*) AS count FROM tournament_games WHERE tournament_id=?',[tournamentId]);if(Number(games?.count||0)>0)throw new Error('ROSTER_ALREADY_SEATED');const registration=await tx.get<any>('SELECT * FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1',[tournamentId,playerId]);if(!registration||['cancelled','declined'].includes(registration.status))return{cancelled:false,promotedPlayerId:null};const wasConfirmed=registration.status==='confirmed';const freedSlot=registration.slot_number;const now=nowIso();await tx.run("UPDATE tournament_registrations SET status='cancelled',slot_number=NULL,queue_order=NULL,response=CASE WHEN ?='player' THEN 'declined' ELSE response END,cancelled_at=?,updated_at=?,organizer_reason=? WHERE id=?",[actorType,now,now,reason||null,registration.id]);await audit(tx,tournamentId,'cancel',actorType,actor,playerId,reason||null);if(wasConfirmed&&freedSlot!=null){await renumberReserve(tx,tournamentId);const [next]=await fillFreeSlots(tx,tournament,now);if(next){promotedPlayerId=next.player_id;promotedName=next.nickname;}}await renumberReserve(tx,tournamentId);await syncCanonicalParticipants(tx,tournamentId);if(promotedPlayerId){await notifyPromoted(tx,tournamentId,[{player_id:promotedPlayerId,nickname:promotedName}]);}return{cancelled:true,promotedPlayerId};}));
   return result;
 }
 
@@ -301,9 +302,17 @@ export async function notifyTournamentDetailsChanged(db: DatabaseWrapper, tourna
   const rows = await db.all<any>("SELECT player_id FROM tournament_registrations WHERE tournament_id = ? AND status IN ('confirmed','reserve')", [tournamentId]);
   const when = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
   let queued = 0;
+  const signature = `${date.toISOString()}:${venue}`;
+  await ensurePersonalNotificationRoutingSchema(db);
   for (const row of rows) {
+    // Once per new value — but a value that comes back (A → B → C → B) is news again, so the key counts the
+    // earlier notices of this player and the same value is skipped only while it is still the latest one.
+    const prefix = `tournament:${tournamentId}:details:${row.player_id}:`;
+    const earlier = await db.all<any>('SELECT notification_key FROM personal_notification_deliveries WHERE notification_key LIKE ? ORDER BY created_at DESC, rowid DESC', [`${prefix}%`]);
+    const latest = earlier[0]?.notification_key ? String(earlier[0].notification_key) : null;
+    const notificationKey = latest && latest.endsWith(`:${signature}`) ? latest : `${prefix}${earlier.length + 1}:${signature}`;
     const result = await queuePersonalNotification(db, {
-      notificationKey: `tournament:${tournamentId}:details:${row.player_id}:${date.toISOString()}:${venue}`,
+      notificationKey,
       playerId: String(row.player_id),
       eventType: 'tournament_details_changed',
       entityId: tournamentId,
@@ -412,11 +421,45 @@ async function fillFreeSlots(db: DatabaseWrapper, tournament: any, now: string) 
   return promoted;
 }
 
+/**
+ * Coming back after a cancellation starts the payment story again: a refunded claim would otherwise block the
+ * player from reporting a payment (and make the deadline job treat him as unpaid for good).
+ */
+async function resetRefundedPaymentClaim(db: DatabaseWrapper, tournamentId: string, playerId: string, at: string) {
+  await db.run("UPDATE tournament_payment_claims SET state='unpaid', reported_amount_rub=NULL, updated_at=? WHERE tournament_id=? AND player_id=? AND state='refunded'", [at, tournamentId, playerId]);
+}
+
+/**
+ * Somebody who gets a place after the first payment deadline never meets the 4-day reminder, yet the 24-hour job can
+ * still release an unpaid place: tell him at once (owner, 2026-10-05).
+ */
+async function remindLateRegistrant(db: DatabaseWrapper, tournament: any, playerId: string, now = Date.now()) {
+  const fee = Number(tournament?.entry_fee_rub || 0);
+  const start = new Date(String(tournament?.date || '')).getTime();
+  if (!(fee > 0) || !Number.isFinite(start)) return;
+  if (now < start - TOURNAMENT_PAY_FIRST_DEADLINE_HOURS * HOUR || now >= start - TOURNAMENT_PAY_LAST_DEADLINE_HOURS * HOUR) return;
+  const row = await db.get<any>(
+    `SELECT r.status, COALESCE(pc.state,'unpaid') AS pay_state FROM tournament_registrations r
+       LEFT JOIN tournament_payment_claims pc ON pc.tournament_id=r.tournament_id AND pc.player_id=r.player_id
+      WHERE r.tournament_id=? AND r.player_id=? LIMIT 1`,
+    [tournament.id, playerId],
+  );
+  if (!row || row.status !== 'confirmed' || SETTLED_PAYMENT.includes(String(row.pay_state))) return;
+  await queuePersonalNotification(db, {
+    notificationKey: `tournament:${tournament.id}:pay-reminder:${playerId}:late`,
+    playerId,
+    eventType: 'tournament_payment_reminder',
+    entityId: String(tournament.id),
+    text: `💳 Турнир «${String(tournament.title || 'Турнир')}»: чтобы сохранить место, оплатите взнос ${fee.toLocaleString('ru-RU')} ₽ ${paymentDeadlineText(tournament.date, now)} и отметьте оплату в приложении.`,
+    actionPath: tournamentPlayerPath(String(tournament.id)),
+  });
+}
+
 async function notifyPromoted(db: DatabaseWrapper, tournamentId: string, promoted: Array<{ player_id: string; nickname: string }>, at = Date.now()) {
   for (const item of promoted) {
     const stamp = nowIso();
     await queuePersonalNotification(db, { notificationKey: `tournament:${tournamentId}:promotion:${item.player_id}:${stamp}`, playerId: item.player_id, eventType: 'tournament_reserve_promoted', entityId: tournamentId, text: await reservePromotionText(db, tournamentId, item.player_id, false, at), actionPath: tournamentPlayerPath(tournamentId) });
-    await enqueueOrganizerNotification(db, { messageKey: `tournament:${tournamentId}:promotion:${item.player_id}:${stamp}`, eventType: 'tournament_reserve_promoted', entityId: tournamentId, text: `♟ ${item.nickname} получил(а) освободившееся место в турнире.` });
+    await enqueueOrganizerNotification(db, { messageKey: `tournament:${tournamentId}:promotion:${item.player_id}:${stamp}`, eventType: 'tournament_reserve_promoted', entityId: tournamentId, text: `♟ ${escapeTelegramHtml(String(item.nickname))} получил(а) освободившееся место в турнире.` });
   }
 }
 
@@ -438,6 +481,7 @@ export async function answerTournament(db: DatabaseWrapper, tournamentId: string
     const now = nowIso();
     const id = existing?.id || crypto.randomUUID();
     const holdsPlace = existing?.status === 'confirmed';
+    if (existing?.status === 'cancelled' && (response === 'play' || response === 'substitute')) await resetRefundedPaymentClaim(tx, tournamentId, playerId, now);
     if (response === 'play') {
       if (holdsPlace) { await tx.run("UPDATE tournament_registrations SET response='play',updated_at=? WHERE id=?", [now, id]); return; }
       const slot = await nextFreeSlot(tx, tournamentId);
@@ -460,8 +504,10 @@ export async function answerTournament(db: DatabaseWrapper, tournamentId: string
     // Any answer can open or take a place (e.g. a substitute after the 3-day deadline): refill every time.
     promoted = await fillFreeSlots(tx, tournament, now);
     await syncCanonicalParticipants(tx, tournamentId);
+    // Queued in the same transaction as the promotion, so a promoted player is never left without the message.
+    await notifyPromoted(tx, tournamentId, promoted);
+    if (response === 'play') await remindLateRegistrant(tx, tournament, playerId);
   }));
-  await notifyPromoted(db, tournamentId, promoted);
   return loadTournamentEvening(db, tournamentId, playerId);
 }
 
@@ -525,12 +571,14 @@ export async function enforceTournamentPaymentDeadlines(db: DatabaseWrapper, now
         await renumberReserve(tx, tournamentId);
         promoted = await fillFreeSlots(tx, fresh, stamp);
         await syncCanonicalParticipants(tx, tournamentId);
+        // Every message is queued in the same transaction as the deadline claim: if one cannot be queued the whole
+        // run rolls back and the next scan repeats it, instead of losing the rest for good.
+        for (const item of demoted) {
+          await queuePersonalNotification(tx, { notificationKey: `tournament:${tournamentId}:released:${hours}:${item.player_id}`, playerId: item.player_id, eventType: 'tournament_place_released', entityId: tournamentId, text: `Взнос за турнир «${title}» не оплачен к сроку, поэтому место передано следующему игроку. Вы в списке «Готов подменить» — если место освободится, мы сообщим.`, actionPath: tournamentPlayerPath(tournamentId) });
+        }
+        if (demoted.length) await enqueueOrganizerNotification(tx, { messageKey: `tournament:${tournamentId}:released:${hours}`, eventType: 'tournament_place_released', entityId: tournamentId, text: `♟ Турнир «${escapeTelegramHtml(String(title))}»: не оплатили к сроку и переведены в «Готов подменить»: ${demoted.map((item) => escapeTelegramHtml(String(item.nickname))).join(', ')}.` });
+        await notifyPromoted(tx, tournamentId, promoted, now);
       }));
-      for (const item of demoted) {
-        await queuePersonalNotification(db, { notificationKey: `tournament:${tournamentId}:released:${hours}:${item.player_id}`, playerId: item.player_id, eventType: 'tournament_place_released', entityId: tournamentId, text: `Взнос за турнир «${title}» не оплачен к сроку, поэтому место передано следующему игроку. Вы в списке «Готов подменить» — если место освободится, мы сообщим.`, actionPath: tournamentPlayerPath(tournamentId) });
-      }
-      if (demoted.length) await enqueueOrganizerNotification(db, { messageKey: `tournament:${tournamentId}:released:${hours}`, eventType: 'tournament_place_released', entityId: tournamentId, text: `♟ Турнир «${title}»: не оплатили к сроку и переведены в «Готов подменить»: ${demoted.map((item) => item.nickname).join(', ')}.` });
-      await notifyPromoted(db, tournamentId, promoted, now);
       actions += demoted.length + promoted.length;
     }
   }

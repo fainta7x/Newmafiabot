@@ -33,7 +33,9 @@ const integerInRange = (value: unknown, min: number, max: number, label: string)
 };
 
 const tenthInRange = (value: unknown, min: number, max: number, label: string): number => {
-  const number = Math.round(finite(value, label) * 10) / 10;
+  // Sign-symmetric: +0.05 and -0.05 round away from zero alike (Math.round alone sends -0.05 to 0 but +0.05 to 0.1).
+  const raw = finite(value, label);
+  const number = Math.sign(raw) * Math.round(Math.abs(raw) * 10) / 10;
   if (number < min || number > max) throw new Error(`${label}: допустимо от ${min} до ${max}`);
   return number;
 };
@@ -59,6 +61,16 @@ const validateBestMoves = (protocol: any, participantIds: Set<string>, tableSize
   }
 };
 
+
+/**
+ * Ci compensation (BUSINESS_RULES): only the first-killed red player can get it, at most the 0.4 rate and never
+ * negative. Anything else a client sends is dropped, because the value goes straight into the club Elo.
+ */
+const normalizeCi = (value: number, eligible: boolean): number => {
+  if (!eligible) return 0;
+  return Math.round(Math.min(0.4, Math.max(0, value)) * 100) / 100;
+};
+
 export interface CanonicalClubGameSave { protocol: any; playerResults: any[]; }
 
 export const canonicalizeClubGameSave = (
@@ -78,6 +90,7 @@ export const canonicalizeClubGameSave = (
   if (incomingIds.some((id) => !id) || new Set(incomingIds).size !== tableSize) throw new Error(`В протоколе должны быть ${tableSize} уникальных участников`);
   if (incomingIds.some((id) => !previousByParticipant.has(id))) throw new Error('Нельзя заменить состав уже созданной игры через протокол');
 
+  const firstKilledParticipantId = String(incomingProtocol?.first_killed_participant_id || '').trim() || null;
   const ppkCulpritId = String(incomingProtocol?.ppk_culprit_participant_id || '').trim() || null;
   const participantIds = new Set(incomingIds);
   if (ppkCulpritId && !participantIds.has(ppkCulpritId)) throw new Error('Виновник ППК не относится к этой игре');
@@ -116,7 +129,7 @@ export const canonicalizeClubGameSave = (
       protocol_bonus: tenthInRange(incoming.protocol_bonus, -1, 1, `Игрок #${seat}: балл за протокол`),
       penalty_points: finite(incoming.penalty_points, `Игрок #${seat}: игровой штраф`),
       disciplinary_penalty_points: disciplinaryPenalty,
-      ci_points: finite(incoming.ci_points, `Игрок #${seat}: Ci`),
+      ci_points: normalizeCi(finite(incoming.ci_points, `Игрок #${seat}: Ci`), participantId === firstKilledParticipantId && (role === 'citizen' || role === 'sheriff')),
       removal_reason: removalReason,
       color_protocol: Array.isArray(incoming.color_protocol) ? incoming.color_protocol : [],
     };

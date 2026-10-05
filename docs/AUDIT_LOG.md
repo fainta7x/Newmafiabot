@@ -79,6 +79,23 @@ Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-hea
 2. MEDIUM `fixed (db-transaction-queue PR)` — three routes opened a transaction by hand with `db.exec('BEGIN TRANSACTION')` and could collide with it (`eveningsRoutesBase.ts`: add participants, bulk update, close evening).
 3. LOW `open` — statements of other requests that run while a transaction is open still share the connection (a rollback also undoes them); needs a connection-level queue for all statements, not done.
 
+### Player profiles audit (owner request, 2026-10-05)
+
+Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs Обзор/Игры/Роли/Elo/Награды/История клуба/Связи), its overlay in `PlayerCabinetShell.tsx`, `PlayerCareerProfile.tsx` (+ `PlayerGameNumbers.tsx`), settings/privacy (`PlayerProfileSettings.tsx`, `PlayerProfilePrivacySettings.tsx`), `premiumPlayerProfileService.ts` and the profile routes. Read from the code and the API shapes; no live data was opened.
+
+1. HIGH `fixed (profiles-audit PR)` — another player's profile opens as a full-screen overlay over the cabinet with only a «←»; the bottom menu is covered, so there is no way back to the usual sections (`PlayerCabinetShell.tsx`, overlay).
+2. HIGH `fixed (profiles-audit PR)` — «Игры» tab prints raw codes (`citizen`/`mafia`, `red`/`black`) and shows neither the game title, number, Elo change nor a link to the game, although the API returns them (`CanonicalPremiumPlayerProfile.tsx`).
+3. MEDIUM `fixed (profiles-audit PR)` — «Elo» tab: raw role code, fractional Elo («1003.45», «+12.35») next to an integer Elo in the header, a duplicated «До игры → после» line, no link to the game.
+4. MEDIUM `fixed (profiles-audit PR)` — when the player hid his statistics, the overview shows «—» tiles with no explanation and the «Elo»/«Роли» tabs print «Истории Elo пока нет» (a lie: it is hidden, not absent; the 403 text is never shown there).
+5. MEDIUM `fixed (profiles-audit PR)` — `/api/player/career/:playerId` ignored the «Игровая статистика» privacy switch (anyone could read another player's games, win rates and roles) (`playerCareerProfileRoutes.ts`).
+6. MEDIUM `fixed (profiles-audit PR)` — «По 21 играм» (wrong case after a number) and the clumsy hint «за чёрных: 5 из 7 (красным)» in «Игра в цифрах» (`PlayerGameNumbers.tsx`).
+7. MEDIUM `fixed (profiles-audit PR)` — privacy settings: a failed load leaves «Загрузка приватности…» for ever; a failed save leaves the switch flipped while the message says it failed (`PlayerProfilePrivacySettings.tsx`).
+8. LOW `fixed (profiles-audit PR)` — career screen shows an empty hole when the avatar is missing/broken (the other profile shows an initial); overview «Последние игры» are not clickable.
+9. LOW `fixed (profiles-audit PR)` — wording: tab «История клуба» vs section «История в клубе»; «Текущий период» vs «Текущий сезон» (season = rating period since 2026-10-04).
+10. LOW `open` — the birth year 2000 cannot be saved (the date picker's default year 2000 means «no year», `PlayerProfileSettings.tsx`).
+11. QUESTION `see PROJECT_STATE` — two profile screens (career in «Игры», canonical in «Профиль») show overlapping numbers from different sources; whether to merge them is the owner's call.
+12. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.
+
 ### Open — parity gaps between modes (not fixed)
 
 - Club evening winners get no trophies (tournament winners do).

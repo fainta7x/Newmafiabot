@@ -7,6 +7,7 @@ import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
+import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
@@ -230,6 +231,7 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
   if (await postWeeklySeasonTables(db, fetchImpl, now)) posted += 1;
   posted += await runTournamentAnnouncements(db, fetchImpl, now);
   posted += await runTournamentResultPosts(db, fetchImpl, now);
+  posted += await runEveningPaymentReminders(db, now).catch((error) => { console.error('[PAYMENT REMINDERS] scan failed:', error); return 0; });
   posted += await runTournamentGameFollowUps(db, fetchImpl, now, String(marker?.created_at || stamp));
   return posted;
 }

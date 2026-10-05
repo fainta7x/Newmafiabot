@@ -8,6 +8,7 @@ import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeA
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
+import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
 
 const router = Router();
 
@@ -264,6 +265,19 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
     return res.json(payments);
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
+  }
+});
+
+// «Напомнить должникам» (owner, 2026-10-05): a personal message to everybody who still owes for the evening, at most one a day each.
+router.post('/:id/payment-reminders', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT id FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+    const result = await sendEveningPaymentReminders(db, String(req.params.id), manualReminderSlot());
+    return res.json({ success: true, ...result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось отправить напоминания' });
   }
 });
 

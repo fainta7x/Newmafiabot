@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDollarSign, RefreshCw, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, XCircle } from 'lucide-react';
 
 import EveningListControls from './EveningListControls.tsx';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
 
 type PaymentParticipant = {
@@ -40,6 +41,10 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [giftTarget, setGiftTarget] = useState<PaymentParticipant | null>(null);
+  const [remindOpen, setRemindOpen] = useState(false);
+  const [remindBusy, setRemindBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = async () => {
     setError(null);
@@ -104,6 +109,45 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
     }
   };
 
+  // «Подарить вечер» (owner, 2026-10-05): the player owes nothing for this evening; it is the ordinary waiver, and it can be taken back.
+  const setWaived = async (participant: PaymentParticipant, waived: boolean) => {
+    if (busyIds.has(participant.id)) return;
+    setBusyIds((current) => new Set(current).add(participant.id));
+    setError(null); setNotice(null);
+    try {
+      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/payments/${encodeURIComponent(participant.id)}`, {
+        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waived, reason: waived ? 'Подарочный вечер' : undefined }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось изменить освобождение от оплаты');
+      setData(body as PaymentPayload);
+    } catch (waiveError: any) {
+      setError(waiveError?.message || 'Не удалось изменить освобождение от оплаты');
+    } finally {
+      setBusyIds((current) => { const next = new Set(current); next.delete(participant.id); return next; });
+      setGiftTarget(null);
+    }
+  };
+
+  // «Напомнить должникам» (owner, 2026-10-05): a personal Telegram/VK message to everybody who still owes, at most one a day each.
+  const remindDebtors = async () => {
+    setRemindBusy(true); setError(null); setNotice(null);
+    try {
+      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/payment-reminders`, { method: 'POST', credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить напоминания');
+      const parts = [`Отправлено: ${body.queued || 0}`];
+      if (body.skipped_recent) parts.push(`уже напоминали сегодня: ${body.skipped_recent}`);
+      if (body.undeliverable) parts.push(`без Telegram/VK или с выключенными уведомлениями: ${body.undeliverable}`);
+      setNotice(parts.join(' · '));
+    } catch (remindError: any) {
+      setError(remindError?.message || 'Не удалось отправить напоминания');
+    } finally {
+      setRemindBusy(false); setRemindOpen(false);
+    }
+  };
+
   const summary = useMemo(() => {
     const participants = data?.participants || [];
     const payable = participants.filter((item) => Number(item.amount_due || 0) > 0 && item.payment_status !== 'waived');
@@ -151,6 +195,12 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
       </div>
 
       {error ? <div className="mt-2 rounded-[10px] bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</div> : null}
+      {notice ? <div role="status" className="mt-2 rounded-[10px] bg-success-soft px-3 py-2 text-[10px] text-success">{notice}</div> : null}
+      {summary.unpaid > 0 ? (
+        <button type="button" data-testid="remind-debtors" onClick={() => setRemindOpen(true)} disabled={remindBusy} className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[11px] bg-danger-soft px-3 text-[11px] font-black text-danger disabled:opacity-40">
+          <BellRing className="h-4 w-4" /> Напомнить должникам ({summary.unpaid})
+        </button>
+      ) : null}
 
       {data?.evening.format === 'RATING' && data.participants.length ? (() => {
         // Internal bookkeeping (organizers only): how the collected entry fees are split.
@@ -184,6 +234,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
               const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
               const waived = participant.payment_status === 'waived' || due === 0;
               const busy = busyIds.has(participant.id);
+              const canGift = data?.evening.format === 'CASUAL';
 
               return (
                 <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
@@ -195,15 +246,27 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                   </div>
 
                   {waived ? (
-                    <span className="shrink-0 rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
+                      {participant.fee_waived && canGift ? (
+                        <button type="button" disabled={busy} onClick={() => void setWaived(participant, false)} className="inline-flex min-h-[44px] items-center rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-muted disabled:opacity-40">Вернуть оплату</button>
+                      ) : null}
+                    </div>
                   ) : paid ? (
                     <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Снять оплату
                     </button>
                   ) : (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[10px] font-black text-danger disabled:opacity-40">
-                      <XCircle className="h-3.5 w-3.5" /> Принять оплату
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {canGift ? (
+                        <button type="button" disabled={busy} data-testid={`gift-evening-${participant.id}`} onClick={() => setGiftTarget(participant)} aria-label={`Подарить вечер: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
+                          <Gift className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[10px] font-black text-danger disabled:opacity-40">
+                        <XCircle className="h-3.5 w-3.5" /> Принять оплату
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -214,6 +277,24 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
       ) : (
         <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-3 text-[10px] text-text-muted">Пока нет отмеченных пришедших игроков.</div>
       )}
+      <ConfirmDialog
+        open={Boolean(giftTarget)}
+        title="Подарить вечер?"
+        description={giftTarget ? `${giftTarget.nickname} ничего не должен за этот вечер: долг снимется, в учёте это освобождение от оплаты. Это можно отменить кнопкой «Вернуть оплату».` : undefined}
+        confirmLabel="Подарить"
+        busy={Boolean(giftTarget && busyIds.has(giftTarget.id))}
+        onCancel={() => setGiftTarget(null)}
+        onConfirm={() => { if (giftTarget) void setWaived(giftTarget, true); }}
+      />
+      <ConfirmDialog
+        open={remindOpen}
+        title="Напомнить должникам?"
+        description={`Бот напишет лично ${summary.unpaid} игрокам, которые ещё не оплатили вечер: сколько и за что, и как перевести. Не чаще одного раза в сутки на человека.`}
+        confirmLabel="Напомнить"
+        busy={remindBusy}
+        onCancel={() => setRemindOpen(false)}
+        onConfirm={() => void remindDebtors()}
+      />
     </section>
   );
 }

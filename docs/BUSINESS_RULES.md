@@ -302,6 +302,13 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - **Voting in the bot (owner, 2026-10-05).** Besides the app (Клуб → Истории), the vote is a message with buttons in the Telegram bot: right after an evening's personal card every attendee reached through Telegram gets «Кто сыграл лучше всех?» with one button per other attendee. A tap is the vote, a tap on another player changes it, the chosen player is marked ✅. The same rules as in the app: attendees only, never yourself, only while the 3 days are open; the app and the bot share one vote. Players reached through VK vote in the app. Evenings closed before this shipped get no such message.
 - Tournament awards are separate and unchanged.
 
+## Evening payment reminders and gifts (user-approved 2026-10-05)
+
+- A **debtor** of a club evening is a player who attended, is not exempt and has paid less than the amount due (the same people «Дела» lists as «Не оплатили»).
+- **«Напомнить должникам»** (organizer button in the evening's payments) writes a personal message through the player's Telegram or VK route to every debtor; **automatic reminders** do the same a day and three days after the evening is closed, for evenings closed within the last 14 days. A person gets **at most one reminder a day** for an evening. The message says how much is owed (and how much is already paid), for which evening, and how to pay: by transfer to the owner's number, +7 967 431-71-19, Sberbank (`CLUB_PAYMENT_DETAILS` overrides the text); the app cannot take payments yet, so the message never promises that.
+- Who pays on a regular (CASUAL) evening is unchanged: only the **organizer assigned to that evening** and players explicitly waived are free; other club organizers who play pay like everybody else.
+- **«🎁 Подарить вечер»** (owner, 2026-10-05) is the ordinary evening-specific waiver (`evening_fee_waivers`) with the reason «Подарочный вечер», set by the organizer with a confirmation and taken back with «Вернуть оплату»; in the books it is shown as an ordinary waiver, with no separate mark. Only for regular (CASUAL) evenings.
+
 ## Evening registration
 
 ### Current club focus

@@ -223,6 +223,41 @@ const passive = (toCall: number): PokerBotAction => (toCall === 0 ? { type: 'che
 
 export type OpponentRange = number | { range: number; /** The weakest share of hands on this board that still fits his betting (0 = any, 0.5 = better than half of all hands). */ boardMin?: number };
 
+/**
+ * How much a hand is worth as a DRAW on the flop or turn, on the same 0..1 scale as «better than that share of hands»:
+ * a flush draw, an open-ended straight draw, a gutshot or a combination. Made hands count by their rank; a player who bets
+ * or raises with a draw (a semi-bluff) belongs to the range as well (owner, 2026-10-05).
+ */
+export const drawPotential = (pick: PokerCard[], board: PokerCard[]) => {
+  if (board.length < 3 || board.length > 4) return 0;
+  const all = [...pick, ...board];
+  const suitCounts = new Map<string, number>();
+  for (const card of all) suitCounts.set(card.suit, (suitCounts.get(card.suit) || 0) + 1);
+  const flushDraw = [...suitCounts.entries()].some(([suit, count]) => count === 4 && pick.some((card) => card.suit === suit));
+  const values = new Set<number>();
+  for (const card of all) { const v = value(card.rank); values.add(v); if (v === 14) values.add(1); }
+  const holeValues = pick.flatMap((card) => (value(card.rank) === 14 ? [14, 1] : [value(card.rank)]));
+  let open = false;
+  let gut = false;
+  const usesHole = (items: number[]) => items.some((item) => holeValues.includes(item));
+  const made = (low: number) => [0, 1, 2, 3, 4].every((offset) => values.has(low + offset));
+  for (let low = 1; low <= 10; low += 1) if (made(low)) return 0; // already a straight: the made hand counts
+  for (let low = 1; low <= 11; low += 1) {
+    const run = [low, low + 1, low + 2, low + 3];
+    if (run.every((item) => values.has(item)) && usesHole(run) && low > 1 && low + 4 <= 14) open = true;
+  }
+  for (let low = 1; low <= 10; low += 1) {
+    const window = [low, low + 1, low + 2, low + 3, low + 4];
+    const present = window.filter((item) => values.has(item));
+    if (present.length === 4 && usesHole(present)) gut = true;
+  }
+  if (flushDraw && (open || gut)) return 0.85;
+  if (flushDraw) return 0.62;
+  if (open) return 0.6;
+  if (gut) return 0.4;
+  return 0;
+};
+
 const rankKey = (rank: number[]) => rank.reduce((total, value) => total * 15 + value, 0);
 
 /**
@@ -251,7 +286,8 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
     const key = rankKey(pokerHandRank([...pick, ...board]));
     let low = 0;
     while (low < boardSample.length && boardSample[low] <= key) low += 1;
-    return low / boardSample.length;
+    const made = low / boardSample.length;
+    return board.length < 5 ? Math.max(made, drawPotential(pick, board)) : made;
   };
   let score = 0;
   for (let run = 0; run < runs; run += 1) {
@@ -285,16 +321,31 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
 };
 
 /** What range each opponent still in the hand probably holds, from their preflop actions. */
-const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
+export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   const { raisers } = preflopRaises(hand);
-  const reraised = preflopRaises(hand).count >= 2;
+  // Ranges depend on how many are dealt in (owner, 2026-10-05): at a full table they follow the 6-max charts, three-handed
+  // everybody opens and defends much wider, and heads-up nearly every hand is played, aggressively.
+  const seated = hand.players.length;
+  const tableWidth = seated <= 2 ? 2.4 : seated === 3 ? 1.5 : seated === 4 ? 1.2 : seated === 5 ? 1.08 : 1;
+  const tableAggression = seated <= 2 ? 0.75 : seated === 3 ? 0.88 : 1;
   // Popular lines (owner, 2026-10-02): a bet after the flop narrows the bettor's range, and how much
   // depends on who bets — a tight or passive player rarely bets or c-bets a weak hand.
   // Strength of each aggressive action, from common reads in poker guides: a raise after the flop
   // (check-raise or raise of a bet) and anything on the river are much stronger than a first flop bet.
+  // Board texture (owner, 2026-10-05): on a wet board (flush or straight draws about) a check-raise is often a semi-bluff,
+  // on a dry one it is mostly a made hand; and a high-card board fits the preflop raiser's range, a low connected one the caller's.
+  const flopCards = hand.board.slice(0, 3);
+  const suitMax = Math.max(0, ...['spades', 'hearts', 'diamonds', 'clubs'].map((suit) => flopCards.filter((card) => card.suit === suit).length));
+  const flopValues = flopCards.map((card) => value(card.rank)).sort((a, b) => a - b);
+  const connected = flopValues.length === 3 && flopValues[2] - flopValues[0] <= 4;
+  const wet = flopCards.length === 3 && (suitMax >= 2 || connected);
+  const topCard = flopValues.at(-1) || 0;
+  const highBoard = topCard >= 13;
+  const lowBoard = topCard > 0 && topCard <= 9;
   const lineWeight = new Map<string, number>();
   const streetHadBet = new Map<string, boolean>();
   const checkedOn = new Set<string>();
+  const streetHadBetBefore = new Set<string>();
   for (const entry of hand.action_log) {
     if (entry.street === 'preflop') continue;
     if (entry.type === 'check') { checkedOn.add(`${entry.street}:${entry.player_id}`); continue; }
@@ -305,21 +356,68 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     // Check-raise (owner, 2026-10-05): checking and then raising a bet is a trap line — read it as very strong, so the bot
     // neither folds a good hand at once nor calls it down with a marginal one.
     const checkRaise = isRaise && checkedOn.has(`${entry.street}:${entry.player_id}`);
-    // Size matters (owner, 2026-10-05): a min-raise or a tiny bet is often a probe or a bluff, not strength.
+    // The line decides, not the size (owner, 2026-10-05): a third-pot bet can be a monster and a pot-size bet a bluff.
+    // What counts is who bets: the preflop raiser's first bet is a wide continuation bet, and a player in late position
+    // bets (and raises) with a wider range than one from early position.
+    const bettor = hand.players.find((item) => item.id === entry.player_id);
+    const lateness = bettor ? openerLateness(hand, bettor.seat) : 0.5;
+    const positionScale = 1.15 - 0.3 * lateness;
+    const continuation = !isRaise && raisers.has(entry.player_id) && !streetHadBetBefore.has(entry.player_id);
+    // Size only nudges the line (0.85 for a third of the pot .. 1.15 for a pot-size bet): the same size reads differently
+    // from a preflop raiser (wide continuation bet), from a late position and from a player who called before the flop.
     const potBefore = entry.pot ?? 0;
-    const sizeScale = potBefore > 0 ? Math.min(1.25, Math.max(0.45, entry.amount / potBefore / 0.66)) : 1;
-    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * sizeScale + (checkRaise ? 1.2 : 0));
+    const sizeNudge = potBefore > 0 ? 0.85 + 0.3 * Math.min(1, Math.max(0, (entry.amount / potBefore - 0.33) / 0.67)) : 1;
+    const lineScale = positionScale * (continuation ? 0.7 : 1) * sizeNudge * tableAggression;
+    streetHadBetBefore.add(entry.player_id);
+    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * lineScale + (checkRaise ? (wet ? 0.6 : 1) : 0));
     streetHadBet.set(entry.street, true);
+  }
+  // How each re-raiser (3-bet and later) raised: his raise-to over the bet he faced. Chips paid per action add up to his total.
+  const reraiseLine = new Map<string, { level: number; ratio: number; inPosition: boolean }>();
+  {
+    const total = new Map<string, number>();
+    let bet = 0;
+    let level = 0;
+    let openerId = '';
+    for (const entry of hand.action_log) {
+      if (entry.street !== 'preflop') break;
+      total.set(entry.player_id, (total.get(entry.player_id) || 0) + (entry.amount || 0));
+      const mine = total.get(entry.player_id) || 0;
+      const raised = entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && mine > bet);
+      if (!raised) continue;
+      level += 1;
+      if (level === 1) openerId = entry.player_id;
+      if (level >= 2) {
+        const me = hand.players.find((item) => item.id === entry.player_id);
+        const opener = hand.players.find((item) => item.id === openerId);
+        const inPosition = Boolean(me && opener) && openerLateness(hand, me!.seat) > openerLateness(hand, opener!.seat);
+        reraiseLine.set(entry.player_id, { level, ratio: bet > 0 ? mine / bet : 3, inPosition });
+      }
+      bet = Math.max(bet, mine);
+    }
   }
   return hand.players
     .filter((player) => player.id !== bot.id && !player.folded)
     .map((player) => {
       const profile = pokerOpponentProfile(player.id);
       const loose = profile.known ? Math.min(0.7, Math.max(0.12, profile.vpip)) : 0.45;
-      let range = raisers.has(player.id) ? (reraised ? 0.08 : Math.min(0.25, loose)) : loose;
-      // A min-raise before the flop (up to ~2.5 big blinds in total) is much weaker than a standard open.
-      const smallOpen = raisers.has(player.id) && hand.action_log.some((entry) => entry.player_id === player.id && entry.street === 'preflop' && entry.type === 'raise' && entry.amount <= hand.big_blind * 2.5);
-      if (smallOpen) range = Math.min(0.6, range * 1.8);
+      // GTO-like opening ranges by position (owner, 2026-10-05): under the gun opens ~14% of hands, the button ~42% (6-max charts);
+      // a re-raised pot is much tighter. A known player's own VPIP pulls the range toward how he really plays.
+      const opened = openerLateness(hand, player.seat);
+      const positional = 0.14 + 0.28 * opened;
+      const openRangeOf = Math.min(0.85, (profile.known ? (positional + Math.min(0.5, loose)) / 2 : positional) * tableWidth);
+      // A re-raise narrows only the player who made it, and by how he made it: a 3-bet from the button or a blind is
+      // wider than from early position, and a small one (to ~4 big blinds over a 2 bb open) is wider than a standard
+      // 3x — it is mostly a merged or bluffing range, not a monster (owner, 2026-10-05).
+      const reraise = reraiseLine.get(player.id);
+      let range = raisers.has(player.id) ? openRangeOf : loose;
+      if (reraise) {
+        const base = reraise.level >= 3 ? 0.05 : 0.07 + 0.06 * opened;
+        // Charts: ~3x the open in position, ~3.5–4x out of position, so a size is judged against what its position normally uses.
+        const typical = reraise.inPosition ? 3 : 3.8;
+        const sizeFactor = reraise.ratio <= typical * 0.75 ? 1.4 : reraise.ratio >= typical * 1.2 ? 0.85 : 1;
+        range = Math.min(seated <= 2 ? 0.45 : 0.3, base * Math.min(seated <= 2 ? 3 : 2, tableWidth) * sizeFactor * (profile.known && profile.vpip > 0.45 ? 1.3 : 1));
+      }
       if (player.seat === hand.big_blind_seat && preflopRaises(hand).count === 0) range = 1;
       const bets = lineWeight.get(player.id) || 0;
       let boardMin = 0;
@@ -333,13 +431,26 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
         // 1 bet: better than ~30% of hands on this board; a raise or several bets: ~50-75%. A tight or passive player
         // bets with more; a maniac bets with anything.
         const styleFactor = tight || passive ? 1.25 : wild ? 0.6 : 1;
-        boardMin = Math.min(0.9, (1 - 0.7 ** bets) * styleFactor);
+        const preflopRaiser = raisers.has(player.id);
+        const fit = preflopRaiser ? (highBoard ? 0.85 : lowBoard ? 1.05 : 1) : (highBoard ? 1.1 : lowBoard ? 0.95 : 1);
+        boardMin = Math.min(0.9, (1 - 0.7 ** bets) * styleFactor * fit);
       }
       return { range: Math.max(0.02, range), boardMin };
     });
 };
 
 // ---------- Decisions ----------
+/**
+ * A hidden playing style for every bot (owner, 2026-10-05): the ranges it plays are 10–15% wider or narrower than the
+ * baseline. It comes from the bot's random id, which is new every time a bot is added, so a style cannot be learned from
+ * a name and the same name has a different character the next time.
+ */
+export const botStyle = (id: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < id.length; index += 1) { hash ^= id.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return 0.86 + 0.28 * (((hash >>> 0) % 10000) / 10000);
+};
+
 const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => number, riskPremium = 0): PokerBotAction => {
   // ICM pressure narrows every calling and shoving range.
   const tighten = 1 - Math.min(0.6, riskPremium * 3);
@@ -351,18 +462,19 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   const stackBb = (bot.chips + bot.committed) / bb;
   const tableSize = hand.players.length;
   const behind = playersBehind(hand, bot);
+  const style = botStyle(bot.id);
   const { count: raises } = preflopRaises(hand);
 
   // Short stack: push or fold, the way push/fold charts play under 12 big blinds.
   if (stackBb <= 12) {
-    const shove = (raises === 0 ? Math.min(0.7, openRange(behind, tableSize) * 1.6) : 0.1) * tighten;
+    const shove = (raises === 0 ? Math.min(0.7, openRange(behind, tableSize) * style * 1.6) : 0.1) * tighten;
     if (pct <= shove) return { type: 'all_in' };
     return passive(toCall);
   }
 
   if (raises === 0) {
     const limpers = preflopActions(hand).filter((entry) => entry.type === 'call').length;
-    if (inMixedRange(pct, openRange(behind, tableSize), random)) {
+    if (inMixedRange(pct, openRange(behind, tableSize) * style, random)) {
       return raiseTo(hand, bot, bb * (behind <= 2 ? 2.5 : 2.2) + limpers * bb);
     }
     // Big blind with no raise: a free look at the flop.
@@ -376,19 +488,19 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   const frequentRaiser = Boolean(raiserProfile?.known && raiserProfile.pfr > 0.35);
   if (raises === 1) {
     const callers = preflopActions(hand).filter((entry) => entry.type === 'call').length;
-    const valueThreeBet = (behind <= 1 ? 0.07 : 0.05) * (frequentRaiser ? 2.2 : 1);
+    const valueThreeBet = (behind <= 1 ? 0.07 : 0.05) * style * (frequentRaiser ? 2.2 : 1);
     if (pct <= valueThreeBet || (isBluff3Bet(cls) && random() < 0.35)) {
       return raiseTo(hand, bot, hand.current_bet * (behind <= 1 ? 3.6 : 3));
     }
     const defend = defendRange(hand, bot, raiser?.seat ?? hand.dealer_seat, lastRaiserId, callers);
     // Never call off a big part of the stack with a marginal hand: only a price the stack can bear.
-    if (pct <= defend * tighten && toCall <= (bot.chips + bot.committed) * 0.3) return { type: 'call' };
+    if (pct <= defend * style * tighten && toCall <= (bot.chips + bot.committed) * 0.3) return { type: 'call' };
     return passive(toCall);
   }
 
   // Facing a 3-bet or more.
   if (pct <= 0.025 || (cls === 'A5s' && random() < 0.25)) return raiseTo(hand, bot, hand.current_bet * 2.4);
-  if (pct <= (raises >= 3 ? 0.03 : 0.07) * (frequentRaiser ? 2.4 : 1) * tighten && toCall <= bot.chips * 0.35) return { type: 'call' };
+  if (pct <= (raises >= 3 ? 0.03 : 0.07) * style * (frequentRaiser ? 2.4 : 1) * tighten && toCall <= bot.chips * 0.35) return { type: 'call' };
   return passive(toCall);
 };
 
@@ -423,13 +535,29 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
   // The player who raised before the flop holds the initiative: his continuation bet is believed more often than a
   // bet from nowhere, because the opponents' ranges mostly missed the flop.
   const hasInitiative = hand.street === 'flop' && toCall === 0 && opponentsLeft <= 2 && preflopRaises(hand).lastRaiserId === bot.id;
+  // The story of the hand (owner, 2026-10-05): on a dry high-card flop (A or K high, like K-2-3) the preflop raiser and a
+  // blind that defended can represent the king without holding it, and a card of that rank in the bot's hand blocks the
+  // calls. The semi-bluffs with flush and straight draws already come from the simulated equity; this adds the pure bluffs.
+  const flopCards = hand.board.slice(0, 3);
+  const topValue = Math.max(0, ...flopCards.map((card) => value(card.rank)));
+  const flopPaired = new Set(flopCards.map((card) => card.rank)).size < flopCards.length;
+  const flushish = ['spades', 'hearts', 'diamonds', 'clubs'].some((suit) => flopCards.filter((card) => card.suit === suit).length >= 2);
+  const flopValues = flopCards.map((card) => value(card.rank)).sort((a, b) => a - b);
+  const coordinated = flopValues.length === 3 && flopValues[2] - flopValues[0] <= 4;
+  const dryHighFlop = flopCards.length === 3 && topValue >= 13 && !flushish && !coordinated;
+  const representsRange = bot.seat === hand.small_blind_seat || bot.seat === hand.big_blind_seat || preflopRaises(hand).raisers.has(bot.id);
+  const blocksTop = hole.some((card) => value(card.rank) === topValue);
+  const botBetFlop = hand.action_log.some((entry) => entry.street === 'flop' && entry.player_id === bot.id && (entry.type === 'bet' || entry.type === 'raise'));
+  const story = toCall === 0 && !river && opponentsLeft <= 2 && dryHighFlop && representsRange && (hand.street === 'flop' || botBetFlop)
+    ? (flopPaired ? 0.05 : 0.1) * (hand.street === 'flop' ? 1 : 0.6) + (blocksTop ? 0.04 : 0)
+    : 0;
   const candidates: Candidate[] = [];
   if (toCall === 0) candidates.push({ action: { type: 'check' }, ev: realized * pot * (river ? 1 : 0.92) });
   else {
     candidates.push({ action: { type: 'fold' }, ev: 0 });
     const price = Math.min(toCall, stack);
     const finalPot = pot + price;
-    candidates.push({ action: { type: 'call' }, ev: realized >= needed(price, finalPot) - 0.02 ? realized * finalPot - price : -price });
+    candidates.push({ action: { type: 'call' }, ev: realized >= needed(price, finalPot) - 0.02 - (botStyle(bot.id) - 1) * 0.1 ? realized * finalPot - price : -price });
   }
 
   const sizes = toCall === 0 ? [0.33, 0.66, 1] : [2.5, 3.5];
@@ -443,7 +571,7 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
     const versusBettor = toCall > 0 ? 0.55 : 1;
     const sizeFactor = Math.sqrt(Math.min(2, ratio) / 0.66);
     // Every opponent must fold, each by his own profile (not the first one's profile for all).
-    const foldEquity = opponentProfiles.reduce((all, other) => all * Math.min(0.85, (other.foldToBet + (hasInitiative ? 0.12 : 0)) * versusBettor * sizeFactor), 1);
+    const foldEquity = opponentProfiles.reduce((all, other) => all * Math.min(0.85, (other.foldToBet + (hasInitiative ? 0.12 : 0) + story) * versusBettor * sizeFactor), 1);
     // A raise over a bet is called by the stronger part of the range: the caller's equity drops more than for a bet.
     const calledEquity = Math.max(0, realized - (toCall > 0 ? (river ? 0.3 : 0.18) : 0.1) * Math.min(1.5, ratio));
     const finalPot = pot + put * (1 + Math.min(1, opponentsLeft));

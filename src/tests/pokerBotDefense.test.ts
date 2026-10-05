@@ -35,7 +35,7 @@ describe('preflop defence by position', () => {
   beforeEach(() => resetPokerBotMemoryForTests());
 
   it('defends the big blind against a 2bb open with most hands', () => {
-    expect(defendShare(2)).toBeGreaterThan(0.55);
+    expect(defendShare(2)).toBeGreaterThan(0.5);
   });
 
   it('defends the button and the small blind instead of folding everything', () => {

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { minRaiseTotal, pokerHandRank, compareRanks, createDeck, type PokerCard, type PokerPlayer, type PokerState } from './pokerEngine.ts';
 
 /**
@@ -64,19 +65,26 @@ const isBluff3Bet = (cls: string) => /^A[2-5]s$/.test(cls) || ['76s', '87s', '98
 
 // ---------- Opponent memory ----------
 type OpponentStats = { hands: number; vpip: number; pfr: number; facedBet: number; foldedToBet: number; postflopAggro: number; postflopPassive: number };
-const opponents = new Map<string, OpponentStats>();
+export type OpponentMemory = Map<string, OpponentStats>;
+const defaultOpponents: OpponentMemory = new Map();
+const memoryStorage = new AsyncLocalStorage<OpponentMemory>();
+/** The memory of the current scope: each database (production, sandbox) keeps its own, see `withOpponentMemory`. */
+const memory = () => memoryStorage.getStore() || defaultOpponents;
+export const createOpponentMemory = (): OpponentMemory => new Map();
+export const withOpponentMemory = <T>(opponentMemory: OpponentMemory, callback: () => T) => memoryStorage.run(opponentMemory, callback);
 const blankStats = (): OpponentStats => ({ hands: 0, vpip: 0, pfr: 0, facedBet: 0, foldedToBet: 0, postflopAggro: 0, postflopPassive: 0 });
 
 /** Called once per finished hand: what every human (and bot) did, for the bots to adapt. */
-export const observePokerHand = (hand: PokerState) => {
+export type ObservedPokerHand = { action_log: Array<{ player_id: string; street: string; type: string }>; players: Array<{ id: string }> };
+export const observePokerHand = (hand: ObservedPokerHand) => {
   const seen = new Set<string>();
   const voluntary = new Set<string>();
   const raisedPre = new Set<string>();
   const betOnStreet = new Map<string, boolean>();
   for (const entry of hand.action_log) {
     seen.add(entry.player_id);
-    const stats = opponents.get(entry.player_id) || blankStats();
-    opponents.set(entry.player_id, stats);
+    const stats = memory().get(entry.player_id) || blankStats();
+    memory().set(entry.player_id, stats);
     if (entry.street === 'preflop') {
       if (entry.type === 'call' || entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') voluntary.add(entry.player_id);
       if (entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') raisedPre.add(entry.player_id);
@@ -93,7 +101,7 @@ export const observePokerHand = (hand: PokerState) => {
   }
   for (const player of hand.players) {
     if (!seen.has(player.id)) continue;
-    const stats = opponents.get(player.id)!;
+    const stats = memory().get(player.id)!;
     stats.hands += 1;
     if (voluntary.has(player.id)) stats.vpip += 1;
     if (raisedPre.has(player.id)) stats.pfr += 1;
@@ -108,7 +116,7 @@ export const observePokerHand = (hand: PokerState) => {
 const PRIOR = { vpip: 0.25, pfr: 0.15, foldToBet: 0.4, aggression: 1, weight: 8 };
 
 export const pokerOpponentProfile = (playerId: string) => {
-  const stats = opponents.get(playerId);
+  const stats = memory().get(playerId);
   if (!stats) return { known: false, vpip: PRIOR.vpip, pfr: PRIOR.pfr, foldToBet: PRIOR.foldToBet, aggression: PRIOR.aggression };
   const w = PRIOR.weight;
   return {
@@ -120,7 +128,7 @@ export const pokerOpponentProfile = (playerId: string) => {
   };
 };
 
-export const resetPokerBotMemoryForTests = () => opponents.clear();
+export const resetPokerBotMemoryForTests = () => defaultOpponents.clear();
 
 // ---------- Helpers ----------
 const cardKey = (card: PokerCard) => `${card.rank}${card.suit}`;
@@ -426,7 +434,7 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
     // Every opponent must fold, each by his own profile (not the first one's profile for all).
     const foldEquity = opponentProfiles.reduce((all, other) => all * Math.min(0.85, (other.foldToBet + (hasInitiative ? 0.12 : 0)) * versusBettor * sizeFactor), 1);
     // A raise over a bet is called by the stronger part of the range: the caller's equity drops more than for a bet.
-    const calledEquity = Math.max(0, realized - (toCall > 0 ? 0.18 : 0.1) * Math.min(1.5, ratio));
+    const calledEquity = Math.max(0, realized - (toCall > 0 ? (river ? 0.3 : 0.18) : 0.1) * Math.min(1.5, ratio));
     const finalPot = pot + put * (1 + Math.min(1, opponentsLeft));
     const ev = foldEquity * pot + (1 - foldEquity) * (calledEquity * finalPot - put) - riskPremium * put;
     candidates.push({ action: raiseTo(hand, bot, bot.committed + put), ev });

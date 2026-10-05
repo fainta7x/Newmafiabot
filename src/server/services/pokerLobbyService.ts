@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { chooseStrongBotAction, observePokerHand } from './pokerBot.ts';
+import { chooseStrongBotAction, createOpponentMemory, observePokerHand, withOpponentMemory, type OpponentMemory } from './pokerBot.ts';
 import { type PokerCard, advancePokerAnimation, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, POKER_DEAL_CARD_MS, POKER_DEAL_SETTLE_MS, pokerHandLabel, pokerTurnRemaining, refreshPokerReserve, type PokerState } from './pokerEngine.ts';
 
 export type PokerHistoryEntry = {
@@ -15,9 +15,16 @@ export type PokerLobby = { id: string; title: string; ownerId: string; status: '
   /** The always-open «Общий стол» (owner, 2026-10-02): never closes, deals by itself from two players. */
   permanent?: boolean };
 export type PokerRuntimeSnapshot = { version: 1; lobbies: PokerLobby[]; bankrolls: Record<string, number> };
-export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number> };
+/** A finished hand in the compact form kept in the database: what the bots need to learn the players' habits. */
+export type StoredPokerHand = {
+  id: string; at: number; small_blind: number; big_blind: number; board: PokerCard[];
+  players: Array<{ id: string; seat: number; net: number; cards: PokerCard[] }>;
+  /** [street, player id, action, amount] */
+  actions: Array<[string, string, string, number]>;
+};
+export type PokerRuntimeState = { lobbies: Map<string, PokerLobby>; bankrolls: Map<string, number>; handLog: StoredPokerHand[]; /** What the bots learned about the players of this database only. */ memory?: OpponentMemory };
 
-const defaultRuntime: PokerRuntimeState = { lobbies: new Map(), bankrolls: new Map() };
+const defaultRuntime: PokerRuntimeState = { lobbies: new Map(), bankrolls: new Map(), handLog: [] };
 const runtimeStorage = new AsyncLocalStorage<PokerRuntimeState>();
 const runtime = () => runtimeStorage.getStore() || defaultRuntime;
 const lobbyStore = () => runtime().lobbies;
@@ -30,9 +37,18 @@ export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerR
     return [lobby.id, lobby];
   })),
   bankrolls: new Map(Object.entries(snapshot?.bankrolls || {}).map(([id, chips]) => [id, Math.max(0, Math.floor(Number(chips) || 0))])),
+  handLog: [],
+  memory: createOpponentMemory(),
 });
-export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () => T | Promise<T>) => runtimeStorage.run(state, callback);
-export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); };
+export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () => T | Promise<T>) => runtimeStorage.run(
+  state,
+  () => (state.memory ? withOpponentMemory(state.memory, callback) : callback()),
+);
+export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); defaultRuntime.handLog.length = 0; };
+/** Hands finished since the last call; the persistence layer writes them to the database. */
+export const pendingPokerHandLog = (): StoredPokerHand[] => runtime().handLog.slice();
+/** Drops the first `count` pending hands once they are safely stored; hands of a failed write stay queued for the next request. */
+export const confirmPokerHandLog = (count: number) => { runtime().handLog.splice(0, count); };
 
 const effectiveStack = (lobby: PokerLobby, playerId: string) => {
   const seat = lobby.players.find((player) => player.id === playerId);
@@ -86,6 +102,23 @@ const recordFinishedHand = (lobby: PokerLobby) => {
     actions: hand.action_log.map((entry) => ({ street: entry.street, player_id: entry.player_id, player_name: entry.player_name, type: entry.type, amount: entry.amount })),
   });
   lobby.history = lobby.history.slice(0, POKER_HISTORY_SIZE);
+  // Hands among bots only teach nothing about people: keep the ones a person played.
+  if (hand.players.some((player) => !player.is_bot)) {
+    runtime().handLog.push({
+      id: hand.id,
+      at: hand.finished_at || Date.now(),
+      small_blind: hand.small_blind,
+      big_blind: hand.big_blind,
+      board: hand.board.slice(),
+      players: hand.players.map((player) => ({
+        id: player.id,
+        seat: player.seat,
+        net: player.chips - (player.start_chips ?? player.chips),
+        cards: revealed.has(player.id) ? (hand.hole_cards[player.id] || []).slice() : [],
+      })),
+      actions: hand.action_log.map((entry) => [entry.street, entry.player_id, entry.type, entry.amount]),
+    });
+  }
 };
 
 /** What one viewer may see of the history: own cards always, other cards only if shown at a showdown. */
@@ -170,7 +203,7 @@ const autoDealMainLobby = (lobby: PokerLobby) => {
   if (lobby.status === 'waiting') nextPokerHand(lobby);
 };
 
-export const listPokerLobbies = () => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent)).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8, players: lobby.players.map(({ id, nickname, seat }) => ({ id, nickname, seat })), createdAt: lobby.createdAt }))
+export const listPokerLobbies = () => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent)).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8, players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), createdAt: lobby.createdAt }))
   .sort((a, b) => Number(b.permanent) - Number(a.permanent)); };
 const otherTableFor = (playerId: string, lobbyId?: string) => [...lobbyStore().values()].find((table) => table.id !== lobbyId && table.players.some((player) => player.id === playerId));
 export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната') => {

@@ -8,6 +8,17 @@ const seat = (state: PokerState, id: string) => state.players.find((player) => p
 
 describe('poker rules (owner check 2026-10-01)', () => {
   beforeEach(() => resetDefaultPokerRuntimeForTesting());
+  it('lists the whole roster of a table, bots marked, and drops a player who left', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+    addPokerBot(lobby);
+    const listed = () => listPokerLobbies().find((item) => item.id === lobby.id)!.players;
+    expect(listed().map((player) => player.nickname)).toContain('Боря');
+    expect(listed().filter((player) => player.is_bot)).toHaveLength(1);
+    expect(listed()).toHaveLength(3);
+    leavePokerLobby(lobby, 'b');
+    expect(listed().map((player) => player.id)).not.toContain('b');
+  });
   it('compares hands as numbers: a pair of aces beats a pair of nines', () => {
     const hand = createPokerHand({ id: 'cmp', players: [{ id: 'a', nickname: 'A', seat: 1, chips: 1000 }, { id: 'b', nickname: 'B', seat: 2, chips: 1000 }] });
     hand.board = cards('2c 7d Jh 4s 3h');

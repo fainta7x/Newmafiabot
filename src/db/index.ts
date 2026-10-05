@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
@@ -47,6 +48,9 @@ export function ensureValidCheckpoint(targetPath: string): boolean {
   return restoreCheckpointFromGzB64(targetPath);
 }
 
+/** The connections whose transaction the current async call chain is already inside (so a nested one becomes a savepoint). */
+const transactionsOpen = new AsyncLocalStorage<unknown[]>();
+
 export function createDatabaseConnection(dbPathOrMemory?: string, options: { isolatedTest?: boolean } = {}): DatabaseWrapper {
   const configuredDatabasePath = process.env.DATABASE_PATH;
   let dbPath = dbPathOrMemory || configuredDatabasePath;
@@ -86,6 +90,8 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
   if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE'); else sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
   const drizzleDb = drizzle(sqlite, { schema });
+  let transactionQueue: Promise<void> = Promise.resolve();
+  let savepointCounter = 0;
   const wrapper: DatabaseWrapper = {
     sqlite, drizzle: drizzleDb, dbPath: resolvedDbPath,
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { return sqlite.prepare(sql).all(...params) as T[]; },
@@ -93,8 +99,26 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
     async run(sql: string, params: any[] = []) { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; },
     async exec(sql: string) { sqlite.exec(sql); },
     async transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T> {
-      sqlite.exec('BEGIN TRANSACTION'); try { const result = await cb(wrapper); sqlite.exec('COMMIT'); return result; }
-      catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
+      // One SQLite connection serves every request, and a transaction spans awaits: two overlapping transactions
+      // used to fail with «cannot start a transaction within a transaction» (the weekly evening automation at startup).
+      // Transactions now run one after another, and one opened inside a running transaction joins it as a savepoint.
+      if (transactionsOpen.getStore()?.includes(sqlite)) {
+        const savepoint = `sp_${++savepointCounter}`;
+        sqlite.exec(`SAVEPOINT ${savepoint}`);
+        try { const result = await cb(wrapper); sqlite.exec(`RELEASE ${savepoint}`); return result; }
+        catch (err) { try { sqlite.exec(`ROLLBACK TO ${savepoint}`); sqlite.exec(`RELEASE ${savepoint}`); } catch (_) {} throw err; }
+      }
+      const turn = transactionQueue;
+      let finish = () => {};
+      transactionQueue = new Promise<void>((resolve) => { finish = resolve; });
+      await turn;
+      try {
+        return await transactionsOpen.run([...(transactionsOpen.getStore() || []), sqlite], async () => {
+          sqlite.exec('BEGIN TRANSACTION');
+          try { const result = await cb(wrapper); sqlite.exec('COMMIT'); return result; }
+          catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
+        });
+      } finally { finish(); }
     },
   };
   initializeDatabase(wrapper, options);

@@ -1,7 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getPlayerSessionId } from '../auth.ts';
+import { getPlayerSessionId, isClubOwner } from '../auth.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import {
-  addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, leavePokerLobby, listPokerLobbies, sweepIdlePokerSeats, touchPokerSeat,
+  addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, kickPokerPlayer, leavePokerLobby, listPokerLobbies, sweepIdlePokerSeats, touchPokerSeat,
   publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, startPokerLobby, tickPokerLobby,
 } from '../services/pokerLobbyService.ts';
 import { applyPokerAction } from '../services/pokerEngine.ts';
@@ -42,6 +43,10 @@ const lobby = (id: unknown) => {
   if (!found) throw new PokerRouteError(404, 'Лобби не найдено.');
   return found;
 };
+/** The club owner — his organizer session or his own player account — may take people off a poker table. */
+const isPokerOwner = (req: any) => isClubOwner(req) || String(getPlayerSessionId(req) || '') === PRIMARY_ORGANIZER_PLAYER_ID;
+/** The table as a viewer sees it, with whether he may kick people. */
+const viewFor = (req: any, state: any) => ({ ...state, can_kick: isPokerOwner(req), viewer_player_id: String(getPlayerSessionId(req) || '') });
 const conflict = (error: any, fallback: string): never => { throw new PokerRouteError(409, error?.message || fallback); };
 
 router.get('/poker/lobbies', route((req) => {
@@ -51,17 +56,17 @@ router.get('/poker/lobbies', route((req) => {
 }));
 router.post('/poker/lobbies', route(async (req) => {
   const player = await actor(req);
-  try { return { status: 201, body: { lobby: publicPokerLobby(createPokerLobby(player, req.body?.title), player.id) } }; }
+  try { return { status: 201, body: { lobby: viewFor(req, publicPokerLobby(createPokerLobby(player, req.body?.title), player.id)) } }; }
   catch (error) { return conflict(error, 'Не удалось создать лобби.'); }
 }));
 router.get('/poker/lobbies/:id', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id); tickPokerLobby(table);
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/join', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try { joinPokerLobby(table, player); } catch (error) { conflict(error, 'Не удалось войти в лобби.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/bot', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
@@ -69,23 +74,30 @@ router.post('/poker/lobbies/:id/bot', route(async (req) => {
     if (table.ownerId !== player.id && !(table.permanent && table.players.some((item) => item.id === player.id))) throw new Error('Добавить бота может создатель лобби.');
     addPokerBot(table);
   } catch (error) { conflict(error, 'Не удалось добавить бота.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/start', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try { startPokerLobby(table, player.id, true); } catch (error) { conflict(error, 'Не удалось начать игру.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/leave', route(async (req) => {
   const player = await actor(req); const table = getPokerLobby(String(req.params.id));
   if (!table) return { body: { lobby: null } };
   const left = leavePokerLobby(table, player.id);
-  return { body: { lobby: left ? publicPokerLobby(left, player.id) : null } };
+  return { body: { lobby: left ? viewFor(req, publicPokerLobby(left, player.id)) : null } };
+}));
+router.post('/poker/lobbies/:id/kick', route(async (req) => {
+  const player = await actor(req);
+  if (!isPokerOwner(req)) throw new PokerRouteError(403, 'Убрать игрока со стола может только владелец клуба.');
+  const table = lobby(req.params.id);
+  try { kickPokerPlayer(table, String(req.body?.playerId || '')); } catch (error) { conflict(error, 'Не получилось убрать игрока.'); }
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/sit-out', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try { setPokerSitOut(table, player.id, req.body?.away !== false); } catch (error) { conflict(error, 'Не получилось.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/action', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
@@ -94,7 +106,7 @@ router.post('/poker/lobbies/:id/action', route(async (req) => {
   if (table.hand.animation_phase !== 'playing') throw new PokerRouteError(409, 'Дождитесь окончания автоматической выкладки карт.');
   if (table.hand.players.find((item) => item.seat === table.hand?.current_seat)?.id !== player.id) throw new PokerRouteError(409, 'Сейчас ход другого игрока.');
   try { applyPokerAction(table.hand, req.body || {}); } catch (error) { conflict(error, 'Действие недоступно.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.get('/poker/lobbies/:id/history', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
@@ -104,7 +116,7 @@ router.get('/poker/lobbies/:id/history', route(async (req) => {
 router.post('/poker/lobbies/:id/rebuy', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try { rebuyPoker(table, player.id); } catch (error) { conflict(error, 'Не получилось взять фишки.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/bot/remove', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
@@ -114,7 +126,7 @@ router.post('/poker/lobbies/:id/bot/remove', route(async (req) => {
     if (!bot) throw new Error('Бот не найден.');
     leavePokerLobby(table, bot.id);
   } catch (error) { conflict(error, 'Не удалось убрать бота.'); }
-  return { body: { lobby: publicPokerLobby(table, player.id) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 
 export default router;

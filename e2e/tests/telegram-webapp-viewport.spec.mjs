@@ -163,7 +163,7 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
 
   await page.getByRole('button', { name: 'Elo', exact: true }).click();
   await expect(page.getByText('1542').last()).toBeVisible();
-  await expect(page.getByText('+15')).toBeVisible();
+  await expect(page.getByText('+15').first()).toBeVisible();
   await page.screenshot({ path: info.outputPath('telegram-profile-elo.png'), fullPage: true });
 
   await page.getByRole('button', { name: 'Награды', exact: true }).click();

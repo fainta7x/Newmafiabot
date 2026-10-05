@@ -41,7 +41,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ### Online Poker
 
-- Player table UI: `src/components/player/PlayerPoker.tsx`.
+- Player table UI: `src/components/player/PlayerPoker.tsx` (card order/identity: `pokerCards.ts`).
 - Rules/hand engine: `src/server/services/pokerEngine.ts`; lobby lifecycle: `pokerLobbyService.ts`; bots: `pokerBot.ts`.
 - Durable tables, active hands, history and human chip stacks: `pokerPersistenceService.ts` + `src/db/ensurePokerRuntimeSchema.ts` (`poker_runtime_state`); compact log of finished hands the bots learn from: `poker_hand_log` (same files, test `pokerHandLog.integration.test.ts`).
 - API: `src/server/routes/pokerRoutes.ts`; persistence regression: `src/tests/pokerPersistence.integration.test.ts`.

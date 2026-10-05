@@ -36,10 +36,11 @@ export type PokerState = {
   animations_enabled: boolean;
 };
 
-export const POKER_DEAL_CARD_MS = 420;
-export const POKER_DEAL_SETTLE_MS = 500;
-export const POKER_RUNOUT_START_MS = 700;
-const POKER_RUNOUT_DELAYS_MS = [520, 520, 950, 1050, 1150, 0];
+// Dealing runs 20% faster than before (owner, 2026-10-05): every pause and card interval was cut to 80%.
+export const POKER_DEAL_CARD_MS = 336;
+export const POKER_DEAL_SETTLE_MS = 400;
+export const POKER_RUNOUT_START_MS = 560;
+const POKER_RUNOUT_DELAYS_MS = [416, 416, 760, 840, 920, 0];
 
 const SUITS: PokerSuit[] = ['clubs', 'diamonds', 'hearts', 'spades'];
 const RANKS: PokerRank[] = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
@@ -282,6 +283,8 @@ export const applyPokerAction = (state: PokerState, action: PokerAction) => {
       state.current_seat = null;
       state.turn_started_at = null;
       state.animation_phase = 'runout';
+      // Everyone is all-in and betting is closed: the cards are turned face up before the board runs out.
+      state.revealed_ids = active.map((item) => item.id);
       state.animation_step = state.street === 'preflop' ? 0 : state.street === 'flop' ? 3 : 4;
       state.animation_next_at = Date.now() + POKER_RUNOUT_START_MS;
       return state;

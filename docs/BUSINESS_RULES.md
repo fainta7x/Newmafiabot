@@ -702,5 +702,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 ## Poker table seats (owner, 2026-10-05)
 
 - A person who is completely AFK for **more than 5 minutes** — the app closed or the screen left, or «Отойти»/missed turns without coming back — is taken off the table; his cards are folded in a running hand and his chips stay in his bankroll. Bots are never kicked this way.
-- Closing the poker screen leaves the table at once.
+- Closing the poker screen leaves the table at once. A person whose app is in the background does not count as present; a person with no chips counts as away (he can press «Отойти», a rebuy brings him back).
+- Only the club owner can take a person off a table by hand; everybody else cannot.
+- Dealing runs at 0.8 of the old time; a bot waits 0.45 s to fold or check, 0.7 s to call and 0.95 s to raise; a player's own cards fade after he folds.
 - The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».

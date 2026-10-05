@@ -69,7 +69,15 @@ export const exportPokerRuntimeSnapshot = (): PokerRuntimeSnapshot => {
 export const NEXT_HAND_DELAY_MS = 4000;
 /** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
 const BOT_NAMES = ['Бот Лаки', 'Бот Блеф', 'Бот Скала', 'Бот Акула', 'Бот Профи', 'Бот Ниндзя', 'Бот Фортуна'];
-export const BOT_THINK_MS = 1200;
+/**
+ * How long a bot «thinks» before it acts (owner, 2026-10-05: the wait before the preflop action was far too long, with seven
+ * bots it added up to ten seconds before a person was on turn). A fold or a check comes quickly, a call a bit later, a raise
+ * last; BOT_THINK_MS is the longest of them.
+ */
+export const BOT_THINK_MS = 1000;
+export const botThinkMs = (action: { type: string }) => (action.type === 'fold' || action.type === 'check' ? 450 : action.type === 'call' ? 700 : BOT_THINK_MS - 50);
+// The bot's decision for the turn in progress is remembered, so it is made once and its pause does not change between polls.
+const botDecisions = new WeakMap<object, { key: string; action: { type: string; amount?: number }; readyAt: number }>();
 export const POKER_HISTORY_SIZE = 20;
 /** Rebuy for play chips (not club tokens): a busted player takes a new stack and plays on. */
 export const POKER_REBUY_CHIPS = 1000;
@@ -137,6 +145,7 @@ export const rebuyPoker = (lobby: PokerLobby, playerId: string) => {
   const stack = lobby.hand?.street === 'finished' && handPlayer ? handPlayer.chips : seat.chips;
   if (stack > 0 || inLiveHand) throw new Error('Взять фишки можно, когда стек закончился.');
   seat.chips = POKER_REBUY_CHIPS;
+  seat.sitting_out = false;
   // The finished hand still holds the old stack; the next deal copies chips from it.
   if (handPlayer && lobby.hand?.street === 'finished') handPlayer.chips = POKER_REBUY_CHIPS;
   if (lobby.status === 'waiting' && lobby.hand?.street === 'finished') nextPokerHand(lobby);
@@ -166,7 +175,7 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
     max_bet_total: viewer.committed + viewer.chips,
   } : null;
   // Own cards always; other players' cards only after a showdown. Burned cards stay hidden.
-  const visibleIds = new Set([...(viewerId ? [viewerId] : []), ...(lobby.hand.street === 'finished' ? lobby.hand.revealed_ids || [] : [])]);
+  const visibleIds = new Set([...(viewerId ? [viewerId] : []), ...(lobby.hand.street === 'finished' || lobby.hand.animation_phase === 'runout' ? lobby.hand.revealed_ids || [] : [])]);
   const orderedDeal = lobby.hand.players.slice().sort((a, b) => a.seat - b.seat);
   const dealElapsed = lobby.hand.animation_phase === 'dealing' && lobby.hand.animation_next_at
     ? Math.max(0, orderedDeal.length * 2 * POKER_DEAL_CARD_MS - (lobby.hand.animation_next_at - POKER_DEAL_SETTLE_MS - now)) : orderedDeal.length * 2 * POKER_DEAL_CARD_MS;
@@ -231,8 +240,9 @@ export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()) => {
     // After a restart nobody has been heard yet: the clock starts now instead of kicking everybody at once.
     if (last === undefined) seen.set(key, now);
     let afk = last !== undefined && now - last > POKER_AFK_LEAVE_MS;
-    // A person who is away is counted from the moment he went away, even if his screen is still open.
-    if (seat.sitting_out) {
+    // A person who is away is counted from the moment he went away, even if his screen is still open; so is one with no
+    // chips left (he is not dealt in, and a busted person cannot go «away» himself, owner 2026-10-05).
+    if (seat.sitting_out || effectiveStack(lobby, seat.id) <= 0) {
       const since = seen.get(awayKey(lobby.id, seat.id)) ?? now;
       seen.set(awayKey(lobby.id, seat.id), since);
       if (now - since > POKER_AFK_LEAVE_MS) afk = true;
@@ -353,6 +363,15 @@ export const nextPokerHand = (lobby: PokerLobby) => {
   return lobby;
 };
 /** «Отойти» / «Вернуться за стол»: an away player keeps the seat but is not dealt in until they come back. */
+/** Only the club owner may take a person off a table (owner, 2026-10-05); his cards fold, his chips stay in his bankroll. */
+export const kickPokerPlayer = (lobby: PokerLobby, playerId: string) => {
+  const seat = lobby.players.find((player) => player.id === playerId);
+  if (!seat) throw new Error('Этого игрока уже нет за столом.');
+  if (seat.is_bot) throw new Error('Ботов убирают отдельной кнопкой.');
+  runtime().seen?.delete(seenKey(lobby.id, playerId));
+  runtime().seen?.delete(awayKey(lobby.id, playerId));
+  return leavePokerLobby(lobby, playerId);
+};
 export const setPokerSitOut = (lobby: PokerLobby, playerId: string, away: boolean) => {
   const seat = lobby.players.find((player) => player.id === playerId);
   if (!seat) throw new Error('Вы не сидите за этим столом.');
@@ -381,8 +400,18 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   const player = lobby.hand.players.find((item) => item.seat === lobby.hand?.current_seat);
   if (!player) return;
   if (player.is_bot) {
-    if (lobby.hand.turn_started_at && Date.now() - lobby.hand.turn_started_at < BOT_THINK_MS) return;
-    try { applyPokerAction(lobby.hand, chooseStrongBotAction(lobby.hand, player)); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
+    const now = Date.now();
+    const turnKey = `${lobby.hand.street}:${lobby.hand.current_seat}:${lobby.hand.turn_started_at}:${lobby.hand.action_log.length}`;
+    let decision = botDecisions.get(lobby.hand);
+    if (!decision || decision.key !== turnKey) {
+      let action: { type: string; amount?: number };
+      try { action = chooseStrongBotAction(lobby.hand, player); } catch { action = { type: 'call' }; }
+      decision = { key: turnKey, action, readyAt: (lobby.hand.turn_started_at || now) + botThinkMs(action) };
+      botDecisions.set(lobby.hand, decision);
+    }
+    if (now < decision.readyAt) return;
+    botDecisions.delete(lobby.hand);
+    try { applyPokerAction(lobby.hand, decision.action as any); } catch { try { applyPokerAction(lobby.hand, { type: 'call' }); } catch { /* retry on next poll */ } }
     return;
   }
   const seat = lobby.players.find((item) => item.id === player.id);

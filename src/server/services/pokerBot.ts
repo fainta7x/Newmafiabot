@@ -294,13 +294,18 @@ const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   // (check-raise or raise of a bet) and anything on the river are much stronger than a first flop bet.
   const lineWeight = new Map<string, number>();
   const streetHadBet = new Map<string, boolean>();
+  const checkedOn = new Set<string>();
   for (const entry of hand.action_log) {
     if (entry.street === 'preflop') continue;
+    if (entry.type === 'check') { checkedOn.add(`${entry.street}:${entry.player_id}`); continue; }
     const aggressive = entry.type === 'bet' || entry.type === 'raise' || (entry.type === 'all_in' && entry.amount > 0);
     if (!aggressive) continue;
     const isRaise = streetHadBet.get(entry.street) || entry.type === 'raise';
     const weight = entry.street === 'river' ? (isRaise ? 2.5 : 1.4) : entry.street === 'turn' ? (isRaise ? 2 : 1.2) : isRaise ? 1.8 : 1;
-    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight);
+    // Check-raise (owner, 2026-10-05): checking and then raising a bet is a trap line — read it as very strong, so the bot
+    // neither folds a good hand at once nor calls it down with a marginal one.
+    const checkRaise = isRaise && checkedOn.has(`${entry.street}:${entry.player_id}`);
+    lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight + (checkRaise ? 1.2 : 0));
     streetHadBet.set(entry.street, true);
   }
   return hand.players

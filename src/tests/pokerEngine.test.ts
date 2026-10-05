@@ -42,6 +42,7 @@ describe('poker engine', () => {
     applyPokerAction(hand, { type: 'all_in' });
     applyPokerAction(hand, { type: 'call' });
     expect(hand).toMatchObject({ animation_phase: 'runout', street: 'preflop', board: [], current_seat: null });
+    expect(hand.revealed_ids).toEqual(hand.players.map((item) => item.id));
     expect(() => applyPokerAction(hand, { type: 'check' })).toThrow('Дождитесь окончания раздачи');
 
     const first = hand.animation_next_at!;
@@ -54,7 +55,7 @@ describe('poker engine', () => {
     advancePokerAnimation(hand, hand.animation_next_at!);
     expect(hand.street).toBe('turn'); expect(hand.board).toHaveLength(4);
     advancePokerAnimation(hand, hand.animation_next_at!);
-    expect(hand.street).toBe('river'); expect(hand.board).toHaveLength(5); expect(hand.revealed_ids).toEqual([]);
+    expect(hand.street).toBe('river'); expect(hand.board).toHaveLength(5); expect(hand.revealed_ids).toHaveLength(2); expect(hand.winner_ids).toEqual([]);
     advancePokerAnimation(hand, hand.animation_next_at!);
     expect(hand.street).toBe('finished'); expect(hand.revealed_ids).toHaveLength(2); expect(hand.winner_ids.length).toBeGreaterThan(0);
   });

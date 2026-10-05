@@ -39,6 +39,16 @@ const invitationStates = [
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 globalThis.fetch = async (input: RequestInfo | URL) => {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
+  // His own Elo tab is the full journey (the same screen as «Рейтинг → Моя динамика» used to be).
+  if (url.pathname === '/api/player/elo-journey') {
+    const outcome = { expected_percent: 50, elo_delta: 8, team_delta: 8, carry_modifier: 1 };
+    return json({
+      player: { id: 'preview-player', nickname: 'Чагин', elo: 1542, seed: 1500 },
+      summary: { games: 1, current: 1542, computed_current: 1542, peak: 1542, floor: 1500, net: 42, last_delta: 15 },
+      preview: { basis: 'На основе последних игр.', red: { win: outcome, loss: { ...outcome, elo_delta: -8 } }, black: { win: outcome, loss: { ...outcome, elo_delta: -8 } } },
+      events: [{ id: 'club:g4', source: 'club', date: iso(2), title: 'Пятничный вечер', game_number: 4, team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15, expected_percent: 50, base_team_delta: 10, carry_modifier: 1, carry_effect: 0, team_delta: 10, personal_game_points: 1, personal_delta: 5, explanation: { headline: 'Победа красных', details: [], formula: '10 + 5' } }],
+    });
+  }
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
   if (url.pathname.endsWith('/games')) return json({ games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15 }], total: 1, offset: 0, limit: 15, next_offset: null });

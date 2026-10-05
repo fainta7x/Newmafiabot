@@ -368,6 +368,13 @@ describe('CRM player access profile', () => {
     const financeOwner = await request(app).get('/api/analytics/finance').set('Cookie', organizerCookie());
     expect(financeOwner.status).toBe(200);
     expect(financeOwner.body).toMatchObject({ incomePaid: expect.any(Number), receivedInPeriod: expect.any(Number) });
+    const nowAdmin = await request(app).get('/api/analytics/now').set('Cookie', adminCookie);
+    expect(nowAdmin.status).toBe(200);
+    expect(nowAdmin.body).not.toHaveProperty('openDebtCount');
+    const nowOwner = await request(app).get('/api/analytics/now').set('Cookie', organizerCookie());
+    expect(nowOwner.body).toHaveProperty('openDebtCount');
+    // A date-only end day is included: the custom range ends at the next Moscow midnight.
+    expect((await request(app).get('/api/analytics?start_date=2026-01-01&end_date=2026-01-01').set('Cookie', adminCookie)).status).toBe(200);
     expect((await request(app).get('/api/analytics/overview')).status).toBe(401);
     expect((await request(app).get('/api/analytics/finance')).status).toBe(401);
 

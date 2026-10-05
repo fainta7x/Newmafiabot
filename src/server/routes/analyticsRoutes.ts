@@ -49,8 +49,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     const db = req.db || await getDb();
     let range = await resolveAnalyticsRange(db, String(req.query.period || 'all'));
     if (req.query.start_date) {
-      const since = Date.parse(String(req.query.start_date));
-      const until = req.query.end_date ? Date.parse(String(req.query.end_date)) + 1 : Date.now() + 1;
+      // A date without a time is a Moscow calendar day; the end day is included (the range is half-open, so it ends at the next midnight).
+      const moscowDay = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? Date.parse(`${value}T00:00:00+03:00`) : Date.parse(value));
+      const since = moscowDay(String(req.query.start_date));
+      const endRaw = String(req.query.end_date || '');
+      const until = endRaw ? moscowDay(endRaw) + (/^\d{4}-\d{2}-\d{2}$/.test(endRaw) ? 86_400_000 : 1) : Date.now() + 1;
       if (!Number.isFinite(since) || !Number.isFinite(until) || since >= until) return res.status(400).json({ error: 'Неверный период' });
       range = { id: 'custom', label: 'Выбранный период', since: new Date(since).toISOString(), until: new Date(until).toISOString() };
     }

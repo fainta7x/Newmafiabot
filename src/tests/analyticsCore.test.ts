@@ -48,6 +48,9 @@ describe('canonical analytics foundation', () => {
     expect(formatShare(1,20)).toBe('5,0%');
     expect(formatShare(1,3)).toBe('33%');
     expect(formatShare(Infinity,3)).toBe('—');
+    expect(formatShare(996,10000)).toBe('10%');
+    expect(formatShare(995,1000)).toBe('100%');
+    expect(formatShare(99,1000)).toBe('9,9%');
     expect(formatShare(Number.MAX_VALUE, Number.MIN_VALUE)).toBe('—');
   });
   it('uses plain summary and source labels',()=>{

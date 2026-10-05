@@ -649,9 +649,11 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - Poker table: cards are dealt faster and each one flies straight to its place in the hand; bets are swept into the pot first and only then the next cards appear; moves are announced one at a time, each seat keeps its last move, and a countdown shows when the next hand starts.
 - Notifications: reminders at registration, cancellations as a new post instead of rewriting the old one, retries up to two hours.
 
-### Analytics redesign — approved, in progress (2026-10-05)
+### Analytics redesign — built in PR #708 (2026-10-05)
 
 The owner approved all four defaults in `docs/ANALYTICS_REDESIGN_SPEC.md` §9 and asked to finish the whole spec, not stop at the foundation. Implemented in PR #708: canonical member/visit/cohort aggregates, exclusive 30/60/90-day buckets (CRM 14/28 unchanged), fill from 10 seats per game slot, new-player sources in Russian, evening-date finance separate from payment-date receipts, four persistent tabs, one sticky period control, per-panel retry/loading/empty states and metric help, SQL usage aggregation with ingestion-only retention and bounded game reads. Legacy API paths delegate for one compatibility release. No optional growth deltas are shown without verified comparison data. Final CI, fresh mobile screenshots and merge are pending; no claim of deployment/runtime verification. This organizer-only redesign adds nothing to the player digest.
+
+Known limits of the first release: cancellations are counted from evenings where a declined answer kept its confirmation time (`confirmed_at` is no longer cleared on decline), so cancellations before that change read as 0 and the rate is understated until new evenings accumulate (a backfill from the old registration history was not done); the «пришли» step of the invitation funnel counts every invited person who came, also those who did not answer, so its share of «идут» can exceed 100 % (the help text says so); KPI growth arrows are not built.
 
 ### Waiting on the owner
 - Deploy downtime (2026-10-05): the site answered 503 for about 20 minutes (≈11:29–11:50 Moscow time) after the automatic deploy of PR #694 and was fine afterwards (`/api/health` and `/api/health/runtime` ok). The cause is not proven; the local start of the same code is fine. If it repeats, send the application log from the container start (`Failed to start`, `exited`, `FATAL`). Each merge to `main` redeploys, so merge outside the club's busy hours.

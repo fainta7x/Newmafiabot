@@ -187,7 +187,14 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) return lobby;
   if (otherTableFor(player.id, lobby.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
-  if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
+  if (lobby.players.length >= 8) {
+    // A person comes before a bot: a table full of bots that somebody left running must not lock people out, so the bot
+    // with the smallest stack gives up its seat (its cards are folded, chips already in the pot stay there).
+    const weakestBot = lobby.players.filter((item) => item.is_bot)
+      .sort((a, b) => effectiveStack(lobby, a.id) - effectiveStack(lobby, b.id) || b.seat - a.seat)[0];
+    if (!weakestBot) throw new Error('За столом максимум 8 игроков.');
+    leavePokerLobby(lobby, weakestBot.id);
+  }
   lobby.players.push({ ...player, seat: freeSeat(lobby), chips: runtime().bankrolls.get(player.id) ?? POKER_REBUY_CHIPS });
   autoDealMainLobby(lobby);
   return lobby;
@@ -215,6 +222,25 @@ export const leavePokerLobby = (lobby: PokerLobby, playerId: string) => {
   if (lobby.players.filter((player) => player.chips > 0).length < 2 && (!lobby.hand || lobby.hand.street === 'finished')) lobby.status = 'waiting';
   return lobby;
 };
+/**
+ * A bot that has lost all its chips leaves the table (owner, 2026-10-05): bots never rebuy, so a busted bot would
+ * keep its seat for ever — a person who trained with a full table of bots and walked away left nobody able to sit down.
+ * The finished hand still holds the real stacks (the seat is updated at the next deal), so it decides who is busted;
+ * the hand itself keeps the bot for the result screen.
+ */
+export const removeBustedPokerBots = (lobby: PokerLobby) => {
+  const bustedIds = new Set<string>();
+  for (const seat of lobby.players) {
+    if (!seat.is_bot) continue;
+    const handPlayer = lobby.hand?.players.find((player) => player.id === seat.id);
+    const stack = lobby.hand?.street === 'finished' && handPlayer ? handPlayer.chips : seat.chips;
+    if (stack <= 0) bustedIds.add(seat.id);
+  }
+  if (!bustedIds.size) return 0;
+  lobby.players = lobby.players.filter((player) => !bustedIds.has(player.id));
+  return bustedIds.size;
+};
+
 export const addPokerBot = (lobby: PokerLobby) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
@@ -239,6 +265,7 @@ export const nextPokerHand = (lobby: PokerLobby) => {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;
   }
+  removeBustedPokerBots(lobby);
   // Players who are away keep their seat and chips but are not dealt in, like «sit out» in poker rooms.
   const seated = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out).sort((a, b) => a.seat - b.seat).map((player) => {
     const handPlayer = hand.players.find((item) => item.id === player.id);
@@ -268,6 +295,8 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   for (const player of lobby.hand.players) refreshPokerReserve(player, now, player.seat !== lobby.hand.current_seat, lobby.hand.max_reserve_seconds);
   if (lobby.hand.street === 'finished') {
     recordFinishedHand(lobby);
+    // The seat is freed as soon as the hand ends, not after the pause before the next deal.
+    removeBustedPokerBots(lobby);
     if (lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) nextPokerHand(lobby);
     return;
   }

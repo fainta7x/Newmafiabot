@@ -619,6 +619,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 
 82. Voting for «Игрок вечера» in the Telegram bot (owner «все берем», 2026-10-05, built): after an evening's personal card (`queueEveningPlayerCards`) every attendee reached through Telegram gets one message with a button per other attendee (`eveningVoteMessageService.ts`, key `evening-vote:<evening>:<player>`, callback `evv:<evening>:<start of the player id>`); a tap goes through `bot_api.cast_evening_vote` → `POST /api/bot/evenings/:id/vote` → `castEveningVote` (`eveningVotingService.ts`, the one place for the rules, shared with the app route), and the bot marks the chosen player ✅; another tap changes the vote. Closed, not-attended, self and unknown-player cases answer with a clear alert. VK-only players keep voting in the app; evenings closed before the deploy get no message. Needs a deploy of the server and the bot.
 
+83. Poker bots leave a table when they are out of chips (owner request, 2026-10-05, bug fix): a bot never rebuys, so a busted bot kept its seat and a table where somebody had trained against 7 bots and walked away stayed full, so nobody could sit down. Now a bot whose stack is empty leaves as soon as the hand ends (`removeBustedPokerBots`, `pokerLobbyService.ts`; the finished hand still shows it), and a person who sits down at a full table takes the seat of the bot with the smallest stack (its cards are folded). A table of people is still limited to 8. Needs a deploy; a table already stuck frees itself when someone opens it and joins.
+
 Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Waiting on the owner

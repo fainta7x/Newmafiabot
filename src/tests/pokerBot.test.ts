@@ -74,7 +74,8 @@ describe('strong poker bots', () => {
       expect(hand.players.reduce((sum, player) => sum + player.chips, 0)).toBe(12000);
       observePokerHand(hand);
     }
-  });
+    // 60 whole hands of Monte-Carlo play take ~14 s; the global 15 s limit failed under the load of the full suite.
+  }, 60_000);
 
   it('learns that a player folds to bets', () => {
     for (let round = 0; round < 12; round += 1) {

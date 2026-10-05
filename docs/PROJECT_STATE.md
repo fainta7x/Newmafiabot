@@ -642,9 +642,10 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
-Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask the owner whether to publish a digest after about ten merged PRs; clear the lines once published. The first digest (profile and games, evening awards, poker, the bot's old links, payment reminders, tournament results) was approved by the owner on 2026-10-05 for the club group in Telegram; the app has no way to post it, so the finished text was handed to the owner to post, and the lines were cleared. New lines go below.
+Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask the owner whether to publish a digest after about ten merged PRs; clear the lines once published. The first digest (profile and games, evening awards, poker, the bot's old links, payment reminders, tournament results) was approved by the owner on 2026-10-05 for the club group in Telegram; the app has no way to post it, so the finished text was handed to the owner to post, and the lines it covered were cleared. The lines below were not in that text and wait for the next digest.
 
-- (nothing new since the first digest)
+- «Игрок вечера»: a vote with a button right in Telegram; «Игры в цифрах» in the player profile; the season follows the club's rating period.
+- Notifications: reminders at registration, cancellations as a new post instead of rewriting the old one, retries up to two hours.
 
 ### Waiting on the owner
 - «Опубликовать сводку» from the app (proposal, 2026-10-05): the first digest had to be pasted into the club group by hand. A button in the CRM («Ещё → Telegram») could post an approved text to a chosen destination. Not built; waiting for the owner's «да».

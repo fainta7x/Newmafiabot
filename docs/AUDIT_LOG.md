@@ -127,3 +127,32 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 - Inline-button Telegram poll for the evening vote.
 - Replacing a player of an evening tournament after game 1 (owner: skip for now).
 - Timer after restore: stays running (owner did not decide otherwise).
+
+### Analytics audit (owner request, 2026-10-05: «аудит аналитики … по науке, понятно человеку»)
+
+Scope: CRM «Ещё → Отчёты → Аналитика» (`AnalyticsCRM.tsx` and its panels), `GET /api/analytics` (`analyticsRoutes.ts`), `/api/analytics/game-stats`, `/api/analytics/staff`, `uiUsageService`, `presenceService`. Fix plan: `docs/ANALYTICS_REDESIGN_SPEC.md` (implementation by Codex; nothing fixed in this session).
+
+Definitions and numbers
+1. HIGH `open` — no canonical definition of «member», «visit», «inactive», «retention», «revenue» in `BUSINESS_RULES.md`; the code holds several. «Игроков в базе» is `SELECT p.* FROM players` with no filter (guests and archived included) while the CRM uses `MEMBER_SQL` (`organizerAgendaService.ts`).
+2. HIGH `open` — three different «visit» rules: attended + evening status `completed|active` (`analyticsRoutes.ts:146`), attended OR seated in a game slot (`playerVisitsService`), attended only (registration totals, `completed` only).
+3. HIGH `open` — retention 30 d counts cohorts whose 30 days have not passed yet (right-censored), so recent periods look worse than they are; it is also computed by an N+1 loop (one query per new player).
+4. MEDIUM `open` — inactivity cut-offs differ: 30/60/90 here (cumulative, so a 90-day player is counted in all three), 14/28/30/60 elsewhere (`readyForClubReview`, CRM lists).
+5. MEDIUM `open` — registrations include declined answers; no-show and cancellation rates divide by all registrations (not by those who could attend); only `completed` evenings count.
+6. HIGH `open` — money mixes bases: ledger rows filtered by `created_at`, evenings by `starts_at`; «открытый долг» = debt created − debt paid inside the period (not the unpaid balance of the overview). Payments of an old evening made now count into «now».
+7. MEDIUM `open` — «Воронка личной рассылки»: every percent uses `delivered` as the denominator, including «пришли»; read as a funnel step-to-step it misleads.
+8. MEDIUM `open` — «Откуда приходят игроки» prints raw `players.source` keys, counts all players, ignores the period.
+9. MEDIUM `open` — «Путь игрока», «Откуда приходят», «Игроков в базе» ignore the selected period, while the neighbours obey it; nothing tells the user.
+10. LOW `open` — two rounding rules: `pct()` integer vs `winRatePercent` one decimal; three period systems (`7d/30d/90d/all` hard-coded in three components and three server routes; staff has its own `month/prev_month/season/all`; usage turns «all» into 180 days).
+11. LOW `open` — API returns unused `refunds`, `expenses`, `avgAttendance`; no metric for evening fill rate or for new players per period.
+
+Performance and robustness
+12. HIGH `open` — a failed `/api/analytics` request is only `console.error`-ed: the page stays on the spinner for ever, no retry. `GameStatsPanel` hides itself on error silently.
+13. MEDIUM `open` — every period click remounts the whole page and refetches all panels (whole-page spinner).
+14. MEDIUM `open` — `GET /api/analytics` loads all players with three correlated subqueries each, plus the cohort N+1 loop; `getUiUsageSummary` loads up to 400000 rows into JS and runs a DELETE on every call; `loadStatGames` reads all games when «Всё».
+15. LOW `open` — dead prop `onOpenThemeModal`; `OnlineNowPanel` polls every 15 s even when the section is off screen.
+
+Mobile and clarity (DESIGN_SYSTEM: CRM is a work tool, analytics is secondary, targets 44 px)
+16. HIGH `open` — one endless page of about ten cards (≈2000 px+), no grouping by question, no tabs/collapse, no summary at the top.
+17. MEDIUM `open` — period buttons are 36 px (`min-h-9`) and scroll away; labels 10–11 px; the funnel is a 7-column grid that does not fit 390 px; cards use 16 px radius vs the documented 24–28 px.
+18. MEDIUM `open` — jargon without explanation: «нулевой круг», «ПУ/ЛХ», «зах.», «cohort retention»; the same usage data in three views (online now, usage, staff) with different period and online rules.
+19. LOW `open` — `FEATURE_MAP.md` analytics line is stale («no player ids»); no tests for the main `/api/analytics` numbers, for the components or for the period handling.

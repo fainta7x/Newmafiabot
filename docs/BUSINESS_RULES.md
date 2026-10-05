@@ -296,6 +296,7 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - Voting stays open for **3 days** after the evening is closed (owner, 2026-10-04: a Friday evening is voted on until Monday, before the next one is announced). The title goes to the nominee with the most votes; a tie shares it. An evening with no votes has no title.
 - Titles are counted **per calendar year** (Moscow time); the counter starts from zero every January and is shown in the player's showcase as «Игрок вечера · год: N».
 - When a year is over, the three places with the most titles get an automatic **«Игрок года <год>»** award (equal counts share a place; past years stay in the showcase). The current year has no award yet, only the counter.
+- **Voting in the bot (owner, 2026-10-05).** Besides the app (Клуб → Истории), the vote is a message with buttons in the Telegram bot: right after an evening's personal card every attendee reached through Telegram gets «Кто сыграл лучше всех?» with one button per other attendee. A tap is the vote, a tap on another player changes it, the chosen player is marked ✅. The same rules as in the app: attendees only, never yourself, only while the 3 days are open; the app and the bot share one vote. Players reached through VK vote in the app. Evenings closed before this shipped get no such message.
 - Tournament awards are separate and unchanged.
 
 ## Evening registration

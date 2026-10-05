@@ -260,6 +260,28 @@ async def schedule_evening_followup(evening_id: str, telegram_user_id: int, when
         return {"success": False, "error": "unavailable"}
 
 
+async def cast_evening_vote(evening_id: str, telegram_user_id: int, nominee: str) -> dict[str, Any]:
+    """«Игрок вечера» from the buttons under the bot's voting message. `nominee` is the start of a player id."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/vote"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_base_headers(), json={"telegram_user_id": int(telegram_user_id), "nominee": nominee}) as response:
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if response.status == 200 and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data}
+                code = data.get("code") if isinstance(data, dict) else None
+                return {"success": False, "error": code or ("not_found" if response.status == 404 else "unavailable")}
+    except Exception as exc:
+        logger.warning("[Backend API] Evening vote failed (%s)", type(exc).__name__)
+        return {"success": False, "error": "unavailable"}
+
+
 async def check_backend_connection() -> dict:
     """
     Checks the connection to the Express Webapp backend.

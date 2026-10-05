@@ -1,3 +1,4 @@
+import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
@@ -225,6 +226,27 @@ router.post('/evenings/:eveningId/followup', async (req, res) => {
     return res.json({ success: true, followup_at: followupAt });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить' });
+  }
+});
+
+// «Игрок вечера» from the buttons under the bot's voting message (same rules as the app: eveningVotingService).
+// `nominee` is the beginning of a player id: Telegram callback data is limited to 64 bytes.
+router.post('/evenings/:eveningId/vote', async (req, res) => {
+  try {
+    const db = req.db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const nominee = String(req.body?.nominee ?? '').trim();
+    if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
+    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
+    const result = await castEveningVote(db, String(req.params.eveningId), String(player.id), nominee, { allowPrefix: true });
+    if (!result.ok) {
+      const status = result.code === 'not_attended' ? 403 : result.code === 'bad_nominee' || result.code === 'ambiguous_nominee' ? 400 : 409;
+      return res.status(status).json({ error: 'Голос не принят', code: result.code });
+    }
+    return res.json({ success: true, nominee: result.nominee.nickname, deadline: result.deadlineMs ? new Date(result.deadlineMs).toISOString() : null });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить голос' });
   }
 });
 

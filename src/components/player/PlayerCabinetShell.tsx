@@ -62,7 +62,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
     const next = normalizePlayerCabinetSection(requested);
     // Personal Elo history is the «Elo» tab of the profile (old links and notifications say «elo»).
-    const nextTarget = requested === 'elo' && !target ? 'tab:elo' : target;
+    // A notification may carry the game key as its target; the Elo journey itself is always the profile tab.
+    const nextTarget = requested === 'elo' && !target?.startsWith('tab:') ? 'tab:elo' : target;
     setSection(next);
     onSectionChange?.(next, nextTarget);
   };

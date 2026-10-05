@@ -29,9 +29,11 @@ describe('games archive and the page of one game', () => {
     expect(onGameChange).toHaveBeenCalledWith('club:g1');
     expect(await screen.findByTestId('detail')).toBeDefined();
     expect(await screen.findByRole('link', { name: /Replay игры/ })).toBeDefined();
+    // The detail opened from the list owns a history entry, so Back steps through history instead of pushing a list entry.
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
     fireEvent.click(screen.getByText('← Назад к играм'));
-    expect(onGameChange).toHaveBeenLastCalledWith(null);
-    expect(await screen.findByText('Все игры клуба')).toBeDefined();
+    expect(back).toHaveBeenCalledTimes(1);
+    back.mockRestore();
   });
 
   it('opens the game named by the address and closes it when the address loses it', async () => {

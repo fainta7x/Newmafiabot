@@ -93,6 +93,7 @@ export default function PlayerGamesArchive({
     setGameDetailLoading(false);
   };
 
+  const openedInApp = useRef(false);
   // The address decides which game is open: a link from the profile, the browser's back button, a bookmark.
   useEffect(() => {
     if (initialGameKey) { if (initialGameKey !== selectedGameKey) void openGame(initialGameKey); }
@@ -109,7 +110,11 @@ export default function PlayerGamesArchive({
               loading={gameDetailLoading}
               error={gameDetailError}
               selfId={data.player.id}
-              onBack={() => { closeGame(); onGameChange?.(null); }}
+              onBack={() => {
+                // A detail opened inside the app has its own history entry: step back instead of pushing a list entry on top.
+                if (openedInApp.current || window.history.state?.gameReturn) { window.history.back(); return; }
+                closeGame(); onGameChange?.(null);
+              }}
             />
             {selectedGameKey.startsWith('club:') ? (
               <a href={`/player/replay/${encodeURIComponent(selectedGameKey)}`} data-track="game-open-replay" className="flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold text-sky-200/80">Replay игры ›</a>
@@ -124,7 +129,7 @@ export default function PlayerGamesArchive({
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
                 : allGames.length ? <div className="space-y-2">{allGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);
-                  return <button key={game.id} type="button" onClick={() => { void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">
+                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span></div>
                     <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="text-white/65">{winnerLabel(game.winner_team)}</span><span className="min-w-0 truncate text-right text-white/30">{game.judge_name ? `судья ${game.judge_name} · ` : ''}Подробнее ›</span></div>
                   </button>;

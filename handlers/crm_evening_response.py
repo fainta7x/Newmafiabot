@@ -275,7 +275,7 @@ def _mark_vote_choice(markup: InlineKeyboardMarkup | None, chosen_data: str) -> 
 
 @router.callback_query(F.data.startswith("evv:"))
 async def handle_evening_vote(callback: CallbackQuery):
-    """A tap on a player under «Кто сыграл лучше всех?» is the vote for «Игрок вечера»; another tap changes it."""
+    """A tap on a player under «Кто сыграл лучше всех?» is the vote for «MVP вечера»; another tap changes it."""
     try:
         _, evening_id, nominee = callback.data.split(":", 2)
     except (AttributeError, ValueError):

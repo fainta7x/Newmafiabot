@@ -72,7 +72,7 @@ const safeTableExists = async (db: any, table: string) => {
   }
 };
 
-const categoryLabel = (_category: string) => 'Игрок вечера';
+const categoryLabel = (_category: string) => 'MVP вечера';
 
 const sourceId = (snapshot: CompletedGameSnapshot) => snapshot.id.startsWith('club:')
   ? snapshot.id.slice('club:'.length)
@@ -222,7 +222,7 @@ export async function loadPlayerEveningSummaries(
     if (bestElo && bestElo.player_id !== playerId && bestElo.elo_delta > 0.01) {
       facts.push(`Лучший рост Elo: ${bestElo.nickname} +${round(bestElo.elo_delta)}`);
     }
-    if (awards.length) facts.push(`Игрок вечера по голосованию: ${awards.map((award) => award.nickname).join(', ')}`);
+    if (awards.length) facts.push(`MVP вечера по голосованию: ${awards.map((award) => award.nickname).join(', ')}`);
 
     summaries.push({
       id: eveningId,

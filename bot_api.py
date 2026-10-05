@@ -261,7 +261,7 @@ async def schedule_evening_followup(evening_id: str, telegram_user_id: int, when
 
 
 async def cast_evening_vote(evening_id: str, telegram_user_id: int, nominee: str) -> dict[str, Any]:
-    """«Игрок вечера» from the buttons under the bot's voting message. `nominee` is the start of a player id."""
+    """«MVP вечера» from the buttons under the bot's voting message. `nominee` is the start of a player id."""
     if not BOT_API_BASE_URL or not BOT_API_SECRET:
         return {"success": False, "error": "configuration"}
     url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/vote"

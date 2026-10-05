@@ -290,12 +290,15 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - If a stale local protocol references outdated player identities, recovery may rebind gameplay results to the **current canonical server roster by seat**; it must not use the stale local save to replace server player/participant identities.
 - A pending game must remain openable in correction mode rather than trapping the organizer behind only a retry button.
 
-## Club evening awards (user-approved 2026-10-04)
+## Club evening awards (user-approved 2026-10-04, two titles from 2026-10-05)
 
-- A completed club evening has **one** vote for its attendees: «Кто сыграл лучше всех?» («Игрок вечера»). The earlier role votes («Симпатия», best red / black / sheriff) are retired; their stored votes stay in the database but are neither offered nor counted.
-- Voting stays open for **3 days** after the evening is closed (owner, 2026-10-04: a Friday evening is voted on until Monday, before the next one is announced). The title goes to the nominee with the most votes; a tie shares it. An evening with no votes has no title.
-- Titles are counted **per calendar year** (Moscow time); the counter starts from zero every January and is shown in the player's showcase as «Игрок вечера · год: N».
-- When a year is over, the three places with the most titles get an automatic **«Игрок года <год>»** award (equal counts share a place; past years stay in the showcase). The current year has no award yet, only the counter.
+- A completed club evening has **two titles**:
+  - **«MVP вечера»** — the audience vote. One question for the evening's attendees: «Кто сыграл лучше всех?». The earlier role votes («Симпатия», best red / black / sheriff) are retired; their stored votes stay in the database but are neither offered nor counted.
+  - **«Игрок вечера»** (owner, 2026-10-05) — by results: the player with the most game wins of the evening; on a tie the higher win rate (wins per game played), then the player with more games; players still equal share it. A player with no won game does not get it. It is the same rule as «Игрок вечера · по результатам» in the stories and on the big screen.
+- Voting stays open for **3 days** after the evening is closed (owner, 2026-10-04: a Friday evening is voted on until Monday, before the next one is announced). «MVP вечера» goes to the nominee with the most votes; a tie shares it. An evening with no votes has no MVP. «Игрок вечера» does not wait for the vote: it exists once the evening is completed.
+- Both titles are **trophies** in the player's showcase, one automatic award per evening (`club-evening-mvp:` / `club-evening-wins:` keys), kept in line with the data: a recounted vote or a corrected game adds or takes the trophy back.
+- Titles are counted **per calendar year** (Moscow time); the counters start from zero every January and are shown in the player's showcase as «Игрок вечера · год: N» and «MVP вечера · год: N».
+- When a year is over, the three places with the most **«MVP вечера»** titles get an automatic **«Игрок года <год>»** award (equal counts share a place; past years stay in the showcase). The current year has no award yet, only the counters. (The base for «Игрок года» stays the audience vote until the owner decides otherwise.)
 - **Voting in the bot (owner, 2026-10-05).** Besides the app (Клуб → Истории), the vote is a message with buttons in the Telegram bot: right after an evening's personal card every attendee reached through Telegram gets «Кто сыграл лучше всех?» with one button per other attendee. A tap is the vote, a tap on another player changes it, the chosen player is marked ✅. The same rules as in the app: attendees only, never yourself, only while the 3 days are open; the app and the bot share one vote. Players reached through VK vote in the app. Evenings closed before this shipped get no such message.
 - Tournament awards are separate and unchanged.
 

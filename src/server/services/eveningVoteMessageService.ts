@@ -2,7 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 
 /**
- * The «Игрок вечера» vote as buttons in the bot (owner, 2026-10-05): after an evening is closed every attendee who is
+ * The «MVP вечера» vote as buttons in the bot (owner, 2026-10-05): after an evening is closed every attendee who is
  * reached through Telegram gets one message with a button per other attendee. A tap is the vote, tapping another
  * player changes it. Players reached through VK keep voting in the app (Клуб → Истории).
  */

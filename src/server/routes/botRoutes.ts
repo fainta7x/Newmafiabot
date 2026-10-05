@@ -229,7 +229,7 @@ router.post('/evenings/:eveningId/followup', async (req, res) => {
   }
 });
 
-// «Игрок вечера» from the buttons under the bot's voting message (same rules as the app: eveningVotingService).
+// «MVP вечера» from the buttons under the bot's voting message (same rules as the app: eveningVotingService).
 // `nominee` is the beginning of a player id: Telegram callback data is limited to 64 bytes.
 router.post('/evenings/:eveningId/vote', async (req, res) => {
   try {

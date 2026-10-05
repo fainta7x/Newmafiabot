@@ -3,7 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
 import { loadPlayerGameProfile } from './playerProfileService.ts';
 import { listVerifiedAwards, syncTrustedTournamentAwards } from './playerVerifiedAwardsService.ts';
-import { loadPlayerEveningTitles, syncClubYearAwards } from './clubYearAwardsService.ts';
+import { loadPlayerEveningTitles, loadPlayerEveningWinTitles, syncClubEveningTrophies, syncClubYearAwards } from './clubYearAwardsService.ts';
 
 const dateTime = (value: unknown) => {
   const time = value ? new Date(String(value)).getTime() : Number.NaN;
@@ -26,7 +26,9 @@ export async function loadPremiumProfileAwardsLight(db: DatabaseWrapper, playerI
 export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: string, isSelf: boolean) {
   await syncTrustedTournamentAwards(db, playerId);
   await syncClubYearAwards(db, playerId);
+  await syncClubEveningTrophies(db, playerId);
   const eveningTitles = await loadPlayerEveningTitles(db, playerId);
+  const eveningWinTitles = await loadPlayerEveningWinTitles(db, playerId);
   const [player, awards, achievements, profile, manualMilestones] = await Promise.all([
     db.get<any>('SELECT id, created_at FROM players WHERE id=? LIMIT 1', [playerId]),
     listVerifiedAwards(db, playerId, false),
@@ -67,6 +69,7 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
   return {
     awards: sortedAwards,
     evening_titles: eveningTitles,
+    evening_win_titles: eveningWinTitles,
     pinned_awards: sortedAwards.filter((award: any) => Number(award.pinned_position || 0) >= 1 && Number(award.pinned_position || 0) <= 3).slice(0, 3),
     achievements,
     earned_achievements: earnedAchievements,

@@ -32,7 +32,7 @@ const vote = (app: any, telegramUserId: number, nominee: string) =>
   request(app).post(`/api/bot/evenings/${EVENING}/vote`).set('X-Bot-Token', 'bot-secret-test').send({ telegram_user_id: telegramUserId, nominee });
 const mine = async (db: DatabaseWrapper, voter: string) => (await db.get<any>("SELECT nominee_player_id FROM evening_player_votes WHERE evening_id = ? AND voter_player_id = ?", [EVENING, voter]))?.nominee_player_id;
 
-describe('«Игрок вечера» from the bot buttons', () => {
+describe('«MVP вечера» from the bot buttons', () => {
   it('records the vote from the start of the player id, and a second tap changes it', async () => {
     const { app, db } = await setup();
     const first = await vote(app, 501, 'bbbb2222');

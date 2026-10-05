@@ -1,7 +1,7 @@
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
 
 /**
- * «Игрок вечера» voting (owner, 2026-10-04): one question for the whole evening, open for three days after the evening is
+ * «MVP вечера» voting (owner, 2026-10-04): one question for the whole evening, open for three days after the evening is
  * closed, only for players who attended and only for another attendee. One place for the rules, used by the app
  * (`playerEveningVotingRoutes`) and by the Telegram bot buttons (`POST /api/bot/evenings/:id/vote`).
  */

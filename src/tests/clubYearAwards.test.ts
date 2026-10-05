@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { buildAwards } from '../server/services/playerEveningSummaryService.ts';
-import { buildYearPodium, loadEveningTitles, loadPlayerEveningTitles, moscowYear, syncClubYearAwards } from '../server/services/clubYearAwardsService.ts';
+import { buildYearPodium, loadEveningTitles, loadEveningWinTitles, loadPlayerEveningTitles, moscowYear, pickEveningWinners, syncClubEveningTrophies, syncClubYearAwards } from '../server/services/clubYearAwardsService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -91,11 +91,53 @@ describe('club evening titles and yearly awards', () => {
     await vote(db, 'closed', 'v1', 'a'); await vote(db, 'closed', 'v2', 'b'); await vote(db, 'closed', 'v3', 'a'); await vote(db, 'closed', 'a', 'b');
     const awards = await buildAwards(db, 'closed', new Map(), true);
     expect(awards.map((award: any) => award.player_id).sort()).toEqual(['a', 'b']);
-    expect(awards.every((award: any) => award.votes === 2 && award.label === 'Игрок вечера')).toBe(true);
+    expect(awards.every((award: any) => award.votes === 2 && award.label === 'MVP вечера')).toBe(true);
 
     const justNow = new Date(Date.now() - 3_600_000).toISOString();
     await evening(db, 'open', justNow);
     await vote(db, 'open', 'v1', 'a');
     expect(await buildAwards(db, 'open', new Map(), true)).toEqual([]);
+  });
+});
+
+describe('«Игрок вечера» by wins and the evening trophies (owner, 2026-10-05)', () => {
+  const game = (db: DatabaseWrapper, eveningId: string, number: number, winner: 'red' | 'black', results: Array<[string, 'citizen' | 'mafia']>) => db.run(
+    `INSERT INTO games (evening_id, global_game_number, game_date, winner_team, winner_label, judge_name, protocol_text, slots_json, created_at)
+     VALUES (?, ?, '2026-03-06', ?, ?, 'Судья', ?, '[]', '2026-03-06T18:00:00Z')`,
+    [eveningId, number, winner, winner, JSON.stringify({ kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: winner }, player_results: results.map(([player_id, role], index) => ({ player_id, role, display_name: player_id.toUpperCase(), seat_number: index + 1 })) })],
+  );
+
+  it('picks the player with the most wins, then the better win rate, then more games; equal players share it', () => {
+    const won = (id: string) => ({ player_id: id, won: true });
+    const lost = (id: string) => ({ player_id: id, won: false });
+    expect(pickEveningWinners([{ players: [won('a'), won('b'), lost('c')] }, { players: [won('a'), lost('b'), lost('c')] }]).map((row) => row.player_id)).toEqual(['a']);
+    // equal wins: b played one game fewer, so the better win rate wins
+    expect(pickEveningWinners([{ players: [won('a'), won('b')] }, { players: [lost('a')] }]).map((row) => row.player_id)).toEqual(['b']);
+    // fully equal: shared
+    expect(pickEveningWinners([{ players: [won('a'), won('b')] }]).map((row) => row.player_id).sort()).toEqual(['a', 'b']);
+    // nobody has a win
+    expect(pickEveningWinners([{ players: [lost('a'), lost('b')] }])).toEqual([]);
+  });
+
+  it('turns both titles into trophies in the showcase and takes them back when the data changes', async () => {
+    const db = await setup();
+    await evening(db, 'w1', '2026-03-06T17:00:00Z');
+    await game(db, 'w1', 1, 'red', [['a', 'citizen'], ['b', 'mafia']]);
+    await game(db, 'w1', 2, 'red', [['a', 'citizen'], ['b', 'mafia']]);
+    await vote(db, 'w1', 'v1', 'b'); await vote(db, 'w1', 'v2', 'b');
+    const now = new Date('2026-06-01T00:00:00Z').getTime();
+    expect((await loadEveningWinTitles(db)).map((item) => `${item.player_id}:${item.wins}`)).toEqual(['a:2']);
+
+    await syncClubEveningTrophies(db, 'a', now); await syncClubEveningTrophies(db, 'b', now);
+    const trophies = async (playerId: string) => (await db.all<any>("SELECT title, kind, tournament_name FROM player_verified_awards WHERE player_id = ? AND source_key LIKE 'club-evening-%'", [playerId]));
+    expect(await trophies('a')).toEqual([{ title: 'Игрок вечера', kind: 'trophy', tournament_name: 'Вечер' }]);
+    expect(await trophies('b')).toEqual([{ title: 'MVP вечера', kind: 'trophy', tournament_name: 'Вечер' }]);
+
+    // synced twice: no duplicates; a recounted vote moves the MVP trophy
+    await syncClubEveningTrophies(db, 'a', now);
+    expect(await trophies('a')).toHaveLength(1);
+    await db.run("DELETE FROM evening_player_votes WHERE evening_id = 'w1'");
+    await syncClubEveningTrophies(db, 'b', now);
+    expect(await trophies('b')).toEqual([]);
   });
 });

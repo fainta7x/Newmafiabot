@@ -27,8 +27,10 @@ for(const width of [360,390]) test(`analytics all tabs at ${width}px`,async({pag
   }
   await analytics.getByRole('tab',{name:'Клуб',exact:true}).click();
   await analytics.getByRole('button',{name:'Как считаем: Визиты',exact:true}).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  const box=await page.getByRole('dialog').boundingBox();
+  const helpDialog=page.getByRole('dialog');
+  await expect(helpDialog).toBeVisible();
+  await expect(helpDialog).toHaveCSS('opacity','1');
+  const box=await helpDialog.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
   await page.screenshot({path:testInfo.outputPath(`analytics-${width}-help.png`),fullPage:true});
 });

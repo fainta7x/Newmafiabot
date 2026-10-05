@@ -166,7 +166,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
             onChange={(event) => {
               if (!event.target.value) { setPrivateSettings((value) => ({ ...value, birth_day: null, birth_month: null, birth_year: null })); return; }
               const [year, month, day] = event.target.value.split('-').map(Number);
-              setPrivateSettings((value) => ({ ...value, birth_day: day, birth_month: month, birth_year: year === 2000 && value.birth_year === null ? null : year }));
+              setPrivateSettings((value) => ({ ...value, birth_day: day, birth_month: month, birth_year: year === 2000 && value.birth_year === null && value.birth_day !== null ? null : year }));
             }}
             className="mobile-field mt-3"
             aria-label="Дата рождения"

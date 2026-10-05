@@ -457,7 +457,8 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   useEffect(() => {
     if (!current?.id) return undefined;
     let cancelled = false;
-    let inFlight = 0;
+    let pollCounter = 0; // only ever grows, so a request number is never reused
+    let activePoll = 0; // the request that currently holds the line (0 = none)
     let startedAt = 0;
     const poll = async () => {
       // A hidden screen (the app in the background) does not ask for the table: the server counts only a person who looks
@@ -465,12 +466,13 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
       if (document.visibilityState === 'hidden') return;
       // One request at a time: on a slow connection a new one every 250 ms piled up and the answers overtook each other.
       // A request that has hung for over 1.5 s no longer holds the line (its late answer is dropped by its number).
-      if (inFlight && Date.now() - startedAt < 1500) return;
-      const mine = ++inFlight;
+      if (activePoll && Date.now() - startedAt < 1500) return;
+      const mine = ++pollCounter;
+      activePoll = mine;
       startedAt = Date.now();
       try { await applyLobby(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' }, () => !cancelled && !leftTables.current.has(current.id)); }
       catch (e: any) { if (!cancelled) setError(e.message); }
-      finally { if (inFlight === mine) inFlight = 0; }
+      finally { if (activePoll === mine) activePoll = 0; }
     };
     // Waiting for the bots is polled quickly so their moves show up at once; waiting for the person himself needs only a slow pulse.
     const timer = window.setInterval(() => void poll(), current?.hand?.animation_phase === 'playing' && current?.hand?.is_viewer_turn ? 900 : 250);

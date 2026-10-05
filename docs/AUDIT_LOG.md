@@ -59,6 +59,16 @@ Read-only sweep by a subagent at `ef4b75e`; traced from code, not reproduced.
 
 Checked, no defect: Telegram outbox queue (no head-of-line blocking, permanent 4xx stop, in-flight dedupe), personal-notification ledger idempotency and healing, VK `random_id` idempotency, sync/dispatch outboxes, payment-deadline claim (`UPDATE … WHERE col IS NULL`), waitlist promotion (no double path), seat/results message scans, club result claim, broadcast token and payload normalisation.
 
+### Poker bot strength audit (2026-10-05, owner: «боты слабые»)
+
+Scope: `pokerBot.ts` by simulation (self-play statistics, new-vs-old head-to-head, benchmark against fixed styles).
+
+1. HIGH `fixed (poker-bot-strength PR)` — preflop defence too narrow: big blind/button/small blind folded most hands to a 2bb open (`pokerBot.ts` preflop raises==1 branch).
+2. HIGH `fixed (poker-bot-strength PR)` — postflop over-aggression: aggression factor ~6.5, ~34% of hands all-in, raise wars (`postflopDecision` raise candidates).
+3. MEDIUM `fixed (poker-bot-strength PR)` — multiway fold equity used only the first opponent's profile (`postflopDecision`).
+4. MEDIUM `fixed (poker-bot-strength PR)` — opponent ranges ignored what board and betting imply (`estimateEquity`/`opponentRanges`); c-bet too rare (~30%).
+5. LOW `open` — river all-ins are still frequent (~14% of hands); not verified against real players.
+
 ### Open — parity gaps between modes (not fixed)
 
 - Club evening winners get no trophies (tournament winners do).

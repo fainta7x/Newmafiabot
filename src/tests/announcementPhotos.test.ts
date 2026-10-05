@@ -46,8 +46,9 @@ describe('club photos for announcements', () => {
     expect(await pickAnnouncementPhotoId(database, 'ev-3', 'CASUAL')).toBe(club.id);
     expect(await pickAnnouncementPhotoId(database, 'ev-3', 'TOURNAMENT')).toBe(all.id);
 
+    // No photo for this kind of evening left: any club photo is used, a post never goes out bare while photos exist.
     await deleteAnnouncementPhoto(database, club.id);
-    expect(await pickAnnouncementPhotoId(database, 'ev-3', 'CASUAL')).toBeNull();
+    expect([novice.id, all.id]).toContain(await pickAnnouncementPhotoId(database, 'ev-3', 'CASUAL'));
     expect((await listAnnouncementPhotos(database)).map((photo) => photo.id)).toEqual([novice.id, all.id]);
   });
 

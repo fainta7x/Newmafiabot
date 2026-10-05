@@ -161,10 +161,12 @@ export async function pickAnnouncementPhotoId(db: DatabaseWrapper, eveningId: st
   await ensureAnnouncementPhotoSchema(db);
   const normalized = normalizeEveningFormat(format);
   const kind = normalized === 'TOURNAMENT' ? 'RATING' : normalized;
-  const rows = await db.all<{ id: string }>(
+  let rows = await db.all<{ id: string }>(
     "SELECT id FROM announcement_photos WHERE audience IN ('all', ?) ORDER BY created_at ASC, rowid ASC",
     [kind],
   );
+  // No photo for this kind of evening (owner, 2026-10-05: every post comes with a photo): any club photo is better than a bare post.
+  if (!rows.length) rows = await db.all<{ id: string }>('SELECT id FROM announcement_photos ORDER BY created_at ASC, rowid ASC');
   if (!rows.length) return null;
   const index = createHash('sha256').update(String(eveningId)).digest().readUInt32BE(0) % rows.length;
   return String(rows[index].id);

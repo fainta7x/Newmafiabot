@@ -196,7 +196,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
 
       {error ? <div className="mt-2 rounded-[10px] bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</div> : null}
       {notice ? <div role="status" className="mt-2 rounded-[10px] bg-success-soft px-3 py-2 text-[10px] text-success">{notice}</div> : null}
-      {summary.unpaid > 0 ? (
+      {summary.unpaid > 0 && data?.evening.closed ? (
         <button type="button" data-testid="remind-debtors" onClick={() => setRemindOpen(true)} disabled={remindBusy} className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[11px] bg-danger-soft px-3 text-[11px] font-black text-danger disabled:opacity-40">
           <BellRing className="h-4 w-4" /> Напомнить должникам ({summary.unpaid})
         </button>

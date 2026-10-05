@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDollarSign, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, CircleDollarSign, Gift, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type Participant = {
@@ -103,6 +103,22 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
 
   const unexpectedPending = useMemo(() => (state?.participants || []).filter((item) => item.attendance_status === 'pending' && !expectedResponse(item)), [state]);
   const paidAttended = useMemo(() => (state?.attended || []).filter((item) => item.payment_status === 'paid' && Number(item.amount_due || 0) > 0 && Number(item.amount_paid || 0) > 0), [state]);
+
+  // «Подарок» before closing (owner, 2026-10-05): the player played for free, so nothing is charged; it is the ordinary
+  // evening waiver. Everybody left in the list is charged when the evening closes and gets a reminder.
+  const giftParticipant = async (participant: Participant) => {
+    if (busyAction || busyIds.has(participant.id)) return;
+    setBusyIds((current) => new Set(current).add(participant.id));
+    setError(null); setMessage(null);
+    try {
+      await request(`/api/evenings/${encodeURIComponent(eveningId)}/payments/${encodeURIComponent(participant.id)}`, { method: 'PATCH', body: JSON.stringify({ waived: true, reason: 'Подарочный вечер' }) });
+      await load(true);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось подарить вечер');
+    } finally {
+      setBusyIds((current) => { const next = new Set(current); next.delete(participant.id); return next; });
+    }
+  };
 
   const patchParticipants = async (updates: Array<Partial<Participant> & { id: string }>) => {
     const ids = [...new Set(updates.map((item) => item.id).filter(Boolean))];
@@ -245,7 +261,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
 
     <details open={state.outstanding.length > 0} className="mt-2 rounded-[14px] border border-border-soft bg-surface-2">
       <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-[14px] font-semibold text-text-primary"><CircleDollarSign className="h-4 w-4 text-success" /> Оплаты · {state.outstanding.length ? `долгов ${state.outstanding.length}` : 'готово'}</summary>
-      <div className="border-t border-border-soft p-3">{state.outstanding.length ? <div className="space-y-1.5">{state.outstanding.map((item) => { const balance = Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0)); return <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold text-text-primary">{item.nickname}</div><div className="text-[12px] text-text-secondary">осталось {money(balance)}</div></div><button type="button" aria-label={`Отметить оплату ${item.nickname}`} disabled={busyIds.has(item.id)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: Number(item.amount_due || 0), payment_status: 'paid' }])} className="min-h-11 rounded-[10px] bg-success-soft px-3 text-[13px] font-semibold text-success disabled:opacity-50">{busyIds.has(item.id) ? '…' : 'Оплачено'}</button></div>; })}</div> : <div className="text-[12px] text-success">Долгов нет.</div>}{paidAttended.length ? <div className="mt-2 space-y-1.5 border-t border-border-soft pt-2">{paidAttended.map((item) => <div key={`paid-${item.id}`} className="flex items-center gap-2 rounded-xl bg-success-soft/50 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold text-text-primary">{item.nickname}</div><div className="text-[12px] text-success">Оплачено {money(Number(item.amount_paid || 0))}</div></div><button type="button" aria-label={`Снять оплату ${item.nickname}`} disabled={busyIds.has(item.id)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: 0, payment_status: 'unpaid' }])} className="min-h-11 rounded-lg border border-border-soft bg-surface-1 px-2.5 text-[12px] font-bold text-text-secondary disabled:opacity-50">{busyIds.has(item.id) ? '…' : 'Снять'}</button></div>)}</div> : null}{state.outstanding.length ? <p className="mt-2 text-[12px] leading-4 text-text-secondary">Неотмеченный остаток автоматически сохранится как долг при закрытии.</p> : null}</div>
+      <div className="border-t border-border-soft p-3">{state.outstanding.length ? <div className="space-y-1.5">{state.outstanding.map((item) => { const balance = Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0)); return <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold text-text-primary">{item.nickname}</div><div className="text-[12px] text-text-secondary">осталось {money(balance)}</div></div>{state.evening.format === 'CASUAL' && !state.evening.settled_at ? <button type="button" aria-label={`Подарить вечер ${item.nickname}`} data-testid={`closeout-gift-${item.id}`} disabled={busyIds.has(item.id)} onClick={() => void giftParticipant(item)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[10px] bg-surface-2 text-text-secondary disabled:opacity-50"><Gift className="h-4 w-4" /></button> : null}<button type="button" aria-label={`Отметить оплату ${item.nickname}`} disabled={busyIds.has(item.id)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: Number(item.amount_due || 0), payment_status: 'paid' }])} className="min-h-11 rounded-[10px] bg-success-soft px-3 text-[13px] font-semibold text-success disabled:opacity-50">{busyIds.has(item.id) ? '…' : 'Оплачено'}</button></div>; })}<div className="px-1 pt-1 text-[12px] leading-4 text-text-muted">Кого не отметишь — тому после закрытия вечера начислится долг, и бот напомнит об оплате. 🎁 — играл с подарком, платить не нужно.</div></div> : <div className="text-[12px] text-success">Долгов нет.</div>}{paidAttended.length ? <div className="mt-2 space-y-1.5 border-t border-border-soft pt-2">{paidAttended.map((item) => <div key={`paid-${item.id}`} className="flex items-center gap-2 rounded-xl bg-success-soft/50 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold text-text-primary">{item.nickname}</div><div className="text-[12px] text-success">Оплачено {money(Number(item.amount_paid || 0))}</div></div><button type="button" aria-label={`Снять оплату ${item.nickname}`} disabled={busyIds.has(item.id)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: 0, payment_status: 'unpaid' }])} className="min-h-11 rounded-lg border border-border-soft bg-surface-1 px-2.5 text-[12px] font-bold text-text-secondary disabled:opacity-50">{busyIds.has(item.id) ? '…' : 'Снять'}</button></div>)}</div> : null}{state.outstanding.length ? <p className="mt-2 text-[12px] leading-4 text-text-secondary">Неотмеченный остаток автоматически сохранится как долг при закрытии.</p> : null}</div>
     </details>
 
     <details open={state.games.needs_override} className="mt-2 rounded-[14px] border border-border-soft bg-surface-2">

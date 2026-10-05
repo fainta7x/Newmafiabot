@@ -4,8 +4,35 @@ import { isClubOwner, requireOrganizerAuth, type AuthenticatedRequest } from '..
 import { ensureEveningAnnouncementTrackingSchema } from '../services/eveningAnnouncementTrackingService.ts';
 import { loadStatGames } from '../services/gameStatisticsService.ts';
 import { buildClubGameStatistics } from '../../lib/gameStatistics.ts';
+import { parseAnalyticsPeriod } from '../../lib/analyticsPeriod.ts';
+import { loadClubOverview, loadClubFinance } from '../services/clubAnalyticsService.ts';
 
 const router = Router();
+
+const analyticsRange = async (db: DatabaseWrapper, period: string) => {
+  const now = Date.now();
+  const season = period === 'season' ? await db.get<any>(`SELECT title, starts_at, ends_at FROM rating_periods WHERE type='RATING' AND status='active' ORDER BY CASE WHEN datetime(starts_at)<=datetime(?) AND datetime(ends_at)>=datetime(?) THEN 0 ELSE 1 END, starts_at DESC LIMIT 1`, [new Date(now).toISOString(), new Date(now).toISOString()]) : null;
+  return parseAnalyticsPeriod(period, now, season);
+};
+
+router.get('/overview', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || await getDb();
+    return res.json(await loadClubOverview(db, await analyticsRange(db, String(req.query.period || 'all'))));
+  } catch {
+    return res.status(500).json({ error: 'Не удалось собрать аналитику клуба' });
+  }
+});
+
+router.get('/finance', requireOrganizerAuth, async (req, res) => {
+  if (!isClubOwner(req as AuthenticatedRequest)) return res.status(403).json({ error: 'Деньги клуба видит только владелец' });
+  try {
+    const db = req.db || await getDb();
+    return res.json(await loadClubFinance(db, await analyticsRange(db, String(req.query.period || 'all'))));
+  } catch {
+    return res.status(500).json({ error: 'Не удалось собрать финансы клуба' });
+  }
+});
 
 const pct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0;
 

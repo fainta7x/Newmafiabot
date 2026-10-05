@@ -359,6 +359,17 @@ describe('CRM player access profile', () => {
     expect(analyticsAdmin.body.financials).toBeNull();
     const analyticsOwner = await request(app).get('/api/analytics').set('Cookie', organizerCookie());
     expect(analyticsOwner.body.financials).toMatchObject({ incomePaid: expect.any(Number) });
+    const overview = await request(app).get('/api/analytics/overview?period=invalid').set('Cookie', adminCookie);
+    expect(overview.status).toBe(200);
+    expect(overview.body.range.id).toBe('all');
+    expect(overview.body).not.toHaveProperty('financials');
+    expect(overview.body).not.toHaveProperty('incomePaid');
+    expect((await request(app).get('/api/analytics/finance').set('Cookie', adminCookie)).status).toBe(403);
+    const financeOwner = await request(app).get('/api/analytics/finance').set('Cookie', organizerCookie());
+    expect(financeOwner.status).toBe(200);
+    expect(financeOwner.body).toMatchObject({ incomePaid: expect.any(Number), receivedInPeriod: expect.any(Number) });
+    expect((await request(app).get('/api/analytics/overview')).status).toBe(401);
+    expect((await request(app).get('/api/analytics/finance')).status).toBe(401);
 
     // The last cabinet holder keeps it: the role comes back and the owner sees why.
     const keepLast = await request(app).post('/api/players/access/bulk').set('Cookie', organizerCookie()).send({ player_ids: ['club-admin'], organization: 'none' });

@@ -679,6 +679,17 @@ CASUAL payment exemptions remain evening-specific. Editing `game_level`, `club_r
 
 Repository tests and GitHub checks verify code only. They do not prove the deployed Amvera revision or real Telegram/VK runtime behavior; deployment and runtime verification remain separate steps.
 
+## Analytics definitions (owner-approved 2026-10-05)
+
+- Analytics members match `MEMBER_SQL` in `organizerAgendaService.ts`: archived, merged, blocked and guest-placeholder/legacy-migrated rows are excluded.
+- A visit uses `playerVisitsService.ts`: factual attendance OR a non-archived game's seat, deduplicated per player and evening. The evening must have started and not be draft/cancelled. This is the existing canonical rule, not an analytics-only restriction to active/completed statuses.
+- A new player has their first visit inside the chosen period; an active player has at least one visit there.
+- Inactivity is measured today from the last visit, in exclusive 30–59, 60–89 and 90+ day groups. Players without any visit are not inactive. CRM 14/28-day thresholds are unchanged.
+- Returning within 30 days means a second distinct evening within 30 days of the first visit. Only first visits inside the period with a full 30-day observation window enter the denominator. More recent first visits are pending; fewer than five mature players show a fraction, not a percentage.
+- Calendar months use Moscow time. The season is the active RATING period containing today, otherwise the latest active RATING period. No season means all time with an explicit explanation. Ranges have an inclusive start and exclusive end; date-only season ends include the entire last Moscow day.
+- Evening-date finances sum factual attended participants of completed/settled evenings by the evening's start date. Non-waived charges are accrued, recorded payments are paid, and unpaid balances are current debt; planned RSVP is not debt. Receipts from `income`/`debt_paid` use payment date and are a separate number, never added to evening-date payments. Financial details are owner-only; refunds/expenses are not a panel in this redesign.
+- Approved remaining UI definitions: fill rate uses game-slot seat capacity; invitation funnel percentages use the previous step; raw source keys receive plain Russian labels. These await the subsequent implementation slice.
+
 ## Rule-change workflow
 
 When a requested change touches any rule above:

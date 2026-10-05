@@ -128,6 +128,9 @@ export const pokerOpponentProfile = (playerId: string) => {
   };
 };
 
+/** Raw counters the bots have learned about every player (owner-only report; the ids of bots are skipped by the caller). */
+export const exportPokerOpponentStats = () => [...memory().entries()].map(([id, stats]) => ({ id, ...stats }));
+
 export const resetPokerBotMemoryForTests = () => defaultOpponents.clear();
 
 // ---------- Helpers ----------

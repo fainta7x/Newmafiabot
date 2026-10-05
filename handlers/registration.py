@@ -130,6 +130,15 @@ async def _send_normal_start(
     if args.startswith("event_"):
         evening_id = args.removeprefix("event_").strip()
         event_kb = bot_menu.event_inline_keyboard(evening_id) if evening_id else None
+        # An old link to an evening that is over or cancelled: say so and offer the nearest one (owner, 2026-10-05).
+        from bot_api import get_open_evenings
+        opened = await get_open_evenings()
+        open_list = opened.get("data") if opened.get("success") else None
+        if isinstance(open_list, list) and (not evening_id or evening_id not in {str(item.get("id")) for item in open_list}):
+            from handlers.bot_home import stale_link_view
+            text, markup = stale_link_view(open_list, event_gone=True)
+            await message.answer(text, parse_mode="HTML", reply_markup=markup)
+            return
         if event_kb:
             await message.answer(
                 "🎯 <b>Запись на игровой вечер</b>\n\n"
@@ -160,6 +169,15 @@ async def _send_normal_start(
     if args == "club_access":
         await _handle_club_access(message, kb)
         return
+
+    # An unknown payload is an old link that leads nowhere: tell the player, then show the usual menu.
+    from handlers.bot_home import is_known_start_payload
+    if not is_known_start_payload(args):
+        from bot_api import get_open_evenings
+        opened = await get_open_evenings()
+        from handlers.bot_home import stale_link_view
+        text, markup = stale_link_view(opened.get("data") if opened.get("success") else None)
+        await message.answer(text, parse_mode="HTML", reply_markup=markup)
 
     # The keyboard message first, then the menu card, so the card stays at the bottom of the chat.
     await message.answer(

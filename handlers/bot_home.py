@@ -208,6 +208,41 @@ def _when(value: object) -> str:
     return f"{_WEEKDAYS[start.weekday()]}, {start.day} {_MONTHS[start.month - 1]} · {start:%H:%M}"
 
 
+KNOWN_START_PAYLOADS = ("players", "club_access")
+
+
+def is_known_start_payload(args: str) -> bool:
+    """A `start` payload the bot still understands; anything else is an old link that no longer leads anywhere."""
+    args = (args or "").strip()
+    return not args or args in KNOWN_START_PAYLOADS or args.startswith(("event_", "profile_"))
+
+
+def nearest_evening(evenings: list[dict] | None) -> dict | None:
+    """The soonest evening that has not started yet (the first one when no start time can be read)."""
+    if not evenings:
+        return None
+    now = datetime.now(MOSCOW)
+    upcoming = [item for item in evenings if (_parse(item.get("starts_at")) or now) >= now]
+    pool = upcoming or evenings
+    return sorted(pool, key=lambda item: str(item.get("starts_at") or ""))[0]
+
+
+def stale_link_view(evenings: list[dict] | None, *, event_gone: bool = False) -> tuple[str, InlineKeyboardMarkup]:
+    """An old link (a past or cancelled evening, an unknown `start` payload): say so plainly and give fresh buttons."""
+    reason = "этот вечер уже прошёл или запись на него закрыта" if event_gone else "она устарела"
+    soonest = nearest_evening(evenings)
+    lines = [f"🔗 <b>Эта ссылка больше не работает</b> — {reason}."]
+    buttons: list[InlineKeyboardButton | None] = []
+    if soonest:
+        lines.append(f"\nБлижайший вечер: <b>{_when(soonest.get('starts_at'))}</b>.")
+        buttons.append(_app_button("📅 Ближайший вечер", bot_menu.event_app_path(str(soonest.get("id") or ""))))
+    else:
+        lines.append("\nБлижайших вечеров пока нет — анонс придёт сюда.")
+    buttons.append(_app_button("🎭 Открыть 2LA Noire", "/player"))
+    rows = [[button] for button in buttons if button]
+    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def events_view(evenings: list[dict], audience: str = "club") -> tuple[str, InlineKeyboardMarkup]:
     newcomer = audience == "newcomer"
     title = "📅 <b>Вечера для новичков</b>" if newcomer else "📅 <b>Расписание</b>"

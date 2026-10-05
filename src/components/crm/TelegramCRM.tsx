@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnnouncementPhotosCard } from './AnnouncementPhotosCard.tsx';
+import { ClubDigestCard } from './ClubDigestCard.tsx';
 import { CheckCircle2, RefreshCw, Send, TestTube2 } from 'lucide-react';
 
 type DestinationId = 'public' | 'novice' | 'club' | 'rating';
@@ -191,6 +192,8 @@ export const TelegramCRM: React.FC = () => {
       </div>
 
       <AnnouncementPhotosCard />
+
+      <ClubDigestCard />
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-center justify-between gap-3">

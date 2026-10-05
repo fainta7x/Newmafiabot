@@ -181,18 +181,14 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   const dealElapsed = lobby.hand.animation_phase === 'dealing' && lobby.hand.animation_next_at
     ? Math.max(0, orderedDeal.length * 2 * POKER_DEAL_CARD_MS - (lobby.hand.animation_next_at - POKER_DEAL_SETTLE_MS - now)) : orderedDeal.length * 2 * POKER_DEAL_CARD_MS;
   const dealtCardCount = lobby.hand.animation_phase === 'dealing' ? Math.min(orderedDeal.length * 2, Math.floor(dealElapsed / POKER_DEAL_CARD_MS)) : orderedDeal.length * 2;
-  const visibleHoleCards = (id: string) => {
-    const index = orderedDeal.findIndex((player) => player.id === id);
-    if (index < 0) return [];
-    const count = Number(dealtCardCount > index) + Number(dealtCardCount > index + orderedDeal.length);
-    return (lobby.hand?.hole_cards[id] || []).slice(0, count);
-  };
+  // The client paces the deal itself from `deal_elapsed_ms`, so the viewer gets his whole hand at once and every card already knows its place.
+  const visibleHoleCards = (id: string) => (orderedDeal.some((player) => player.id === id) ? lobby.hand?.hole_cards[id] || [] : []);
   const holeCards = Object.fromEntries([...visibleIds].map((id) => [id, visibleHoleCards(id)]));
   // A player who sat down during a hand watches it and plays from the next one.
   const viewerAtTable = Boolean(viewerId && lobby.players.some((player) => player.id === viewerId));
   const viewerSeated = viewerAtTable;
   const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
-  const hand = { ...lobby.hand, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
+  const hand = { ...lobby.hand, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, deal_elapsed_ms: Math.round(dealElapsed), deal_card_ms: POKER_DEAL_CARD_MS, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand };
 };
 

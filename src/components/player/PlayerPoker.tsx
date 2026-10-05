@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { TELEGRAM_VIEWPORT_CHANGE_EVENT } from '../../lib/telegramWebAppViewport';
 import { cardIdentity, orderOwnCards } from './pokerCards.ts';
 
@@ -388,7 +388,28 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   }, [current?.id, current?.hand?.animation_phase, current?.hand?.is_viewer_turn]);
 
   const viewerId: string | null = current?.hand?.viewer_id || null;
-  const ownCards: Card[] = viewerId ? orderOwnCards(current.hand.hole_cards[viewerId] || [], current.hand.animation_phase === 'dealing') : [];
+  const dealing = current?.hand?.animation_phase === 'dealing';
+  // Dealing is paced here from the server's elapsed time, not by polling: a poll every 250 ms made the cards arrive in steps.
+  const dealReceivedAt = useMemo(() => (typeof performance !== 'undefined' ? performance.now() : 0), [current]);
+  const [, setDealTick] = useState(0);
+  useEffect(() => {
+    if (!dealing) return undefined;
+    const timer = window.setInterval(() => setDealTick((tick) => tick + 1), 40);
+    return () => window.clearInterval(timer);
+  }, [dealing]);
+  const dealtTotal = (() => {
+    const total = Number(current?.hand?.players?.length || 0) * 2;
+    if (!dealing) return total;
+    const cardMs = Number(current?.hand?.deal_card_ms || 170);
+    return Math.min(total, Math.floor((Number(current?.hand?.deal_elapsed_ms || 0) + (performance.now() - dealReceivedAt)) / cardMs));
+  })();
+  // The pair is laid out high card first from the very first card: each card flies to the slot it keeps (owner, 2026-10-05).
+  const heroAll: Card[] = viewerId ? current.hand.hole_cards[viewerId] || [] : [];
+  const heroSlots: Card[] = orderOwnCards(heroAll);
+  const heroDealOrder: Player[] = (current?.hand?.players || []).slice().sort((a: Player, b: Player) => a.seat - b.seat);
+  const heroDealIndex = heroDealOrder.findIndex((player: Player) => player.id === viewerId);
+  const heroDealt = heroDealIndex < 0 ? 0 : Number(dealtTotal > heroDealIndex) + Number(dealtTotal > heroDealIndex + heroDealOrder.length);
+  const ownCards: Array<Card | null> = heroSlots.map((card) => (heroAll.indexOf(card) < heroDealt ? card : null));
   const turnPlayer = current?.players?.find((player: Player) => player.seat === current?.hand?.current_seat);
   const isMyTurn = Boolean(current?.hand?.is_viewer_turn);
   const baseSeconds = Number(current?.hand?.turn_remaining?.base_seconds || 0);
@@ -397,7 +418,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const dealOrder: Player[] = current?.hand?.players ? [...current.hand.players].sort((a: Player, b: Player) => a.seat - b.seat) : [];
   const dealtCountFor = (playerId: string) => {
     const index = dealOrder.findIndex((player: Player) => player.id === playerId);
-    const dealt = Number(current?.hand?.dealt_card_count || 0);
+    const dealt = dealtTotal;
     return index < 0 ? 0 : Number(dealt > index) + Number(dealt > index + dealOrder.length);
   };
   const layout = seatLayout(orderedPlayers.length);
@@ -575,7 +596,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
             const handPlayer = hand.players?.find((item: Player) => item.id === hero.id);
             const winner = hand.winner_ids?.includes(hero.id);
             return <div className="absolute bottom-[2%] left-1/2 z-20 flex w-[92%] -translate-x-1/2 flex-col items-center">
-              <div className={`flex gap-1.5 ${isMyTurn ? 'poker-hero-cards--active' : ''} ${handPlayer?.folded ? 'poker-hero-cards--folded' : ''}`}>{ownCards.map((card, index) => <span key={cardIdentity(card)} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 128}ms`, transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
+              <div className={`flex gap-1.5 ${isMyTurn ? 'poker-hero-cards--active' : ''} ${handPlayer?.folded ? 'poker-hero-cards--folded' : ''}`}>{ownCards.map((card, index) => !card ? <span key={`slot-${index}`} className="poker-hole-card--slot" /> : <span key={cardIdentity(card)} className={`poker-hole-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ transform: `rotate(${index ? 4 : -4}deg)` }}><PlayingCard card={card} /></span>)}</div>
                             <div className={`poker-seat-plaque poker-hero-plaque relative mt-1.5 flex w-full max-w-[340px] items-center gap-2.5 overflow-hidden py-1.5 pl-1.5 pr-3 ${handPlayer?.folded ? 'opacity-50' : ''} ${winner ? 'ring-2 ring-amber-300' : isMyTurn ? 'poker-hero-plaque--active' : ''}`}>
                 {isMyTurn ? <span className="absolute inset-x-0 top-0"><TimerBar timer={turnTimer(hand)} thin /></span> : null}
                 <span className="poker-seat-frame relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold">{hero.nickname?.slice(0, 1).toUpperCase()}<img src={`/api/player/players/${encodeURIComponent(hero.id)}/avatar`} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-[3px] h-[34px] w-[34px] rounded-full object-cover" /></span>

@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
+import { exportPokerOpponentStats, observePokerHand, withOpponentMemory, type OpponentMemory } from '../services/pokerBot.ts';
+import type { StoredPokerHand } from '../services/pokerLobbyService.ts';
+
 const router = Router();
 
 function safeEqual(left: string, right: string): boolean {
@@ -30,6 +33,41 @@ function requireDeveloperReadAccess(req: Request, res: Response, next: NextFunct
 }
 
 router.use(requireDeveloperReadAccess);
+
+/**
+ * How every person plays at the poker tables, counted from the stored hands (read-only, no hands are returned):
+ * the numbers the bots learn from, to tune them against real play.
+ */
+router.post('/poker/stats', async (req, res) => {
+  try {
+    const memory: OpponentMemory = new Map();
+    const rows = await req.db.all<{ hand_json: string }>(`SELECT hand_json FROM poker_hand_log ORDER BY played_at ASC`).catch(() => []);
+    let hands = 0;
+    for (const row of rows) {
+      try {
+        const hand = JSON.parse(row.hand_json) as StoredPokerHand;
+        withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type]) => ({ street, player_id, type })) }));
+        hands += 1;
+      } catch { /* a damaged row is skipped */ }
+    }
+    const stats = withOpponentMemory(memory, () => exportPokerOpponentStats()).filter((item) => !item.id.startsWith('bot-') && item.hands > 0);
+    const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
+    const players = [];
+    for (const item of stats.sort((a, b) => b.hands - a.hands)) {
+      const found = await req.db.get<{ nickname?: string }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [item.id]);
+      players.push({
+        player_id: item.id, nickname: found?.nickname || null, hands: item.hands,
+        vpip_pct: pct(item.vpip, item.hands), pfr_pct: pct(item.pfr, item.hands),
+        fold_to_bet_pct: pct(item.foldedToBet, item.facedBet), faced_bets: item.facedBet,
+        postflop_bets_raises: item.postflopAggro, postflop_calls: item.postflopPassive,
+        aggression_factor: item.postflopPassive > 0 ? Math.round((item.postflopAggro / item.postflopPassive) * 100) / 100 : null,
+      });
+    }
+    return res.json({ stored_hands: hands, players });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to load poker stats' });
+  }
+});
 
 router.post('/evenings', async (req, res) => {
   try {

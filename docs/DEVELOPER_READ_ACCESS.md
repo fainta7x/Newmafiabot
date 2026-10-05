@@ -23,6 +23,7 @@ Available reads:
 - `/evenings` — compact list of evenings.
 - `/evenings/:id` — one evening plus participant nicknames, RSVP state, actual attendance state, and payment totals.
 - `/evenings/by-date/YYYY-MM-DD` — same participant data for every evening on the requested date.
+- `/poker/stats` — how each person plays at the poker tables (hands, VPIP, PFR, fold to bet, aggression), counted from the stored hands; no hands are returned.
 
 The returned participant fields are deliberately bounded to operational club data needed for diagnostics: player id, nickname, response/registration/attendance/arrival state, payment state, amount due/paid, and registration/check-in timestamps. It does not expose phone numbers, Telegram usernames, tokens, secrets, or arbitrary database access.
 

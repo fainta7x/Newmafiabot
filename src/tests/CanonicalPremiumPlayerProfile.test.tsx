@@ -5,6 +5,7 @@ import CanonicalPremiumPlayerProfile from '../components/player/CanonicalPremium
 
 vi.mock('../components/player/PremiumProfileConnections.tsx', () => ({ default: () => <div data-testid="connections-stub" /> }));
 vi.mock('../components/player/PremiumProfileShowcase.tsx', () => ({ default: ({ section }: any) => <div data-testid={`showcase-${section}`} /> }));
+vi.mock('../components/player/PlayerEloJourney.tsx', () => ({ default: () => <div data-testid="elo-journey-stub" /> }));
 vi.mock('../components/player/SmartFriendInviteSuggestions.tsx', () => ({ default: () => <div data-testid="smart-friends-stub" /> }));
 vi.mock('../components/player/PlayerAwardSuggestionAction.tsx', () => ({ default: () => <div data-testid="award-suggestion-stub" /> }));
 vi.mock('../components/player/PlayerProfileCompleteness.tsx', () => ({ PlayerProfileCompletionCard: () => <div data-testid="completion-stub" /> }));
@@ -75,12 +76,21 @@ describe('CanonicalPremiumPlayerProfile', () => {
       if (url.includes('/elo?')) return response({ points: [{ id: 'club:g1', title: 'Игра 7', game_number: 7, date: '2026-09-01T18:00:00.000Z', elo_before: 1190, elo_after: 1205, elo_delta: 15 }] });
       return response({});
     }));
-    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
+    // another player's Elo history is the simple list from the profile endpoint
+    render(<CanonicalPremiumPlayerProfile playerId="other" selfPlayerId="self" mode="public" />);
     await screen.findByText('Игрок');
     fireEvent.click(screen.getByRole('button', { name: 'Elo' }));
     expect(await screen.findByText('1205')).toBeDefined();
     expect(screen.getByText('+15')).toBeDefined();
     expect(screen.queryByText(/До игры/)).toBeNull();
+  });
+
+  it('shows the player his own Elo journey in the Elo tab and opens the tab named by the address', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).includes('/summary') ? response(summary('self', 'Игрок')) : response({})));
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" initialTab="elo" />);
+    expect(await screen.findByTestId('elo-journey-stub')).toBeDefined();
+    // the simple list of the profile endpoint is not fetched for himself: one history, not two
+    expect(screen.queryByText('История Elo')).toBeNull();
   });
 
   it('shows owner-only award suggestion and smart friend suggestions', async () => {
@@ -98,7 +108,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
       const url = String(input);
       if (url.includes('/summary')) return response(summary('self', 'Игрок'));
       if (url.includes('/birthday')) return response({});
-      if (url.includes('/games?')) return response({ total: 2, games: [{ id: 'club:g9', title: 'Вечер 3 октября', game_number: 4, date: '2026-10-03T18:00:00.000Z', role: 'mafia', team: 'black', won: true, elo_delta: 12.4 }, { id: 'tournament:t1', title: 'Турнир', game_number: 2, date: '2026-10-02T18:00:00.000Z', role: 'citizen', team: 'red', won: false, elo_delta: -5 }] });
+      if (url.includes('/games?')) return response({ total: 2, games: [{ id: 'club:g9', title: 'Вечер 3 октября', game_number: 4, date: '2026-10-03T18:00:00.000Z', role: 'mafia', team: 'black', won: true, elo_delta: 12.4, seat_number: 3, first_killed: true, best_move: false, judge_bonus: 0.5, table_name: 'Стол 1', judge_name: 'Иван' }, { id: 'tournament:t1', title: 'Турнир', game_number: 2, date: '2026-10-02T18:00:00.000Z', role: 'citizen', team: 'red', won: false, elo_delta: -5 }] });
       return response({});
     }));
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
@@ -108,10 +118,15 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByText(/Мафия · Чёрные · победа/)).toBeDefined();
     expect(screen.queryByText('mafia')).toBeNull();
     expect(screen.getByText('Elo +12')).toBeDefined();
-    // a club game opens its replay; a tournament game has no screen of its own, so it gets no dead link
-    const links = screen.getAllByRole('link', { name: /Replay/ });
-    expect(links).toHaveLength(1);
-    expect(links[0].getAttribute('href')).toBe('/player/replay/club%3Ag9');
+    expect(screen.getByText('№3 за столом')).toBeDefined();
+    expect(screen.getByText('ПУ')).toBeDefined();
+    expect(screen.getByText('судья +0.5')).toBeDefined();
+    expect(screen.getByText('Стол 1 · судья Иван')).toBeDefined();
+    // every game opens its own page in the «Игры» section, club and tournament games alike
+    const links = screen.getAllByRole('link', { name: /Открыть игру/ });
+    expect(links).toHaveLength(2);
+    expect(links[0].getAttribute('href')).toBe('/player/games/club%3Ag9');
+    expect(links[1].getAttribute('href')).toBe('/player/games/tournament%3At1');
   });
 
   it('says so when another player has hidden his statistics instead of showing dashes', async () => {

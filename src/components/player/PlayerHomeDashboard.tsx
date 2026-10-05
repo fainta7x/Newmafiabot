@@ -68,11 +68,14 @@ export default function PlayerHomeDashboard({
   data,
   onOpenEvents,
   onOpenGames,
+  onOpenMyGames,
   onOpenRating,
 }: {
   data: PlayerMeResponse;
   onOpenEvents: (eventId?: string | null) => void;
   onOpenGames: () => void;
+  /** «Мои игры» are in the profile now (tab «Игры»); without it the button falls back to the games section. */
+  onOpenMyGames?: () => void;
   onOpenRating: () => void;
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
@@ -233,7 +236,7 @@ export default function PlayerHomeDashboard({
           ) : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" onClick={onOpenRating} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-sm font-semibold text-white/75">Рейтинг</button>
-            <button type="button" onClick={onOpenGames} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-sm font-semibold text-white/75">Мои игры</button>
+            <button type="button" onClick={onOpenMyGames || onOpenGames} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-sm font-semibold text-white/75">Мои игры</button>
           </div>
         </section>
 

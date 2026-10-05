@@ -19,7 +19,18 @@ describe('player app navigation', () => {
   it('keeps game and rating sub-sections inside their hubs', () => {
     // «Карьера» is part of the profile now: its old link opens the profile and goes back to the main screen.
     expect(appBackTarget('/player/career')).toBe('/player');
-    expect(appBackTarget('/player/elo')).toBe('/player/rating');
+    // Personal Elo history is a tab of the profile: the old address opens it
+    expect(parsePlayerRoute('/player/elo')).toMatchObject({ section: 'profile', target: 'tab:elo', canonicalPath: '/player/profile/elo' });
+    expect(parsePlayerRoute('/player/profile/elo')).toMatchObject({ section: 'profile', target: 'tab:elo' });
+    expect(parsePlayerRoute('/player/profile')).toMatchObject({ section: 'profile', target: null });
+  });
+
+  it('gives a game its own address and backs from it to where the link was tapped', () => {
+    expect(playerPathForSection('games', 'club:abc')).toBe('/player/games/club%3Aabc');
+    expect(parsePlayerRoute('/player/games/club%3Aabc')).toMatchObject({ section: 'games', target: 'club:abc', canonicalPath: '/player/games/club%3Aabc' });
+    expect(parsePlayerRoute('/player/games')).toMatchObject({ section: 'games', target: null });
+    // without a remembered place Back goes to the list of games
+    expect(appBackTarget('/player/games/club%3Aabc')).toBe('/player/games');
   });
 
   it('keeps the staff music library inside the conduct hub', () => {

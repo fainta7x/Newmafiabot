@@ -98,7 +98,7 @@ Scope: the player-facing profile — `CanonicalPremiumPlayerProfile.tsx` (tabs �
 9. LOW `fixed (profiles-audit PR)` — wording: tab «История клуба» vs section «История в клубе»; «Текущий период» vs «Текущий сезон» (season = rating period since 2026-10-04).
 10. LOW `open` — the birth year 2000 cannot be saved (the date picker's default year 2000 means «no year», `PlayerProfileSettings.tsx`).
 11. HIGH `fixed (profiles-audit PR; owner: «привести к единому виду»)` — the same statistics (games, wins, win rate, roles, red/black, awards) were shown in three places from different sources: «Игры → Карьера», «Игры → Статистика», «Профиль»; they could disagree. One profile now (PROJECT_STATE 89). «Моя аналитика» repeated the win rate and best role and sat under the overview; moved to «Связи» without the duplicates.
-12. LOW `open (next PR)` — `PlayerHistoryStatsView.tsx` still holds unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition; `PlayerEloJourney` vs the profile's Elo tab not compared yet.
+12. MEDIUM `fixed (games-elo-unification PR)` — `PlayerHistoryStatsView.tsx` held unreachable branches (home, club, payments, rating, profile, stats) including a third profile rendition, and «Игры → История → Мои игры» repeated the profile's «Игры» tab; the personal Elo history was shown three times (`PlayerEloJourney`, the profile's Elo tab, the chart in «Моя аналитика»). One place each now (PROJECT_STATE 93); a game got its own address, so the profile's links work.
 13. NOTE `wontfix` — «Replay» is the product's name for the game replay in several screens (career, live centre), kept as is.
 
 ### Open — parity gaps between modes (not fixed)

@@ -593,7 +593,7 @@ Registration eligibility (user-approved 2026-09-23):
 - Only players with `game_level=tournament` («Турнирный игрок») may register for **RATING** games.
 - Tournament places go to «Играю» answers in answer order; see «Tournament registration».
 
-The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (table and personal dynamics), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
+The Player Cabinet «Рейтинг» tab therefore has exactly three views: «Elo» (the club table; the personal Elo dynamics are the «Elo» tab of the profile), «Сезон» (rating/novice periods) and «Турниры» (published tournament standings). «Итоги сезона» under «Клуб → Активность» and the «Текущий сезон» card in the career profile use the organizer's RATING periods as seasons (user-approved 2026-10-04; `clubSeasonService.ts`); they count wins in the period's date range and are club statistics, not a rating. Calendar quarters are only a fallback while no RATING period exists.
 
 ## Elo / rating principles
 
@@ -692,6 +692,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 
 ## Player profile and terminology (owner, 2026-10-05)
 
+- **One place each.** A player's own games and his Elo history are in his profile only; «Игры» holds the club archive of games and the evening summaries (every game has its own page); «Рейтинг» holds the club table, seasons and tournaments.
 - **One profile.** A player's statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» live in one place — the player profile («Профиль»; another player's profile opens as an overlay with the same sections). No other screen repeats them; the «Игры» section holds the history of games and the evening summaries only. All its numbers come from one source (`premiumPlayerProfileService.ts`).
 - **Overlay menu.** The profile of another player opened over the cabinet always carries the usual bottom menu next to the «←» button.
 - **Hidden statistics.** When a player switched «Игровая статистика» off, others see a plain note instead of numbers; his games, roles and Elo are not available to them.

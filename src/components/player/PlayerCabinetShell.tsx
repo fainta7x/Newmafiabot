@@ -35,6 +35,7 @@ type Props = {
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
+const profileTabFromTarget = (target: string | null | undefined) => target?.startsWith('tab:') ? target.slice('tab:'.length) || null : null;
 const profilePlayerIdFromTarget = (target: string | null | undefined) => target?.startsWith('player:') ? target.slice('player:'.length) || null : null;
 
 export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpenEventHost = false, onOpenAdmin, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
@@ -60,8 +61,10 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
 
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
     const next = normalizePlayerCabinetSection(requested);
+    // Personal Elo history is the «Elo» tab of the profile (old links and notifications say «elo»).
+    const nextTarget = requested === 'elo' && !target ? 'tab:elo' : target;
     setSection(next);
-    onSectionChange?.(next, target);
+    onSectionChange?.(next, nextTarget);
   };
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
@@ -77,23 +80,23 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}><PlayerLiveOnlyCenter compact={section !== 'home'} /></div>
 
       {section === 'home' ? (
-        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('profile', 'tab:games')} onOpenRating={() => open('rating')} />
       ) : section === 'events' ? (
         <PlayerEventsCalendar initialEventId={initialTarget} onEventChange={(eventId) => open('events', eventId)} />
       ) : isPlayerGameSection(section) ? (
-        <PlayerGamesHub data={currentData} canOpenAdmin={canOpenAdmin} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} onOpenProfile={() => open('profile')} />
+        <PlayerGamesHub data={currentData} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} onOpenProfile={() => open('profile')} />
       ) : isPlayerRatingSection(section) ? (
-        <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} />
+        <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} onOpenProfileElo={() => open('profile', 'tab:elo')} />
       ) : section === 'club' || section === 'clubworld' ? (
         <PlayerClubHub data={currentData} initialView={section === 'clubworld' ? 'activity' : 'players'} onOpenPoker={() => open('poker')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
-        <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
+        <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} initialTab={profileTabFromTarget(initialTarget)} />
       ) : section === 'conduct' ? (
         <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
       ) : (
-        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('profile', 'tab:games')} onOpenRating={() => open('rating')} />
       )}
 
       <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />

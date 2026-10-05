@@ -16,6 +16,7 @@ describe('player cabinet navigation model', () => {
     // «Карьера» and «Статистика» live in the one profile now.
     expect(normalizePlayerCabinetSection('stats')).toBe('profile');
     expect(normalizePlayerCabinetSection('career')).toBe('profile');
+    expect(normalizePlayerCabinetSection('elo')).toBe('profile');
   });
 
   it('keeps game and rating sub-sections in their canonical groups', () => {
@@ -24,7 +25,7 @@ describe('player cabinet navigation model', () => {
       expect(isPlayerRatingSection(section)).toBe(false);
     }
 
-    for (const section of ['rating', 'elo', 'ratingperiods', 'ratingtournaments'] as const) {
+    for (const section of ['rating', 'ratingperiods', 'ratingtournaments'] as const) {
       expect(isPlayerRatingSection(section)).toBe(true);
       expect(isPlayerGameSection(section)).toBe(false);
     }
@@ -34,7 +35,7 @@ describe('player cabinet navigation model', () => {
     expect(isPlayerCabinetNavActive('games', 'games')).toBe(true);
     expect(isPlayerCabinetNavActive('games', 'recaps')).toBe(true);
     expect(isPlayerCabinetNavActive('games', 'career')).toBe(false);
-    expect(isPlayerCabinetNavActive('rating', 'elo')).toBe(true);
+    expect(isPlayerCabinetNavActive('rating', 'ratingperiods')).toBe(true);
     expect(isPlayerCabinetNavActive('rating', 'clubworld')).toBe(false);
     expect(isPlayerCabinetNavActive('club', 'clubworld')).toBe(true);
     expect(isPlayerCabinetNavActive('rating', 'ratingtournaments')).toBe(true);

@@ -6,7 +6,7 @@ import PlayerNotificationSettings from './PlayerNotificationSettings.tsx';
 import PlayerProfilePrivacySettings from './PlayerProfilePrivacySettings.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
-export default function PlayerProfileHub({ data, onPlayerChange }: { data: PlayerMeResponse; onPlayerChange?: (player: PlayerMeResponse['player']) => void }) {
+export default function PlayerProfileHub({ data, onPlayerChange, initialTab }: { data: PlayerMeResponse; onPlayerChange?: (player: PlayerMeResponse['player']) => void; /** A tab of the profile named by the address (`/player/profile/elo`). */ initialTab?: string | null }) {
   const [player, setPlayer] = useState(data.player);
   const updatePlayer = (next: PlayerMeResponse['player']) => { setPlayer(next); onPlayerChange?.(next); };
 
@@ -20,5 +20,5 @@ export default function PlayerProfileHub({ data, onPlayerChange }: { data: Playe
     </details>
   </div>;
 
-  return <CanonicalPremiumPlayerProfile playerId={player.id} mode="self" selfPlayerId={player.id} ownerSettings={ownerSettings} />;
+  return <CanonicalPremiumPlayerProfile playerId={player.id} mode="self" selfPlayerId={player.id} ownerSettings={ownerSettings} initialTab={initialTab} />;
 }

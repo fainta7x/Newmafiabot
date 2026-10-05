@@ -29,13 +29,13 @@ export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: 
 ];
 
 const GAME_SECTIONS = new Set<PlayerCabinetSection>(['games', 'recaps']);
-const RATING_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'ratingtournaments']);
+const RATING_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'ratingperiods', 'ratingtournaments']);
 
 export const normalizePlayerCabinetSection = (section: PlayerCabinetSection): PlayerCabinetSection => {
   if (section === 'more') return 'club';
   if (section === 'payments') return 'wallet';
   // «Карьера» and «Статистика» are part of the one player profile now; old links, notifications and bookmarks land there.
-  if (section === 'stats' || section === 'career') return 'profile';
+  if (section === 'stats' || section === 'career' || section === 'elo') return 'profile';
   return section;
 };
 

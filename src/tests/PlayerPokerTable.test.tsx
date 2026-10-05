@@ -64,4 +64,23 @@ describe('poker table screen', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(10); });
     expect(kicked).toEqual({ playerId: 'oleg' });
   });
+
+  it('never lets a slow, older answer replace a newer one (the table must not flip back to an earlier state)', async () => {
+    await sitDown();
+    const older = { ...lobby(true) };
+    const newer = { ...lobby(true), players: [...lobby(true).players, { id: 'vanya', nickname: 'Ваня', seat: 3, chips: 1000 }] };
+    const late: Array<() => void> = [];
+    let call = 0;
+    (fetch as any).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (!url.endsWith('/poker/lobbies/main')) return json({});
+      call += 1;
+      if (call === 1) return new Promise((resolve) => { late.push(() => resolve(new Response(JSON.stringify({ lobby: older }), { status: 200, headers: { 'Content-Type': 'application/json' } }))); });
+      return json({ lobby: newer });
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.queryByText('Ваня')).not.toBeNull();
+    await act(async () => { late.forEach((release) => release()); await vi.advanceTimersByTimeAsync(10); });
+    expect(screen.queryByText('Ваня')).not.toBeNull();
+  });
 });

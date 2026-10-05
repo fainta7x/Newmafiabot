@@ -329,7 +329,6 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   // On tall narrow phones the canvas gets a little flatter (down to TABLE_MIN_H) so the table fills the width (owner, 2026-10-02).
   const [tableH, setTableH] = useState(TABLE_H);
   const bottomPanelRef = useRef<HTMLDivElement | null>(null);
-  const bottomPanelMax = useRef(0);
   useLayoutEffect(() => {
     const measure = () => {
       const frame = tableFrameRef.current;
@@ -345,10 +344,12 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
         window.visualViewport?.height || 0,
         window.innerHeight || 0,
       );
-      // The tallest action panel seen so far, so the table does not jump when pre-moves appear and disappear.
-      bottomPanelMax.current = Math.max(bottomPanelMax.current, bottomPanelRef.current?.offsetHeight || 0);
+      // The panel has one fixed minimum height in every state (see PANEL_MIN_HEIGHT), so the table does not jump when pre-moves
+      // appear and disappear — and it comes back to full size when a taller panel goes away (it used to remember the tallest
+      // one for ever and stayed squeezed with black bars: owner's screenshot, 2026-10-05).
+      const panelHeight = bottomPanelRef.current?.offsetHeight || 0;
       const top = frame ? frame.getBoundingClientRect().top + window.scrollY : 60;
-      const height = viewport - top - (bottomPanelMax.current || 160) - 6;
+      const height = viewport - top - (panelHeight || 180) - 6;
       const nextH = Math.round(Math.max(TABLE_MIN_H, Math.min(TABLE_MAX_H, height / (width / TABLE_W))));
       // In a short Telegram landscape viewport, keep the table readable and let the page scroll.
       // Shrinking it to the available height made documentHeight equal the viewport height,
@@ -386,6 +387,15 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     setError(null);
     return body;
   };
+  // Answers can arrive out of order on a slow connection: an older one must never replace a newer one (the table flipped
+  // back to an earlier state, then forward again — owner, 2026-10-05). Each request gets a number when it is sent.
+  const requestSeq = useRef(0);
+  const appliedSeq = useRef(0);
+  const applyLobby = async (url: string, init?: RequestInit, stillWanted: () => boolean = () => true) => {
+    const seq = ++requestSeq.current;
+    const body = await readBody(await fetch(url, init));
+    if (seq > appliedSeq.current && stillWanted()) { appliedSeq.current = seq; setCurrent(body.lobby); }
+  };
   const load = async () => setLobbies((await readBody(await fetch('/api/player/poker/lobbies', { credentials: 'include' }))).lobbies || []);
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, []);
   // The list of tables is refreshed while it is on screen: people sit down and leave all the time.
@@ -399,24 +409,24 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const [openRosters, setOpenRosters] = useState<Record<string, boolean>>({});
 
   const create = async () => {
-    try { setCurrent((await readBody(await fetch('/api/player/poker/lobbies', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }))).lobby); }
+    try { await applyLobby('/api/player/poker/lobbies', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }); }
     catch (e: any) { setError(e.message); }
   };
   const lobbyAction = async (id: string, method: 'join' | 'start' | 'bot' | 'leave') => {
     if (method === 'join') leftTables.current.delete(id);
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${id}/${method}`, { method: 'POST', credentials: 'include' }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${id}/${method}`, { method: 'POST', credentials: 'include' }); }
     catch (e: any) { setError(e.message); }
   };
   /** A bot gets up from the table: its cards in a running hand are folded (owner, 2026-10-02). */
   /** Only the club owner gets this (the server decides; `can_kick` shows the button). */
   const kickPlayer = async (person: Player) => {
     if (!window.confirm(`Убрать игрока «${person.nickname}» со стола?`)) return;
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/kick`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: person.id }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/kick`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: person.id }) }); }
     catch (e: any) { setError(e.message); }
   };
   const removeBot = async (bot: Player) => {
     if (!window.confirm(`Убрать «${bot.nickname}» из-за стола?`)) return;
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/bot/remove`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ botId: bot.id }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/bot/remove`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ botId: bot.id }) }); }
     catch (e: any) { setError(e.message); }
   };
   /** Like getting up from a poker table: cards in a running hand are folded, the seat is freed. */
@@ -437,23 +447,33 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     void load().catch(() => {});
   };
   const setAway = async (away: boolean) => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/sit-out`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ away }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/sit-out`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ away }) }); }
     catch (e: any) { setError(e.message); }
   };
   const pokerAction = async (type: string, amount?: number) => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/action`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, amount }) }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/action`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, amount }) }); }
     catch (e: any) { setError(e.message); }
   };
 
   useEffect(() => {
     if (!current?.id) return undefined;
     let cancelled = false;
+    let pollCounter = 0; // only ever grows, so a request number is never reused
+    let activePoll = 0; // the request that currently holds the line (0 = none)
+    let startedAt = 0;
     const poll = async () => {
       // A hidden screen (the app in the background) does not ask for the table: the server counts only a person who looks
       // at it as present, so somebody who walked away with the app left open is taken off after five minutes.
       if (document.visibilityState === 'hidden') return;
-      try { const body = await readBody(await fetch(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' })); if (!cancelled && !leftTables.current.has(current.id)) setCurrent(body.lobby); }
+      // One request at a time: on a slow connection a new one every 250 ms piled up and the answers overtook each other.
+      // A request that has hung for over 1.5 s no longer holds the line (its late answer is dropped by its number).
+      if (activePoll && Date.now() - startedAt < 1500) return;
+      const mine = ++pollCounter;
+      activePoll = mine;
+      startedAt = Date.now();
+      try { await applyLobby(`/api/player/poker/lobbies/${current.id}`, { credentials: 'include' }, () => !cancelled && !leftTables.current.has(current.id)); }
       catch (e: any) { if (!cancelled) setError(e.message); }
+      finally { if (activePoll === mine) activePoll = 0; }
     };
     // Waiting for the bots is polled quickly so their moves show up at once; waiting for the person himself needs only a slow pulse.
     const timer = window.setInterval(() => void poll(), current?.hand?.animation_phase === 'playing' && current?.hand?.is_viewer_turn ? 900 : 250);
@@ -561,7 +581,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     } catch (e: any) { setError(e.message); }
   };
   const rebuy = async () => {
-    try { setCurrent((await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/rebuy`, { method: 'POST', credentials: 'include' }))).lobby); }
+    try { await applyLobby(`/api/player/poker/lobbies/${current.id}/rebuy`, { method: 'POST', credentials: 'include' }); }
     catch (e: any) { setError(e.message); }
   };
 
@@ -576,7 +596,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     return (
     <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => void leaveTable().then(() => onExit?.())} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="text-[9px] uppercase tracking-[.2em] text-amber-100/45">Ждём игроков</div></div><span className="w-[72px]" /></header>
-      {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
+      {error ? <div role="status" className="pointer-events-none fixed inset-x-3 top-14 z-50 rounded-xl bg-rose-950/90 px-3 py-2 text-xs text-rose-100 ring-1 ring-rose-300/30">{error}</div> : null}
       <div ref={tableFrameRef} data-testid="poker-table-frame" className="poker-table-frame flex flex-1 items-start justify-center" style={shortLandscape ? { minHeight: 760 } : undefined}>
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
         <section className="absolute left-0 top-0 overflow-hidden bg-[url('/assets/poker/room-table-v1.webp')] bg-[length:100%_100%] bg-center" style={{ width: TABLE_W, height: tableH, transform: `scale(${tableScale})`, transformOrigin: 'top left' }}>
@@ -612,7 +632,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
     return (
     <main className="flex min-h-[var(--tg-viewport-height,100dvh)] flex-col bg-[#050706] pt-14 text-white" style={{ minHeight: shortLandscape ? '760px' : undefined, paddingBottom: 'calc(env(safe-area-inset-bottom) + 158px)' }}>
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur"><button type="button" onClick={() => { if (window.confirm('Встать из-за стола? Карты текущей раздачи будут сброшены.')) void leaveTable().then(() => onExit?.()); }} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-sm text-white/70">← Выйти</button><div className="min-w-0 text-center"><div className="truncate text-sm font-semibold">{current.title}</div><div className="truncate whitespace-nowrap text-[9px] uppercase tracking-[.2em] text-amber-100/45">{streetName(hand.street)} · {stackDisplay === 'bb' ? 'ББ 0,5/1' : `блайнды ${hand.small_blind}/${hand.big_blind}`}</div></div><div className="flex shrink-0 items-center gap-1.5"><div className="poker-stack-toggle" aria-label="Отображение стэка"><button type="button" onClick={() => changeStackDisplay('chips')} className={stackDisplay === 'chips' ? 'is-selected' : ''}>Фишки</button><button type="button" onClick={() => changeStackDisplay('bb')} className={stackDisplay === 'bb' ? 'is-selected' : ''}>ББ</button></div><div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isMyTurn ? 'bg-emerald-400 text-[#06291c]' : 'bg-white/10 text-white/65'}`}>{isMyTurn ? `Ход ${baseSeconds}с · резерв ${reserveSeconds}с` : finished ? 'Вскрытие' : turnPlayer ? `Ходит ${turnPlayer.nickname}` : '…'}</div></div></header>
-      {error ? <div className="mx-3 mt-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs text-rose-100">{error}</div> : null}
+      {error ? <div role="status" className="pointer-events-none fixed inset-x-3 top-14 z-50 rounded-xl bg-rose-950/90 px-3 py-2 text-xs text-rose-100 ring-1 ring-rose-300/30">{error}</div> : null}
 
       <div ref={tableFrameRef} data-testid="poker-table-frame" className="poker-table-frame flex flex-1 items-start justify-center" style={shortLandscape ? { minHeight: 760 } : undefined}>
         <div className="relative shrink-0" style={{ width: TABLE_W * tableScale, height: tableH * tableScale }}>
@@ -711,7 +731,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
         </div>
       </div> : null}
 
-      <div ref={bottomPanelRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}><div className="mx-auto max-w-[470px]">{finished ? <div className="relative grid min-h-[136px] place-items-center text-center"><div><button type="button" onClick={() => void showHistory()} className="absolute left-3 top-2 text-[11px] text-white/55">История</button><div className="text-sm font-semibold text-amber-200">{orderedPlayers.filter((player) => hand.winner_ids?.includes(player.id)).map((player) => player.id === viewerId ? 'Вы' : player.nickname).join(', ') || '—'} {hand.winner_ids?.length > 1 ? 'делят банк' : 'забирает банк'}</div><div className="mt-1 text-xs text-white/55">{typeof hand.next_hand_in === 'number' && current.status === 'playing' && !heroBusted && !meAway ? <div className="mb-1 text-white/70" data-testid="poker-next-hand">Следующая раздача через {Math.max(1, hand.next_hand_in)} с</div> : null}{heroBusted ? <button type="button" onClick={() => void rebuy()} className="mt-2 min-h-10 rounded-xl bg-[#d5a54b] px-4 text-xs font-black text-black">Фишки закончились — взять 1000</button> : meAway ? <button type="button" onClick={() => void setAway(false)} className="mt-2 min-h-10 rounded-xl bg-emerald-500 px-4 text-xs font-black text-[#04291b]">Вернуться за стол</button> : current.status === 'waiting' ? <span className="flex flex-col items-center gap-2"><span>Ждём игроков: нужно минимум двое с фишками.</span>{(current.ownerId === viewerId || (current.permanent && heroSeat)) && current.players.length < 8 ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-10 rounded-xl border border-amber-200/25 bg-amber-200/10 px-4 text-xs font-semibold text-amber-50">+ Добавить бота</button> : null}</span> : current.status === 'finished' ? 'Игра окончена: фишки остались у одного игрока.' : <span className="flex flex-col items-center gap-2"><span>{hand.next_hand_in !== null && hand.next_hand_in !== undefined ? `Следующая раздача через ${hand.next_hand_in} с` : ''}</span>{canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-9 rounded-xl border border-amber-200/40 bg-amber-200/15 px-4 text-xs font-black text-amber-100">+ Бот</button> : null}</span>}</div></div></div> : <>
+      <div ref={bottomPanelRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#090a0d]/95 px-3 pt-2 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', minHeight: 'calc(176px + env(safe-area-inset-bottom))' }}><div className="mx-auto max-w-[470px]">{finished ? <div className="relative grid min-h-[136px] place-items-center text-center"><div><button type="button" onClick={() => void showHistory()} className="absolute left-3 top-2 text-[11px] text-white/55">История</button><div className="text-sm font-semibold text-amber-200">{orderedPlayers.filter((player) => hand.winner_ids?.includes(player.id)).map((player) => player.id === viewerId ? 'Вы' : player.nickname).join(', ') || '—'} {hand.winner_ids?.length > 1 ? 'делят банк' : 'забирает банк'}</div><div className="mt-1 text-xs text-white/55">{heroBusted ? <button type="button" onClick={() => void rebuy()} className="mt-2 min-h-10 rounded-xl bg-[#d5a54b] px-4 text-xs font-black text-black">Фишки закончились — взять 1000</button> : meAway ? <button type="button" onClick={() => void setAway(false)} className="mt-2 min-h-10 rounded-xl bg-emerald-500 px-4 text-xs font-black text-[#04291b]">Вернуться за стол</button> : current.status === 'waiting' ? <span className="flex flex-col items-center gap-2"><span>Ждём игроков: нужно минимум двое с фишками.</span>{(current.ownerId === viewerId || (current.permanent && heroSeat)) && current.players.length < 8 ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-10 rounded-xl border border-amber-200/25 bg-amber-200/10 px-4 text-xs font-semibold text-amber-50">+ Добавить бота</button> : null}</span> : current.status === 'finished' ? 'Игра окончена: фишки остались у одного игрока.' : <span className="flex flex-col items-center gap-2"><span>{hand.next_hand_in !== null && hand.next_hand_in !== undefined ? `Следующая раздача через ${hand.next_hand_in} с` : ''}</span>{canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-9 rounded-xl border border-amber-200/40 bg-amber-200/15 px-4 text-xs font-black text-amber-100">+ Бот</button> : null}</span>}</div></div></div> : <>
         {heroBusted ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-amber-300/10 px-3 py-2 text-xs text-amber-100"><span>Фишки закончились</span><span className="flex shrink-0 items-center gap-2"><button type="button" data-testid="poker-busted-away" onClick={() => void setAway(!meAway)} className="min-h-9 rounded-xl border border-amber-200/30 px-3 text-xs font-semibold text-amber-50">{meAway ? 'Вернуться' : 'Отойти'}</button><button type="button" onClick={() => void rebuy()} className="min-h-9 rounded-xl bg-[#d5a54b] px-3 text-xs font-black text-black">Взять 1000 фишек</button></span></div> : meAway ? <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-white/[.06] px-3 py-2 text-xs text-white/75"><span>Вы отошли — карты не раздаются, место за вами</span><button type="button" onClick={() => void setAway(false)} className="min-h-9 shrink-0 rounded-xl bg-emerald-500 px-3 text-xs font-black text-[#04291b]">Вернуться за стол</button></div> : hand.waiting_for_next_hand ? <div className="mb-1.5 rounded-xl bg-emerald-400/10 py-1.5 text-center text-xs font-semibold text-emerald-200">Вы за столом — сыграете со следующей раздачи</div> : null}
         <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-white/45"><span className="flex min-w-24 shrink-0 items-center gap-1.5"><button type="button" onClick={() => void showHistory()} className="text-left text-[11px] text-white/55 underline-offset-2 hover:underline">История</button>{canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="rounded-full border border-amber-200/50 bg-amber-200/15 px-2.5 py-1 text-[11px] font-black text-amber-100" title="Бот сядет на свободное место и сыграет со следующей раздачи. Убрать бота — нажать на его плашку">+ Бот</button> : null}</span><span>{isMyTurn ? (actions?.to_call > 0 ? <span className="text-amber-200">Нужно уравнять {formatPokerAmount(actions.to_call, stackDisplay, bigBlind)}</span> : <span className="text-emerald-300">Можно сделать чек</span>) : `Ходит ${turnPlayer?.nickname || '…'}`}</span>{!meAway ? <button type="button" onClick={() => void setAway(true)} className="w-24 text-right text-[11px] text-white/50 underline-offset-2 hover:underline">Отойти</button> : <span className="w-12" />}</div>
         {canPreAct ? <div className="poker-preactions pt-1" data-testid="poker-preactions">

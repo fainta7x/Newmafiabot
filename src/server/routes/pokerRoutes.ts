@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import {
-  addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, leavePokerLobby, listPokerLobbies,
+  addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, leavePokerLobby, listPokerLobbies, sweepIdlePokerSeats, touchPokerSeat,
   publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, startPokerLobby, tickPokerLobby,
 } from '../services/pokerLobbyService.ts';
 import { applyPokerAction } from '../services/pokerEngine.ts';
@@ -16,7 +16,13 @@ class PokerRouteError extends Error {
 
 const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const reply = await withPersistedPokerRuntime((req as any).db, () => handler(req));
+    const reply = await withPersistedPokerRuntime((req as any).db, () => {
+      // Every request of a person for his table proves he is still there; five minutes of silence take him off it.
+      const viewer = getPlayerSessionId(req as any);
+      const tableId = (req as any).params?.id;
+      if (viewer && tableId) { const seated = getPokerLobby(String(tableId)); if (seated) touchPokerSeat(seated, String(viewer)); }
+      return handler(req);
+    });
     return res.status(reply.status || 200).json(reply.body);
   } catch (error: any) {
     if (error instanceof PokerRouteError) return res.status(error.status).json({ error: error.message });
@@ -38,7 +44,11 @@ const lobby = (id: unknown) => {
 };
 const conflict = (error: any, fallback: string): never => { throw new PokerRouteError(409, error?.message || fallback); };
 
-router.get('/poker/lobbies', route(() => ({ body: { lobbies: listPokerLobbies() } })));
+router.get('/poker/lobbies', route((req) => {
+  sweepIdlePokerSeats();
+  const viewer = getPlayerSessionId(req);
+  return { body: { lobbies: listPokerLobbies(viewer ? String(viewer) : undefined) } };
+}));
 router.post('/poker/lobbies', route(async (req) => {
   const player = await actor(req);
   try { return { status: 201, body: { lobby: publicPokerLobby(createPokerLobby(player, req.body?.title), player.id) } }; }

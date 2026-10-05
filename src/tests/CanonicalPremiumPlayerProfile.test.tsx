@@ -98,7 +98,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
       const url = String(input);
       if (url.includes('/summary')) return response(summary('self', 'Игрок'));
       if (url.includes('/birthday')) return response({});
-      if (url.includes('/games?')) return response({ total: 1, games: [{ id: 'club:g9', title: 'Вечер 3 октября', game_number: 4, date: '2026-10-03T18:00:00.000Z', role: 'mafia', team: 'black', won: true, elo_delta: 12.4, protocol_path: '/player/games?game=club%3Ag9' }] });
+      if (url.includes('/games?')) return response({ total: 2, games: [{ id: 'club:g9', title: 'Вечер 3 октября', game_number: 4, date: '2026-10-03T18:00:00.000Z', role: 'mafia', team: 'black', won: true, elo_delta: 12.4 }, { id: 'tournament:t1', title: 'Турнир', game_number: 2, date: '2026-10-02T18:00:00.000Z', role: 'citizen', team: 'red', won: false, elo_delta: -5 }] });
       return response({});
     }));
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
@@ -108,7 +108,10 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByText(/Мафия · Чёрные · победа/)).toBeDefined();
     expect(screen.queryByText('mafia')).toBeNull();
     expect(screen.getByText('Elo +12')).toBeDefined();
-    expect(screen.getByRole('link', { name: /Открыть игру/ }).getAttribute('href')).toBe('/player/games?game=club%3Ag9');
+    // a club game opens its replay; a tournament game has no screen of its own, so it gets no dead link
+    const links = screen.getAllByRole('link', { name: /Replay/ });
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute('href')).toBe('/player/replay/club%3Ag9');
   });
 
   it('says so when another player has hidden his statistics instead of showing dashes', async () => {

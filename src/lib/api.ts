@@ -382,8 +382,8 @@ export interface OrganizerTask {
   updated_at: string;
 }
 
-export type UiUsageRow = { surface: 'player' | 'crm' | 'public'; name: string; events: number; sessions: number };
-export type UiUsageSummary = { days: number; sessions: { player: number; crm: number; public: number }; screens: UiUsageRow[]; actions: UiUsageRow[] };
+export type UiUsageRow = { surface: 'player' | 'crm' | 'public'; name: string; events: number; sessions: number; visits: number; people: number };
+export type UiUsageSummary = { days: number; sessions: { player: number; crm: number; public: number }; visits: { player: number; crm: number; public: number }; people: { player: number; crm: number; public: number }; screens: UiUsageRow[]; actions: UiUsageRow[] };
 
 export interface AnalyticsData {
   period: string;

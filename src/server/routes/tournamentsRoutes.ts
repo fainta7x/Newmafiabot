@@ -342,22 +342,24 @@ router.post('/:id/cancel', requireOrganizerAuth, async (req: AuthenticatedReques
       return res.status(400).json({ error: 'В турнире уже есть начатые или сыгранные игры. Завершите турнир вместо отмены' });
     }
     const now = new Date().toISOString();
-    await db.run(
-      "UPDATE tournaments SET status = 'cancelled', registration_closed_at = COALESCE(registration_closed_at, ?), updated_at = ? WHERE id = ?",
-      [now, now, tournamentId],
-    );
-    const audience = new Set<string>();
-    const hasRegistrations = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'tournament_registrations'");
-    if (hasRegistrations) {
-      const rows = await db.all<any>("SELECT player_id FROM tournament_registrations WHERE tournament_id = ? AND status IN ('confirmed', 'reserve')", [tournamentId]);
-      rows.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
-    }
-    const participants = await db.all<any>('SELECT player_id FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
-    participants.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
-    let notified = 0;
-    for (const playerId of audience) {
-      try {
-        const result = await queuePersonalNotification(db, {
+    // The status change and the notices are one transaction: if a notice cannot be queued the cancellation is not
+    // half done, and the organizer can simply press «Отменить» again.
+    const { notified, audienceSize } = await db.transaction(async (tx) => {
+      await tx.run(
+        "UPDATE tournaments SET status = 'cancelled', registration_closed_at = COALESCE(registration_closed_at, ?), updated_at = ? WHERE id = ?",
+        [now, now, tournamentId],
+      );
+      const audience = new Set<string>();
+      const hasRegistrations = await tx.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'tournament_registrations'");
+      if (hasRegistrations) {
+        const rows = await tx.all<any>("SELECT player_id FROM tournament_registrations WHERE tournament_id = ? AND status IN ('confirmed', 'reserve')", [tournamentId]);
+        rows.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
+      }
+      const participants = await tx.all<any>('SELECT player_id FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+      participants.forEach((row: any) => row.player_id && audience.add(String(row.player_id)));
+      let queued = 0;
+      for (const playerId of audience) {
+        const result = await queuePersonalNotification(tx, {
           notificationKey: `tournament:${tournamentId}:cancelled:${playerId}`,
           playerId,
           eventType: 'tournament_cancelled',
@@ -365,12 +367,11 @@ router.post('/:id/cancel', requireOrganizerAuth, async (req: AuthenticatedReques
           text: `Турнир «${String(tournament.title || 'Турнир')}» отменён. Мы напишем, когда будет новая дата.`,
           actionPath: Number(tournament.tournament_evening_flow || 0) === 1 ? `/player/events/${tournamentId}` : undefined,
         });
-        if (result?.created) notified += 1;
-      } catch (error) {
-        console.warn('[TOURNAMENT] Cancellation notice could not be queued', tournamentId, playerId, error);
+        if (result?.created) queued += 1;
       }
-    }
-    return res.json({ success: true, status: 'cancelled', notified, audience: audience.size });
+      return { notified: queued, audienceSize: audience.size };
+    });
+    return res.json({ success: true, status: 'cancelled', notified, audience: audienceSize });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка отмены турнира' });
   }

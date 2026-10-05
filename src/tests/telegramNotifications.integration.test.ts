@@ -146,11 +146,41 @@ describe('durable Telegram notification outbox', () => {
       expect(await drainTelegramMessageOutbox(db, { fetchImpl })).toMatchObject({ processed: 0 });
       expect(attempts).toBe(1);
       expect(await db.get<any>("SELECT status, retry_count FROM telegram_message_outbox WHERE message_key='cancel:uncertain'"))
-        .toMatchObject({ status: 'failed', retry_count: 6 });
+        .toMatchObject({ status: 'failed', retry_count: 17 });
     } finally {
       if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
       else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;
     }
+  });
+
+  it('retries a cancellation message after a clean refusal (429) that never reached the chat', async () => {
+    const oldFlag = process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+    process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = 'true';
+    try {
+      await enqueueTelegramMessage(db, { messageKey: 'cancel:rate-limited', category: 'personal', eventType: 'evening_cancelled', chatId: '101', text: 'Отмена' });
+      const limited = (async () => failureResponse(429, 'Too Many Requests')) as typeof fetch;
+      expect(await drainTelegramMessageOutbox(db, { fetchImpl: limited })).toMatchObject({ processed: 1, failed: 1 });
+      const row = await db.get<any>("SELECT status, retry_count, next_attempt_at FROM telegram_message_outbox WHERE message_key='cancel:rate-limited'");
+      expect(row).toMatchObject({ status: 'failed', retry_count: 1 });
+      expect(row.next_attempt_at).toBeTruthy();
+      await db.run("UPDATE telegram_message_outbox SET next_attempt_at = datetime('now', '-1 minute') WHERE message_key='cancel:rate-limited'");
+      expect(await drainTelegramMessageOutbox(db, { fetchImpl: (async () => successResponse()) as typeof fetch })).toMatchObject({ processed: 1, sent: 1 });
+    } finally {
+      if (oldFlag === undefined) delete process.env.WEEKLY_EVENING_AUTOMATION_ENABLED;
+      else process.env.WEEKLY_EVENING_AUTOMATION_ENABLED = oldFlag;
+    }
+  });
+
+  it('keeps a message for about two hours: a short outage does not make it final', async () => {
+    await enqueueTelegramMessage(db, { messageKey: 'outage:1', category: 'personal', eventType: 'x', chatId: '101', text: 'Привет' });
+    const down = (async () => failureResponse(503, 'unavailable')) as typeof fetch;
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      await db.run("UPDATE telegram_message_outbox SET next_attempt_at = datetime('now', '-1 minute') WHERE message_key='outage:1'");
+      await drainTelegramMessageOutbox(db, { fetchImpl: down });
+    }
+    const row = await db.get<any>("SELECT retry_count, next_attempt_at FROM telegram_message_outbox WHERE message_key='outage:1'");
+    expect(row.retry_count).toBe(8);
+    expect(row.next_attempt_at).toBeTruthy();
   });
 });
 

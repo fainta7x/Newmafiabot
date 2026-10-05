@@ -1,3 +1,4 @@
+import { escapeTelegramHtml } from './personalNotificationText.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
@@ -169,7 +170,7 @@ export async function registerVerifiedPlayerIdentity(
         messageKey: `new-player-registered:${result.player.id}`,
         eventType: 'new_player_registered',
         entityId: String(result.player.id),
-        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nНовичок запишется сам; если игрок уже умеет играть, подтвердите его уровень в кабинете организатора → Ещё → Развитие.`,
+        text: `🆕 Новый игрок: ${escapeTelegramHtml(String(nickname))} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nНовичок запишется сам; если игрок уже умеет играть, подтвердите его уровень в кабинете организатора → Ещё → Развитие.`,
       });
     } catch (error) {
       // Registration must not fail because the organizer alert could not be queued.

@@ -1,3 +1,4 @@
+import { escapeTelegramHtml } from './personalNotificationText.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -113,7 +114,7 @@ export async function runEveningShortfallChecks(
             messageKey: `evening-shortfall-call:${id}`,
             eventType: 'evening_shortfall',
             entityId: id,
-            text: `⚠️ «${String(evening.title || 'Игровой вечер')}»: не хватает игроков, а позвать в общий чат автоматически не получилось. Проверь группу и при необходимости нажми «Позвать в общий чат» в карточке вечера.`,
+            text: `⚠️ «${escapeTelegramHtml(String(evening.title || 'Игровой вечер'))}»: не хватает игроков, а позвать в общий чат автоматически не получилось. Проверь группу и при необходимости нажми «Позвать в общий чат» в карточке вечера.`,
           });
         }
       }
@@ -131,7 +132,7 @@ export async function runEveningShortfallChecks(
         messageKey: `evening-shortfall:${id}`,
         eventType: 'evening_shortfall',
         entityId: id,
-        text: `⚠️ Недобор на «${String(evening.title || 'Игровой вечер')}»: записались ${shortfall.confirmed} из ${shortfall.minimum}. Отменить вечер? Кнопка — на главной кабинета организатора, в «Порядке в клубе».`,
+        text: `⚠️ Недобор на «${escapeTelegramHtml(String(evening.title || 'Игровой вечер'))}»: записались ${shortfall.confirmed} из ${shortfall.minimum}. Отменить вечер? Кнопка — на главной кабинета организатора, в «Порядке в клубе».`,
       });
       await db.run(
         `INSERT INTO evening_shortfall_actions (evening_id, cancel_prompt_at) VALUES (?, ?)

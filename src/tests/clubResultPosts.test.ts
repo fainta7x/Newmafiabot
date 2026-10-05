@@ -281,6 +281,10 @@ describe('posting to the club chat', () => {
     const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
     expect(await runClubResultPosts(db, down)).toBe(0);
     const { calls, fetchImpl } = telegram();
+    // Right after a failure the post waits (a growing pause), it is not hammered every scan.
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(0);
+    await db.run('UPDATE club_result_posts SET updated_at = ?', [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
     expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
     expect(calls).toHaveLength(1);
 
@@ -289,6 +293,44 @@ describe('posting to the club chat', () => {
     expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
     expect(await db.get<any>("SELECT status, last_error FROM club_result_posts WHERE post_key LIKE 'game:%' AND status = 'failed'"))
       .toMatchObject({ status: 'failed', last_error: 'Не настроена Telegram-группа для этого вечера' });
+  });
+});
+
+describe('result posts survive an outage and a crash', () => {
+  it('takes back a post left «sending» by a crashed process', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addGame(1, 'red');
+    const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
+    await runClubResultPosts(db, down);
+    await db.run("UPDATE club_result_posts SET status = 'sending', updated_at = ?", [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
+    const { calls, fetchImpl } = telegram();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('does not touch a post that is being sent right now', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addGame(1, 'red');
+    const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
+    await runClubResultPosts(db, down);
+    await db.run("UPDATE club_result_posts SET status = 'sending', updated_at = ?", [new Date().toISOString()]);
+    const { calls, fetchImpl } = telegram();
+    expect(await runClubResultPosts(db, fetchImpl)).toBe(0);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('gives up for good after the last attempt, so the scan stops picking the post up', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
+    const { db, addGame } = await setup('CASUAL');
+    await addGame(1, 'red');
+    const down = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await db.run('UPDATE club_result_posts SET updated_at = ?', [new Date(Date.now() - 60 * 60 * 1000).toISOString()]);
+      await runClubResultPosts(db, down);
+    }
+    expect(await db.get<any>("SELECT status, attempts FROM club_result_posts WHERE post_key LIKE 'game:%'")).toMatchObject({ status: 'failed', attempts: 12 });
   });
 });
 

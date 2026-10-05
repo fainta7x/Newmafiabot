@@ -1,5 +1,6 @@
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { expireStaleEveningNotices } from './telegramMessageOutboxService.ts';
+import { enqueueTelegramMessage, expireStaleEveningNotices, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
+import { telegramTextWithAction } from './personalNotificationText.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
@@ -20,9 +21,10 @@ export interface VkMessageInput {
   actionPath?: string | null;
 }
 
-const MAX_RETRIES = 6;
+// About two hours of retries, like the Telegram outbox; a row is final when `next_attempt_at` is NULL.
+const MAX_RETRIES = 17;
 const BASE_BACKOFF_MS = 2_000;
-const MAX_BACKOFF_MS = 5 * 60_000;
+const MAX_BACKOFF_MS = 15 * 60_000;
 const WORKER_INTERVAL_MS = 5_000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let drainInFlight = false;
@@ -96,6 +98,37 @@ export async function sendVkCommunityMessage(row: any, fetchImpl: typeof fetch =
   }
 }
 
+/**
+ * A VK message that can no longer be delivered (the player closed community messages, or the retries ran out) is sent
+ * to the player's Telegram instead, when one is linked (owner, 2026-10-05). The ledger shows the channel it really used.
+ */
+async function fallbackToTelegram(db: DatabaseWrapper, row: any) {
+  const notificationKey = String(row.notification_key || '').trim();
+  if (!notificationKey) return false;
+  const delivery = await db.get<any>("SELECT * FROM personal_notification_deliveries WHERE notification_key = ? AND selected_channel = 'vk'", [notificationKey]);
+  if (!delivery) return false;
+  const player = await db.get<any>('SELECT telegram_user_id FROM players WHERE id = ? LIMIT 1', [delivery.player_id]);
+  const chatId = player?.telegram_user_id ? String(player.telegram_user_id) : '';
+  if (!chatId) return false;
+  const now = nowIso();
+  await db.run(
+    `UPDATE personal_notification_deliveries SET selected_channel='telegram', channel_target=?, status='queued', reason='vk_delivery_failed', updated_at=?
+      WHERE notification_key=? AND selected_channel='vk'`,
+    [chatId, now, notificationKey],
+  );
+  await enqueueTelegramMessage(db, {
+    messageKey: notificationKey,
+    category: 'personal',
+    eventType: String(delivery.event_type),
+    entityId: delivery.entity_id,
+    playerId: String(delivery.player_id),
+    chatId,
+    text: telegramTextWithAction(String(delivery.text), delivery.action_path),
+  });
+  kickTelegramMessageOutbox(db);
+  return true;
+}
+
 async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch) {
   const key = String(row.message_key);
   if (keysInFlight.has(key)) return { sent: 0, failed: 0 };
@@ -116,6 +149,7 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     const nextAttemptAt = canRetry ? new Date(Date.now() + retryDelayMs(nextRetry)).toISOString() : null;
     const failureKind: Exclude<VkFailureKind, null> = result.permissionDenied ? 'permission_denied' : result.temporary ? 'temporary' : result.error?.includes('not configured') ? 'configuration' : 'permanent';
     await db.run(`UPDATE vk_message_outbox SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=? WHERE message_key=? AND status <> 'sent'`, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
+    if (!canRetry && await fallbackToTelegram(db, row).catch((error) => { console.error('[VK OUTBOX] Telegram fallback failed:', error); return false; })) return { sent: 0, failed: 1 };
     await db.run(`UPDATE personal_notification_deliveries SET status='pending_channel', reason=?, updated_at=? WHERE notification_key=? AND selected_channel='vk'`, [failureKind, attemptAt, String(row.notification_key)]);
     return { sent: 0, failed: 1 };
   } finally { keysInFlight.delete(key); }
@@ -123,12 +157,13 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
 
 export async function drainVkMessageOutbox(db: DatabaseWrapper, options: { limit?: number; concurrency?: number; fetchImpl?: typeof fetch } = {}) {
   await ensureVkPersonalMessageSchema(db);
+  if (db.sqlite?.inTransaction) return { processed: 0, sent: 0, failed: 0 };
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || 4)));
   if (!isEveningPublishingPaused()) await expireStaleEveningNotices(db, 'vk_message_outbox', MAX_RETRIES);
   const eveningPause = isEveningPublishingPaused()
     ? "AND event_type <> 'evening_cancelled'" : '';
-  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND (next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now')) ${eveningPause} ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
+  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now') ${eveningPause} ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
   let sent = 0, failed = 0;
   for (let offset = 0; offset < rows.length; offset += concurrency) {
     const results = await Promise.all(rows.slice(offset, offset + concurrency).map((row: any) => deliverOne(db, row, options.fetchImpl || fetch)));
@@ -160,6 +195,12 @@ export async function getVkPersonalDeliveryDiagnostics(db: DatabaseWrapper) {
 }
 
 export function kickVkMessageOutbox(db: DatabaseWrapper) {
+  if (db.sqlite && db.sqlite.open === false) return;
+  if (db.sqlite?.inTransaction) {
+    const timer = setTimeout(() => kickVkMessageOutbox(db), 100);
+    timer.unref?.();
+    return;
+  }
   if (drainInFlight) return;
   drainInFlight = true;
   void drainVkMessageOutbox(db).catch((error) => console.error('[VK OUTBOX] Immediate drain failed:', error instanceof Error ? error.message : String(error))).finally(() => { drainInFlight = false; });

@@ -100,7 +100,7 @@ jobs:
       - name: Bot publishing tests
         run: |
           python -m pip install -q -r requirements.txt pytest
-          python -m pytest -q tests/test_telegram_publishing_duplicates.py tests/test_telegram_evening_copy.py tests/test_organizer_notifications.py tests/test_telegram_achievements_rest.py tests/test_bot_home.py
+          python -m pytest -q tests/test_telegram_publishing_duplicates.py tests/test_telegram_evening_copy.py tests/test_organizer_notifications.py tests/test_telegram_achievements_rest.py tests/test_bot_home.py tests/test_tournament_telegram_cancellation.py
 
   combined-container:
     name: Combined web and bot container

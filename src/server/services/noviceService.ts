@@ -1,3 +1,4 @@
+import { escapeTelegramHtml } from './personalNotificationText.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { NoviceApplicationStatus, NoviceEntryRoute } from '../../shared/novice.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -217,13 +218,13 @@ export async function createNoviceApplication(
     ? await db.get<any>('SELECT title, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [input.eveningId])
     : null;
   const eveningPart = evening
-    ? ` · на «${String(evening.title)}» ${new Date(evening.starts_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
+    ? ` · на «${escapeTelegramHtml(String(evening.title))}» ${new Date(evening.starts_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
     : '';
   await enqueueOrganizerNotification(db, {
     messageKey: `novice-application:${applicationId}`,
     eventType: 'novice_application_created',
     entityId: applicationId,
-    text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'OTHER_CITY' ? 'гость из другого города' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
+    text: `🌱 Новая заявка: ${escapeTelegramHtml(String(player?.nickname || 'игрок'))} · ${entryRoute === 'OTHER_CITY' ? 'гость из другого города' : 'уже умеет играть'}${eveningPart}.\nПодтвердить: кабинет организатора → «Сегодня».`,
   });
   return result!;
 }

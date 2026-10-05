@@ -22,11 +22,13 @@ export interface TelegramDeliveryDiagnostics {
   latest_failure: { message_key: string; last_attempt_at: string | null; last_error: string; category: string; event_type: string } | null;
 }
 
-const MAX_RETRIES = 6;
+// 17 attempts with a 2 s base doubling up to a 15 minute cap keep a message alive for about two hours, so a Telegram
+// outage or a redeploy of a few minutes does not lose it (owner, 2026-10-05). A row is final when `next_attempt_at` is NULL.
+const MAX_RETRIES = 17;
 const STALE_EVENING_NOTICE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_CONCURRENCY = 4;
 const BASE_BACKOFF_MS = 2_000;
-const MAX_BACKOFF_MS = 5 * 60_000;
+const MAX_BACKOFF_MS = 15 * 60_000;
 const WORKER_INTERVAL_MS = 5_000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let drainInFlight = false;
@@ -83,6 +85,8 @@ interface TelegramSendResult {
   temporary?: boolean;
   error?: string;
   retryAfterSeconds?: number | null;
+  /** The request may have reached Telegram (a thrown network error): a resend could duplicate the message. */
+  ambiguous?: boolean;
 }
 
 export async function sendTelegramMessage(
@@ -108,9 +112,10 @@ export async function sendTelegramMessage(
     const error = String(payload?.description || `Telegram HTTP ${response.status}`);
     const retryAfterSeconds = Number(payload?.parameters?.retry_after || 0) || null;
     const temporary = response.status === 429 || response.status >= 500 || response.status === 408;
-    return { ok: false, temporary, error, retryAfterSeconds };
+    // A 5xx may come after Telegram already accepted the message; only a 429 / 408 is a clean refusal.
+    return { ok: false, temporary, error, retryAfterSeconds, ambiguous: response.status >= 500 };
   } catch (error: any) {
-    return { ok: false, temporary: true, error: error?.message || String(error) };
+    return { ok: false, temporary: true, ambiguous: true, error: error?.message || String(error) };
   }
 }
 
@@ -163,7 +168,9 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     }
 
     const failedAttempts = Number(current.retry_count || 0) + 1;
-    const canRetry = !cancellation && Boolean(result.temporary) && failedAttempts < MAX_RETRIES;
+    // A cancellation notice is claimed before sending, so only an ambiguous failure (the request may have gone out) is
+    // final; a clean refusal (429, 5xx, no token) never reached the chat and is retried like any other message.
+    const canRetry = Boolean(result.temporary) && !(cancellation && result.ambiguous) && failedAttempts < MAX_RETRIES;
     const storedRetryCount = canRetry ? failedAttempts : MAX_RETRIES;
     const nextAttemptAt = canRetry
       ? new Date(Date.now() + retryDelayMs(failedAttempts, result.retryAfterSeconds)).toISOString()
@@ -200,9 +207,11 @@ export async function drainTelegramMessageOutbox(
   options: { limit?: number; concurrency?: number; category?: string; entityId?: string | number; fetchImpl?: typeof fetch } = {},
 ) {
   await ensureTelegramDirectMessageSchema(db);
+  // Never send rows that an open transaction has written but not committed: they may still be rolled back.
+  if (db.sqlite?.inTransaction) return { processed: 0, sent: 0, failed: 0 };
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || process.env.TELEGRAM_OUTBOX_CONCURRENCY || DEFAULT_CONCURRENCY)));
-  const clauses = [`status <> 'sent'`, `(next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now'))`, `retry_count < ?`];
+  const clauses = [`status <> 'sent'`, `next_attempt_at IS NOT NULL AND datetime(next_attempt_at) <= datetime('now')`, `retry_count < ?`];
   const params: any[] = [MAX_RETRIES];
   if (options.category) { clauses.push('category = ?'); params.push(options.category); }
   if (options.entityId != null) { clauses.push('entity_id = ?'); params.push(String(options.entityId)); }
@@ -232,7 +241,7 @@ export async function drainTelegramMessageOutbox(
 
 export async function getTelegramMessageDiagnostics(db: DatabaseWrapper): Promise<TelegramDeliveryDiagnostics> {
   await ensureTelegramDirectMessageSchema(db);
-  const queue = await db.get<any>(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status <> 'sent' AND retry_count < ?`, [MAX_RETRIES]);
+  const queue = await db.get<any>(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status <> 'sent' AND retry_count < ? AND next_attempt_at IS NOT NULL`, [MAX_RETRIES]);
   const latestSuccess = await db.get<any>(`
     SELECT message_key, sent_at, category, event_type FROM telegram_message_outbox
      WHERE status = 'sent' AND sent_at IS NOT NULL ORDER BY sent_at DESC LIMIT 1
@@ -264,6 +273,13 @@ export async function getTelegramEntityDeliverySummary(db: DatabaseWrapper, cate
 }
 
 export function kickTelegramMessageOutbox(db: DatabaseWrapper) {
+  if (db.sqlite && db.sqlite.open === false) return;
+  if (db.sqlite?.inTransaction) {
+    // Queued inside a transaction: send only after it has committed (or leave it to the worker if it rolled back).
+    const timer = setTimeout(() => kickTelegramMessageOutbox(db), 100);
+    timer.unref?.();
+    return;
+  }
   if (drainInFlight) return;
   drainInFlight = true;
   void drainTelegramMessageOutbox(db)

@@ -89,12 +89,18 @@ const loadCanonicalTournamentBroadcastGame = async (
   req: AuthenticatedRequest,
   tournamentId: string,
   gameId: string,
+  options: { forPublish?: boolean } = {},
 ): Promise<CanonicalBroadcastGame | null> => {
   const db = req.db || (await getDb());
+  // Publishing follows the club path: only a game still to be played of a running tournament can go on air, so a
+  // controller left open on a finished game or a cancelled / draft tournament cannot overwrite the live picture.
+  // The overlay link itself (the config) is available before the tournament starts, to set OBS up in advance.
   const game = await db.get<any>(`
-    SELECT id, game_number
-      FROM tournament_games
-     WHERE id = ? AND tournament_id = ?
+    SELECT g.id, g.game_number
+      FROM tournament_games g
+      JOIN tournaments t ON t.id = g.tournament_id
+     WHERE g.id = ? AND g.tournament_id = ?
+       ${options.forPublish ? "AND t.status = 'active' AND g.status <> 'completed'" : ''}
      LIMIT 1
   `, [gameId, tournamentId]);
   if (!game) return null;
@@ -185,7 +191,7 @@ gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrgan
     const tournamentId = String(req.params.tournamentId || '');
     const gameId = String(req.params.gameId || '');
     if (!tournamentId || !gameId) return res.status(400).json({ error: 'Турнирная игра не найдена' });
-    const game = await loadCanonicalTournamentBroadcastGame(req, tournamentId, gameId);
+    const game = await loadCanonicalTournamentBroadcastGame(req, tournamentId, gameId, { forPublish: true });
     if (!game) return res.status(404).json({ error: 'Активная турнирная игра для трансляции не найдена' });
 
     const receivedAt = new Date();

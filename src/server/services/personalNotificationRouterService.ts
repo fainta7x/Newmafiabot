@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
+import { telegramTextWithAction } from './personalNotificationText.ts';
 import { enqueueVkMessage, kickVkMessageOutbox, startVkMessageOutboxWorker } from './vkMessageOutboxService.ts';
 
 export type PersonalNotificationChannel = 'telegram' | 'vk';
@@ -25,23 +26,10 @@ export type PersonalNotificationRouting = {
 };
 
 const nowIso = () => new Date().toISOString();
-const playerAppBaseUrl = () => String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
 const normalizePreference = (value: unknown): PersonalNotificationPreference => {
   const normalized = String(value || 'auto').trim().toLowerCase();
   return normalized === 'telegram' || normalized === 'vk' ? normalized : 'auto';
 };
-// The Telegram outbox sends with parse_mode HTML, while personal notification text is plain
-// (shared with VK). Escape it so a title like «<Cup> & Co» cannot make Telegram reject the message.
-const escapeTelegramHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const telegramTextWithAction = (rawText: string, actionPath?: string | null, hasReplyMarkup = false) => {
-  const text = escapeTelegramHtml(rawText);
-  if (hasReplyMarkup) return text;
-  const baseUrl = playerAppBaseUrl();
-  const path = String(actionPath || '').trim();
-  if (!baseUrl || !path.startsWith('/player')) return text;
-  return `${text}\n\n${baseUrl}${path}`;
-};
-
 export async function loadPersonalNotificationPreference(db: DatabaseWrapper, playerId: string) {
   await ensurePersonalNotificationRoutingSchema(db);
   const row = await db.get<any>('SELECT preferred_channel, personal_enabled, updated_at FROM player_notification_preferences WHERE player_id = ? LIMIT 1', [playerId]);
@@ -154,6 +142,25 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
   }
 
   const existing = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
+  if (existing && existing.status === 'unroutable') {
+    // The player had no linked channel when this was queued. A producer retry (the organizer pressing «разослать»
+    // again, a scan) re-routes it once a channel exists, instead of reporting the player unreachable for good.
+    const routing = await resolvePersonalNotificationRouting(db, playerId);
+    if (routing.personal_enabled && routing.selected_channel && routing.channel_target) {
+      const status = routing.selected_channel === 'telegram' ? 'queued' : 'pending_channel';
+      await db.run(
+        `UPDATE personal_notification_deliveries
+            SET selected_channel = ?, channel_target = ?, status = ?, reason = NULL, updated_at = ?
+          WHERE notification_key = ? AND status = 'unroutable'`,
+        [routing.selected_channel, routing.channel_target, status, nowIso(), notificationKey],
+      );
+      const rerouted = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
+      if (rerouted) {
+        await ensureExternalOutboxRow(db, rerouted, input.telegramReplyMarkup);
+        return { delivery: rerouted, created: false };
+      }
+    }
+  }
   if (existing) {
     // A process can stop after the canonical delivery ledger is committed but before
     // the selected channel outbox row is materialized. Re-enqueue idempotently so a

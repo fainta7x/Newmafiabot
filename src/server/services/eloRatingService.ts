@@ -147,7 +147,15 @@ const validatePreparedEvent = (event: PreparedEloEvent, guests: { red: number; b
 
 export interface EloRebuildRow { player_id: string; nickname: string; elo: number; games: number; }
 
+/**
+ * Changes on every canonical rebuild. Every rated change (a saved protocol, a corrected participant, a merge) rebuilds,
+ * so the kept Elo timeline (playerEloHistoryService) uses it to know it is stale even when sums stay the same.
+ */
+let eloInputsGeneration = 0;
+export const currentEloInputsGeneration = () => eloInputsGeneration;
+
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
+  eloInputsGeneration += 1;
   const { getFlexibleTournamentStandings: internalGetStandings } = await import('./flexibleTournamentStandingsService.ts');
   const players = await db.all<any>(
     `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
@@ -273,6 +281,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
   };
   if ((db.sqlite as any)?.inTransaction) await persistRatings(db);
   else await db.transaction(persistRatings);
+  eloInputsGeneration += 1;
   return players
     .filter((player) => (gameCounts.get(String(player.id)) || 0) > 0)
     .map((player) => ({ player_id:String(player.id), nickname:String(player.nickname || 'Игрок'), elo:Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO), games:gameCounts.get(String(player.id)) || 0 }))

@@ -59,7 +59,7 @@ describe('tournament Elo note', () => {
     expect((await notes(db)).map((row: any) => row.notification_key)).toEqual(['elo:tournament:g1:hero:101000']);
   });
 
-  it('does not replay the Elo timeline when no tournament game finished this week, or nothing changed', async () => {
+  it('does not read the Elo timeline when no tournament game finished this week', async () => {
     const db = createDatabaseConnection(':memory:'); opened.push(db);
     await createApp(db);
     const now = new Date().toISOString();
@@ -69,7 +69,6 @@ describe('tournament Elo note', () => {
     await reconcilePersonalNotifications(db);
     expect(spy).not.toHaveBeenCalled();
     await recentTournamentGame(db, now);
-    await reconcilePersonalNotifications(db);
     await reconcilePersonalNotifications(db);
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();

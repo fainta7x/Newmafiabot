@@ -3,6 +3,7 @@ import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import {
   calculateCanonicalEloGame,
+  currentEloInputsGeneration,
   DEFAULT_ELO,
   type CanonicalEloGamePlayer,
   type CanonicalEloPlayerDelta,
@@ -275,8 +276,8 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
  * database. On 2026-10-06 that froze the whole server for 20-30 s every minute: each open player app asks for its
  * notifications once a minute (two replays per request) and the background notification scan replays it too.
  * The result is kept per database and replayed only when its inputs change. The fingerprint counts the rows and
- * the protocol sizes and includes the stored Elo, which every rated save rebuilds; when it cannot be read the
- * timeline is replayed as before.
+ * the protocol sizes, the stored Elo, the tournament participants and the generation of the canonical rebuild, which
+ * every rated save runs; when it cannot be read the timeline is replayed as before.
  */
 const timelineCache = new WeakMap<object, { fingerprint: string; timeline: Promise<PlayerEloHistoryEvent[]> }>();
 
@@ -292,7 +293,9 @@ async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null>
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(judge_bonus) + TOTAL(protocol_bonus) + TOTAL(penalty_points) + TOTAL(ci_points) AS s FROM tournament_game_player_results`),
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(role, ''))) AS s FROM tournament_game_seats`),
     ]);
-    return JSON.stringify(parts);
+    // Identity swaps keep counts and sums: the participants themselves and the rebuild generation catch them.
+    const participants = await db.get(`SELECT group_concat(id || ':' || COALESCE(player_id, ''), ',') AS ids FROM (SELECT id, player_id FROM tournament_participants ORDER BY id)`);
+    return JSON.stringify([currentEloInputsGeneration(), parts, participants]);
   } catch {
     return null;
   }

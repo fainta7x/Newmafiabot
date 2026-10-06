@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { loadPlayerEloHistory } from '../server/services/playerEloHistoryService.ts';
+import { rebuildCanonicalEloRatings } from '../server/services/eloRatingService.ts';
 
 const opened: DatabaseWrapper[] = [];
 afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
@@ -19,6 +20,10 @@ describe('Elo history is replayed only when its inputs change', () => {
     expect(afterPlayer).not.toBe(first);
     expect(await loadPlayerEloHistory(db)).toBe(afterPlayer);
     await db.run("UPDATE players SET elo = 1012 WHERE id = 'p1'"); // what every rated save does (canonical rebuild)
-    expect(await loadPlayerEloHistory(db)).not.toBe(afterPlayer);
+    const afterElo = await loadPlayerEloHistory(db);
+    expect(afterElo).not.toBe(afterPlayer);
+    // A rebuild (a corrected participant keeps every count and sum) also makes it stale.
+    await rebuildCanonicalEloRatings(db);
+    expect(await loadPlayerEloHistory(db)).not.toBe(afterElo);
   });
 });

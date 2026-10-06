@@ -95,7 +95,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
         if (cancelled) return;
         const next = body as ClubWorldData;
         setData(next);
-        setSelectedSeasonKey(next.season_history?.[0]?.key || next.season?.key || null);
+        setSelectedSeasonKey(next.season_history?.find((item) => item.key !== next.season?.key)?.key || null);
       })
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить сезоны'); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -113,13 +113,15 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
   const viewerRank = data.season.ranking.find((item) => item.player_id === data.viewer_id) || null;
 
   if (part === 'history') {
+    // The API also lists the running season; it belongs to «Сезон», not to the past.
+    const pastSeasons = (data.season_history || []).filter((item) => item.key !== data.season.key);
     return (
       <div className="space-y-3">
-        {data.season_history?.length > 0 ? (
+        {pastSeasons.length > 0 ? (
           <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Прошлые сезоны</div>
             <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-              {data.season_history.map((season) => (
+              {pastSeasons.map((season) => (
                 <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
                   <div className="text-[11px] font-semibold">{season.label}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(season.games)}</div>
                 </button>

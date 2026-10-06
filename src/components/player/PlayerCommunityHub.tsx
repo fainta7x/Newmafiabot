@@ -50,7 +50,8 @@ export default function PlayerCommunityHub({
 }) {
   // «Связи» has no address of its own, so it lives in local state over /player/club.
   const [view, setView] = useState<CommunityView>(() => viewFor(section));
-  const [activity, setActivity] = useState<ActivityView>('form');
+  // Old links to /player/seasons (clubworld) still land on the season.
+  const [activity, setActivity] = useState<ActivityView>(() => (section === 'clubworld' ? 'season' : 'form'));
   useEffect(() => { setView((current) => (current === 'connections' && section === 'club' ? current : viewFor(section))); }, [section]);
   const choose = (next: CommunityView) => {
     setView(next);

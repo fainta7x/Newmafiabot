@@ -1,3 +1,4 @@
+import { getUiUsageSummary } from '../services/uiUsageService.ts';
 import crypto from 'node:crypto';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 
@@ -33,6 +34,21 @@ function requireDeveloperReadAccess(req: Request, res: Response, next: NextFunct
 }
 
 router.use(requireDeveloperReadAccess);
+
+/**
+ * App usage in aggregate (owner, 2026-10-06: «посмотри, чем пользуются»): how many people and visits and which screens and buttons
+ * are used most, over the last N days (default 30). Counts only; no player ids, no texts. The owner's own activity is excluded
+ * the same way as in the CRM «Использование».
+ */
+router.post('/ui-usage', async (req, res) => {
+  try {
+    const days = Math.min(Math.max(Math.round(Number(req.body?.days) || 30), 1), 180);
+    const summary = await getUiUsageSummary(req.db, days);
+    return res.json({ days: summary.days, visits: summary.visits, people: summary.people, screens: summary.screens, actions: summary.actions });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'usage failed' });
+  }
+});
 
 /**
  * How every person plays at the poker tables, counted from the stored hands (read-only, no hands are returned):

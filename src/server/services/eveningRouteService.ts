@@ -13,7 +13,7 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
  * computed from the evening's real data so every step shows what is done and where to act.
  */
-export type RouteStageId = 'prepare' | 'gather' | 'day' | 'live' | 'closeout' | 'after';
+export type RouteStageId = 'prepare' | 'gather' | 'day' | 'live' | 'closeout';
 export type RouteTarget = 'overview' | 'participants' | 'management' | 'tables' | 'closeout' | 'games';
 export type RouteStepStatus = 'done' | 'todo' | 'attention' | 'info';
 export type RouteStep = {
@@ -32,8 +32,7 @@ const STAGES: Array<{ id: RouteStageId; title: string; hint: string }> = [
   { id: 'gather', title: 'Сбор', hint: 'Собираем ответы и закрываем недобор по играм.' },
   { id: 'day', title: 'День вечера', hint: 'Столы, судьи и старт вечера.' },
   { id: 'live', title: 'Вечер идёт', hint: 'Отмечаем пришедших, проводим игры, задания вечера.' },
-  { id: 'closeout', title: 'Закрытие', hint: 'Игры завершены, явка и оплаты проверены — закрываем вечер.' },
-  { id: 'after', title: 'После вечера', hint: 'Вечер закрыт, итоги сохранены.' },
+  { id: 'closeout', title: 'Закрытие', hint: 'Оплаты сверены — закрываем вечер: итоги, долги и статистика сохранятся.' },
 ];
 
 const moscowDate = (ms: number) => new Date(ms).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
@@ -52,7 +51,7 @@ async function tables(db: DatabaseWrapper) {
 
 /** Which stage the evening is in now. */
 export function currentRouteStage(evening: any, games: { total: number; unfinished: number }, now = Date.now()): RouteStageId {
-  if (evening.status === 'completed' || evening.settled_at) return 'after';
+  if (evening.status === 'completed' || evening.settled_at) return 'closeout';
   if (evening.status === 'active') {
     const start = new Date(String(evening.starts_at)).getTime();
     const late = Number.isFinite(start) && now - start > 5 * 60 * 60 * 1000;
@@ -114,7 +113,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
 
   const stageNow = currentRouteStage(evening, { total: games.length, unfinished: unfinishedGames }, now);
   const published = evening.status !== 'draft';
-  const steps: Record<RouteStageId, RouteStep[]> = { prepare: [], gather: [], day: [], live: [], closeout: [], after: [] };
+  const steps: Record<RouteStageId, RouteStep[]> = { prepare: [], gather: [], day: [], live: [], closeout: [] };
   // Until the weekly announcement is due, «not sent» is the expected state, not a problem.
   const announcementDueMs = weeklyAnnouncementDueMs(evening.starts_at);
   const announcementPending = !telegramPosts && !vkPosts && now < announcementDueMs;
@@ -127,7 +126,6 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         : 'Ещё не отправлен';
 
   steps.prepare.push(
-    { id: 'created', title: 'Вечер создан', status: 'done' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
@@ -188,7 +186,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   steps.day.push(
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
-    evening.status === 'active' || stageNow === 'closeout' || stageNow === 'after'
+    evening.status === 'active' || stageNow === 'closeout'
       ? { id: 'start', title: 'Вечер начат', status: 'done' }
       : { id: 'start', title: 'Начать вечер', detail: 'Нажимают, когда игроки собираются', status: stageNow === 'day' ? 'todo' : 'info', action: published ? 'start' : undefined },
   );
@@ -210,13 +208,18 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     { id: 'play', title: 'Игры вечера', detail: games.length ? `Сыграно: ${games.length - unfinishedGames}${unfinishedGames ? ` · идут/не завершены: ${unfinishedGames}` : ''}` : 'Ещё не начаты', status: games.length && !unfinishedGames ? 'done' : games.length ? 'attention' : 'todo', target: 'games' },
   );
 
+  const closed = evening.status === 'completed' || Boolean(evening.settled_at);
+  // «Games finished» and «attendance checked» are not steps of their own any more: «Игры вечера» and «Отметить пришедших» above
+  // already show them; what still blocks the closing is named in the «Закрыть вечер» step itself.
+  const blockers = [
+    pendingExpected ? `нет отметки у ${players(pendingExpected)}` : '',
+    unfinishedGames ? `не завершено игр: ${unfinishedGames}` : '',
+  ].filter(Boolean);
   steps.closeout.push(
-    { id: 'unfinished', title: 'Все игры завершены', detail: unfinishedGames ? `Не завершено: ${unfinishedGames}` : games.length ? 'Да' : 'Игр не было', status: unfinishedGames ? 'attention' : games.length ? 'done' : 'todo', target: 'games' },
-    { id: 'reconcile', title: 'Явка сверена', detail: pendingExpected ? `Без отметки: ${players(pendingExpected)}` : 'Все отмечены', status: pendingExpected ? 'attention' : 'done', target: 'closeout' },
     { id: 'money', title: 'Оплаты', detail: debtors ? `Не оплатили: ${players(debtors)}` : 'Все оплатили', status: debtors ? 'attention' : 'done', target: 'closeout' },
-    stageNow === 'after'
+    closed
       ? { id: 'close', title: 'Вечер закрыт', status: 'done' }
-      : { id: 'close', title: 'Закрыть вечер', detail: 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? 'todo' : 'info', target: 'closeout' },
+      : { id: 'close', title: 'Закрыть вечер', detail: blockers.length ? `Сначала: ${blockers.join(', ')}` : 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? (blockers.length ? 'attention' : 'todo') : 'info', target: 'closeout' },
   );
 
   for (const task of tasks) {
@@ -225,7 +228,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   }
 
   const order = STAGES.map((stage) => stage.id);
-  const currentIndex = order.indexOf(stageNow);
+  // A closed evening has passed every stage.
+  const currentIndex = closed ? order.length : order.indexOf(stageNow);
   const stages: RouteStage[] = STAGES.map((stage, index) => ({
     ...stage,
     // A past stage with an open problem is not «done» (owner, 2026-10-02): it stays yellow and opens first.

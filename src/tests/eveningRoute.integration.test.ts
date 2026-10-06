@@ -19,7 +19,8 @@ describe('evening route', () => {
     expect(currentRouteStage({ status: 'published', starts_at: '2026-09-24T16:00:00Z' }, games, now)).toBe('day');
     expect(currentRouteStage({ status: 'active', starts_at: '2026-09-24T08:00:00Z' }, { total: 2, unfinished: 1 }, now)).toBe('live');
     expect(currentRouteStage({ status: 'active', starts_at: '2026-09-24T08:00:00Z' }, { total: 3, unfinished: 0 }, now)).toBe('closeout');
-    expect(currentRouteStage({ status: 'completed', starts_at: '2026-09-24T08:00:00Z' }, games, now)).toBe('after');
+    // A closed evening has no stage of its own: it is the end of «Закрытие».
+    expect(currentRouteStage({ status: 'completed', starts_at: '2026-09-24T08:00:00Z' }, games, now)).toBe('closeout');
   });
 
   it('returns stages with real step states for a published evening', async () => {
@@ -38,7 +39,7 @@ describe('evening route', () => {
     expect(response.body.current_stage).toBe('gather');
     expect(response.body.stages.map((stage: any) => [stage.id, stage.state])).toEqual([
       // Nothing was announced or sent yet, so the past «Подготовка» stays yellow, not «done».
-      ['prepare', 'attention'], ['gather', 'current'], ['day', 'upcoming'], ['live', 'upcoming'], ['closeout', 'upcoming'], ['after', 'upcoming'],
+      ['prepare', 'attention'], ['gather', 'current'], ['day', 'upcoming'], ['live', 'upcoming'], ['closeout', 'upcoming'],
     ]);
     const gather = response.body.stages.find((stage: any) => stage.id === 'gather');
     const answers = gather.steps.find((step: any) => step.id === 'answers');
@@ -55,4 +56,29 @@ describe('evening route', () => {
 
     expect((await request(app).get('/api/evenings/r1/route')).status).toBe(401);
   });
+
+  it('keeps the route short: no «created» step, no stage after closing, blockers named in the closing step (owner, 2026-10-06)', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    const app = await createApp(db);
+    const now = new Date().toISOString();
+    const started = new Date(Date.now() - 2 * HOUR).toISOString();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at)
+      VALUES ('c1','Пятница',?,'Europe/Moscow','CASUAL','active',20,100,?,?),('c2','Прошлая',?,'Europe/Moscow','CASUAL','completed',20,100,?,?)`, [started, now, now, started, now, now]);
+    await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('p1','Аня',?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+      VALUES ('e1','c1','p1','going','going','pending','unpaid',?,?)`, [now, now]);
+
+    const open = (await request(app).get('/api/evenings/c1/route').set('Cookie', organizerCookie())).body;
+    expect(open.stages.map((stage: any) => stage.id)).toEqual(['prepare', 'gather', 'day', 'live', 'closeout']);
+    expect(open.stages.flatMap((stage: any) => stage.steps).some((step: any) => step.id === 'created')).toBe(false);
+    expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.map((step: any) => step.id)).toEqual(['money', 'close']);
+    expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.find((step: any) => step.id === 'close').detail).toContain('нет отметки у 1 игрок');
+
+    const closed = (await request(app).get('/api/evenings/c2/route').set('Cookie', organizerCookie())).body;
+    const close = closed.stages.find((stage: any) => stage.id === 'closeout').steps.find((step: any) => step.id === 'close');
+    expect(close).toMatchObject({ title: 'Вечер закрыт', status: 'done' });
+    // Every stage of a closed evening is behind it.
+    expect(closed.stages.every((stage: any) => stage.state === 'done' || stage.state === 'attention')).toBe(true);
+  });
 });
+

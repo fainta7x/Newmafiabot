@@ -76,6 +76,24 @@ describe('one tournament format for everybody (owner, 2026-10-06)', () => {
   });
 });
 
+describe('unpublished drafts stay publishable', () => {
+  it('does not close registration of a legacy draft, but does of a running or finished tournament', async () => {
+    const db = await open();
+    await player(db, 'p1', 'Аня');
+    await tournament(db, 'draft', 'Черновик'); await tournament(db, 'active', 'Идёт'); await tournament(db, 'done', 'Прошёл');
+    await db.run("UPDATE tournaments SET status='draft' WHERE id='draft'");
+    await db.run("UPDATE tournaments SET status='active' WHERE id='active'");
+    await participant(db, 'tp1', 'draft', 'p1', 1);
+
+    await applyUnifiedTournamentFlowMigration(db);
+
+    const closed = Object.fromEntries((await db.all<any>('SELECT id, registration_closed_at AS closed, tournament_evening_flow AS flow FROM tournaments')).map((row) => [row.id, row]));
+    expect(closed.draft).toMatchObject({ closed: null, flow: 1 });
+    expect(closed.active.closed).toBeTruthy();
+    expect(closed.done.closed).toBeTruthy();
+  });
+});
+
 describe('forced judge and organizer in the tournaments of Bogdan (owner, 2026-10-06)', () => {
   const seed = async (db: DatabaseWrapper) => {
     await player(db, 'chagin', 'Чагин'); await player(db, 'bogdan', 'Богданчик'); await player(db, 'old-judge', 'Другой');

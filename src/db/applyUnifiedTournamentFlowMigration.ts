@@ -92,7 +92,8 @@ export async function applyUnifiedTournamentFlowMigration(db: DatabaseWrapper, o
                 registration_closed_at = COALESCE(registration_closed_at, ?),
                 player_capacity = CASE WHEN ? > COALESCE(player_capacity, 10) THEN ? ELSE player_capacity END
           WHERE id = ?`,
-        [now, participants.length, participants.length, tournament.id],
+        // An unpublished draft keeps its registration open-ended: closing it would leave no way to publish it.
+        [tournament.status === 'draft' ? null : now, participants.length, participants.length, tournament.id],
       );
       changes.push({
         tournament_id: String(tournament.id),

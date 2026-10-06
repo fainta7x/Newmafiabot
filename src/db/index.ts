@@ -10,6 +10,7 @@ import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromC
 import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
 import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
+import { applyUnifiedTournamentFlowMigration, UNIFIED_TOURNAMENT_FLOW_MIGRATION } from './applyUnifiedTournamentFlowMigration.ts';
 import { applyMillourtDuplicateMergeMigration } from './mergeMillourtDuplicateMigration.ts';
 import { applyFandorinAug28GameIdentityMigration } from './fixFandorinAug28GameIdentityMigration.ts';
 import { applySep4ChaginGameIdentityMigration } from './fixSep4ChaginGameIdentityMigration.ts';
@@ -168,6 +169,14 @@ export async function getIsolatedTestDb(): Promise<DatabaseWrapper> {
     isolatedTestDbInstance = createDatabaseConnection(testPath, { isolatedTest: true });
     await ensureIsolatedTestRuntimeSchema(isolatedTestDbInstance);
     await seedDemoData(isolatedTestDbInstance, { isolatedTest: true });
+    // The sandbox is seeded with old-format tournaments; it gets the same unified format as production (no snapshot: the sandbox is
+    // disposable, and the marker is cleared so a reseeded sandbox is migrated again).
+    try {
+      await isolatedTestDbInstance.run('DELETE FROM migration_history WHERE migration_name = ?', [UNIFIED_TOURNAMENT_FLOW_MIGRATION]);
+      await applyUnifiedTournamentFlowMigration(isolatedTestDbInstance, { skipSnapshot: true });
+    } catch (error) {
+      console.warn('[TEST ENV] Unified tournament format skipped:', error instanceof Error ? error.message : error);
+    }
     // Seeded games are inserted directly, so derive Elo the same way production
     // does after a save; otherwise the sandbox shows 1000 next to real Elo deltas.
     try {

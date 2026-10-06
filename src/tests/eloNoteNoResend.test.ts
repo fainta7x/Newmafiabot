@@ -19,6 +19,11 @@ const tournamentGame = (id: string, sortAt: string, eloAfter: number) => ({
   players: [{ playerId: 'hero', totalDelta: eloAfter - 1000, eloBefore: 1000, eloAfter }],
 });
 const notes = (db: any) => db.all("SELECT notification_key FROM personal_notification_deliveries WHERE event_type = 'elo_change'");
+// The minute scan replays Elo only when a tournament game finished within the last week (2026-10-06).
+const recentTournamentGame = async (db: any, now: string) => {
+  await db.run("INSERT INTO tournaments (id, title, date, created_at, updated_at) VALUES ('t1', 'Турнир', ?, ?, ?)", [now, now, now]);
+  await db.run("INSERT INTO tournament_games (id, tournament_id, game_number, status, completed_at) VALUES ('g1', 't1', 1, 'completed', ?)", [now]);
+};
 
 describe('tournament Elo note', () => {
   it('is sent once per game: a recalculation with new numbers does not send it again', async () => {
@@ -27,12 +32,14 @@ describe('tournament Elo note', () => {
     const now = new Date().toISOString();
     await db.run(`INSERT INTO players (id,nickname,telegram_user_id,lifecycle_status,source,created_at,updated_at) VALUES ('hero','Герой','100','normal','telegram',?,?)`, [now, now]);
 
+    await recentTournamentGame(db, now);
     timeline.push(tournamentGame('g1', now, 1010));
     await reconcilePersonalNotifications(db);
     expect(await notes(db)).toHaveLength(1);
 
     // The ×5 scale rebuild: same game, other numbers.
     timeline.splice(0, 1, tournamentGame('g1', now, 1050));
+    await db.run("UPDATE players SET elo_seed = 1001 WHERE id = 'hero'"); // inputs changed, so the scan replays
     await reconcilePersonalNotifications(db);
     expect(await notes(db)).toHaveLength(1);
   });
@@ -46,8 +53,24 @@ describe('tournament Elo note', () => {
     await db.run(`INSERT INTO personal_notification_deliveries (notification_key, player_id, category, event_type, entity_id, selected_channel, text, status, created_at, updated_at)
       VALUES ('elo:tournament:g1:hero:101000', 'hero', 'results', 'elo_change', 'tournament:g1', 'telegram', 'old', 'queued', ?, ?)`, [now, now]);
 
+    await recentTournamentGame(db, now);
     timeline.push(tournamentGame('g1', now, 1050), tournamentGame('old', '2026-08-01T18:00:00.000Z', 1020));
     await reconcilePersonalNotifications(db);
     expect((await notes(db)).map((row: any) => row.notification_key)).toEqual(['elo:tournament:g1:hero:101000']);
+  });
+
+  it('does not read the Elo timeline when no tournament game finished this week', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO players (id,nickname,telegram_user_id,lifecycle_status,source,created_at,updated_at) VALUES ('hero','Герой','100','normal','telegram',?,?)`, [now, now]);
+    const history = await import('../server/services/playerEloHistoryService.ts');
+    const spy = vi.spyOn(history, 'loadPlayerEloHistory');
+    await reconcilePersonalNotifications(db);
+    expect(spy).not.toHaveBeenCalled();
+    await recentTournamentGame(db, now);
+    await reconcilePersonalNotifications(db);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });

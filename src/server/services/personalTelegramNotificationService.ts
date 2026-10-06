@@ -30,8 +30,24 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
+// A tournament Elo note is only for games of the last week, so the minute scan reads nothing when there are none.
+// The timeline itself is kept until its inputs change (playerEloHistoryService); the scan still runs every minute
+// so that an `unroutable` note is routed as soon as the player links Telegram or VK.
+async function hasRecentTournamentGames(db: DatabaseWrapper, now: number): Promise<boolean> {
+  try {
+    const recent = await db.get<{ count: number }>(`
+      SELECT COUNT(*) AS count
+        FROM tournament_games g JOIN tournaments t ON t.id = g.tournament_id
+       WHERE g.status = 'completed' AND COALESCE(g.completed_at, t.date, t.created_at) >= ?`, [new Date(now - ELO_NOTE_MAX_AGE_MS).toISOString()]);
+    return Number(recent?.count || 0) > 0;
+  } catch {
+    return true;
+  }
+}
+
 async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
   let queued = 0;
+  if (!(await hasRecentTournamentGames(db, now))) return 0;
   // Club games: one personal message per evening after closing (clubResultPostService), not one per game.
   const eloTimeline = await loadPlayerEloHistory(db);
   for (const event of eloTimeline.slice(-100)) {

@@ -49,7 +49,9 @@ describe('path builders and back targets', () => {
   it('gives Telegram a deterministic parent screen', () => {
     expect(appBackTarget('/player')).toBeNull();
     expect(appBackTarget('/guide')).toBe('/player/events');
-    expect(appBackTarget('/player/games')).toBe('/player');
+    // «Прошедшие» and «Мои игры» are tabs of «Вечера» (owner, 2026-10-06): Back goes to «Скоро».
+    expect(appBackTarget('/player/games')).toBe('/player/events');
+    expect(appBackTarget('/player/recaps')).toBe('/player/events');
     expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games');
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');
     // the personal Elo history is the profile's tab now

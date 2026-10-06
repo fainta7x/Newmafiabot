@@ -5,7 +5,8 @@ import { GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES } from '../../lib/guideCata
  * «Обучение» inside «Прогресс» (owner decision 2026-10-06): the same content as the «Школа мафии»
  * page (/guide, src/lib/guideCatalog.ts). New lessons, articles and trainers appear here by themselves.
  */
-const lessonHref = (index: number) => `/guide?tab=lessons&lesson=${index + 1}`;
+// ?from=progress: Telegram's Back on the guide returns here (appBackTarget).
+const lessonHref = (index: number) => `/guide?tab=lessons&lesson=${index + 1}&from=progress`;
 
 export default function PlayerLearningBlock() {
   return (
@@ -35,7 +36,7 @@ export default function PlayerLearningBlock() {
             <p className="mt-1 text-xs leading-5 text-white/50">{shelf.lead}</p>
             <div className="mt-3 space-y-2">
               {entries.map((entry) => (
-                <a key={entry.id} href={`/guide?tab=${encodeURIComponent(entry.id)}`} className="flex min-h-12 items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2 active:bg-white/[0.08]">
+                <a key={entry.id} href={`/guide?tab=${encodeURIComponent(entry.id)}&from=progress`} className="flex min-h-12 items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2 active:bg-white/[0.08]">
                   <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{entry.title}</span><span className="block text-xs text-white/45">{entry.detail}</span></span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/35" aria-hidden="true" />
                 </a>

@@ -112,7 +112,11 @@ export const appBackTarget = (pathname: string): string | null => {
   const parts = partsOf(pathname);
   if (!parts.length) return null;
   // The public rules page is opened from the player events tab; Telegram's Back returns there.
-  if (parts[0] === 'guide') return '/player/events';
+  // Opened from «Прогресс → Обучение» it carries ?from=progress (kept on every guide screen) and returns there.
+  if (parts[0] === 'guide') {
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    return new URLSearchParams(search).get('from') === 'progress' ? '/player/profile/learning' : '/player/events';
+  }
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;
     if (parts[1] === 'players' && parts[2]) {
@@ -126,7 +130,8 @@ export const appBackTarget = (pathname: string): string | null => {
       const state = typeof window !== 'undefined' ? window.history.state : null;
       return typeof state?.gameReturn === 'string' && state.gameReturn.startsWith('/player') ? state.gameReturn : '/player/games';
     }
-    if (parts[1] === 'recaps') return '/player/games';
+    // «Прошедшие» and «Мои игры» are tabs of «Вечера»: Back goes to its first tab «Скоро».
+    if (parts[1] === 'recaps' || parts[1] === 'games') return '/player/events';
     if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) ) return '/player/rating';
     if (parts[1] === 'seasons') return '/player/club';
     if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';

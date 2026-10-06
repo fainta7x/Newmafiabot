@@ -2,16 +2,24 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import PlayerLearningBlock from '../components/player/PlayerLearningBlock.tsx';
+import { appBackTarget } from '../lib/appNavigation.ts';
 import { GUIDE_ENTRIES, GUIDE_LESSONS } from '../lib/guideCatalog.ts';
 
 describe('«Прогресс → Обучение» (owner, 2026-10-06)', () => {
   it('lists every lesson and every guide entry with its /guide address', () => {
     render(<PlayerLearningBlock />);
     for (const [index, lesson] of GUIDE_LESSONS.entries()) {
-      expect(screen.getByText(lesson.title).closest('a')?.getAttribute('href')).toBe(`/guide?tab=lessons&lesson=${index + 1}`);
+      expect(screen.getByText(lesson.title).closest('a')?.getAttribute('href')).toBe(`/guide?tab=lessons&lesson=${index + 1}&from=progress`);
     }
     for (const entry of GUIDE_ENTRIES) {
-      expect(screen.getAllByText(entry.title).some((node) => node.closest('a')?.getAttribute('href') === `/guide?tab=${entry.id}`)).toBe(true);
+      expect(screen.getAllByText(entry.title).some((node) => node.closest('a')?.getAttribute('href') === `/guide?tab=${entry.id}&from=progress`)).toBe(true);
     }
+  });
+
+  it('Telegram Back on a guide page opened from «Обучение» returns to «Обучение»', () => {
+    window.history.replaceState(null, '', '/guide?tab=roles&from=progress');
+    expect(appBackTarget('/guide')).toBe('/player/profile/learning');
+    window.history.replaceState(null, '', '/guide?tab=roles');
+    expect(appBackTarget('/guide')).toBe('/player/events');
   });
 });

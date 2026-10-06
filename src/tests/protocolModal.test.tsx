@@ -678,10 +678,10 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       await waitFor(() => expect(screen.getByText('Test Tournament UX')).toBeTruthy());
 
       // Open modal
-      // The tournament opens on its «Игры» step (every tournament has the same step screen); inside it the workspace has its own «Игры» tab.
-      const gamesTab = screen.getAllByRole('button', { name: /Игры/i }).at(-1)!;
-      fireEvent.click(gamesTab);
-      const protocolBtn = screen.getByRole('button', { name: /Протокол/i });
+      // The tournament opens on its «Игры» step (every tournament has the same step screen); its workspace loads by itself and has its own «Игры» tab.
+      await waitFor(() => expect(screen.getAllByRole('button', { name: /Игры/i }).length).toBeGreaterThan(1));
+      fireEvent.click(screen.getAllByRole('button', { name: /Игры/i }).at(-1)!);
+      const protocolBtn = await screen.findByRole('button', { name: /Протокол/i });
       fireEvent.click(protocolBtn);
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());

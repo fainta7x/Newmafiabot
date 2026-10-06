@@ -32,6 +32,7 @@
   .canonical-profile > .profile-content { max-width: 1152px; padding-inline: 24px; }
   .profile-overview { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
   .profile-overview > * { min-width: 0; margin-top: 0; }
+  .profile-overview > [data-testid="profile-completion-card"],
   .profile-overview > [data-testid="profile-key-stats"],
   .profile-overview > [data-testid="profile-stats-hidden"] { grid-column: 1 / -1; }
   .profile-game-list, .profile-role-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }

@@ -648,6 +648,8 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - «Игрок вечера»: a vote with a button right in Telegram; «Игры в цифрах» in the player profile; the season follows the club's rating period.
 - Poker table: cards are dealt faster and each one flies straight to its place in the hand; bets are swept into the pot first and only then the next cards appear; moves are announced one at a time, each seat keeps its last move, and a countdown shows when the next hand starts.
 - Notifications: reminders at registration, cancellations as a new post instead of rewriting the old one, retries up to two hours.
+- New menu in the app: «Главная · Вечера · Сообщество · Прогресс». «Вечера» has «Скоро», «Прошедшие» and «Мои игры»; «Сообщество» has the rating, players, connections, activity and the poker table; «Прогресс» is your profile with a new «Обучение» tab. Settings moved to the gear at the top. «Главная» shows a debt for past evenings, club news and where to start learning.
+- Tournament nominations (MVP and the best by role) now count the judge's extra points plus protocol points; best move, penalties, ПУ and CI do not count.
 
 ### Analytics redesign — merged in PR #708 (2026-10-06)
 

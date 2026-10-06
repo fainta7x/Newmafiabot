@@ -37,9 +37,34 @@ const liveJourney = {
  ],
  latest_self_game: { game_key: 'preview-game-3', local_number: 3, won: true },
 };
+const profileSummary = {
+ player: { id: data.player.id, nickname: data.player.nickname, avatar_url: null, elo: 1542 },
+ stats: { games: 24, wins: 14, win_rate: 58, current_streak: 2, best_streak: 5, red: { games: 16, wins: 10, win_rate: 63 }, black: { games: 8, wins: 4, win_rate: 50 }, first_killed: 3, best_moves: 2, zero_round_voted: 0 },
+ season: { label: 'Осень 2026', games: 9, wins: 6, win_rate: 67, place: 3, total_players: 21 },
+ recent_games: [],
+};
+const NAMES = ['Насон', 'Кавасаки', 'Пристань', 'Знак', 'Чагин', 'Карагора', 'Дина', 'Гриня', 'Матроскина', 'Камсчастман'];
+const rankingRows = NAMES.map((nickname, index) => ({ place: index + 1, player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, avatar_url: null, games: 12 - index, wins: 9 - Math.floor(index / 2), win_rate: 75 - index * 3 }));
+const season = (key: string, label: string) => ({ key, label, games: 48, players: 21, ranking: rankingRows, viewer: { games: 9, wins: 6, win_rate: 67, place: 5 }, champion: rankingRows[0] });
+const clubWorld = {
+ viewer_id: data.player.id,
+ season: season('2026-autumn', 'Осень 2026'),
+ season_records: [{ label: 'Побед подряд', value: 6, player_id: 'p-0', nickname: 'Насон', avatar_url: null }, { label: 'Винрейт', value: 81, player_id: 'p-1', nickname: 'Кавасаки', avatar_url: null }],
+ season_history: [season('2026-summer', 'Лето 2026'), season('2026-spring', 'Весна 2026')],
+ hall_of_fame: [],
+};
+const pulse = {
+ viewer_id: data.player.id,
+ highlights: [{ player_id: 'p-0', nickname: 'Насон', avatar_url: '', type: 'win_streak', text: '4 победы подряд' }],
+ power_ranking: rankingRows.map((row) => ({ ...row, avatar_url: '', streak: row.place === 1 ? 4 : 0, score: 90 - row.place * 4, movement: row.place % 3 === 0 ? -1 : 1 })),
+ players_with_form: 10,
+};
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 globalThis.fetch = async (input: RequestInfo | URL) => {
  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
+ if (url.pathname.endsWith('/summary') && url.pathname.startsWith('/api/player/profiles/')) return json(profileSummary);
+ if (url.pathname.endsWith('/birthday')) return json({});
+ if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
  switch (url.pathname) {
   case '/api/player/me': return json(data);
   case '/api/player/evenings': return json({ evenings: [evening] });
@@ -52,6 +77,9 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   case '/api/player/games/all': return json({ games: [] });
   case '/api/player/games/elo': return json({ games: [] });
   case '/api/player/players': return json({ players: [] });
+  case '/api/player/pulse': return json(pulse);
+  case '/api/player/club-world': return json(clubWorld);
+  case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });
   default: return json({ error: 'Этот сценарий пока не подготовлен в предпросмотре' }, 404);
  }
 };

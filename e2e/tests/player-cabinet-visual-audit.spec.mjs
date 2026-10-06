@@ -72,5 +72,12 @@ for (const width of [360, 390]) {
     await expect(page.getByTestId('player-club-poker')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('community.png'), fullPage: true });
+
+    // «Активность» stays short: top 5 of the club form and of the season, the archive folded.
+    await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность' }).click();
+    await expect(page.getByRole('button', { name: /Архив сезонов/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: 'Показать всех · 10' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
   });
 }

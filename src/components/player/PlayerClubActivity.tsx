@@ -57,6 +57,7 @@ export default function PlayerClubActivity() {
   const [data, setData] = useState<ClubFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,13 +72,17 @@ export default function PlayerClubActivity() {
     return () => { cancelled = true; };
   }, []);
 
+  // Nothing to show yet → no empty «Форма» block above the matches (owner, 2026-10-06: less scrolling).
+  const empty = Boolean(data && !data.highlights.length && !data.power_ranking.length);
+  const ranking = data ? (showAll ? data.power_ranking.slice(0, 10) : data.power_ranking.slice(0, 5)) : [];
+
   return (
     <div className="space-y-4">
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
+      {empty ? null : <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Сейчас в клубе</div>
-            <h2 className="mt-1 text-lg font-semibold">Форма и серии игроков</h2>
+            <h2 className="mt-1 text-lg font-semibold">Форма игроков</h2>
           </div>
           {data && <div className="shrink-0 text-[11px] text-white/25">{data.players_with_form} в форме</div>}
         </div>
@@ -89,7 +94,7 @@ export default function PlayerClubActivity() {
           <>
             {data.highlights.length > 0 && (
               <div className="mt-4 space-y-2">
-                {data.highlights.slice(0, 4).map((item) => (
+                {data.highlights.slice(0, 2).map((item) => (
                   <div key={`${item.player_id}:${item.type}`} className="flex items-center gap-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.035] p-2.5">
                     <Avatar src={item.avatar_url} name={item.nickname} />
                     <div className="min-w-0 flex-1">
@@ -103,7 +108,7 @@ export default function PlayerClubActivity() {
             )}
 
             <div className="mt-4 space-y-1.5">
-              {data.power_ranking.slice(0, 10).map((item) => (
+              {ranking.map((item) => (
                 <div key={item.player_id} className={`flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 ${item.player_id === data.viewer_id ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.04] bg-black/15'}`}>
                   <div className="w-5 shrink-0 text-center text-xs font-black text-white/35">{item.place}</div>
                   <Avatar src={item.avatar_url} name={item.nickname} size={32} />
@@ -119,11 +124,13 @@ export default function PlayerClubActivity() {
               ))}
             </div>
 
-            {!data.power_ranking.length && <p className="mt-4 text-xs text-white/35">Пока недостаточно завершённых игр для формы клуба.</p>}
-            {data.meta?.formula && <p className="mt-3 text-[11px] leading-4 text-white/20">{data.meta.formula}</p>}
+            {data.power_ranking.length > 5 && !showAll ? (
+              <button type="button" onClick={() => setShowAll(true)} className="mt-2 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех</button>
+            ) : null}
+            {showAll && data.meta?.formula && <p className="mt-3 text-[11px] leading-4 text-white/20">{data.meta.formula}</p>}
           </>
         )}
-      </section>
+      </section>}
 
       <PlayerStoriesPanel />
     </div>

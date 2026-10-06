@@ -77,7 +77,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'settings' ? 'settings' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenSettings={() => open('settings')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
-      {section !== 'settings' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('settings')} /> : null}
+      {/* Only on «Главная»: on every section it pushed the content down (owner, 2026-10-06). */}
+      {section === 'home' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('settings')} /> : null}
       <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}><PlayerLiveOnlyCenter compact={section !== 'home'} /></div>
 
       {section === 'home' ? (

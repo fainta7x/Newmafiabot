@@ -48,6 +48,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
   const [pane, setPane] = useState<VisiblePane>(initialAddOpen ? 'roster' : normalizePane(initialPane));
   const [openRosterAdd, setOpenRosterAdd] = useState(initialAddOpen);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [paymentsFilter, setPaymentsFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
 
   useEffect(() => {
     if (initialAddOpen) {
@@ -122,10 +123,10 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
         onOpenPlayerCard={onOpenPlayerCard}
       /> : null}
 
-      {pane === 'payments' ? <EveningPaymentsPanel eveningId={eveningId} /> : null}
+      {pane === 'payments' ? <EveningPaymentsPanel key={paymentsFilter} eveningId={eveningId} initialFilter={paymentsFilter} /> : null}
       {pane === 'tasks' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
       {pane === 'tables' ? <EveningTablesView eveningId={eveningId} onBack={() => setPane('roster')} /> : null}
-      {pane === 'closeout' ? <EveningCloseoutPanel eveningId={eveningId} onSettled={onEveningChanged} /> : null}
+      {pane === 'closeout' ? <EveningCloseoutPanel eveningId={eveningId} onSettled={onEveningChanged} onOpen={(target) => { setPaymentsFilter(target.filter || 'all'); setPane(target.pane); }} /> : null}
     </div>
   );
 };

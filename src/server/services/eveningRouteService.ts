@@ -22,7 +22,7 @@ export type RouteStep = {
   detail?: string;
   status: RouteStepStatus;
   target?: RouteTarget;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post' | 'cancel_evening';
+  action?: 'publish' | 'start' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
@@ -33,7 +33,7 @@ const STAGES: Array<{ id: RouteStageId; title: string; hint: string }> = [
   { id: 'day', title: 'День вечера', hint: 'Столы, судьи и старт вечера.' },
   { id: 'live', title: 'Вечер идёт', hint: 'Отмечаем пришедших, проводим игры, задания вечера.' },
   { id: 'closeout', title: 'Закрытие', hint: 'Игры завершены, явка и оплаты проверены — закрываем вечер.' },
-  { id: 'after', title: 'После вечера', hint: 'Следующий вечер и итоги.' },
+  { id: 'after', title: 'После вечера', hint: 'Вечер закрыт, итоги сохранены.' },
 ];
 
 const moscowDate = (ms: number) => new Date(ms).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
@@ -111,10 +111,6 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId]) : null;
   const tasks = has.has('organizer_tasks')
     ? await db.all<any>("SELECT id, title, status, automation_key FROM organizer_tasks WHERE evening_id = ? AND status != 'cancelled' ORDER BY created_at", [eveningId]) : [];
-  const nextEvening = await db.get<any>(
-    "SELECT id FROM game_evenings WHERE starts_at > ? AND status NOT IN ('cancelled') AND id != ? LIMIT 1",
-    [evening.starts_at, eveningId],
-  );
 
   const stageNow = currentRouteStage(evening, { total: games.length, unfinished: unfinishedGames }, now);
   const published = evening.status !== 'draft';
@@ -221,10 +217,6 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     stageNow === 'after'
       ? { id: 'close', title: 'Вечер закрыт', status: 'done' }
       : { id: 'close', title: 'Закрыть вечер', detail: 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? 'todo' : 'info', target: 'closeout' },
-  );
-
-  steps.after.push(
-    { id: 'next', title: 'Следующий вечер создан', status: nextEvening ? 'done' : 'todo', action: nextEvening ? undefined : 'create_next' },
   );
 
   for (const task of tasks) {

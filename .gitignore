@@ -4,6 +4,7 @@
 !.env.example
 
 # Node dependencies and build
+node_modules
 node_modules/
 dist/
 build/

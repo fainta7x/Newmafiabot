@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index';
 import { reconcileRegularEveningPayments } from '../server/services/eveningPaymentPricingService';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema';
 
 describe('CRM-PAY-003-R2 evening-specific fee exemptions', () => {
   let db: DatabaseWrapper;
@@ -135,5 +136,37 @@ describe('CRM-PAY-003-R2 evening-specific fee exemptions', () => {
       [ids.eveningId, ids.participantId],
     );
     expect(Number(duplicateRows?.count || 0)).toBeLessThanOrEqual(2);
+  });
+
+  describe('who plays without a fee (owner decision 2026-10-06)', () => {
+    const dueOf = async (participantId: string) => (await db.get<any>('SELECT amount_due FROM evening_participants WHERE id=?', [participantId]))?.amount_due;
+    const assign = (ids: { eveningId: string; playerId: string }) => db.run(
+      'INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES (?,?,?,?)', [ids.eveningId, ids.playerId, now, now],
+    );
+
+    it('charges the assigned organizer of an evening after the change like everybody else', async () => {
+      const ids = await seedPlayedParticipant({ suffix: 'new-rule-organizer', clubRole: 'organizer' });
+      await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id=?", [ids.eveningId]);
+      await assign(ids);
+      await reconcileRegularEveningPayments(db, ids.eveningId);
+      expect(await dueOf(ids.participantId)).toBe(100);
+    });
+
+    it('keeps the assigned organizer of an evening before the change exempt, so closed evenings are not charged afterwards', async () => {
+      const ids = await seedPlayedParticipant({ suffix: 'old-rule-organizer', clubRole: 'organizer' });
+      await assign(ids);
+      await reconcileRegularEveningPayments(db, ids.eveningId);
+      expect(await dueOf(ids.participantId)).toBe(0);
+    });
+
+    it('never charges the club owner', async () => {
+      const ids = await seedPlayedParticipant({ suffix: 'owner' });
+      await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id=?", [ids.eveningId]);
+      const owner = await db.get<any>('SELECT id FROM players WHERE id=?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+      if (!owner) await db.run("INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,club_role,judge_level,created_at,updated_at) VALUES (?,?,'normal','test',1000,0,'organizer','none',?,?)", [PRIMARY_ORGANIZER_PLAYER_ID, 'Owner', now, now]);
+      await db.run('UPDATE evening_participants SET player_id=? WHERE id=?', [PRIMARY_ORGANIZER_PLAYER_ID, ids.participantId]);
+      await reconcileRegularEveningPayments(db, ids.eveningId);
+      expect(await dueOf(ids.participantId)).toBe(0);
+    });
   });
 });

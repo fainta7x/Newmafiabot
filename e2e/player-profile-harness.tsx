@@ -51,8 +51,8 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   }
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
-  if (url.pathname.endsWith('/games')) return json({ games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15 }], total: 1, offset: 0, limit: 15, next_offset: null });
-  if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7 }] });
+  if (url.pathname.endsWith('/games')) return json({ games: [4, 3, 2].map(number => ({ id: `club:g${number}`, title: 'Пятничный вечер', date: iso(2), game_number: number, role: number === 4 ? 'sheriff' : 'citizen', team: 'red', won: number !== 3, elo_before: 1527, elo_after: 1542, elo_delta: number === 3 ? -15 : 15 })), total: 3, offset: 0, limit: 15, next_offset: null });
+  if (url.pathname.endsWith('/roles')) return json({ roles: [{ role: 'sheriff', label: 'Шериф', games: 12, wins: 8, win_rate: 66.7 }, { role: 'citizen', label: 'Мирный', games: 20, wins: 12, win_rate: 60 }, { role: 'mafia', label: 'Мафия', games: 10, wins: 6, win_rate: 60 }, { role: 'don', label: 'Дон', games: 6, wins: 3, win_rate: 50 }] });
   if (url.pathname.endsWith('/elo')) return json({ points: [{ id: 'club:g4', title: 'Пятничный вечер', game_number: 4, date: iso(2), role: 'sheriff', elo_before: 1527, elo_after: 1542, elo_delta: 15 }] });
   if (url.pathname.endsWith('/showcase')) return json(showcase);
   if (url.pathname.endsWith('/connections')) return json({ connections: [connection], most_successful_partnership: connection, invited_by: null, invited_players: [] });
@@ -61,7 +61,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
     : json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
-  if (url.pathname === '/api/player/profile-completeness') return json({ score: 88, status: 'good', fields: [] });
+  if (url.pathname === '/api/player/profile-completeness') return json({ completeness: { percentage: 88, complete: false, missing_fields: ['phone'], important_missing_fields: [], next_missing_field: 'phone', fields: { phone: { label: 'Телефон', weight: 12, complete: false, state: 'missing' } }, updated_at: null, checked_at: null } });
   if (url.pathname === '/api/player/rating-periods') return json({ active_periods: [{ id: 'season-1', title: 'Осень 2026', starts_at: iso(60), ends_at: startsAt(60) }] });
   if (url.pathname === '/api/player/award-suggestions') return json({ success: true }, 201);
   if (url.pathname.includes('/invitations')) return json({ created: true, invitation: { id: 'invite-1' } }, 201);

@@ -67,7 +67,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 };
 
 function Harness() {
-  return <div className="crm-premium mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white"><main className="px-3 py-3"><EveningWorkspace eveningId="evening-active" initialSection="management" onBack={() => { document.body.dataset.back = '1'; }} onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }} /></main></div>;
+  return <div className="crm-premium mx-auto min-h-screen w-full max-w-[430px] lg:max-w-6xl overflow-x-hidden bg-[#090a0d] font-sans text-white"><main className="px-3 py-3"><EveningWorkspace eveningId="evening-active" initialSection="management" onBack={() => { document.body.dataset.back = '1'; }} onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }} /></main></div>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<Harness />);

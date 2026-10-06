@@ -182,7 +182,7 @@ const nav = [
 
 function Harness() {
   return (
-    <div className="crm-premium relative mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
+    <div className="crm-premium relative mx-auto min-h-screen w-full max-w-[430px] lg:max-w-6xl overflow-x-hidden bg-[#090a0d] font-sans text-white">
       <main className="px-3 pb-28 pt-3">
         <PlayersHubCRM
           evenings={[evening]}

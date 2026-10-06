@@ -45,3 +45,16 @@ describe('player app navigation', () => {
     expect(appBackTarget('/admin/more/music')).toBe('/admin/more');
   });
 });
+
+describe('new player menu addresses (owner, 2026-10-06)', () => {
+  it('opens «Настройки» and «Прогресс» by address and keeps the old ones', async () => {
+    const { parsePlayerRoute, playerPathForSection } = await import('../lib/appNavigation.ts');
+    expect(parsePlayerRoute('/player/settings')).toMatchObject({ section: 'settings', canonicalPath: '/player/settings' });
+    expect(parsePlayerRoute('/player/progress')).toMatchObject({ section: 'profile', canonicalPath: '/player/profile' });
+    expect(playerPathForSection('profile', 'tab:learning')).toBe('/player/profile/learning');
+    expect(parsePlayerRoute('/player/profile/learning')).toMatchObject({ section: 'profile', target: 'tab:learning' });
+    for (const path of ['/player/events', '/player/recaps', '/player/games', '/player/rating', '/player/club', '/player/seasons', '/player/wallet']) {
+      expect(parsePlayerRoute(path).canonicalPath).toBe(path);
+    }
+  });
+});

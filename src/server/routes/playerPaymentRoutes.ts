@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { isAttendingResponse } from '../../lib/eveningResponse.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getPlayerSessionId } from '../auth.ts';
+import { loadClubNews } from '../services/clubDigestService.ts';
 import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
 
 const router = Router();
@@ -72,6 +73,16 @@ const serializeIntent = (row: any) => ({
   created_at: row.created_at || null,
   updated_at: row.updated_at || null,
   paid_at: row.paid_at || null,
+});
+
+// «Новости клуба» for the player's «Главная»: what the owner published as the digest for players.
+router.get('/news', async (req, res) => {
+  if (!requirePlayerId(req, res)) return;
+  try {
+    return res.json({ news: await loadClubNews(req.db as DatabaseWrapper) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить новости' });
+  }
 });
 
 router.get('/payments', async (req, res) => {

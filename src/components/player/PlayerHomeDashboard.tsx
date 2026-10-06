@@ -70,17 +70,40 @@ export default function PlayerHomeDashboard({
   onOpenGames,
   onOpenMyGames,
   onOpenRating,
+  onOpenWallet,
+  onOpenLearning,
 }: {
   data: PlayerMeResponse;
   onOpenEvents: (eventId?: string | null) => void;
   onOpenGames: () => void;
-  /** «Мои игры» are in the profile now (tab «Игры»); without it the button falls back to the games section. */
+  /** «Вечера → Мои игры»; without it the button falls back to onOpenGames. */
   onOpenMyGames?: () => void;
   onOpenRating: () => void;
+  /** «Кошелёк → Оплата»: pay a debt for past evenings. */
+  onOpenWallet?: () => void;
+  /** «Прогресс → Обучение». */
+  onOpenLearning?: () => void;
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [novice, setNovice] = useState<NoviceState | null>(null);
+  const [debt, setDebt] = useState(0);
+  const [news, setNews] = useState<Array<{ text: string; published_at: string }>>([]);
+  const [newsOpen, setNewsOpen] = useState(false);
+
+  // «Главная» (owner decision 2026-10-06): what to do now — a debt for past evenings — and the club news.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/player/payments', { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => { if (!cancelled) setDebt(Math.max(0, Number(body?.summary?.historical_debt || 0))); })
+      .catch(() => undefined);
+    fetch('/api/player/news', { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => { if (!cancelled && Array.isArray(body?.news)) setNews(body.news); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +177,17 @@ export default function PlayerHomeDashboard({
 
         <CuratorTasksCard />
 
+        {debt > 0 && onOpenWallet ? (
+          <section data-testid="player-home-debt" className="rounded-[28px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-100/70">Оплата</div>
+            <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {debt.toLocaleString('ru-RU')} ₽</p>
+            <p className="mt-1 text-sm leading-5 text-white/55">Оплатите, когда будет удобно, — способы оплаты в кошельке.</p>
+            <button type="button" onClick={onOpenWallet} className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
+              <span>Оплатить</span><span>→</span>
+            </button>
+          </section>
+        ) : null}
+
         {awaitingFirstApplication ? (
           <section data-testid="player-home-first-application" className="rounded-[28px] border border-emerald-300/20 bg-emerald-300/[0.07] p-4">
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-emerald-100/70">Добро пожаловать в 2LA Noire</div>
@@ -213,10 +247,30 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
-        <a data-testid="player-split-vote-link" href="/guide?tab=trainers" className="flex min-h-20 items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
-          <span><strong className="block text-base text-white">Тренажёры по попилу</strong><span className="mt-1 block text-sm leading-5 text-white/60">Реши задачи и сдай экзамены по уровням</span></span>
-          <span aria-hidden="true" className="text-xl text-white/45">→</span>
-        </a>
+        {news.length ? (
+          <section data-testid="player-home-news" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Новости клуба</div>
+              <div className="text-[12px] text-white/40">{formatGameDate(news[0].published_at)}</div>
+            </div>
+            <p className={`mt-2 whitespace-pre-line text-sm leading-6 text-white/80 ${newsOpen ? '' : 'line-clamp-6'}`}>{news[0].text}</p>
+            {news[0].text.length > 280 || news[0].text.split('\n').length > 6 ? (
+              <button type="button" onClick={() => setNewsOpen((value) => !value)} className="mt-2 min-h-11 text-sm font-semibold text-white/65">{newsOpen ? 'Свернуть' : 'Читать полностью'}</button>
+            ) : null}
+          </section>
+        ) : null}
+
+        {onOpenLearning ? (
+          <button type="button" data-testid="player-home-learning" onClick={onOpenLearning} className="flex min-h-20 w-full items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
+            <span><strong className="block text-base text-white">{stats.completedGames === 0 || onNovicePath ? 'Новичку: с чего начать' : 'Обучение'}</strong><span className="mt-1 block text-sm leading-5 text-white/60">{stats.completedGames === 0 || onNovicePath ? 'Короткие уроки: как пройдёт вечер, роли и правила простыми словами' : 'Уроки, тренажёры по попилу и статьи'}</span></span>
+            <span aria-hidden="true" className="text-xl text-white/45">→</span>
+          </button>
+        ) : (
+          <a data-testid="player-split-vote-link" href="/guide?tab=trainers" className="flex min-h-20 items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.045] p-4 text-left">
+            <span><strong className="block text-base text-white">Тренажёры по попилу</strong><span className="mt-1 block text-sm leading-5 text-white/60">Реши задачи и сдай экзамены по уровням</span></span>
+            <span aria-hidden="true" className="text-xl text-white/45">→</span>
+          </a>
+        )}
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Твоя игра</div>

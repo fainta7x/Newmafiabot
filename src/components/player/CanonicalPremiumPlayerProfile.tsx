@@ -12,7 +12,7 @@ import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
 import { ROLE_LABELS, type TournamentRole } from '../../lib/tournamentRoleValidation.ts';
 
-type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections';
+type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections' | 'learning';
 type Period = { starts_at?: string; ends_at?: string; title?: string };
 const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'],['roles','Роли'],['elo','Elo'],['awards','Награды'],['history','История клуба'],['connections','Связи']];
 const ROLE_OPTIONS = [['','Все роли'],['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']] as const;
@@ -44,8 +44,9 @@ const gameLinkProps = (id:any) => {
   return {href:`/player/games/${encodeURIComponent(key)}`,onClick:(event:React.MouseEvent)=>{event.preventDefault();openPlayerGame(key);}};
 };
 
-export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;initialTab?:string|null}) {
-  const [tab,setTab]=useState<Tab>(()=>TABS.some(([key])=>key===initialTab)?initialTab as Tab:'overview');
+export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null}) {
+  const tabs:Array<[Tab,string]>=learning?[...TABS,['learning','Обучение']]:TABS;
+  const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview');
   const [summary,setSummary]=useState<any>(null);
   const [birthday,setBirthday]=useState<any>(null);
   const [data,setData]=useState<any>(null);
@@ -125,7 +126,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   useEffect(()=>{setOffset(0)},[role,team,result,period,from,to]);
 
   useEffect(()=>{
-    if(tab==='overview'||tab==='awards'||tab==='history'||tab==='connections'||settings||(tab==='elo'&&isSelf)) return;
+    if(tab==='overview'||tab==='awards'||tab==='history'||tab==='connections'||tab==='learning'||settings||(tab==='elo'&&isSelf)) return;
     const generation=playerRequestGeneration.current;
     const controller=new AbortController();
     setData(null);
@@ -164,9 +165,9 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
 
   return <div ref={scrollRef} className="h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
-      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
+      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
     </header>
-    {!settings&&<nav data-profile-sticky-tabs className="profile-sticky-tabs sticky z-10 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#090a0d]/96 px-3 py-2" aria-label="Разделы профиля">{TABS.map(([k,l])=><button key={k} data-track={`profile-tab-${k}`} onClick={()=>switchTab(k)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${tab===k?'bg-white text-black':'bg-white/8 text-white/70'}`}>{l}</button>)}</nav>}
+    {!settings&&<nav data-profile-sticky-tabs className="profile-sticky-tabs sticky z-10 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#090a0d]/96 px-3 py-2" aria-label="Разделы профиля">{tabs.map(([k,l])=><button key={k} data-track={`profile-tab-${k}`} onClick={()=>switchTab(k)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${tab===k?'bg-white text-black':'bg-white/8 text-white/70'}`}>{l}</button>)}</nav>}
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)]">
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<>
@@ -197,6 +198,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {!settings&&tab==='roles'&&!error&&<section className="space-y-2">{(data?.roles||data?.items||[]).map((r:any)=><div key={r.role} className="rounded-2xl border border-white/10 p-4"><b>{r.label||r.role}</b><div className="text-xs text-white/55">{(r.games??r.total??0)>0?`${countGames(r.games??r.total)} · ${r.win_rate??0}% побед`:'Пока не играл на этой роли'}</div></div>)}</section>}
       {!settings&&tab==='elo'&&isSelf&&<PlayerEloJourney embedded/>}
       {!settings&&tab==='elo'&&!isSelf&&!error&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">История Elo</h2><div className="mt-3 space-y-2">{eloPoints.map((x:any,i:number)=><article key={x.id||i} className="rounded-xl bg-white/[.035] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{x.title||'Игра'}{x.game_number?` · #${x.game_number}`:''}</div><div className="mt-1 text-xs text-white/45">{fmt(x.date||x.played_at)}{roleLabel(x.role)?` · ${roleLabel(x.role)}`:''}{gameLinkProps(x.id)?<> · <a {...gameLinkProps(x.id)!} className="text-sky-200/70">игра ›</a></>:null}</div></div><div className="shrink-0 text-right"><div className="text-base font-semibold">{eloText(x.elo_after)}</div><div className={`text-xs ${Number(x.elo_delta)>0?'text-emerald-300':Number(x.elo_delta)<0?'text-red-300':'text-white/40'}`}>{deltaText(x.elo_delta)}</div></div></div></article>)}</div>{!loading&&eloPoints.length===0?<div className="mt-3 rounded-xl bg-white/[.035] p-5 text-center text-sm text-white/45">Истории Elo пока нет. Она появится после первых игр, которые идут в рейтинг.</div>:null}</section>}
+      {!settings&&tab==='learning'&&learning}
       {!settings&&tab==='awards'&&<><PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="awards"/>{isSelf?<PlayerAwardSuggestionAction/>:null}</>}
       {!settings&&tab==='history'&&<PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="history"/>}
       {!settings&&tab==='connections'&&<>{isSelf?<SmartFriendInviteSuggestions/>:null}{isSelf?<PlayerInsightsPanel/>:null}<PremiumProfileConnections playerId={playerId} selfPlayerId={selfPlayerId}/></>}

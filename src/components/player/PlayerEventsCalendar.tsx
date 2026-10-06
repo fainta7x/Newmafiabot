@@ -130,9 +130,12 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
 export default function PlayerEventsCalendar({
   initialEventId = null,
   onEventChange,
+  embedded = false,
 }: {
   initialEventId?: string | null;
   onEventChange?: (eventId: string | null) => void;
+  /** Inside «Вечера»: the section already has its title and tabs. */
+  embedded?: boolean;
 }) {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -317,9 +320,9 @@ export default function PlayerEventsCalendar({
   });
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+    <main className={`min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>
       <div className="mx-auto max-w-[430px]">
-        <header className="px-1 pb-3 pt-1">
+        <header className={embedded ? 'sr-only' : 'px-1 pb-3 pt-1'}>
           <h1 className="text-2xl font-semibold">События</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Ближайший вечер и запись — в первую очередь. Остальные события можно отфильтровать ниже.</p>
         </header>

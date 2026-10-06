@@ -80,13 +80,14 @@ Primary shell:
 
 Primary areas:
 
-- `PlayerHomeDashboard.tsx` — Home;
-- `PlayerEventsCalendar.tsx` — events/registration/game slots;
-- `PlayerGamesHub.tsx` + `PlayerHistoryStatsView.tsx` — games/history/stats;
-- `PlayerRatingHub.tsx` / `PlayerRatingTable.tsx` — rating;
-- `PlayerClubHub.tsx` — club/directory;
+Bottom menu of four (owner decision 2026-10-06): Главная · Вечера · Сообщество · Прогресс; the wallet and the settings are icons in the header.
+
+- `PlayerHomeDashboard.tsx` — «Главная»: next evening, debt for past evenings, club news, «Обучение» card;
+- `PlayerEveningsHub.tsx` — «Вечера»: «Скоро» (`PlayerEventsCalendar.tsx`), «Прошедшие» (`PlayerEveningSummaries.tsx`), «Мои игры» (`PlayerHistoryStatsView.tsx`);
+- `PlayerCommunityHub.tsx` — «Сообщество»: poker table, «Рейтинг» (`PlayerRatingHub.tsx`), «Игроки», «Связи», «Активность»;
+- `PlayerProfileHub.tsx` — «Прогресс»: own profile (`CanonicalPremiumPlayerProfile.tsx`) with the «Обучение» tab (`PlayerLearningBlock.tsx`);
+- `PlayerSettingsHub.tsx` — «Настройки» (gear): my details, notifications, privacy, music;
 - `PlayerWalletHub.tsx` — wallet/tokens/economy;
-- `PlayerProfileHub.tsx` — self identity/avatar/personal music slots;
 - `PlayerConductCenter.tsx` — judge/host workspace;
 - `JudgeMusicPlaylist.tsx` — staff/judge music playlist;
 - `PlayerLiveOnlyCenter.tsx` — live-only experience.

@@ -30,20 +30,23 @@ export default function PlayerRatingHub({
   section,
   onOpen,
   onOpenProfileElo,
+  embedded = false,
 }: {
   data: PlayerMeResponse;
   section: PlayerRatingSection;
   onOpen: (section: PlayerRatingSection) => void;
   /** The personal Elo history is a tab of the profile, not a second screen here. */
   onOpenProfileElo?: () => void;
+  /** Inside «Сообщество»: the section already has its title. */
+  embedded?: boolean;
 }) {
   const tab = tabFor(section);
 
   return (
     <div className="bg-[#090a0d] text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-2 px-3 pt-3">
-        <header className="px-1 pb-1 pt-1">
-          <h1 className="text-2xl font-semibold">Рейтинг</h1>
+      <div className={`mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
+        <header className={embedded ? 'px-1' : 'px-1 pb-1 pt-1'}>
+          <h1 className={embedded ? 'sr-only' : 'text-2xl font-semibold'}>Рейтинг</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · сезон с доп. баллами · турниры</p>
         </header>
         <SegmentedControl

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PLAYER_CABINET_NAV,
+  PLAYER_NAV_SECTION,
   isPlayerCabinetNavActive,
   isPlayerGameSection,
   isPlayerRatingSection,
@@ -31,39 +32,30 @@ describe('player cabinet navigation model', () => {
     }
   });
 
-  it('maps nested sections to the correct primary navigation item', () => {
-    expect(isPlayerCabinetNavActive('games', 'games')).toBe(true);
-    expect(isPlayerCabinetNavActive('games', 'recaps')).toBe(true);
-    expect(isPlayerCabinetNavActive('games', 'career')).toBe(false);
-    expect(isPlayerCabinetNavActive('rating', 'ratingperiods')).toBe(true);
-    expect(isPlayerCabinetNavActive('rating', 'clubworld')).toBe(false);
-    expect(isPlayerCabinetNavActive('club', 'clubworld')).toBe(true);
-    expect(isPlayerCabinetNavActive('rating', 'ratingtournaments')).toBe(true);
-    expect(isPlayerCabinetNavActive('club', 'more')).toBe(true);
-    expect(isPlayerCabinetNavActive('rating', 'games')).toBe(false);
-    expect(isPlayerCabinetNavActive('club', 'profile')).toBe(false);
+  it('maps every section to its place in the new four-item menu (owner, 2026-10-06)', () => {
+    for (const section of ['events', 'recaps', 'games'] as const) expect(isPlayerCabinetNavActive('evenings', section)).toBe(true);
+    for (const section of ['rating', 'ratingperiods', 'ratingtournaments', 'club', 'clubworld', 'more'] as const) {
+      expect(isPlayerCabinetNavActive('community', section)).toBe(true);
+    }
+    for (const section of ['profile', 'elo', 'stats', 'career'] as const) expect(isPlayerCabinetNavActive('progress', section)).toBe(true);
+    expect(isPlayerCabinetNavActive('evenings', 'rating')).toBe(false);
+    expect(isPlayerCabinetNavActive('community', 'games')).toBe(false);
+    expect(isPlayerCabinetNavActive('progress', 'club')).toBe(false);
   });
 
-  it('highlights exactly the open primary destination and none for wallet/profile', () => {
-    const primaryCases = [
-      ['home', 'home'],
-      ['events', 'events'],
-      ['games', 'games'],
-      ['rating', 'rating'],
-      ['club', 'club'],
-    ] as const;
-
-    for (const [section, expectedNav] of primaryCases) {
+  it('highlights exactly the open place and none for the wallet and the settings', () => {
+    const cases = [['home', 'home'], ['events', 'evenings'], ['games', 'evenings'], ['rating', 'community'], ['club', 'community'], ['profile', 'progress']] as const;
+    for (const [section, expectedNav] of cases) {
       const active = PLAYER_CABINET_NAV.filter((item) => isPlayerCabinetNavActive(item.id, section)).map((item) => item.id);
       expect(active).toEqual([expectedNav]);
     }
-
-    for (const section of ['wallet', 'profile'] as const) {
+    for (const section of ['wallet', 'settings', 'conduct'] as const) {
       expect(PLAYER_CABINET_NAV.some((item) => isPlayerCabinetNavActive(item.id, section))).toBe(false);
     }
   });
 
-  it('keeps the primary navigation order stable', () => {
-    expect(PLAYER_CABINET_NAV.map((item) => item.id)).toEqual(['home', 'events', 'games', 'rating', 'club']);
+  it('keeps the menu order and opens each place on its first screen', () => {
+    expect(PLAYER_CABINET_NAV.map((item) => item.label)).toEqual(['Главная', 'Вечера', 'Сообщество', 'Прогресс']);
+    expect(PLAYER_NAV_SECTION).toEqual({ home: 'home', evenings: 'events', community: 'rating', progress: 'profile' });
   });
 });

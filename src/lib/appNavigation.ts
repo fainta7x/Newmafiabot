@@ -11,6 +11,7 @@ export type PlayerRouteSection =
   | 'payments'
   | 'wallet'
   | 'profile'
+  | 'settings'
   | 'more'
   | 'elo'
   | 'recaps'
@@ -46,6 +47,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     payments: '/player/wallet',
     wallet: '/player/wallet',
     profile: target?.startsWith('tab:') ? `/player/profile/${encodeURIComponent(target.slice(4))}` : '/player/profile',
+    settings: '/player/settings',
     more: '/player/club',
     elo: '/player/profile/elo',
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
@@ -100,7 +102,7 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   if (parts[1] === 'payments') return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };
 
   const sectionBySegment: Record<string, PlayerRouteSection> = {
-    events: 'events', games: 'games', rating: 'rating', stats: 'profile', club: 'club', wallet: 'wallet', profile: 'profile', elo: 'elo', career: 'profile', seasons: 'clubworld', poker: 'poker',
+    events: 'events', games: 'games', rating: 'rating', stats: 'profile', club: 'club', wallet: 'wallet', profile: 'profile', progress: 'profile', settings: 'settings', elo: 'elo', career: 'profile', seasons: 'clubworld', poker: 'poker',
   };
   const section = sectionBySegment[parts[1] || ''] || 'home';
   return { section, target: null, replayGameKey: null, canonicalPath: playerPathForSection(section) };
@@ -110,7 +112,11 @@ export const appBackTarget = (pathname: string): string | null => {
   const parts = partsOf(pathname);
   if (!parts.length) return null;
   // The public rules page is opened from the player events tab; Telegram's Back returns there.
-  if (parts[0] === 'guide') return '/player/events';
+  // Opened from «Прогресс → Обучение» it carries ?from=progress (kept on every guide screen) and returns there.
+  if (parts[0] === 'guide') {
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    return new URLSearchParams(search).get('from') === 'progress' ? '/player/profile/learning' : '/player/events';
+  }
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;
     if (parts[1] === 'players' && parts[2]) {
@@ -124,7 +130,8 @@ export const appBackTarget = (pathname: string): string | null => {
       const state = typeof window !== 'undefined' ? window.history.state : null;
       return typeof state?.gameReturn === 'string' && state.gameReturn.startsWith('/player') ? state.gameReturn : '/player/games';
     }
-    if (parts[1] === 'recaps') return '/player/games';
+    // «Прошедшие» and «Мои игры» are tabs of «Вечера»: Back goes to its first tab «Скоро».
+    if (parts[1] === 'recaps' || parts[1] === 'games') return '/player/events';
     if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) ) return '/player/rating';
     if (parts[1] === 'seasons') return '/player/club';
     if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';

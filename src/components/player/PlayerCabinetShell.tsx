@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerBottomNavigation from './PlayerBottomNavigation.tsx';
-import PlayerClubHub from './PlayerClubHub.tsx';
+import PlayerCommunityHub, { type CommunitySection } from './PlayerCommunityHub.tsx';
 import PlayerConductCenter from './PlayerConductCenter.tsx';
-import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
-import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
+import PlayerEveningsHub, { type PlayerEveningsSection } from './PlayerEveningsHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerLiveOnlyCenter from './PlayerLiveOnlyCenter.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
 import CanonicalPremiumPlayerProfile from './CanonicalPremiumPlayerProfile.tsx';
 import { PlayerProfileReminder } from './PlayerProfileCompleteness.tsx';
 import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
-import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
+import PlayerSettingsHub from './PlayerSettingsHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
 import PlayerPoker from './PlayerPoker.tsx';
 import {
-  isPlayerGameSection,
-  isPlayerRatingSection,
+  PLAYER_NAV_SECTION,
+  isPlayerCommunitySection,
+  isPlayerEveningSection,
   normalizePlayerCabinetSection,
   type PlayerCabinetSection,
 } from './playerCabinetNavigation.ts';
@@ -74,39 +74,37 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'settings' ? 'settings' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenSettings={() => open('settings')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
-      {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}
+      {section !== 'settings' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('settings')} /> : null}
       <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}><PlayerLiveOnlyCenter compact={section !== 'home'} /></div>
 
       {section === 'home' ? (
-        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('profile', 'tab:games')} onOpenRating={() => open('rating')} />
-      ) : section === 'events' ? (
-        <PlayerEventsCalendar initialEventId={initialTarget} onEventChange={(eventId) => open('events', eventId)} />
-      ) : isPlayerGameSection(section) ? (
-        <PlayerGamesHub data={currentData} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} onOpenProfile={() => open('profile')} />
-      ) : isPlayerRatingSection(section) ? (
-        <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} onOpenProfileElo={() => open('profile', 'tab:elo')} />
-      ) : section === 'club' || section === 'clubworld' ? (
-        <PlayerClubHub data={currentData} initialView={section === 'clubworld' ? 'activity' : 'players'} onOpenPoker={() => open('poker')} />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
+      ) : isPlayerEveningSection(section) ? (
+        <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} />
+      ) : isPlayerCommunitySection(section) ? (
+        <PlayerCommunityHub data={currentData} section={section as CommunitySection} onOpen={(next) => open(next)} onOpenPoker={() => open('poker')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
-        <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} initialTab={profileTabFromTarget(initialTarget)} />
+        <PlayerProfileHub data={currentData} initialTab={profileTabFromTarget(initialTarget)} />
+      ) : section === 'settings' ? (
+        <PlayerSettingsHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
         <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
       ) : (
-        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('profile', 'tab:games')} onOpenRating={() => open('rating')} />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       )}
 
-      <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
+      <PlayerBottomNavigation section={section} onOpen={(next) => open(PLAYER_NAV_SECTION[next])} />
 
       {profilePlayerId ? (
         <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-hidden bg-[#090a0d]">
           <CanonicalPremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} selfPlayerId={player.id} onClose={() => window.history.back()} />
           {/* The overlay covers the cabinet, so it carries the same menu: a section opens and the profile closes (the target resets). */}
-          <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
+          <PlayerBottomNavigation section={section} onOpen={(next) => open(PLAYER_NAV_SECTION[next])} />
         </div>
       ) : null}
     </div>

@@ -54,6 +54,7 @@ Approved constraints:
 ### Nominations / disciplinary penalties
 
 - Disciplinary penalties do **not** affect nominations.
+- Tournament nominations (MVP, «Лучший мирный», «Лучший чёрный», «Лучший шериф», «Лучший дон»; owner rule 2026-10-06): nomination points = the judge's extra points + protocol points in the games of that role. Best move (ЛХ), disciplinary minuses (tech fouls, removals), ПУ and CI never count. Ties: role wins (Sheriff/Don only), then head-to-head, then no award. Past results are not recalculated by hand.
 
 ### Team victory
 

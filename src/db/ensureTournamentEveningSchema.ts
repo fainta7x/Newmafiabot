@@ -22,6 +22,8 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
   // are never roster-synchronized by the tournament-evening registration service.
   await ensureColumn(db, 'tournaments', 'tournament_evening_flow', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn(db, 'tournaments', 'tournament_evening_seating_prepared_at', 'TEXT');
+  // «Закрытие таблицы» (owner, 2026-10-06): while set, players do not see the table and nominations of this tournament.
+  await ensureColumn(db, 'tournaments', 'standings_hidden_at', 'TEXT');
 
   await db.run(`
     CREATE TABLE IF NOT EXISTS tournament_registrations (

@@ -42,6 +42,8 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 217, name: 'ensureCustomEventsSchema', kind: 'schema', idempotency: 'CREATE TABLE/INDEX IF NOT EXISTS' },
   { order: 218, name: 'ensureObsRemoteSchema', kind: 'schema', idempotency: 'CREATE TABLE IF NOT EXISTS + singleton row' },
   { order: 220, name: 'applyBogdanaFinalCorrection', kind: 'historical_correction', idempotency: 'migration_history durable completion marker + exact target lookup', notes: 'eligible for later removal after production marker verification' },
+  { order: 222, name: 'applyUnifiedTournamentFlowMigration', kind: 'data_migration', idempotency: 'migration_history marker tournament_unified_flow_v1; file snapshot first; revert function keeps old values', notes: 'old-format tournaments become tournament evenings; skipped for in-memory databases' },
+  { order: 224, name: 'applyBogdanaTournamentStaff', kind: 'historical_correction', idempotency: 'migration_history marker bogdana_tournament_staff_v1; exact nickname lookup, nothing changed when ambiguous', notes: 'judge Чагин, organizer Богданчик in tournaments of Bogdan; runs before token/achievement reconciliation' },
   { order: 230, name: 'startTelegramSyncOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 240, name: 'startWeeklyEveningAutomationWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 250, name: 'startTelegramMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },

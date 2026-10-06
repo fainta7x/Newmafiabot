@@ -33,11 +33,10 @@ describe('tournament step screen', () => {
     expect(screen.getByText('ИГРЫ:standings,nominations')).toBeTruthy();
   });
 
-  it('keeps the old screen for tournaments made the old way', async () => {
+  it('shows the same step screen for a tournament made the old way: one format for everybody (owner, 2026-10-06)', async () => {
     tournament.tournament_evening_flow = 0;
     render(<TournamentDetailView tournamentId="t1" onBack={() => undefined} />);
-    expect(await screen.findByText('ИГРЫ:all')).toBeTruthy();
-    expect(screen.queryByTestId('tournament-steps')).toBeNull();
+    expect(await screen.findByTestId('tournament-steps')).toBeTruthy();
     tournament.tournament_evening_flow = 1;
   });
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
+import { listPlayerTournaments, loadPlayerTournamentView } from '../services/playerTournamentViewService.ts';
 
 const router = Router();
 
@@ -33,6 +34,30 @@ router.get('/tournament-results', async (req, res) => {
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить турниры' });
+  }
+});
+
+/** Every tournament a player can open, played or not (owner, 2026-10-06). */
+router.get('/tournaments', async (req, res) => {
+  const viewerId = getPlayerSessionId(req);
+  if (!viewerId) return res.status(401).json({ error: 'Player authentication required.' });
+  try {
+    return res.json({ tournaments: await listPlayerTournaments(req.db, viewerId) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить турниры' });
+  }
+});
+
+/** Registration, roster, games with roles, and the live table and nominations unless the organizer closed them. */
+router.get('/tournaments/:id', async (req, res) => {
+  const viewerId = getPlayerSessionId(req);
+  if (!viewerId) return res.status(401).json({ error: 'Player authentication required.' });
+  try {
+    const view = await loadPlayerTournamentView(req.db, String(req.params.id), viewerId);
+    if (!view) return res.status(404).json({ error: 'Турнир не найден' });
+    return res.json(view);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить турнир' });
   }
 });
 

@@ -348,3 +348,9 @@ After registration/preparation, continue through the existing tournament seating
 4. Compare old PR/roadmap claims with current code before calling them unfinished.
 5. After edits: `npm run project:affected -- <files>`.
 6. Iterate with focused tests; before merge use the repository’s required CI gate.
+
+## Tournaments for players (owner, 2026-10-06)
+
+- Player screens: list `src/components/player/PlayerTournamentResults.tsx` (tab «Турниры» of the rating hub), one tournament `PlayerTournamentView.tsx` (registration, roster, games with roles, live table, nominations).
+- API: `GET /api/player/tournaments`, `GET /api/player/tournaments/:id` (`playerTournamentResultsRoutes.ts`, assembled by `src/server/services/playerTournamentViewService.ts`).
+- «Закрыть таблицу для игроков»: `tournaments.standings_hidden_at`, organizer button `TournamentTableVisibilityCard.tsx`, `POST /api/tournaments/:id/standings-hidden`.

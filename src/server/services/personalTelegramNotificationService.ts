@@ -30,8 +30,39 @@ const queueEveningNotifications = async (db: DatabaseWrapper) => (await isolated
 // A tournament Elo note is news only shortly after the game; older games never get one.
 const ELO_NOTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
+// The Elo timeline is a full replay of every club and tournament game (with tournament standings) and it runs
+// synchronously on the database: on 2026-10-06 it froze the server for 20-30 s every minute. Tournament notes are
+// only for games of the last week, so the minute scan replays nothing when there are none, and replays again
+// only when the inputs changed since the last scan.
+const lastEloScanFingerprint = new WeakMap<object, string>();
+
+async function eloInputsFingerprint(db: DatabaseWrapper, now: number): Promise<string | null> {
+  try {
+    const since = new Date(now - ELO_NOTE_MAX_AGE_MS).toISOString();
+    const recent = await db.get<{ count: number }>(`
+      SELECT COUNT(*) AS count
+        FROM tournament_games g JOIN tournaments t ON t.id = g.tournament_id
+       WHERE g.status = 'completed' AND COALESCE(g.completed_at, t.date, t.created_at) >= ?`, [since]);
+    if (!Number(recent?.count || 0)) return 'no-recent-tournament-games';
+    const parts = await Promise.all([
+      db.get("SELECT COUNT(*) AS c, MAX(rowid) AS r, MAX(completed_at) AS m FROM tournament_games WHERE status = 'completed'"),
+      db.get("SELECT COUNT(*) AS c, MAX(rowid) AS r FROM tournament_game_protocols WHERE status = 'completed'"),
+      db.get('SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(judge_bonus) + TOTAL(protocol_bonus) + TOTAL(penalty_points) + TOTAL(ci_points) AS s FROM tournament_game_player_results'),
+      db.get('SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s FROM games'),
+      db.get('SELECT COUNT(*) AS c, TOTAL(COALESCE(elo_seed, 0)) AS s FROM players'),
+    ]);
+    return JSON.stringify(parts);
+  } catch {
+    // An unexpected schema: replay as before rather than miss a note.
+    return null;
+  }
+}
+
 async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
   let queued = 0;
+  const fingerprint = await eloInputsFingerprint(db, now);
+  if (fingerprint === 'no-recent-tournament-games') return 0;
+  if (fingerprint && lastEloScanFingerprint.get(db as object) === fingerprint) return 0;
   // Club games: one personal message per evening after closing (clubResultPostService), not one per game.
   const eloTimeline = await loadPlayerEloHistory(db);
   for (const event of eloTimeline.slice(-100)) {
@@ -62,6 +93,7 @@ async function queueEloNotifications(db: DatabaseWrapper, now = Date.now()) {
       queued++;
     }
   }
+  if (fingerprint) lastEloScanFingerprint.set(db as object, fingerprint);
   return queued;
 }
 

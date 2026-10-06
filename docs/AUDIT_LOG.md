@@ -8,6 +8,13 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-06 · Production slowness: the app loads slowly, the monitor reports outages (owner report)
+
+Scope: production response times (read-only probes of `/api/health`, `/api/health/runtime`, `/__developer/status`), periodic workers, player polling.
+
+1. HIGH `fixed (this PR)` — the server froze for 18–34 s about once a minute (health answered in 0.5 s otherwise). `loadPlayerEloHistory` (`playerEloHistoryService.ts`) replays every club and tournament game, with full tournament standings, synchronously on the database; it ran every minute from the background notification scan (`personalTelegramNotificationService.ts`, `queueEloNotifications`) and twice per `GET /api/player/notifications`, which every open player app polls once a minute (`PlayerSmartNotifications.tsx`). PR #713 moved every tournament to the flexible format, which made the replay heavier. Fix: the timeline is kept per database and replayed only when its inputs change (row counts, protocol sizes, stored Elo); the minute scan does nothing without a tournament game finished in the last week.
+2. LOW `open` — the monitor's outage issue #715 opened at the deploy of PR #714 (the restart); it closes itself after recovery.
+
 ## 2026-10-04 · Tournament / live-game audit and bug hunts (owner request)
 
 Scope: tournament lifecycle, live game engine, protocol, registration/payments, Telegram/VK notifications, broadcast overlay, parity between game modes (tournament, club evening, novice, test sandbox).

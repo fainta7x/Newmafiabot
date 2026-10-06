@@ -270,7 +270,47 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
   return { playerIds: players.map((player) => String(player.id)), seedByPlayer, events };
 };
 
+/*
+ * The timeline replays every club and tournament game (with tournament standings) and runs synchronously on the
+ * database. On 2026-10-06 that froze the whole server for 20-30 s every minute: each open player app asks for its
+ * notifications once a minute (two replays per request) and the background notification scan replays it too.
+ * The result is kept per database and replayed only when its inputs change. The fingerprint counts the rows and
+ * the protocol sizes and includes the stored Elo, which every rated save rebuilds; when it cannot be read the
+ * timeline is replayed as before.
+ */
+const timelineCache = new WeakMap<object, { fingerprint: string; timeline: Promise<PlayerEloHistoryEvent[]> }>();
+
+async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null> {
+  try {
+    const parts = await Promise.all([
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w, COUNT(archived_at) AS a FROM games`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(format, ''))) AS f FROM game_evenings`),
+      db.get(`SELECT COUNT(*) AS c, TOTAL(COALESCE(elo_seed, 0)) AS seed, TOTAL(COALESCE(elo, 0)) AS elo, TOTAL(LENGTH(COALESCE(source, ''))) AS src FROM players`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r FROM tournaments`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(status, ''))) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w FROM tournament_games`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(status, ''))) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w FROM tournament_game_protocols`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(judge_bonus) + TOTAL(protocol_bonus) + TOTAL(penalty_points) + TOTAL(ci_points) AS s FROM tournament_game_player_results`),
+      db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(COALESCE(role, ''))) AS s FROM tournament_game_seats`),
+    ]);
+    return JSON.stringify(parts);
+  } catch {
+    return null;
+  }
+}
+
 export async function loadPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHistoryEvent[]> {
+  const fingerprint = await eloInputsFingerprint(db);
+  const cached = timelineCache.get(db as object);
+  if (fingerprint && cached && cached.fingerprint === fingerprint) return cached.timeline;
+  const timeline = replayPlayerEloHistory(db);
+  if (fingerprint) {
+    timelineCache.set(db as object, { fingerprint, timeline });
+    timeline.catch(() => { if (timelineCache.get(db as object)?.timeline === timeline) timelineCache.delete(db as object); });
+  }
+  return timeline;
+}
+
+async function replayPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHistoryEvent[]> {
   const prepared = await loadPreparedEvents(db);
   const ratings = new Map<string, number>(prepared.playerIds.map((playerId) => [
     playerId,

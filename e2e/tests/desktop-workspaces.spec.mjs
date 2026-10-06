@@ -17,6 +17,7 @@ for (const width of [390, 700, 1024, 1440]) {
     if (width >= 1024) {
       await page.getByRole('button', { name: 'Ещё', exact: true }).click();
       await expect(page.locator('.crm-more-menu')).toBeVisible();
+      await expect(page.locator('[data-crm-duplicate-primary-title]')).toBeHidden();
       await page.screenshot({ path: testInfo.outputPath(`crm-more-${width}.png`), fullPage: true });
       for (const [url, ready] of [['/e2e/crm-players.html', '[data-testid="crm-active-player-list"]'], ['/e2e/crm-evening-roster.html', '.crm-premium main'], ['/e2e/crm-analytics.html', '[data-testid="crm-analytics"]']]) {
         await page.goto(url);

@@ -313,7 +313,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl lg:max-w-6xl flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pb-8">
+      <main className="mx-auto w-full max-w-3xl lg:max-w-6xl flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 md:pb-8">
         {loading ? (
           <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-accent" />

@@ -188,9 +188,11 @@ Scope: `eveningRouteService.ts` (stages and steps of «Маршрут вечер
 ### Desktop CRM and player profile audit (2026-10-06)
 Scope: organizer work surfaces and canonical player profile; preserve phone layout and existing functions.
 1. FIXED — `OrganizerCRM.tsx`, `OrganizerCommandCenter.tsx`: nested 768 px caps leave desktop work screens unnecessarily narrow.
-2. FIXED — `telegram-viewport.css`: CRM bottom-navigation padding stops at 640 px although the navigation stays visible until 768 px, allowing covered actions on tablets.
+2. FIXED — `OrganizerCRM.tsx`, `telegram-viewport.css`: CRM bottom-navigation padding stops at 640 px although the navigation stays visible until 768 px, allowing covered actions on tablets.
 3. FIXED — `CanonicalPremiumPlayerProfile.tsx`: full-width identity/navigation and a narrow single-column games/roles body are disconnected on desktop.
 4. FIXED — `MoreCRM.tsx`: work and report groups remain one long narrow stack on desktop; the secondary title repeats the shell heading.
 5. KEEP — player-card histories, advanced filters, profile details and rare admin tools already use disclosure controls in current main; preserve these rather than duplicating them.
 6. FIXED — `PlayersActivityCRM.tsx`: empty-state instructions point to the removed «Игроки → Роли» route instead of the current player card.
 7. FIXED — `player-profile-harness.tsx`: the old preview completeness response has no canonical `completeness` object and only one game/role, so it cannot demonstrate a populated desktop layout.
+
+8. FIXED — organizer preview omitted the viewport stylesheet used by the application; import it so tablet navigation clearance and duplicate-heading checks exercise the real shell. Grid children reset both block margins to avoid inherited vertical-stack gaps.

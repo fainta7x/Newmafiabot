@@ -2,6 +2,7 @@ import ReactDOM from 'react-dom/client';
 import OrganizerCRM from '../src/components/OrganizerCRM.tsx';
 import '../src/index.css';
 import '../src/styles/design-system.css';
+import '../src/styles/telegram-viewport.css';
 import '../src/releasePolish.css';
 
 const future = new Date(Date.now() + 3 * 86400000).toISOString();

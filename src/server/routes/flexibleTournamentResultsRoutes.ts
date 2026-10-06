@@ -67,6 +67,16 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
   }
 });
 
+/** «Закрытие таблицы» (owner, 2026-10-06): hides the table and nominations from the players' view; the same call opens them again. */
+router.post('/:id/standings-hidden', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = req.db as DatabaseWrapper;
+  const hidden = req.body?.hidden === true;
+  const tournament = await db.get<any>('SELECT id FROM tournaments WHERE id = ?', [String(req.params.id)]);
+  if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+  await db.run('UPDATE tournaments SET standings_hidden_at = ? WHERE id = ?', [hidden ? new Date().toISOString() : null, String(req.params.id)]);
+  return res.json({ hidden });
+});
+
 router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {

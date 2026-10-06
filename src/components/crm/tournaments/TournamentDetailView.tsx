@@ -6,6 +6,7 @@ import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDe
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
 import { TournamentSeatMessagesCard } from './TournamentSeatMessagesCard.tsx';
+import { TournamentTableVisibilityCard } from './TournamentTableVisibilityCard.tsx';
 
 type TournamentStep = 'setup' | 'players' | 'games' | 'results';
 const TOURNAMENT_STEPS: Array<{ id: TournamentStep; label: string }> = [
@@ -259,6 +260,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         ) : null}
         {currentStep === 'games' ? (
           <>
+            <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
             <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} />
             <TournamentDetailViewBase key={`games-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['organization', 'games']} />
             {telegramSection}
@@ -267,6 +269,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
         ) : null}
         {currentStep === 'results' ? (
           <>
+            <TournamentTableVisibilityCard tournamentId={tournamentId} hidden={Boolean(tournament.standings_hidden_at)} onChanged={() => setRevision((value) => value + 1)} />
             <TournamentDetailViewBase key={`results-${revision}`} tournamentId={tournamentId} onBack={onBack} hideHeader tabs={['standings', 'nominations']} />
             {telegramSection}
           </>

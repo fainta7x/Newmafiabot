@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../server/auth.ts', () => ({ getPlayerSessionId: (req: any) => req.headers['x-player'] || null }));
+vi.mock('../server/auth.ts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../server/auth.ts')>()), getPlayerSessionId: (req: any) => req.headers['x-player'] || null }));
 
 const { default: routes } = await import('../server/routes/playerTournamentResultsRoutes.ts');
 

@@ -10,7 +10,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Unified Player/Organizer mode switch: `src/components/ProductModeSwitch.tsx`; route-level wiring: `src/App.tsx` and `src/components/OrganizerCRM.tsx`.
 - Shared fixed chrome: `src/components/player/PlayerQuickAccessBar.tsx` and `src/components/player/PlayerBottomNavigation.tsx`.
 - Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
-- Primary hubs: `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
+- Primary hubs (menu of four): `PlayerHomeDashboard.tsx`, `PlayerEveningsHub.tsx`, `PlayerCommunityHub.tsx` (with `PlayerRatingHub.tsx`), `PlayerProfileHub.tsx` («Прогресс»); `PlayerSettingsHub.tsx` and `PlayerWalletHub.tsx` from the header. Club news for players: `GET /api/player/news` (`loadClubNews` in `clubDigestService.ts`).
 - History/stats content: `src/components/player/PlayerHistoryStatsView.tsx`.
 - API family: `/api/player/*` mounts in `src/app.ts`, especially `src/server/routes/playerSelfRoutes.ts` and related player route modules.
 
@@ -35,7 +35,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 
 ## Games / replay (the player's statistics live in the one profile)
 
-- Player UI: `PlayerGamesHub.tsx` (История, Итоги вечеров), `PlayerHistoryStatsView.tsx` (the club archive and the page of one game, address `/player/games/:key`), `PlayerReplayScreen.tsx`. A player's own games: «Профиль → Игры» in `CanonicalPremiumPlayerProfile.tsx`; his Elo history: its «Elo» tab (`PlayerEloJourney.tsx` for himself). Statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» are in the one profile: `CanonicalPremiumPlayerProfile.tsx` + `PlayerProfileCareerSections.tsx`, all numbers from `premiumPlayerProfileService.ts` (`/api/player/profiles/:id/summary`). The old «Карьера»/«Статистика» screens and `/api/player/career/:id` are gone; `/player/career` and `/player/stats` open the profile.
+- Player UI: `PlayerEveningsHub.tsx` («Прошедшие», «Мои игры»), `PlayerHistoryStatsView.tsx` (the club archive and the page of one game, address `/player/games/:key`), `PlayerReplayScreen.tsx`. A player's own games: «Профиль → Игры» in `CanonicalPremiumPlayerProfile.tsx`; his Elo history: its «Elo» tab (`PlayerEloJourney.tsx` for himself). Statistics, roles, Elo, awards, streaks, season and «Игра в цифрах» are in the one profile: `CanonicalPremiumPlayerProfile.tsx` + `PlayerProfileCareerSections.tsx`, all numbers from `premiumPlayerProfileService.ts` (`/api/player/profiles/:id/summary`). The old «Карьера»/«Статистика» screens and `/api/player/career/:id` are gone; `/player/career` and `/player/stats` open the profile.
 - Organizer evening games: `src/components/crm/EveningGamesView.tsx`, `EveningGameProtocolModal.tsx`, `EveningLiveGameModal.tsx`.
 - API: `gamesRoutes.ts`, `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 

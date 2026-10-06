@@ -14,22 +14,39 @@ export type PlayerCabinetSection =
   | 'wallet'
   | 'payments'
   | 'profile'
+  | 'settings'
   | 'conduct'
   | 'more'
   | 'poker';
 
-export type PlayerCabinetNavId = 'home' | 'events' | 'games' | 'rating' | 'club';
+/*
+ * The bottom menu (owner decision 2026-10-06): four places.
+ * «Вечера» — upcoming evenings, past evenings and my games; «Сообщество» — rating, players, connections,
+ * activity and the poker table; «Прогресс» — my own profile: statistics, awards, Elo path, «Обучение».
+ * The wallet and the settings are icons in the header. Old addresses keep working: the sections stay,
+ * only their grouping changed.
+ */
+export type PlayerCabinetNavId = 'home' | 'evenings' | 'community' | 'progress';
 
 export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: string }> = [
   { id: 'home', label: 'Главная' },
-  { id: 'events', label: 'События' },
-  { id: 'games', label: 'Игры' },
-  { id: 'rating', label: 'Рейтинг' },
-  { id: 'club', label: 'Клуб' },
+  { id: 'evenings', label: 'Вечера' },
+  { id: 'community', label: 'Сообщество' },
+  { id: 'progress', label: 'Прогресс' },
 ];
 
+/** The section a bottom-menu button opens. */
+export const PLAYER_NAV_SECTION: Record<PlayerCabinetNavId, PlayerCabinetSection> = {
+  home: 'home',
+  evenings: 'events',
+  community: 'rating',
+  progress: 'profile',
+};
+
+const EVENING_SECTIONS = new Set<PlayerCabinetSection>(['events', 'recaps', 'games']);
 const GAME_SECTIONS = new Set<PlayerCabinetSection>(['games', 'recaps']);
 const RATING_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'ratingperiods', 'ratingtournaments']);
+const COMMUNITY_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'ratingperiods', 'ratingtournaments', 'club', 'clubworld']);
 
 export const normalizePlayerCabinetSection = (section: PlayerCabinetSection): PlayerCabinetSection => {
   if (section === 'more') return 'club';
@@ -39,18 +56,21 @@ export const normalizePlayerCabinetSection = (section: PlayerCabinetSection): Pl
   return section;
 };
 
+export const isPlayerEveningSection = (section: PlayerCabinetSection): boolean => EVENING_SECTIONS.has(section);
+
 export const isPlayerGameSection = (section: PlayerCabinetSection): boolean => GAME_SECTIONS.has(section);
 
 export const isPlayerRatingSection = (section: PlayerCabinetSection): boolean => RATING_SECTIONS.has(section);
+
+export const isPlayerCommunitySection = (section: PlayerCabinetSection): boolean => COMMUNITY_SECTIONS.has(section);
 
 export const isPlayerCabinetNavActive = (
   navId: PlayerCabinetNavId,
   section: PlayerCabinetSection,
 ): boolean => {
   const normalized = normalizePlayerCabinetSection(section);
-  if (navId === 'games') return isPlayerGameSection(normalized);
-  if (navId === 'rating') return isPlayerRatingSection(normalized);
-  // Calendar seasons are club statistics, not a rating (see PlayerClubHub).
-  if (navId === 'club') return normalized === 'club' || normalized === 'clubworld';
+  if (navId === 'evenings') return isPlayerEveningSection(normalized);
+  if (navId === 'community') return isPlayerCommunitySection(normalized);
+  if (navId === 'progress') return normalized === 'profile';
   return normalized === navId;
 };

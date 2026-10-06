@@ -1,24 +1,8 @@
-import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import CanonicalPremiumPlayerProfile from './CanonicalPremiumPlayerProfile.tsx';
-import PlayerMusicSlots from './PlayerMusicSlots.tsx';
-import PlayerNotificationSettings from './PlayerNotificationSettings.tsx';
-import PlayerProfilePrivacySettings from './PlayerProfilePrivacySettings.tsx';
-import PlayerProfileSettings from './PlayerProfileSettings.tsx';
+import PlayerLearningBlock from './PlayerLearningBlock.tsx';
 
-export default function PlayerProfileHub({ data, onPlayerChange, initialTab }: { data: PlayerMeResponse; onPlayerChange?: (player: PlayerMeResponse['player']) => void; /** A tab of the profile named by the address (`/player/profile/elo`). */ initialTab?: string | null }) {
-  const [player, setPlayer] = useState(data.player);
-  const updatePlayer = (next: PlayerMeResponse['player']) => { setPlayer(next); onPlayerChange?.(next); };
-
-  const ownerSettings = <div className="space-y-4">
-    <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
-    <PlayerNotificationSettings nickname={player.nickname} />
-    <PlayerProfilePrivacySettings />
-    <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
-      <summary className="cursor-pointer font-semibold">Моя музыка для вечера</summary>
-      <div className="mt-4"><PlayerMusicSlots /></div>
-    </details>
-  </div>;
-
-  return <CanonicalPremiumPlayerProfile playerId={player.id} mode="self" selfPlayerId={player.id} ownerSettings={ownerSettings} initialTab={initialTab} />;
+/** «Прогресс»: my own profile — statistics, roles, Elo path, awards, club history and «Обучение». */
+export default function PlayerProfileHub({ data, initialTab }: { data: PlayerMeResponse; /** A tab of the profile named by the address (`/player/profile/<tab>`). */ initialTab?: string | null }) {
+  return <CanonicalPremiumPlayerProfile playerId={data.player.id} mode="self" selfPlayerId={data.player.id} learning={<PlayerLearningBlock />} initialTab={initialTab} />;
 }

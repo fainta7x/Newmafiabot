@@ -119,7 +119,8 @@ describe('VK-ACCESS-002 operational contracts', () => {
   });
 
   it('exposes VK linking only through owner settings', () => {
-    const hub = read('src/components/player/PlayerProfileHub.tsx');
+    // Settings moved from the profile to the gear in the header (owner, 2026-10-06).
+    const hub = read('src/components/player/PlayerSettingsHub.tsx');
     const settings = read('src/components/player/PlayerNotificationSettings.tsx');
     const canonicalProfile = read('src/components/player/CanonicalPremiumPlayerProfile.tsx');
     expect(hub).toContain('<PlayerNotificationSettings nickname={player.nickname} />');

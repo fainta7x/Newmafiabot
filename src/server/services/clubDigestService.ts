@@ -105,3 +105,20 @@ export async function loadClubDigestState(db: DatabaseWrapper) {
     max_length: DIGEST_MAX_LENGTH,
   };
 }
+
+/**
+ * «Новости клуба» on the player's «Главная» (owner decision 2026-10-06): the digests the owner actually published,
+ * newest first, each text once even when it went to several chats. Plain text, `**bold**` markers removed.
+ */
+export async function loadClubNews(db: DatabaseWrapper, limit = 3) {
+  await ensureClubDigestSchema(db);
+  const rows = await db.all<{ text: string; published_at: string }>(`
+    SELECT text, MAX(created_at) AS published_at
+      FROM club_digest_posts
+     WHERE status = 'sent'
+     GROUP BY text_hash
+     ORDER BY published_at DESC
+     LIMIT ?
+  `, [Math.max(1, Math.min(10, Math.trunc(limit) || 3))]);
+  return rows.map((row) => ({ text: String(row.text).replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, '$1'), published_at: String(row.published_at) }));
+}

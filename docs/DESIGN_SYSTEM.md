@@ -9,7 +9,7 @@ The established Player Cabinet is the visual source of truth for the entire prod
 Primary references:
 
 - `src/components/player/PlayerHomeDashboard.tsx` — card/material hierarchy and semantic accents;
-- `src/components/player/PlayerGamesHub.tsx` — tabs/segmented controls/page hierarchy;
+- `src/components/player/PlayerEveningsHub.tsx` — tabs/segmented controls/page hierarchy;
 - current `PlayerCabinetShell` chrome/navigation geometry;
 - approved Telegram WebApp screenshots of Home/Games and current Playwright mobile evidence.
 

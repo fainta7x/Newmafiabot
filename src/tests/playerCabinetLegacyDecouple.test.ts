@@ -13,8 +13,8 @@ describe('player cabinet legacy decoupling', () => {
     expect(shell).toContain('canOpenAdmin={canOpenAdmin}');
   });
 
-  it('keeps the games hub independent from PlayerCabinetShellLegacy', () => {
-    const games = read('src/components/player/PlayerGamesHub.tsx');
+  it('keeps the evenings hub (my games) independent from PlayerCabinetShellLegacy', () => {
+    const games = read('src/components/player/PlayerEveningsHub.tsx');
     expect(games).not.toContain('PlayerCabinetShellLegacy');
     expect(games).toContain("import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx'");
     expect(games).toContain('initialGameKey={target}');

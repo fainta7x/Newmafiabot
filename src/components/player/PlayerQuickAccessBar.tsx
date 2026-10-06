@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import ProductModeSwitch from '../ProductModeSwitch.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
@@ -9,15 +10,16 @@ export default function PlayerQuickAccessBar({
   canOpenAdmin = false,
   onOpenAdmin,
   onOpenWallet,
-  onOpenProfile,
+  onOpenSettings,
 }: {
   player: PlayerMeResponse['player'];
   tokenBalance: number;
-  active: 'wallet' | 'profile' | null;
+  active: 'wallet' | 'settings' | null;
   canOpenAdmin?: boolean;
   onOpenAdmin?: () => void;
   onOpenWallet: () => void;
-  onOpenProfile: () => void;
+  /** The gear: my details, notifications, privacy, music (owner decision 2026-10-06). */
+  onOpenSettings: () => void;
 }) {
   return (
     <header
@@ -53,26 +55,19 @@ export default function PlayerQuickAccessBar({
           </button>
 
           <button
-            data-testid="player-quick-profile"
+            data-testid="player-quick-settings"
             type="button"
-            onClick={onOpenProfile}
-            aria-label={`Открыть профиль ${player.nickname}`}
-            title="Профиль"
-            aria-pressed={active === 'profile'}
-            className={`ds-focus-ring inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border pl-1.5 pr-3 transition ${
-              active === 'profile'
-                ? 'border-white/30 bg-white/[0.12] ring-1 ring-white/20'
-                : 'border-white/10 bg-white/[0.045]'
+            onClick={onOpenSettings}
+            aria-label="Настройки"
+            title="Настройки"
+            aria-pressed={active === 'settings'}
+            className={`ds-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition ${
+              active === 'settings'
+                ? 'border-white/30 bg-white/[0.12] ring-1 ring-white/20 text-white'
+                : 'border-white/10 bg-white/[0.045] text-white/72'
             }`}
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/[0.06]">
-              {player.avatar_url ? (
-                <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-sm font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</span>
-              )}
-            </span>
-            <span className="text-[12px] font-semibold text-white/80" aria-hidden="true">Профиль</span>
+            <Settings className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>

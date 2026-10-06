@@ -1,4 +1,4 @@
-import { CalendarDays, Gamepad2, House, Trophy, UsersRound, type LucideIcon } from 'lucide-react';
+import { CalendarDays, House, TrendingUp, UsersRound, type LucideIcon } from 'lucide-react';
 import {
   PLAYER_CABINET_NAV,
   isPlayerCabinetNavActive,
@@ -8,10 +8,9 @@ import {
 
 const NAV_ICONS: Record<PlayerCabinetNavId, LucideIcon> = {
   home: House,
-  events: CalendarDays,
-  games: Gamepad2,
-  rating: Trophy,
-  club: UsersRound,
+  evenings: CalendarDays,
+  community: UsersRound,
+  progress: TrendingUp,
 };
 
 export default function PlayerBottomNavigation({
@@ -27,7 +26,7 @@ export default function PlayerBottomNavigation({
       aria-label="Основная навигация"
       className="ds-chrome-bottom fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),8px)]"
     >
-      <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
+      <div className="mx-auto grid w-full max-w-[430px] grid-cols-4 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {
           const active = isPlayerCabinetNavActive(item.id, section);
           const Icon = NAV_ICONS[item.id];
@@ -40,7 +39,7 @@ export default function PlayerBottomNavigation({
               onClick={() => onOpen(item.id)}
               aria-current={active ? 'page' : undefined}
               aria-label={item.label}
-              className={`ds-focus-ring flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[12px] font-semibold leading-none ${
+              className={`ds-focus-ring flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[11.5px] font-semibold leading-none tracking-tight ${
                 active ? 'ds-nav-active text-white' : 'text-white/55 hover:text-white/75'
               }`}
             >

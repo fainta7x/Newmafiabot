@@ -1123,20 +1123,23 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
           judge_bonus: judge,
           protocol_bonus: protocol,
           best_move_points: bestMove,
-          nomination_points: roundToTwo(judge + protocol + bestMove),
+          // Owner rule 2026-10-06: a nomination counts the judge's extra points and the protocol points only.
+          nomination_points: roundToTwo(judge + protocol),
         });
       }
 
       if (gamesInRole >= 1) {
-        const additionalPoints = roundToTwo(sumProtocol + sumBestMove);
+        // Owner rule 2026-10-06: nomination points = the judge's extra points + protocol points. Best move (ЛХ),
+        // disciplinary minuses, ПУ and CI never count. Ties: role wins (Sheriff/Don), then head-to-head.
+        const nominationPoints = roundToTwo(sumJudge + sumProtocol);
         candidateList.push({
           participant_id: participant.participant_id,
           participant_number: participant.participant_number,
           display_name: participant.display_name,
-          points: sumJudge,
-          additional_points: additionalPoints,
+          points: nominationPoints,
+          additional_points: sumProtocol,
           role_wins: roleWins,
-          nomination_points: roundToTwo(sumJudge + additionalPoints),
+          nomination_points: nominationPoints,
           games_in_role: gamesInRole,
           judge_bonus: sumJudge,
           protocol_bonus: sumProtocol,
@@ -1152,7 +1155,8 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
         participant_id: candidate.participant_id,
         display_name: candidate.display_name,
         points: candidate.points,
-        additional_points: candidate.additional_points,
+        // Protocol points are already inside the nomination points: no second numeric tie-break.
+        additional_points: 0,
         role_wins: candidate.role_wins,
       })),
       headToHeadGames,
@@ -1161,8 +1165,6 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
     candidateList.sort((a, b) => {
       const byPoints = b.points - a.points;
       if (Math.abs(byPoints) > 0.0001) return byPoints;
-      const byAdditional = b.additional_points - a.additional_points;
-      if (Math.abs(byAdditional) > 0.0001) return byAdditional;
       if (cat.category === 'best_sheriff' || cat.category === 'best_don') {
         const byRoleWins = b.role_wins - a.role_wins;
         if (byRoleWins) return byRoleWins;

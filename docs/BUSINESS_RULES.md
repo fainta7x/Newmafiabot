@@ -567,7 +567,7 @@ Target design; `docs/PROJECT_STATE.md` tracks what is built.
   5. A player called in after that pays on site before the first game (prepayment at the table).
 
   The organizer can always mark a payment or move a player by hand.
-- **Does the evening's organizer pay? (user-approved 2026-09-24)** On club (CASUAL) and novice evenings the organizer never pays. On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
+- **Does the evening's organizer pay? (user-approved 2026-09-24)** On novice evenings the organizer never pays. On club (CASUAL) evenings **only the club owner** is free (owner decision 2026-10-06; before that date the assigned organizer of the evening was free too, and evenings that started earlier keep that, see «Evening payment reminders and gifts»). On rating evenings and tournaments the entry fee is paid only by those who sit at a table as players: an organizer or judge who plays pays like everyone else (so the prize and fund shares stay whole), while organizing or judging alone is never charged.
 - **Table size (user-approved 2026-09-24).** An evening and each game take place only with 10 players and a judge (11 people). Exception: novice evenings and games may run from 8 players and a judge.
 
   Roles by table size:

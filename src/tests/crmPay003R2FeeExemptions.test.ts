@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index';
-import { reconcileRegularEveningPayments } from '../server/services/eveningPaymentPricingService';
+import { isRegularFeeFreeByStaffRule, reconcileRegularEveningPayments } from '../server/services/eveningPaymentPricingService';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema';
 
 describe('CRM-PAY-003-R2 evening-specific fee exemptions', () => {
@@ -157,6 +157,14 @@ describe('CRM-PAY-003-R2 evening-specific fee exemptions', () => {
       await assign(ids);
       await reconcileRegularEveningPayments(db, ids.eveningId);
       expect(await dueOf(ids.participantId)).toBe(0);
+    });
+
+    it('labels exemptions by the same rule: owner always, the assigned organizer only on older evenings', () => {
+      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', 'org', 'org')).toBe(false);
+      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', PRIMARY_ORGANIZER_PLAYER_ID, 'org')).toBe(true);
+      expect(isRegularFeeFreeByStaffRule('2026-10-02T21:00:00+03:00', 'org', 'org')).toBe(true);
+      expect(isRegularFeeFreeByStaffRule('2026-10-02T21:00:00+03:00', 'other', 'org')).toBe(false);
+      expect(isRegularFeeFreeByStaffRule('not a date', 'org', 'org')).toBe(false);
     });
 
     it('never charges the club owner', async () => {

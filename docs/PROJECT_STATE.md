@@ -650,7 +650,7 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - Notifications: reminders at registration, cancellations as a new post instead of rewriting the old one, retries up to two hours.
 - New menu in the app: «Главная · Вечера · Сообщество · Прогресс». «Вечера» has «Скоро», «Прошедшие» and «Мои игры»; «Сообщество» has the rating, players, connections, activity and the poker table; «Прогресс» is your profile with a new «Обучение» tab. Settings moved to the gear at the top. «Главная» shows a debt for past evenings, club news and where to start learning.
 - Tournament nominations (MVP and the best by role) now count the judge's extra points plus protocol points; best move, penalties, ПУ and CI do not count.
-- Shorter player cabinet pages: the «Заполни профиль» reminder is only on «Главная»; «Прогресс» opens with four key numbers (games, win %, Elo, season place) and the rest under «Подробная статистика»; «Сообщество» has a one-line poker row and a compact «твоё место»; «Активность» shows the top 5 with «Показать всех» and a folded season archive.
+- Shorter player cabinet pages: the «Заполни профиль» reminder is only on «Главная»; «Прогресс» opens with four key numbers (games, win %, Elo, season place) and the rest under «Подробная статистика»; «Сообщество» has a compact «твоё место» and tighter rating rows; «Активность» is split into «Форма · Матчи · Сезон · Архив» instead of one long feed; in «Вечера» the list/calendar switch and the format filter share one row.
 
 ### Analytics redesign — merged in PR #708 (2026-10-06)
 

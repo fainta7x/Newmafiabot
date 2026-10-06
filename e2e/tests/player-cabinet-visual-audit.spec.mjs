@@ -73,11 +73,20 @@ for (const width of [360, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('community.png'), fullPage: true });
 
-    // «Активность» stays short: top 5 of the club form and of the season, the archive folded.
+    // «Активность» shows one part at a time: Форма · Матчи · Сезон · Архив.
     await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность' }).click();
-    await expect(page.getByRole('button', { name: /Архив сезонов/ })).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('button', { name: 'Показать всех · 10' })).toBeVisible();
+    const activityNav = page.getByLabel('Разделы активности');
+    await expect(activityNav.getByRole('button')).toHaveCount(4);
+    await expect(page.getByText('Форма игроков')).toBeVisible();
+    await expect(page.getByText('Итоги сезона')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
+    await activityNav.getByRole('button', { name: 'Сезон' }).click();
+    await expect(page.getByRole('button', { name: 'Показать всех · 10' })).toBeVisible();
+    await expect(page.getByText('Форма игроков')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath('community-season.png'), fullPage: true });
+    await activityNav.getByRole('button', { name: 'Архив' }).click();
+    await expect(page.getByText('Прошлые сезоны')).toBeVisible();
     await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
   });
 }

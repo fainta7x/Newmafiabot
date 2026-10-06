@@ -25,6 +25,13 @@ for (const width of [390, 700, 1024, 1440]) {
         await page.screenshot({ path: testInfo.outputPath(`${url.split('/').pop().replace('.html', '')}-${width}.png`), fullPage: true });
       }
     }
+    if (width >= 1024) {
+      await page.goto('/e2e/player-cabinet.html');
+      await page.getByTestId('player-nav-progress').click();
+      await expect(page.getByTestId('profile-key-stats')).toBeVisible();
+      expect((await page.locator('.profile-content').boundingBox()).width).toBeGreaterThan(900);
+      await page.screenshot({ path: testInfo.outputPath(`profile-in-cabinet-${width}.png`), fullPage: true });
+    }
     await page.goto('/e2e/player-profile.html');
     const profile = page.getByTestId('canonical-premium-profile');
     await expect(profile.getByTestId('profile-key-stats')).toBeVisible();

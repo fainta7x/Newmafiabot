@@ -193,3 +193,4 @@ Scope: organizer work surfaces and canonical player profile; preserve phone layo
 4. FIXED — `MoreCRM.tsx`: work and report groups remain one long narrow stack on desktop; the secondary title repeats the shell heading.
 5. KEEP — player-card histories, advanced filters, profile details and rare admin tools already use disclosure controls in current main; preserve these rather than duplicating them.
 6. FIXED — `PlayersActivityCRM.tsx`: empty-state instructions point to the removed «Игроки → Роли» route instead of the current player card.
+7. FIXED — `player-profile-harness.tsx`: the old preview completeness response has no canonical `completeness` object and only one game/role, so it cannot demonstrate a populated desktop layout.

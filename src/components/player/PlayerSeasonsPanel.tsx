@@ -80,6 +80,9 @@ export default function PlayerSeasonsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSeasonKey, setSelectedSeasonKey] = useState<string | null>(null);
   const [hallOpen, setHallOpen] = useState(false);
+  // Short by default (owner, 2026-10-06: too much scrolling): top 5, the archive folded.
+  const [topOpen, setTopOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +128,8 @@ export default function PlayerSeasonsPanel() {
             <div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.season.viewer.win_rate}%</div><div className="text-[11px] text-white/25">винрейт</div></div>
           </div>
         )}
-        <div className="mt-4"><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Топ сезона</div><RankingRows rows={data.season.ranking} viewerId={data.viewer_id} /></div>
+        <div className="mt-4"><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Топ сезона</div><RankingRows rows={data.season.ranking} viewerId={data.viewer_id} limit={topOpen ? data.season.ranking.length : 5} />
+          {!topOpen && data.season.ranking.length > 5 ? <button type="button" onClick={() => setTopOpen(true)} className="mt-1 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех · {data.season.ranking.length}</button> : null}</div>
       </section>
 
       {data.season_records?.length > 0 && (
@@ -137,7 +141,10 @@ export default function PlayerSeasonsPanel() {
 
       {data.season_history?.length > 0 && (
         <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Архив сезонов</div>
+          <button type="button" onClick={() => setArchiveOpen((value) => !value)} aria-expanded={archiveOpen} className="flex min-h-8 w-full items-center justify-between text-left">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Архив сезонов · {data.season_history.length}</span><span className="text-white/25">{archiveOpen ? '⌃' : '⌄'}</span>
+          </button>
+          {archiveOpen ? <>
           <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
             {data.season_history.map((season) => (
               <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
@@ -151,6 +158,7 @@ export default function PlayerSeasonsPanel() {
               <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
             </div>
           )}
+          </> : null}
         </section>
       )}
 

@@ -47,7 +47,7 @@ export default function PlayerRatingHub({
       <div className={`mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
         <header className={embedded ? 'px-1' : 'px-1 pb-1 pt-1'}>
           <h1 className={embedded ? 'sr-only' : 'text-2xl font-semibold'}>Рейтинг</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · сезон с доп. баллами · турниры</p>
+          {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · сезон с доп. баллами · турниры</p>}
         </header>
         <SegmentedControl
           ariaLabel="Разделы рейтинга"
@@ -56,7 +56,8 @@ export default function PlayerRatingHub({
           onValueChange={(next) => onOpen(sectionFor(next))}
           itemClassName="px-1 text-[12px]"
         />
-        {tab === 'elo' && onOpenProfileElo ? (
+        {/* Inside «Сообщество» the list comes first; the own Elo path lives in «Прогресс». */}
+        {tab === 'elo' && onOpenProfileElo && !embedded ? (
           <button type="button" onClick={onOpenProfileElo} data-testid="rating-open-profile-elo" className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-left text-[13px] text-white/60">Моя динамика Elo, график и «что если» — в профиле ›</button>
         ) : null}
       </div>

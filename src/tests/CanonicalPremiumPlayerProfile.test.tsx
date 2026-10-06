@@ -160,7 +160,10 @@ describe('CanonicalPremiumPlayerProfile', () => {
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
     await screen.findByText('Игрок');
     expect(await screen.findByText('Осень 2026')).toBeDefined();
-    expect(screen.getByText('#2')).toBeDefined();
+    // The season place is one of the four key numbers and repeats inside «Подробная статистика».
+    expect(screen.getByTestId('profile-key-stats').textContent).toContain('#2');
+    expect(screen.getByTestId('profile-key-stats').textContent).toContain('57%');
+    expect(screen.getAllByText('#2')).toHaveLength(2);
     expect(screen.getByText('рекорд серии')).toBeDefined();
     expect(screen.getByText('За красных')).toBeDefined();
     expect(screen.getByText(/По 21 игре с журналом ходов/)).toBeDefined();

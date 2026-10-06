@@ -33,7 +33,6 @@ export default function PlayerEveningsHub({
       <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
         <header className="px-1 pb-3 pt-1">
           <h1 className="text-2xl font-semibold">Вечера</h1>
-          <p className="mt-1 text-sm leading-5 text-white/50">Запись на ближайшие вечера, итоги прошедших и мои игры</p>
         </header>
         <SegmentedControl ariaLabel="Разделы вечеров" value={section} items={TABS} onValueChange={(next) => onOpen(next)} itemClassName="!px-1 text-[13px]" />
       </div>

@@ -6,6 +6,7 @@ import PlayerClubConnections from './PlayerClubConnections.tsx';
 import PlayerClubDirectory from './PlayerClubDirectory.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSeasonsPanel from './PlayerSeasonsPanel.tsx';
+import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
 
 /**
  * «Сообщество» (owner decision 2026-10-06): rating, players, connections and activity in one place,
@@ -14,6 +15,15 @@ import PlayerSeasonsPanel from './PlayerSeasonsPanel.tsx';
  */
 export type CommunitySection = PlayerRatingSection | 'club' | 'clubworld';
 type CommunityView = 'rating' | 'players' | 'connections' | 'activity';
+type ActivityView = 'form' | 'matches' | 'season' | 'history';
+
+// «Активность» used to be one long feed; now one part at a time (owner, 2026-10-06).
+const ACTIVITY_NAV: Array<{ value: ActivityView; label: string }> = [
+  { value: 'form', label: 'Форма' },
+  { value: 'matches', label: 'Матчи' },
+  { value: 'season', label: 'Сезон' },
+  { value: 'history', label: 'Архив' },
+];
 
 const NAV: Array<{ value: CommunityView; label: string }> = [
   { value: 'rating', label: 'Рейтинг' },
@@ -40,6 +50,8 @@ export default function PlayerCommunityHub({
 }) {
   // «Связи» has no address of its own, so it lives in local state over /player/club.
   const [view, setView] = useState<CommunityView>(() => viewFor(section));
+  // Old links to /player/seasons (clubworld) still land on the season.
+  const [activity, setActivity] = useState<ActivityView>(() => (section === 'clubworld' ? 'season' : 'form'));
   useEffect(() => { setView((current) => (current === 'connections' && section === 'club' ? current : viewFor(section))); }, [section]);
   const choose = (next: CommunityView) => {
     setView(next);
@@ -58,11 +70,15 @@ export default function PlayerCommunityHub({
             type="button"
             data-testid="player-club-poker"
             onClick={onOpenPoker}
-            className="ds-focus-ring flex min-h-[48px] w-full items-center gap-3 rounded-2xl border border-amber-200/15 bg-white/[.03] px-3 py-2 text-left"
+            className="ds-focus-ring relative flex min-h-[84px] w-full items-center overflow-hidden rounded-2xl border border-amber-200/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_42%] text-left shadow-[0_14px_34px_rgba(0,0,0,.45)]"
           >
-            <span className="h-8 w-8 shrink-0 rounded-xl bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-center" aria-hidden="true" />
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white">Покерный стол</span><span className="block truncate text-[11px] text-white/45">Холдем на фишки, до 8 игроков</span></span>
-            <span className="rounded-xl bg-[linear-gradient(#e3c477,#b98637)] px-3 py-1.5 text-xs font-bold text-[#1a1106]">Играть</span>
+            <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,7,8,.94)_0%,rgba(6,7,8,.72)_58%,rgba(6,7,8,.25)_100%)]" aria-hidden="true" />
+            <span className="relative flex-1 px-4 py-3">
+              <span className="block text-[10px] uppercase tracking-[.22em] text-amber-200/60">Клубный досуг</span>
+              <span className="mt-0.5 block text-base font-semibold text-white">Покерный стол</span>
+              <span className="mt-0.5 block text-xs text-white/55">Холдем на игровые фишки, до 8 игроков</span>
+            </span>
+            <span className="relative mr-3 rounded-xl bg-[linear-gradient(#e3c477,#b98637)] px-3 py-2 text-xs font-bold text-[#1a1106]">Играть</span>
           </button>
         ) : null}
 
@@ -75,7 +91,15 @@ export default function PlayerCommunityHub({
         />
 
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
-        {view === 'activity' && <><PlayerClubActivity /><PlayerSeasonsPanel /></>}
+        {view === 'activity' && (
+          <>
+            <SegmentedControl ariaLabel="Разделы активности" value={activity} items={ACTIVITY_NAV} onValueChange={setActivity} itemClassName="px-1 text-[12px]" />
+            {activity === 'form' && <PlayerClubActivity />}
+            {activity === 'matches' && <PlayerStoriesPanel />}
+            {activity === 'season' && <PlayerSeasonsPanel part="season" />}
+            {activity === 'history' && <PlayerSeasonsPanel part="history" />}
+          </>
+        )}
         {view === 'connections' && <PlayerClubConnections />}
       </div>
       {view === 'rating' ? (

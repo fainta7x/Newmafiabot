@@ -74,15 +74,17 @@ function RecordCard({ record }: { record: RecordEntry }) {
   </button>;
 }
 
-export default function PlayerSeasonsPanel() {
+/**
+ * «Активность» shows one part at a time (owner, 2026-10-06: no long feed):
+ * «Сезон» — the current season and its records; «Архив» — past seasons and the hall of fame.
+ */
+export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history' }) {
   const [data, setData] = useState<ClubWorldData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeasonKey, setSelectedSeasonKey] = useState<string | null>(null);
-  const [hallOpen, setHallOpen] = useState(false);
-  // Short by default (owner, 2026-10-06: too much scrolling): top 5, the archive folded.
+  // The season top starts with five rows.
   const [topOpen, setTopOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +95,7 @@ export default function PlayerSeasonsPanel() {
         if (cancelled) return;
         const next = body as ClubWorldData;
         setData(next);
-        setSelectedSeasonKey(next.season_history?.[0]?.key || next.season?.key || null);
+        setSelectedSeasonKey(next.season_history?.find((item) => item.key !== next.season?.key)?.key || null);
       })
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить сезоны'); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -109,6 +111,39 @@ export default function PlayerSeasonsPanel() {
   if (error || !data) return <div className="rounded-2xl bg-rose-400/[0.07] px-3 py-4 text-sm text-rose-200/65">{error || 'Сезоны недоступны'}</div>;
 
   const viewerRank = data.season.ranking.find((item) => item.player_id === data.viewer_id) || null;
+
+  if (part === 'history') {
+    // The API also lists the running season; it belongs to «Сезон», not to the past.
+    const pastSeasons = (data.season_history || []).filter((item) => item.key !== data.season.key);
+    return (
+      <div className="space-y-3">
+        {pastSeasons.length > 0 ? (
+          <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Прошлые сезоны</div>
+            <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+              {pastSeasons.map((season) => (
+                <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
+                  <div className="text-[11px] font-semibold">{season.label}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(season.games)}</div>
+                </button>
+              ))}
+            </div>
+            {selectedSeason && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[11px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[11px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[11px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
+                <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
+              </div>
+            )}
+          </section>
+        ) : <div className="rounded-2xl bg-white/[0.035] px-3 py-8 text-center text-xs text-white/35">Прошлых сезонов пока нет.</div>}
+        {data.hall_of_fame?.length > 0 ? (
+          <section className="rounded-[24px] border border-amber-200/10 bg-amber-200/[0.03] p-3">
+            <div className="text-[11px] uppercase tracking-[0.13em] text-amber-100/40">🏛 Зал славы · рекорды всей истории клуба</div>
+            <div className="mt-3 grid grid-cols-2 gap-1.5">{data.hall_of_fame.map((record) => <RecordCard key={record.label} record={record} />)}</div>
+          </section>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -139,33 +174,6 @@ export default function PlayerSeasonsPanel() {
         </section>
       )}
 
-      {data.season_history?.length > 0 && (
-        <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
-          <button type="button" onClick={() => setArchiveOpen((value) => !value)} aria-expanded={archiveOpen} className="flex min-h-8 w-full items-center justify-between text-left">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Архив сезонов · {data.season_history.length}</span><span className="text-white/25">{archiveOpen ? '⌃' : '⌄'}</span>
-          </button>
-          {archiveOpen ? <>
-          <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-            {data.season_history.map((season) => (
-              <button key={season.key} type="button" onClick={() => setSelectedSeasonKey(season.key)} className={`shrink-0 rounded-xl px-3 py-2 text-left ${selectedSeasonKey === season.key ? 'bg-white text-black' : 'bg-black/20 text-white/45'}`}>
-                <div className="text-[11px] font-semibold">{season.label}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(season.games)}</div>
-              </button>
-            ))}
-          </div>
-          {selectedSeason && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black">{selectedSeason.label}</div><div className="mt-0.5 text-[11px] text-white/25">{countPlayers(selectedSeason.players)} · {countGames(selectedSeason.games)}</div></div>{selectedSeason.champion && <button type="button" onClick={() => openCanonicalPlayerProfile(selectedSeason.champion!.player_id)} className="text-right"><div className="text-[11px] text-amber-100/35">👑 чемпион</div><div className="mt-0.5 text-[11px] font-semibold">{selectedSeason.champion.nickname}</div></button>}</div>
-              <div className="mt-3"><RankingRows rows={selectedSeason.ranking} viewerId={data.viewer_id} limit={5} /></div>
-            </div>
-          )}
-          </> : null}
-        </section>
-      )}
-
-      <button type="button" onClick={() => setHallOpen((value) => !value)} className="flex min-h-12 w-full items-center justify-between rounded-2xl border border-amber-200/10 bg-amber-200/[0.03] px-3 text-left">
-        <span><span className="block text-[11px] uppercase tracking-[0.13em] text-amber-100/40">🏛 Зал славы</span><span className="mt-0.5 block text-[11px] text-white/35">Рекорды всей истории клуба</span></span><span className="text-white/25">{hallOpen ? '⌃' : '⌄'}</span>
-      </button>
-      {hallOpen && <div className="grid grid-cols-2 gap-1.5">{data.hall_of_fame.map((record) => <RecordCard key={record.label} record={record} />)}</div>}
     </div>
   );
 }

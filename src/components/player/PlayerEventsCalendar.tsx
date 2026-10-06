@@ -368,9 +368,9 @@ export default function PlayerEventsCalendar({
         </section> : null}
 
         {/* The public rules page (/guide) — also the link organizers send to a novice before the first evening. */}
-        <a data-testid="player-guide-link" href="/guide" className="mb-3 flex min-h-12 items-center justify-between gap-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-3.5 text-[14px] text-white/75">
-          <span><strong className="font-semibold text-white">Правила и словарь</strong> · памятка перед первым вечером</span>
-          <span aria-hidden="true" className="text-white/40">→</span>
+        <a data-testid="player-guide-link" href="/guide" className="mb-2 flex min-h-11 items-center justify-between gap-3 px-1 text-[13px] text-white/55">
+          <span className="min-w-0 truncate"><span className="font-semibold text-white/80">Правила и словарь</span> · памятка перед первым вечером</span>
+          <span aria-hidden="true" className="text-white/35">›</span>
         </a>
 
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-2.5">
@@ -379,19 +379,23 @@ export default function PlayerEventsCalendar({
             <b className="min-w-0 flex-1 text-center text-sm capitalize">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })}</b>
             <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-lg text-white/65">›</button>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-black/20 p-1">
-            <button type="button" onClick={() => setView('list')} className={`min-h-11 rounded-lg text-[14px] font-semibold ${view === 'list' ? 'bg-white text-black' : 'text-white/55'}`}>Список</button>
-            <button type="button" onClick={() => setView('calendar')} className={`min-h-11 rounded-lg text-[14px] font-semibold ${view === 'calendar' ? 'bg-white text-black' : 'text-white/55'}`}>Календарь</button>
+          {/* View and format share one row: less space before the evenings themselves (owner, 2026-10-06). */}
+          <div className="mt-2 flex items-stretch gap-1.5">
+            <div className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-black/20 p-1">
+              <button type="button" onClick={() => setView('list')} className={`min-h-10 rounded-lg text-[13px] font-semibold ${view === 'list' ? 'bg-white text-black' : 'text-white/55'}`}>Список</button>
+              <button type="button" onClick={() => setView('calendar')} className={`min-h-10 rounded-lg text-[13px] font-semibold ${view === 'calendar' ? 'bg-white text-black' : 'text-white/55'}`}>Календарь</button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((value) => !value)}
+              aria-expanded={filtersOpen}
+              aria-label={`Формат: ${activeFilterLabel}`}
+              className={`flex min-h-12 max-w-[42%] shrink-0 items-center gap-1 rounded-xl border px-3 text-[13px] font-semibold ${filter === 'all' ? 'border-white/[0.07] bg-black/20 text-white/65' : 'border-white/25 bg-white/[0.1] text-white'}`}
+            >
+              <span className="truncate">{filter === 'all' ? 'Формат' : activeFilterLabel}</span>
+              <span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((value) => !value)}
-            aria-expanded={filtersOpen}
-            className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/[0.07] bg-black/20 px-3 text-[14px] font-semibold text-white/65"
-          >
-            <span>Формат: {activeFilterLabel}</span>
-            <span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
-          </button>
           {filtersOpen ? (
             <div className="mt-2 grid grid-cols-2 gap-1.5 rounded-xl bg-black/15 p-1.5">
               {FILTERS.map(([id, text]) => (

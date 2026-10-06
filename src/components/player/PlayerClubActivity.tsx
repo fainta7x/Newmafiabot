@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
 
 type ClubHighlight = {
   player_id: string;
@@ -53,6 +52,7 @@ function Avatar({ src, name, size = 36 }: { src?: string | null; name: string; s
   );
 }
 
+/** «Активность → Форма»: who is in form now. The matches have their own tab (PlayerStoriesPanel). */
 export default function PlayerClubActivity() {
   const [data, setData] = useState<ClubFormData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,13 +72,11 @@ export default function PlayerClubActivity() {
     return () => { cancelled = true; };
   }, []);
 
-  // Nothing to show yet → no empty «Форма» block above the matches (owner, 2026-10-06: less scrolling).
-  const empty = Boolean(data && !data.highlights.length && !data.power_ranking.length);
   const ranking = data ? (showAll ? data.power_ranking : data.power_ranking.slice(0, 5)) : [];
 
   return (
     <div className="space-y-4">
-      {empty ? null : <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
+      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Сейчас в клубе</div>
@@ -124,15 +122,14 @@ export default function PlayerClubActivity() {
               ))}
             </div>
 
+            {!data.power_ranking.length && <p className="mt-4 text-xs text-white/35">Пока недостаточно завершённых игр для формы клуба.</p>}
             {data.power_ranking.length > 5 && !showAll ? (
               <button type="button" onClick={() => setShowAll(true)} className="mt-2 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех</button>
             ) : null}
             {showAll && data.meta?.formula && <p className="mt-3 text-[11px] leading-4 text-white/20">{data.meta.formula}</p>}
           </>
         )}
-      </section>}
-
-      <PlayerStoriesPanel />
+      </section>
     </div>
   );
 }

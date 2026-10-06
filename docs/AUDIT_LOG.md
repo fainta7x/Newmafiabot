@@ -184,3 +184,11 @@ Scope: `eveningRouteService.ts` (stages and steps of «Маршрут вечер
 ### Two tournament screens (owner, 2026-10-06)
 1. HIGH `fixed` — tournaments made the old way had a different, stacked screen and no registrations, while new ones had the four-step screen: two interfaces inside one product. Old tournaments were moved to the new format by a one-time, snapshot-protected migration and the old screen was removed (`TournamentLifecycleOverview` deleted; the tournament screen waits for its data with a retry instead of falling back to the old layout).
 2. NOTE — judge «Чагин» and organizer «Богданчик» were forced in every tournament of Bogdan on the owner's request (same migration file, own marker, revert function).
+
+### Desktop CRM and player profile audit (2026-10-06)
+Scope: organizer work surfaces and canonical player profile; preserve phone layout and existing functions.
+1. FIXED — `OrganizerCRM.tsx`, `OrganizerCommandCenter.tsx`: nested 768 px caps leave desktop work screens unnecessarily narrow.
+2. FIXED — `telegram-viewport.css`: CRM bottom-navigation padding stops at 640 px although the navigation stays visible until 768 px, allowing covered actions on tablets.
+3. FIXED — `CanonicalPremiumPlayerProfile.tsx`: full-width identity/navigation and a narrow single-column games/roles body are disconnected on desktop.
+4. FIXED — `MoreCRM.tsx`: work and report groups remain one long narrow stack on desktop; the secondary title repeats the shell heading.
+5. KEEP — player-card histories, advanced filters, profile details and rare admin tools already use disclosure controls in current main; preserve these rather than duplicating them.

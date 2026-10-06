@@ -677,3 +677,6 @@ Known limits of the first release: cancellations are counted from evenings where
 - Manual guests can be added while forming a game without fabricating an RSVP. Completed-game seat identity corrections are explicit organizer actions that preserve gameplay by seat and rerun dependent calculations; no date/nickname-based historical rewrite is allowed.
 - Historical official awards/photos from before the application remain organizer-curated data-entry/import work; they are not inferred from nicknames, fake tournaments or synthetic games.
 - Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.
+
+### Desktop CRM and player profile (owner request, 2026-10-06; in progress)
+Adapt organizer CRM and the canonical player profile for desktop, audit duplicate/illogical or overloaded sections and fix concrete usability defects. Preserve the current mobile Telegram layout and functionality; verify desktop and phone evidence before merge.

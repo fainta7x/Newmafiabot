@@ -156,7 +156,7 @@ body {
   margin-top: 0 !important;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .organizer-bottom-nav {
     padding-bottom: max(8px, var(--tg-content-safe-area-bottom)) !important;
     min-height: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom)) !important;

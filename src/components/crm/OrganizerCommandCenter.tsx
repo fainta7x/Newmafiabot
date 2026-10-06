@@ -282,7 +282,7 @@ export default function OrganizerCommandCenter({
 
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
-  return <div className="mx-auto w-full max-w-3xl space-y-3">
+  return <div className="crm-command-center mx-auto w-full max-w-3xl space-y-3">
     <div data-testid="crm-today-header" className="flex items-center justify-between gap-3 px-0.5">
       <div className="min-w-0">
         {showTitle ? <h2 className="text-[22px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2> : null}

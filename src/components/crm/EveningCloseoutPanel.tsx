@@ -64,7 +64,9 @@ export const reconcileCloseoutParticipants = (current: CloseoutState, participan
   };
 };
 
-export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () => void }> = ({ eveningId, onSettled }) => {
+export type CloseoutTarget = { pane: 'roster' | 'payments'; filter?: 'paid' | 'unpaid' };
+
+export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () => void; onOpen?: (target: CloseoutTarget) => void }> = ({ eveningId, onSettled, onOpen }) => {
   const [state, setState] = useState<CloseoutState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState('');
@@ -213,11 +215,11 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string; onSettled?: () 
     const debt = state.outstanding.reduce((sum, item: any) => sum + Math.max(0, Number(item.balance ?? (Number(item.amount_due || 0) - Number(item.amount_paid || 0)))), 0);
     return <section className="rounded-[18px] border border-success/20 bg-success-soft p-4">
       <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-success" /><div><div className="text-[14px] font-bold text-text-primary">Вечер закрыт</div><div className="mt-0.5 text-[12px] text-text-secondary">Явка, оплаты и долги зафиксированы.</div></div></div>
-      <dl className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Пришли</dt><dd className="mt-0.5 text-[15px] font-bold text-text-primary">{state.attended.length}</dd></div>
-        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Собрано</dt><dd className="mt-0.5 text-[15px] font-bold text-text-primary">{money(collected)}</dd></div>
-        <div className="rounded-[11px] bg-black/20 px-2 py-2"><dt className="text-[11px] text-text-muted">Долги</dt><dd className={`mt-0.5 text-[15px] font-bold ${debt > 0 ? 'text-warning' : 'text-text-primary'}`}>{money(debt)}</dd></div>
-      </dl>
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <button type="button" disabled={!onOpen} onClick={() => onOpen?.({ pane: 'roster' })} data-testid="closeout-tile-came" aria-label="Пришли: открыть список" className="min-h-[56px] rounded-[11px] bg-black/20 px-2 py-2 text-center enabled:active:bg-black/30"><span className="block text-[11px] text-text-muted">Пришли ›</span><span className={`mt-0.5 block text-[15px] font-bold text-text-primary`}>{state.attended.length}</span></button>
+        <button type="button" disabled={!onOpen} onClick={() => onOpen?.({ pane: 'payments', filter: 'paid' })} data-testid="closeout-tile-paid" aria-label="Собрано: открыть список" className="min-h-[56px] rounded-[11px] bg-black/20 px-2 py-2 text-center enabled:active:bg-black/30"><span className="block text-[11px] text-text-muted">Собрано ›</span><span className={`mt-0.5 block text-[15px] font-bold text-text-primary`}>{money(collected)}</span></button>
+        <button type="button" disabled={!onOpen} onClick={() => onOpen?.({ pane: 'payments', filter: 'unpaid' })} data-testid="closeout-tile-debt" aria-label="Долги: открыть список" className="min-h-[56px] rounded-[11px] bg-black/20 px-2 py-2 text-center enabled:active:bg-black/30"><span className="block text-[11px] text-text-muted">Долги ›</span><span className={`mt-0.5 block text-[15px] font-bold ${debt > 0 ? 'text-warning' : 'text-text-primary'}`}>{money(debt)}</span></button>
+      </div>
       {message ? <p className="mt-3 text-[12px] text-text-secondary">{message}</p> : null}
     </section>;
   }

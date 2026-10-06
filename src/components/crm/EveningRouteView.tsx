@@ -13,7 +13,7 @@ type Step = {
   detail?: string;
   status: StepStatus;
   target?: EveningSection;
-  action?: 'publish' | 'start' | 'create_next' | 'gathered_post' | 'today_post' | 'cancel_evening';
+  action?: 'publish' | 'start' | 'gathered_post' | 'today_post' | 'cancel_evening';
   task_id?: string;
 };
 type Stage = { id: string; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: Step[] };
@@ -22,7 +22,6 @@ type RoutePayload = { evening: { id: string; status: string }; current_stage: st
 const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   publish: 'Опубликовать',
   start: 'Начать вечер',
-  create_next: 'Создать следующую пятницу',
   gathered_post: 'Сделать фото',
   today_post: 'Подготовить пост',
   cancel_evening: 'Отменить',
@@ -87,9 +86,6 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
         await api.updateEvening(eveningId, { status: 'published' } as any);
       } else if (step.action === 'start') {
         await api.updateEvening(eveningId, { status: 'active' } as any);
-      } else if (step.action === 'create_next') {
-        const response = await fetch('/api/evenings/create-next-friday', { method: 'POST', credentials: 'include' });
-        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.error || 'Не удалось создать вечер');
       }
       onChanged?.();
       await load();

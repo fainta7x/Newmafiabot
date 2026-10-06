@@ -6,7 +6,7 @@ import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
-import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
+import { isRegularFeeFreeByStaffRule, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
 
@@ -92,7 +92,7 @@ async function loadStaff(db: DatabaseWrapper, eveningId: string) {
 
 async function loadPayments(db: DatabaseWrapper, eveningId: string) {
   const evening = await db.get<any>(
-    'SELECT id, title, status, settled_at, default_price, format FROM game_evenings WHERE id = ? LIMIT 1',
+    'SELECT id, title, status, settled_at, default_price, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
   );
   if (!evening) return null;
@@ -152,7 +152,10 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
         && ['novice', 'unrated'].includes(String(participant.game_level || ''))
         && await novicePriceForPlayer(db, String(participant.player_id), eveningId) === 0,
       fee_waived: Boolean(participant.fee_waived),
-      staff_exempt: Boolean(staffPlayerId && String(participant.player_id) === staffPlayerId),
+      // CASUAL follows the owner's 2026-10-06 rule (only the owner, and the assigned organizer on older evenings); other formats keep the organizer free.
+      staff_exempt: normalizeEveningFormat(evening.format) === 'CASUAL'
+        ? isRegularFeeFreeByStaffRule(evening.starts_at, String(participant.player_id), staffPlayerId)
+        : Boolean(staffPlayerId && String(participant.player_id) === staffPlayerId),
       fee_review_required: Boolean(participant.fee_review_required),
       fee_review_status: participant.fee_review_status || null,
       fee_review_reason: participant.fee_review_reason || null,

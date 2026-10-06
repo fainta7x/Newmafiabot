@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, Undo2 } from 'lucide-react';
 
 import EveningListControls from './EveningListControls.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -34,13 +34,13 @@ type PaymentPayload = {
 
 const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
 
-export default function EveningPaymentsPanel({ eveningId }: { eveningId: string }) {
+export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' }: { eveningId: string; initialFilter?: 'all' | 'paid' | 'unpaid' }) {
   const [data, setData] = useState<PaymentPayload | null>(null);
   const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>(initialFilter);
   const [giftTarget, setGiftTarget] = useState<PaymentParticipant | null>(null);
   const [remindOpen, setRemindOpen] = useState(false);
   const [remindBusy, setRemindBusy] = useState(false);
@@ -197,7 +197,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
       {error ? <div className="mt-2 rounded-[10px] bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</div> : null}
       {notice ? <div role="status" className="mt-2 rounded-[10px] bg-success-soft px-3 py-2 text-[10px] text-success">{notice}</div> : null}
       {summary.unpaid > 0 && data?.evening.closed ? (
-        <button type="button" data-testid="remind-debtors" onClick={() => setRemindOpen(true)} disabled={remindBusy} className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[11px] bg-danger-soft px-3 text-[11px] font-black text-danger disabled:opacity-40">
+        <button type="button" data-testid="remind-debtors" onClick={() => setRemindOpen(true)} disabled={remindBusy} className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[11px] bg-warning-soft px-3 text-[11px] font-black text-warning disabled:opacity-40">
           <BellRing className="h-4 w-4" /> Напомнить должникам ({summary.unpaid})
         </button>
       ) : null}
@@ -253,8 +253,8 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                       ) : null}
                     </div>
                   ) : paid ? (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Снять оплату
+                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-secondary disabled:opacity-40">
+                      <Undo2 className="h-3.5 w-3.5" /> Снять оплату
                     </button>
                   ) : (
                     <div className="flex shrink-0 items-center gap-1.5">
@@ -263,8 +263,8 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                           <Gift className="h-4 w-4" />
                         </button>
                       ) : null}
-                      <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[10px] font-black text-danger disabled:opacity-40">
-                        <XCircle className="h-3.5 w-3.5" /> Принять оплату
+                      <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Принять оплату
                       </button>
                     </div>
                   )}

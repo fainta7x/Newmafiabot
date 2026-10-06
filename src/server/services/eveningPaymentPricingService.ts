@@ -1,6 +1,21 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+
+/**
+ * Owner decision 2026-10-06: only the club owner plays without a fee; the assigned organizer pays like everybody else and the
+ * owner gifts the evening by hand («Подарить вечер»). Evenings that started before this moment keep the earlier rule (the assigned
+ * organizer was exempt), so closed evenings are never charged retroactively.
+ */
+export const ORGANIZER_PAYS_FROM_MS = Date.parse('2026-10-06T00:00:00+03:00');
+
+/** Who plays a regular (CASUAL) evening without a fee: the club owner always; the assigned organizer only on evenings before the change. */
+export const isRegularFeeFreeByStaffRule = (startsAt: unknown, playerId: string, assignedOrganizerId: string | null): boolean => {
+  if (playerId === PRIMARY_ORGANIZER_PLAYER_ID) return true;
+  const startedMs = Date.parse(String(startsAt || ''));
+  return Number.isFinite(startedMs) && startedMs < ORGANIZER_PAYS_FROM_MS && assignedOrganizerId !== null && assignedOrganizerId === playerId;
+};
 
 export const REGULAR_GAME_PRICE = 100;
 export const REGULAR_EVENING_MAX_PRICE = 400;
@@ -135,7 +150,7 @@ export async function reconcileRegularEveningPayments(
   eveningId: string,
 ): Promise<{ applied: boolean; games_by_participant: Record<string, number> }> {
   const evening = await db.get<any>(
-    'SELECT id, title, format, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
+    'SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
   );
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
@@ -214,7 +229,7 @@ export async function reconcileRegularEveningPayments(
       const playerId = String(participant.player_id);
       const feeExempt = explicitWaiverIds.has(participantId)
         || reviewHoldIds.has(participantId)
-        || (assignedStaffPlayerId !== null && assignedStaffPlayerId === playerId);
+        || isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedStaffPlayerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
       const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed);
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));

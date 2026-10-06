@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -74,10 +75,9 @@ export async function setClosedEveningParticipantPaid(
   `, [participantId]);
 
   const due = Math.max(0, Number(participant.amount_due || 0));
-  const feeExempt = participant.club_role === 'organizer'
-    || participant.judge_level === 'host'
-    || participant.judge_level === 'judge'
-    || due === 0;
+  // Only the club owner plays without a fee (owner decision 2026-10-06); anybody else who owes can pay, and a player who does not
+  // have to pay gets a gifted evening (explicit waiver), which leaves the due amount at 0.
+  const feeExempt = String(participant.player_id || '') === PRIMARY_ORGANIZER_PLAYER_ID || due === 0;
   if (feeExempt) throw Object.assign(new Error('Для этого игрока взнос за вечер не требуется'), { statusCode: 400 });
 
   const totals = await db.get<any>(`

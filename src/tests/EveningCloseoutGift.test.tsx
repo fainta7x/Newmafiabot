@@ -39,3 +39,18 @@ describe('closing an evening: pay or gift each debtor first (owner, 2026-10-05)'
     expect(screen.queryByTestId('closeout-gift-a')).toBeNull();
   });
 });
+
+describe('closed evening summary (owner, 2026-10-06)', () => {
+  it('opens the matching list from the summary tiles', async () => {
+    const closed = { ...state('CASUAL', [participant('a', 'Аня', { amount_paid: 100 }), participant('b', 'Боря')]) };
+    closed.evening = { ...closed.evening, status: 'completed', settled_at: '2020-01-02T00:00:00Z' } as any;
+    vi.stubGlobal('fetch', vi.fn(() => json(closed)));
+    const opened: any[] = [];
+    render(<EveningCloseoutPanel eveningId="e1" onOpen={(target) => opened.push(target)} />);
+    fireEvent.click(await screen.findByTestId('closeout-tile-came'));
+    fireEvent.click(screen.getByTestId('closeout-tile-paid'));
+    fireEvent.click(screen.getByTestId('closeout-tile-debt'));
+    expect(opened).toEqual([{ pane: 'roster' }, { pane: 'payments', filter: 'paid' }, { pane: 'payments', filter: 'unpaid' }]);
+  });
+});
+

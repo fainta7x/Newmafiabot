@@ -74,7 +74,7 @@ export default function PlayerClubActivity() {
 
   // Nothing to show yet → no empty «Форма» block above the matches (owner, 2026-10-06: less scrolling).
   const empty = Boolean(data && !data.highlights.length && !data.power_ranking.length);
-  const ranking = data ? (showAll ? data.power_ranking.slice(0, 10) : data.power_ranking.slice(0, 5)) : [];
+  const ranking = data ? (showAll ? data.power_ranking : data.power_ranking.slice(0, 5)) : [];
 
   return (
     <div className="space-y-4">

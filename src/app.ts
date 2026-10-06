@@ -31,6 +31,7 @@ import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
 import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { ensurePokerRuntimeSchema } from './db/ensurePokerRuntimeSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
+import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
@@ -185,6 +186,12 @@ export async function createApp(customDb?: DatabaseWrapper) {
     try { await applyEloScaleMigration(db); } catch (error) { console.error('[ELO] ×5 scale switch failed:', error); }
   }
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
+  // One tournament format for everybody and the forced judge/organizer of Bogdan's tournaments (owner, 2026-10-06): a file snapshot
+  // is taken first and every changed value is kept in migration_history; both run before the token and achievement reconciliation below.
+  if (db.dbPath !== ':memory:') {
+    try { await applyUnifiedTournamentFlowMigration(db); } catch (error) { console.error('[TOURNAMENTS] Unified format migration failed (nothing changed):', error); }
+    try { await applyBogdanaTournamentStaff(db); } catch (error) { console.error('[TOURNAMENTS] Bogdan judge/organizer update failed (nothing changed):', error); }
+  }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) {

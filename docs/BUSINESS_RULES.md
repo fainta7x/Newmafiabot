@@ -302,6 +302,10 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 - **Voting in the bot (owner, 2026-10-05).** Besides the app (Клуб → Истории), the vote is a message with buttons in the Telegram bot: right after an evening's personal card every attendee reached through Telegram gets «Кто сыграл лучше всех?» with one button per other attendee. A tap is the vote, a tap on another player changes it, the chosen player is marked ✅. The same rules as in the app: attendees only, never yourself, only while the 3 days are open; the app and the bot share one vote. Players reached through VK vote in the app. Evenings closed before this shipped get no such message.
 - Tournament awards are separate and unchanged.
 
+## One tournament format (owner, 2026-10-06)
+
+Every tournament uses the same screen in four steps («Настройки», «Игроки», «Игры», «Итоги») and the same registration model. Tournaments made the old way (participants only, no registrations) were moved to it once: each participant became a confirmed registration, the format flag was set and registration was marked closed; games, protocols, results and places did not change. A tournament is never created the old way any more. In every tournament of Bogdan (a title containing «Богдан») the judge is «Чагин» and the organizer «Богданчик» (also on each game of those tournaments, so judge tokens and «Отсудил игр» follow); the token and achievement reconciliation at start recalculates the effects. Both changes keep their previous values in `migration_history` and a file snapshot of the whole database (`pre-tournament-unify-<time>.sqlite` next to the database, `/data/backups` in production) is taken before they run (see `docs/RUNBOOK.md` → «Tournament format migration: snapshot and revert»).
+
 ## Evening payment reminders and gifts (user-approved 2026-10-05)
 
 - A **debtor** of a club evening is a player who attended, is not exempt and has paid less than the amount due (the same people «Дела» lists as «Не оплатили»).

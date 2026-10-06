@@ -155,6 +155,10 @@ npm run checkpoint:git-import
 
 The checkpoint is not production synchronization.
 
+### Tournament format migration: snapshot and revert
+
+`applyUnifiedTournamentFlowMigration` and `applyBogdanaTournamentStaff` (`src/db/applyUnifiedTournamentFlowMigration.ts`, run at start, skipped for in-memory databases) take a verified copy of the database first (SQLite backup API plus `integrity_check`, file `pre-tournament-unify-<time>.sqlite` in `SQLITE_BACKUP_DIR`, default `<database folder>/backups`, `/data/backups` in production; the regular 6-hourly backup cleanup does not touch it). If the snapshot fails, nothing is migrated and the next start tries again. Each migration writes a completed marker to `migration_history` with every changed value, and the matching `revertUnifiedTournamentFlowMigration` / `revertBogdanaTournamentStaff` put the registrations, flag, judge, organizer and per-game judge back (the marker becomes `reverted` and the migration does not run again). Revert by a function call or, for a full rollback, by restoring the snapshot as the owner decides (never during ordinary deploys). `bogdana_tournament_staff_v1` is not recorded when the nicknames «Чагин» / «Богданчик» are not unique; it is tried again at the next start.
+
 ### Canonical SQLite backups
 
 The product DB is backed up by `deploy/backup-sqlite.cjs` into `/data/backups/` using SQLite's backup API. A backup is considered successful only after the standalone file passes `integrity_check`.

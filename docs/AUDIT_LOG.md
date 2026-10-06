@@ -173,3 +173,7 @@ Scope: `eveningRouteService.ts` (stages and steps of «Маршрут вечер
 3. MEDIUM `fixed` — «Закрытие» repeated what «Вечер идёт» already shows («Все игры завершены» = «Игры вечера», «Явка сверена» = «Отметить пришедших»); both removed, and what still blocks closing is named in the step «Закрыть вечер» («Сначала: нет отметки у N игроков, не завершено игр: N»).
 4. LOW `open` — «Анонс в Telegram и ВК» and «Личные приглашения» are two steps of one preparation; kept because they are separate actions with separate results.
 5. LOW `open` — the stage «Закрытие» and the CRM tab «Закрытие» are two views of the same checklist; folding the tab into «Состав»/«Оплата» is proposed to the owner (needs his «да»).
+
+### Two tournament screens (owner, 2026-10-06)
+1. HIGH `fixed` — tournaments made the old way had a different, stacked screen and no registrations, while new ones had the four-step screen: two interfaces inside one product. Old tournaments were moved to the new format by a one-time, snapshot-protected migration and the old screen was removed (`TournamentLifecycleOverview` deleted; the tournament screen waits for its data with a retry instead of falling back to the old layout).
+2. NOTE — judge «Чагин» and organizer «Богданчик» were forced in every tournament of Bogdan on the owner's request (same migration file, own marker, revert function).

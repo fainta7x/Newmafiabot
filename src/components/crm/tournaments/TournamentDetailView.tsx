@@ -3,7 +3,6 @@ import { ArrowLeft, Send } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmentFields.tsx';
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
-import { TournamentLifecycleOverview } from './TournamentLifecycleOverview.tsx';
 import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
 import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
 import { TournamentSeatMessagesCard } from './TournamentSeatMessagesCard.tsx';
@@ -43,10 +42,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
   const [revision, setRevision] = useState(0);
   const [telegramBusy, setTelegramBusy] = useState(false);
   const [telegramMessage, setTelegramMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.getTournament(tournamentId), api.getPlayers()])
+    setLoadError(false);
+    // The judges list only fills the judge picker: without it the screen still opens.
+    Promise.all([api.getTournament(tournamentId), api.getPlayers().catch(() => [] as Player[])])
       .then(([nextTournament, nextPlayers]) => {
         if (cancelled) return;
         setTournament(nextTournament);
@@ -61,7 +63,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
           return (list.find((game) => game.status === 'active') || list.find((game) => game.status !== 'completed') || list[0])?.id || '';
         });
       })
-      .catch(() => undefined);
+      .catch(() => { if (!cancelled) setLoadError(true); });
     return () => { cancelled = true; };
   }, [tournamentId, revision]);
 
@@ -141,12 +143,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     }
   };
 
-  const openWorkspace = () => {
-    window.requestAnimationFrame(() => {
-      document.getElementById('tournament-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  };
-
   const telegramSection = (
     <>
       {tournament ? (
@@ -209,9 +205,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     </>
   );
 
-  // Tournaments with registration: one screen in four steps instead of the old and new blocks stacked
-  // on each other (owner, 2026-09-29). Tournaments made the old way keep their screen below.
-  const registrationFlow = Number(tournament?.tournament_evening_flow || 0) === 1;
+  // One screen in four steps for every tournament (owner, 2026-09-29; for old tournaments too since 2026-10-06, when they were
+  // moved to the same format by `applyUnifiedTournamentFlowMigration`).
   const participantsCount = tournament?.participants?.length ?? 0;
   const stepDone: Record<TournamentStep, boolean> = {
     setup: Boolean(tournament?.organizer_player_id && tournament?.judge_player_id),
@@ -227,7 +222,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
   const [step, setStep] = useState<TournamentStep | null>(null);
   const currentStep = step || defaultStep;
 
-  if (tournament && registrationFlow) {
+  if (tournament) {
     return (
       <div data-stable-judge-view className="min-w-0 space-y-3 overflow-x-hidden" data-testid="tournament-steps">
         <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
@@ -281,25 +276,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
   }
 
   return (
-    <div data-stable-judge-view className="min-w-0 space-y-4 overflow-x-hidden">
-      <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
-
-      {tournament ? (
-        <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
-      ) : null}
-
-      <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
-      <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
-
-      {telegramSection}
-
-      {judgeSection}
-
-      {tournament ? <TournamentSeatMessagesCard tournamentId={tournamentId} status={String(tournament.status)} games={games} /> : null}
-
-      <div id="tournament-workspace" className="scroll-mt-3">
-        <TournamentDetailViewBase key={revision} tournamentId={tournamentId} onBack={onBack} />
-      </div>
+    <div data-stable-judge-view className="min-w-0 space-y-3 overflow-x-hidden" data-testid="tournament-loading">
+      <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-surface-2 px-3 text-xs font-semibold text-text-secondary"><ArrowLeft className="h-4 w-4" /> Назад</button>
+      {loadError ? (
+        <div role="alert" className="rounded-xl bg-danger-soft px-3 py-3 text-[13px] text-danger">
+          Не удалось загрузить турнир.
+          <button type="button" onClick={() => setRevision((value) => value + 1)} className="mt-2 block min-h-11 w-full rounded-xl bg-surface-2 px-3 font-bold text-text-primary">Повторить</button>
+        </div>
+      ) : <p role="status" className="px-1 text-[13px] text-text-secondary">Загружаем турнир…</p>}
     </div>
   );
 };

@@ -218,8 +218,24 @@ const autoDealMainLobby = (lobby: PokerLobby) => {
   if (lobby.status === 'waiting') nextPokerHand(lobby);
 };
 
-export const listPokerLobbies = (viewerId?: string) => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent || lobby.players.some((player) => player.is_bot) || (Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId)))).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), money_mode: pokerMoneyMode(lobby), full: lobby.players.length >= 8 && !lobby.players.some((player) => player.is_bot), players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), joined: Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId), createdAt: lobby.createdAt }))
-  .sort((a, b) => Number(b.permanent) - Number(a.permanent)); };
+export const listPokerLobbies = (viewerId?: string) => {
+  ensureMainLobby();
+  return [...lobbyStore().values()]
+    .filter((lobby) => {
+      if (lobby.status === 'finished') return false;
+      const viewerSeated = Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId);
+      // Training is a private bot session: it must never appear as a free human-vs-human alternative to the token tables.
+      if (pokerMoneyMode(lobby) === 'training') return viewerSeated;
+      return lobby.players.length < 8 || lobby.permanent || viewerSeated;
+    })
+    .map((lobby) => ({
+      id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent),
+      money_mode: pokerMoneyMode(lobby), full: lobby.players.length >= 8,
+      players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })),
+      joined: Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId), createdAt: lobby.createdAt,
+    }))
+    .sort((a, b) => Number(b.permanent) - Number(a.permanent));
+};
 
 /**
  * A person who is completely AFK for POKER_AFK_LEAVE_MS (owner, 2026-10-05: «кикать полностью АФК, кто больше 5 минут») is
@@ -279,6 +295,9 @@ const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => 
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
+  if (pokerMoneyMode(lobby) === 'training') {
+    throw new Error('Тренировка приватная: за этим столом играют только вы и боты.');
+  }
   // A quiet table may have nobody polling to advance the finished hand. Once the normal result pause elapsed, the join
   // request itself retires/advances it before checking whether this id belonged to the old hand.
   if (lobby.hand?.street === 'finished' && lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) {

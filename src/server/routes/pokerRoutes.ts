@@ -113,6 +113,12 @@ const conflict = (error: any, fallback: string): never => { throw new PokerRoute
 router.get('/poker/invite-candidates', async (req, res, next) => {
   try {
     const player = await actor(req);
+    const sourceLobbyId = await withPersistedPokerRuntime(req.db, () => {
+      const table = pokerTableForPlayer(player.id);
+      return table && pokerMoneyMode(table) === 'club_tokens' ? table.id : null;
+    });
+    if (!sourceLobbyId) return res.status(403).json({ error: 'Список приглашений доступен из живого стола на жетоны.' });
+
     // VK can take a network round-trip, so do it outside the serialized poker/SQLite transaction.
     const candidates = await loadPokerInviteCandidates(req.db, player.id);
     const enriched = await withPersistedPokerRuntime(req.db, () => candidates.map((candidate) => {
@@ -125,7 +131,7 @@ router.get('/poker/invite-candidates', async (req, res, next) => {
       };
     }));
     res.setHeader('Cache-Control', 'no-store');
-    return res.json({ candidates: enriched });
+    return res.json({ source_lobby_id: sourceLobbyId, candidates: enriched });
   } catch (error) {
     return next(error);
   }

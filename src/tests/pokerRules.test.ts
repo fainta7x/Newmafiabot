@@ -33,9 +33,9 @@ describe('poker rules (owner check 2026-10-01)', () => {
       const lobby = table();
       const t0 = Date.now();
       touchPokerSeat(lobby, 'a', t0); touchPokerSeat(lobby, 'b', t0);
-      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toHaveLength(0);
       touchPokerSeat(lobby, 'a', t0 + 4 * MIN);
-      expect(removeIdlePokerSeats(lobby, t0 + POKER_AFK_LEAVE_MS + MIN)).toBe(1);
+      expect(removeIdlePokerSeats(lobby, t0 + POKER_AFK_LEAVE_MS + MIN)).toHaveLength(1);
       expect(ids(lobby)).toContain('a');
       expect(ids(lobby)).not.toContain('b');
       expect(lobby.players.some((player) => player.is_bot)).toBe(true);
@@ -46,9 +46,9 @@ describe('poker rules (owner check 2026-10-01)', () => {
       const t0 = Date.now();
       setPokerSitOut(lobby, 'b', true);
       for (let minute = 0; minute <= 6; minute += 1) { touchPokerSeat(lobby, 'a', t0 + minute * MIN); touchPokerSeat(lobby, 'b', t0 + minute * MIN); }
-      expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
-      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
-      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(1);
+      expect(removeIdlePokerSeats(lobby, t0)).toHaveLength(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toHaveLength(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toHaveLength(1);
       expect(ids(lobby)).not.toContain('b');
       expect(ids(lobby)).toContain('a');
     });
@@ -61,9 +61,9 @@ describe('poker rules (owner check 2026-10-01)', () => {
       const restored = createPokerLobby({ id: 'c', nickname: 'Ваня' });
       addPokerBot(restored);
       resetDefaultPokerRuntimeForTesting();
-      expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
-      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
-      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(2);
+      expect(removeIdlePokerSeats(lobby, t0)).toHaveLength(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toHaveLength(0);
+      expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toHaveLength(2);
       expect(lobby.players.every((player) => player.is_bot)).toBe(true);
     });
   });
@@ -77,9 +77,9 @@ describe('poker rules (owner check 2026-10-01)', () => {
     touchPokerSeat(lobby, 'a', t0);
     // his screen stays open, he only has no chips
     for (let minute = 0; minute <= 6; minute += 1) { touchPokerSeat(lobby, 'a', t0 + minute * MIN); touchPokerSeat(lobby, 'b', t0 + minute * MIN); }
-    expect(removeIdlePokerSeats(lobby, t0)).toBe(0);
-    expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toBe(0);
-    expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toBe(1);
+    expect(removeIdlePokerSeats(lobby, t0)).toHaveLength(0);
+    expect(removeIdlePokerSeats(lobby, t0 + 4 * MIN)).toHaveLength(0);
+    expect(removeIdlePokerSeats(lobby, t0 + 6 * MIN)).toHaveLength(1);
     expect(lobby.players.map((player) => player.id)).toEqual(['a']);
   });
 

@@ -56,6 +56,7 @@ describe('path builders and back targets', () => {
     expect(appBackTarget('/player/recaps')).toBe('/player/events');
     expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games');
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');
+    expect(appBackTarget('/player/poker/table%3A42')).toBe('/player/poker');
     // the personal Elo history is the profile's tab now
     expect(appBackTarget('/player/elo')).toBe('/player');
     expect(appBackTarget('/player/rating/periods')).toBe('/player/rating');

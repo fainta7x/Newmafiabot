@@ -116,8 +116,10 @@ router.get('/poker/lobbies', route((req) => {
 router.post('/poker/lobbies', route(async (req) => {
   const player = await actor(req);
   try {
-    const table = createPokerLobby(player, req.body?.title, 'club_tokens');
-    await chargePokerBuyIn(req.db, player.id, table.id, 'buy_in');
+    const training = req.body?.training === true;
+    const table = createPokerLobby(player, training ? 'Тренировка' : req.body?.title, training ? 'training' : 'club_tokens');
+    if (training) addPokerBot(table);
+    else await chargePokerBuyIn(req.db, player.id, table.id, 'buy_in');
     return { status: 201, body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
   } catch (error) { return conflict(error, 'Не удалось создать лобби.'); }
 }));

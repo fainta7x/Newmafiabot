@@ -5,10 +5,10 @@ import PlayerPoker from '../components/player/PlayerPoker.tsx';
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
 const lobby = (canKick: boolean) => ({
-  id: 'main', title: 'Общий стол', ownerId: 'me', status: 'waiting', permanent: true, can_kick: canKick, viewer_player_id: 'me', hand: null,
+  id: 'main', title: 'Общий стол', ownerId: 'me', status: 'waiting', permanent: true, money_mode: 'club_tokens', can_kick: canKick, viewer_player_id: 'me', hand: null,
   players: [{ id: 'me', nickname: 'Я', seat: 1, chips: 1000 }, { id: 'oleg', nickname: 'Олег', seat: 2, chips: 1000 }],
 });
-const entry = { id: 'main', title: 'Общий стол', status: 'waiting', permanent: true, full: false, joined: false, players: [] };
+const entry = { id: 'main', title: 'Общий стол', status: 'waiting', permanent: true, money_mode: 'club_tokens', full: false, joined: false, players: [] };
 
 let tableCalls = 0;
 let kicked: unknown = null;

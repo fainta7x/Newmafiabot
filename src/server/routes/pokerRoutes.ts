@@ -121,14 +121,15 @@ router.get('/poker/invite-candidates', async (req, res, next) => {
 
     // VK can take a network round-trip, so do it outside the serialized poker/SQLite transaction.
     const candidates = await loadPokerInviteCandidates(req.db, player.id);
-    const enriched = await withPersistedPokerRuntime(req.db, () => candidates.map((candidate) => {
+    const enriched = await withPersistedPokerRuntime(req.db, () => candidates.flatMap((candidate) => {
       const seated = pokerTableForPlayer(candidate.player_id);
-      return {
+      if (seated?.id === sourceLobbyId) return [];
+      return [{
         ...candidate,
         at_table: Boolean(seated),
         at_table_title: seated?.title || null,
         can_invite: candidate.can_invite && !seated,
-      };
+      }];
     }));
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ source_lobby_id: sourceLobbyId, candidates: enriched });

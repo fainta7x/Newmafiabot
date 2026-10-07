@@ -83,6 +83,22 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(lobby.players.map((player) => player.id)).toEqual(['a']);
   });
 
+  it('does not reuse a previous-hand stack when the same person leaves and rejoins', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
+    joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
+    startPokerLobby(lobby, 'a');
+    lobby.hand!.street = 'finished';
+    lobby.hand!.finished_at = Date.now();
+    lobby.hand!.players.find((player) => player.id === 'a')!.chips = 5000;
+    leavePokerLobby(lobby, 'a');
+
+    expect(() => joinPokerLobby(lobby, { id: 'a', nickname: 'Аня' })).toThrow('следующей раздачи');
+    nextPokerHand(lobby);
+    expect(lobby.hand).toBeNull();
+    expect(() => joinPokerLobby(lobby, { id: 'a', nickname: 'Аня' })).not.toThrow();
+    expect(lobby.players.find((player) => player.id === 'a')?.chips).toBe(1000);
+  });
+
   it('a rebuy brings a person who was away back to the table', () => {
     const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
     joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });

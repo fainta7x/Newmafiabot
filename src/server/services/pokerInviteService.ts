@@ -8,6 +8,7 @@ import { loadPersonalNotificationPreference } from './personalNotificationRouter
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
 import { telegramTextWithAction } from './personalNotificationText.ts';
 import { vkCommunityApi } from './vkCommunityApiService.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
 export const POKER_INVITE_COOLDOWN_MS = 2 * 60 * 1000;
 const VK_STATUS_CACHE_MS = 30 * 1000;
@@ -33,7 +34,7 @@ export class PokerInviteError extends Error {
   }
 }
 
-const appBaseUrl = () => String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
+const appBaseUrl = () => String(process.env.PLAYER_APP_URL || getPublicAppBaseUrl()).trim().replace(/\/$/, '');
 
 async function loadVkPresence(
   db: DatabaseWrapper,

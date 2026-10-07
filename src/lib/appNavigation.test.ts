@@ -9,6 +9,7 @@ describe('player route parsing', () => {
     expect(parsePlayerRoute('/player/rating/periods')).toMatchObject({ section: 'ratingperiods', canonicalPath: '/player/rating/periods' });
     expect(parsePlayerRoute('/player/rating/tournaments')).toMatchObject({ section: 'ratingtournaments', canonicalPath: '/player/rating/tournaments' });
     expect(parsePlayerRoute('/player/wallet')).toMatchObject({ section: 'wallet', canonicalPath: '/player/wallet' });
+    expect(parsePlayerRoute('/player/poker/table%3A42')).toMatchObject({ section: 'poker', target: 'table:42', canonicalPath: '/player/poker/table%3A42' });
   });
 
   it('normalizes removed and legacy player routes', () => {
@@ -44,6 +45,7 @@ describe('path builders and back targets', () => {
     expect(playerPathForSection('wallet')).toBe('/player/wallet');
     expect(playerPathForSection('payments')).toBe('/player/wallet');
     expect(playerPathForSection('more')).toBe('/player/club');
+    expect(playerPathForSection('poker', 'table:42')).toBe('/player/poker/table%3A42');
   });
 
   it('gives Telegram a deterministic parent screen', () => {

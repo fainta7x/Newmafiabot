@@ -265,3 +265,5 @@ Privacy verification: eight tests across service/UI and real authenticated in-me
 - FIXED — `clubRelationshipsService.ts` / `PlayerClubConnections.tsx`: existing expansion is mostly more rows in the same pair ranking, rather than distinct Mafia-specific club relationship patterns requested by the owner.
 - FIXED — new aggregation: complete black trios must be validated against the original roster before privacy filtering; otherwise hidden/invalid seats could invent a trio.
 - FIXED — new summaries: results must not imply causation, friendships, sheriff protection or personal duels; count distinct source/event identities and display sample sizes.
+
+- FIXED — fresh preview, `ClubConnectionStories.tsx`: three team categories in a two-column desktop grid leave an unnecessary half-row gap; use three columns for teams and two for opposition, preserving single-column mobile order.

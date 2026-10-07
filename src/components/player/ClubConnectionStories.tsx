@@ -29,7 +29,7 @@ export default function ClubConnectionStories({ stories }: { stories: Stories })
     <h2 className="mt-1 text-lg font-semibold">Игровые истории клуба</h2>
     <p className="mt-1 text-xs leading-relaxed text-white/50">Кто собирался в чёрную тройку, менял сторону вместе и встречался в разных составах.</p>
     <SegmentedControl className="mt-3" value={view} onValueChange={setView} ariaLabel="Виды клубных историй" items={[{ value: 'teams', label: 'Команды' }, { value: 'opposition', label: 'Две стороны' }, { value: 'circle', label: 'Круг игры' }]} />
-    <div data-testid={`club-stories-${view}`} className={`mt-4 grid gap-3 ${view !== 'circle' ? 'lg:grid-cols-2' : ''}`}>
+    <div data-testid={`club-stories-${view}`} className={`mt-4 grid gap-3 ${view === 'teams' ? 'lg:grid-cols-3' : view === 'opposition' ? 'lg:grid-cols-2' : ''}`}>
       {view === 'teams' && <>
         <StoryCard title="Чёрные тройки" description="Один и тот же полный состав: дон и две мафии. Минимум две совместные игры; роли внутри тройки могли меняться." empty={!stories.black_trios.length}>
           {stories.black_trios.map(g => <div key={key(g.members)}><Members members={g.members} /><Sample sample={g} /></div>)}

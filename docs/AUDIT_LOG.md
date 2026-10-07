@@ -258,3 +258,5 @@ Focused verification: six service/UI tests, typecheck, lint, production and isol
 - FIXED — Codex PR #728 P1, `playerPulseRoutes.ts` / `clubRelationshipsService.ts`: new club lists bypass «Игровые связи» visibility; filter hidden participants before aggregating every relationships list, allowing the viewer to see his own connections. This endpoint keeps its existing player-only authentication.
 
 Privacy verification: eight tests across service/UI and real authenticated in-memory API; hidden pairs are excluded from best/most-played/first-game/recent/personal lists, own hidden viewer retains access, changed visibility takes effect on the next request.
+
+- FIXED — evidence capture only, `cabinet-desktop-layout.spec.mjs`: native `scrollIntoViewIfNeeded` considers the fixed footer-covered first-game button visible. Center the target explicitly and assert its bounds between header/footer before capturing; product layout is unchanged.

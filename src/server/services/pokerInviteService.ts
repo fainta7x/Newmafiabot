@@ -94,7 +94,7 @@ export async function loadPokerInviteCandidates(
         ON pref.player_id=p.id
      WHERE p.id <> ?
        AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
-       AND COALESCE(p.lifecycle_status, 'normal') <> 'blocked'
+       AND LOWER(COALESCE(p.contact_status, p.lifecycle_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted')
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [senderPlayerId]);
 

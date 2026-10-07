@@ -77,7 +77,25 @@ const blankStats = (): OpponentStats => ({ hands: 0, vpip: 0, pfr: 0, facedBet: 
 
 /** Called once per finished hand: what every human (and bot) did, for the bots to adapt. */
 export type ObservedPokerHand = { action_log: Array<{ player_id: string; street: string; type: string; /** Chips put in by this action; tells an all-in raise from an all-in call. */ amount?: number }>; players: Array<{ id: string }> };
+/** Paid amounts are incremental; an all-in below the street's bet is a call, not a raise. */
+const aggressiveActions = <T extends ObservedPokerHand['action_log'][number]>(entries: T[]) => {
+  const result = new Set<T>();
+  const committed = new Map<string, number>();
+  const bets = new Map<string, number>();
+  for (const entry of entries) {
+    const key = `${entry.street}:${entry.player_id}`;
+    const total = (committed.get(key) || 0) + (entry.amount || 0);
+    committed.set(key, total);
+    const previousBet = bets.get(entry.street) || 0;
+    if (entry.type === 'bet' || entry.type === 'raise' ||
+      (entry.type === 'all_in' && (entry.amount === undefined || total > previousBet))) result.add(entry);
+    bets.set(entry.street, Math.max(previousBet, total));
+  }
+  return result;
+};
+
 export const observePokerHand = (hand: ObservedPokerHand) => {
+  const aggressive = aggressiveActions(hand.action_log);
   const seen = new Set<string>();
   const voluntary = new Set<string>();
   const raisedPre = new Set<string>();
@@ -85,20 +103,13 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
   const betOnStreet = new Map<string, boolean>();
   let preflopRaiseCount = 0;
   let lastPreflopRaiser: string | null = null;
-  const preflopCommitted = new Map<string, number>();
-  let preflopBet = 0;
   for (const entry of hand.action_log) {
     seen.add(entry.player_id);
     const stats = memory().get(entry.player_id) || blankStats();
     memory().set(entry.player_id, stats);
     if (entry.street === 'preflop') {
       if (entry.type === 'call' || entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') voluntary.add(entry.player_id);
-      // An all-in raises only when it goes over the bet to call; a short stack calling with its last chips is a call.
-      // (Hands without amounts — none are stored that way today — count every all-in as a raise.)
-      const total = (preflopCommitted.get(entry.player_id) || 0) + (entry.amount || 0);
-      preflopCommitted.set(entry.player_id, total);
-      const raising = entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && (entry.amount === undefined || total > preflopBet));
-      preflopBet = Math.max(preflopBet, total);
+      const raising = aggressive.has(entry);
       // Facing someone else's raise: a chance to re-raise (3-bet or more).
       if (entry.type !== 'small_blind' && entry.type !== 'big_blind' && preflopRaiseCount > 0 && lastPreflopRaiser !== entry.player_id) {
         stats.reraiseChances = (stats.reraiseChances || 0) + 1;
@@ -114,8 +125,8 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
       stats.facedBet += 1;
       if (entry.type === 'fold') stats.foldedToBet += 1;
     }
-    if (entry.type === 'bet' || entry.type === 'raise' || entry.type === 'all_in') { stats.postflopAggro += 1; betOnStreet.set(entry.street, true); }
-    if (entry.type === 'call' || entry.type === 'check') stats.postflopPassive += 1;
+    if (aggressive.has(entry)) { stats.postflopAggro += 1; betOnStreet.set(entry.street, true); }
+    if (entry.type === 'call' || entry.type === 'check' || (entry.type === 'all_in' && !aggressive.has(entry))) stats.postflopPassive += 1;
   }
   for (const player of hand.players) {
     if (!seen.has(player.id)) continue;
@@ -163,7 +174,8 @@ const preflopActions = (hand: PokerState) => hand.action_log.filter((entry) => e
 
 /** How many raises were made before the flop, and who made the last one. */
 const preflopRaises = (hand: PokerState) => {
-  const raises = preflopActions(hand).filter((entry) => entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && entry.amount > 0));
+  const aggressive = aggressiveActions(hand.action_log);
+  const raises = preflopActions(hand).filter((entry) => aggressive.has(entry));
   return { count: raises.length, lastRaiserId: raises.at(-1)?.player_id || null, raisers: new Set(raises.map((entry) => entry.player_id)) };
 };
 
@@ -334,7 +346,8 @@ export const drawPotential = (pick: PokerCard[], board: PokerCard[]) => {
   return 0;
 };
 
-const rankKey = (rank: number[]) => rank.reduce((total, value) => total * 15 + value, 0);
+// Canonical ranks are lexicographic and variable-length: pad to six digits so category stays most significant.
+const rankKey = (rank: number[]) => Array.from({ length: 6 }, (_, index) => rank[index] || 0).reduce((total, value) => total * 15 + value, 0);
 
 /**
  * Monte Carlo equity against opponents whose hands are limited to what their actions suggest: by the starting hand
@@ -418,6 +431,7 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   const topCard = flopValues.at(-1) || 0;
   const highBoard = topCard >= 13;
   const lowBoard = topCard > 0 && topCard <= 9;
+  const aggressiveEntries = aggressiveActions(hand.action_log);
   const lineWeight = new Map<string, number>();
   const streetHadBet = new Map<string, boolean>();
   const checkedOn = new Set<string>();
@@ -425,7 +439,7 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
   for (const entry of hand.action_log) {
     if (entry.street === 'preflop') continue;
     if (entry.type === 'check') { checkedOn.add(`${entry.street}:${entry.player_id}`); continue; }
-    const aggressive = entry.type === 'bet' || entry.type === 'raise' || (entry.type === 'all_in' && entry.amount > 0);
+    const aggressive = aggressiveEntries.has(entry);
     if (!aggressive) continue;
     const isRaise = streetHadBet.get(entry.street) || entry.type === 'raise';
     const weight = entry.street === 'river' ? (isRaise ? 2.5 : 1.4) : entry.street === 'turn' ? (isRaise ? 2 : 1.2) : isRaise ? 1.8 : 1;

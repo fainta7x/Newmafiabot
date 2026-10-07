@@ -271,3 +271,16 @@ Privacy verification: eight tests across service/UI and real authenticated in-me
 - FIXED — Codex PR #729 P2, `clubGameAnalyticsService.ts`: sanitization drops profile-less guests/unknown roles before new stories can reject incomplete rosters; preserve an unresolved-seat marker for the new aggregation, retaining existing analytics behavior.
 
 Verification: raw club/tournament omission-marker regression, sanitized-snapshot exclusion and real authenticated API guest/privacy tests pass; existing pair analytics remains available for identified participants.
+
+### Independent Dissonance poker audit — 2026-10-07
+Scope: current bot/learning/equity, hand export, chip sources and simulation validity; no production mutation.
+- OPEN, HIGH — `pokerBot.ts:rankKey`: variable-length hand ranks are folded into base-15 numbers without padding; a high card can sort above a set, corrupting the board-strength range filter. Reproduced on Qc 7d 2s: AT high card key 751607, 77 set key 11882, while canonical comparison correctly favors the set.
+- OPEN, MEDIUM — `pokerBot.ts:observePokerHand` / `preflopRaises` / `opponentRanges`: postflop all-in calls count as aggression; current-hand helper classifies every positive preflop all-in as a raise even though learned counters distinguish calls. Requires legal-hand reproduction and bounded correction, not arbitrary range tuning.
+- DESIGN OBSERVATION — `pokerLobbyService.ts:addPokerBot`: each newly added bot injects 1000 play chips, with no global bankroll cap; a large accumulated human bankroll is possible without a payout/duplication bug.
+- LIMITATION — `pokerBotBenchmark.ts` and `pokerBotCompare.ts` call the engine/bot directly without `observePokerHand`; their committed entry points do not test persistent opponent learning.
+- DATA LIMITATION — `/__developer-read/poker/hands` keeps showdown cards only, caps at 300, truncates bot identities and omits bot decision reasons/equity; it cannot fully replay folded-card decisions. Fresh authenticated export unavailable in this session.
+
+### Poker audit follow-up — 2026-10-07
+Owner authorized bot improvements and access verification. Rank key padding and shared incremental-commitment all-in classification implemented; pending regression verification. Sampling fallback remains open and requires separate measured redesign. Existing credentials are documented in Claude/Amvera but absent here; no access bypass or secret committed.
+
+Verification: rank ordering and short all-in call defects fixed with legal-action regressions; five audit regression tests including seeded learning benchmark. Reconciled #732 without reverting training/token behavior. Narrow-range sampler remains OPEN; fresh history unavailable due shared-file synchronization failure despite existing Amvera credential.

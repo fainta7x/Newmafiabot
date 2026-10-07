@@ -279,8 +279,13 @@ const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => 
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
-  // A person who just left still exists in the immutable current-hand result. Until that hand is retired, accepting the
-  // same id as a fresh 1,000-token seat would let the old stack be mistaken for the new buy-in.
+  // A quiet table may have nobody polling to advance the finished hand. Once the normal result pause elapsed, the join
+  // request itself retires/advances it before checking whether this id belonged to the old hand.
+  if (lobby.hand?.street === 'finished' && lobby.hand.finished_at && Date.now() - lobby.hand.finished_at >= NEXT_HAND_DELAY_MS) {
+    nextPokerHand(lobby);
+  }
+  // A person who just left still exists in the immutable current-hand result during the result pause. Until that hand is
+  // retired, accepting the same id as a fresh 1,000-token seat would let the old stack be mistaken for the new buy-in.
   if (lobby.hand?.players.some((item) => item.id === player.id)) {
     throw new Error('Вы только что вышли из этой раздачи. Дождитесь следующей раздачи и садитесь снова.');
   }

@@ -59,23 +59,28 @@ const play = (hand: PokerState, strategies: Map<string, Strategy>, random: () =>
 };
 
 /** The bot against `opponents`; returns the bot's big blinds per 100 hands. */
-export const benchmark = (opponentNames: string[], hands: number, options: { seed?: number; learn?: boolean; continuous?: boolean; stack?: number } = {}) => {
-  let seed = options.seed ?? 123;
-  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+export const benchmark = (opponentNames: string[], hands: number, options: { seed?: number; learn?: boolean; continuous?: boolean; stack?: number; policy?: { choose: typeof chooseStrongBotAction; observe: typeof observePokerHand; reset: typeof resetPokerBotMemoryForTests } } = {}) => {
+  const seed = options.seed ?? 123;
+  const makeRandom = (initial: number) => { let state = initial >>> 0; return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; }; };
+  const policy = options.policy ?? { choose: chooseStrongBotAction, observe: observePokerHand, reset: resetPokerBotMemoryForTests };
   const stack = options.stack ?? STACK;
-  resetPokerBotMemoryForTests();
-  const seats = [{ id: 'bot', strategy: bot }, ...opponentNames.map((name, index) => ({ id: `opp${index}`, strategy: STRATEGIES[name] }))];
+  policy.reset();
+  const seats = [{ id: 'bot', strategy: ((hand, id, random) => policy.choose(hand, hand.players.find((player) => player.id === id)!, random)) as Strategy }, ...opponentNames.map((name, index) => ({ id: `opp${index}`, strategy: STRATEGIES[name] }))];
   const strategies = new Map(seats.map((seat) => [seat.id, seat.strategy]));
   let net = 0;
   const stacks = new Map(seats.map((seat) => [seat.id, stack]));
   for (let index = 0; index < hands; index += 1) {
     const players = seats.map((seat, i) => ({ id: seat.id, nickname: seat.id, seat: i + 1, chips: options.continuous ? stacks.get(seat.id)! : stack, is_bot: seat.id === 'bot' }));
+    // Cards and each actor have independent per-hand streams: a policy change cannot change future deals.
+    const deckRandom = makeRandom(seed ^ Math.imul(index + 1, 2654435761));
+    const actorRandom = new Map(seats.map((seat, i) => [seat.id, makeRandom(seed ^ Math.imul(index + 1, 2246822519) ^ Math.imul(i + 1, 3266489917))]));
+    const seededStrategies = new Map([...strategies].map(([id, strategy]) => [id, ((hand, playerId) => strategy(hand, playerId, actorRandom.get(id)!)) as Strategy]));
     const deck = createDeck();
-    for (let i = deck.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    for (let i = deck.length - 1; i > 0; i -= 1) { const j = Math.floor(deckRandom() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
     const hand = createPokerHand({ deck, id: `h${index}`, players, dealer_seat: (index % seats.length) + 1, small_blind: BB / 2, big_blind: BB });
-    play(hand, strategies, random);
+    play(hand, seededStrategies, deckRandom);
     if (!['finished', 'showdown'].includes(hand.street)) throw new Error(`Unfinished benchmark hand ${hand.id}`);
-    if (options.learn) observePokerHand(hand);
+    if (options.learn) policy.observe(hand);
     for (const player of hand.players) stacks.set(player.id, player.chips > 0 ? player.chips : stack);
     const me = hand.players.find((player) => player.id === 'bot')!;
     net += me.chips - (me.start_chips ?? stack);

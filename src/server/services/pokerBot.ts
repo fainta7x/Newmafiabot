@@ -359,39 +359,58 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
   const deck = createDeck().filter((card) => !used.has(cardKey(card)));
   const runs = iterations || Math.max(240, Math.round(900 / (opponentRanges.length + 1)));
   const needsBoard = board.length >= 3 && opponentRanges.some((item) => typeof item !== 'number' && (item.boardMin || 0) > 0);
-  // How strong every possible hand is on THIS board: a sorted sample of random two-card hands to compare a pick with.
-  let boardSample: number[] = [];
-  if (needsBoard) {
-    const pool = deck.slice();
-    for (let i = 0; i < 70; i += 1) {
-      const first = pool[Math.floor(random() * pool.length)];
-      let second = pool[Math.floor(random() * pool.length)];
-      while (second === first) second = pool[Math.floor(random() * pool.length)];
-      boardSample.push(rankKey(pokerHandRank([first, second, ...board])));
+  // Keep the legacy argument for callers; exact candidate sampling has no retry budget.
+  void rangeAttempts;
+  const combinations: Array<{ cards: PokerCard[]; percentile: number; key: number; strength: number }> = [];
+  for (let first = 0; first < deck.length; first += 1) {
+    for (let second = first + 1; second < deck.length; second += 1) {
+      const cards = [deck[first], deck[second]];
+      combinations.push({ cards, percentile: handPercentile(cards), key: needsBoard ? rankKey(pokerHandRank([...cards, ...board])) : 0, strength: 0 });
     }
-    boardSample = boardSample.sort((a, b) => a - b);
   }
-  const boardStrength = (pick: PokerCard[]) => {
-    const key = rankKey(pokerHandRank([...pick, ...board]));
-    let low = 0;
-    while (low < boardSample.length && boardSample[low] <= key) low += 1;
-    const made = low / boardSample.length;
-    return board.length < 5 ? Math.max(made, drawPotential(pick, board)) : made;
-  };
+  if (needsBoard) {
+    const sorted = combinations.map((item) => item.key).sort((left, right) => left - right);
+    for (const item of combinations) {
+      // Upper bound gives equal made hands the same percentile; no random 70-hand reference.
+      let low = 0;
+      let high = sorted.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (sorted[middle] <= item.key) low = middle + 1;
+        else high = middle;
+      }
+      item.strength = low / sorted.length;
+      if (board.length < 5) item.strength = Math.max(item.strength, drawPotential(item.cards, board));
+    }
+  }
+  const ranges = opponentRanges.map((opponent) => {
+    const range = typeof opponent === 'number' ? opponent : opponent.range;
+    const boardMin = typeof opponent === 'number' || !needsBoard ? 0 : opponent.boardMin || 0;
+    const miss = (item: typeof combinations[number]) => Math.max(0, item.percentile - range) + Math.max(0, boardMin - item.strength);
+    return { eligible: combinations.filter((item) => miss(item) === 0), miss };
+  });
   let score = 0;
   for (let run = 0; run < runs; run += 1) {
     const pool = deck.slice();
     const draw = () => pool.splice(Math.floor(random() * pool.length), 1)[0];
     const hands: PokerCard[][] = [];
-    for (const opponent of opponentRanges) {
-      const range = typeof opponent === 'number' ? opponent : opponent.range;
-      const boardMin = typeof opponent === 'number' || !needsBoard ? 0 : opponent.boardMin || 0;
-      let pick: PokerCard[] = [draw(), draw()];
-      // Keep re-drawing while the hand is outside the opponent's likely range (a few tries).
-      for (let attempt = 0; attempt < rangeAttempts && (handPercentile(pick) > range || (boardMin > 0 && boardStrength(pick) < boardMin)); attempt += 1) {
-        pool.push(...pick);
-        pick = [draw(), draw()];
+    const available = new Set(pool);
+    for (const range of ranges) {
+      const legal = (item: typeof combinations[number]) => item.cards.every((card) => available.has(card));
+      let candidates = range.eligible.filter(legal);
+      if (candidates.length === 0) {
+        // Blockers can make the inferred range impossible. Use the closest legal support explicitly,
+        // rather than a random out-of-range hand after an arbitrary retry count.
+        let closest = Infinity;
+        for (const item of combinations) {
+          if (!legal(item)) continue;
+          const distance = range.miss(item);
+          if (distance < closest) { closest = distance; candidates = [item]; }
+          else if (distance === closest) candidates.push(item);
+        }
       }
+      const pick = candidates[Math.floor(random() * candidates.length)].cards;
+      for (const card of pick) { available.delete(card); pool.splice(pool.indexOf(card), 1); }
       hands.push(pick);
     }
     const fullBoard = board.slice();

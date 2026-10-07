@@ -489,6 +489,25 @@ Historical UI/visual requirements may evolve, so inspect current publication com
 
 ## Player economy / payments
 
+### Rubles, club tokens and shop purchases (owner-approved 2026-10-07)
+
+- The economy is designed for one organizer and a small club. Prefer automation and obvious status over enterprise-style finance dashboards.
+- **Rubles are real payments.** Evening fees, tournament entry fees, direct shop purchases and tournament prizes are recorded in rubles and remain separate from virtual balances.
+- **Club tokens are earned, not sold.** A player receives them from approved Mafia/club activity. Rubles must not be converted into club tokens and the existing `token_packages` schema is not approval to sell tokens.
+- Earned club tokens may be spent on shop perks/services. The same shop item may also offer a direct ruble/SBP purchase so a player can either earn it through club activity or pay for the service directly.
+- A separate paid premium currency is **not required now** and is deferred unless the owner explicitly revives it.
+- **Poker chips are play-only.** They are not club tokens, are not bought for rubles, are not redeemable for shop value and do not enter club accounting.
+- The existing betting pool currently uses club tokens. Do not expand, monetize or connect paid funds to that mechanic until the owner explicitly decides the model after the legal/product question is settled. In particular, no paid rubles or future paid currency may silently become a wager balance.
+- **Tournament prizes are real money.** Track the player's real entry payments and real prize payouts separately from virtual balances. The player may see his own aggregate «Заработано призовыми» and tournament money history; this is private to that player and organizers, not a public profile statistic.
+
+### Online payment target for a self-employed organizer (owner-approved 2026-10-07)
+
+- Final UX target: a player pays the exact obligation or shop item inside the app through SBP, and the app reconciles it automatically.
+- The server must bind every external payment to one canonical purpose/obligation with an idempotent payment intent and authenticated provider callback; a successful callback must not be double-counted on retries.
+- The chosen provider/bank integration should support a self-employed NPD flow with automated receipt creation/delivery or a reliable receipt callback, so the organizer does not manually match transfers and issue every receipt.
+- Provider credentials and vendor-specific fields stay outside product/business rules. Keep a provider adapter so the payment service can be replaced without rewriting evenings, tournaments or the shop.
+- Until online acquiring is actually configured and runtime-verified, current manual payment confirmation remains the truth; UI and messages must not claim that an online payment was accepted when it was not.
+
 - Wallet/tokens, shop, betting, manual evening accounting and free-evening credits are active product areas.
 - For every regular **CASUAL** evening, the canonical charge is **100 ₽ per actually played completed game**, capped at **400 ₽**: 0/1/2/3/4/5+ completed games produce 0/100/200/300/400/400 ₽.
 - RSVP and selected/planned game slots are planning facts only. They may expose an estimate, but must not persist planned CASUAL debt into `amount_due`.

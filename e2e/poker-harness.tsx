@@ -18,6 +18,7 @@ const lobby = {
   title: 'Открытая покерная комната',
   ownerId: 'viewer',
   status: 'playing',
+  money_mode: 'club_tokens',
   players,
   hand: {
     id: 'visual-hand',

@@ -7,6 +7,7 @@ import { ensureEloSeedSchema } from '../../db/ensureEloSeedSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { recordNewPlayerOnboardingNotification } from './playerOnboardingOrganizerService.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
+import { grantPlayerStarterTokens } from './tokenLedgerService.ts';
 
 export class PlayerRegistrationError extends Error {
   code: string;
@@ -148,6 +149,7 @@ export async function registerVerifiedPlayerIdentity(
       ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'novice', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
       [playerId, telegramUserId, nickname, fullName, telegramUsername, source, 'Новый игрок', now, now, now],
     );
+    await grantPlayerStarterTokens(tx, playerId);
 
     if (input.platform === 'vk') {
       await tx.run(`

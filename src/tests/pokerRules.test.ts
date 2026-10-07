@@ -133,18 +133,18 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(7 * botThinkMs({ type: 'fold' })).toBeLessThan(4000);
   });
 
-  it('shows «Мест нет» only when nobody can take a seat, and marks the table the viewer sits at', () => {
-    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
-    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
-    const entry = (viewer?: string) => listPokerLobbies(viewer).find((item) => item.id === lobby.id)!;
-    expect(entry().full).toBe(false);
-    expect(entry('a').joined).toBe(true);
-    expect(entry('z').joined).toBe(false);
-    // each newcomer takes the seat of a bot; when eight people sit there, nobody can join any more
-    for (let i = 0; i < 7; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+  it('shows «Мест нет» only when a live human table really has eight people, and marks the viewer seat', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' }, 'Живой стол', 'club_tokens');
+    for (let i = 0; i < 6; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+    const entry = (viewer?: string) => listPokerLobbies(viewer).find((item) => item.id === lobby.id);
+    expect(entry()?.full).toBe(false);
+    expect(entry('a')?.joined).toBe(true);
+    expect(entry('z')?.joined).toBe(false);
+
+    joinPokerLobby(lobby, { id: 'h6', nickname: 'H6' });
     expect(lobby.players.filter((player) => !player.is_bot)).toHaveLength(8);
     expect(entry('h0')).toMatchObject({ full: true, joined: true });
-    // a full table of people is not offered to outsiders at all (only the permanent table always is)
+    // A full live table is not offered to outsiders; only seated people can return to it.
     expect(entry('z')).toBeUndefined();
   });
 

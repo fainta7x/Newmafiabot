@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerInviteSchema } from '../../db/ensurePokerInviteSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { loadPresence } from './presenceService.ts';
 import { loadPersonalNotificationPreference } from './personalNotificationRouterService.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
@@ -79,13 +80,17 @@ export async function loadPokerInviteCandidates(
 ) {
   await ensurePokerInviteSchema(db);
   await ensureVkIntegrationSchema(db);
+  await ensurePersonalNotificationRoutingSchema(db);
   const now = options.now ?? Date.now();
   const players = await db.all<any>(`
     SELECT p.id, p.nickname, p.telegram_user_id, p.lifecycle_status,
-           vk.external_user_id AS vk_user_id
+           vk.external_user_id AS vk_user_id,
+           COALESCE(pref.personal_enabled, 1) AS personal_enabled
       FROM players p
       LEFT JOIN player_external_identities vk
         ON vk.platform='vk' AND vk.player_id=p.id
+      LEFT JOIN player_notification_preferences pref
+        ON pref.player_id=p.id
      WHERE p.id <> ?
        AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
        AND COALESCE(p.lifecycle_status, 'normal') <> 'blocked'
@@ -120,7 +125,8 @@ export async function loadPokerInviteCandidates(
       vk_last_seen_at: vkState?.lastSeenAt || null,
       vk_status_available: vk.available,
       telegram_linked: Boolean(row.telegram_user_id),
-      can_invite: Boolean(row.telegram_user_id) && cooldownSeconds === 0,
+      personal_notifications_enabled: Number(row.personal_enabled) !== 0,
+      can_invite: Boolean(row.telegram_user_id) && Number(row.personal_enabled) !== 0 && cooldownSeconds === 0,
       invite_cooldown_seconds: cooldownSeconds,
     };
   });

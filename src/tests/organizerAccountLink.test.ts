@@ -40,8 +40,10 @@ const createCanonicalOwner = async (db: DatabaseWrapper, telegramUserId: string)
     nickname: 'Canonical Owner Test',
     source: 'test',
   })).player;
-  // Registration files a level-review task for the fresh profile; drop it before re-keying the row.
+  // Registration now also creates the starter-token ledger row. This fixture deliberately re-keys the player to the
+  // canonical owner id, so remove fixture-owned dependants first; createApp will reconcile the unchanged 1,000 balance.
   await db.run('DELETE FROM organizer_tasks WHERE player_id = ?', [created.id]);
+  await db.run('DELETE FROM token_ledger WHERE player_id = ?', [created.id]);
   await db.run('UPDATE players SET id = ? WHERE id = ?', [PRIMARY_ORGANIZER_PLAYER_ID, created.id]);
   return { ...created, id: PRIMARY_ORGANIZER_PLAYER_ID };
 };

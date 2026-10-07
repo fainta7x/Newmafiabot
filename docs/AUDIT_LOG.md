@@ -20,6 +20,8 @@ Scope: players say the bots got weak after the bot patch; a novice (Диссон
 - `pokerBot.ts` `preflopDecision` — a re-raise was answered from a fixed chart by the number of raises, not by the price: a min-raise from 2 to 3 big blinds (one more big blind) was folded like a 3x re-raise. Status: fixed — equity against the re-raiser's measured range (bots now count re-raises) against the price and the position.
 - `pokerBot.ts` — a call of at most a quarter of the pot, or a re-raise under 2x, was folded with weak hands. Status: fixed — such a cheap call is never folded (owner: «если доплата ничтожна — это всегда колл»).
 - `pokerBot.ts` `opponentRanges` — a 1 bb bet into a 7 bb pot narrowed the bettor's range almost like a half-pot bet. Status: fixed — bets under a quarter of the pot weigh much less.
+- `pokerBot.ts` `preflopDecision` — an all-in before the flop was called only with the top 5–11% of hands, so «push any two» (Диссонанс now shoves every hand) won the blinds every time. Status: fixed — call when equity against the shover's measured shove range beats the price (≈ A2+, K5+, Q8+, J9+, any pair against any two at 50 bb).
+- `pokerBot.ts` — no fear of busting at the cash table (ICM only in tournaments); short stacks shoved with push/fold-chart hands. Status: fixed — `stackPressure`: ranges ×0.6 and +6% needed equity at ≤15 bb, ×1.25 and 0% at ≥125 bb; short-stack shoves only with strong hands.
 
 ## 2026-10-06 · Production slowness: the app loads slowly, the monitor reports outages (owner report)
 

@@ -76,20 +76,30 @@ export async function withPersistedPokerRuntime<T>(db: DatabaseWrapper, callback
   await previous;
   try {
     return await withPokerRuntimeState(cached.state, async () => {
-      const before = JSON.stringify(exportPokerRuntimeSnapshot());
-      const result = await callback();
-      const after = JSON.stringify(exportPokerRuntimeSnapshot());
-      const pending = pendingPokerHandLog();
-      await writeHandLog(db, pending);
-      confirmPokerHandLog(pending.length);
-      if (after !== before) {
-        await db.run(
-          `INSERT INTO poker_runtime_state (id,state_json,updated_at) VALUES ('main',?,?)
-           ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at`,
-          [after, new Date().toISOString()],
-        );
+      try {
+        const committed = await db.transaction(async (tx) => {
+          const before = JSON.stringify(exportPokerRuntimeSnapshot());
+          const result = await callback();
+          const after = JSON.stringify(exportPokerRuntimeSnapshot());
+          const pending = pendingPokerHandLog();
+          await writeHandLog(tx, pending);
+          if (after !== before) {
+            await tx.run(
+              `INSERT INTO poker_runtime_state (id,state_json,updated_at) VALUES ('main',?,?)
+               ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at`,
+              [after, new Date().toISOString()],
+            );
+          }
+          return { result, pendingCount: pending.length };
+        });
+        confirmPokerHandLog(committed.pendingCount);
+        return committed.result;
+      } catch (error) {
+        // Token buy-in/cash-out and the table snapshot are one transaction. If anything fails, discard the mutated
+        // in-memory room too; the next request reconstructs the last committed state from SQLite.
+        runtimes.delete(db);
+        throw error;
       }
-      return result;
     });
   } finally {
     release();

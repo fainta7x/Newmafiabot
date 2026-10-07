@@ -366,7 +366,7 @@ export default function OrganizerCommandCenter({
 
       {!paymentsFresh ? <section data-testid="crm-payments-refreshing" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-[13px] text-text-secondary"><RefreshCw className="h-4 w-4 animate-spin text-accent" /> Обновляем оплаты за {snapshot.evening.title} · {formatPaymentDate(snapshot.evening.starts_at)}…</section> : null}
 
-      {actionCards.length ? <section aria-label="Действия сегодня" className="grid grid-cols-2 gap-2">
+      {actionCards.length ? <section aria-label="Действия сегодня" className="crm-today-actions grid grid-cols-2 gap-2">
         {actionCards.map((item) => <button key={item.id} type="button" onClick={item.action} className="min-h-[78px] rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left active:bg-surface-hover">
           <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${item.tone}`}>{item.icon}{item.label}</div>
           <div className="mt-1.5 text-[22px] font-bold leading-none text-text-primary">{item.value}</div>
@@ -386,7 +386,7 @@ export default function OrganizerCommandCenter({
     {evenings && onOpenTournament ? <WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /> : null}
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
-    <OrganizerAgenda mode="preview" refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} />
+    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
 
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>

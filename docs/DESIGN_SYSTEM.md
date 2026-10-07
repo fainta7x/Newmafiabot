@@ -206,3 +206,5 @@ Remaining visual work is ordinary product polish/bug fixing, not a separate glob
 
 ## Desktop work surfaces
 At 1024 px and above CRM and the canonical player profile use a bounded working width of about 1120 px. Related cards and game/player lists use two readable columns; primary context and key metrics may span both. Keep ordinary settings forms compact and rare tools collapsed. Below that breakpoint retain the phone order and Telegram safe-area contract; reserve space for CRM bottom navigation for the entire range where it is visible (below 768 px).
+
+Desktop follow-up: do not auto-pair unrelated expandable cards in shared grid rows. Profile detailed statistics span the content width; More reports and administration form one independent column. Embedded Elo follows the profile width and bottom spacing, without a second full-height page. Align identity/header content with the workspace edges and keep protocol actions at least 44px high.

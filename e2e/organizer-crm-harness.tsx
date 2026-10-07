@@ -29,6 +29,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/auth/me') return json({ role: 'ORGANIZER', isOrganizer: true });
   if (url.pathname === '/api/crm/overview') return json(overview);
   if (url.pathname === '/api/crm/command-center') return json(commandCenter);
+  if (url.pathname === '/api/crm/agenda') return json({ items: [], counts: { now: 0, week: 0, later: 0 }, total: 0, snoozed: 0, groups: { now: 'Сейчас', week: 'На неделе', later: 'Позже' } });
   if (url.pathname === '/api/evenings') return json([evening]);
   if (url.pathname === '/api/players') return json([]);
   return json({ error: `Preview route not mocked: ${url.pathname}` }, 404);

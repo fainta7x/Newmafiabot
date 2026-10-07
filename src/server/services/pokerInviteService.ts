@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerInviteSchema } from '../../db/ensurePokerInviteSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
+import { ensurePlayerProfileMergeSchema } from '../../db/ensurePlayerProfileMergeSchema.ts';
 import { loadPresence } from './presenceService.ts';
 import { loadPersonalNotificationPreference } from './personalNotificationRouterService.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
@@ -27,6 +28,14 @@ type VkPresenceCache = {
 };
 
 const vkPresenceCache = new WeakMap<DatabaseWrapper, VkPresenceCache>();
+
+const unavailableInviteStatuses = new Set(['blocked', 'paused', 'archived', 'inactive', 'disabled', 'deleted', 'merged']);
+const inviteTargetAvailable = (row: any) => Boolean(
+  row
+  && String(row.source || '').trim() !== 'legacy_guest_migrated'
+  && !String(row.merged_into_player_id || '').trim()
+  && !unavailableInviteStatuses.has(String(row.contact_status || row.lifecycle_status || 'normal').trim().toLowerCase())
+);
 
 export class PokerInviteError extends Error {
   constructor(public code: 'cooldown' | 'no_telegram' | 'notifications_disabled' | 'player_not_found', message: string, public retryAfterSeconds = 0) {
@@ -82,9 +91,10 @@ export async function loadPokerInviteCandidates(
   await ensurePokerInviteSchema(db);
   await ensureVkIntegrationSchema(db);
   await ensurePersonalNotificationRoutingSchema(db);
+  await ensurePlayerProfileMergeSchema(db);
   const now = options.now ?? Date.now();
   const players = await db.all<any>(`
-    SELECT p.id, p.nickname, p.telegram_user_id, p.lifecycle_status,
+    SELECT p.id, p.nickname, p.telegram_user_id, p.lifecycle_status, p.contact_status, p.source, p.merged_into_player_id,
            vk.external_user_id AS vk_user_id,
            COALESCE(pref.personal_enabled, 1) AS personal_enabled
       FROM players p
@@ -94,7 +104,8 @@ export async function loadPokerInviteCandidates(
         ON pref.player_id=p.id
      WHERE p.id <> ?
        AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
-       AND LOWER(COALESCE(p.contact_status, p.lifecycle_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted')
+       AND p.merged_into_player_id IS NULL
+       AND LOWER(COALESCE(p.contact_status, p.lifecycle_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted','merged')
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [senderPlayerId]);
 
@@ -150,16 +161,18 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   now?: number;
 }) {
   await ensurePokerInviteSchema(db);
+  await ensurePlayerProfileMergeSchema(db);
   const now = input.now ?? Date.now();
   if (input.senderPlayerId === input.targetPlayerId) {
     throw new PokerInviteError('player_not_found', 'Нельзя позвать самого себя.');
   }
 
   const target = await db.get<any>(
-    'SELECT id, nickname, telegram_user_id FROM players WHERE id=? LIMIT 1',
+    'SELECT id, nickname, telegram_user_id, contact_status, lifecycle_status, source, merged_into_player_id FROM players WHERE id=? LIMIT 1',
     [input.targetPlayerId],
   );
   if (!target) throw new PokerInviteError('player_not_found', 'Игрок не найден.');
+  if (!inviteTargetAvailable(target)) throw new PokerInviteError('player_not_found', 'Игрок недоступен для приглашения.');
   if (!target.telegram_user_id) throw new PokerInviteError('no_telegram', 'У игрока не подключён Telegram.');
 
   const preference = await loadPersonalNotificationPreference(db, input.targetPlayerId);

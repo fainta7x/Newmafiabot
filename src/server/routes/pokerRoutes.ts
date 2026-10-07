@@ -94,7 +94,7 @@ const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Req
 const actor = async (req: any) => {
   const id = getPlayerSessionId(req);
   if (!id) throw new PokerRouteError(401, 'Для Poker нужен профиль игрока.');
-  const player = await req.db.get('SELECT id, nickname, tokens FROM players WHERE id = ? LIMIT 1', [id]) as { id: string; nickname?: string; tokens?: number } | undefined;
+  const player = await req.db.get('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [id]) as { id: string; nickname?: string } | undefined;
   if (!player) throw new PokerRouteError(404, 'Игрок не найден.');
   return { id: String(player.id), nickname: String(player.nickname || 'Игрок') };
 };

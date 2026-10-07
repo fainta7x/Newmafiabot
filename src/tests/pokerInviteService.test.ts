@@ -37,7 +37,7 @@ describe('poker invites and presence', () => {
   });
 
   afterEach(async () => {
-    await db?.close?.();
+    db.sqlite.close();
   });
 
   it('ranks app-online first and also exposes best-effort VK online status', async () => {
@@ -81,7 +81,7 @@ describe('poker invites and presence', () => {
       lobbyId: 'live-table',
       lobbyTitle: 'Вечерний стол',
       now: now + 30_000,
-    })).rejects.toMatchObject<PokerInviteError>({ code: 'cooldown', retryAfterSeconds: 90 });
+    })).rejects.toMatchObject({ code: 'cooldown', retryAfterSeconds: 90 });
 
     const afterCooldown = await queuePokerInvite(db, {
       senderPlayerId: 'alice',

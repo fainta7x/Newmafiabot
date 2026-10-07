@@ -60,6 +60,19 @@ for (const width of [390, 1024, 1366, 1440]) {
       if (name === 'Игроки') await expect(page.getByTestId('club-directory').getByRole('button')).toHaveCount(10);
       if (name === 'Связи') await expect(page.getByTestId('club-rivals')).toBeVisible();
       await shot(`community-${name}`);
+      if (name === 'Связи') {
+        const duos = page.getByTestId('club-duos');
+        await expect(duos.getByText('Александра с длинным никнеймом', { exact: true })).toBeVisible();
+        await expect(duos.getByText('Рано делать выводы о силе связки.', { exact: false })).toBeVisible();
+        await page.getByRole('button', { name: 'Самые сыгранные', exact: true }).click();
+        await expect(duos.getByText('Ночной игрок', { exact: true })).toBeVisible();
+        await shot('connections-most-played');
+        await page.getByTestId('club-recent').scrollIntoViewIfNeeded();
+        await expect(page.getByText('Клубный вечер 2 октября', { exact: false })).toBeVisible();
+        await shot('connections-recent');
+        await page.getByTestId('club-teammates').scrollIntoViewIfNeeded();
+        await shot('connections-personal');
+      }
     }
     await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность', exact: true }).click();
     for (const name of ['Форма', 'Матчи', 'Сезон', 'Архив']) {

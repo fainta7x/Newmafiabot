@@ -246,3 +246,11 @@ Preview verification: initial head `c00f02f` passed CI/CodeQL/Gitleaks. Artifact
 Complete cabinet review: head `cc0cf5d` passed all four workflows and 61 browser tests. Verified byte-safe artifacts and synthetic revision `4706824f` parents; inspected all 22 cabinet/CRM captures at 390, 1024, 1366×768 and 1440px. Wallet duplication corrected with explicit full/current/history views; paid totals, credits and free-evening action covered by three unit tests. Final coverage additionally captures home/footer and settings save/music controls after scrolling; final exact-head checks remain mandatory before merge. Runtime UI unverified.
 
 - FIXED — Codex P1 on PR #726: desktop `player-workspace-page` bottom padding of 32px is smaller than fixed navigation; preserve navigation height plus safe inset and a 24px gap. Added a bottom-action bounds assertion after scrolling.
+
+### Club connections audit — 2026-10-07
+- FIXED — `PlayerClubConnections.tsx`: club ranking renders only three pairs per side without sample explanation or alternatives, making the section sparse.
+- FIXED — `playerPulseRoutes.ts`: pairs with one game vanish entirely; preserve the existing ranked pool (minimum two) and expose first encounters separately.
+- FIXED — `PlayerClubConnections.tsx`: personal rival wins have ambiguous wording; explain they are the viewer’s team wins, not individual duels.
+- FIXED — relationships API/UI: no last-event meetings, although completed snapshots already hold canonical event identities.
+
+Focused verification: six service/UI tests, typecheck, lint, production and isolated-preview builds; exact-head CI and fresh mobile/desktop screenshots remain release gates.

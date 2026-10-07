@@ -123,7 +123,7 @@ Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` 
 
 - Profile/self identity: `PlayerProfileHub.tsx`, `PlayerProfileSettings.tsx`, `PlayerIdentityFields.tsx`; canonical read/write is `/api/player/me`.
 - Conduct/staff workspace: `PlayerConductCenter.tsx`.
-- Club discovery: `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`.
+- Club discovery: `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`. Connections API: `playerPulseRoutes.ts`, aggregation `clubRelationshipsService.ts` over canonical completed club/tournament snapshots; club best/most-played/first-game pairs and last personal event.
 - Organizer player work card: `PlayersCRM.tsx`; access/roles: `PlayerAccessSettings.tsx`; limited cabinet «Проводит вечера»: `EventHostCabinet.tsx` + `canUseEventHostRoute` in `src/server/auth.ts` (marks `src/lib/organizeFormats.ts`); separate «Свои ивенты»: `CustomEventsPanel.tsx`, `src/server/routes/customEventRoutes.ts`, schema `src/db/ensureCustomEventsSchema.ts`, manual idempotent delivery `src/server/services/customEventPublishingService.ts`; many players at once: `PlayerAccessBulkCRM.tsx` («Ещё → Уровни и роли», `POST /api/players/access/bulk` in `playersRoutes.ts`; organizer cabinet access stays per player); token/Elo/manual-achievement corrections: `PlayerServiceTools.tsx`; owner-only safe duplicate merge: `POST /api/players/:id/merge-preview` → `POST /api/players/:id/merge`, `playerProfileMergeService.ts`, `ensurePlayerProfileMergeSchema.ts`, with preview, conflict guards, tombstone and audit.
 - API: `playerSelfCoreRoutes.ts`, `playersRoutes.ts`.
 - Avatars: `src/lib/playerAvatarManifest.ts`, `public/player-avatars/`.

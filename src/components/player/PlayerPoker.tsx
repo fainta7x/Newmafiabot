@@ -596,7 +596,8 @@ export default function PlayerPoker({ onExit, onTokenBalanceChange }: { onExit?:
   // A bot turns a waiting real-token table into training (the buy-in is returned first). Once a real hand started,
   // the mode is not changed until the hand ends.
   const canAddBot = Boolean(current && current.status !== 'finished' && (current.players?.length || 0) < 8
-    && (!isClubTokenTable(current) || !current.hand || current.hand.street === 'finished')
+    && (!isClubTokenTable(current) || ((!current.hand || current.hand.street === 'finished')
+      && current.players.filter((player: Player) => !player.is_bot).length === 1))
     && (current.ownerId === (viewerId || current.viewer_id) || (current.permanent && current.players?.some((player: Player) => player.id === (viewerId || current.viewer_id)))));
 
   // «Общий стол» is always running (owner, 2026-10-02): sitting down shows the table at once, never a set-up screen.

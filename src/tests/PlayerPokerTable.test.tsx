@@ -58,6 +58,16 @@ describe('poker table screen', () => {
     expect((fetch as any).mock.calls.some((call: any[]) => String(call[0]).endsWith('/invite-table/join'))).toBe(false);
   });
 
+  it('uses the selected 10 BB buy-in when joining a live table', async () => {
+    render(<PlayerPoker />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    fireEvent.click(screen.getByRole('button', { name: '10 ББ' }));
+    fireEvent.click(screen.getByRole('button', { name: /Войти · 200/ }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    const join = (fetch as any).mock.calls.find((call: any[]) => String(call[0]).endsWith('/join'));
+    expect(JSON.parse(String(join?.[1]?.body))).toEqual({ buy_in_tokens: 200 });
+  });
+
   it('does not ask for the table while the screen is hidden, and asks again when it is shown', async () => {
     await sitDown();
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });

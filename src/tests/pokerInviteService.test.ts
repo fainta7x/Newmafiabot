@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { recordPresence } from '../server/services/presenceService.ts';
-import { loadPokerInviteCandidates, POKER_INVITE_COOLDOWN_MS, PokerInviteError, queuePokerInvite } from '../server/services/pokerInviteService.ts';
+import { loadPokerInviteCandidates, POKER_INVITE_COOLDOWN_MS, queuePokerInvite } from '../server/services/pokerInviteService.ts';
 
 describe('poker invites and presence', () => {
   let db: DatabaseWrapper;

@@ -61,7 +61,21 @@ for (const width of [390, 1024, 1366, 1440]) {
       if (name === 'Связи') await expect(page.getByTestId('club-rivals')).toBeVisible();
       await shot(`community-${name}`);
       if (name === 'Связи') {
+        const stories = page.getByTestId('club-stories');
+        await expect(stories.getByText('Чёрные тройки', { exact: true })).toBeVisible();
+        await shot('stories-teams');
+        await stories.getByText('Шериф + мирный', { exact: true }).evaluate(el => el.scrollIntoView({ block: 'center' }));
+        await shot('stories-sheriff');
+        for (const [label, view] of [['Две стороны', 'opposition'], ['Круг игры', 'circle']]) {
+          await page.getByLabel('Виды клубных историй').getByRole('button', { name: label, exact: true }).click();
+          await page.getByTestId(`club-stories-${view}`).evaluate(el => el.scrollIntoView({ block: 'center' }));
+          await shot(`stories-${view}`);
+        }
+        await stories.getByText('Как читать эти истории', { exact: true }).click();
+        await stories.locator('details').evaluate(el => el.scrollIntoView({ block: 'center' }));
+        await shot('stories-help');
         const duos = page.getByTestId('club-duos');
+        await duos.evaluate(el => el.scrollIntoView({ block: 'center' }));
         await expect(duos.getByText('Александра с длинным никнеймом', { exact: true })).toBeVisible();
         await expect(duos.getByText('Рано делать выводы о силе связки.', { exact: false })).toBeVisible();
         await page.getByRole('button', { name: 'Самые сыгранные', exact: true }).click();

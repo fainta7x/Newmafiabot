@@ -1,3 +1,5 @@
+import ClubConnectionStories from './ClubConnectionStories.tsx';
+import type { ClubConnectionStories as ClubStories } from '../../shared/clubConnectionStories.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -25,6 +27,7 @@ type ClubDuo = {
 };
 
 type RelationshipData = {
+  club_stories?: ClubStories;
   rivals: PersonRelationship[];
   teammates: PersonRelationship[];
   club_duos: { red: ClubDuo[]; black: ClubDuo[] };
@@ -104,6 +107,7 @@ export default function PlayerClubConnections() {
 
   return (
     <div className="player-connections-layout space-y-3">
+      {data.club_stories && <ClubConnectionStories stories={data.club_stories} />}
       <section data-testid="club-duos" className="rounded-[24px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.045] to-white/[0.02] p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/60">Связи всего клуба</div>
         <h2 className="mt-1 text-lg font-semibold">Лучшие связки клуба</h2>

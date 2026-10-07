@@ -27,7 +27,7 @@ describe('only the club owner takes people off a poker table', () => {
     db = createDatabaseConnection(':memory:');
     const now = new Date().toISOString();
     await db.run(
-      `INSERT OR IGNORE INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?),('bob','Боб',?,?)`,
+      `INSERT OR IGNORE INTO players (id,nickname,tokens,created_at,updated_at) VALUES (?,?,5000,?,?),('bob','Боб',5000,?,?)`,
       [PRIMARY_ORGANIZER_PLAYER_ID, 'Владелец', now, now, now, now],
     );
   });

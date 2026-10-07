@@ -16,7 +16,7 @@ import {
 export const POKER_HAND_LOG_KEEP = 20000;
 const POKER_HAND_LOG_REPLAY = 5000;
 
-type CachedRuntime = { state: PokerRuntimeState; queue: Promise<void> };
+type CachedRuntime = { state: PokerRuntimeState; queue: Promise<void>; invalidated: boolean };
 let runtimes = new WeakMap<DatabaseWrapper, Promise<CachedRuntime>>();
 
 const parseSnapshot = (value: string): PokerRuntimeSnapshot => {
@@ -52,7 +52,7 @@ const loadRuntime = async (db: DatabaseWrapper): Promise<CachedRuntime> => {
   const snapshot = row?.state_json ? parseSnapshot(row.state_json) : undefined;
   const state = createPokerRuntimeState(snapshot);
   await replayStoredHands(db, state.memory!);
-  return { state, queue: Promise.resolve() };
+  return { state, queue: Promise.resolve(), invalidated: false };
 };
 
 const cachedRuntime = (db: DatabaseWrapper) => {
@@ -75,21 +75,38 @@ export async function withPersistedPokerRuntime<T>(db: DatabaseWrapper, callback
   cached.queue = new Promise<void>((resolve) => { release = resolve; });
   await previous;
   try {
+    if (cached.invalidated) {
+      // A request that was already queued before a rollback still holds this same cache object. Reload the committed
+      // SQLite snapshot here so no queued request can persist the failed request's mutated in-memory room.
+      const restored = await loadRuntime(db);
+      cached.state = restored.state;
+      cached.invalidated = false;
+    }
     return await withPokerRuntimeState(cached.state, async () => {
-      const before = JSON.stringify(exportPokerRuntimeSnapshot());
-      const result = await callback();
-      const after = JSON.stringify(exportPokerRuntimeSnapshot());
-      const pending = pendingPokerHandLog();
-      await writeHandLog(db, pending);
-      confirmPokerHandLog(pending.length);
-      if (after !== before) {
-        await db.run(
-          `INSERT INTO poker_runtime_state (id,state_json,updated_at) VALUES ('main',?,?)
-           ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at`,
-          [after, new Date().toISOString()],
-        );
+      try {
+        const committed = await db.transaction(async (tx) => {
+          const before = JSON.stringify(exportPokerRuntimeSnapshot());
+          const result = await callback();
+          const after = JSON.stringify(exportPokerRuntimeSnapshot());
+          const pending = pendingPokerHandLog();
+          await writeHandLog(tx, pending);
+          if (after !== before) {
+            await tx.run(
+              `INSERT INTO poker_runtime_state (id,state_json,updated_at) VALUES ('main',?,?)
+               ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at`,
+              [after, new Date().toISOString()],
+            );
+          }
+          return { result, pendingCount: pending.length };
+        });
+        confirmPokerHandLog(committed.pendingCount);
+        return committed.result;
+      } catch (error) {
+        // Token buy-in/cash-out and the table snapshot are one transaction. Mark this shared queued runtime dirty:
+        // both future callers and callers that already captured it must reload the last committed SQLite state.
+        cached.invalidated = true;
+        throw error;
       }
-      return result;
     });
   } finally {
     release();

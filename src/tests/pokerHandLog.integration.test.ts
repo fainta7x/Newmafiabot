@@ -3,7 +3,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensurePokerRuntimeSchema } from '../db/ensurePokerRuntimeSchema.ts';
 import { pokerOpponentProfile, resetPokerBotMemoryForTests } from '../server/services/pokerBot.ts';
 import { applyPokerAction } from '../server/services/pokerEngine.ts';
-import { createPokerLobby, joinPokerLobby, nextPokerHand, startPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { createPokerLobby, joinPokerLobby, listPokerLobbies, nextPokerHand, startPokerLobby } from '../server/services/pokerLobbyService.ts';
 import { resetPokerRuntimeCacheForTesting, withPersistedPokerRuntime } from '../server/services/pokerPersistenceService.ts';
 
 describe('stored poker hands teach the bots', () => {
@@ -32,7 +32,7 @@ describe('stored poker hands teach the bots', () => {
     expect(stored.actions.some((action: any[]) => action[2] === 'fold')).toBe(true);
   });
 
-  it('keeps a finished hand queued when its insert fails, and writes it on the next request', async () => {
+  it('rolls the poker mutation back when the durable write fails', async () => {
     await withPersistedPokerRuntime(db, () => { createPokerLobby({ id: 'alice', nickname: 'Алиса' }); });
     await db.run('ALTER TABLE poker_hand_log RENAME TO poker_hand_log_off');
     await expect(withPersistedPokerRuntime(db, () => {
@@ -44,7 +44,39 @@ describe('stored poker hands teach the bots', () => {
     })).rejects.toThrow();
     await db.run('ALTER TABLE poker_hand_log_off RENAME TO poker_hand_log');
     await withPersistedPokerRuntime(db, () => undefined);
-    expect((await db.all(`SELECT id FROM poker_hand_log`))).toHaveLength(1);
+    expect((await db.all(`SELECT id FROM poker_hand_log`))).toHaveLength(0);
+  });
+
+  it('reloads committed state for a request that was already queued when the previous mutation rolled back', async () => {
+    let releaseFailed!: () => void;
+    let failedStarted!: () => void;
+    const failedMayFinish = new Promise<void>((resolve) => { releaseFailed = resolve; });
+    const failedHasMutated = new Promise<void>((resolve) => { failedStarted = resolve; });
+
+    const failed = withPersistedPokerRuntime(db, async () => {
+      createPokerLobby({ id: 'rolled-back', nickname: 'Rolled back' }, 'Rolled back');
+      failedStarted();
+      await failedMayFinish;
+      throw new Error('forced rollback');
+    });
+
+    await failedHasMutated;
+    // This call captures the same cache object while the first request still owns the queue.
+    const queued = withPersistedPokerRuntime(db, () => {
+      createPokerLobby({ id: 'committed', nickname: 'Committed' }, 'Committed');
+      return listPokerLobbies().map((lobby) => lobby.title);
+    });
+
+    releaseFailed();
+    await expect(failed).rejects.toThrow('forced rollback');
+    const titles = await queued;
+    expect(titles).toContain('Committed');
+    expect(titles).not.toContain('Rolled back');
+
+    resetPokerRuntimeCacheForTesting(db);
+    const afterRestart = await withPersistedPokerRuntime(db, () => listPokerLobbies().map((lobby) => lobby.title));
+    expect(afterRestart).toContain('Committed');
+    expect(afterRestart).not.toContain('Rolled back');
   });
 
   it('rebuilds the opponent memory from the log after a restart', async () => {

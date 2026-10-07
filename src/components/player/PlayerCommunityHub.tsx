@@ -76,7 +76,7 @@ export default function PlayerCommunityHub({
             <span className="relative flex-1 px-4 py-3">
               <span className="block text-[10px] uppercase tracking-[.22em] text-amber-200/60">Клубный досуг</span>
               <span className="mt-0.5 block text-base font-semibold text-white">Покерный стол</span>
-              <span className="mt-0.5 block text-xs text-white/55">Холдем на игровые фишки, до 8 игроков</span>
+              <span className="mt-0.5 block text-xs text-white/55">С людьми — на жетоны · с ботами — тренировка</span>
             </span>
             <span className="relative mr-3 rounded-xl bg-[linear-gradient(#e3c477,#b98637)] px-3 py-2 text-xs font-bold text-[#1a1106]">Играть</span>
           </button>

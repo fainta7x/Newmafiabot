@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type Candidate = {
   player_id: string;
@@ -47,27 +47,24 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [, setTick] = useState(0);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     const response = await fetch('/api/player/poker/invite-candidates', { credentials: 'include' });
     const body = await response.json().catch(() => null);
     if (!response.ok || !body) throw new Error(body?.error || 'Не удалось загрузить игроков.');
     setCandidates(Array.isArray(body.candidates) ? body.candidates : []);
-  };
+  }, []);
 
   useEffect(() => {
     void load().catch(() => undefined);
     const timer = window.setInterval(() => void load().catch(() => undefined), 30_000);
     return () => window.clearInterval(timer);
-  }, [lobbyId]);
+  }, [load, lobbyId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setCandidates((current) => current.map((candidate) => candidate.invite_cooldown_seconds > 0
         ? { ...candidate, invite_cooldown_seconds: Math.max(0, candidate.invite_cooldown_seconds - 1), can_invite: candidate.telegram_linked && candidate.personal_notifications_enabled && !candidate.at_table && candidate.invite_cooldown_seconds <= 1 }
         : candidate));
-      setTick((value) => value + 1);
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);

@@ -237,3 +237,5 @@ Scope: owner reported irregular CRM home cards and absent desktop layouts outsid
 - FIXED (visual review pending) — `PlayerCommunityHub.tsx`, `PlayerRatingHub.tsx`, directory/connections: narrow container and lists remain phone-only; nested rating adds a separate full-height page.
 - FIXED (visual review pending) — wallet/settings: compact forms are sensible, but section headers and page spacing differ from the rest of the cabinet.
 - FIXED (visual review pending) — cabinet preview: incomplete empty route mocks cannot validate populated desktop surfaces, modal actions and section navigation.
+
+Preview verification: initial head `c00f02f` passed CI/CodeQL/Gitleaks. Artifact checksums and revision `34b6b5b` confirmed that exact head plus current base; CRM upcoming/active inspected at 390 and 1440px. Player screenshots were blocked by an incomplete novice fixture (missing `applications` and `can_self_register`); corrected the mock to the real API shape and added music-slot coverage. Fresh complete cabinet screenshots remain a merge gate.

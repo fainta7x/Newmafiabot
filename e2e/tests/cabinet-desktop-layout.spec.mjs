@@ -72,5 +72,8 @@ for (const width of [390, 1024, 1366, 1440]) {
     await page.getByTestId('player-quick-settings').click();
     await expect(page.getByTestId('player-settings')).toBeVisible();
     await shot('player-settings');
+    await page.getByText('Моя музыка для вечера', { exact: true }).click();
+    await expect(page.getByPlaceholder('Ссылка на трек Яндекс Музыки')).toHaveCount(2);
+    await shot('player-settings-music');
   });
 }

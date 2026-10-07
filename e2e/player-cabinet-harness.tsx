@@ -67,8 +67,9 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
  if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
  switch (url.pathname) {
   case '/api/player/news': return json({ news: [{ id: 'news-1', published_at: new Date().toISOString(), text: 'В пятницу встречаемся за игровым столом. Выберите удобные игры заранее — это поможет собрать состав и начать вовремя.' }] });
-  case '/api/player/novice': return json({ player: { club_stage: 'CLUB', game_level: 'club' }, pending_application: null });
+  case '/api/player/novice': return json({ player: { club_stage: 'CLUB', game_level: 'club' }, applications: [], free_visits_remaining: 0, can_self_register: true });
   case '/api/player/profile-completeness': return json({ completeness: { percentage: 100, complete: true, missing_fields: [], important_missing_fields: [], next_missing_field: null, fields: {} } });
+  case '/api/player/music-library/player-slots': return json({ slots: [{ slot: 1, entry: null }, { slot: 2, entry: null }] });
   case '/api/player/profile-settings': return json({ player: data.player });
   case '/api/player/notification-preferences': return json({ preferred_channel: 'auto', personal_enabled: true, available_channels: ['telegram'], effective_channel: 'telegram' });
   case '/api/player/privacy-settings': return json({ visibility: { real_name: false, birthday_day_month: true, birth_year: false, telegram_username: false, phone: false, game_statistics: true, connections: true } });

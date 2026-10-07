@@ -396,8 +396,11 @@ export default function PlayerPoker({ onExit, onTokenBalanceChange }: { onExit?:
   const applyLobby = async (url: string, init?: RequestInit, stillWanted: () => boolean = () => true) => {
     const seq = ++requestSeq.current;
     const body = await readBody(await fetch(url, init));
-    if (Number.isFinite(Number(body.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
-    if (seq > appliedSeq.current && stillWanted()) { appliedSeq.current = seq; setCurrent(body.lobby); }
+    if (seq > appliedSeq.current && stillWanted()) {
+      appliedSeq.current = seq;
+      setCurrent(body.lobby);
+      if (Number.isFinite(Number(body.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
+    }
   };
   const load = async () => setLobbies((await readBody(await fetch('/api/player/poker/lobbies', { credentials: 'include' }))).lobbies || []);
   useEffect(() => { void load().catch((e: Error) => setError(e.message)); }, []);

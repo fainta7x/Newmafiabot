@@ -279,6 +279,11 @@ const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => 
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
+  // A person who just left still exists in the immutable current-hand result. Until that hand is retired, accepting the
+  // same id as a fresh 1,000-token seat would let the old stack be mistaken for the new buy-in.
+  if (lobby.hand?.players.some((item) => item.id === player.id)) {
+    throw new Error('Вы только что вышли из этой раздачи. Дождитесь следующей раздачи и садитесь снова.');
+  }
   if (otherTableFor(player.id, lobby.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
   if (lobby.players.length >= 8) {
     // A person comes before a bot: a table full of bots that somebody left running must not lock people out, so the bot
@@ -382,14 +387,20 @@ export const nextPokerHand = (lobby: PokerLobby) => {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     return { ...player, reserve_seconds: handPlayer?.reserve_seconds, reserve_recovery_at: handPlayer?.reserve_recovery_at };
   });
-  if (seated.length < 2) { lobby.status = 'waiting'; return lobby; }
+  if (seated.length < 2) {
+    // The finished hand is already in history. Retire it instead of leaving stale participant ids/stacks attached to a
+    // waiting table; a second player can then sit down with a genuinely fresh buy-in.
+    lobby.hand = null;
+    lobby.status = 'waiting';
+    return lobby;
+  }
   lobby.status = 'playing';
   const dealer = seated.find((player) => player.seat > hand.dealer_seat) || seated[0];
   lobby.hand = createPokerHand({ id: randomUUID(), players: seated, dealer_seat: dealer.seat, animate: hand.animations_enabled });
   return lobby;
 };
 /** «Отойти» / «Вернуться за стол»: an away player keeps the seat but is not dealt in until they come back. */
-/** Only the club owner may take a person off a table (owner, 2026-10-05); his cards fold, his chips stay in his bankroll. */
+/** Only the club owner may take a person off a table (owner, 2026-10-05); live-table leftovers return through the route token settlement. */
 export const kickPokerPlayer = (lobby: PokerLobby, playerId: string) => {
   const seat = lobby.players.find((player) => player.id === playerId);
   if (!seat) throw new Error('Этого игрока уже нет за столом.');

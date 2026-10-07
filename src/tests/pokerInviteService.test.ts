@@ -54,6 +54,21 @@ describe('poker invites and presence', () => {
     expect(candidates[1]).toMatchObject({ app_online: false, vk_online: true, vk_status_available: true, telegram_linked: true, personal_notifications_enabled: true });
   });
 
+  it('does not offer an invite when the player disabled personal notifications', async () => {
+    await loadPokerInviteCandidates(db, 'alice', { vkLoader: async () => [] });
+    await db.run(
+      `INSERT INTO player_notification_preferences (player_id,preferred_channel,personal_enabled,updated_at)
+       VALUES ('bob','auto',0,?)`,
+      [new Date().toISOString()],
+    );
+    const candidates = await loadPokerInviteCandidates(db, 'alice', { vkLoader: async () => [] });
+    expect(candidates.find((item) => item.player_id === 'bob')).toMatchObject({
+      telegram_linked: true,
+      personal_notifications_enabled: false,
+      can_invite: false,
+    });
+  });
+
   it('queues a Telegram poker invite and enforces the two-minute sender-recipient cooldown', async () => {
     const now = Date.parse('2026-10-07T12:00:00Z');
     const first = await queuePokerInvite(db, {

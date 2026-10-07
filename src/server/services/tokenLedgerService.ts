@@ -39,6 +39,9 @@ export class TokenInsufficientFundsError extends Error {}
 export class TokenIdempotencyConflictError extends Error {}
 export class TokenPlayerNotFoundError extends Error {}
 
+export const PLAYER_STARTER_TOKEN_GRANT = 1000;
+export const PLAYER_STARTER_TOKEN_GRANT_SOURCE = 'player_starter_token_grant_v1';
+
 const mutationTails = new WeakMap<object, Promise<void>>();
 
 const canonicalize = (value: any): any => {
@@ -165,6 +168,19 @@ const applyInsideTransaction = async (db: DatabaseWrapper, input: TokenMutationI
   );
   return entry;
 };
+
+export const grantPlayerStarterTokens = async (db: DatabaseWrapper, playerId: string): Promise<TokenLedgerEntry> => mutateTokenBalance(db, {
+  playerId,
+  delta: PLAYER_STARTER_TOKEN_GRANT,
+  reasonType: 'starter_grant',
+  description: 'Стартовые жетоны клуба',
+  sourceType: 'system',
+  sourceId: PLAYER_STARTER_TOKEN_GRANT_SOURCE,
+  idempotencyKey: `${PLAYER_STARTER_TOKEN_GRANT_SOURCE}:${playerId}`,
+  actorType: 'system',
+  actorId: null,
+  metadata: { amount: PLAYER_STARTER_TOKEN_GRANT, purpose: 'poker_access' },
+});
 
 export const mutateTokenBalance = async (db: DatabaseWrapper, input: TokenMutationInput): Promise<TokenLedgerEntry> => {
   assertMutation(input);

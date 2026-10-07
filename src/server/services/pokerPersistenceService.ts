@@ -33,7 +33,7 @@ const replayStoredHands = async (db: DatabaseWrapper, memory: OpponentMemory) =>
   for (const row of rows.reverse()) {
     try {
       const hand = JSON.parse(row.hand_json) as StoredPokerHand;
-      withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type]) => ({ street, player_id, type })) }));
+      withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type, amount]) => ({ street, player_id, type, amount })) }));
     } catch { /* a damaged row is skipped, the rest still teach */ }
   }
 };

@@ -652,6 +652,7 @@ Owner rule (2026-10-05, `AGENTS.md` §4): keep this list for players only; ask t
 - Tournament nominations (MVP and the best by role) now count the judge's extra points plus protocol points; best move, penalties, ПУ and CI do not count.
 - Desktop profile: aligned header and navigation, more room for statistics, games and roles in two columns on a computer.
 - Shorter player cabinet pages: the «Заполни профиль» reminder is only on «Главная»; «Прогресс» opens with four key numbers (games, win %, Elo, season place) and the rest under «Подробная статистика»; «Сообщество» has a compact «твоё место» and tighter rating rows; «Активность» is split into «Форма · Матчи · Сезон · Архив» instead of one long feed; in «Вечера» the list/calendar switch and the format filter share one row.
+- Poker bots read bet sizes: they always pay a cheap call (up to a quarter of the pot or a small re-raise), stop folding to min-raises and tiny bets, and judge each player's re-raises by how often he makes them. They call «push any two» with the right hands, and play tight on a short stack and looser on a deep one.
 
 ### Analytics redesign — merged in PR #708 (2026-10-06)
 

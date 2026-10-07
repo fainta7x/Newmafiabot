@@ -66,7 +66,7 @@ router.post('/poker/stats', async (req, res) => {
     for (const row of rows) {
       try {
         const hand = JSON.parse(row.hand_json) as StoredPokerHand;
-        withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type]) => ({ street, player_id, type })) }));
+        withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type, amount]) => ({ street, player_id, type, amount })) }));
         hands += 1;
       } catch { /* a damaged row is skipped */ }
     }
@@ -109,6 +109,43 @@ router.post('/poker/results', async (req, res) => {
     return res.json({ ...summary, people });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Failed to load poker results' });
+  }
+});
+
+/**
+ * The stored hands a person played (all of them, or only those shared with a second person), to study how people beat the
+ * bots: seats, nets, every action with its amount, and only the cards that were shown at a showdown. Body:
+ * `{ nicknames: ["A"] | ["A", "B"], limit?: number }` (newest first, at most 300).
+ */
+router.post('/poker/hands', async (req, res) => {
+  try {
+    const nicknames: string[] = Array.isArray(req.body?.nicknames) ? req.body.nicknames.map(String).slice(0, 2) : [];
+    if (!nicknames.length) return res.status(400).json({ error: 'nicknames required' });
+    const ids: string[] = [];
+    for (const nickname of nicknames) {
+      const found = await req.db.get<{ id: string }>('SELECT id FROM players WHERE nickname = ? LIMIT 1', [nickname]);
+      if (!found) return res.status(404).json({ error: `Player not found: ${nickname}` });
+      ids.push(String(found.id));
+    }
+    const limit = Math.min(300, Math.max(1, Number(req.body?.limit) || 100));
+    const rows = await req.db.all<{ hand_json: string }>(`SELECT hand_json FROM poker_hand_log ORDER BY played_at DESC`).catch(() => []);
+    const names = new Map(ids.map((id, index) => [id, nicknames[index]]));
+    const label = (id: string) => names.get(id) || (id.startsWith('bot-') ? `bot-${id.slice(4, 8)}` : 'player');
+    const hands = [];
+    for (const row of rows) {
+      if (hands.length >= limit) break;
+      let hand: StoredPokerHand;
+      try { hand = JSON.parse(row.hand_json) as StoredPokerHand; } catch { continue; }
+      if (!ids.every((id) => hand.players.some((player) => player.id === id))) continue;
+      hands.push({
+        at: new Date(hand.at).toISOString(), big_blind: hand.big_blind, board: hand.board.map((card) => `${card.rank}${card.suit[0]}`).join(' '),
+        players: hand.players.map((player) => ({ who: label(player.id), seat: player.seat, net: player.net, shown: player.cards.map((card) => `${card.rank}${card.suit[0]}`).join(' ') || null })),
+        actions: hand.actions.map(([street, playerId, type, amount]) => `${street} ${label(playerId)} ${type}${amount ? ` ${amount}` : ''}`),
+      });
+    }
+    return res.json({ count: hands.length, hands });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to load poker hands' });
   }
 });
 

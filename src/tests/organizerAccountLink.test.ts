@@ -33,19 +33,24 @@ const responseCookies = (value: string | string[] | undefined) => (
 );
 
 const createCanonicalOwner = async (db: DatabaseWrapper, telegramUserId: string) => {
-  const created = (await registerNewPlayer(db, {
-    telegramUserId,
-    telegramUsername: 'canonical_owner_test',
-    fullName: 'Canonical Owner Test',
+  // This is an auth fixture, not a registration-flow test. Insert the canonical id directly instead of creating a normal
+  // player and re-keying it: registration now owns dependent onboarding + starter-token rows, and SQLite correctly prevents
+  // changing that referenced primary key in place.
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO players (
+       id, telegram_user_id, nickname, full_name, telegram_username,
+       contact_status, lifecycle_status, source, game_level, judge_level,
+       elo, elo_seed, tokens, created_at, updated_at
+     ) VALUES (?, ?, 'Canonical Owner Test', 'Canonical Owner Test', 'canonical_owner_test',
+       'normal', 'normal', 'test', 'novice', 'none', 1000, 1000, 0, ?, ?)`,
+    [PRIMARY_ORGANIZER_PLAYER_ID, telegramUserId, now, now],
+  );
+  return {
+    id: PRIMARY_ORGANIZER_PLAYER_ID,
+    telegram_user_id: telegramUserId,
     nickname: 'Canonical Owner Test',
-    source: 'test',
-  })).player;
-  // Registration now also creates the starter-token ledger row. This fixture deliberately re-keys the player to the
-  // canonical owner id, so remove fixture-owned dependants first; createApp will reconcile the unchanged 1,000 balance.
-  await db.run('DELETE FROM organizer_tasks WHERE player_id = ?', [created.id]);
-  await db.run('DELETE FROM token_ledger WHERE player_id = ?', [created.id]);
-  await db.run('UPDATE players SET id = ? WHERE id = ?', [PRIMARY_ORGANIZER_PLAYER_ID, created.id]);
-  return { ...created, id: PRIMARY_ORGANIZER_PLAYER_ID };
+  };
 };
 
 afterEach(() => {

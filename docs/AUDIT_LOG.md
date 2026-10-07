@@ -244,3 +244,5 @@ Preview verification: initial head `c00f02f` passed CI/CodeQL/Gitleaks. Artifact
 - FIXED — `cabinet-desktop-layout.spec.mjs`: viewport screenshots do not show the bottom of long settings forms; inspect controls after scrolling and neutralize CSS transitions/hover in capture.
 
 Complete cabinet review: head `cc0cf5d` passed all four workflows and 61 browser tests. Verified byte-safe artifacts and synthetic revision `4706824f` parents; inspected all 22 cabinet/CRM captures at 390, 1024, 1366×768 and 1440px. Wallet duplication corrected with explicit full/current/history views; paid totals, credits and free-evening action covered by three unit tests. Final coverage additionally captures home/footer and settings save/music controls after scrolling; final exact-head checks remain mandatory before merge. Runtime UI unverified.
+
+- FIXED — Codex P1 on PR #726: desktop `player-workspace-page` bottom padding of 32px is smaller than fixed navigation; preserve navigation height plus safe inset and a 24px gap. Added a bottom-action bounds assertion after scrolling.

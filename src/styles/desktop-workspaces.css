@@ -11,13 +11,17 @@
   .crm-command-center > [data-testid="crm-today-header"],
   .crm-command-center > [data-testid="crm-today-evening-card"],
   .crm-command-center > [data-testid="level-decisions"],
-  .crm-command-center > [data-testid="pending-onboarding-links"] { grid-column: 1 / -1; }
+  .crm-command-center > [data-testid="pending-onboarding-links"],
+  .crm-command-center > .crm-today-actions,
+  .crm-command-center > .crm-today-agenda { grid-column: 1 / -1; }
   [data-testid="crm-active-player-list"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   [data-testid="crm-active-player-list"] > button { min-width: 0; border-top: 0; border-bottom: 1px solid var(--border-soft); }
   [data-testid="crm-active-player-list"] > button:nth-child(odd) { border-right: 1px solid var(--border-soft); }
   [data-testid="crm-events-current"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
   [data-testid="crm-events-current"] > * { margin-block: 0; min-width: 0; }
-  .crm-more-menu { max-width: none; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .crm-more-menu { max-width: none; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+  .crm-more-secondary { display: grid; gap: 20px; align-content: start; }
+  .crm-more-secondary > * { margin-block: 0; min-width: 0; }
   .crm-more-menu > * { margin-block: 0; min-width: 0; }
   .crm-more-menu > header, .crm-more-menu > button { grid-column: 1 / -1; }
   .crm-more-menu > button { max-width: 480px; justify-self: center; }
@@ -26,16 +30,27 @@
   }
   [data-testid="crm-analytics"] > [role="tabpanel"] > * { min-width: 0; margin-block: 0; }
   #analytics-panel-finance > section { grid-column: 1 / -1; }
+  .crm-premium-header { padding-inline: max(16px, calc((100% - 1120px) / 2)); }
   .canonical-profile > header { padding-inline: 24px; }
-  .profile-identity { max-width: 1120px; margin-inline: auto; }
+  .profile-identity { max-width: 1104px; margin-inline: auto; }
   .canonical-profile > .profile-sticky-tabs { justify-content: center; padding-inline: 24px; }
   .canonical-profile > .profile-content { max-width: 1152px; padding-inline: 24px; }
   .profile-overview { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
   .profile-overview > * { min-width: 0; margin-block: 0; }
   .profile-overview > [data-testid="profile-completion-card"],
   .profile-overview > [data-testid="profile-key-stats"],
-  .profile-overview > [data-testid="profile-stats-hidden"] { grid-column: 1 / -1; }
+  .profile-overview > [data-testid="profile-stats-hidden"],
+  .profile-overview > [data-testid="profile-more-stats"] { grid-column: 1 / -1; }
   .profile-game-list, .profile-role-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
   .profile-game-list > *, .profile-role-list > * { min-width: 0; margin-block: 0; }
-  .canonical-profile button { min-height: 44px; }
+  .profile-elo-content { max-width: none; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+  .profile-elo-content > * { min-width: 0; margin-block: 0; }
+  .profile-elo-history { grid-column: 1 / -1; }
+  .profile-elo-history > .elo-event-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .elo-event-list > * { margin-block: 0; min-width: 0; }
+  .canonical-profile button, .canonical-profile summary { min-height: 44px; }
+  .canonical-profile summary { display: flex; align-items: center; }
+  .canonical-profile a { overflow-wrap: anywhere; }
+  .crm-more-menu button:hover { background-color: rgb(255 255 255 / 0.06); }
+  .crm-more-menu button:focus-visible, .canonical-profile button:focus-visible, .canonical-profile summary:focus-visible { outline: 2px solid var(--ds-accent, #fbbf24); outline-offset: 3px; }
 }

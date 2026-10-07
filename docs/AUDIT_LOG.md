@@ -204,3 +204,12 @@ Scope: paused snapshot branch and production read-only export.
 3. FIXED — no weekly downloader/workflow, bounded retention or verified metadata exists.
 4. FIXED — Codex review #721: tournament_game_best_moves.source omits first_killed/zero_round_voted, rejecting valid tournament exports.
 5. FIXED — Codex review #721: slots_json scrubber drops canonical slot_num, breaking reconstructed club seating.
+
+## Desktop workspace follow-up — 2026-10-07
+Scope: CRM and canonical player profile after owner reported inconsistent desktop layout.
+- FIXED — `src/styles/desktop-workspaces.css`: auto-placement pairs unrelated variable-height sections; expanded profile statistics and More administration leave large empty row space.
+- FIXED — `src/components/player/PlayerEloJourney.tsx`: embedded Elo retains 430px width, standalone viewport height and extra bottom padding inside the profile.
+- FIXED — `src/components/player/CanonicalPremiumPlayerProfile.tsx`: recent games protocol links and game filters lack consistent action target sizes.
+- FIXED — `e2e/tests/desktop-workspaces.spec.mjs`: checks overflow but not expanded sections or action geometry; CRM agenda and player insights fixture endpoints missing.
+
+Desktop verification: PR #722 initial code head `c99eb3a`; CI/CodeQL/Gitleaks/UI preview passed. Fresh revision `61db0d8` verified as merge of that head and `4af308c2`; inspected all profile tabs, expanded statistics, More administration, CRM players/roster/analytics at 1024, 1366×768 and 1440, plus phone regression. Follow-up coverage includes desktop player card/access editor save visibility. Runtime UI not verified.

@@ -62,6 +62,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
   if (url.pathname === '/api/player/profile-completeness') return json({ completeness: { percentage: 88, complete: false, missing_fields: ['phone'], important_missing_fields: [], next_missing_field: 'phone', fields: { phone: { label: 'Телефон', weight: 12, complete: false, state: 'missing' } }, updated_at: null, checked_at: null } });
+  if (url.pathname === '/api/player/insights') return json({ performance: { recent10: { games: 0 }, recent20: { games: 0 }, last30_days: { games: 0 }, roles: [] }, insights: [], opponents: { nemesis: [], comfortable: [] }, social_graph: { center: { nickname: 'Игрок' }, nodes: [] }, elo_history: { points: [] } });
   if (url.pathname === '/api/player/rating-periods') return json({ active_periods: [{ id: 'season-1', title: 'Осень 2026', starts_at: iso(60), ends_at: startsAt(60) }] });
   if (url.pathname === '/api/player/award-suggestions') return json({ success: true }, 201);
   if (url.pathname.includes('/invitations')) return json({ created: true, invitation: { id: 'invite-1' } }, 201);

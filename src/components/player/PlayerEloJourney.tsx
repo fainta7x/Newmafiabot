@@ -111,8 +111,8 @@ export default function PlayerEloJourney({
   const events = showAll ? newest : newest.slice(0, 8);
 
   return (
-    <main className={`min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
+    <main className={`${embedded ? 'profile-elo pt-2' : 'min-h-screen px-3 pb-28 pt-3'} bg-[#090a0d] text-white`}>
+      <div className={`${embedded ? 'profile-elo-content' : ''} mx-auto w-full max-w-[430px] space-y-3`}>
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">
           {onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}
           <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">История Elo</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая партия раскладывается на командный результат, силу состава и личные игровые баллы.</p></div>
@@ -131,9 +131,9 @@ export default function PlayerEloJourney({
           <p className="mt-3 text-[11px] leading-4 text-white/25">Ориентир, а не обещание результата. {data.preview.basis} Реальная десятка и личные баллы изменят итог.</p>
         </section>
 
-        <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
+        <section className="profile-elo-history rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-3">
           <div className="flex items-end justify-between gap-3 px-1"><div><div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">История изменений</div><div className="mt-0.5 text-[11px] text-white/20">Нажми на игру — покажу формулу</div></div>{newest.length > 8 && <button type="button" onClick={() => setShowAll((value) => !value)} className="text-[11px] font-semibold text-white/35">{showAll ? 'Свернуть' : `Все ${newest.length}`}</button>}</div>
-          <div className="mt-3 space-y-1.5">{events.length ? events.map((event) => {
+          <div className="elo-event-list mt-3 space-y-1.5">{events.length ? events.map((event) => {
             const open = openEvent === event.id;
             return <div key={event.id} className="overflow-hidden rounded-2xl bg-black/20"><button type="button" onClick={() => setOpenEvent(open ? null : event.id)} className="flex w-full items-center gap-3 p-3 text-left"><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${event.won ? 'bg-emerald-300/10' : 'bg-rose-300/10'}`}>{event.won ? '✓' : '×'}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{event.title}</div><div className="mt-0.5 text-[11px] text-white/25">{dateText(event.date)} · {event.team === 'red' ? '🔴 красные' : '⚫ чёрные'} · шанс {event.expected_percent}%</div></div><div className="shrink-0 text-right"><div className={`text-sm font-black ${event.elo_delta > 0 ? 'text-emerald-300' : event.elo_delta < 0 ? 'text-rose-300' : 'text-white/45'}`}>{signed(event.elo_delta)}</div><div className="text-[11px] text-white/20">{Math.round(event.elo_before)} → {Math.round(event.elo_after)}</div></div></button>{open && <div className="border-t border-white/[0.05] px-3 pb-3 pt-2"><div className="text-xs font-semibold">{event.explanation.headline}</div><div className="mt-2 space-y-1">{event.explanation.details.map((detail) => <div key={detail} className="text-[11px] leading-4 text-white/35">• {detail}</div>)}</div><div className="mt-2 rounded-xl bg-white/[0.04] px-2.5 py-2 font-mono text-[11px] text-white/45">{event.explanation.formula}</div>{onOpenGame && <button type="button" onClick={() => onOpenGame(event.id)} className="mt-2 text-[11px] font-semibold text-white/40">Открыть протокол ›</button>}</div>}</div>;
           }) : <div className="px-3 py-8 text-center text-xs text-white/25">Рейтинговых игр пока нет.</div>}</div>

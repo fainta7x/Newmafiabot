@@ -1,3 +1,4 @@
+import { createDeveloperSnapshotHandler } from './developerSnapshotRoute.ts';
 import { getUiUsageSummary } from '../services/uiUsageService.ts';
 import crypto from 'node:crypto';
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -33,6 +34,8 @@ function requireDeveloperReadAccess(req: Request, res: Response, next: NextFunct
   return next();
 }
 
+// This export accepts only its own scoped key, never bot/organizer/read credentials.
+router.post('/snapshot', createDeveloperSnapshotHandler());
 router.use(requireDeveloperReadAccess);
 
 /**

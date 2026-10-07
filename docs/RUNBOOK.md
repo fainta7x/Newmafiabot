@@ -431,3 +431,7 @@ Duplicate safeguards (so the pause is not needed for normal work):
 - VK (`vkDirectJoinPublishingService.ts`): a definite VK refusal may be retried; an unknown outcome (network error, VK codes 1 and 10) keeps the claim, and the evening's VK card asks the organizer to check the group and offers «Поста нет — опубликовать».
 - Cancellation and shortfall notices older than 6 hours are closed without sending when the pause ends.
 - A cancelled Friday reserves its date: the rolling calendar never creates a replacement.
+
+### Weekly development snapshot
+
+Use [DEVELOPMENT_SNAPSHOT.md](DEVELOPMENT_SNAPSHOT.md) for the reviewed data projection, scoped credentials, encrypted Actions artifact, first-run verification and local-only decryption. Never restore this projection into production or the shared sandbox.

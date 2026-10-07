@@ -354,3 +354,9 @@ After registration/preparation, continue through the existing tournament seating
 - Player screens: list `src/components/player/PlayerTournamentResults.tsx` (tab «Турниры» of the rating hub), one tournament `PlayerTournamentView.tsx` (registration, roster, games with roles, live table, nominations).
 - API: `GET /api/player/tournaments`, `GET /api/player/tournaments/:id` (`playerTournamentResultsRoutes.ts`, assembled by `src/server/services/playerTournamentViewService.ts`).
 - «Закрыть таблицу для игроков»: `tournaments.standings_hidden_at`, organizer button `TournamentTableVisibilityCard.tsx`, `POST /api/tournaments/:id/standings-hidden`.
+
+## Weekly development snapshot
+- Scoped export: `src/server/routes/developerSnapshotRoute.ts`, mounted in `developerReadRoutes.ts`.
+- Reviewed projection: `anonymizedSnapshotPolicy.ts`, `anonymizedSnapshotService.ts` under `src/server/services/`.
+- Download/encryption/decryption: `scripts/developmentSnapshot.mjs`; `.github/workflows/development-snapshot.yml`.
+- Operational contract: `docs/DEVELOPMENT_SNAPSHOT.md`; tests: `src/tests/anonymizedSnapshot.test.ts`, `developmentSnapshotDownload.test.mjs`.

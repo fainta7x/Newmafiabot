@@ -32,7 +32,7 @@ describe('stored poker hands teach the bots', () => {
     expect(stored.actions.some((action: any[]) => action[2] === 'fold')).toBe(true);
   });
 
-  it('keeps a finished hand queued when its insert fails, and writes it on the next request', async () => {
+  it('rolls the poker mutation back when the durable write fails', async () => {
     await withPersistedPokerRuntime(db, () => { createPokerLobby({ id: 'alice', nickname: 'Алиса' }); });
     await db.run('ALTER TABLE poker_hand_log RENAME TO poker_hand_log_off');
     await expect(withPersistedPokerRuntime(db, () => {
@@ -44,7 +44,7 @@ describe('stored poker hands teach the bots', () => {
     })).rejects.toThrow();
     await db.run('ALTER TABLE poker_hand_log_off RENAME TO poker_hand_log');
     await withPersistedPokerRuntime(db, () => undefined);
-    expect((await db.all(`SELECT id FROM poker_hand_log`))).toHaveLength(1);
+    expect((await db.all(`SELECT id FROM poker_hand_log`))).toHaveLength(0);
   });
 
   it('rebuilds the opponent memory from the log after a restart', async () => {

@@ -20,8 +20,8 @@ describe('poker bot independent audit regressions', () => {
     const all = estimateEquity(hole, board, [1], rng(123), 3000);
     const strong = estimateEquity(hole, board, [{ range: 1, boardMin: 0.9 }], rng(123), 3000);
     expect(all).toBeGreaterThan(0.85);
-    // Limited retries still contaminate narrow ranges; this regression isolates the ranking inversion.
-    expect(strong).toBeLessThan(0.6);
+    // Every hand in this board-strength range beats the overpair on the completed river.
+    expect(strong).toBe(0);
   });
 
   it('reads a short preflop all-in call as the same line as a call', () => {
@@ -75,4 +75,20 @@ it('benchmark seed repeats cards/policy and observes finished hands in learning 
   expect(exportPokerOpponentStats().find((row) => row.id === 'opp0')?.hands).toBe(6);
   expect(benchmark(['loose'], 6, options)).toBe(first);
   expect(exportPokerOpponentStats().find((row) => row.id === 'opp0')?.hands).toBe(6);
+});
+
+it('benchmark cards and opponent randomness are independent of bot random consumption', async () => {
+  const { benchmark } = await import('../scripts/pokerBotBenchmark.ts');
+  const run = (extraDraws: number) => benchmark(['loose'], 8, {
+    seed: 19, learn: true, continuous: true, stack: 1000,
+    policy: {
+      choose: (hand, player, random = Math.random) => {
+        for (let index = 0; index < extraDraws; index += 1) random();
+        return { type: hand.current_bet > player.committed ? 'call' : 'check' };
+      },
+      observe: observePokerHand,
+      reset: resetPokerBotMemoryForTests,
+    },
+  });
+  expect(run(100)).toBe(run(0));
 });

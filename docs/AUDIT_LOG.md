@@ -274,8 +274,8 @@ Verification: raw club/tournament omission-marker regression, sanitized-snapshot
 
 ### Independent Dissonance poker audit — 2026-10-07
 Scope: current bot/learning/equity, hand export, chip sources and simulation validity; no production mutation.
-- OPEN, HIGH — `pokerBot.ts:rankKey`: variable-length hand ranks are folded into base-15 numbers without padding; a high card can sort above a set, corrupting the board-strength range filter. Reproduced on Qc 7d 2s: AT high card key 751607, 77 set key 11882, while canonical comparison correctly favors the set.
-- OPEN, MEDIUM — `pokerBot.ts:observePokerHand` / `preflopRaises` / `opponentRanges`: postflop all-in calls count as aggression; current-hand helper classifies every positive preflop all-in as a raise even though learned counters distinguish calls. Requires legal-hand reproduction and bounded correction, not arbitrary range tuning.
+- FIXED (#734), HIGH — `pokerBot.ts:rankKey`: variable-length hand ranks are folded into base-15 numbers without padding; a high card can sort above a set, corrupting the board-strength range filter. Reproduced on Qc 7d 2s: AT high card key 751607, 77 set key 11882, while canonical comparison correctly favors the set.
+- FIXED (#734), MEDIUM — `pokerBot.ts:observePokerHand` / `preflopRaises` / `opponentRanges`: postflop all-in calls count as aggression; current-hand helper classifies every positive preflop all-in as a raise even though learned counters distinguish calls. Requires legal-hand reproduction and bounded correction, not arbitrary range tuning.
 - DESIGN OBSERVATION — `pokerLobbyService.ts:addPokerBot`: each newly added bot injects 1000 play chips, with no global bankroll cap; a large accumulated human bankroll is possible without a payout/duplication bug.
 - LIMITATION — `pokerBotBenchmark.ts` and `pokerBotCompare.ts` call the engine/bot directly without `observePokerHand`; their committed entry points do not test persistent opponent learning.
 - DATA LIMITATION — `/__developer-read/poker/hands` keeps showdown cards only, caps at 300, truncates bot identities and omits bot decision reasons/equity; it cannot fully replay folded-card decisions. Fresh authenticated export unavailable in this session.
@@ -284,3 +284,8 @@ Scope: current bot/learning/equity, hand export, chip sources and simulation val
 Owner authorized bot improvements and access verification. Rank key padding and shared incremental-commitment all-in classification implemented; pending regression verification. Sampling fallback remains open and requires separate measured redesign. Existing credentials are documented in Claude/Amvera but absent here; no access bypass or secret committed.
 
 Verification: rank ordering and short all-in call defects fixed with legal-action regressions; five audit regression tests including seeded learning benchmark. Reconciled #732 without reverting training/token behavior. Narrow-range sampler remains OPEN; fresh history unavailable due shared-file synchronization failure despite existing Amvera credential.
+
+### Poker range-sampling follow-up — 2026-10-07
+Scope: fresh protected history read and independent stress measurements after #734. OPEN: estimateEquity accepts out-of-range hands after retry exhaustion; measure contamination and narrow-range handling before modifying. Production reads only, no balance/data changes.
+
+FIXED, pending CI — range sampling now enumerates legal support and removes retry-budget contamination; exact board reference replaces the noisy 70-hand sample. Impossible inferred supports use the closest legal combination set and remain heuristic. Benchmark streams isolate cards and each actor; learned baseline policies have their own observer/memory. Protected /poker/results request reaches the app but returns HTTP 502; no fresh player data obtained.

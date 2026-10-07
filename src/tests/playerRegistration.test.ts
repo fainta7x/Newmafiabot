@@ -36,7 +36,9 @@ describe('canonical Telegram player registration', () => {
     expect(result.player.judge_level).toBe('none');
     expect(result.player.elo).toBe(1000);
     expect(result.player.elo_seed).toBe(1000);
-    expect(result.player.tokens).toBe(0);
+    expect(result.player.tokens).toBe(1000);
+    expect(await database.get("SELECT amount, reason_type FROM token_ledger WHERE player_id = ?", [result.player.id]))
+      .toMatchObject({ amount: 1000, reason_type: 'starter_grant' });
   });
 
   it('is idempotent for the same Telegram account', async () => {

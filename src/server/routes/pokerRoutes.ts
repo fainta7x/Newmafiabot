@@ -190,7 +190,10 @@ router.post('/poker/lobbies/:id/invite', route(async (req) => {
   const targetPlayerId = String(req.body?.playerId || '').trim();
   if (!targetPlayerId) throw new PokerRouteError(400, 'Выберите игрока.');
   if (table.players.some((item) => item.id === targetPlayerId)) throw new PokerRouteError(409, 'Игрок уже за этим столом.');
-  if (pokerTableForPlayer(targetPlayerId)) throw new PokerRouteError(409, 'Игрок уже за другим покерным столом.');
+  const targetTable = pokerTableForPlayer(targetPlayerId);
+  if (targetTable && pokerMoneyMode(targetTable) === 'club_tokens') {
+    throw new PokerRouteError(409, 'Игрок уже за другим покерным столом.');
+  }
 
   try {
     const invite = await queuePokerInvite(req.db, {

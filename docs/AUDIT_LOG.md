@@ -253,4 +253,4 @@ Complete cabinet review: head `cc0cf5d` passed all four workflows and 61 browser
 - FIXED — `PlayerClubConnections.tsx`: personal rival wins have ambiguous wording; explain they are the viewer’s team wins, not individual duels.
 - FIXED — relationships API/UI: no last-event meetings, although completed snapshots already hold canonical event identities.
 
-Focused verification: six service/UI tests, typecheck, lint, production and isolated-preview builds; exact-head CI and fresh mobile/desktop screenshots remain release gates.
+Focused verification: six service/UI tests, typecheck, lint, production and isolated-preview builds; initial exact-head CI/CodeQL/Gitleaks/UI preview passed, fresh club modes/recent/personal screenshots inspected at 390/1024/1366/1440. Final evidence explicitly scrolls the first-game card and checks last personal action above the footer; exact final-head CI remains the release gate.

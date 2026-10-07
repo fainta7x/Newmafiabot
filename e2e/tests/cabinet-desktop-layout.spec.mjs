@@ -67,10 +67,17 @@ for (const width of [390, 1024, 1366, 1440]) {
         await page.getByRole('button', { name: 'Самые сыгранные', exact: true }).click();
         await expect(duos.getByText('Ночной игрок', { exact: true })).toBeVisible();
         await shot('connections-most-played');
+        const firstPair = duos.getByRole('button', { name: 'Новая пара', exact: true });
+        await firstPair.scrollIntoViewIfNeeded();
+        await shot('connections-first-game');
         await page.getByTestId('club-recent').scrollIntoViewIfNeeded();
         await expect(page.getByText('Клубный вечер 2 октября', { exact: false })).toBeVisible();
         await shot('connections-recent');
-        await page.getByTestId('club-teammates').scrollIntoViewIfNeeded();
+        const lastPersonal = page.getByTestId('club-teammates').getByRole('button').last();
+        await lastPersonal.scrollIntoViewIfNeeded();
+        const personalBox = await lastPersonal.boundingBox();
+        const footerBox = await nav.boundingBox();
+        expect(personalBox.y + personalBox.height).toBeLessThanOrEqual(footerBox.y);
         await shot('connections-personal');
       }
     }

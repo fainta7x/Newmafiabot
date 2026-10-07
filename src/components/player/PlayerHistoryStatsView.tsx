@@ -101,8 +101,8 @@ export default function PlayerGamesArchive({
   }, [initialGameKey]);
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
+    <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="player-workspace mx-auto flex w-full max-w-[430px] flex-col gap-3">
         {selectedGameKey ? (
           <>
             <PlayerGameDetail
@@ -127,7 +127,7 @@ export default function PlayerGamesArchive({
             <div className="mt-3">
               {allGamesError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGamesError}</p>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
-                : allGames.length ? <div className="space-y-2">{allGames.map((game) => {
+                : allGames.length ? <div className="player-archive-list space-y-2">{allGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);
                   return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span></div>

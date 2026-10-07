@@ -26,7 +26,7 @@ export default function PlayerBottomNavigation({
       aria-label="Основная навигация"
       className="ds-chrome-bottom fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),8px)]"
     >
-      <div className="mx-auto grid w-full max-w-[430px] grid-cols-4 gap-0.5">
+      <div className="player-cabinet-navigation mx-auto grid w-full max-w-[430px] grid-cols-4 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {
           const active = isPlayerCabinetNavActive(item.id, section);
           const Icon = NAV_ICONS[item.id];

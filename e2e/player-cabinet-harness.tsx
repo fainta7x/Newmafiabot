@@ -17,7 +17,7 @@ const evening = { id: 'preview-evening', title: 'Пятничный вечер �
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));
 const calendarEvent = { ...evening, event_type: 'evening', assembled: true, assembled_slots: 1, required_slots: 4, price_per_game: 100, slots: eventSlots };
 const paymentData = {
- summary: { amount_due: 400, amount_paid: 200, outstanding: 200, open: 1, closed: 2 },
+ summary: { amount_due: 400, amount_paid: 200, outstanding: 200, historical_debt: 200, open: 1, closed: 2 },
  current: [{ participant_id: 'participant-preview', evening_id: evening.id, title: evening.title, starts_at: evening.starts_at, venue: evening.venue, evening_status: 'published', attendance_status: 'going', amount_due: 400, amount_paid: 200, outstanding: 200, payment_status: 'partial', updated_at: new Date().toISOString() }],
  history: [],
  free_evening_credits: 1,
@@ -66,17 +66,29 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
  if (url.pathname.endsWith('/birthday')) return json({});
  if (url.pathname.endsWith('/showcase')) return json({ awards: [], pinned_awards: [], history: [] });
  switch (url.pathname) {
+  case '/api/player/news': return json({ news: [{ id: 'news-1', published_at: new Date().toISOString(), text: 'В пятницу встречаемся за игровым столом. Выберите удобные игры заранее — это поможет собрать состав и начать вовремя.' }] });
+  case '/api/player/novice': return json({ player: { club_stage: 'CLUB', game_level: 'club' }, pending_application: null });
+  case '/api/player/profile-completeness': return json({ completeness: { percentage: 100, complete: true, missing_fields: [], important_missing_fields: [], next_missing_field: null, fields: {} } });
+  case '/api/player/profile-settings': return json({ player: data.player });
+  case '/api/player/notification-preferences': return json({ preferred_channel: 'auto', personal_enabled: true, available_channels: ['telegram'], effective_channel: 'telegram' });
+  case '/api/player/privacy-settings': return json({ visibility: { real_name: false, birthday_day_month: true, birth_year: false, telegram_username: false, phone: false, game_statistics: true, connections: true } });
+  case '/api/player/rating-periods': return json({ active_periods: [], completed_periods: [] });
+  case '/api/player/tournaments': return json({ tournaments: [] });
+  case '/api/player/relationships': return json({ rivals: rankingRows.slice(0,3).map(r => ({ ...r, avatar_url: '' })), teammates: rankingRows.slice(3,6).map(r => ({ ...r, avatar_url: '' })), club_duos: { red: [], black: [] } });
+  case '/api/player/evening-summaries': return json({ summaries: [{ id: 'past-1', title: 'Вечер клуба — итоги', starts_at: new Date(Date.now()-86400000).toISOString(), settled_at: next, venue: 'Суп с котом', games: 4, red_wins: 3, black_wins: 1, score: '3:1', player: { games: 3, wins: 2, losses: 1, win_rate: 67, elo_before: 1520, elo_after: 1542, elo_delta: 22, roles: ['citizen','sheriff'] }, best_elo_rise: null, most_games: null, awards: [], facts: ['Красные выиграли три игры'], game_ids: [] }] });
   case '/api/player/me': return json(data);
   case '/api/player/evenings': return json({ evenings: [evening] });
   case '/api/player/calendar': return json({ events: [calendarEvent] });
+  case '/api/player/economy': return json({ balance: 100, shop_items: [{ id: 'item-1', name: 'Игровая привилегия', description: 'Пример доступного клубного предложения', price: 50, icon: '◇', item_type: 'service' }], purchases: [], ledger: { items: [], total: 0 } });
+  case '/api/player/bets': return json({ balance: 100, active: null, blocked: null, history: [], club_stats: { games: 0, black_wins: 0, red_wins: 0, black_win_rate: null, red_win_rate: null } });
   case '/api/player/payments': return json(paymentData);
-  case '/api/rating': return json({ players: [{ player_id: data.player.id, nickname: data.player.nickname, elo: 1542, place: 4 }] });
+  case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });
   case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, club_games: [], tournament_games: [] });
   case '/api/player/evening-journey': return json({ journey: new URLSearchParams(location.search).get('scenario') === 'live' ? liveJourney : { phase: 'idle' } });
   case '/api/player/notifications': return json({ items: [], unread_count: 0 });
-  case '/api/player/games/all': return json({ games: [] });
+  case '/api/player/games/all': return json({ games: [1,2,3].map(number => ({ id: `club:g${number}`, source: 'club', title: 'Клубный вечер', date: new Date(Date.now()-86400000).toISOString(), game_number: number, format: 'CASUAL', winner_team: number===2 ? 'black' : 'red', judge_name: 'Кавасаки' })) });
   case '/api/player/games/elo': return json({ games: [] });
-  case '/api/player/players': return json({ players: [] });
+  case '/api/player/players': return json({ players: NAMES.map((nickname,index) => ({ id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, game_level: 'club', avatar_url: null })) });
   case '/api/player/pulse': return json(pulse);
   case '/api/player/club-world': return json(clubWorld);
   case '/api/player/stories': return json({ viewer_id: data.player.id, evenings: [], recent_games: [], latest_evening: null });

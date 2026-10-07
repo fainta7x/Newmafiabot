@@ -26,7 +26,7 @@ export default function PlayerQuickAccessBar({
       data-testid="player-top-bar"
       className="ds-chrome-top fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b"
     >
-      <div className="mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
+      <div className="player-cabinet-toolbar mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</div>
           <div className="mt-0.5 truncate text-[12px] text-white/50">{player.nickname}</div>

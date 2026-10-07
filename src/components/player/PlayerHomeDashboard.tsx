@@ -168,13 +168,14 @@ export default function PlayerHomeDashboard({
     : null;
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
+    <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="player-workspace player-home-layout mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Главная</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Привет, {data.player.nickname}</p>
         </header>
 
+        <div className="player-home-primary space-y-3">
         <CuratorTasksCard />
 
         {debt > 0 && onOpenWallet ? (
@@ -216,7 +217,7 @@ export default function PlayerHomeDashboard({
           </section>
         ) : null}
 
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+        <section data-testid="player-home-next" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Следующий вечер</div>
           {evenings === null ? (
             <div className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/50">Загрузка…</div>
@@ -247,6 +248,8 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
+        </div>
+        <div className="player-home-secondary space-y-3">
         {news.length ? (
           <section data-testid="player-home-news" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4">
             <div className="flex items-center justify-between gap-2">
@@ -306,6 +309,7 @@ export default function PlayerHomeDashboard({
             </div>
           </button>
         )}
+        </div>
       </div>
     </main>
   );

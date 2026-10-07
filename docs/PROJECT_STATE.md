@@ -688,3 +688,6 @@ Implemented: scoped read-only online-backup export; fresh SQLite projection with
 
 ### Desktop layout follow-up (owner report, 2026-10-07)
 PR #722: compact More secondary tools, full-width expanded profile statistics, desktop embedded Elo, consistent protocol action targets and header alignment. Local typecheck/lint and 11 profile/command-center tests passed. Initial code head passed CI/CodeQL/Gitleaks/UI preview; fresh screenshots inspected at 390, 1024, 1366×768 and 1440, including expanded statistics, administration, filters and Elo details. Exact final head checks remain the merge gate; production deployment/runtime unverified. The owner’s report concerns layout and action usability, not new product features.
+
+### Owner request — remaining desktop cabinet and CRM home (2026-10-07)
+Implemented on the focused branch: CRM home with explicit work/planning hierarchy; desktop player Home, Evenings, Community and consistent wallet/settings framing. Preserve mobile order, actions and data behavior. Visual desktop/phone evidence and exact-head CI required; no production data changes.

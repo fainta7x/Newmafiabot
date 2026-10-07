@@ -1,19 +1,11 @@
 /* Desktop is a second layout of the same work surfaces. Phone order is unchanged. */
 @media (min-width: 1024px) {
-  .crm-command-center {
-    max-width: none;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-  }
+  .crm-command-center { max-width: none; display: flex; flex-direction: column; gap: 20px; }
   .crm-command-center > * { min-width: 0; margin-block: 0; }
-  .crm-command-center > [data-testid="crm-today-header"],
-  .crm-command-center > [data-testid="crm-today-evening-card"],
-  .crm-command-center > [data-testid="level-decisions"],
-  .crm-command-center > [data-testid="pending-onboarding-links"],
-  .crm-command-center > .crm-today-actions,
-  .crm-command-center > .crm-today-agenda { grid-column: 1 / -1; }
+  .crm-today-planning { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+  .crm-today-planning > * { margin-block: 0; min-width: 0; }
+  .crm-today-week { grid-column: 2; grid-row: 1; }
+  .crm-today-agenda { grid-column: 1; grid-row: 1; }
   [data-testid="crm-active-player-list"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   [data-testid="crm-active-player-list"] > button { min-width: 0; border-top: 0; border-bottom: 1px solid var(--border-soft); }
   [data-testid="crm-active-player-list"] > button:nth-child(odd) { border-right: 1px solid var(--border-soft); }
@@ -53,4 +45,42 @@
   .canonical-profile a { overflow-wrap: anywhere; }
   .crm-more-menu button:hover { background-color: rgb(255 255 255 / 0.06); }
   .crm-more-menu button:focus-visible, .canonical-profile button:focus-visible, .canonical-profile summary:focus-visible { outline: 2px solid var(--ds-accent, #fbbf24); outline-offset: 3px; }
+}
+
+/* The cabinet has one desktop frame, with explicit layouts for each content type. */
+@media (min-width: 1024px) {
+  .player-cabinet-shell .player-workspace-page { padding-inline: 0; min-height: 0; padding-bottom: 32px; }
+  .player-cabinet-shell .player-workspace { width: 100%; max-width: 1152px; padding-inline: 24px; }
+  .player-cabinet-shell .player-payment-content { max-width: none; }
+  .player-cabinet-toolbar { max-width: 1152px; padding-left: 24px; padding-right: 58px; }
+  .player-cabinet-navigation { max-width: 640px; gap: 8px; }
+  .player-cabinet-shell [data-testid="profile-completion-reminder"] { width: calc(100% - 48px); max-width: 1104px; }
+  .player-cabinet-shell .player-home-layout, .player-cabinet-shell .player-settings-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+  .player-home-layout > *, .player-settings-layout > * { min-width: 0; margin-block: 0; }
+  .player-home-layout > header, .player-settings-layout > header { grid-column: 1 / -1; }
+  .player-directory-list, .player-archive-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .player-directory-list > *, .player-archive-list > * { min-width: 0; margin-block: 0; }
+  .player-directory-list > button { border-top: 0; border: 1px solid var(--ds-border); border-radius: 12px; }
+  .player-connections-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .player-connections-layout > * { margin-block: 0; min-width: 0; }
+  .player-connections-layout > [data-testid="club-duos"] { grid-column: 1 / -1; }
+  .player-cabinet-shell [data-testid="player-club-poker"] { min-height: 104px; background-position: center 48%; }
+  .player-cabinet-shell summary { min-height: 44px; cursor: pointer; }
+  .player-cabinet-shell button:focus-visible, .player-cabinet-shell summary:focus-visible { outline: 2px solid var(--ds-accent, #fbbf24); outline-offset: 3px; }
+}
+
+@media (min-width: 1024px) {
+  .player-cabinet-shell .player-event-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .player-event-list > * { margin-block: 0; min-width: 0; }
+  .player-event-list > button:first-child { grid-column: 1 / -1; }
+  .player-event-calendar > .grid:last-child > div { min-height: 90px; }
+  .player-cabinet-shell .player-rating-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: 20px; align-items: start; }
+  .player-rating-layout > * { margin-block: 0; min-width: 0; }
+  .player-rating-layout > section { grid-column: 1; grid-row: 1; }
+  .player-rating-layout > [data-testid="rating-self-card"] { grid-column: 2; grid-row: 1; }
+}
+
+@media (min-width: 1024px) {
+  [data-testid="crm-today-clear"] { width: fit-content; min-height: 40px; border-radius: 12px; }
+  .crm-today-planning > div > section, [data-testid="crm-today-evening-card"] { border-radius: 20px; }
 }

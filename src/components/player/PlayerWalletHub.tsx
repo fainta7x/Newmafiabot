@@ -44,8 +44,8 @@ export default function PlayerWalletHub({
   }, [view]);
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
+    <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Кошелёк</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">Оплаты, магазин, ставки и история операций</p>

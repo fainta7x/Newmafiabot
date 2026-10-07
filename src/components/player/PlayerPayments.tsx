@@ -213,7 +213,7 @@ export default function PlayerPayments({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
+    <div className="player-payment-content mx-auto flex w-full max-w-[430px] flex-col gap-3">
       {onBack && <button type="button" onClick={onBack} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>}
       <div className="px-1 pb-1 pt-2"><div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-1 text-2xl font-semibold text-white">Оплата</h1><p className="mt-1 text-sm text-white/45">Вечера, жетоны, поддержка клуба и целевые сборы</p></div>
 

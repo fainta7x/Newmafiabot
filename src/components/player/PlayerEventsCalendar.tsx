@@ -320,8 +320,8 @@ export default function PlayerEventsCalendar({
   });
 
   return (
-    <main className={`min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>
-      <div className="mx-auto max-w-[430px]">
+    <main className={`player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>
+      <div className="player-workspace mx-auto max-w-[430px]">
         <header className={embedded ? 'sr-only' : 'px-1 pb-3 pt-1'}>
           <h1 className="text-2xl font-semibold">События</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Ближайший вечер и запись — в первую очередь. Остальные события можно отфильтровать ниже.</p>
@@ -417,7 +417,7 @@ export default function PlayerEventsCalendar({
         {loading && <div className="mt-3 rounded-2xl bg-white/[0.035] p-4 text-sm text-white/50">Загрузка событий…</div>}
 
         {!loading && !error && view === 'list' && (
-          <div className="mt-3 space-y-2">
+          <div className="player-event-list mt-3 space-y-2">
             {nearest && (
               <button type="button" onClick={() => openEvent(nearest)} className="min-h-11 w-full rounded-[28px] border border-white/12 bg-gradient-to-br from-white/[0.10] to-white/[0.035] p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.20)] active:bg-white/[0.08]">
                 <div className="flex items-start justify-between gap-3">
@@ -446,7 +446,7 @@ export default function PlayerEventsCalendar({
         )}
 
         {!loading && !error && view === 'calendar' && (
-          <section className="mt-3 rounded-[24px] border border-white/10 bg-white/[0.035] p-2.5">
+          <section className="player-event-calendar mt-3 rounded-[24px] border border-white/10 bg-white/[0.035] p-2.5">
             <div className="grid grid-cols-7 gap-1 text-center text-[12px] text-white/45">
               {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((value) => <div key={value}>{value}</div>)}
             </div>

@@ -228,3 +228,12 @@ Scope: CRM and canonical player profile after owner reported inconsistent deskto
 - FIXED — `e2e/tests/desktop-workspaces.spec.mjs`: checks overflow but not expanded sections or action geometry; CRM agenda and player insights fixture endpoints missing.
 
 Desktop verification: PR #722 initial code head `c99eb3a`; CI/CodeQL/Gitleaks/UI preview passed. Fresh revision `61db0d8` verified as merge of that head and `4af308c2`; inspected all profile tabs, expanded statistics, More administration, CRM players/roster/analytics at 1024, 1366×768 and 1440, plus phone regression. Follow-up coverage includes desktop player card/access editor save visibility. Runtime UI not verified.
+
+## CRM home and remaining player cabinet desktop audit — 2026-10-07
+Scope: owner reported irregular CRM home cards and absent desktop layouts outside Progress.
+- FIXED (visual review pending) — `OrganizerCommandCenter.tsx`, `desktop-workspaces.css`: implicit grid combines status, week planning and task queue with unrelated sizes; needs explicit work/planning hierarchy.
+- FIXED (visual review pending) — `PlayerHomeDashboard.tsx`: 430px cap leaves desktop empty; next evening and secondary information have the same visual priority.
+- FIXED (visual review pending) — `PlayerEveningsHub.tsx`, `PlayerEventsCalendar.tsx`, `PlayerEveningSummaries.tsx`, `PlayerHistoryStatsView.tsx`: independently capped nested surfaces misalign headings, tabs and content.
+- FIXED (visual review pending) — `PlayerCommunityHub.tsx`, `PlayerRatingHub.tsx`, directory/connections: narrow container and lists remain phone-only; nested rating adds a separate full-height page.
+- FIXED (visual review pending) — wallet/settings: compact forms are sensible, but section headers and page spacing differ from the rest of the cabinet.
+- FIXED (visual review pending) — cabinet preview: incomplete empty route mocks cannot validate populated desktop surfaces, modal actions and section navigation.

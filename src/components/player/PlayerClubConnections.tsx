@@ -95,7 +95,7 @@ export default function PlayerClubConnections() {
   if (!data) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="player-connections-layout space-y-3">
       <section data-testid="club-rivals" className="rounded-[24px] border border-rose-200/[0.08] bg-gradient-to-br from-rose-300/[0.045] to-white/[0.025] p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-200/55">Противостояния</div>
         <h2 className="mt-1 text-lg font-semibold">С кем чаще пересекаешься</h2>

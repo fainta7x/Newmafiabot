@@ -33,7 +33,7 @@ const runtime = () => runtimeStorage.getStore() || defaultRuntime;
 const lobbyStore = () => runtime().lobbies;
 
 export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerRuntimeState => ({
-  lobbies: new Map((snapshot?.lobbies || []).map((lobby) => {
+  lobbies: new Map((snapshot?.lobbies || []).flatMap((lobby) => {
     if (lobby.hand && !lobby.hand.animation_phase) {
       lobby.hand.animation_phase = 'playing'; lobby.hand.animation_step = 0; lobby.hand.animation_next_at = null; lobby.hand.pending_current_seat = null; lobby.hand.animations_enabled = false;
     }
@@ -41,7 +41,26 @@ export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerR
     // so a deploy can never turn historical test chips into real club tokens. An empty permanent table is safe to reopen
     // in the new club-token mode.
     if (!lobby.money_mode) lobby.money_mode = lobby.permanent && lobby.players.length === 0 && !lobby.hand ? 'club_tokens' : 'training';
-    return [lobby.id, lobby];
+
+    if (lobby.money_mode === 'training') {
+      const humans = lobby.players.filter((player) => !player.is_bot);
+      if (!humans.length) {
+        if (!lobby.permanent) return [];
+        lobby.players = [];
+        lobby.hand = null;
+        lobby.status = 'waiting';
+        lobby.money_mode = 'club_tokens';
+      } else if (humans.length > 1) {
+        // Before private training existed, several humans could share a free-chip table. Keep only its owner (or the
+        // first human when the old owner is absent) and retire the mixed hand, so nobody can resume free human-vs-human play.
+        const keeper = humans.find((player) => player.id === lobby.ownerId) || humans[0];
+        lobby.players = lobby.players.filter((player) => player.is_bot || player.id === keeper.id);
+        lobby.ownerId = keeper.id;
+        lobby.hand = null;
+        lobby.status = 'waiting';
+      }
+    }
+    return [[lobby.id, lobby] as [string, PokerLobby]];
   })),
   bankrolls: new Map(Object.entries(snapshot?.bankrolls || {}).map(([id, chips]) => [id, Math.max(0, Math.floor(Number(chips) || 0))])),
   handLog: [],

@@ -40,10 +40,9 @@ const createCanonicalOwner = async (db: DatabaseWrapper, telegramUserId: string)
   await db.run(
     `INSERT INTO players (
        id, telegram_user_id, nickname, full_name, telegram_username,
-       contact_status, lifecycle_status, source, game_level, judge_level,
-       elo, elo_seed, tokens, created_at, updated_at
+       contact_status, lifecycle_status, source, elo, tokens, created_at, updated_at
      ) VALUES (?, ?, 'Canonical Owner Test', 'Canonical Owner Test', 'canonical_owner_test',
-       'normal', 'normal', 'test', 'novice', 'none', 1000, 1000, 0, ?, ?)`,
+       'normal', 'normal', 'test', 1000, 0, ?, ?)`,
     [PRIMARY_ORGANIZER_PLAYER_ID, telegramUserId, now, now],
   );
   return {

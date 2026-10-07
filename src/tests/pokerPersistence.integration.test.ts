@@ -170,6 +170,10 @@ describe('durable poker club-token table state', () => {
       expect.objectContaining({ player_id: 'bob', at_table: false, at_table_title: null, can_invite: true }),
     ]));
     expect(JSON.stringify(candidates.body)).not.toContain('Тренировка');
+
+    const invited = await request(app).post(`/api/player/poker/lobbies/${live.body.lobby.id}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(invited.status).toBe(200);
+    expect(invited.body.invite.target_player_id).toBe('bob');
   });
 
   it('invites a clubmate to the exact live lobby with a two-minute cooldown', async () => {

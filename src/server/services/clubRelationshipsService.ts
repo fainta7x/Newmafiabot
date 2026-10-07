@@ -1,4 +1,5 @@
 import type { AnalyticsTeam, CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
+import { buildClubConnectionStories } from './clubConnectionStoriesService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 
 type PersonStat = { player_id: string; nickname: string; games: number; wins: number };
@@ -11,6 +12,7 @@ export function buildClubRelationships(
   viewerId: string,
   canViewConnections: (playerId: string) => boolean = () => true,
 ) {
+  const clubStories = buildClubConnectionStories(snapshots, canViewConnections);
   // Filter before ranking/slicing so hidden pairs cannot displace public pairs or leak counts.
   snapshots = snapshots.map(game => ({ ...game, players: game.players.filter(player => canViewConnections(player.player_id)) }));
   const opponents = new Map<string, PersonStat>();
@@ -109,6 +111,7 @@ export function buildClubRelationships(
 
   return {
     viewer_id: String(viewerId),
+    club_stories: clubStories,
     rivals,
     teammates: personalDuos,
     club_duos: {

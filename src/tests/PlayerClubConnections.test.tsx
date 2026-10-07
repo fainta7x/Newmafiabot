@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import { clubStoriesFixture } from '../../e2e/club-connection-stories.fixture.ts';
 import PlayerClubConnections from '../components/player/PlayerClubConnections.tsx';
 const open = vi.hoisted(() => vi.fn());
 vi.mock('../components/player/playerProfileNavigation.ts', () => ({ openCanonicalPlayerProfile: open }));
@@ -23,4 +24,22 @@ it('labels single-game samples and shows factual last-event encounters', async (
   expect(within(club).getByText(/Рано делать выводы/).closest('details')?.open).toBe(true);
   expect(screen.getByTestId('club-recent').textContent).toContain('Последний вечер');
   expect(within(screen.getByTestId('club-recent')).getAllByText(/победа твоей команды/)).toHaveLength(2);
+});
+
+it('shows six distinct club stories and switches accessible tabs without losing profile actions', async () => {
+  setup({ rivals: [], teammates: [], club_stories: clubStoriesFixture, club_duos: { red: [], black: [] } });
+  const stories = await screen.findByTestId('club-stories');
+  expect(stories.parentElement?.firstElementChild).toBe(stories);
+  expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
+  expect(within(stories).getByText('Дон + мафия')).toBeTruthy();
+  expect(within(stories).getByText('Шериф + мирный')).toBeTruthy();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Две стороны' }));
+  expect(within(stories).getByText('Ровные противостояния')).toBeTruthy();
+  expect(within(stories).getByText('Вместе за оба цвета')).toBeTruthy();
+  expect(within(stories).queryByText('Чёрные тройки')).toBeNull();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Круг игры' }));
+  expect(within(stories).getByText('Разные составы')).toBeTruthy();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Богданчик' }));
+  expect(open).toHaveBeenCalledWith('p2');
+  expect(within(stories).getByText(/Порог игр — условие показа/)).toBeTruthy();
 });

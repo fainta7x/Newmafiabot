@@ -20,6 +20,8 @@ export type CompletedGameSnapshot = {
   game_number: number;
   winner_team: AnalyticsTeam;
   players: AnalyticsPlayerResult[];
+  /** The legacy projection omitted an unidentifiable or unclassified original seat. */
+  has_unresolved_players?: boolean;
 };
 
 const safeJsonParse = (value: unknown): any => {
@@ -119,6 +121,7 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
       title: String(row.evening_title || 'Клубный вечер'),
       game_number: Number(row.global_game_number || 0),
       winner_team: winner,
+      has_unresolved_players: players.length !== payload.player_results.length,
       players,
     });
   }
@@ -163,6 +166,7 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
       title: String(head?.tournament_title || 'Турнир'),
       game_number: Number(head?.game_number || 0),
       winner_team: winner,
+      has_unresolved_players: players.length !== rows.length,
       players,
     });
   }

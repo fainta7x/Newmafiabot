@@ -38,3 +38,36 @@ it('enforces current connection privacy at the authenticated relationships endpo
   expect(publicAgain.body.club_first_games.red[0]).toMatchObject({ a_id: 'a', b_id: 'b' });
   expect(publicAgain.body.recent_event).toBeNull();
 });
+
+it('filters new story identities and circle counts and recomputes after a visibility change', async () => {
+  await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) SELECT evening_id,2,game_date,winner_team,winner_label,protocol_text,slots_json,created_at FROM games LIMIT 1`);
+  const hidden = await request(app).get('/api/player/relationships').set('Cookie', cookie('viewer'));
+  expect(hidden.status).toBe(200);
+  expect(hidden.body.club_stories.sheriff_citizen).toEqual([]);
+  expect(hidden.body.club_stories.don_mafia).toEqual([]);
+  expect(hidden.body.club_stories.table_circles.map((p: { people: number }) => p.people)).toEqual([1, 1]);
+  expect(JSON.stringify(hidden.body.club_stories)).not.toContain('"player_id":"b"');
+  expect(JSON.stringify(hidden.body.club_stories)).not.toContain('"player_id":"d"');
+  await db.run(`UPDATE players SET profile_visibility_json='{}' WHERE id='b'`);
+  const visible = await request(app).get('/api/player/relationships').set('Cookie', cookie('viewer'));
+  expect(visible.body.club_stories.sheriff_citizen[0]).toMatchObject({ members: [{ player_id: 'b' }, { player_id: 'a' }], games: 2, events: 1, wins: 2 });
+  expect(visible.body.club_stories.table_circles.map((p: { people: number }) => p.people)).toEqual([2, 2, 2]);
+  expect(visible.body.club_stories.black_trios).toEqual([]);
+});
+
+it('rejects guest-containing original protocols for stories without changing existing pair analytics', async () => {
+  await db.run(`UPDATE players SET profile_visibility_json='{}'`);
+  const row = await db.get<{ protocol_text: string }>(`SELECT protocol_text FROM games LIMIT 1`);
+  const protocol = JSON.parse(row!.protocol_text);
+  protocol.player_results.push({ player_id: null, display_name: 'Гость без профиля', role: 'mafia', seat_number: 5 });
+  await db.run(`UPDATE games SET protocol_text=?`, [JSON.stringify(protocol)]);
+  await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) SELECT evening_id,2,game_date,winner_team,winner_label,protocol_text,slots_json,created_at FROM games LIMIT 1`);
+  const response = await request(app).get('/api/player/relationships').set('Cookie', cookie('viewer'));
+  expect(response.status).toBe(200);
+  expect(response.body.club_stories).toEqual({ black_trios: [], don_mafia: [], sheriff_citizen: [], balanced_rivalries: [], versatile_pairs: [], table_circles: [] });
+  expect(response.body.club_most_played.red[0]).toMatchObject({ a_id: 'a', b_id: 'b', games: 2 });
+  protocol.player_results.pop();
+  await db.run(`UPDATE games SET protocol_text=?`, [JSON.stringify(protocol)]);
+  const complete = await request(app).get('/api/player/relationships').set('Cookie', cookie('viewer'));
+  expect(complete.body.club_stories.sheriff_citizen[0]).toMatchObject({ games: 2 });
+});

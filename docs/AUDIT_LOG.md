@@ -260,3 +260,14 @@ Focused verification: six service/UI tests, typecheck, lint, production and isol
 Privacy verification: eight tests across service/UI and real authenticated in-memory API; hidden pairs are excluded from best/most-played/first-game/recent/personal lists, own hidden viewer retains access, changed visibility takes effect on the next request.
 
 - FIXED — evidence capture only, `cabinet-desktop-layout.spec.mjs`: native `scrollIntoViewIfNeeded` considers the fixed footer-covered first-game button visible. Center the target explicitly and assert its bounds between header/footer before capturing; product layout is unchanged.
+
+### Club connection stories audit — 2026-10-07
+- FIXED — `clubRelationshipsService.ts` / `PlayerClubConnections.tsx`: existing expansion is mostly more rows in the same pair ranking, rather than distinct Mafia-specific club relationship patterns requested by the owner.
+- FIXED — new aggregation: complete black trios must be validated against the original roster before privacy filtering; otherwise hidden/invalid seats could invent a trio.
+- FIXED — new summaries: results must not imply causation, friendships, sheriff protection or personal duels; count distinct source/event identities and display sample sizes.
+
+- FIXED — fresh preview, `ClubConnectionStories.tsx`: three team categories in a two-column desktop grid leave an unnecessary half-row gap; use three columns for teams and two for opposition, preserving single-column mobile order.
+
+- FIXED — Codex PR #729 P2, `clubGameAnalyticsService.ts`: sanitization drops profile-less guests/unknown roles before new stories can reject incomplete rosters; preserve an unresolved-seat marker for the new aggregation, retaining existing analytics behavior.
+
+Verification: raw club/tournament omission-marker regression, sanitized-snapshot exclusion and real authenticated API guest/privacy tests pass; existing pair analytics remains available for identified participants.

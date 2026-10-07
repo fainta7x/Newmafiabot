@@ -282,6 +282,7 @@ export const sweepIdlePokerSeats = (now = Date.now()) => {
   return exits;
 };
 const otherTableFor = (playerId: string, lobbyId?: string) => [...lobbyStore().values()].find((table) => table.id !== lobbyId && table.players.some((player) => player.id === playerId));
+export const pokerTableForPlayer = (playerId: string) => [...lobbyStore().values()].find((table) => table.players.some((player) => player.id === playerId)) || null;
 export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната', moneyMode: PokerMoneyMode = 'training') => {
   if (otherTableFor(owner.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
   const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: POKER_BUY_IN_TOKENS }], hand: null, createdAt: new Date().toISOString(), money_mode: moneyMode };

@@ -309,7 +309,7 @@ function ChipAmount({ amount, compact = false }: { amount: number; compact?: boo
   </div>;
 }
 
-export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
+export default function PlayerPoker({ onExit, onTokenBalanceChange }: { onExit?: () => void; onTokenBalanceChange?: (balance: number) => void }) {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [current, setCurrent] = useState<any>(null);
   const [title, setTitle] = useState('Открытая покерная комната');
@@ -396,6 +396,7 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   const applyLobby = async (url: string, init?: RequestInit, stillWanted: () => boolean = () => true) => {
     const seq = ++requestSeq.current;
     const body = await readBody(await fetch(url, init));
+    if (Number.isFinite(Number(body.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
     if (seq > appliedSeq.current && stillWanted()) { appliedSeq.current = seq; setCurrent(body.lobby); }
   };
   const load = async () => setLobbies((await readBody(await fetch('/api/player/poker/lobbies', { credentials: 'include' }))).lobbies || []);
@@ -444,7 +445,12 @@ export default function PlayerPoker({ onExit }: { onExit?: () => void }) {
   }, []);
   const leaveTable = async () => {
     if (current?.id) leftTables.current.add(current.id);
-    if (current?.id) { try { await fetch(`/api/player/poker/lobbies/${current.id}/leave`, { method: 'POST', credentials: 'include' }); } catch { /* the table forgets the player anyway when they never come back */ } }
+    if (current?.id) {
+      try {
+        const body = await readBody(await fetch(`/api/player/poker/lobbies/${current.id}/leave`, { method: 'POST', credentials: 'include' }));
+        if (Number.isFinite(Number(body.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
+      } catch { /* the table forgets the player anyway when they never come back */ }
+    }
     setCurrent(null);
     void load().catch(() => {});
   };

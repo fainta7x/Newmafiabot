@@ -79,6 +79,11 @@ const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Req
       await settlePokerExits((req as any).db, sweepIdlePokerSeats());
       return handler(req);
     });
+    const viewer = getPlayerSessionId(req as any);
+    if (viewer && reply.body && typeof reply.body === 'object' && !Array.isArray(reply.body)) {
+      const balance = await (req as any).db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id = ? LIMIT 1', [String(viewer)]);
+      reply.body = { ...(reply.body as Record<string, unknown>), token_balance: Number(balance?.tokens || 0) };
+    }
     return res.status(reply.status || 200).json(reply.body);
   } catch (error: any) {
     if (error instanceof PokerRouteError) return res.status(error.status).json({ error: error.message });

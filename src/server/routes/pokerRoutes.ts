@@ -124,11 +124,13 @@ router.get('/poker/invite-candidates', async (req, res, next) => {
     const enriched = await withPersistedPokerRuntime(req.db, () => candidates.flatMap((candidate) => {
       const seated = pokerTableForPlayer(candidate.player_id);
       if (seated?.id === sourceLobbyId) return [];
+      const liveTable = seated && pokerMoneyMode(seated) === 'club_tokens' ? seated : null;
       return [{
         ...candidate,
-        at_table: Boolean(seated),
-        at_table_title: seated?.title || null,
-        can_invite: candidate.can_invite && !seated,
+        // Private bot training is deliberately invisible to other players. A trainee may still be invited to a live table.
+        at_table: Boolean(liveTable),
+        at_table_title: liveTable?.title || null,
+        can_invite: candidate.can_invite && !liveTable,
       }];
     }));
     res.setHeader('Cache-Control', 'no-store');

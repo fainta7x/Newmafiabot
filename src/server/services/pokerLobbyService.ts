@@ -104,10 +104,16 @@ export const botThinkMs = (action: { type: string }) => (action.type === 'fold' 
 // The bot's decision for the turn in progress is remembered, so it is made once and its pause does not change between polls.
 const botDecisions = new WeakMap<object, { key: string; action: { type: string; amount?: number }; readyAt: number }>();
 export const POKER_HISTORY_SIZE = 20;
-/** One seat/rebuy moves this many club tokens into a real table. Bot tables reuse the same numeric stack only for training. */
-export const POKER_BUY_IN_TOKENS = 1000;
+/** Cash-table blinds are 10/20, so 10 BB is the smallest real-money-mode stack the owner allows. */
+export const POKER_BIG_BLIND_TOKENS = 20;
+export const POKER_MIN_BUY_IN_BIG_BLINDS = 10;
+export const POKER_MIN_BUY_IN_TOKENS = POKER_BIG_BLIND_TOKENS * POKER_MIN_BUY_IN_BIG_BLINDS;
+/** 50 BB stays the convenient default, but a player may choose any whole-token stack from 10 BB upward. */
+export const POKER_DEFAULT_BUY_IN_TOKENS = 1000;
+/** Compatibility alias for older callers/tests that still refer to the former fixed buy-in. */
+export const POKER_BUY_IN_TOKENS = POKER_DEFAULT_BUY_IN_TOKENS;
 /** Compatibility alias for engine/tests that still call the stack a chip count. */
-export const POKER_REBUY_CHIPS = POKER_BUY_IN_TOKENS;
+export const POKER_REBUY_CHIPS = POKER_DEFAULT_BUY_IN_TOKENS;
 export const pokerMoneyMode = (lobby: PokerLobby): PokerMoneyMode => lobby.money_mode || 'training';
 
 /** Saves a finished hand once: for the history and for the bots to learn the players' habits. */
@@ -164,7 +170,7 @@ export const publicPokerHistory = (lobby: PokerLobby, viewerId: string) => (lobb
   players: entry.players.map((player) => ({ ...player, cards: player.revealed || player.id === viewerId ? player.cards : [] })),
 }));
 
-export const rebuyPoker = (lobby: PokerLobby, playerId: string) => {
+export const rebuyPoker = (lobby: PokerLobby, playerId: string, chips = POKER_REBUY_CHIPS) => {
   const seat = lobby.players.find((player) => player.id === playerId);
   if (!seat) throw new Error('Вы не сидите за этим столом.');
   const handPlayer = lobby.hand?.players.find((player) => player.id === playerId);
@@ -172,10 +178,10 @@ export const rebuyPoker = (lobby: PokerLobby, playerId: string) => {
   // After a hand ends the seat is updated only at the next deal: the finished hand holds the real stack.
   const stack = lobby.hand?.street === 'finished' && handPlayer ? handPlayer.chips : seat.chips;
   if (stack > 0 || inLiveHand) throw new Error('Взять фишки можно, когда стек закончился.');
-  seat.chips = POKER_REBUY_CHIPS;
+  seat.chips = chips;
   seat.sitting_out = false;
   // The finished hand still holds the old stack; the next deal copies chips from it.
-  if (handPlayer && lobby.hand?.street === 'finished') handPlayer.chips = POKER_REBUY_CHIPS;
+  if (handPlayer && lobby.hand?.street === 'finished') handPlayer.chips = chips;
   if (lobby.status === 'waiting' && lobby.hand?.street === 'finished') nextPokerHand(lobby);
   return lobby;
 };
@@ -302,9 +308,10 @@ export const sweepIdlePokerSeats = (now = Date.now()) => {
 };
 const otherTableFor = (playerId: string, lobbyId?: string) => [...lobbyStore().values()].find((table) => table.id !== lobbyId && table.players.some((player) => player.id === playerId));
 export const pokerTableForPlayer = (playerId: string) => [...lobbyStore().values()].find((table) => table.players.some((player) => player.id === playerId)) || null;
-export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната', moneyMode: PokerMoneyMode = 'club_tokens') => {
+export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната', moneyMode: PokerMoneyMode = 'club_tokens', buyInTokens = POKER_DEFAULT_BUY_IN_TOKENS) => {
   if (otherTableFor(owner.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
-  const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: POKER_BUY_IN_TOKENS }], hand: null, createdAt: new Date().toISOString(), money_mode: moneyMode };
+  const startingStack = moneyMode === 'training' ? POKER_DEFAULT_BUY_IN_TOKENS : buyInTokens;
+  const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: startingStack }], hand: null, createdAt: new Date().toISOString(), money_mode: moneyMode };
   lobbyStore().set(lobby.id, lobby); return lobby;
 };
 export const getPokerLobby = (id: string) => (id === MAIN_POKER_LOBBY_ID ? ensureMainLobby() : lobbyStore().get(id) || null);
@@ -312,7 +319,7 @@ export const getPokerLobby = (id: string) => (id === MAIN_POKER_LOBBY_ID ? ensur
 const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => !lobby.players.some((player) => player.seat === seat)) ?? lobby.players.length + 1;
 
 /** Like a poker room: the table stays open; someone who sits down during a hand plays from the next one. */
-export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }) => {
+export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }, buyInTokens = POKER_DEFAULT_BUY_IN_TOKENS) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
   if (pokerMoneyMode(lobby) === 'training') {
@@ -324,7 +331,7 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
     nextPokerHand(lobby);
   }
   // A person who just left still exists in the immutable current-hand result during the result pause. Until that hand is
-  // retired, accepting the same id as a fresh 1,000-token seat would let the old stack be mistaken for the new buy-in.
+  // retired, accepting the same id as a fresh seat would let the old stack be mistaken for the new buy-in.
   if (lobby.hand?.players.some((item) => item.id === player.id)) {
     throw new Error('Вы только что вышли из этой раздачи. Дождитесь следующей раздачи и садитесь снова.');
   }
@@ -337,7 +344,7 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
     if (!weakestBot) throw new Error('За столом максимум 8 игроков.');
     leavePokerLobby(lobby, weakestBot.id);
   }
-  lobby.players.push({ ...player, seat: freeSeat(lobby), chips: POKER_BUY_IN_TOKENS });
+  lobby.players.push({ ...player, seat: freeSeat(lobby), chips: buyInTokens });
   touchPokerSeat(lobby, player.id);
   autoDealMainLobby(lobby);
   return lobby;

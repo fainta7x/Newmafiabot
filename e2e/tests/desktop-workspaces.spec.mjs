@@ -29,6 +29,17 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
         await expect(page.locator(ready)).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: testInfo.outputPath(`${url.split('/').pop().replace('.html', '')}-${width}.png`), fullPage: true });
+        if (url === '/e2e/crm-players.html') {
+          await page.getByPlaceholder('Ник, имя, телефон или Telegram').fill('Киндер');
+          await page.getByTestId('crm-active-player-list').getByRole('button').filter({ hasText: 'Киндер' }).first().click();
+          await expect(page.getByTestId('crm-player-work-card')).toBeVisible();
+          await page.screenshot({ path: testInfo.outputPath(`crm-player-card-${width}.png`) });
+          await page.getByTestId('crm-player-access-edit').click();
+          await expect(page.getByTestId('crm-player-access-sheet')).toBeVisible();
+          const save = page.getByRole('button', { name: 'Сохранить', exact: true });
+          await expect(save).toBeInViewport();
+          await page.screenshot({ path: testInfo.outputPath(`crm-player-access-${width}.png`) });
+        }
       }
     }
     if (width >= 1024) {

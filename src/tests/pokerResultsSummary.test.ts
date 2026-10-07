@@ -27,4 +27,14 @@ describe('summarizePokerResults', () => {
     expect(person.facing_bot_bet).toEqual({ faced: 1, folded: 0, called: 1, raised: 0 });
     expect(summary.bots).toMatchObject({ hands: 2, net: 70, net_bb: 3.5 });
   });
+
+  it('treats an all-in call as a call and counts one answer per decision', () => {
+    const shortCall = hand('h3', [{ id: 'p1', seat: 1, net: -40, cards: [] }, { id: 'bot-a', seat: 2, net: 80, cards: [] }, { id: 'bot-b', seat: 3, net: -40, cards: [] }], [
+      ['flop', 'bot-a', 'bet', 100], ['flop', 'bot-b', 'raise', 300], ['flop', 'p1', 'fold', 0],
+      ['turn', 'bot-a', 'bet', 100], ['turn', 'p1', 'all_in', 40], ['turn', 'bot-b', 'fold', 0],
+    ]);
+    const person = summarizePokerResults([shortCall]).people[0];
+    expect(person.facing_bot_bet).toEqual({ faced: 2, folded: 1, called: 1, raised: 0 });
+    expect(person.postflop_bet).toEqual({ faced: 0, botsFolded: 0 });
+  });
 });

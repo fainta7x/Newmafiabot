@@ -25,7 +25,26 @@ type PersonSummary = {
 
 const moscowDay = (at: number) => new Date(at + 3 * 3600 * 1000).toISOString().slice(0, 10);
 const isBot = (id: string) => id.startsWith('bot-');
-const AGGRESSIVE = new Set(['bet', 'raise', 'all_in']);
+const AGGRESSIVE = new Set(['bet', 'raise']);
+
+/**
+ * Which actions raise the stake. An `all_in` counts only when it puts in more than the current bet: a short stack that
+ * calls with its last chips is stored as `all_in` too, and that is a call.
+ */
+const aggressiveFlags = (actions: StoredPokerHand['actions']) => {
+  const flags: boolean[] = [];
+  let street = '';
+  let committed = new Map<string, number>();
+  let currentBet = 0;
+  for (const [actionStreet, playerId, type, amount] of actions) {
+    if (actionStreet !== street) { street = actionStreet; committed = new Map(); currentBet = 0; }
+    const total = (committed.get(playerId) || 0) + (Number(amount) || 0);
+    committed.set(playerId, total);
+    flags.push(AGGRESSIVE.has(type) || (type === 'all_in' && total > currentBet));
+    currentBet = Math.max(currentBet, total);
+  }
+  return flags;
+};
 
 const blank = (playerId: string): PersonSummary => ({
   player_id: playerId, hands: 0, net: 0, net_bb: 0, by_day: {},
@@ -35,18 +54,18 @@ const blank = (playerId: string): PersonSummary => ({
 });
 
 /** After an aggressive action by `actorId`, did every bot that answered it fold? Counts one spot per action. */
-const botAnswers = (actions: StoredPokerHand['actions'], from: number, actorId: string) => {
+const botAnswers = (actions: StoredPokerHand['actions'], aggressive: boolean[], from: number, actorId: string) => {
   let answered = 0;
   let folded = 0;
   for (let index = from + 1; index < actions.length; index += 1) {
     const [street, playerId, type] = actions[index];
     if (street !== actions[from][0]) break;
     if (playerId === actorId) break;
-    if (AGGRESSIVE.has(type) && !isBot(playerId)) break;
+    if (aggressive[index] && !isBot(playerId)) break;
     if (!isBot(playerId)) continue;
     answered += 1;
     if (type === 'fold') folded += 1;
-    if (AGGRESSIVE.has(type)) break;
+    if (aggressive[index]) break;
   }
   return { answered, folded };
 };
@@ -63,6 +82,7 @@ export const summarizePokerResults = (hands: StoredPokerHand[]) => {
       const entry = (bots.by_day[day] ||= { hands: 0, net: 0, net_bb: 0 });
       entry.hands += 1; entry.net += botNet; entry.net_bb += botNet / bb;
     }
+    const aggressive = aggressiveFlags(hand.actions);
     const folded = new Set(hand.actions.filter(([, , type]) => type === 'fold').map(([, playerId]) => playerId));
     const showdown = hand.players.filter((player) => !folded.has(player.id)).length >= 2;
     for (const player of hand.players) {
@@ -79,25 +99,29 @@ export const summarizePokerResults = (hands: StoredPokerHand[]) => {
         person.won_without_showdown.hands += 1; person.won_without_showdown.net += player.net;
       }
       let preflopRaises = 0;
-      hand.actions.forEach(([street, actorId, type], index) => {
-        const aggressive = AGGRESSIVE.has(type);
-        if (street === 'preflop' && aggressive) preflopRaises += 1;
-        if (actorId === player.id && aggressive) {
-          const { answered, folded: botsFolded } = botAnswers(hand.actions, index, player.id);
+      hand.actions.forEach(([street, actorId], index) => {
+        const raises = aggressive[index];
+        if (street === 'preflop' && raises) preflopRaises += 1;
+        if (actorId === player.id && raises) {
+          const { answered, folded: botsFolded } = botAnswers(hand.actions, aggressive, index, player.id);
           if (!answered) return;
           const spot = street === 'preflop' ? (preflopRaises <= 1 ? person.preflop_open : person.preflop_reraise) : person.postflop_bet;
           spot.faced += 1;
           if (botsFolded === answered) spot.botsFolded += 1;
           return;
         }
-        if (street !== 'preflop' && isBot(actorId) && aggressive) {
-          // His next action on this street answers the bot's bet.
-          const answer = hand.actions.slice(index + 1).find(([nextStreet, nextId]) => nextStreet === street && nextId === player.id);
-          if (!answer) return;
+        if (street !== 'preflop' && isBot(actorId) && raises) {
+          // His next action on this street answers this bet only when nobody raised in between (then he faced that raise).
+          let answerAt = -1;
+          for (let next = index + 1; next < hand.actions.length && hand.actions[next][0] === street; next += 1) {
+            if (hand.actions[next][1] === player.id) { answerAt = next; break; }
+            if (aggressive[next]) break;
+          }
+          if (answerAt < 0) return;
           person.facing_bot_bet.faced += 1;
-          if (answer[2] === 'fold') person.facing_bot_bet.folded += 1;
-          else if (answer[2] === 'call') person.facing_bot_bet.called += 1;
-          else if (AGGRESSIVE.has(answer[2])) person.facing_bot_bet.raised += 1;
+          if (hand.actions[answerAt][2] === 'fold') person.facing_bot_bet.folded += 1;
+          else if (aggressive[answerAt]) person.facing_bot_bet.raised += 1;
+          else person.facing_bot_bet.called += 1;
         }
       });
     }

@@ -117,7 +117,10 @@ const lobby = (id: unknown) => {
 const isPokerOwner = (req: any) => isClubOwner(req) || String(getPlayerSessionId(req) || '') === PRIMARY_ORGANIZER_PLAYER_ID;
 /** The table as a viewer sees it, with whether he may kick people. */
 const viewFor = (req: any, state: any) => ({ ...state, can_kick: isPokerOwner(req), viewer_player_id: String(getPlayerSessionId(req) || '') });
-const conflict = (error: any, fallback: string): never => { throw new PokerRouteError(409, error?.message || fallback); };
+const conflict = (error: any, fallback: string): never => {
+  if (error instanceof PokerRouteError) throw error;
+  throw new PokerRouteError(409, error?.message || fallback);
+};
 
 router.get('/poker/invite-candidates', async (req, res, next) => {
   try {

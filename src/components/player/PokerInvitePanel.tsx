@@ -9,6 +9,7 @@ type Candidate = {
   vk_last_seen_at: string | null;
   vk_status_available: boolean;
   telegram_linked: boolean;
+  personal_notifications_enabled: boolean;
   at_table?: boolean;
   at_table_title?: string | null;
   can_invite: boolean;
@@ -30,8 +31,9 @@ const statusFor = (candidate: Candidate, now = Date.now()) => {
       return { label: `VK · ${hours} ч назад`, tone: 'text-white/50', dot: 'bg-white/30' };
     }
   }
-  if (candidate.telegram_linked) return { label: 'Можно позвать в Telegram', tone: 'text-white/45', dot: 'bg-white/20' };
-  return { label: 'Нет Telegram для приглашения', tone: 'text-white/30', dot: 'bg-white/15' };
+  if (!candidate.telegram_linked) return { label: 'Нет Telegram для приглашения', tone: 'text-white/30', dot: 'bg-white/15' };
+  if (!candidate.personal_notifications_enabled) return { label: 'Личные уведомления выключены', tone: 'text-white/30', dot: 'bg-white/15' };
+  return { label: 'Можно позвать в Telegram', tone: 'text-white/45', dot: 'bg-white/20' };
 };
 
 const cooldownLabel = (seconds: number) => {
@@ -63,7 +65,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setCandidates((current) => current.map((candidate) => candidate.invite_cooldown_seconds > 0
-        ? { ...candidate, invite_cooldown_seconds: Math.max(0, candidate.invite_cooldown_seconds - 1), can_invite: candidate.telegram_linked && !candidate.at_table && candidate.invite_cooldown_seconds <= 1 }
+        ? { ...candidate, invite_cooldown_seconds: Math.max(0, candidate.invite_cooldown_seconds - 1), can_invite: candidate.telegram_linked && candidate.personal_notifications_enabled && !candidate.at_table && candidate.invite_cooldown_seconds <= 1 }
         : candidate));
       setTick((value) => value + 1);
     }, 1000);
@@ -123,7 +125,9 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
             ? 'За столом'
             : !candidate.telegram_linked
               ? 'Нет TG'
-              : cooldown > 0
+              : !candidate.personal_notifications_enabled
+                ? 'Выкл.'
+                : cooldown > 0
                 ? cooldownLabel(cooldown)
                 : busy === candidate.player_id ? '…' : 'Позвать';
           return (

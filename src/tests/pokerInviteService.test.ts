@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { recordPresence } from '../server/services/presenceService.ts';
+import { ensurePlayerProfileMergeSchema } from '../db/ensurePlayerProfileMergeSchema.ts';
 import { loadPokerInviteCandidates, POKER_INVITE_COOLDOWN_MS, queuePokerInvite } from '../server/services/pokerInviteService.ts';
 
 describe('poker invites and presence', () => {
@@ -67,6 +68,35 @@ describe('poker invites and presence', () => {
       personal_notifications_enabled: false,
       can_invite: false,
     });
+  });
+
+  it('rejects blocked and merged recipients even when the POST path is called directly', async () => {
+    const now = Date.parse('2026-10-07T12:00:00Z');
+    await ensurePlayerProfileMergeSchema(db);
+    await db.run("UPDATE players SET contact_status='blocked' WHERE id='bob'");
+    await db.run("UPDATE players SET merged_into_player_id='alice', merged_at=? WHERE id='charlie'", [new Date(now).toISOString()]);
+
+    await expect(queuePokerInvite(db, {
+      senderPlayerId: 'alice',
+      senderNickname: 'Алиса',
+      targetPlayerId: 'bob',
+      lobbyId: 'live-table',
+      lobbyTitle: 'Вечерний стол',
+      now,
+    })).rejects.toMatchObject({ code: 'player_not_found' });
+
+    await expect(queuePokerInvite(db, {
+      senderPlayerId: 'alice',
+      senderNickname: 'Алиса',
+      targetPlayerId: 'charlie',
+      lobbyId: 'live-table',
+      lobbyTitle: 'Вечерний стол',
+      now,
+    })).rejects.toMatchObject({ code: 'player_not_found' });
+
+    const candidates = await loadPokerInviteCandidates(db, 'alice', { now, vkLoader: async () => [] });
+    expect(candidates.map((item) => item.player_id)).not.toContain('bob');
+    expect(candidates.map((item) => item.player_id)).not.toContain('charlie');
   });
 
   it('queues a Telegram poker invite and enforces the two-minute sender-recipient cooldown', async () => {

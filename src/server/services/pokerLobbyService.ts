@@ -9,7 +9,10 @@ export type PokerHistoryEntry = {
   players: Array<{ id: string; nickname: string; seat: number; cards: PokerCard[]; revealed: boolean; net: number; label: string | null }>;
   actions: Array<{ street: string; player_id: string; player_name: string; type: string; amount: number }>;
 };
+export type PokerMoneyMode = 'club_tokens' | 'training';
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean; sitting_out?: boolean }>; hand: PokerState | null; createdAt: string;
+  /** Real club-token table or a bot/training table whose stack never changes the wallet. */
+  money_mode?: PokerMoneyMode;
   /** The last finished hands, newest first, so a player can see how a hand went. */
   history?: PokerHistoryEntry[];
   /** The always-open «Общий стол» (owner, 2026-10-02): never closes, deals by itself from two players. */
@@ -34,6 +37,10 @@ export const createPokerRuntimeState = (snapshot?: PokerRuntimeSnapshot): PokerR
     if (lobby.hand && !lobby.hand.animation_phase) {
       lobby.hand.animation_phase = 'playing'; lobby.hand.animation_step = 0; lobby.hand.animation_next_at = null; lobby.hand.pending_current_seat = null; lobby.hand.animations_enabled = false;
     }
+    // Old snapshots used an isolated, endlessly refillable poker bankroll. Treat any occupied legacy table as training
+    // so a deploy can never turn historical test chips into real club tokens. An empty permanent table is safe to reopen
+    // in the new club-token mode.
+    if (!lobby.money_mode) lobby.money_mode = lobby.permanent && lobby.players.length === 0 && !lobby.hand ? 'club_tokens' : 'training';
     return [lobby.id, lobby];
   })),
   bankrolls: new Map(Object.entries(snapshot?.bankrolls || {}).map(([id, chips]) => [id, Math.max(0, Math.floor(Number(chips) || 0))])),
@@ -51,20 +58,18 @@ export const pendingPokerHandLog = (): StoredPokerHand[] => runtime().handLog.sl
 /** Drops the first `count` pending hands once they are safely stored; hands of a failed write stay queued for the next request. */
 export const confirmPokerHandLog = (count: number) => { runtime().handLog.splice(0, count); };
 
-const effectiveStack = (lobby: PokerLobby, playerId: string) => {
+export const pokerEffectiveStack = (lobby: PokerLobby, playerId: string) => {
   const seat = lobby.players.find((player) => player.id === playerId);
   const handPlayer = lobby.hand?.players.find((player) => player.id === playerId);
   return Math.max(0, Math.floor(Number(handPlayer?.chips ?? seat?.chips ?? 0) || 0));
 };
-const rememberHumanStacks = () => {
-  for (const lobby of lobbyStore().values()) for (const player of lobby.players) {
-    if (!player.is_bot) runtime().bankrolls.set(player.id, effectiveStack(lobby, player.id));
-  }
-};
-export const exportPokerRuntimeSnapshot = (): PokerRuntimeSnapshot => {
-  rememberHumanStacks();
-  return { version: 1, lobbies: [...lobbyStore().values()], bankrolls: Object.fromEntries(runtime().bankrolls) };
-};
+export const exportPokerRuntimeSnapshot = (): PokerRuntimeSnapshot => ({
+  // Keep the legacy field until the compact snapshot version changes, but stop persisting a second human bankroll:
+  // the only durable player balance is now the canonical club-token ledger.
+  version: 1,
+  lobbies: [...lobbyStore().values()],
+  bankrolls: {},
+});
 /** Like real poker rooms: the result stays on screen for a moment, then the next hand is dealt by itself. */
 export const NEXT_HAND_DELAY_MS = 4000;
 /** Test bots fill the table up to 8 seats; they wait a moment so people can follow the play. */
@@ -80,8 +85,11 @@ export const botThinkMs = (action: { type: string }) => (action.type === 'fold' 
 // The bot's decision for the turn in progress is remembered, so it is made once and its pause does not change between polls.
 const botDecisions = new WeakMap<object, { key: string; action: { type: string; amount?: number }; readyAt: number }>();
 export const POKER_HISTORY_SIZE = 20;
-/** Rebuy for play chips (not club tokens): a busted player takes a new stack and plays on. */
-export const POKER_REBUY_CHIPS = 1000;
+/** One seat/rebuy moves this many club tokens into a real table. Bot tables reuse the same numeric stack only for training. */
+export const POKER_BUY_IN_TOKENS = 1000;
+/** Compatibility alias for engine/tests that still call the stack a chip count. */
+export const POKER_REBUY_CHIPS = POKER_BUY_IN_TOKENS;
+export const pokerMoneyMode = (lobby: PokerLobby): PokerMoneyMode => lobby.money_mode || 'training';
 
 /** Saves a finished hand once: for the history and for the bots to learn the players' habits. */
 const recordFinishedHand = (lobby: PokerLobby) => {
@@ -195,7 +203,7 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
 export const MAIN_POKER_LOBBY_ID = 'main';
 const ensureMainLobby = () => {
   if (!lobbyStore().has(MAIN_POKER_LOBBY_ID)) {
-    lobbyStore().set(MAIN_POKER_LOBBY_ID, { id: MAIN_POKER_LOBBY_ID, title: 'Общий стол', ownerId: '', status: 'waiting', players: [], hand: null, createdAt: new Date().toISOString(), permanent: true });
+    lobbyStore().set(MAIN_POKER_LOBBY_ID, { id: MAIN_POKER_LOBBY_ID, title: 'Общий стол', ownerId: '', status: 'waiting', players: [], hand: null, createdAt: new Date().toISOString(), permanent: true, money_mode: 'club_tokens' });
   }
   return lobbyStore().get(MAIN_POKER_LOBBY_ID)!;
 };
@@ -210,7 +218,7 @@ const autoDealMainLobby = (lobby: PokerLobby) => {
   if (lobby.status === 'waiting') nextPokerHand(lobby);
 };
 
-export const listPokerLobbies = (viewerId?: string) => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent || lobby.players.some((player) => player.is_bot) || (Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId)))).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), full: lobby.players.length >= 8 && !lobby.players.some((player) => player.is_bot), players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), joined: Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId), createdAt: lobby.createdAt }))
+export const listPokerLobbies = (viewerId?: string) => { ensureMainLobby(); return [...lobbyStore().values()].filter((lobby) => lobby.status !== 'finished' && (lobby.players.length < 8 || lobby.permanent || lobby.players.some((player) => player.is_bot) || (Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId)))).map((lobby) => ({ id: lobby.id, title: lobby.title, ownerId: lobby.ownerId, status: lobby.status, permanent: Boolean(lobby.permanent), money_mode: pokerMoneyMode(lobby), full: lobby.players.length >= 8 && !lobby.players.some((player) => player.is_bot), players: lobby.players.map(({ id, nickname, seat, is_bot }) => ({ id, nickname, seat, is_bot: Boolean(is_bot) })), joined: Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId), createdAt: lobby.createdAt }))
   .sort((a, b) => Number(b.permanent) - Number(a.permanent)); };
 
 /**
@@ -226,10 +234,11 @@ const awayKey = (lobbyId: string, playerId: string) => `away:${lobbyId}:${player
 export const touchPokerSeat = (lobby: PokerLobby, playerId: string, now = Date.now()) => {
   if (lobby.players.some((player) => player.id === playerId)) runtime().seen?.set(seenKey(lobby.id, playerId), now);
 };
-export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()) => {
+export type PokerSeatExit = { lobbyId: string; playerId: string; amount: number; moneyMode: PokerMoneyMode };
+export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()): PokerSeatExit[] => {
   const seen = runtime().seen;
-  if (!seen) return 0;
-  let removed = 0;
+  if (!seen) return [];
+  const exits: PokerSeatExit[] = [];
   for (const seat of [...lobby.players]) {
     if (seat.is_bot) continue;
     const key = seenKey(lobby.id, seat.id);
@@ -239,24 +248,27 @@ export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()) => {
     let afk = last !== undefined && now - last > POKER_AFK_LEAVE_MS;
     // A person who is away is counted from the moment he went away, even if his screen is still open; so is one with no
     // chips left (he is not dealt in, and a busted person cannot go «away» himself, owner 2026-10-05).
-    if (seat.sitting_out || effectiveStack(lobby, seat.id) <= 0) {
+    if (seat.sitting_out || pokerEffectiveStack(lobby, seat.id) <= 0) {
       const since = seen.get(awayKey(lobby.id, seat.id)) ?? now;
       seen.set(awayKey(lobby.id, seat.id), since);
       if (now - since > POKER_AFK_LEAVE_MS) afk = true;
     } else seen.delete(awayKey(lobby.id, seat.id));
-    if (afk) { seen.delete(key); seen.delete(awayKey(lobby.id, seat.id)); leavePokerLobby(lobby, seat.id); removed += 1; }
+    if (afk) {
+      const exit = { lobbyId: lobby.id, playerId: seat.id, amount: pokerEffectiveStack(lobby, seat.id), moneyMode: pokerMoneyMode(lobby) };
+      seen.delete(key); seen.delete(awayKey(lobby.id, seat.id)); leavePokerLobby(lobby, seat.id); exits.push(exit);
+    }
   }
-  return removed;
+  return exits;
 };
 export const sweepIdlePokerSeats = (now = Date.now()) => {
-  let removed = 0;
-  for (const lobby of [...lobbyStore().values()]) removed += removeIdlePokerSeats(lobby, now);
-  return removed;
+  const exits: PokerSeatExit[] = [];
+  for (const lobby of [...lobbyStore().values()]) exits.push(...removeIdlePokerSeats(lobby, now));
+  return exits;
 };
 const otherTableFor = (playerId: string, lobbyId?: string) => [...lobbyStore().values()].find((table) => table.id !== lobbyId && table.players.some((player) => player.id === playerId));
-export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната') => {
+export const createPokerLobby = (owner: { id: string; nickname: string }, title = 'Открытая покерная комната', moneyMode: PokerMoneyMode = 'training') => {
   if (otherTableFor(owner.id)) throw new Error('Вы уже сидите за другим столом. Сначала выйдите из него.');
-  const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: runtime().bankrolls.get(owner.id) ?? POKER_REBUY_CHIPS }], hand: null, createdAt: new Date().toISOString() };
+  const lobby: PokerLobby = { id: randomUUID(), title: title.trim().slice(0, 80) || 'Открытая покерная комната', ownerId: owner.id, status: 'waiting', players: [{ ...owner, seat: 1, chips: POKER_BUY_IN_TOKENS }], hand: null, createdAt: new Date().toISOString(), money_mode: moneyMode };
   lobbyStore().set(lobby.id, lobby); return lobby;
 };
 export const getPokerLobby = (id: string) => (id === MAIN_POKER_LOBBY_ID ? ensureMainLobby() : lobbyStore().get(id) || null);
@@ -272,11 +284,11 @@ export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname
     // A person comes before a bot: a table full of bots that somebody left running must not lock people out, so the bot
     // with the smallest stack gives up its seat (its cards are folded, chips already in the pot stay there).
     const weakestBot = lobby.players.filter((item) => item.is_bot)
-      .sort((a, b) => effectiveStack(lobby, a.id) - effectiveStack(lobby, b.id) || b.seat - a.seat)[0];
+      .sort((a, b) => pokerEffectiveStack(lobby, a.id) - pokerEffectiveStack(lobby, b.id) || b.seat - a.seat)[0];
     if (!weakestBot) throw new Error('За столом максимум 8 игроков.');
     leavePokerLobby(lobby, weakestBot.id);
   }
-  lobby.players.push({ ...player, seat: freeSeat(lobby), chips: runtime().bankrolls.get(player.id) ?? POKER_REBUY_CHIPS });
+  lobby.players.push({ ...player, seat: freeSeat(lobby), chips: POKER_BUY_IN_TOKENS });
   touchPokerSeat(lobby, player.id);
   autoDealMainLobby(lobby);
   return lobby;
@@ -290,12 +302,11 @@ export const leavePokerLobby = (lobby: PokerLobby, playerId: string) => {
     if (handPlayer && !handPlayer.folded) foldOutOfTurn(hand, playerId);
   }
   const leaving = lobby.players.find((player) => player.id === playerId);
-  if (leaving && !leaving.is_bot) runtime().bankrolls.set(playerId, effectiveStack(lobby, playerId));
   lobby.players = lobby.players.filter((player) => player.id !== playerId);
   const humans = lobby.players.filter((player) => !player.is_bot);
   if (!humans.length && lobby.permanent) {
     // The permanent table never closes: it clears the bots and waits for people.
-    lobby.players = []; lobby.hand = null; lobby.status = 'waiting'; lobby.history = [];
+    lobby.players = []; lobby.hand = null; lobby.status = 'waiting'; lobby.history = []; lobby.money_mode = 'club_tokens';
     return null;
   }
   if (!humans.length) { lobbyStore().delete(lobby.id); return null; }
@@ -327,10 +338,29 @@ export const addPokerBot = (lobby: PokerLobby) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
   const name = BOT_NAMES.find((candidate) => !lobby.players.some((item) => item.nickname === candidate)) || `Бот ${lobby.players.length}`;
-  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: name, seat: freeSeat(lobby), chips: 1000, is_bot: true });
+  lobby.players.push({ id: `bot-${randomUUID()}`, nickname: name, seat: freeSeat(lobby), chips: POKER_BUY_IN_TOKENS, is_bot: true });
   autoDealMainLobby(lobby);
   return lobby;
 };
+/** Converts a real-token table into a bot/training table between hands. The route cashes humans out first. */
+export const convertPokerLobbyToTraining = (lobby: PokerLobby) => {
+  if (pokerMoneyMode(lobby) === 'training') return lobby;
+  if (lobby.hand && lobby.hand.street !== 'finished') throw new Error('Бота можно добавить только между раздачами.');
+  if (lobby.hand?.street === 'finished') {
+    for (const player of lobby.players) {
+      const handPlayer = lobby.hand.players.find((item) => item.id === player.id);
+      if (handPlayer) player.chips = handPlayer.chips;
+    }
+  }
+  lobby.hand = null;
+  lobby.status = 'waiting';
+  lobby.money_mode = 'training';
+  for (const player of lobby.players) {
+    if (!player.is_bot) { player.chips = POKER_BUY_IN_TOKENS; player.sitting_out = false; }
+  }
+  return lobby;
+};
+
 export const startPokerLobby = (lobby: PokerLobby, actorId: string, animate = false) => {
   if (lobby.ownerId !== actorId) throw new Error('Запустить игру может создатель лобби.');
   const ready = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out);
@@ -379,7 +409,6 @@ export const setPokerSitOut = (lobby: PokerLobby, playerId: string, away: boolea
 };
 export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => publicState(lobby, viewerId);
 export const tickPokerLobby = (lobby: PokerLobby) => {
-  removeIdlePokerSeats(lobby);
   if (lobby.permanent && !lobby.hand) autoDealMainLobby(lobby);
   if (!lobby.hand || lobby.status === 'finished') return;
   const now = Date.now();

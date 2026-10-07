@@ -70,7 +70,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
 
-  if (section === 'poker') return <PlayerPoker onExit={() => open('club')} />;
+  if (section === 'poker') return <PlayerPoker onExit={() => open('club')} onTokenBalanceChange={setTokenBalance} />;
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">

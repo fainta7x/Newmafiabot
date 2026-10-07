@@ -184,7 +184,7 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   const actionPath = `/player/poker/${encodeURIComponent(input.lobbyId)}`;
   const base = appBaseUrl();
   const replyMarkup = base ? {
-    inline_keyboard: [[{ text: '🃏 Сесть за стол', url: `${base}${actionPath}` }]],
+    inline_keyboard: [[{ text: '🃏 Сесть за стол', web_app: { url: `${base}${actionPath}` } }]],
   } : null;
   const rawText = `🃏 ${input.senderNickname} зовёт тебя сыграть в покер\n${input.lobbyTitle} · игра на клубные жетоны · вход 1 000 🪙`;
 

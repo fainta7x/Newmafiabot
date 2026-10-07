@@ -156,13 +156,33 @@ const preflopRaises = (hand: PokerState) => {
 };
 
 /**
- * A price so small against the pot that folding is never right (owner, 2026-10-07: «если доплата ничтожна — это всегда
- * колл»): at most about 17% of the pot after the call: one big blind into a pot of seven, or a min-raise from 2 to 3 big blinds over an open.
+ * A price so small that folding is never right (owner, 2026-10-07: «если доплата ничтожна — это всегда колл»): a bet of up to
+ * a quarter of the pot (the call is then at most ~17% of the final pot), or a re-raise to less than twice the bet it raised
+ * (a normal re-raise is about 3x). Cheap does not mean weak: novices often make the small re-raise with a strong hand, so
+ * the bot pays to see the next card but reads his range from how he plays, not from the size.
  */
 export const CHEAP_CALL_SHARE = 0.17;
+const streetBetLevels = (hand: PokerState) => {
+  const committed = new Map<string, number>();
+  const levels: number[] = [];
+  let current = 0;
+  for (const entry of hand.action_log) {
+    if (entry.street !== hand.street) continue;
+    const total = (committed.get(entry.player_id) || 0) + (entry.amount || 0);
+    committed.set(entry.player_id, total);
+    if (total > current) { current = total; levels.push(total); }
+  }
+  return levels;
+};
 const isCheapCall = (hand: PokerState, bot: PokerPlayer) => {
   const price = Math.min(Math.max(0, hand.current_bet - bot.committed), bot.chips);
-  return price > 0 && price / (hand.pot + price) <= CHEAP_CALL_SHARE;
+  if (price <= 0) return false;
+  if (price / (hand.pot + price) <= CHEAP_CALL_SHARE) return true;
+  // A re-raise: the last level over the one before it (the big blind does not count as a raise before the flop).
+  const levels = streetBetLevels(hand).filter((level) => hand.street !== 'preflop' || level > hand.big_blind);
+  if (levels.length < 2) return false;
+  const smallReraise = levels[levels.length - 1] < 2 * levels[levels.length - 2];
+  return smallReraise && price <= (bot.chips + bot.committed) * 0.25;
 };
 
 /** The bet to call after each raise before the flop (the big blind first): [20, 50, 150] = open to 50, re-raise to 150. */
@@ -404,12 +424,12 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
     // From a third of the pot up, size only nudges the line (0.85 .. 1.15 for a pot-size bet): the same size reads differently
     // from a preflop raiser (wide continuation bet), from a late position and from a player who called before the flop.
     const potBefore = entry.pot ?? 0;
-    // A tiny bet is different (owner, 2026-10-07: «1 bb into a 7 bb pot means nothing»): under a third of the pot the line
-    // weighs much less — down to about a third of a normal bet for a seventh of the pot.
+    // A tiny bet is different (owner, 2026-10-07: «1 bb into a 7 bb pot means nothing»; tiny = up to a quarter of the pot):
+    // it weighs much less — about a third of a normal bet for a seventh of the pot.
     const sizeRatio = potBefore > 0 ? entry.amount / potBefore : 0.5;
-    const sizeNudge = potBefore <= 0 ? 1 : sizeRatio < 0.33
-      ? 0.15 + 0.7 * (sizeRatio / 0.33) ** 1.5
-      : 0.85 + 0.3 * Math.min(1, (sizeRatio - 0.33) / 0.67);
+    const sizeNudge = potBefore <= 0 ? 1 : sizeRatio < 0.25
+      ? 0.15 + 0.7 * (sizeRatio / 0.25) ** 1.5
+      : 0.85 + 0.3 * Math.min(1, Math.max(0, (sizeRatio - 0.33) / 0.67));
     const lineScale = positionScale * (continuation ? 0.7 : 1) * sizeNudge * tableAggression;
     streetHadBetBefore.add(entry.player_id);
     lineWeight.set(entry.player_id, (lineWeight.get(entry.player_id) || 0) + weight * lineScale + (checkRaise ? (wet ? 0.6 : 1) : 0));
@@ -458,8 +478,7 @@ export const opponentRanges = (hand: PokerState, bot: PokerPlayer) => {
         const base = reraise.level >= 3 ? 0.05 : 0.07 + 0.06 * opened;
         // Charts: ~3x the open in position, ~3.5–4x out of position, so a size is judged against what its position normally uses.
         const typical = reraise.inPosition ? 3 : 3.8;
-        // A min-raise (one more big blind) is the widest of all (owner, 2026-10-07).
-        const sizeFactor = reraise.ratio <= 1.6 ? 2 : reraise.ratio <= typical * 0.75 ? 1.4 : reraise.ratio >= typical * 1.2 ? 0.85 : 1;
+        const sizeFactor = reraise.ratio <= typical * 0.75 ? 1.4 : reraise.ratio >= typical * 1.2 ? 0.85 : 1;
         range = Math.min(seated <= 2 ? 0.45 : 0.3, base * Math.min(seated <= 2 ? 3 : 2, tableWidth) * sizeFactor * (profile.known && profile.vpip > 0.45 ? 1.3 : 1));
         // A player who re-raises a lot holds a range about as wide as how often he does it.
         if (profile.known && profile.reraise >= 0.18) range = Math.max(range, Math.min(0.85, profile.reraise));
@@ -545,14 +564,14 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   }
 
   // Facing a re-raise (owner, 2026-10-07: judge the spot, the player and the size, not a fixed chart). His re-raising range
-  // is as wide as how often he re-raises (measured; a regular's 8% while there is little data). The size matters most: a
-  // min-raise (2 bb → 3 bb) costs one big blind more and is played by a wide range, a standard 3x is narrower, a big one
-  // narrower still. The bot's equity against that range — discounted out of position, where an aggressive player keeps
+  // is as wide as how often he re-raises (measured; a regular's 8% while there is little data), whatever the size: a novice's
+  // small re-raise is often a strong hand, a maniac's is anything — his own numbers tell which. The bot's equity against that range — discounted out of position, where an aggressive player keeps
   // betting — is compared with the price: a cheap re-raise is called with most playable hands, an expensive one from a tight
   // player still folds all but strong hands.
   const levels = preflopBetLevels(hand);
   const ratio = levels.length >= 2 ? levels[levels.length - 1] / Math.max(bb, levels[levels.length - 2]) : 3;
-  const sizeFactor = ratio <= 1.6 ? 2 : ratio <= 2.6 ? 1.3 : ratio >= 4 ? 0.8 : 1;
+  // A small re-raise is cheap but not weak (novices make it with strong hands): only a big one narrows the range.
+  const sizeFactor = ratio >= 4 ? 0.8 : 1;
   const reraiseRate = raiserProfile?.reraise ?? 0.08;
   const range = Math.min(0.85, Math.max(0.025, reraiseRate * sizeFactor * (raises >= 3 ? 0.5 : 1)));
   const equity = estimateEquity(hole, [], [range], random, 260, 40);

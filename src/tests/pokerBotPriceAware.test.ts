@@ -1,0 +1,61 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { applyPokerAction, createPokerHand, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
+import { chooseStrongBotAction, opponentRanges, resetPokerBotMemoryForTests } from '../server/services/pokerBot.ts';
+
+const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' } as const)[text[1] as 's'] });
+const current = (hand: PokerState) => hand.players.find((player) => player.seat === hand.current_seat)!;
+const headsUp = () => createPokerHand({ id: 'h', dealer_seat: 1, players: [1, 2].map((seat) => ({ id: `p${seat}`, nickname: `P${seat}`, seat, chips: 4000, is_bot: true })) });
+/** A fixed random source, so the Monte Carlo equity is the same every run. */
+const seeded = () => { let x = 7; return () => { x = (x * 16807) % 2147483647; return x / 2147483647; }; };
+
+/** Heads-up to the flop with a pot of 7 big blinds; returns the hand with the first player to act on the flop. */
+const toFlop = () => {
+  const hand = headsUp();
+  applyPokerAction(hand, { type: 'bet', amount: 70 });
+  applyPokerAction(hand, { type: 'call' });
+  return hand;
+};
+
+describe('bots weigh the price and the size, not only the line (owner, 2026-10-07)', () => {
+  beforeEach(() => resetPokerBotMemoryForTests());
+
+  it('always calls a tiny bet: one big blind into a pot of seven', () => {
+    const hand = toFlop();
+    expect(hand.street).toBe('flop');
+    hand.board = [c('As'), c('Kd'), c('Qh')];
+    const bettor = current(hand);
+    applyPokerAction(hand, { type: 'bet', amount: hand.big_blind });
+    const bot = current(hand);
+    expect(bot.id).not.toBe(bettor.id);
+    hand.hole_cards[bot.id] = [c('7c'), c('2d')];
+    expect(chooseStrongBotAction(hand, bot, seeded()).type).not.toBe('fold');
+  });
+
+  it('reads a tiny bet as a much wider range than a half-pot bet', () => {
+    const rangeAfter = (amount: number) => {
+      const hand = toFlop();
+      hand.board = [c('9s'), c('6d'), c('2h')];
+      applyPokerAction(hand, { type: 'bet', amount });
+      const observer = current(hand);
+      return opponentRanges(hand, observer)[0];
+    };
+    const tiny = rangeAfter(20);
+    const half = rangeAfter(70);
+    expect(tiny.range).toBeGreaterThan(half.range);
+    expect(tiny.boardMin || 0).toBeLessThan(half.boardMin || 0);
+  });
+
+  it('calls a min-raise over its open with a playable hand but folds junk to a big re-raise', () => {
+    const answer = (reraiseTo: number, cards: PokerCard[]) => {
+      const hand = headsUp();
+      const opener = current(hand);
+      applyPokerAction(hand, { type: 'bet', amount: 40 });
+      applyPokerAction(hand, { type: 'bet', amount: reraiseTo });
+      expect(current(hand).id).toBe(opener.id);
+      hand.hole_cards[opener.id] = cards;
+      return chooseStrongBotAction(hand, current(hand), seeded()).type;
+    };
+    expect(answer(60, [c('Kc'), c('9d')])).not.toBe('fold');
+    expect(answer(180, [c('7c'), c('2d')])).toBe('fold');
+  });
+});

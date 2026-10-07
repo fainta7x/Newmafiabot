@@ -35,7 +35,7 @@ export function buildClubConnectionStories(
     const gameKey = JSON.stringify([game.source, game.id]);
     if (seenGames.has(gameKey)) continue;
     seenGames.add(gameKey);
-    if (game.players.some(p => !p.player_id) || new Set(game.players.map(p => p.player_id)).size !== game.players.length) continue;
+    if (game.has_unresolved_players || game.players.some(p => !p.player_id) || new Set(game.players.map(p => p.player_id)).size !== game.players.length) continue;
     const event = JSON.stringify([game.source, game.event_id]);
     const visible = game.players.filter(p => canViewConnections(p.player_id)).sort((a, b) => a.player_id.localeCompare(b.player_id));
     // Check the full original black roster first. Hidden/missing/extra seats must not fabricate a trio.

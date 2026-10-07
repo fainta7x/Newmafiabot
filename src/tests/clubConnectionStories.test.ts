@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { buildClubConnectionStories } from '../server/services/clubConnectionStoriesService.ts';
-import type { CompletedGameSnapshot } from '../server/services/clubGameAnalyticsService.ts';
+import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../server/services/clubGameAnalyticsService.ts';
 
 function game(id: string, winner: 'red' | 'black' = 'red'): CompletedGameSnapshot {
   const roles = ['sheriff', 'citizen', 'don', 'mafia', 'mafia'] as const;
@@ -52,4 +52,19 @@ it('keeps both-color results separate and counts distinct co-players, excluding 
 });
 it('returns deterministic empty categories for an empty history', () => {
   expect(build([])).toEqual({ black_trios: [], don_mafia: [], sheriff_citizen: [], balanced_rivalries: [], versatile_pairs: [], table_circles: [] });
+});
+
+it('rejects a sanitized snapshot explicitly marked as having unresolved original seats', () => {
+  const games = [game('1'), game('2')].map(g => ({ ...g, has_unresolved_players: true }));
+  expect(build(games)).toEqual(build([]));
+});
+
+it('preserves omitted-seat markers from raw club and tournament rows before sanitization', async () => {
+  const date = '2026-10-07T18:00:00Z';
+  const club = { id: 'c', evening_id: 'e', evening_date: date, created_at: date, protocol_text: JSON.stringify({ kind: 'club_evening_protocol', protocol: { status: 'completed', winner_team: 'red' }, player_results: [{ player_id: 'a', role: 'sheriff' }, { player_id: 'b', role: 'citizen' }, { player_id: null, role: 'mafia' }] }) };
+  const tournament = ['sheriff', 'citizen', 'unknown'].map((role, i) => ({ game_id: 't', tournament_id: 'e', tournament_date: date, completed_at: date, winner_team: 'red', player_id: String(i), role }));
+  const snapshots = await loadCompletedGameSnapshots({ all: async (sql: string) => sql.includes('FROM games g') ? [club] : tournament });
+  expect(snapshots).toHaveLength(2);
+  expect(snapshots.map(g => ({ source: g.source, incomplete: g.has_unresolved_players, players: g.players.length }))).toEqual([{ source: 'club', incomplete: true, players: 2 }, { source: 'tournament', incomplete: true, players: 2 }]);
+  expect(build(snapshots)).toEqual(build([]));
 });

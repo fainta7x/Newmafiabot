@@ -10,6 +10,6 @@ The owner requested new kinds of interesting club-wide patterns, rather than lon
 
 Six views use Mafia-specific contexts: complete black trios, don–mafia, sheriff–citizen, balanced opposition, same pair together on both colors, diverse shared-table circles. Role-specific results are oriented; black trio identities survive role rotation. Opposing-team scores describe team outcomes, not personal duels. Source/event namespaces distinguish a club evening from a tournament with the same ID.
 
-Display thresholds and ordering are product choices, defined in [BUSINESS_RULES.md](BUSINESS_RULES.md). Privacy removes hidden identities and their contribution to visible circle counts; it cannot reconstruct a complete black trio after removing a hidden extra seat. No production data or schema mutation is needed.
+Display thresholds and ordering are product choices, defined in [BUSINESS_RULES.md](BUSINESS_RULES.md). Privacy removes hidden identities and their contribution to visible circle counts; it cannot reconstruct a complete black trio after removing a hidden extra seat. Original protocols with unidentifiable or unclassified seats are excluded from these new stories; the snapshot retains a marker even after legacy sanitization. No production data or schema mutation is needed.
 
 Deferred because the data does not support them: voting agreement, inferred trust, sheriff protection, betrayal, night coordination, causal synergy, opponent-adjusted strength and friendship networks. Do not manufacture these from final roles and wins.

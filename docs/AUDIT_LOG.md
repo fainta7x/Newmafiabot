@@ -267,3 +267,7 @@ Privacy verification: eight tests across service/UI and real authenticated in-me
 - FIXED — new summaries: results must not imply causation, friendships, sheriff protection or personal duels; count distinct source/event identities and display sample sizes.
 
 - FIXED — fresh preview, `ClubConnectionStories.tsx`: three team categories in a two-column desktop grid leave an unnecessary half-row gap; use three columns for teams and two for opposition, preserving single-column mobile order.
+
+- FIXED — Codex PR #729 P2, `clubGameAnalyticsService.ts`: sanitization drops profile-less guests/unknown roles before new stories can reject incomplete rosters; preserve an unresolved-seat marker for the new aggregation, retaining existing analytics behavior.
+
+Verification: raw club/tournament omission-marker regression, sanitized-snapshot exclusion and real authenticated API guest/privacy tests pass; existing pair analytics remains available for identified participants.

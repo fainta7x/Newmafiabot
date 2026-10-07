@@ -1,0 +1,35 @@
+name: Weekly encrypted development snapshot
+on:
+  schedule:
+    # Monday 05:17 Moscow (02:17 UTC), away from club evenings and hourly queues.
+    - cron: '17 2 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: development-snapshot
+  cancel-in-progress: false
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+      - name: Download, validate and encrypt (no plaintext artifacts)
+        env:
+          DEVELOPMENT_SNAPSHOT_URL: ${{ vars.DEVELOPMENT_SNAPSHOT_URL || vars.PLAYER_APP_URL }}
+          DEVELOPMENT_SNAPSHOT_KEY: ${{ secrets.DEVELOPMENT_SNAPSHOT_KEY }}
+          DEVELOPMENT_SNAPSHOT_ENCRYPTION_KEY: ${{ secrets.DEVELOPMENT_SNAPSHOT_ENCRYPTION_KEY }}
+        run: node scripts/developmentSnapshot.mjs
+      - name: Store encrypted development copy
+        uses: actions/upload-artifact@v6
+        with:
+          name: development-snapshot-${{ github.run_id }}
+          path: |
+            temp/development-snapshot/development.sqlite.gz.enc
+            temp/development-snapshot/manifest.json
+          if-no-files-found: error
+          retention-days: 14

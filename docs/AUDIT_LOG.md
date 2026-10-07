@@ -196,3 +196,11 @@ Scope: organizer work surfaces and canonical player profile; preserve phone layo
 7. FIXED — `player-profile-harness.tsx`: the old preview completeness response has no canonical `completeness` object and only one game/role, so it cannot demonstrate a populated desktop layout.
 
 8. FIXED — organizer preview omitted the viewport stylesheet used by the application; import it so tablet navigation clearance and duplicate-heading checks exercise the real shell. Grid children reset both block margins to avoid inherited vertical-stack gaps.
+
+### Weekly development snapshot audit (2026-10-07)
+Scope: paused snapshot branch and production read-only export.
+1. FIXED — anonymizedSnapshotService.ts WIP keeps real nicknames/avatars and uses a denylist that misses JSON/free text and new columns.
+2. FIXED — export must preserve relational links, reject unreviewed fields, remove freed-page data and never change the source.
+3. FIXED — no weekly downloader/workflow, bounded retention or verified metadata exists.
+4. FIXED — Codex review #721: tournament_game_best_moves.source omits first_killed/zero_round_voted, rejecting valid tournament exports.
+5. FIXED — Codex review #721: slots_json scrubber drops canonical slot_num, breaking reconstructed club seating.

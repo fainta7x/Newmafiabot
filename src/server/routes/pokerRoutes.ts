@@ -113,8 +113,9 @@ const conflict = (error: any, fallback: string): never => { throw new PokerRoute
 router.get('/poker/invite-candidates', async (req, res, next) => {
   try {
     const player = await actor(req);
+    // VK can take a network round-trip, so do it outside the serialized poker/SQLite transaction.
     const candidates = await loadPokerInviteCandidates(req.db, player.id);
-    const enriched = candidates.map((candidate) => {
+    const enriched = await withPersistedPokerRuntime(req.db, () => candidates.map((candidate) => {
       const seated = pokerTableForPlayer(candidate.player_id);
       return {
         ...candidate,
@@ -122,7 +123,7 @@ router.get('/poker/invite-candidates', async (req, res, next) => {
         at_table_title: seated?.title || null,
         can_invite: candidate.can_invite && !seated,
       };
-    });
+    }));
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ candidates: enriched });
   } catch (error) {

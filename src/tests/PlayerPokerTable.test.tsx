@@ -34,8 +34,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); setVisibility('visible'); });
 
-const sitDown = async () => {
-  render(<PlayerPoker />);
+const sitDown = async (onTokenBalanceChange?: (balance: number) => void) => {
+  render(<PlayerPoker onTokenBalanceChange={onTokenBalanceChange} />);
   await act(async () => { await vi.advanceTimersByTimeAsync(10); });
   fireEvent.click(screen.getByRole('button', { name: /Войти|Сесть/ }));
   await act(async () => { await vi.advanceTimersByTimeAsync(10); });
@@ -65,8 +65,9 @@ describe('poker table screen', () => {
     expect(kicked).toEqual({ playerId: 'oleg' });
   });
 
-  it('never lets a slow, older answer replace a newer one (the table must not flip back to an earlier state)', async () => {
-    await sitDown();
+  it('never lets a slow, older answer replace a newer table or token balance', async () => {
+    const balances: number[] = [];
+    await sitDown((balance) => balances.push(balance));
     const older = { ...lobby(true) };
     const newer = { ...lobby(true), players: [...lobby(true).players, { id: 'vanya', nickname: 'Ваня', seat: 3, chips: 1000 }] };
     const late: Array<() => void> = [];
@@ -75,12 +76,15 @@ describe('poker table screen', () => {
       const url = String(input);
       if (!url.endsWith('/poker/lobbies/main')) return json({});
       call += 1;
-      if (call === 1) return new Promise((resolve) => { late.push(() => resolve(new Response(JSON.stringify({ lobby: older }), { status: 200, headers: { 'Content-Type': 'application/json' } }))); });
-      return json({ lobby: newer });
+      if (call === 1) return new Promise((resolve) => { late.push(() => resolve(new Response(JSON.stringify({ lobby: older, token_balance: 3500 }), { status: 200, headers: { 'Content-Type': 'application/json' } }))); });
+      return json({ lobby: newer, token_balance: 4000 });
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.queryByText('Ваня')).not.toBeNull();
+    expect(balances.at(-1)).toBe(4000);
     await act(async () => { late.forEach((release) => release()); await vi.advanceTimersByTimeAsync(10); });
     expect(screen.queryByText('Ваня')).not.toBeNull();
+    expect(balances.at(-1)).toBe(4000);
+    expect(balances).not.toContain(3500);
   });
 });

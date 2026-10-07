@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerInviteSchema } from '../../db/ensurePokerInviteSchema.ts';
+import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { loadPresence } from './presenceService.ts';
 import { loadPersonalNotificationPreference } from './personalNotificationRouterService.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
@@ -77,6 +78,7 @@ export async function loadPokerInviteCandidates(
   options: { now?: number; vkLoader?: (ids: string[]) => Promise<VkUserStatus[]> } = {},
 ) {
   await ensurePokerInviteSchema(db);
+  await ensureVkIntegrationSchema(db);
   const now = options.now ?? Date.now();
   const players = await db.all<any>(`
     SELECT p.id, p.nickname, p.telegram_user_id, p.lifecycle_status,

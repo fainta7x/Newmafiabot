@@ -177,7 +177,9 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
   );
 }
 
-export default function PlayerPayments({ onBack }: { onBack?: () => void }) {
+export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () => void; view?: 'full' | 'current' | 'history' }) {
+  const embedded = view !== 'full';
+  const historyOnly = view === 'history';
   const [data, setData] = useState<PaymentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -213,25 +215,25 @@ export default function PlayerPayments({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
+    <div className="player-payment-content mx-auto flex w-full max-w-[430px] flex-col gap-3">
       {onBack && <button type="button" onClick={onBack} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>}
-      <div className="px-1 pb-1 pt-2"><div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-1 text-2xl font-semibold text-white">Оплата</h1><p className="mt-1 text-sm text-white/45">Вечера, жетоны, поддержка клуба и целевые сборы</p></div>
+      {!embedded && <div className="px-1 pb-1 pt-2"><div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-1 text-2xl font-semibold text-white">Оплата</h1><p className="mt-1 text-sm text-white/45">Вечера, жетоны, поддержка клуба и целевые сборы</p></div>}
 
       {error && <p className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70">{error}</p>}
       {!data ? <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Загрузка оплаты…</div> : (
         <>
-          <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-white/35">По игровым вечерам</div>
+          {!historyOnly && <section className={embedded ? "rounded-2xl border border-white/10 bg-white/[0.03] p-3" : "rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4"}>
+            {!embedded && <><div className="text-xs uppercase tracking-[0.18em] text-white/35">По игровым вечерам</div>
             <div className="mt-2 text-3xl font-semibold text-white">{rubles(data.summary.historical_debt)}</div>
-            <div className="mt-1 text-[11px] text-white/35">долг только за фактически посещённые вечера</div>
-            <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{rubles(data.summary.amount_paid)}</div><div className="mt-1 text-[11px] text-white/35">оплачено всего</div></div><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{data.free_evening_credits}</div><div className="mt-1 text-[11px] text-white/35">бесплатных вечеров</div></div></div>
-          </section>
+            <div className="mt-1 text-[11px] text-white/35">долг только за фактически посещённые вечера</div></>}
+            <div className={`${embedded ? "" : "mt-3 "}grid grid-cols-2 gap-2`}><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{rubles(data.summary.amount_paid)}</div><div className="mt-1 text-[11px] text-white/35">оплачено всего</div></div><div className="rounded-2xl bg-black/20 p-3"><div className="text-lg font-semibold text-white/80">{data.free_evening_credits}</div><div className="mt-1 text-[11px] text-white/35">бесплатных вечеров</div></div></div>
+          </section>}
 
-          {data.online_payment && <PaymentPurposeGrid online={data.online_payment} />}
+          {!historyOnly && data.online_payment && <PaymentPurposeGrid online={data.online_payment} />}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId === item.participant_id} onUseFree={useFreeEvening} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>
+          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId === item.participant_id} onUseFree={useFreeEvening} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">История вечеров</h2>{data.history.length ? <div className="space-y-2">{data.history.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={0} applying={false} onUseFree={() => {}} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История оплат пока пустая.</p>}</section>
+          {view !== 'current' && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">История вечеров</h2>{data.history.length ? <div className="space-y-2">{data.history.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={0} applying={false} onUseFree={() => {}} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История оплат пока пустая.</p>}</section>}
         </>
       )}
     </div>

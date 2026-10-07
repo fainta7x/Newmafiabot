@@ -44,8 +44,8 @@ export default function PlayerWalletHub({
   }, [view]);
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
+    <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Кошелёк</h1>
           <p className="mt-1 text-xs leading-5 text-white/40">Оплаты, магазин, ставки и история операций</p>
@@ -79,13 +79,7 @@ export default function PlayerWalletHub({
         </nav>
 
         {view === 'payments' && (
-          <div className="wallet-payments-current">
-            <style>{`
-              .wallet-payments-current > div > div:first-child{display:none!important}
-              .wallet-payments-current > div > section:last-child{display:none!important}
-            `}</style>
-            <PlayerPayments />
-          </div>
+          <PlayerPayments view="current" />
         )}
 
         {(view === 'shop' || view === 'bets') && (
@@ -96,13 +90,7 @@ export default function PlayerWalletHub({
           <div className="space-y-4">
             <section>
               <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Оплаты вечеров</div>
-              <div className="wallet-payment-history">
-                <style>{`
-                  .wallet-payment-history > div > div:first-child{display:none!important}
-                  .wallet-payment-history > div > section:not(:last-child){display:none!important}
-                `}</style>
-                <PlayerPayments />
-              </div>
+              <PlayerPayments view="history" />
             </section>
 
             <section>

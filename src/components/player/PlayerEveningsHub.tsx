@@ -30,7 +30,7 @@ export default function PlayerEveningsHub({
 }) {
   return (
     <div className="bg-[#090a0d] text-white" data-testid="player-evenings-hub">
-      <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
+      <div className="player-workspace mx-auto w-full max-w-[430px] px-3 pt-3">
         <header className="px-1 pb-3 pt-1">
           <h1 className="text-2xl font-semibold">Вечера</h1>
         </header>

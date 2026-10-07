@@ -56,8 +56,8 @@ export default function PlayerTournamentResults() {
   if (openId) return <PlayerTournamentView tournamentId={openId} onBack={() => setOpenId(null)} />;
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
+    <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
+      <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
           <div className="mb-3 px-1">
             <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/40">Турниры</div>

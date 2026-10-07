@@ -44,7 +44,7 @@ export default function PlayerRatingHub({
 
   return (
     <div className="bg-[#090a0d] text-white">
-      <div className={`mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
+      <div className={`player-workspace mx-auto w-full max-w-[430px] space-y-2 px-3 ${embedded ? 'pt-0' : 'pt-3'}`}>
         <header className={embedded ? 'px-1' : 'px-1 pb-1 pt-1'}>
           <h1 className={embedded ? 'sr-only' : 'text-2xl font-semibold'}>Рейтинг</h1>
           {embedded ? null : <p className="mt-1 text-xs leading-5 text-white/40">Elo по всем играм, кроме новичковых · сезон с доп. баллами · турниры</p>}
@@ -65,8 +65,8 @@ export default function PlayerRatingHub({
       {tab === 'elo' ? (
         <PlayerRatingTable playerId={data.player.id} />
       ) : tab === 'season' ? (
-        <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
-          <div className="mx-auto w-full max-w-[430px] space-y-3">
+        <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
+          <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
             <PlayerRatingPeriods playerId={data.player.id} />
           </div>
         </main>

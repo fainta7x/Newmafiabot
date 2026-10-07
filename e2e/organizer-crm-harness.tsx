@@ -22,6 +22,7 @@ const commandCenter = {
   wrapup: null,
   generated_at: new Date().toISOString(),
 };
+if (new URLSearchParams(location.search).get('scenario') === 'active') { commandCenter.snapshot.mode = 'active'; commandCenter.snapshot.stats.present = 10; commandCenter.snapshot.stats.unpaid_count = 2; commandCenter.snapshot.stats.unpaid_amount = 800; }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 globalThis.fetch = async (input: RequestInfo | URL) => {

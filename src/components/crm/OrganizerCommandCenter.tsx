@@ -291,6 +291,7 @@ export default function OrganizerCommandCenter({
       <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className={`h-4 w-4 ${!paymentsFresh && data ? 'animate-spin' : ''}`} /></button>
     </div>
 
+    <div className="crm-today-context space-y-3">
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
 
     {levelDecisions.length ? <section data-testid="level-decisions" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
@@ -372,7 +373,7 @@ export default function OrganizerCommandCenter({
           <div className="mt-1.5 text-[22px] font-bold leading-none text-text-primary">{item.value}</div>
           <div className="mt-1 text-[12px] leading-4 text-text-secondary">{item.detail}</div>
         </button>)}
-      </section> : paymentsFresh ? <section className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section> : null}
+      </section> : paymentsFresh ? <section data-testid="crm-today-clear" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section> : null}
 
       {(deliveryProblems.length > 0 || attendanceAttention > 0) ? <section className="rounded-[18px] border border-warning/20 bg-surface-1 p-3">
         <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><AlertTriangle className="h-4 w-4" /> Требует уточнения</div>
@@ -383,10 +384,13 @@ export default function OrganizerCommandCenter({
       </section> : null}
     </>}
 
-    {evenings && onOpenTournament ? <WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /> : null}
+    </div>
+    <div className="crm-today-planning space-y-3">
+    {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
     <div className="crm-today-agenda"><OrganizerAgenda mode="preview" refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
+    </div>
 
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
       <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>

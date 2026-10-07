@@ -59,8 +59,8 @@ export default function PlayerCommunityHub({
   };
 
   return (
-    <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white" data-testid="player-community-hub">
-      <div className="mx-auto w-full max-w-[430px] space-y-3 px-3">
+    <main className="player-workspace-page min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white" data-testid="player-community-hub">
+      <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3 px-3">
         <header className="px-1 pt-1">
           <h1 className="text-2xl font-semibold">Сообщество</h1>
         </header>

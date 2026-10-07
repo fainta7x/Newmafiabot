@@ -4,7 +4,7 @@ import { getPlayerSessionId, isClubOwner } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import {
   addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, kickPokerPlayer, leavePokerLobby, listPokerLobbies,
-  POKER_BUY_IN_TOKENS, pokerEffectiveStack, pokerMoneyMode, pokerTableForPlayer, sweepIdlePokerSeats, touchPokerSeat,
+  POKER_BUY_IN_TOKENS, POKER_MIN_BUY_IN_TOKENS, pokerEffectiveStack, pokerMoneyMode, pokerTableForPlayer, sweepIdlePokerSeats, touchPokerSeat,
   publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, startPokerLobby, tickPokerLobby, type PokerSeatExit,
 } from '../services/pokerLobbyService.ts';
 import { applyPokerAction } from '../services/pokerEngine.ts';
@@ -22,11 +22,20 @@ class PokerRouteError extends Error {
 const tokenMutationKey = (kind: string, lobbyId: string, playerId: string) =>
   `poker:${kind}:${lobbyId}:${playerId}:${crypto.randomUUID()}`;
 
-const chargePokerBuyIn = async (db: any, playerId: string, lobbyId: string, kind: 'buy_in' | 'rebuy') => {
+const parsePokerBuyIn = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return POKER_BUY_IN_TOKENS;
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount) || amount < POKER_MIN_BUY_IN_TOKENS) {
+    throw new PokerRouteError(400, `Минимальный вход — ${POKER_MIN_BUY_IN_TOKENS.toLocaleString('ru-RU')} жетонов (10 ББ).`);
+  }
+  return amount;
+};
+
+const chargePokerBuyIn = async (db: any, playerId: string, lobbyId: string, amount: number, kind: 'buy_in' | 'rebuy') => {
   try {
     return await mutateTokenBalance(db, {
       playerId,
-      delta: -POKER_BUY_IN_TOKENS,
+      delta: -amount,
       reasonType: kind === 'buy_in' ? 'poker_buy_in' : 'poker_rebuy',
       description: kind === 'buy_in' ? 'Покер: жетоны за стол' : 'Покер: докупка жетонов',
       sourceType: 'poker',
@@ -35,11 +44,11 @@ const chargePokerBuyIn = async (db: any, playerId: string, lobbyId: string, kind
       debitPolicy: 'prevent_negative',
       actorType: 'player',
       actorId: playerId,
-      metadata: { lobby_id: lobbyId, amount: POKER_BUY_IN_TOKENS, kind },
+      metadata: { lobby_id: lobbyId, amount, kind },
     });
   } catch (error) {
     if (error instanceof TokenInsufficientFundsError) {
-      throw new PokerRouteError(409, `Для игры на жетоны нужно минимум ${POKER_BUY_IN_TOKENS.toLocaleString('ru-RU')} жетонов.`);
+      throw new PokerRouteError(409, `Для выбранного входа нужно ${amount.toLocaleString('ru-RU')} жетонов на балансе.`);
     }
     throw error;
   }
@@ -148,9 +157,10 @@ router.post('/poker/lobbies', route(async (req) => {
   const player = await actor(req);
   try {
     const training = req.body?.training === true;
-    const table = createPokerLobby(player, training ? 'Тренировка' : req.body?.title, training ? 'training' : 'club_tokens');
+    const buyIn = training ? POKER_BUY_IN_TOKENS : parsePokerBuyIn(req.body?.buy_in_tokens);
+    const table = createPokerLobby(player, training ? 'Тренировка' : req.body?.title, training ? 'training' : 'club_tokens', buyIn);
     if (training) addPokerBot(table);
-    else await chargePokerBuyIn(req.db, player.id, table.id, 'buy_in');
+    else await chargePokerBuyIn(req.db, player.id, table.id, buyIn, 'buy_in');
     return { status: 201, body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
   } catch (error) { return conflict(error, 'Не удалось создать лобби.'); }
 }));
@@ -165,10 +175,12 @@ router.get('/poker/lobbies/:id', route(async (req) => {
 router.post('/poker/lobbies/:id/join', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try {
-    if (!table.players.some((item) => item.id === player.id) && pokerMoneyMode(table) === 'club_tokens') {
-      await chargePokerBuyIn(req.db, player.id, table.id, 'buy_in');
+    const alreadySeated = table.players.some((item) => item.id === player.id);
+    const buyIn = alreadySeated || pokerMoneyMode(table) !== 'club_tokens' ? POKER_BUY_IN_TOKENS : parsePokerBuyIn(req.body?.buy_in_tokens);
+    if (!alreadySeated && pokerMoneyMode(table) === 'club_tokens') {
+      await chargePokerBuyIn(req.db, player.id, table.id, buyIn, 'buy_in');
     }
-    joinPokerLobby(table, player);
+    joinPokerLobby(table, player, buyIn);
   } catch (error) { conflict(error, 'Не удалось войти в лобби.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
@@ -263,8 +275,9 @@ router.get('/poker/lobbies/:id/history', route(async (req) => {
 router.post('/poker/lobbies/:id/rebuy', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try {
-    if (pokerMoneyMode(table) === 'club_tokens') await chargePokerBuyIn(req.db, player.id, table.id, 'rebuy');
-    rebuyPoker(table, player.id);
+    const amount = pokerMoneyMode(table) === 'club_tokens' ? parsePokerBuyIn(req.body?.buy_in_tokens) : POKER_BUY_IN_TOKENS;
+    if (pokerMoneyMode(table) === 'club_tokens') await chargePokerBuyIn(req.db, player.id, table.id, amount, 'rebuy');
+    rebuyPoker(table, player.id, amount);
   } catch (error) { conflict(error, 'Не получилось докупить жетоны.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));

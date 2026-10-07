@@ -155,6 +155,23 @@ describe('durable poker club-token table state', () => {
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
   });
 
+  it('does not reveal a clubmate private training session in invite availability', async () => {
+    const app = testApp(db);
+    const live = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Живой стол' });
+    expect(live.status).toBe(201);
+
+    const training = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'bob').send({ training: true });
+    expect(training.status).toBe(201);
+    expect(training.body.lobby.money_mode).toBe('training');
+
+    const candidates = await request(app).get('/api/player/poker/invite-candidates').set('x-test-player', 'alice');
+    expect(candidates.status).toBe(200);
+    expect(candidates.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ player_id: 'bob', at_table: false, at_table_title: null, can_invite: true }),
+    ]));
+    expect(JSON.stringify(candidates.body)).not.toContain('Тренировка');
+  });
+
   it('invites a clubmate to the exact live lobby with a two-minute cooldown', async () => {
     const app = testApp(db);
     const created = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Позови друзей' });

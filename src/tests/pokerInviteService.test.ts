@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { recordPresence } from '../server/services/presenceService.ts';
 import { loadPokerInviteCandidates, POKER_INVITE_COOLDOWN_MS, queuePokerInvite } from '../server/services/pokerInviteService.ts';
@@ -36,9 +36,6 @@ describe('poker invites and presence', () => {
     );
   });
 
-  afterEach(async () => {
-    db.sqlite.close();
-  });
 
   it('ranks app-online first and also exposes best-effort VK online status', async () => {
     const now = Date.parse('2026-10-07T12:00:00Z');

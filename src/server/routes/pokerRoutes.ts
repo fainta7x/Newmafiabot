@@ -143,9 +143,11 @@ router.post('/poker/lobbies/:id/bot', route(async (req) => {
     if (table.ownerId !== player.id && !(table.permanent && table.players.some((item) => item.id === player.id))) throw new Error('Добавить бота может создатель лобби.');
     if (pokerMoneyMode(table) === 'club_tokens') {
       if (table.hand && table.hand.street !== 'finished') throw new Error('Бота можно добавить только между раздачами.');
-      for (const human of table.players.filter((item) => !item.is_bot)) {
-        await returnPokerTokens(req.db, human.id, table.id, pokerEffectiveStack(table, human.id), 'training_switch');
+      const humans = table.players.filter((item) => !item.is_bot);
+      if (humans.length !== 1 || humans[0].id !== player.id) {
+        throw new Error('Тренировку с ботом можно начать, когда за столом только вы.');
       }
+      await returnPokerTokens(req.db, player.id, table.id, pokerEffectiveStack(table, player.id), 'training_switch');
       convertPokerLobbyToTraining(table);
     }
     addPokerBot(table);

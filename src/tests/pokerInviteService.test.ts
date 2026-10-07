@@ -74,7 +74,7 @@ describe('poker invites and presence', () => {
     const now = Date.parse('2026-10-07T12:00:00Z');
     await ensurePlayerProfileMergeSchema(db);
     await db.run("UPDATE players SET contact_status='blocked' WHERE id='bob'");
-    await db.run("UPDATE players SET merged_into_player_id='alice', merged_at=? WHERE id='charlie'", [new Date(now).toISOString()]);
+    await db.run("UPDATE players SET lifecycle_status='archived', contact_status='normal' WHERE id='charlie'");
 
     await expect(queuePokerInvite(db, {
       senderPlayerId: 'alice',
@@ -97,6 +97,16 @@ describe('poker invites and presence', () => {
     const candidates = await loadPokerInviteCandidates(db, 'alice', { now, vkLoader: async () => [] });
     expect(candidates.map((item) => item.player_id)).not.toContain('bob');
     expect(candidates.map((item) => item.player_id)).not.toContain('charlie');
+
+    await db.run("UPDATE players SET lifecycle_status='normal', merged_into_player_id='alice', merged_at=? WHERE id='charlie'", [new Date(now).toISOString()]);
+    await expect(queuePokerInvite(db, {
+      senderPlayerId: 'alice',
+      senderNickname: 'Алиса',
+      targetPlayerId: 'charlie',
+      lobbyId: 'live-table',
+      lobbyTitle: 'Вечерний стол',
+      now,
+    })).rejects.toMatchObject({ code: 'player_not_found' });
   });
 
   it('queues a Telegram poker invite and enforces the two-minute sender-recipient cooldown', async () => {

@@ -138,6 +138,25 @@ describe('durable poker club-token table state', () => {
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
   });
 
+  it('returns a live table stack to the wallet when an AFK seat is removed', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-07T12:00:00Z'));
+    const app = testApp(db);
+    expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
+
+    vi.advanceTimersByTime(6 * 60 * 1000);
+    expect((await request(app).get('/api/player/poker/lobbies').set('x-test-player', 'bob')).status).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(5000);
+    const ledger = await db.all<{ reason_type: string; amount: number }>(
+      "SELECT reason_type, amount FROM token_ledger WHERE player_id='alice' ORDER BY created_at ASC",
+    );
+    expect(ledger.map((entry) => [entry.reason_type, entry.amount])).toEqual([
+      ['poker_buy_in', -1000],
+      ['poker_cash_out', 1000],
+    ]);
+  });
+
   it('does not let one account duplicate its saved stack at two tables', async () => {
     const app = testApp(db);
     expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);

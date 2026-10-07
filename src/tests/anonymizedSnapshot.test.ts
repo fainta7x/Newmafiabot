@@ -25,12 +25,14 @@ async function fixture(full = false) {
   await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES ('evening-private-id','Private party',?,'CASUAL','published',400,?,?)`, [now,now,now]);
   await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,attendance_status,amount_due,amount_paid,created_at,updated_at) VALUES ('registration-private-id','evening-private-id','person-private-id','present',400,200,?,?)`, [now,now]);
   await db.exec(`CREATE TABLE unknown_private_payload (id TEXT, payload TEXT DEFAULT 'DDL-secret-value'); INSERT INTO unknown_private_payload VALUES ('secret-session','nested-secret-value');`);
-  await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,slots_json,created_at) VALUES ('evening-private-id',1,?,'red','Private winner',?,?)`, [now,JSON.stringify([{slot:1,player_id:'person-private-id',nickname:'RealNickname',role:'sheriff',extra_points:0.5,notes:'nested-note-value',payload:{token:'nested-token-value'}}]),now]);
+  await db.run(`INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,slots_json,created_at) VALUES ('evening-private-id',1,?,'red','Private winner',?,?)`, [now,JSON.stringify([{slot_num:1,participant_id:'registration-private-id',player_id:'person-private-id',nickname:'RealNickname',role:'sheriff',team:'Красные',exit_reason:'alive',fouls:1,minor_technical_fouls:0,major_technical_fouls:0,extra_points:0.5,notes:'nested-note-value',payload:{token:'nested-token-value'}}]),now]);
   await db.run(`INSERT INTO tournaments (id,title,date,status,public_token,created_at,updated_at) VALUES ('t-private','Private tournament',?,'completed','public-secret-token',?,?)`,[now,now,now]);
   await db.run(`INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES ('tp-private','t-private','person-private-id','RealNickname',1)`);
   await db.run(`INSERT INTO tournament_games (id,tournament_id,game_number,status,winner_team) VALUES ('tg-private','t-private',1,'completed','red')`);
   await db.run(`INSERT INTO tournament_game_seats (id,game_id,participant_id,seat_number,role) VALUES ('seat-private','tg-private','tp-private',1,'sheriff')`);
   await db.run(`INSERT INTO tournament_game_player_results (id,game_id,participant_id,ci_points) VALUES ('result-private','tg-private','tp-private',1.75)`);
+  await db.run(`INSERT INTO tournament_games (id,tournament_id,game_number,status,winner_team) VALUES ('tg-second','t-private',2,'completed','red')`);
+  for (const [index,source] of ['first_killed','zero_round_voted'].entries()) await db.run(`INSERT INTO tournament_game_best_moves (id,game_id,participant_id,source,seat_numbers_json,created_at,updated_at) VALUES (?,?, 'tp-private',?,'[2,3,4]',?,?)`,[`bm-private-${index}`,index===0?'tg-private':'tg-second',source,now,now]);
   await db.run('UPDATE games SET protocol_text=?',[JSON.stringify({version:1,kind:'club_evening_protocol',protocol:{game_id:'1',status:'completed',winner_team:'red',comment:'protocol-private-note'},player_results:[{player_id:'person-private-id',role:'Шериф',ci_points:1.5,notes:'protocol-private-note'}]})]);
   return { db, app };
 }
@@ -48,10 +50,11 @@ describe('development snapshot export', () => {
       expect(copy.prepare('SELECT player_id FROM evening_participants').get()).toEqual({player_id:player.id});
       expect(copy.prepare('SELECT amount_due,amount_paid FROM evening_participants').get()).toEqual({amount_due:400,amount_paid:200});
       const slot = JSON.parse((copy.prepare('SELECT slots_json FROM games').get() as any).slots_json)[0];
-      expect(slot).toMatchObject({player_id:player.id,role:'sheriff',extra_points:0.5}); expect(slot.payload).toBeUndefined();
+      expect(slot).toMatchObject({slot_num:1,participant_id:(copy.prepare('SELECT id FROM evening_participants').get() as any).id,player_id:player.id,role:'sheriff',team:'Красные',exit_reason:'alive',fouls:1,minor_technical_fouls:0,major_technical_fouls:0,extra_points:0.5}); expect(slot.payload).toBeUndefined();
       const protocol = JSON.parse((copy.prepare('SELECT protocol_text FROM games').get() as any).protocol_text);
       expect(protocol.player_results[0]).toEqual({player_id:player.id,role:'Шериф',ci_points:1.5});
       expect(copy.prepare('SELECT ci_points FROM tournament_game_player_results').get()).toEqual({ci_points:1.75});
+      expect(copy.prepare('SELECT source,seat_numbers_json FROM tournament_game_best_moves ORDER BY source').all()).toEqual([{source:'first_killed',seat_numbers_json:'[2,3,4]'},{source:'zero_round_voted',seat_numbers_json:'[2,3,4]'}]);
       expect(copy.prepare('SELECT public_token FROM tournaments').get()).toEqual({public_token:null});
       expect(copy.pragma('foreign_key_check')).toEqual([]); expect(copy.pragma('integrity_check',{simple:true})).toBe('ok');
       expect(copy.prepare("SELECT name FROM sqlite_master WHERE name='unknown_private_payload'").get()).toBeUndefined();

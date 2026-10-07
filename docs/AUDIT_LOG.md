@@ -16,6 +16,10 @@ Scope: players say the bots got weak after the bot patch; a novice (Диссон
 - `pokerLobbyService.ts` `publicState` — other players' cards reach a viewer only after a showdown or an all-in runout; history shows only revealed cards. No card leak. Status: checked.
 - `pokerLobbyService.ts` `tickPokerLobby` — bots decide on every tick inside the database's memory scope; they never time out. Status: checked.
 - Stored hands (296): Диссонанс 169 hands, VPIP 89%, PFR 76%, fold to a bet 4%, aggression 0.33 — raises almost every hand and almost never folds. The bots' adaptation to this profile is the main suspect. Status: open — `/poker/results` added to see where the chips go (by day, opens, re-raises, bets after the flop).
+- `/poker/results` (304 hands): bots +3300 overall; Диссонанс −790 over 177 hands (−4730 on 6 Oct, +3940 on 7 Oct), +3430 from pots won without a showdown, −3710 at showdowns; the bots folded to his re-raise 43 times of 60. Status: found.
+- `pokerBot.ts` `preflopDecision` — a re-raise was answered from a fixed chart by the number of raises, not by the price: a min-raise from 2 to 3 big blinds (one more big blind) was folded like a 3x re-raise. Status: fixed — equity against the re-raiser's measured range (bots now count re-raises) against the price and the position.
+- `pokerBot.ts` — a call of at most a quarter of the pot, or a re-raise under 2x, was folded with weak hands. Status: fixed — such a cheap call is never folded (owner: «если доплата ничтожна — это всегда колл»).
+- `pokerBot.ts` `opponentRanges` — a 1 bb bet into a 7 bb pot narrowed the bettor's range almost like a half-pot bet. Status: fixed — bets under a quarter of the pot weigh much less.
 
 ## 2026-10-06 · Production slowness: the app loads slowly, the monitor reports outages (owner report)
 

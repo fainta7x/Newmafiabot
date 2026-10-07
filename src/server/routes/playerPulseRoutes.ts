@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 import { buildClubRelationships } from '../services/clubRelationshipsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 
@@ -156,8 +157,14 @@ router.get('/relationships', async (req, res) => {
 
   try {
     const db = req.db;
-    const snapshots = await loadCompletedGameSnapshots(db);
-    return res.json(buildClubRelationships(snapshots, viewerId));
+    await ensurePlayerProfileVisibilitySchema(db);
+    const [snapshots, players] = await Promise.all([
+      loadCompletedGameSnapshots(db),
+      db.all('SELECT id, profile_visibility_json FROM players'),
+    ]);
+    const visibleIds = new Set(players.filter((player: any) => parsePlayerProfileVisibility(player.profile_visibility_json).connections).map((player: any) => String(player.id)));
+    const canViewConnections = (id: string) => id === String(viewerId) || visibleIds.has(id);
+    return res.json(buildClubRelationships(snapshots, viewerId, canViewConnections));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось рассчитать связи игроков' });
   }

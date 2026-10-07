@@ -6,7 +6,13 @@ type DuoStat = { a_id: string; a_name: string; b_id: string; b_name: string; tea
 const winRate = winRatePercent;
 const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
 
-export function buildClubRelationships(snapshots: CompletedGameSnapshot[], viewerId: string) {
+export function buildClubRelationships(
+  snapshots: CompletedGameSnapshot[],
+  viewerId: string,
+  canViewConnections: (playerId: string) => boolean = () => true,
+) {
+  // Filter before ranking/slicing so hidden pairs cannot displace public pairs or leak counts.
+  snapshots = snapshots.map(game => ({ ...game, players: game.players.filter(player => canViewConnections(player.player_id)) }));
   const opponents = new Map<string, PersonStat>();
   const teammates = new Map<string, PersonStat>();
   const duos = new Map<string, DuoStat>();

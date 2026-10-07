@@ -39,3 +39,21 @@ it('ranks most-played pairs by shared games independently of best results', () =
   expect(result.club_duos.red[0]).toMatchObject({ a_id: 'new-a', games: 2, wins: 2 });
   expect(buildClubRelationships([], 'a').club_duos).toEqual({ red: [], black: [] });
 });
+
+it('filters hidden participants before ranking, first samples and personal recent lists', () => {
+  const games = [game('1', 'e', 1), game('2', 'e', 2)];
+  for (const samples of [[games[0]], games]) {
+    const result = buildClubRelationships(samples, 'a', id => id !== 'b' && id !== 'd');
+    expect(result.club_duos.red).toEqual([]);
+    expect(result.club_most_played.red).toEqual([]);
+    expect(result.club_first_games.red).toEqual([]);
+    expect(result.club_duos.black).toEqual([]);
+    expect(result.teammates).toEqual([]);
+    expect(result.recent_event?.teammates).toEqual([]);
+    expect(result.rivals.map(p => p.player_id)).toEqual(['c']);
+    expect(result.recent_event?.rivals.map(p => p.player_id)).toEqual(['c']);
+    expect(JSON.stringify(result)).not.toContain('"b"');
+    expect(JSON.stringify(result)).not.toContain('"d"');
+  }
+  expect(buildClubRelationships(games, 'a', () => true).club_duos.red).toHaveLength(1);
+});

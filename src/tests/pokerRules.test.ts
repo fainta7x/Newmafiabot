@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyPokerAction, compareHands, createPokerHand, describeHand, minRaiseTotal, pokerHandLabel, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { BOT_THINK_MS, botThinkMs, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, leavePokerLobby, listPokerLobbies, kickPokerPlayer, POKER_AFK_LEAVE_MS, removeIdlePokerSeats, touchPokerSeat, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, rebuyPoker, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
+import { BOT_THINK_MS, botThinkMs, NEXT_HAND_DELAY_MS, addPokerBot, removeBustedPokerBots, createPokerLobby, createPokerRuntimeState, leavePokerLobby, listPokerLobbies, kickPokerPlayer, POKER_AFK_LEAVE_MS, removeIdlePokerSeats, touchPokerSeat, resetDefaultPokerRuntimeForTesting, setPokerSitOut, joinPokerLobby, rebuyPoker, nextPokerHand, publicPokerLobby, startPokerLobby, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' } as const)[text[1] as 'c'] });
 const cards = (text: string) => text.split(' ').map(c);
@@ -8,6 +8,34 @@ const seat = (state: PokerState, id: string) => state.players.find((player) => p
 
 describe('poker rules (owner check 2026-10-01)', () => {
   beforeEach(() => resetDefaultPokerRuntimeForTesting());
+  it('normalizes an old shared training snapshot to one human', () => {
+    const state = createPokerRuntimeState({
+      version: 1,
+      bankrolls: {},
+      lobbies: [{
+        id: 'legacy-training',
+        title: 'Старая тренировка',
+        ownerId: 'b',
+        status: 'playing',
+        money_mode: 'training',
+        createdAt: new Date().toISOString(),
+        hand: null,
+        players: [
+          { id: 'a', nickname: 'Аня', seat: 1, chips: 1800 },
+          { id: 'b', nickname: 'Боря', seat: 2, chips: 900 },
+          { id: 'bot-old', nickname: 'Бот', seat: 3, chips: 1300, is_bot: true },
+        ],
+      }],
+    });
+    const lobby = state.lobbies.get('legacy-training')!;
+    expect(lobby.players.filter((player) => !player.is_bot).map((player) => player.id)).toEqual(['b']);
+    expect(lobby.players.some((player) => player.id === 'a')).toBe(false);
+    expect(lobby.players.some((player) => player.is_bot)).toBe(true);
+    expect(lobby.ownerId).toBe('b');
+    expect(lobby.status).toBe('waiting');
+    expect(lobby.hand).toBeNull();
+  });
+
   it('lists the whole roster of a table, bots marked, and drops a player who left', () => {
     const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
     joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
@@ -133,18 +161,18 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(7 * botThinkMs({ type: 'fold' })).toBeLessThan(4000);
   });
 
-  it('shows «Мест нет» only when nobody can take a seat, and marks the table the viewer sits at', () => {
-    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
-    for (let i = 0; i < 7; i += 1) addPokerBot(lobby);
-    const entry = (viewer?: string) => listPokerLobbies(viewer).find((item) => item.id === lobby.id)!;
-    expect(entry().full).toBe(false);
-    expect(entry('a').joined).toBe(true);
-    expect(entry('z').joined).toBe(false);
-    // each newcomer takes the seat of a bot; when eight people sit there, nobody can join any more
-    for (let i = 0; i < 7; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+  it('shows «Мест нет» only when a live human table really has eight people, and marks the viewer seat', () => {
+    const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' }, 'Живой стол', 'club_tokens');
+    for (let i = 0; i < 6; i += 1) joinPokerLobby(lobby, { id: `h${i}`, nickname: `H${i}` });
+    const entry = (viewer?: string) => listPokerLobbies(viewer).find((item) => item.id === lobby.id);
+    expect(entry()?.full).toBe(false);
+    expect(entry('a')?.joined).toBe(true);
+    expect(entry('z')?.joined).toBe(false);
+
+    joinPokerLobby(lobby, { id: 'h6', nickname: 'H6' });
     expect(lobby.players.filter((player) => !player.is_bot)).toHaveLength(8);
     expect(entry('h0')).toMatchObject({ full: true, joined: true });
-    // a full table of people is not offered to outsiders at all (only the permanent table always is)
+    // A full live table is not offered to outsiders; only seated people can return to it.
     expect(entry('z')).toBeUndefined();
   });
 

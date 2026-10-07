@@ -53,7 +53,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
     career: '/player/career',
     clubworld: '/player/seasons',
-    poker: '/player/poker',
+    poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
   };
   return paths[section];
 };
@@ -91,7 +91,10 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
     const target = safeDecode(parts[2]);
     return { section: 'games', target, replayGameKey: null, canonicalPath: playerPathForSection('games', target) };
   }
-  if (parts[1] === 'poker') return { section: 'poker', target: null, replayGameKey: null, canonicalPath: '/player/poker' };
+  if (parts[1] === 'poker') {
+    const target = parts[2] ? safeDecode(parts[2]) : null;
+    return { section: 'poker', target, replayGameKey: null, canonicalPath: playerPathForSection('poker', target) };
+  }
   if (parts[1] === 'recaps') {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'recaps', target, replayGameKey: null, canonicalPath: playerPathForSection('recaps', target) };
@@ -126,6 +129,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
+    if (parts[1] === 'poker' && parts.length > 2) return '/player/poker';
     if (parts[1] === 'games' && parts.length > 2) {
       const state = typeof window !== 'undefined' ? window.history.state : null;
       return typeof state?.gameReturn === 'string' && state.gameReturn.startsWith('/player') ? state.gameReturn : '/player/games';

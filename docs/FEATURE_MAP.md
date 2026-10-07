@@ -44,8 +44,9 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Player table UI: `src/components/player/PlayerPoker.tsx` (card order/identity: `pokerCards.ts`).
 - Rules/hand engine: `src/server/services/pokerEngine.ts`; lobby lifecycle: `pokerLobbyService.ts`; bots: `pokerBot.ts` (how they play and every setting: `docs/POKER_BOTS.md`).
 - Durable tables, active hands and history: `pokerPersistenceService.ts` + `src/db/ensurePokerRuntimeSchema.ts` (`poker_runtime_state`); compact log of finished hands the bots learn from: `poker_hand_log` (same files, test `pokerHandLog.integration.test.ts`). There is no separate durable human poker bankroll: a live human table stack is backed by the canonical club-token ledger.
-- Money boundary: `pokerRoutes.ts` debits/returns the 1,000-token live-table stack atomically with the poker snapshot through `tokenLedgerService.ts`; bot tables are `training` and never mutate the token wallet. Legacy poker snapshots without a money mode load as training.
-- API: `src/server/routes/pokerRoutes.ts`; persistence/token regression: `src/tests/pokerPersistence.integration.test.ts`.
+- Money boundary: `pokerRoutes.ts` debits/returns the 1,000-token live-table stack atomically with the poker snapshot through `tokenLedgerService.ts`. Human-vs-human tables are always `club_tokens`; bot sessions are private `training` (one human + bots) and never mutate the token wallet. Legacy poker snapshots without a money mode load as training.
+- Poker invites/presence: `PokerInvitePanel.tsx` + `pokerInviteService.ts` + `ensurePokerInviteSchema.ts`. App presence comes from `presenceService.ts`; linked VK players get best-effort `users.get online,last_seen`; Telegram online is intentionally not claimed. Invites are Telegram messages with a two-minute sender→recipient cooldown and a refresh-safe `/player/poker/:lobbyId` deep link.
+- API: `src/server/routes/pokerRoutes.ts`; persistence/token regression: `src/tests/pokerPersistence.integration.test.ts`; invite/presence regression: `src/tests/pokerInviteService.test.ts`.
 
 ### Pending/final game save recovery
 

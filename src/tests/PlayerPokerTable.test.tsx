@@ -42,6 +42,22 @@ const sitDown = async (onTokenBalanceChange?: (balance: number) => void) => {
 };
 
 describe('poker table screen', () => {
+  it('puts a Telegram-invited live lobby first without auto-joining it', async () => {
+    const invited = { ...entry, id: 'invite-table', title: 'Стол Фантома' };
+    const other = { ...entry, id: 'other-table', title: 'Другой стол' };
+    (fetch as any).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/poker/lobbies') && !init?.method) return json({ lobbies: [other, invited] });
+      return json({});
+    });
+    render(<PlayerPoker initialLobbyId="invite-table" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(screen.getByText('вас позвали')).not.toBeNull();
+    const headings = screen.getAllByText(/Стол Фантома|Другой стол/);
+    expect(headings[0].textContent).toContain('Стол Фантома');
+    expect((fetch as any).mock.calls.some((call: any[]) => String(call[0]).endsWith('/invite-table/join'))).toBe(false);
+  });
+
   it('does not ask for the table while the screen is hidden, and asks again when it is shown', async () => {
     await sitDown();
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });

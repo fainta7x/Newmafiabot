@@ -27,7 +27,8 @@ describe('durable poker club-token table state', () => {
     db = createDatabaseConnection(':memory:');
     const now = new Date().toISOString();
     await db.run(
-      `INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('alice','Алиса',5000,?,?),('bob','Боб',5000,?,?)`,
+      `INSERT INTO players (id,nickname,telegram_user_id,tokens,created_at,updated_at)
+       VALUES ('alice','Алиса','1001',5000,?,?),('bob','Боб','1002',5000,?,?)`,
       [now, now, now, now],
     );
   });
@@ -104,35 +105,37 @@ describe('durable poker club-token table state', () => {
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
   });
 
-  it('turns a waiting table with a bot into training and refunds the real buy-in', async () => {
+  it('keeps bot training private and never touches another human wallet', async () => {
     const app = testApp(db);
-    const joined = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
-    expect(joined.body.lobby.money_mode).toBe('club_tokens');
-    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
-
-    const training = await request(app).post('/api/player/poker/lobbies/main/bot').set('x-test-player', 'alice');
-    expect(training.status).toBe(200);
+    const training = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ training: true });
+    expect(training.status).toBe(201);
     expect(training.body.lobby.money_mode).toBe('training');
+    expect(training.body.lobby.players.some((player: any) => player.is_bot)).toBe(true);
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(5000);
 
-    const bob = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
-    expect(bob.status).toBe(200);
-    expect(bob.body.lobby.money_mode).toBe('training');
+    const tableId = training.body.lobby.id;
+    const bobJoin = await request(app).post(`/api/player/poker/lobbies/${tableId}/join`).set('x-test-player', 'bob');
+    expect(bobJoin.status).toBe(409);
+    expect(bobJoin.body.error).toContain('Тренировка приватная');
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(5000);
+
+    const bobList = await request(app).get('/api/player/poker/lobbies').set('x-test-player', 'bob');
+    expect(bobList.body.lobbies.some((lobby: any) => lobby.id === tableId)).toBe(false);
+    const aliceList = await request(app).get('/api/player/poker/lobbies').set('x-test-player', 'alice');
+    expect(aliceList.body.lobbies.some((lobby: any) => lobby.id === tableId)).toBe(true);
   });
 
-  it('does not let one player turn a multi-human token table into training', async () => {
+  it('never adds bots to a live token table, even when only one human is waiting', async () => {
     const app = testApp(db);
     const created = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Живой стол' });
     expect(created.status).toBe(201);
     const tableId = created.body.lobby.id;
-    expect((await request(app).post(`/api/player/poker/lobbies/${tableId}/join`).set('x-test-player', 'bob')).status).toBe(200);
-
-    const switched = await request(app).post(`/api/player/poker/lobbies/${tableId}/bot`).set('x-test-player', 'alice');
-    expect(switched.status).toBe(409);
-    expect(switched.body.error).toContain('только вы');
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
-    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(4000);
+
+    const bot = await request(app).post(`/api/player/poker/lobbies/${tableId}/bot`).set('x-test-player', 'alice');
+    expect(bot.status).toBe(409);
+    expect(bot.body.error).toContain('Боты доступны только в тренировке');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
   });
 
   it('refuses a real table buy-in when the player has fewer than 1000 club tokens', async () => {
@@ -150,6 +153,55 @@ describe('durable poker club-token table state', () => {
     expect(training.body.lobby.money_mode).toBe('training');
     expect(training.body.lobby.players.some((player: any) => player.is_bot)).toBe(true);
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
+  });
+
+  it('does not reveal a clubmate private training session in invite availability', async () => {
+    const app = testApp(db);
+    const live = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Живой стол' });
+    expect(live.status).toBe(201);
+
+    const training = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'bob').send({ training: true });
+    expect(training.status).toBe(201);
+    expect(training.body.lobby.money_mode).toBe('training');
+
+    const candidates = await request(app).get('/api/player/poker/invite-candidates').set('x-test-player', 'alice');
+    expect(candidates.status).toBe(200);
+    expect(candidates.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ player_id: 'bob', at_table: false, at_table_title: null, can_invite: true }),
+    ]));
+    expect(JSON.stringify(candidates.body)).not.toContain('Тренировка');
+
+    const invited = await request(app).post(`/api/player/poker/lobbies/${live.body.lobby.id}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(invited.status).toBe(200);
+    expect(invited.body.invite.target_player_id).toBe('bob');
+  });
+
+  it('invites a clubmate to the exact live lobby with a two-minute cooldown', async () => {
+    const app = testApp(db);
+    const created = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Позови друзей' });
+    expect(created.status).toBe(201);
+    const tableId = created.body.lobby.id;
+
+    const candidates = await request(app).get('/api/player/poker/invite-candidates').set('x-test-player', 'alice');
+    expect(candidates.status).toBe(200);
+    expect(candidates.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ player_id: 'bob', telegram_linked: true, can_invite: true }),
+    ]));
+
+    const invited = await request(app).post(`/api/player/poker/lobbies/${tableId}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(invited.status).toBe(200);
+    expect(invited.body.invite.cooldown_seconds).toBe(120);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(5000);
+
+    const queued = await db.get<any>("SELECT event_type,player_id,text FROM telegram_message_outbox WHERE player_id='bob' LIMIT 1");
+    expect(queued).toMatchObject({ event_type: 'poker_invite', player_id: 'bob' });
+    expect(queued.text).toContain('Позови друзей');
+
+    const again = await request(app).post(`/api/player/poker/lobbies/${tableId}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(again.status).toBe(429);
+    expect(again.body.code).toBe('cooldown');
+    expect(again.body.retry_after_seconds).toBeGreaterThan(0);
+    expect(again.body.retry_after_seconds).toBeLessThanOrEqual(120);
   });
 
   it('returns a live table stack to the wallet when an AFK seat is removed', async () => {

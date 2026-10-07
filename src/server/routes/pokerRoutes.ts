@@ -3,13 +3,14 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { getPlayerSessionId, isClubOwner } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import {
-  addPokerBot, convertPokerLobbyToTraining, createPokerLobby, getPokerLobby, joinPokerLobby, kickPokerPlayer, leavePokerLobby, listPokerLobbies,
-  POKER_BUY_IN_TOKENS, pokerEffectiveStack, pokerMoneyMode, sweepIdlePokerSeats, touchPokerSeat,
+  addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, kickPokerPlayer, leavePokerLobby, listPokerLobbies,
+  POKER_BUY_IN_TOKENS, pokerEffectiveStack, pokerMoneyMode, pokerTableForPlayer, sweepIdlePokerSeats, touchPokerSeat,
   publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, startPokerLobby, tickPokerLobby, type PokerSeatExit,
 } from '../services/pokerLobbyService.ts';
 import { applyPokerAction } from '../services/pokerEngine.ts';
 import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
 import { mutateTokenBalance, TokenInsufficientFundsError } from '../services/tokenLedgerService.ts';
+import { loadPokerInviteCandidates, PokerInviteError, queuePokerInvite } from '../services/pokerInviteService.ts';
 
 const router = Router();
 type Reply = { body: unknown; status?: number };
@@ -109,6 +110,36 @@ const isPokerOwner = (req: any) => isClubOwner(req) || String(getPlayerSessionId
 const viewFor = (req: any, state: any) => ({ ...state, can_kick: isPokerOwner(req), viewer_player_id: String(getPlayerSessionId(req) || '') });
 const conflict = (error: any, fallback: string): never => { throw new PokerRouteError(409, error?.message || fallback); };
 
+router.get('/poker/invite-candidates', async (req, res, next) => {
+  try {
+    const player = await actor(req);
+    const sourceLobbyId = await withPersistedPokerRuntime(req.db, () => {
+      const table = pokerTableForPlayer(player.id);
+      return table && pokerMoneyMode(table) === 'club_tokens' ? table.id : null;
+    });
+    if (!sourceLobbyId) return res.status(403).json({ error: 'Список приглашений доступен из живого стола на жетоны.' });
+
+    // VK can take a network round-trip, so do it outside the serialized poker/SQLite transaction.
+    const candidates = await loadPokerInviteCandidates(req.db, player.id);
+    const enriched = await withPersistedPokerRuntime(req.db, () => candidates.flatMap((candidate) => {
+      const seated = pokerTableForPlayer(candidate.player_id);
+      if (seated?.id === sourceLobbyId) return [];
+      const liveTable = seated && pokerMoneyMode(seated) === 'club_tokens' ? seated : null;
+      return [{
+        ...candidate,
+        // Private bot training is deliberately invisible to other players. A trainee may still be invited to a live table.
+        at_table: Boolean(liveTable),
+        at_table_title: liveTable?.title || null,
+        can_invite: candidate.can_invite && !liveTable,
+      }];
+    }));
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ source_lobby_id: sourceLobbyId, candidates: enriched });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get('/poker/lobbies', route((req) => {
   const viewer = getPlayerSessionId(req);
   return { body: { lobbies: listPokerLobbies(viewer ? String(viewer) : undefined) } };
@@ -124,7 +155,11 @@ router.post('/poker/lobbies', route(async (req) => {
   } catch (error) { return conflict(error, 'Не удалось создать лобби.'); }
 }));
 router.get('/poker/lobbies/:id', route(async (req) => {
-  const player = await actor(req); const table = lobby(req.params.id); tickPokerLobby(table);
+  const player = await actor(req); const table = lobby(req.params.id);
+  if (pokerMoneyMode(table) === 'training' && !table.players.some((item) => item.id === player.id)) {
+    throw new PokerRouteError(404, 'Тренировочная сессия приватная.');
+  }
+  tickPokerLobby(table);
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/join', route(async (req) => {
@@ -140,20 +175,46 @@ router.post('/poker/lobbies/:id/join', route(async (req) => {
 router.post('/poker/lobbies/:id/bot', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try {
-    if (table.ownerId !== player.id && !(table.permanent && table.players.some((item) => item.id === player.id))) throw new Error('Добавить бота может создатель лобби.');
-    if (pokerMoneyMode(table) === 'club_tokens') {
-      if (table.hand && table.hand.street !== 'finished') throw new Error('Бота можно добавить только между раздачами.');
-      const humans = table.players.filter((item) => !item.is_bot);
-      if (humans.length !== 1 || humans[0].id !== player.id) {
-        throw new Error('Тренировку с ботом можно начать, когда за столом только вы.');
-      }
-      await returnPokerTokens(req.db, player.id, table.id, pokerEffectiveStack(table, player.id), 'training_switch');
-      convertPokerLobbyToTraining(table);
-    }
+    if (table.ownerId !== player.id) throw new Error('Добавить бота может создатель тренировки.');
+    if (pokerMoneyMode(table) !== 'training') throw new Error('Боты доступны только в тренировке. Создайте отдельную тренировочную сессию.');
     addPokerBot(table);
   } catch (error) { conflict(error, 'Не удалось добавить бота.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
+router.post('/poker/lobbies/:id/invite', route(async (req) => {
+  const sender = await actor(req);
+  const table = lobby(req.params.id);
+  if (pokerMoneyMode(table) !== 'club_tokens') throw new PokerRouteError(409, 'Из тренировки живых игроков не зовём.');
+  if (!table.players.some((item) => item.id === sender.id)) throw new PokerRouteError(403, 'Сначала сядьте за этот стол.');
+  if (table.players.length >= 8) throw new PokerRouteError(409, 'За столом уже нет свободных мест.');
+  const targetPlayerId = String(req.body?.playerId || '').trim();
+  if (!targetPlayerId) throw new PokerRouteError(400, 'Выберите игрока.');
+  if (table.players.some((item) => item.id === targetPlayerId)) throw new PokerRouteError(409, 'Игрок уже за этим столом.');
+  const targetTable = pokerTableForPlayer(targetPlayerId);
+  if (targetTable && pokerMoneyMode(targetTable) === 'club_tokens') {
+    throw new PokerRouteError(409, 'Игрок уже за другим покерным столом.');
+  }
+
+  try {
+    const invite = await queuePokerInvite(req.db, {
+      senderPlayerId: sender.id,
+      senderNickname: sender.nickname,
+      targetPlayerId,
+      lobbyId: table.id,
+      lobbyTitle: table.title,
+    });
+    return { body: { success: true, invite } };
+  } catch (error) {
+    if (error instanceof PokerInviteError) {
+      return {
+        status: error.code === 'cooldown' ? 429 : 409,
+        body: { error: error.message, code: error.code, retry_after_seconds: error.retryAfterSeconds || 0 },
+      };
+    }
+    throw error;
+  }
+}));
+
 router.post('/poker/lobbies/:id/start', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
   try { startPokerLobby(table, player.id, true); } catch (error) { conflict(error, 'Не удалось начать игру.'); }

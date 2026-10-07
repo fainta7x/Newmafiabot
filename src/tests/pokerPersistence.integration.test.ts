@@ -27,7 +27,8 @@ describe('durable poker club-token table state', () => {
     db = createDatabaseConnection(':memory:');
     const now = new Date().toISOString();
     await db.run(
-      `INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('alice','Алиса',5000,?,?),('bob','Боб',5000,?,?)`,
+      `INSERT INTO players (id,nickname,telegram_user_id,tokens,created_at,updated_at)
+       VALUES ('alice','Алиса','1001',5000,?,?),('bob','Боб','1002',5000,?,?)`,
       [now, now, now, now],
     );
   });
@@ -152,6 +153,34 @@ describe('durable poker club-token table state', () => {
     expect(training.body.lobby.money_mode).toBe('training');
     expect(training.body.lobby.players.some((player: any) => player.is_bot)).toBe(true);
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
+  });
+
+  it('invites a clubmate to the exact live lobby with a two-minute cooldown', async () => {
+    const app = testApp(db);
+    const created = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Позови друзей' });
+    expect(created.status).toBe(201);
+    const tableId = created.body.lobby.id;
+
+    const candidates = await request(app).get('/api/player/poker/invite-candidates').set('x-test-player', 'alice');
+    expect(candidates.status).toBe(200);
+    expect(candidates.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ player_id: 'bob', telegram_linked: true, can_invite: true }),
+    ]));
+
+    const invited = await request(app).post(`/api/player/poker/lobbies/${tableId}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(invited.status).toBe(200);
+    expect(invited.body.invite.cooldown_seconds).toBe(120);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(5000);
+
+    const queued = await db.get<any>("SELECT event_type,player_id,text FROM telegram_message_outbox WHERE player_id='bob' LIMIT 1");
+    expect(queued).toMatchObject({ event_type: 'poker_invite', player_id: 'bob' });
+    expect(queued.text).toContain('Позови друзей');
+
+    const again = await request(app).post(`/api/player/poker/lobbies/${tableId}/invite`).set('x-test-player', 'alice').send({ playerId: 'bob' });
+    expect(again.status).toBe(429);
+    expect(again.body.code).toBe('cooldown');
+    expect(again.body.retry_after_seconds).toBeGreaterThan(0);
+    expect(again.body.retry_after_seconds).toBeLessThanOrEqual(120);
   });
 
   it('returns a live table stack to the wallet when an AFK seat is removed', async () => {

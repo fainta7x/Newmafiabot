@@ -66,7 +66,7 @@ router.post('/poker/stats', async (req, res) => {
     for (const row of rows) {
       try {
         const hand = JSON.parse(row.hand_json) as StoredPokerHand;
-        withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type]) => ({ street, player_id, type })) }));
+        withOpponentMemory(memory, () => observePokerHand({ players: hand.players, action_log: hand.actions.map(([street, player_id, type, amount]) => ({ street, player_id, type, amount })) }));
         hands += 1;
       } catch { /* a damaged row is skipped */ }
     }

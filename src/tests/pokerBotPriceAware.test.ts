@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyPokerAction, createPokerHand, type PokerCard, type PokerState } from '../server/services/pokerEngine.ts';
-import { chooseStrongBotAction, observePokerHand, opponentRanges, resetPokerBotMemoryForTests, stackPressure } from '../server/services/pokerBot.ts';
+import { chooseStrongBotAction, observePokerHand, opponentRanges, pokerOpponentProfile, resetPokerBotMemoryForTests, stackPressure } from '../server/services/pokerBot.ts';
 
 const c = (text: string): PokerCard => ({ rank: text[0] as PokerCard['rank'], suit: ({ s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' } as const)[text[1] as 's'] });
 const current = (hand: PokerState) => hand.players.find((player) => player.seat === hand.current_seat)!;
@@ -84,5 +84,17 @@ describe('bots weigh the price and the size, not only the line (owner, 2026-10-0
     expect(deep.looseness).toBeGreaterThan(normal.looseness);
     expect(short.premium).toBeGreaterThan(normal.premium);
     expect(deep.premium).toBeLessThanOrEqual(normal.premium);
+  });
+
+  it('does not count a short stack calling all-in as a re-raise or a shove', () => {
+    for (let index = 0; index < 20; index += 1) {
+      observePokerHand({ players: [{ id: 'a' }, { id: 'b' }], action_log: [
+        { player_id: 'a', street: 'preflop', type: 'small_blind', amount: 10 }, { player_id: 'b', street: 'preflop', type: 'big_blind', amount: 20 },
+        { player_id: 'a', street: 'preflop', type: 'raise', amount: 90 }, { player_id: 'b', street: 'preflop', type: 'all_in', amount: 60 },
+      ] });
+    }
+    const caller = pokerOpponentProfile('b');
+    expect(caller.reraise).toBeLessThan(0.08);
+    expect(caller.shove).toBeLessThan(0.04);
   });
 });

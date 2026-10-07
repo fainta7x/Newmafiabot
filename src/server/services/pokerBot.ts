@@ -76,7 +76,7 @@ export const withOpponentMemory = <T>(opponentMemory: OpponentMemory, callback: 
 const blankStats = (): OpponentStats => ({ hands: 0, vpip: 0, pfr: 0, facedBet: 0, foldedToBet: 0, postflopAggro: 0, postflopPassive: 0, reraiseChances: 0, reraises: 0, preflopShoves: 0 });
 
 /** Called once per finished hand: what every human (and bot) did, for the bots to adapt. */
-export type ObservedPokerHand = { action_log: Array<{ player_id: string; street: string; type: string }>; players: Array<{ id: string }> };
+export type ObservedPokerHand = { action_log: Array<{ player_id: string; street: string; type: string; /** Chips put in by this action; tells an all-in raise from an all-in call. */ amount?: number }>; players: Array<{ id: string }> };
 export const observePokerHand = (hand: ObservedPokerHand) => {
   const seen = new Set<string>();
   const voluntary = new Set<string>();
@@ -85,20 +85,27 @@ export const observePokerHand = (hand: ObservedPokerHand) => {
   const betOnStreet = new Map<string, boolean>();
   let preflopRaiseCount = 0;
   let lastPreflopRaiser: string | null = null;
+  const preflopCommitted = new Map<string, number>();
+  let preflopBet = 0;
   for (const entry of hand.action_log) {
     seen.add(entry.player_id);
     const stats = memory().get(entry.player_id) || blankStats();
     memory().set(entry.player_id, stats);
     if (entry.street === 'preflop') {
       if (entry.type === 'call' || entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in') voluntary.add(entry.player_id);
-      const raising = entry.type === 'raise' || entry.type === 'bet' || entry.type === 'all_in';
+      // An all-in raises only when it goes over the bet to call; a short stack calling with its last chips is a call.
+      // (Hands without amounts — none are stored that way today — count every all-in as a raise.)
+      const total = (preflopCommitted.get(entry.player_id) || 0) + (entry.amount || 0);
+      preflopCommitted.set(entry.player_id, total);
+      const raising = entry.type === 'raise' || entry.type === 'bet' || (entry.type === 'all_in' && (entry.amount === undefined || total > preflopBet));
+      preflopBet = Math.max(preflopBet, total);
       // Facing someone else's raise: a chance to re-raise (3-bet or more).
       if (entry.type !== 'small_blind' && entry.type !== 'big_blind' && preflopRaiseCount > 0 && lastPreflopRaiser !== entry.player_id) {
         stats.reraiseChances = (stats.reraiseChances || 0) + 1;
         if (raising) stats.reraises = (stats.reraises || 0) + 1;
       }
       if (raising) { raisedPre.add(entry.player_id); preflopRaiseCount += 1; lastPreflopRaiser = entry.player_id; }
-      if (entry.type === 'all_in') shovedPre.add(entry.player_id);
+      if (entry.type === 'all_in' && raising) shovedPre.add(entry.player_id);
       continue;
     }
     if (entry.type === 'small_blind' || entry.type === 'big_blind') continue;
@@ -202,6 +209,12 @@ const preflopBetLevels = (hand: PokerState) => {
     if (total > current) { current = total; levels.push(total); }
   }
   return levels;
+};
+
+/** Order of acting after the flop: 0 = first (the seat after the button), the button last. */
+const postflopOrder = (hand: PokerState, seat: number) => {
+  const position = positionFromButton(hand, seat);
+  return position ? (position.k + position.n - 1) % position.n : 0;
 };
 
 /** Players still to act after the bot before the flop (blinds included): fewer means a later position. */
@@ -597,7 +610,8 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   const reraiseRate = raiserProfile?.reraise ?? 0.08;
   const range = Math.min(0.85, Math.max(0.025, reraiseRate * sizeFactor * (raises >= 3 ? 0.5 : 1)));
   const equity = estimateEquity(hole, [], [range], random, 260, 40);
-  const inPosition = Boolean(raiser) && openerLateness(hand, bot.seat) > openerLateness(hand, raiser!.seat);
+  // In position = acting after him on every street after the flop.
+  const inPosition = Boolean(raiser) && postflopOrder(hand, bot.seat) > postflopOrder(hand, raiser!.seat);
   const realized = equity * (inPosition ? 0.88 : 0.72) * (style >= 1 ? 1.02 : 0.98);
   const price = Math.min(toCall, bot.chips);
   const needed = price / (hand.pot + price) + riskPremium;

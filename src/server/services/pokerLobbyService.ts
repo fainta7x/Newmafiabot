@@ -55,7 +55,7 @@ export const withPokerRuntimeState = <T>(state: PokerRuntimeState, callback: () 
 export const resetDefaultPokerRuntimeForTesting = () => { defaultRuntime.lobbies.clear(); defaultRuntime.bankrolls.clear(); defaultRuntime.handLog.length = 0; defaultRuntime.seen?.clear(); };
 /** Hands finished since the last call; the persistence layer writes them to the database. */
 export const pendingPokerHandLog = (): StoredPokerHand[] => runtime().handLog.slice();
-/** Drops the first `count` pending hands once they are safely stored; hands of a failed write stay queued for the next request. */
+/** Drops the first `count` pending hands once their database transaction committed. */
 export const confirmPokerHandLog = (count: number) => { runtime().handLog.splice(0, count); };
 
 export const pokerEffectiveStack = (lobby: PokerLobby, playerId: string) => {
@@ -225,8 +225,8 @@ export const listPokerLobbies = (viewerId?: string) => { ensureMainLobby(); retu
  * A person who is completely AFK for POKER_AFK_LEAVE_MS (owner, 2026-10-05: «кикать полностью АФК, кто больше 5 минут») is
  * taken off his table. Two kinds: he stopped asking for the table (closed the app, left the screen, lost the connection), or he
  * is away («Отойти» / his turn timed out) and stays away. The seats of people who walked off used to stay for ever, so the
- * shared table read 8/8 and still showed them. Leaving folds his cards in a running hand and keeps his chips in the bankroll,
- * like pressing «Выйти».
+ * shared table read 8/8 and still showed them. Leaving folds his cards in a running hand; the route returns the remaining
+ * real-table stack to the club-token wallet, while a training table changes no balance.
  */
 export const POKER_AFK_LEAVE_MS = 5 * 60 * 1000;
 const seenKey = (lobbyId: string, playerId: string) => `${lobbyId}:${playerId}`;
@@ -301,7 +301,6 @@ export const leavePokerLobby = (lobby: PokerLobby, playerId: string) => {
     const handPlayer = hand.players.find((item) => item.id === playerId);
     if (handPlayer && !handPlayer.folded) foldOutOfTurn(hand, playerId);
   }
-  const leaving = lobby.players.find((player) => player.id === playerId);
   lobby.players = lobby.players.filter((player) => player.id !== playerId);
   const humans = lobby.players.filter((player) => !player.is_bot);
   if (!humans.length && lobby.permanent) {

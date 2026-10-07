@@ -231,11 +231,16 @@ Desktop verification: PR #722 initial code head `c99eb3a`; CI/CodeQL/Gitleaks/UI
 
 ## CRM home and remaining player cabinet desktop audit — 2026-10-07
 Scope: owner reported irregular CRM home cards and absent desktop layouts outside Progress.
-- FIXED (visual review pending) — `OrganizerCommandCenter.tsx`, `desktop-workspaces.css`: implicit grid combines status, week planning and task queue with unrelated sizes; needs explicit work/planning hierarchy.
-- FIXED (visual review pending) — `PlayerHomeDashboard.tsx`: 430px cap leaves desktop empty; next evening and secondary information have the same visual priority.
-- FIXED (visual review pending) — `PlayerEveningsHub.tsx`, `PlayerEventsCalendar.tsx`, `PlayerEveningSummaries.tsx`, `PlayerHistoryStatsView.tsx`: independently capped nested surfaces misalign headings, tabs and content.
-- FIXED (visual review pending) — `PlayerCommunityHub.tsx`, `PlayerRatingHub.tsx`, directory/connections: narrow container and lists remain phone-only; nested rating adds a separate full-height page.
-- FIXED (visual review pending) — wallet/settings: compact forms are sensible, but section headers and page spacing differ from the rest of the cabinet.
-- FIXED (visual review pending) — cabinet preview: incomplete empty route mocks cannot validate populated desktop surfaces, modal actions and section navigation.
+- FIXED — `OrganizerCommandCenter.tsx`, `desktop-workspaces.css`: implicit grid combines status, week planning and task queue with unrelated sizes; needs explicit work/planning hierarchy.
+- FIXED — `PlayerHomeDashboard.tsx`: 430px cap leaves desktop empty; next evening and secondary information have the same visual priority.
+- FIXED — `PlayerEveningsHub.tsx`, `PlayerEventsCalendar.tsx`, `PlayerEveningSummaries.tsx`, `PlayerHistoryStatsView.tsx`: independently capped nested surfaces misalign headings, tabs and content.
+- FIXED — `PlayerCommunityHub.tsx`, `PlayerRatingHub.tsx`, directory/connections: narrow container and lists remain phone-only; nested rating adds a separate full-height page.
+- FIXED — wallet/settings: compact forms are sensible, but section headers and page spacing differ from the rest of the cabinet.
+- FIXED — cabinet preview: incomplete empty route mocks cannot validate populated desktop surfaces, modal actions and section navigation.
 
 Preview verification: initial head `c00f02f` passed CI/CodeQL/Gitleaks. Artifact checksums and revision `34b6b5b` confirmed that exact head plus current base; CRM upcoming/active inspected at 390 and 1440px. Player screenshots were blocked by an incomplete novice fixture (missing `applications` and `can_self_register`); corrected the mock to the real API shape and added music-slot coverage. Fresh complete cabinet screenshots remain a merge gate.
+
+- FIXED — `PlayerWalletHub.tsx`, `PlayerPayments.tsx`: embedded payment screen repeats the wallet debt headline and hides its header/history through brittle DOM-position CSS; use an explicit embedded mode, retaining paid totals, credits and payment actions.
+- FIXED — `cabinet-desktop-layout.spec.mjs`: viewport screenshots do not show the bottom of long settings forms; inspect controls after scrolling and neutralize CSS transitions/hover in capture.
+
+Complete cabinet review: head `cc0cf5d` passed all four workflows and 61 browser tests. Verified byte-safe artifacts and synthetic revision `4706824f` parents; inspected all 22 cabinet/CRM captures at 390, 1024, 1366×768 and 1440px. Wallet duplication corrected with explicit full/current/history views; paid totals, credits and free-evening action covered by three unit tests. Final coverage additionally captures home/footer and settings save/music controls after scrolling; final exact-head checks remain mandatory before merge. Runtime UI unverified.

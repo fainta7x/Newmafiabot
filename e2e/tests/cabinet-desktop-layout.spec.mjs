@@ -8,7 +8,8 @@ for (const width of [390, 1024, 1366, 1440]) {
       await page.evaluate(async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(page.getByText('Этот сценарий пока не подготовлен в предпросмотре', { exact: true })).toHaveCount(0);
-      await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true });
+      await page.mouse.move(0, 0);
+      await page.screenshot({ animations: 'disabled', path: info.outputPath(`${name}-${width}.png`), fullPage: true });
     };
     await page.goto('/e2e/organizer-crm.html');
     await expect(page.getByTestId('crm-week-events')).toBeVisible();
@@ -34,6 +35,8 @@ for (const width of [390, 1024, 1366, 1440]) {
       expect(primary.x+primary.width).toBeLessThan(secondary.x);
     }
     await shot('player-home');
+    await page.getByRole('button', { name: 'Мои игры', exact: true }).scrollIntoViewIfNeeded();
+    await shot('player-home-bottom');
     const nav = page.getByRole('navigation', { name: 'Основная навигация' });
     await nav.getByRole('button', { name: 'Вечера', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Календарь', exact: true })).toBeVisible();
@@ -67,13 +70,25 @@ for (const width of [390, 1024, 1366, 1440]) {
     await expect(page.getByRole('navigation', { name: 'Разделы кошелька' })).toBeVisible();
     for (const name of ['Оплата', 'Магазин', 'Ставки', 'История']) {
       await page.getByRole('navigation', { name: 'Разделы кошелька' }).getByRole('button', { name: new RegExp(`${name}$`) }).click();
+      if (name === 'Оплата') {
+        await expect(page.getByText('По игровым вечерам', { exact: true })).toHaveCount(0);
+        await expect(page.getByText('оплачено всего', { exact: true })).toBeVisible();
+      }
       await shot(`wallet-${name}`);
     }
     await page.getByTestId('player-quick-settings').click();
     await expect(page.getByTestId('player-settings')).toBeVisible();
     await shot('player-settings');
+    await page.getByTestId('profile-save').scrollIntoViewIfNeeded();
+    await shot('player-settings-save');
     await page.getByText('Моя музыка для вечера', { exact: true }).click();
     await expect(page.getByPlaceholder('Ссылка на трек Яндекс Музыки')).toHaveCount(2);
     await shot('player-settings-music');
+    const lastMusicAction = page.getByRole('button', { name: 'Добавить', exact: true }).last();
+    await lastMusicAction.scrollIntoViewIfNeeded();
+    const musicBox = await lastMusicAction.boundingBox();
+    const navBox = await nav.boundingBox();
+    expect(musicBox.y + musicBox.height).toBeLessThanOrEqual(navBox.y);
+    await shot('player-settings-music-bottom');
   });
 }

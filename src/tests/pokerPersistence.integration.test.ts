@@ -121,6 +121,20 @@ describe('durable poker club-token table state', () => {
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(5000);
   });
 
+  it('does not let one player turn a multi-human token table into training', async () => {
+    const app = testApp(db);
+    const created = await request(app).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ title: 'Живой стол' });
+    expect(created.status).toBe(201);
+    const tableId = created.body.lobby.id;
+    expect((await request(app).post(`/api/player/poker/lobbies/${tableId}/join`).set('x-test-player', 'bob')).status).toBe(200);
+
+    const switched = await request(app).post(`/api/player/poker/lobbies/${tableId}/bot`).set('x-test-player', 'alice');
+    expect(switched.status).toBe(409);
+    expect(switched.body.error).toContain('только вы');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(4000);
+  });
+
   it('refuses a real table buy-in when the player has fewer than 1000 club tokens', async () => {
     await db.run("UPDATE players SET tokens = 500 WHERE id = 'alice'");
     const response = await request(testApp(db)).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');

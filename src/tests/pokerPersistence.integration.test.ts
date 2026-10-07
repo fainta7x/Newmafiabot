@@ -19,7 +19,7 @@ const testApp = (db: DatabaseWrapper) => {
   return app;
 };
 
-describe('durable poker chips and table state', () => {
+describe('durable poker club-token table state', () => {
   let db: DatabaseWrapper;
 
   beforeEach(async () => {
@@ -27,7 +27,7 @@ describe('durable poker chips and table state', () => {
     db = createDatabaseConnection(':memory:');
     const now = new Date().toISOString();
     await db.run(
-      `INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('alice','Алиса',?,?),('bob','Боб',?,?)`,
+      `INSERT INTO players (id,nickname,tokens,created_at,updated_at) VALUES ('alice','Алиса',5000,?,?),('bob','Боб',5000,?,?)`,
       [now, now, now, now],
     );
   });
@@ -38,6 +38,8 @@ describe('durable poker chips and table state', () => {
     expect((await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice')).status).toBe(200);
     const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
     expect(started.status).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(4000);
     vi.useFakeTimers(); vi.setSystemTime(Number(started.body.lobby.hand.animation_next_at) + 1);
     const ready = await request(app).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
     const hand = ready.body.lobby.hand;
@@ -83,22 +85,51 @@ describe('durable poker chips and table state', () => {
     expect(resumed.body.lobby.hand.current_seat).not.toBeNull();
   });
 
-  it('returns a human player with the same stack after leaving and after another restart', async () => {
+  it('moves a 1000-token buy-in to the table and returns the remaining stack on exit', async () => {
     let app = testApp(db);
-    await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
-    const started = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
-    const aliceBefore = started.body.lobby.hand.players.find((player: any) => player.id === 'alice').chips;
+    const joined = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
+    expect(joined.status).toBe(200);
+    expect(joined.body.lobby.money_mode).toBe('club_tokens');
+    expect(joined.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(1000);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
 
     expect((await request(app).post('/api/player/poker/lobbies/main/leave').set('x-test-player', 'alice')).status).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(5000);
+
     resetPokerRuntimeCacheForTesting(db);
     app = testApp(db);
     const returned = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
     expect(returned.status).toBe(200);
-    expect(returned.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(aliceBefore);
+    expect(returned.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(1000);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
+  });
 
+  it('turns a waiting table with a bot into training and refunds the real buy-in', async () => {
+    const app = testApp(db);
+    const joined = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
+    expect(joined.body.lobby.money_mode).toBe('club_tokens');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
+
+    const training = await request(app).post('/api/player/poker/lobbies/main/bot').set('x-test-player', 'alice');
+    expect(training.status).toBe(200);
+    expect(training.body.lobby.money_mode).toBe('training');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(5000);
+
+    const bob = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'bob');
+    expect(bob.status).toBe(200);
+    expect(bob.body.lobby.money_mode).toBe('training');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='bob'"))?.tokens).toBe(5000);
+  });
+
+  it('refuses a real table buy-in when the player has fewer than 1000 club tokens', async () => {
+    await db.run("UPDATE players SET tokens = 500 WHERE id = 'alice'");
+    const response = await request(testApp(db)).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
+    expect(response.status).toBe(409);
+    expect(response.body.error).toContain('1 000');
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
     resetPokerRuntimeCacheForTesting(db);
-    const afterSecondRestart = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
-    expect(afterSecondRestart.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(aliceBefore);
+    const table = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
+    expect(table.body.lobby.players).toHaveLength(0);
   });
 
   it('does not let one account duplicate its saved stack at two tables', async () => {

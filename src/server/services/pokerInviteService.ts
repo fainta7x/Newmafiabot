@@ -34,7 +34,8 @@ const inviteTargetAvailable = (row: any) => Boolean(
   row
   && String(row.source || '').trim() !== 'legacy_guest_migrated'
   && !String(row.merged_into_player_id || '').trim()
-  && !unavailableInviteStatuses.has(String(row.contact_status || row.lifecycle_status || 'normal').trim().toLowerCase())
+  && !unavailableInviteStatuses.has(String(row.contact_status || 'normal').trim().toLowerCase())
+  && !unavailableInviteStatuses.has(String(row.lifecycle_status || 'normal').trim().toLowerCase())
 );
 
 export class PokerInviteError extends Error {
@@ -105,7 +106,8 @@ export async function loadPokerInviteCandidates(
      WHERE p.id <> ?
        AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
        AND p.merged_into_player_id IS NULL
-       AND LOWER(COALESCE(p.contact_status, p.lifecycle_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted','merged')
+       AND LOWER(COALESCE(p.contact_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted','merged')
+       AND LOWER(COALESCE(p.lifecycle_status, 'normal')) NOT IN ('blocked','paused','archived','inactive','disabled','deleted','merged')
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [senderPlayerId]);
 

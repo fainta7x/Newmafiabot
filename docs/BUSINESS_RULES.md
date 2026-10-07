@@ -762,3 +762,8 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 - Only the club owner can take a person off a table by hand; everybody else cannot.
 - Dealing runs at 0.8 of the old time; a bot waits 0.45 s to fold or check, 0.7 s to call and 0.95 s to raise; a player's own cards fade after he folds.
 - The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».
+
+## Club connections (owner approved, 2026-10-07)
+The club panel leads with pairs for red and black separately. Preserve the existing best-pair score (win percentage + twice the joint-game count capped at ten games), minimum two games; show up to five. «Самые сыгранные» orders by joint games, then team wins. Single-game pairs appear separately as «Первые совместные игры», never as proven strong pairs. All counts use completed canonical club/tournament snapshots. Personal rival wins mean the viewer’s team won, not a personal defeat of the other player. Recent meetings aggregate only games the viewer played in his latest completed event; source and event id together identify an event. A person may appear on both sides after changing teams between games. No changes to Elo, awards or game rules.
+
+The existing «Игровые связи» visibility applies to every relationships list. A player with connections disabled is excluded for other viewers before ranking or slicing; a viewer may see his own hidden connections. The relationships endpoint retains player-only authentication, without granting a new organizer access path.

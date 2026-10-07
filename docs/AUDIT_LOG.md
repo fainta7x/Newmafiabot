@@ -246,3 +246,17 @@ Preview verification: initial head `c00f02f` passed CI/CodeQL/Gitleaks. Artifact
 Complete cabinet review: head `cc0cf5d` passed all four workflows and 61 browser tests. Verified byte-safe artifacts and synthetic revision `4706824f` parents; inspected all 22 cabinet/CRM captures at 390, 1024, 1366×768 and 1440px. Wallet duplication corrected with explicit full/current/history views; paid totals, credits and free-evening action covered by three unit tests. Final coverage additionally captures home/footer and settings save/music controls after scrolling; final exact-head checks remain mandatory before merge. Runtime UI unverified.
 
 - FIXED — Codex P1 on PR #726: desktop `player-workspace-page` bottom padding of 32px is smaller than fixed navigation; preserve navigation height plus safe inset and a 24px gap. Added a bottom-action bounds assertion after scrolling.
+
+### Club connections audit — 2026-10-07
+- FIXED — `PlayerClubConnections.tsx`: club ranking renders only three pairs per side without sample explanation or alternatives, making the section sparse.
+- FIXED — `playerPulseRoutes.ts`: pairs with one game vanish entirely; preserve the existing ranked pool (minimum two) and expose first encounters separately.
+- FIXED — `PlayerClubConnections.tsx`: personal rival wins have ambiguous wording; explain they are the viewer’s team wins, not individual duels.
+- FIXED — relationships API/UI: no last-event meetings, although completed snapshots already hold canonical event identities.
+
+Focused verification: six service/UI tests, typecheck, lint, production and isolated-preview builds; initial exact-head CI/CodeQL/Gitleaks/UI preview passed, fresh club modes/recent/personal screenshots inspected at 390/1024/1366/1440. Final evidence explicitly scrolls the first-game card and checks last personal action above the footer; exact final-head CI remains the release gate.
+
+- FIXED — Codex PR #728 P1, `playerPulseRoutes.ts` / `clubRelationshipsService.ts`: new club lists bypass «Игровые связи» visibility; filter hidden participants before aggregating every relationships list, allowing the viewer to see his own connections. This endpoint keeps its existing player-only authentication.
+
+Privacy verification: eight tests across service/UI and real authenticated in-memory API; hidden pairs are excluded from best/most-played/first-game/recent/personal lists, own hidden viewer retains access, changed visibility takes effect on the next request.
+
+- FIXED — evidence capture only, `cabinet-desktop-layout.spec.mjs`: native `scrollIntoViewIfNeeded` considers the fixed footer-covered first-game button visible. Center the target explicitly and assert its bounds between header/footer before capturing; product layout is unchanged.

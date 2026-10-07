@@ -149,7 +149,7 @@ describe('durable poker club-token table state', () => {
     expect((await request(app).get('/api/player/poker/lobbies').set('x-test-player', 'bob')).status).toBe(200);
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(5000);
     const ledger = await db.all<{ reason_type: string; amount: number }>(
-      "SELECT reason_type, amount FROM token_ledger WHERE player_id='alice' ORDER BY created_at ASC",
+      "SELECT reason_type, amount FROM token_ledger WHERE player_id='alice' ORDER BY rowid ASC",
     );
     expect(ledger.map((entry) => [entry.reason_type, entry.amount])).toEqual([
       ['poker_buy_in', -1000],

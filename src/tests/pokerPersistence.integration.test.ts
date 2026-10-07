@@ -138,21 +138,26 @@ describe('durable poker club-token table state', () => {
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(4000);
   });
 
-  it('refuses a real table buy-in when the player has fewer than 1000 club tokens', async () => {
+  it('allows a 10 BB buy-in and rejects anything below 200 tokens', async () => {
     await db.run("UPDATE players SET tokens = 500 WHERE id = 'alice'");
-    const response = await request(testApp(db)).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice');
-    expect(response.status).toBe(409);
-    expect(response.body.error).toContain('1 000');
+    const app = testApp(db);
+
+    const joined = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice').send({ buy_in_tokens: 200 });
+    expect(joined.status).toBe(200);
+    expect(joined.body.lobby.players.find((player: any) => player.id === 'alice').chips).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(300);
+
+    expect((await request(app).post('/api/player/poker/lobbies/main/leave').set('x-test-player', 'alice')).status).toBe(200);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
+
+    const tooSmall = await request(app).post('/api/player/poker/lobbies/main/join').set('x-test-player', 'alice').send({ buy_in_tokens: 199 });
+    expect(tooSmall.status).toBe(400);
+    expect(tooSmall.body.error).toContain('200');
+    expect(tooSmall.body.error).toContain('10 ББ');
     expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
     resetPokerRuntimeCacheForTesting(db);
     const table = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
     expect(table.body.lobby.players).toHaveLength(0);
-
-    const training = await request(testApp(db)).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ training: true });
-    expect(training.status).toBe(201);
-    expect(training.body.lobby.money_mode).toBe('training');
-    expect(training.body.lobby.players.some((player: any) => player.is_bot)).toBe(true);
-    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
   });
 
   it('does not reveal a clubmate private training session in invite availability', async () => {

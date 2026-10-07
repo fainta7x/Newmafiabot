@@ -50,6 +50,7 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 260, name: 'startPersonalTelegramNotificationWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 265, name: 'startVkMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 270, name: 'reconcileTokenOpeningBalances', kind: 'continuous_reconciliation', idempotency: 'ledger uniqueness / source markers' },
+  { order: 275, name: 'applyPlayerStarterTokenGrant', kind: 'data_migration', idempotency: 'migration_history marker + per-player token-ledger idempotency key', notes: 'adds 1,000 tokens once to every non-merged player after opening balances are reconciled' },
   { order: 280, name: 'reconcileAllTournamentGameTokenSettlements', kind: 'continuous_reconciliation', idempotency: 'settlement uniqueness' },
   { order: 290, name: 'reconcileAllBettingPools', kind: 'continuous_reconciliation', idempotency: 'pool/settlement state guards' },
   { order: 300, name: 'reconcileAllPlayerAchievements', kind: 'continuous_reconciliation', idempotency: 'achievement uniqueness/state guards' },

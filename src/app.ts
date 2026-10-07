@@ -130,6 +130,7 @@ import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts'
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 import { ensurePlayerProfileMergeSchema } from './db/ensurePlayerProfileMergeSchema.ts';
 import { applyEloScaleMigration } from './db/applyEloScaleMigration.ts';
+import { applyPlayerStarterTokenGrant } from './db/applyPlayerStarterTokenGrant.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -204,6 +205,9 @@ export async function createApp(customDb?: DatabaseWrapper) {
     startVkMessageOutboxWorker(db);
   }
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
+  if (!isTest && db.dbPath !== ':memory:') {
+    try { await applyPlayerStarterTokenGrant(db); } catch (error) { console.error('[TOKENS] Starter grant migration failed:', error); }
+  }
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
   try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }
   try { await reconcileAllPlayerAchievements(db); } catch (error) { console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error); }

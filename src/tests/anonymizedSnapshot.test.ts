@@ -44,7 +44,7 @@ describe('development snapshot export', () => {
     try {
       const player = copy.prepare('SELECT * FROM players').get() as any;
       expect(player).toMatchObject({ full_name:null, phone:null, telegram_user_id:null, telegram_username:null, notes:null, tokens:42 });
-      expect(player.id).toMatch(/^dev-/); expect(player.nickname).not.toBe('RealNickname');
+      expect(player.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/); expect(player.nickname).not.toBe('RealNickname');
       expect(copy.prepare('SELECT player_id FROM evening_participants').get()).toEqual({player_id:player.id});
       expect(copy.prepare('SELECT amount_due,amount_paid FROM evening_participants').get()).toEqual({amount_due:400,amount_paid:200});
       const slot = JSON.parse((copy.prepare('SELECT slots_json FROM games').get() as any).slots_json)[0];

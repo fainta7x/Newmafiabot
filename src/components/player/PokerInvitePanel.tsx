@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 type Candidate = {
   player_id: string;
@@ -69,7 +69,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const visible = useMemo(() => candidates.slice(0, 30), [candidates]);
+  const visible = candidates;
 
   const invite = async (candidate: Candidate) => {
     setBusy(candidate.player_id);

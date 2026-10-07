@@ -130,6 +130,12 @@ describe('durable poker club-token table state', () => {
     resetPokerRuntimeCacheForTesting(db);
     const table = await request(testApp(db)).get('/api/player/poker/lobbies/main').set('x-test-player', 'alice');
     expect(table.body.lobby.players).toHaveLength(0);
+
+    const training = await request(testApp(db)).post('/api/player/poker/lobbies').set('x-test-player', 'alice').send({ training: true });
+    expect(training.status).toBe(201);
+    expect(training.body.lobby.money_mode).toBe('training');
+    expect(training.body.lobby.players.some((player: any) => player.is_bot)).toBe(true);
+    expect((await db.get<{ tokens: number }>("SELECT tokens FROM players WHERE id='alice'"))?.tokens).toBe(500);
   });
 
   it('does not let one account duplicate its saved stack at two tables', async () => {

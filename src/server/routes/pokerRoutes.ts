@@ -81,7 +81,7 @@ const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Req
     });
     const viewer = getPlayerSessionId(req as any);
     if (viewer && reply.body && typeof reply.body === 'object' && !Array.isArray(reply.body)) {
-      const balance = await (req as any).db.get<{ tokens: number }>('SELECT tokens FROM players WHERE id = ? LIMIT 1', [String(viewer)]);
+      const balance = await (req as any).db.get('SELECT tokens FROM players WHERE id = ? LIMIT 1', [String(viewer)]) as { tokens: number } | null;
       reply.body = { ...(reply.body as Record<string, unknown>), token_balance: Number(balance?.tokens || 0) };
     }
     return res.status(reply.status || 200).json(reply.body);

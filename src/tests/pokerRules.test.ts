@@ -83,7 +83,8 @@ describe('poker rules (owner check 2026-10-01)', () => {
     expect(lobby.players.map((player) => player.id)).toEqual(['a']);
   });
 
-  it('does not reuse a previous-hand stack when the same person leaves and rejoins', () => {
+  it('does not reuse a previous-hand stack and lets the same person rejoin after the result pause', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-07T12:00:00Z'));
     const lobby = createPokerLobby({ id: 'a', nickname: 'Аня' });
     joinPokerLobby(lobby, { id: 'b', nickname: 'Боря' });
     startPokerLobby(lobby, 'a');
@@ -93,10 +94,11 @@ describe('poker rules (owner check 2026-10-01)', () => {
     leavePokerLobby(lobby, 'a');
 
     expect(() => joinPokerLobby(lobby, { id: 'a', nickname: 'Аня' })).toThrow('следующей раздачи');
-    nextPokerHand(lobby);
-    expect(lobby.hand).toBeNull();
+    vi.advanceTimersByTime(NEXT_HAND_DELAY_MS + 1);
+    // Nobody else needs to poll/tick the table: this join retires the elapsed finished hand itself.
     expect(() => joinPokerLobby(lobby, { id: 'a', nickname: 'Аня' })).not.toThrow();
     expect(lobby.players.find((player) => player.id === 'a')?.chips).toBe(1000);
+    vi.useRealTimers();
   });
 
   it('a rebuy brings a person who was away back to the table', () => {

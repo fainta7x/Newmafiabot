@@ -5,6 +5,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 
 import { exportPokerOpponentStats, observePokerHand, withOpponentMemory, type OpponentMemory } from '../services/pokerBot.ts';
 import type { StoredPokerHand } from '../services/pokerLobbyService.ts';
+import { summarizePokerResults } from '../services/pokerResultsSummary.ts';
 
 const router = Router();
 
@@ -91,6 +92,26 @@ router.post('/poker/stats', async (req, res) => {
 /**
  * Did the payment reminders go out (read-only, no text of the messages): one row per reminder with its channel and delivery state.
  */
+/** How each person does against the bots: results by day and the spots where chips change hands (no cards returned). */
+router.post('/poker/results', async (req, res) => {
+  try {
+    const rows = await req.db.all<{ hand_json: string }>(`SELECT hand_json FROM poker_hand_log ORDER BY played_at ASC`).catch(() => []);
+    const hands: StoredPokerHand[] = [];
+    for (const row of rows) {
+      try { hands.push(JSON.parse(row.hand_json) as StoredPokerHand); } catch { /* a damaged row is skipped */ }
+    }
+    const summary = summarizePokerResults(hands);
+    const people = [];
+    for (const person of summary.people) {
+      const found = await req.db.get<{ nickname?: string }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [person.player_id]);
+      people.push({ nickname: found?.nickname || null, ...person });
+    }
+    return res.json({ ...summary, people });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to load poker results' });
+  }
+});
+
 router.post('/payment-reminders', async (req, res) => {
   try {
     const rows = await req.db.all<any>(

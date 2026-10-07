@@ -8,6 +8,15 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-07 · Poker bots suddenly play weak (owner report)
+
+Scope: players say the bots got weak after the bot patch; a novice (Диссонанс) went from losing to a 6 000 stack. Checked the bot code history, the card visibility, the bot turn loop and the stored-hand statistics.
+
+- `pokerBot.ts` strategy — unchanged since #696/#697 (2026-10-05); #706 only sped up the deal. Not the cause by itself. Status: checked.
+- `pokerLobbyService.ts` `publicState` — other players' cards reach a viewer only after a showdown or an all-in runout; history shows only revealed cards. No card leak. Status: checked.
+- `pokerLobbyService.ts` `tickPokerLobby` — bots decide on every tick inside the database's memory scope; they never time out. Status: checked.
+- Stored hands (296): Диссонанс 169 hands, VPIP 89%, PFR 76%, fold to a bet 4%, aggression 0.33 — raises almost every hand and almost never folds. The bots' adaptation to this profile is the main suspect. Status: open — `/poker/results` added to see where the chips go (by day, opens, re-raises, bets after the flop).
+
 ## 2026-10-06 · Production slowness: the app loads slowly, the monitor reports outages (owner report)
 
 Scope: production response times (read-only probes of `/api/health`, `/api/health/runtime`, `/__developer/status`), periodic workers, player polling.

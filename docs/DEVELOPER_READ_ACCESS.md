@@ -24,6 +24,7 @@ Available reads:
 - `/evenings/:id` — one evening plus participant nicknames, RSVP state, actual attendance state, and payment totals.
 - `/evenings/by-date/YYYY-MM-DD` — same participant data for every evening on the requested date.
 - `/poker/stats` — how each person plays at the poker tables (hands, VPIP, PFR, fold to bet, aggression), counted from the stored hands; no hands are returned.
+- `/poker/results` — how each person does against the bots: net chips and big blinds by Moscow day, wins without a showdown, showdowns, and how often the bots fold to his open, his re-raise and his bets after the flop (and how he answers the bots' bets); the bots' own net by day. No cards are returned.
 - `/payment-reminders` — whether the evening payment reminders went out: one row per reminder (evening, nickname, channel, delivery state); no message text.
 - `/ui-usage` — which screens and buttons the app's users open most, over the last N days (default 30, up to 180): counts of visits and people only; no player ids, no texts; the owner's own activity is excluded.
 

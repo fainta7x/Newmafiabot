@@ -132,15 +132,11 @@ for (const width of [360, 390]) {
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Заверши речь #3/);
     await page.getByRole('button', { name: /Завершить речь #3/ }).click();
 
+    // +30 is forbidden on the zero round. Here we verify ordinary speech.
+    // A separate later-day test validates the +30-for-two-new-fouls rule.
     await page.getByRole('button', { name: /^Речь #4$/ }).click();
-    for (let foul = 0; foul < 2; foul += 1) {
-      await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Обычный фол игроку #4/);
-      await page.getByTestId('live-player-actions-center-selector').selectOption('4');
-      await page.locator('[data-testid="live-player-add-regular-foul"][data-seat="4"]').click();
-    }
-    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Добавь \+30/);
-    await page.getByTestId('live-hud-speech-extension').click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Заверши речь #4/);
+    await expect(page.getByTestId('live-hud-speech-extension')).toHaveCount(0);
     await page.getByRole('button', { name: /Завершить речь #4/ }).click();
 
     for (let seat = 5; seat <= 10; seat += 1) {

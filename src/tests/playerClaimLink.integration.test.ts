@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
-import { beginVerifiedPlayerOnboarding, completeClaimPlayerOnboarding } from '../server/services/playerOnboardingService.ts';
+import { beginVerifiedPlayerOnboarding, completeClaimPlayerOnboarding, requestExistingPlayerOnboardingLink } from '../server/services/playerOnboardingService.ts';
 import { parseVkProfileInput } from '../server/services/vkProfileLinkService.ts';
 
 const opened: DatabaseWrapper[] = [];
@@ -110,6 +110,31 @@ describe('a profile that already belongs to another player', () => {
     expect(linked.body).toMatchObject({ code: 'nickname_taken', claimable: false });
     const made = await bot('register', { telegram_user_id: 555, nickname: 'Вася' });
     expect(made.body).toMatchObject({ code: 'nickname_taken', claimable: true });
+  });
+});
+
+describe('organizer manual verified-account linking in the player card', () => {
+  it('shows a safe pending VK request on its target player card and resolves only after an organizer action', async () => {
+    const { db, app, player, organizer } = await setup();
+    await player('made', 'Старый профиль');
+    const verified = await beginVerifiedPlayerOnboarding(db, { platform: 'vk', externalUserId: '9087123' }, '/player');
+    if (verified.status !== 'onboarding') throw new Error('onboarding expected');
+    const requested = await requestExistingPlayerOnboardingLink(db, verified.token, 'Старый профиль');
+    expect(requested.status).toBe('pending_organizer');
+    if (requested.status !== 'pending_organizer') throw new Error('pending request expected');
+
+    const view = await request(app).get('/api/players/made/account-links').set('Cookie', organizer);
+    expect(view.status, JSON.stringify(view.body)).toBe(200);
+    expect(view.body.pending_links).toEqual([expect.objectContaining({ id: requested.requestId, platform: 'vk' })]);
+    expect(JSON.stringify(view.body)).not.toContain('9087123');
+    expect((await db.get<any>("SELECT player_id FROM player_external_identities WHERE external_user_id='9087123'"))).toBeNull();
+
+    const approved = await request(app).post(`/api/crm/onboarding-links/${requested.requestId}/resolve`)
+      .set('Cookie', organizer).send({ decision: 'approve' });
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    expect(approved.body.status).toBe('approved');
+    expect((await db.get<any>("SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id='9087123'"))?.player_id).toBe('made');
+    expect((await request(app).get('/api/players/made/account-links').set('Cookie', organizer)).body.pending_links).toEqual([]);
   });
 });
 

@@ -8,6 +8,14 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-08 · Achievement paths and action counters release verification
+
+Scope: the approved first release of 16 story/career achievements, role-separated action facts and profile UI, PR #742.
+
+- `src/tests/gameStatisticsRoutes.test.ts` — profile API regression still expects a zero-circle ballot in `votesAsRed`, contrary to the owner-approved exclusion. Status: open; update the zero-circle expectation and add a positive ordinary-day API case.
+- `e2e/tests/achievement-paths-preview.spec.mjs`, `e2e/tests/desktop-workspaces.spec.mjs` — unscoped descendant `summary` selectors now match both nested disclosure controls. Status: open; target the direct disclosure summary and preserve visual/overflow assertions.
+- Local full-suite execution was stopped by automatic approval review over possible Telegram traffic. Background integration workers are disabled under Vitest; GitHub test jobs have no production tokens. Local focused tests passed; CI is the full-suite gate. Local exec transport then became unavailable; publication/CI remain accessible through the GitHub connector. No production data or messages were sent by this workstream.
+
 ## 2026-10-07 · Poker bots suddenly play weak (owner report)
 
 Scope: players say the bots got weak after the bot patch; a novice (Диссонанс) went from losing to a 6 000 stack. Checked the bot code history, the card visibility, the bot turn loop and the stored-hand statistics.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenCheck, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { BookOpenCheck, ChevronRight, Eye, EyeOff, X } from 'lucide-react';
 import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.ts';
 import { getTrainingPrompt, getJudgeTrainingGate, type TrainingPrompt } from '../../lib/judgeConductTraining.ts';
 
@@ -23,7 +23,7 @@ export default function JudgeConductCoach() {
   const [session, setSession] = useState<PersistedLiveSession | null>(null);
   const previousKey = useRef('');
   const [tourIndex, setTourIndex] = useState(0);
-  const [collapsed, setCollapsed] = useState(false);
+  const [open, setOpen] = useState(true);
   const [highlight, setHighlight] = useState(true);
   const isTour = session !== null && tourIndex < TOUR.length;
   const progress = useMemo(() => getTrainingPrompt(session), [session]);
@@ -85,35 +85,94 @@ export default function JudgeConductCoach() {
 
   if (!session) return null;
   return (
-    <div className="relative z-[5] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach" data-training-tour-active={isTour ? "true" : "false"}>
+    <div
+      className="fixed right-[62px] z-[118] max-w-[min(152px,calc(100vw-156px))]"
+      style={{ top: 'calc(var(--live-safe-top, 0px) + 2px)' }}
+      data-testid="judge-conduct-coach"
+      data-training-tour-active={isTour ? 'true' : 'false'}
+    >
       <style>{'.judge-training-focus { outline: 2px solid rgba(251,191,36,.85) !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }'}</style>
-      <section className="rounded-2xl border border-amber-300/30 bg-[#191914] px-3 py-2.5 text-white shadow-[0_5px_18px_rgba(0,0,0,.35)]">
-        <div className="flex min-w-0 items-center gap-2">
-          <BookOpenCheck className="h-4 w-4 shrink-0 text-amber-200"/>
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/75">
-              {isTour ? 'Знакомство · ' + (tourIndex + 1) + '/' + TOUR.length : 'Обязательное задание · нулевая игра'}
-            </div>
-            <div className={'truncate text-sm font-semibold ' + (task.warning ? 'text-rose-200' : 'text-white')} aria-live="polite">{task.title}</div>
-          </div>
-          <button type="button" onClick={() => setHighlight((v) => !v)} aria-label={highlight ? 'Отключить подсветку элементов' : 'Включить подсветку элементов'} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-white/60">
-            {highlight ? <Eye className="h-4 w-4"/> : <EyeOff className="h-4 w-4"/>}
-          </button>
-          <button type="button" onClick={() => setCollapsed((v) => !v)} aria-label={collapsed ? 'Развернуть задание' : 'Свернуть задание'} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-white/60">
-            {collapsed ? <ChevronDown className="h-4 w-4"/> : <ChevronUp className="h-4 w-4"/>}
-          </button>
-        </div>
-        {!collapsed && (
-          <div className="mt-1.5 pl-6">
-            <p className="text-xs leading-[18px] text-white/65">{task.detail}</p>
-            {isTour && (
-              <button type="button" onClick={() => setTourIndex((v) => v + 1)} className="mt-2 flex min-h-9 items-center gap-1 rounded-lg bg-amber-200 px-3 text-xs font-semibold text-black">
-                {tourIndex === TOUR.length - 1 ? 'Перейти к заданиям' : 'Следующий элемент'} <ChevronRight className="h-4 w-4"/>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-10 w-full min-w-[90px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-[#252117] px-2.5 text-left text-amber-100 shadow-lg"
+        aria-label={'Открыть задание: ' + task.title}
+        data-testid="judge-training-task-trigger"
+        aria-expanded={open}
+      >
+        <BookOpenCheck className="h-4 w-4 shrink-0 text-amber-200" />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+          {isTour ? 'Знакомство ' + (tourIndex + 1) + '/' + TOUR.length : task.title}
+        </span>
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[160] flex items-start justify-center bg-slate-950/65 px-3 pt-[max(64px,env(safe-area-inset-top))]" onClick={() => setOpen(false)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Задание судьи"
+            data-testid="judge-training-task-dialog"
+            className="w-full max-w-md rounded-3xl border border-amber-200/30 bg-[#171715] p-4 text-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-200">
+                <BookOpenCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/70">
+                  {isTour ? 'Знакомство · ' + (tourIndex + 1) + '/' + TOUR.length : 'Задание · нулевая игра'}
+                </div>
+                <h2 className={'mt-1 text-lg font-semibold leading-tight ' + (task.warning ? 'text-rose-200' : 'text-white')} aria-live="polite">{task.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Свернуть подсказку"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 text-white/65"
+              >
+                <X className="h-5 w-5" />
               </button>
-            )}
-          </div>
-        )}
-      </section>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-white/70">{task.detail}</p>
+            <p className="mt-2 text-xs leading-5 text-amber-100/55">
+              {isTour ? 'Сверни подсказку, чтобы рассмотреть подсвеченный элемент настоящего игрового стола.' : 'Сверни подсказку и выполни действие на игровом столе. Его кнопки и расположение не отличаются от реальной партии.'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="min-h-11 flex-1 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white"
+              >
+                К игровому столу
+              </button>
+              {isTour && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTourIndex((value) => value + 1);
+                    setOpen(false);
+                  }}
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-amber-200 px-3 text-sm font-semibold text-black"
+                >
+                  {tourIndex === TOUR.length - 1 ? 'К заданиям' : 'Дальше'} <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+              {!isTour && (
+                <button
+                  type="button"
+                  onClick={() => setHighlight((value) => !value)}
+                  aria-label={highlight ? 'Выключить подсветку' : 'Включить подсветку'}
+                  className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-amber-100"
+                  title={highlight ? 'Выключить подсветку' : 'Включить подсветку'}
+                >
+                  {highlight ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

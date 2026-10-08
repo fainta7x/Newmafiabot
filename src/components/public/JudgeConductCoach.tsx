@@ -75,6 +75,14 @@ export default function JudgeConductCoach() {
     };
   }, [highlight, highlightKey]);
 
+  // A short fixed voting HUD can require internal scrolling. When the mission
+  // becomes "Next" or "Finalize", reveal its button inside that HUD immediately.
+  useEffect(() => {
+    if (isTour || !highlightKey.includes('live-voting-next') && !highlightKey.includes('live-voting-finalize')) return;
+    const viewport = document.querySelector<HTMLElement>('.evening-live-engine-shell .live-judge-hud__body');
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  }, [isTour, highlightKey]);
+
   if (!session) return null;
   return (
     <div className="relative z-[5] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach" data-training-tour-active={isTour ? "true" : "false"}>

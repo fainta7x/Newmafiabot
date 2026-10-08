@@ -8,6 +8,18 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-08 · Stranded VK profile linking (PR #752)
+
+Scope: owner-reported first VK login to a historical/manual profile, private Telegram confirmation, organizer approval in the player card and exact-head review.
+
+- `src/server/services/playerOnboardingService.ts` — VK claim for a Telegram-linked profile completed with private confirmation only, leaving no organizer-reviewable request when the old Telegram was inaccessible. Status: fixed (PR #752); verified VK identity also receives an explicit organizer-review request, including unavailable delivery and rate limiting; identity conflicts remain denied.
+- `src/components/player/VerifiedPlayerOnboarding.tsx` — pending screen did not explain where confirmation was sent or how the organizer could help. Status: fixed (PR #752); exact confirmation channels, CRM location and same-channel sign-in after approval are explained.
+- `src/components/crm/PlayerAccountLinks.tsx` and `src/server/routes/playersRoutes.ts` — player card did not expose pending verified-account requests for manual approval. Status: fixed (PR #752); safe request metadata and authenticated approve/reject actions reuse existing conflict guards.
+- `src/server/services/vkPlayerAuthService.ts` — private Telegram approval needed to close the parallel CRM request. Status: fixed (PR #752); matching pending request is marked approved after successful binding.
+- `docs/AUDIT_LOG.md` — initial PR omitted the durable bug-hunt record required by AGENTS.md. Status: fixed (PR #752 review follow-up); this entry records scope, affected files, defects and final code status.
+
+Verification: initial code head `7a0ff3c7af1695d113ec7cb075904e22184b93f9` passed CI, CodeQL, Gitleaks and UI preview. Follow-up changes documentation only; final-head gates are checked separately. Amvera deployment and real Telegram/VK runtime verification remain unverified. No production data edits.
+
 ## 2026-10-08 · Achievement paths review follow-up (PR #742)
 
 Scope: exact-head automated review after the first green release gates.

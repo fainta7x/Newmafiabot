@@ -563,3 +563,12 @@
     display: none !important;
   }
 }
+
+/* Desktop parity hides card-footer names when CRM avatars are present.
+   Training deliberately has no detached avatar layer: never hide its names. */
+@media (min-width: 768px) {
+  html body .evening-live-engine-shell[data-training-input-gate="active"]
+    .live-seat-footer__name {
+    display: block !important;
+  }
+}

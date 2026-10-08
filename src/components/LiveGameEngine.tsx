@@ -1344,6 +1344,20 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return () => window.removeEventListener('live-engine:advance-after-death-protocol', handler);
   }, []);
 
+  /** Return to the last completed day speech, not just the previous vote click.
+   * The vote-entry snapshot contains the full nomination order and speaker progress. */
+  const handleBackToDaySpeeches = () => {
+    for (let index = historyStack.length - 1; index >= 0; index -= 1) {
+      const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
+      if (snapshot.phase !== 'day_speeches' || snapshot.roundNumber !== roundNumber) continue;
+      restoreSnapshot(snapshot);
+      setHistoryStack((current) => current.slice(0, index));
+      showToast('Вернулись к речам перед голосованием', 'info');
+      return;
+    }
+    showToast('Невозможно восстановить речи: история недоступна', 'warning');
+  };
+
   const getPrevStepAction = () => {
     if (!historyStack.length) return null;
     return { label: 'Назад', onClick: handleUndoAction };
@@ -1573,6 +1587,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleAdvanceRevoteSpeaker,
       handleBackWithinRevoteSpeeches,
       handleBackFromRevoteSpeeches,
+      onBackToDaySpeeches: handleBackToDaySpeeches,
       handleLaunchNextRevote,
       handleConfirmAutoNoElimination,
       handleConfirmTableDecision,

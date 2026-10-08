@@ -306,3 +306,12 @@ FIXED, pending CI — range sampling now enumerates legal support and removes re
 - FIXED in implementation: cheap-call fallback cannot override a rejected showdown call; postflop bet EV caps callers’ contributions and never gives all-in seats fold equity.
 - Verified existing adaptation rather than adding player-specific rules: pure-bluff check against a learned caller; retained bluff against a learned folder; legitimate calls against frequent shoves preserved.
 - Focused tests include actual engine side-pot payout agreement. Exact-head CI remains the merge gate; runtime and a new post-fix hand sample remain unverified.
+
+### 2026-10-08 — Тренажёр судьи: нулевая ночь и нулевой круг
+
+Scope: desktop screenshot, mission coach, first voting, seat marking, backward navigation.
+
+- FIXED in this workstream — JudgeConductCoach.tsx / EveningLiveGameModal.tsx: prompts allowed incorrect real-engine actions and only warned afterwards; strict per-snapshot input gate now limits selectable controls in zero-night/zero-day, and highlights permitted targets. Non-training games are unchanged.
+- FIXED in this workstream — liveGameEveningBugfixes.css: fixed-size voting HUD hid the Next/Finalize buttons under overflow:hidden; HUD now scrolls internally to keep actions reachable.
+- FIXED in this workstream — CenterPanel.tsx / LiveGameEngine.tsx: collecting stage did not return to pre-voting speeches; restore complete prior day-speech snapshot.
+- FIXED in this workstream — SeatCard.tsx / liveGameEveningBugfixes.css: nominated candidates were represented by a visually distracting nomination quick action; a strong full-card outline now signals candidates.

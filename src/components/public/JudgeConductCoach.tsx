@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpenCheck, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.ts';
-import { getTrainingPrompt, type TrainingPrompt } from '../../lib/judgeConductTraining.ts';
+import { getTrainingPrompt, getJudgeTrainingGate, type TrainingPrompt } from '../../lib/judgeConductTraining.ts';
 
 const TOUR: TrainingPrompt[] = [
   { title: 'Центральная панель', detail: 'Здесь показаны этап игры, таймер и кнопки перехода. Ведущий начинает и завершает речи именно здесь.', focus: 'live-judge-hud' },
-  { title: 'Действия игрока', detail: 'Чтобы выставить кандидата, открой действия нужного игрока на столе или в панели судейства.', focus: 'live-player-actions-selector' },
+  { title: 'Действия игрока', detail: 'Чтобы выставить кандидата, открой действия нужного игрока на столе или в панели судейства.', focus: 'live-player-actions-center-selector' },
   { title: 'Назад и исправления', detail: 'Ошибся с действием? Используй кнопку «Назад» в интерфейсе. Теперь потренируемся на обычной партии.', focus: 'live-judge-hud' },
 ];
 
@@ -27,7 +27,11 @@ export default function JudgeConductCoach() {
   const [highlight, setHighlight] = useState(true);
   const isTour = session !== null && tourIndex < TOUR.length;
   const progress = useMemo(() => getTrainingPrompt(session), [session]);
-  const task = isTour ? TOUR[tourIndex] : progress;
+  const gate = useMemo(() => getJudgeTrainingGate(session), [session]);
+  const task = isTour ? TOUR[tourIndex] : gate ? { ...progress, title: gate.title, detail: gate.detail } : progress;
+  const highlightSelectors = isTour ? ['[data-testid="' + task.focus + '"]']
+    : gate?.highlight ?? ['[data-testid="' + task.focus + '"]'];
+  const highlightKey = highlightSelectors.join('|');
 
   useEffect(() => {
     const poll = () => {
@@ -51,14 +55,16 @@ export default function JudgeConductCoach() {
   }, []);
 
   useEffect(() => {
-    if (collapsed || !highlight) return undefined;
-    const selector = '[data-testid="' + task.focus + '"]';
+    if (!highlight) return undefined;
     const update = () => {
-      const target = document.querySelector<HTMLElement>(selector);
+      const marked = new Set<HTMLElement>();
+      for (const selector of highlightSelectors) {
+        document.querySelectorAll<HTMLElement>(selector).forEach((node) => marked.add(node));
+      }
       document.querySelectorAll('.judge-training-focus').forEach((element) => {
-        if (element !== target) element.classList.remove('judge-training-focus');
+        if (!marked.has(element as HTMLElement)) element.classList.remove('judge-training-focus');
       });
-      target?.classList.add('judge-training-focus');
+      marked.forEach((node) => node.classList.add('judge-training-focus'));
     };
     update();
     const observer = new MutationObserver(update);
@@ -67,18 +73,18 @@ export default function JudgeConductCoach() {
       observer.disconnect();
       document.querySelectorAll('.judge-training-focus').forEach((element) => element.classList.remove('judge-training-focus'));
     };
-  }, [collapsed, highlight, task.focus, session?.phase]);
+  }, [highlight, highlightKey]);
 
   if (!session) return null;
   return (
-    <div className="relative z-[5] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach">
+    <div className="relative z-[5] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach" data-training-tour-active={isTour ? "true" : "false"}>
       <style>{'.judge-training-focus { outline: 2px solid rgba(251,191,36,.85) !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }'}</style>
       <section className="rounded-2xl border border-amber-300/30 bg-[#191914] px-3 py-2.5 text-white shadow-[0_5px_18px_rgba(0,0,0,.35)]">
         <div className="flex min-w-0 items-center gap-2">
           <BookOpenCheck className="h-4 w-4 shrink-0 text-amber-200"/>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/75">
-              {isTour ? 'Задание · знакомство ' + (tourIndex + 1) + '/' + TOUR.length : 'Задание · учебная партия'}
+              {isTour ? 'Знакомство · ' + (tourIndex + 1) + '/' + TOUR.length : 'Обязательное задание · нулевая игра'}
             </div>
             <div className={'truncate text-sm font-semibold ' + (task.warning ? 'text-rose-200' : 'text-white')} aria-live="polite">{task.title}</div>
           </div>

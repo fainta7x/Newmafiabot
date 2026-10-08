@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
-import { getTrainingPrompt, planTrainingDay, trainingNightTarget } from '../lib/judgeConductTraining.ts';
+import { getTrainingPrompt, getJudgeTrainingGate, planTrainingDay, trainingNightTarget } from '../lib/judgeConductTraining.ts';
 
 const game = (changes: Record<string, unknown> = {}): PersistedLiveSession => ({
   phase: 'day_speeches', roundNumber: 1, dayStarterSlot: 1,
@@ -54,6 +54,54 @@ describe('judge conduct coach linear script', () => {
     const hint = getTrainingPrompt(s);
     expect(hint.title).toBe('Голосуют против #4');
     expect(hint.detail).toContain('Осталось отметить:');
+  });
+
+
+  it('forces the correct zero-night progression with one primary control', () => {
+    for (const [sub, music, title] of [
+      [null, 'pending', 'Включи музыку нулевой ночи'],
+      [null, 'playing', 'Договорка мафии'],
+      ['agreement', 'playing', 'Вызов Шерифа'],
+      ['sheriff', 'playing', 'Свободная посадка'],
+      ['seating', 'playing', 'Выключи музыку'],
+      ['seating', 'stopped', 'Открой нулевой круг'],
+    ] as const) {
+      const gate = getJudgeTrainingGate(game({ phase: 'zero_night', zeroNightSubPhase: sub, zeroNightMusicState: music }));
+      expect(gate?.title).toBe(title);
+      expect(gate?.allowed).toEqual(['.live-judge-hud__primary']);
+    }
+  });
+
+  it('requires the nominated player during #2 and allows only that action', () => {
+    const gate = getJudgeTrainingGate(game());
+    expect(gate?.allowed).toEqual(['[data-seat="1"] .live-seat-quick-action--nomination']);
+    expect(gate?.title).toBe('Игрок #2 выставляет #1');
+    const after = getJudgeTrainingGate(game({ nominations: [1], nominationsMap: { 1: 2 } }));
+    expect(after?.allowed).toEqual(['.live-judge-hud__primary']);
+    expect(after?.title).toBe('Заверши речь #2');
+    expect(getJudgeTrainingGate(game({ activeSpeakerSlot: 7, nominations: [1], nominationsMap: { 1: 2 } }))?.allowed)
+      .toEqual(['[data-seat="3"] .live-seat-quick-action--nomination']);
+  });
+
+  it('only exposes the five required voters, then Next and Finalize', () => {
+    const voting = { phase: 'day_voting', activeSpeakerSlot: null, votingStage: 'collecting',
+      votingRounds: [{ nominated_seats: [1, 3], is_revote: false }], activeVotingRoundIndex: 0,
+      currentVotingNomineeIndex: 0 };
+    const start = getJudgeTrainingGate(game(voting));
+    expect(start?.highlight).toEqual([2, 3, 4, 5, 6].map((n) => '.live-seat-card[data-seat="' + n + '"]'));
+    expect(start?.allowed).toContain('[data-testid="live-voting-back-to-speeches"]');
+    const votes = { 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 };
+    expect(getJudgeTrainingGate(game({ ...voting, votesByPlayer: votes }))?.highlight).toEqual(['[data-testid="live-voting-next"]']);
+    expect(getJudgeTrainingGate(game({ ...voting, votesByPlayer: votes, currentVotingNomineeIndex: 1 }))?.highlight)
+      .toEqual(['[data-testid="live-voting-finalize"]']);
+  });
+
+  it('continues with the simple revote and releases the hard gate after the zero round', () => {
+    const voting = { phase: 'day_voting', activeSpeakerSlot: null, votingStage: 'revote_speeches',
+      votingRounds: [{ nominated_seats: [1, 3], is_revote: false }], activeVotingRoundIndex: 0 };
+    expect(getJudgeTrainingGate(game(voting))?.allowed).toEqual(['.live-judge-hud__stack--revote-speech > .live-judge-action']);
+    expect(getJudgeTrainingGate(game({ ...voting, roundNumber: 2 }))).toBeNull();
+    expect(getJudgeTrainingGate(game({ phase: 'night' }))).toBeNull();
   });
 
   it('targets a live red player during the night, and teaches the mandatory post-kill steps', () => {

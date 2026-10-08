@@ -89,6 +89,7 @@ interface CenterPanelProps {
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
   handleTransitionToVoting?: () => void;
+  onBackToDaySpeeches?: () => void;
   markPlayerSpoken?: (slot: number) => void;
   isInteractiveVoting?: boolean;
   setIsInteractiveVoting?: (value: boolean) => void;
@@ -179,6 +180,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleLaunchNextRevote,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
+    onBackToDaySpeeches,
     onOpenPlayerActions,
   } = props;
 
@@ -385,9 +387,11 @@ export default function CenterPanel(props: CenterPanelProps) {
       } as Record<string, string>)[nightSubPhase] || 'Ночь'
     : null;
 
-  const canUseVotingBack = phase === 'day_voting' && (votingStage === 'round_result' || votingStage === 'revote_speeches');
+  const canReturnToSpeeches = phase === 'day_voting' && activeVotingRoundIndex === 0 && (votingStage === 'collecting' || votingStage === 'setup') && Boolean(onBackToDaySpeeches);
+  const canUseVotingBack = canReturnToSpeeches || (phase === 'day_voting' && (votingStage === 'round_result' || votingStage === 'revote_speeches'));
 
   const handleVotingBack = () => {
+    if (canReturnToSpeeches) { onBackToDaySpeeches?.(); return; }
     if (!currentRound || !currentVotingResult) return;
 
     if (votingStage === 'round_result') {
@@ -538,9 +542,9 @@ export default function CenterPanel(props: CenterPanelProps) {
           <div className="live-judge-vote-actions">
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
             {isLast ? (
-              <button type="button" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
+              <button type="button" data-testid="live-voting-finalize" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
             ) : (
-              <button type="button" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
+              <button type="button" data-testid="live-voting-next" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
             )}
           </div>
         </div>
@@ -781,7 +785,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               </select>
             )}
             {canUseVotingBack && (
-              <button type="button" onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>Назад</span></button>
+              <button type="button" data-testid={canReturnToSpeeches ? "live-voting-back-to-speeches" : undefined} onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>{canReturnToSpeeches ? "К речам" : "Назад"}</span></button>
             )}
             {onCancel && (
               <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="live-judge-hud__header-button"><LogOut /><span>Выйти</span></button>

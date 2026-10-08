@@ -366,3 +366,48 @@
   font-weight: 900;
 }
 
+
+
+/* 2026-10-08: the center cell is shorter than the voting content on some
+   desktop and phone widths. Never crop "Следующий / Подвести итог": scroll
+   only the HUD body, not the page or the seat grid. */
+.evening-live-engine-shell .live-judge-hud__body:has(> .live-judge-hud__stack--voting-scroll > .live-judge-vote-summary) {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  align-items: stretch;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) {
+  overflow: visible !important;
+  min-height: max-content;
+  max-height: none !important;
+  height: auto !important;
+}
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 36px;
+  padding: 3px 0;
+  margin-top: auto;
+  background: var(--ds-inset, #161920);
+}
+.evening-live-engine-shell .live-judge-vote-actions .live-judge-action {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+/* Mark exposed candidates on the entire seat border, not by a check
+   or a large 'Снять' pill obscuring the portrait. */
+.evening-live-engine-shell .live-seat-card[data-nominated='true'] {
+  border: 2px solid #f2b75c !important;
+  background: rgba(229, 167, 66, 0.10) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 223, 143, .33), 0 0 0 2px rgba(242, 183, 92, .20) !important;
+}
+.evening-live-engine-shell .live-seat-card[data-nominated='true'].live-seat-card--speaking {
+  box-shadow: inset 0 0 0 1px rgba(255, 223, 143, .33), 0 0 0 3px rgba(242, 183, 92, .4) !important;
+}

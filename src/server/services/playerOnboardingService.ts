@@ -25,7 +25,7 @@ export type VerifiedOnboardingStart =
 const ONBOARDING_TTL_MS = 20 * 60 * 1000;
 const hashToken = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 const onboardingError = (code: string, message: string, statusCode = 400) => Object.assign(new Error(message), { code, statusCode });
-const PRIVATE_CONFIRMATION_UNAVAILABLE_CODES = new Set(['telegram_unavailable', 'telegram_delivery_failed']);
+const PRIVATE_CONFIRMATION_UNAVAILABLE_CODES = new Set(['telegram_unavailable', 'telegram_delivery_failed', 'claim_rate_limited']);
 
 export function validatePlayerOnboardingReturnPath(value: unknown): string {
   const raw = String(value || '/player').trim();

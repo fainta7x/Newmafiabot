@@ -66,7 +66,7 @@ for (const width of [360, 390]) {
       });
       return {
         coachOutsideShell: coach?.parentElement === modal,
-        shellDirectChild: shell?.parentElement === modal,
+        sameCanonicalWrapper: shell?.parentElement?.parentElement === modal,
         gridColumns: board ? getComputedStyle(board).gridTemplateColumns.split(' ').length : 0,
         gridRows: board ? getComputedStyle(board).gridTemplateRows.split(' ').length : 0,
         trigger: bounds(trigger),
@@ -76,7 +76,7 @@ for (const width of [360, 390]) {
         seats,
       };
     });
-    expect(geometry.shellDirectChild).toBe(true);
+    expect(geometry.sameCanonicalWrapper).toBe(true);
     expect(geometry.coachOutsideShell).toBe(true);
     expect(geometry.gridColumns).toBe(4);
     expect(geometry.gridRows).toBe(3);

@@ -495,6 +495,26 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       </div>
 
+      {trainingMode && (
+        <style>{`
+          /* Synthetic identities share exactly the parent table's used grid tracks.
+             These rules touch only the decorative overlay, never live seats/HUD. */
+          html body .evening-live-engine-shell[data-training-input-gate="active"]
+          div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card)
+          > .evening-live-identity-layer {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            grid-template-columns: inherit !important;
+            grid-template-rows: inherit !important;
+            gap: inherit !important;
+            pointer-events: none !important;
+          }
+        `}</style>
+      )}
       {trainingMode && <JudgeConductCoach />}
 
       {broadcastSetupOpen && (

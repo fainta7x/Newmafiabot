@@ -126,15 +126,15 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: /Завершить речь #2/ }).click();
 
     await page.getByRole('button', { name: /^Речь #3$/ }).click();
-    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Обычный фол игроку #3/);
-    await page.getByTestId('live-player-actions-center-selector').selectOption('3');
-    await page.locator('[data-testid="live-player-add-regular-foul"][data-seat="3"]').click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Заверши речь #3/);
     await page.getByRole('button', { name: /Завершить речь #3/ }).click();
 
-    // +30 is forbidden on the zero round. Here we verify ordinary speech.
-    // A separate later-day test validates the +30-for-two-new-fouls rule.
+    // Player #3 is penalized while player #4 is speaking, not during their own speech.
+    // The +30 action is not available in the zero circle.
     await page.getByRole('button', { name: /^Речь #4$/ }).click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Обычный фол игроку #3/);
+    await page.getByTestId('live-player-actions-center-selector').selectOption('3');
+    await page.locator('[data-testid="live-player-add-regular-foul"][data-seat="3"]').click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Заверши речь #4/);
     await expect(page.getByTestId('live-hud-speech-extension')).toHaveCount(0);
     await page.getByRole('button', { name: /Завершить речь #4/ }).click();
@@ -144,7 +144,7 @@ for (const width of [360, 390]) {
       if (seat === 7) await shell.locator('.live-seat-card[data-seat="3"] .live-seat-quick-action--nomination').click();
       await page.getByRole('button', { name: new RegExp('Завершить речь #' + seat) }).click();
     }
-    await page.getByRole('button', { name: /К голосованию/ }).click();
+    await page.getByTestId('live-judge-hud').getByRole('button', { name: 'К голосованию', exact: true }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Голоса против #1/);
     const voter = shell.locator('.live-seat-card[data-seat="2"]');
     await expect(voter).toHaveAttribute('data-judge-training-kind', 'vote');
@@ -153,7 +153,7 @@ for (const width of [360, 390]) {
     for (const slot of [2,3,4,5,6]) await shell.locator('.live-seat-card[data-seat="' + slot + '"]').click();
     await page.getByTestId('live-voting-next').click();
     await page.getByTestId('live-voting-finalize').click();
-    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Итог: решение движка/);
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Первый попил 5:5/);
     await page.getByRole('button', { name: /Речи по 30 секунд/ }).click();
     await page.getByRole('button', { name: 'Следующий игрок' }).click();
     await page.getByRole('button', { name: 'К переголосованию' }).click();
@@ -166,6 +166,31 @@ for (const width of [360, 390]) {
     for (const slot of seatsToClick) await shell.locator('.live-seat-card[data-seat="' + slot + '"]').click();
     await page.getByTestId('live-voting-next').click();
     await page.getByTestId('live-voting-finalize').click();
-    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Итог: решение движка/);
+
+    // Second tie is 5:5, so the real engine requires the table's decision
+    // instead of eliminating one candidate or starting an unplanned third ballot.
+    await expect(page.getByTestId('judge-training-task-trigger'))
+      .toHaveAttribute('aria-label', /Решение стола: руку поднял #2/);
+    await expect(page.getByRole('button', { name: /Зафиксировать решение/ })).toBeVisible();
+    await shell.locator('.live-seat-card[data-seat="2"]').click();
+    await expect(page.getByTestId('judge-training-task-trigger'))
+      .toHaveAttribute('aria-label', /Один голос — оба остаются/);
+    const selectedForRaise = await page.evaluate(() => {
+      const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+      return { selected: saved.tableDecisionSelectedVoterSlots, count: saved.tableLeaveVotesInput };
+    });
+    expect(selectedForRaise.selected).toEqual([2]);
+    expect(selectedForRaise.count).toBe(1);
+    await page.screenshot({ path: info.outputPath(`table-decision-one-hand-${width}.png`) });
+    await page.getByRole('button', { name: /Зафиксировать решение/ }).click();
+    await expect(page.getByTestId('judge-training-task-trigger'))
+      .toHaveAttribute('aria-label', /Наступила ночь/);
+    const live = await page.evaluate(() => {
+      const saved = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+      return { phase: saved.phase, alive: saved.activePlayers?.filter(p => p.alive)?.length };
+    });
+    expect(live.phase).toBe('night');
+    expect(live.alive).toBe(10);
+    await page.screenshot({ path: info.outputPath(`night-after-two-ties-${width}.png`) });
   });
 }

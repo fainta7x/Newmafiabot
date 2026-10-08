@@ -1,4 +1,5 @@
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
+import { determineVotingResult } from '../shared/tournamentVoting.ts';
 
 export type TrainingPrompt = {
   title: string;
@@ -31,11 +32,14 @@ export const trainingNightTarget = (session: PersistedLiveSession) => {
   return reds[session.roundNumber % reds.length]?.slot_num ?? session.activePlayers.find((p) => p.alive)?.slot_num ?? 1;
 };
 
-export const trainingVotes = (session: PersistedLiveSession, nominees: number[], isRevote: boolean) => {
+export const trainingVotes = (session: PersistedLiveSession, nominees: number[], _isRevote: boolean) => {
   const alive = session.activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
-  const needed = isRevote || session.roundNumber > 1 ? Math.floor(alive.length / 2) + 1 : 5;
+  // The zero-circle exercise deliberately ties 5:5 BOTH times. A 6:4
+  // revote would elect a loser immediately, skipping the real table decision.
+  const zeroRoundTie = session.roundNumber === 1 && alive.length === 10 && nominees.length === 2;
+  const needed = zeroRoundTie ? 5 : Math.floor(alive.length / 2) + 1;
   // The first practice ballot is precisely 2,3,4,5,6 against #1 (and five against #3).
-  const ordered = session.roundNumber === 1 && !isRevote && nominees[0] === 1 && nominees[1] === 3
+  const ordered = session.roundNumber === 1 && nominees[0] === 1 && nominees[1] === 3
     ? [2, 3, 4, 5, 6, 1, 7, 8, 9, 10]
     : [...alive.slice(session.roundNumber), ...alive.slice(0, session.roundNumber)];
   return ordered.filter((n) => alive.includes(n)).slice(0, needed);
@@ -198,9 +202,10 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
           'Выставь только игрока #' + planned.nominee + ', затем заверши речь.', [selector], 'nomination');
       }
 
-      // In the first practice round a foul is recorded during #3's speech.
-      if (s.roundNumber === 1 && current === 3) {
-        const foul = requireFoul(s, 3, 1, 'Во время речи ведущий фиксирует обычный фол.');
+      // The judge gives player #3 a foul during player #4's speech;
+      // do not ask the speaking player to penalize themselves.
+      if (s.roundNumber === 1 && current === 4) {
+        const foul = requireFoul(s, 3, 1, 'Во время речи игрока #4 игрок #3 нарушил порядок. Ведущий фиксирует обычный фол игроку #3.');
         if (foul) return foul;
       }
       // +30 is NOT a refund for two accumulated fouls. In the real game it
@@ -245,24 +250,31 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
         ['[data-testid="live-voting-finalize"]', ...backs], 'action', ['[data-testid="live-voting-finalize"]']);
     }
     if (s.votingStage === 'round_result') {
-      return gate('Итог: решение движка',
-        'При равенстве сначала дай каждому выставленному по 30 секунд, затем проведи переголосование. Используй подсвеченную кнопку.',
-        ['.live-judge-hud__stack .live-judge-action--primary', '.live-judge-hud__stack .live-judge-action--success', ...backs]);
+      const result = determineVotingResult(round);
+      if (result.outcome === 'requires_table_decision') {
+        // In the actual Live Engine this remains votingStage='round_result':
+        // the "table_decision" enum branch is not entered for this outcome.
+        const chosen = s.tableDecisionSelectedVoterSlots || [];
+        if (!chosen.includes(2)) return gate('Решение стола: руку поднял #2',
+          'После второго попила 5:5 стол решает, поднять ли обоих кандидатов. За поднятие голосует ТОЛЬКО игрок #2. Нажми его место.',
+          [seatTarget(2)], 'vote', [seatTarget(2)]);
+        if (chosen.length > 1) return gate('Исправь решение стола',
+          'Поднять руку должен только #2. Сними лишние отметки.',
+          chosen.filter((slot) => slot !== 2).map(seatTarget), 'vote');
+        return gate('Один голос — оба остаются',
+          'За поднятие — 1 из 10. Большинства нет: #1 и #3 остаются в игре. Нажми «Зафиксировать решение» и переходи в ночь.',
+          ['.live-judge-table-decision .live-judge-action'], 'action');
+      }
+      if (result.outcome === 'needs_revote') return gate('Первый попил 5:5',
+        'Дай #1 и #3 по 30 секунд, затем проведи второе голосование. Ждём повторное 5:5.',
+        ['.live-judge-hud__stack .live-judge-action--primary']);
+      return gate('Итог голосования', 'Используй действие в центральной панели согласно результату.',
+        ['.live-judge-hud__stack .live-judge-action--primary', '.live-judge-hud__stack .live-judge-action--success']);
     }
     if (s.votingStage === 'revote_speeches')
       return gate('Попил: речи по 30 секунд',
         'Дай каждому кандидату 30 секунд, переходи кнопкой «Следующий игрок», затем «К переголосованию».',
         ['.live-judge-hud__stack--revote-speech > .live-judge-action']);
-    if (s.votingStage === 'table_decision') {
-      const voted = [1, 2, 3, 4, 5].filter((slot) => s.activePlayers.some((p) => p.alive && p.slot_num === slot));
-      const selected = s.tableDecisionSelectedVoterSlots || [];
-      const pending = voted.filter((slot) => !selected.includes(slot));
-      return pending.length
-        ? gate('Решение стола: кто за поднятие', 'За поднятие голосуют места ' + voted.map((n) => '#' + n).join(', ') + '.',
-          pending.map(seatTarget), 'vote')
-        : gate('Подтверди решение стола', 'Нажми «Зафиксировать решение».',
-          ['.live-judge-table-decision .live-judge-action']);
-    }
     return next('Далее после голосования', 'Перейди к следующему этапу.');
   }
 

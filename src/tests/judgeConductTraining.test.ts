@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
-import { getTrainingPrompt, getJudgeTrainingGate, planTrainingDay, trainingNightTarget } from '../lib/judgeConductTraining.ts';
+import { getTrainingPrompt, getJudgeTrainingGate, planTrainingDay, trainingNightTarget, trainingVotes } from '../lib/judgeConductTraining.ts';
+import { determineVotingResult } from '../shared/tournamentVoting.ts';
 
 const game = (changes: Record<string, unknown> = {}): PersistedLiveSession => ({
   phase: 'day_speeches', roundNumber: 1, dayStarterSlot: 1,
@@ -120,24 +121,60 @@ describe('judge conduct coach linear script', () => {
 });
 
 describe('judge training stays scripted beyond the zero round', () => {
-  it('teaches an ordinary foul on zero round and +30 only on an eligible later day', () => {
-    const at = (slot: number, roundNumber: number, fouls: number, extended: number | null = null) => game({
-      roundNumber,
-      activeSpeakerSlot: slot,
-      speechExtendedSlot: extended,
-      activePlayers: game().activePlayers.map(p => ({ ...p, fouls: p.slot_num === slot ? fouls : 0 })),
+  it('gives #3 a foul during the speech of #4, not #3 himself', () => {
+    const at = (speaker: number, foulOnThree: number) => game({
+      activeSpeakerSlot: speaker,
+      activePlayers: game().activePlayers.map(p => ({
+        ...p, fouls: p.slot_num === 3 ? foulOnThree : 0,
+      })),
     });
-    const foul = getJudgeTrainingGate(at(3, 1, 0));
-    expect(foul?.kind).toBe('foul');
-    expect(foul?.foulSeat).toBe(3);
-    expect(foul?.allowed).toContain('[data-testid="live-player-add-regular-foul"][data-seat="3"]');
-    expect(getJudgeTrainingGate(at(3, 1, 1))?.title).toBe('Заверши речь #3');
-    // There must be no +30 instruction anywhere in the zero circle.
-    expect(getJudgeTrainingGate(at(4, 1, 0))?.title).toBe('Заверши речь #4');
-    const extension = getJudgeTrainingGate(at(2, 2, 0));
-    expect(extension?.allowed).toEqual(['[data-testid="live-hud-speech-extension"]']);
-    expect(extension?.detail).toContain('начислит два обычных фола');
-    expect(getJudgeTrainingGate(at(2, 2, 2, 2))?.title).toBe('Заверши речь #2');
+    expect(getJudgeTrainingGate(at(3, 0))?.title).toBe('Заверши речь #3');
+    const instruction = getJudgeTrainingGate(at(4, 0));
+    expect(instruction?.title).toBe('Обычный фол игроку #3');
+    expect(instruction?.detail).toContain('Во время речи игрока #4');
+    expect(instruction?.kind).toBe('foul');
+    expect(instruction?.foulSeat).toBe(3);
+    expect(instruction?.allowed).toContain('[data-testid="live-player-add-regular-foul"][data-seat="3"]');
+    expect(getJudgeTrainingGate(at(4, 1))?.title).toBe('Заверши речь #4');
+    expect(getJudgeTrainingGate(game({ activeSpeakerSlot: 2, roundNumber: 2, speechExtendedSlot: null }))?.title)
+      .toBe('Добавь +30 секунд игроку #2');
+  });
+
+  it('gives the first candidate exactly five votes on BOTH ballots, so both end 5:5', () => {
+    const first = game({ phase: 'day_voting' });
+    const second = game({ phase: 'day_voting', activeVotingRoundIndex: 1 });
+    const firstVoters = trainingVotes(first, [1, 3], false);
+    const secondVoters = trainingVotes(second, [1, 3], true);
+    expect(firstVoters).toEqual([2, 3, 4, 5, 6]);
+    expect(secondVoters).toEqual(firstVoters);
+    const base = { nominated_seats: [1, 3], eligible_voters: 10,
+      vote_counts: { 1: 5, 3: 5 }, table_leave_votes: null };
+    expect(determineVotingResult({ ...base, is_revote: false }).outcome).toBe('needs_revote');
+    expect(determineVotingResult({ ...base, is_revote: true }).outcome).toBe('requires_table_decision');
+  });
+
+  it('asks only #2 for the final table decision then allows night with one vote', () => {
+    const original = { nominated_seats: [1, 3], vote_counts: { 1: 5, 3: 5 },
+      eligible_voters: 10, is_revote: false, table_leave_votes: null };
+    const revote = { ...original, is_revote: true };
+    const context = { phase: 'day_voting', votingStage: 'round_result',
+      activeSpeakerSlot: null, activeVotingRoundIndex: 1, votingRounds: [original, revote] };
+    const choose = getJudgeTrainingGate(game(context));
+    expect(choose?.title).toBe('Решение стола: руку поднял #2');
+    expect(choose?.allowed).toEqual(['.live-seat-card[data-seat="2"]']);
+    expect(choose?.kind).toBe('vote');
+
+    const confirm = getJudgeTrainingGate(game({
+      ...context, tableDecisionSelectedVoterSlots: [2], tableLeaveVotesInput: 1,
+    }));
+    expect(confirm?.title).toBe('Один голос — оба остаются');
+    expect(confirm?.allowed).toEqual(['.live-judge-table-decision .live-judge-action']);
+
+    const result = determineVotingResult({ ...revote, table_leave_votes: 1 });
+    expect(result.outcome).toBe('requires_table_decision');
+    expect(result.resolvedOutcome).toBe('no_elimination');
+    const wrong = getJudgeTrainingGate(game({ ...context, tableDecisionSelectedVoterSlots: [2, 6] }));
+    expect(wrong?.allowed).toEqual(['.live-seat-card[data-seat="6"]']);
   });
 
   it('teaches shooting and Don/Sheriff checks by specified seats, never arbitrary clicks', () => {

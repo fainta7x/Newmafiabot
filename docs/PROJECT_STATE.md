@@ -722,6 +722,14 @@ Revised hypotheses (unapproved; feasibility must be checked):
 - Personal game notebook: save reasoning and situations from one's games, link video timecodes where recordings exist, track chosen improvement goals; notes/bookmarks alone may have insufficient paid value.
 - Compendium rewards could use agreed service/participation credits, not just cosmetic unlocks; never promise benefits or margins before they are funded and fulfilment is designed.
 
+Owner selection 20:18 Moscow (ideas retained for design, not implementation approval):
+- Player-specific styling of the actual Live Game seat/card and broadcast appearance, not profile-only decoration; explore unique visible animations/glow, with readability and gameplay preserved. Exact triggers and assets to discuss.
+- Music set and paid priority in track selection retained; exact fairness/priority rules are not approved and must be discussed before changing the existing random selection.
+- Poker table visual themes retained as a possible cosmetic feature; no paid gameplay/settings advantage selected.
+- Furniture placement/personal room builder deferred as too complex and distant.
+- Paid thematic evening rejected: player initiatives for thematic evenings should be encouraged freely.
+Continue brainstorming additional app/game cosmetics and expressive features. No final VIP/compendium bundle or price chosen.
+
 Current stop: Robokassa test adapter merged in PR #754; mounted wallet checkout, authenticated ResultURL settlement and receipt evidence still remain. Merchant/NPD onboarding deferred to tomorrow. This discussion does not authorize implementation of VIP, compendium, new payment rules or paid sporting advantages.
 
 ### Waiting on the owner

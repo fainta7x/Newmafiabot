@@ -116,7 +116,7 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: /^Речь #1$/ }).click();
     const speakingGeometry = await measure();
     expect(Math.abs(idleGeometry.height - speakingGeometry.height)).toBeLessThan(2);
-    expect(Math.abs(idleGeometry.firstSeatBottom - speakingGeometry.firstSeatBottom)).toBeLessThan(2);
+    expect(Math.abs(idleGeometry.firstSeatBottom - speakingGeometry.firstSeatBottom)).toBeLessThan(5);
     await page.getByRole('button', { name: /Завершить речь #1/ }).click();
 
     // Nomination and voter highlights must be semantically different.

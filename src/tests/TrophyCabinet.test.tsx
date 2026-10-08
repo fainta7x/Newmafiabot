@@ -19,10 +19,11 @@ describe('trophy cabinet based on existing verified profile data', () => {
     expect(isFirstPlace('1-е место')).toBe(true);
     expect(isFirstPlace('11 место')).toBe(false);
     expect(isFirstPlace('21 место')).toBe(false);
-    const withUnverified=[...bogdanAwards,{id:'pending',kind:'placement',title:'1 место',tournament_name:'Турнир',place_result:'1 место',verification_status:'pending'}];
+    const withUnverified=[...bogdanAwards,{id:'honorary',kind:'trophy',title:'Кубок клуба',tournament_name:'Клубный вечер',place_result:'1 место',verification_status:'verified'},{id:'pending',kind:'placement',title:'1 место',tournament_name:'Турнир',place_result:'1 место',verification_status:'pending'}];
     const items=cabinetItems(withUnverified,[]);
     expect(items.filter(x=>x.tournamentWinner)).toHaveLength(2);
-    expect(items.filter(x=>x.category==='cups')).toHaveLength(2);
+    expect(items.filter(x=>x.category==='cups')).toHaveLength(3);
+    expect(items.find(x=>x.id==='award:honorary')?.tournamentWinner).toBe(false);
     expect(items.filter(x=>x.category==='medals')).toHaveLength(1);
     expect(items.filter(x=>x.category==='nominations')).toHaveLength(1);
     expect(items.some(x=>x.id==='award:pending')).toBe(false);

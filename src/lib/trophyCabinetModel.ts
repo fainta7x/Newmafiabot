@@ -63,7 +63,7 @@ export const isMedalPlace = (raw?: string | null) => {
 export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: CabinetAchievement[]): CabinetItem[] => {
   const verified = awards.filter(a => a.verification_status === undefined || a.verification_status === null || a.verification_status === 'verified');
   const items: CabinetItem[] = verified.map(award => {
-    const first = isFirstPlace(award.place_result) && Boolean(award.tournament_id || award.tournament_name);
+    const first = award.kind === 'placement' && isFirstPlace(award.place_result) && Boolean(award.tournament_id || award.tournament_name);
     const category: CabinetCategory =
       first || award.kind === 'trophy' ? 'cups'
         : isMedalPlace(award.place_result) || award.kind === 'medal' || award.kind === 'placement' ? 'medals'

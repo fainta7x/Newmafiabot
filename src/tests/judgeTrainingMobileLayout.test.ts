@@ -7,7 +7,8 @@ const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(
 describe('judge training reuses the actual club Live Game layout', () => {
   it('mounts exactly the production game shell, without training scroll wrappers', () => {
     const modal = read('src/components/crm/EveningLiveGameModal.tsx');
-    expect(modal).toContain('{trainingMode && <JudgeConductCoach />}');
+    expect(modal).toContain("{trainingMode && livePhase !== 'setup' && <JudgeConductCoach />}");
+    expect(modal).toContain("if (!trainingMode || livePhase === 'setup') return;");
     expect(modal).toContain('<div className="evening-live-engine-shell py-0.5 md:py-3"');
     expect(modal).not.toContain("h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain");
     expect(modal).toContain("const identityOverlay = livePhase === 'setup' ? null : (");

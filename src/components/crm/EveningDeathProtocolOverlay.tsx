@@ -1,6 +1,6 @@
 import React from 'react';
 import { determineLiveWinner, type LiveFlowPlayer, type LiveWinnerTeam } from '../../lib/liveGameFlow';
-import { nextTrainingDeathMark, matchesTrainingDeathProtocol, canToggleTrainingDeathMark } from '../../lib/judgeTrainingProtocols.ts';
+import { getTrainingDeathProtocolPlan, getTrainingDeathMarkSteps, nextTrainingDeathMark, matchesTrainingDeathProtocol, canToggleTrainingDeathMark } from '../../lib/judgeTrainingProtocols.ts';
 import {
   type DeathProtocolSelection,
   emptyDeathProtocolSelection,
@@ -23,6 +23,7 @@ interface EveningDeathProtocolOverlayProps {
   submitting?: boolean;
   tableSize?: number;
   training?: boolean;
+  roundNumber?: number;
 }
 
 // 10 seats, or 8–9 at a novice table.
@@ -42,12 +43,14 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   submitting = false,
   tableSize = 10,
   training = false,
+  roundNumber = 1,
 }) => {
   const seatNumbers = seatNumbersFor(tableSize);
-  const nextStep = training ? nextTrainingDeathMark(value) : null;
-  const completedTrainingProtocol = training && matchesTrainingDeathProtocol(value);
+  const trainingPlan = getTrainingDeathProtocolPlan(roundNumber, killedSlot);
+  const nextStep = training ? nextTrainingDeathMark(value, trainingPlan) : null;
+  const completedTrainingProtocol = training && matchesTrainingDeathProtocol(value, trainingPlan);
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
-    if (submitting || (training && !canToggleTrainingDeathMark(value, mark, seat))) return;
+    if (submitting || (training && !canToggleTrainingDeathMark(value, trainingPlan, mark, seat))) return;
     const other = mark === 'red' ? 'black' : 'red';
     const isSelected = value[mark].includes(seat);
     onChange({
@@ -58,7 +61,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   };
 
   const toggleSheriff = (seat: number) => {
-    if (submitting || (training && !canToggleTrainingDeathMark(value, 'sheriff', seat))) return;
+    if (submitting || (training && !canToggleTrainingDeathMark(value, trainingPlan, 'sheriff', seat))) return;
     onChange({ ...value, sheriff: value.sheriff[0] === seat ? [] : [seat] });
   };
 
@@ -82,7 +85,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
             <button
               key={`${mark}-${seat}`}
               type="button"
-              disabled={submitting || (training && !canToggleTrainingDeathMark(value, mark, seat))}
+              disabled={submitting || (training && !canToggleTrainingDeathMark(value, trainingPlan, mark, seat))}
               onClick={() => onToggle(seat)}
               aria-pressed={selected}
               data-testid={training ? 'judge-training-death-' + mark + '-' + seat : undefined}
@@ -116,8 +119,9 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
         {training && (
           <div data-testid="judge-training-death-task" role="status" className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold text-emerald-100">
             {nextStep
-              ? `Задание: убитый #${killedSlot} озвучил цветной протокол. В строке «${nextStep.label}» нажми #${nextStep.seat}. Следуй подсветке; остальные номера заблокированы.`
-              : 'Протокол заполнен: красные #1, #2; чёрные #3, #5; Шериф #8. Нажми «Сохранить → день».'}
+              ? `Задание ночи ${roundNumber}: убитый #${killedSlot} назвал ${trainingPlan.red.length + trainingPlan.black.length} цветовых предположений${trainingPlan.sheriff.length ? ' и Шерифа' : ' (без Шерифа)'}. В строке «${nextStep.label}» нажми #${nextStep.seat}. Необязательно угадывать настоящие роли. Остальные номера заблокированы.`
+              : 'Все ' + getTrainingDeathMarkSteps(trainingPlan).length + ' отметки записаны. Это догадки убитого, они не обязаны совпадать с настоящими ролями. Нажми «Сохранить → день».'
+            }
           </div>
         )}
 
@@ -151,6 +155,7 @@ type LiveSessionView = {
   killedName: string;
   winner: LiveWinnerTeam | null;
   training: boolean;
+  roundNumber: number;
 };
 
 const emptyLiveSession = (): LiveSessionView => ({
@@ -161,6 +166,7 @@ const emptyLiveSession = (): LiveSessionView => ({
   killedName: '',
   winner: null,
   training: false,
+  roundNumber: 1,
 });
 
 const findEngineButton = (labels: string | string[]): HTMLButtonElement | null => {
@@ -216,6 +222,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
           killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
           winner,
           training: parsed?.sessionKey === 'club:-2147483000',
+          roundNumber: Number(parsed?.roundNumber) || 1,
         };
         const signature = JSON.stringify(next);
         if (signature !== lastSignature) {
@@ -252,7 +259,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
 
   const handleConfirm = () => {
     if (submitting) return;
-    if (session.training && !matchesTrainingDeathProtocol(value)) {
+    if (session.training && !matchesTrainingDeathProtocol(value, getTrainingDeathProtocolPlan(session.roundNumber, killedSlot))) {
       setError('Заверши учебные отметки цветного протокола перед сохранением.');
       return;
     }
@@ -323,6 +330,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       error={error}
       finishGame={session.winner !== null}
       training={session.training}
+      roundNumber={session.roundNumber}
       submitting={submitting}
       tableSize={session.tableSize}
     />

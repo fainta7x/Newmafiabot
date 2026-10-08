@@ -15,14 +15,18 @@ describe('player cabinet scope regressions', () => {
     expect(main).not.toContain('<EveningDeathProtocolBridge />');
   });
 
-  it('keeps conducting and evening-management tools out of the player home dashboard', () => {
+  it('keeps judge tools out of the home feed but exposes a deliberate judge-workspace entry', () => {
     const home = read('src/components/player/PlayerHomeDashboard.tsx');
+    const quick = read('src/components/player/PlayerQuickAccessBar.tsx');
     const shell = read('src/components/player/PlayerCabinetShell.tsx');
 
     expect(home).not.toContain('/api/player/judging');
     expect(home).not.toContain('Рабочие инструменты');
     expect(home).not.toContain('Ведение игр');
     expect(home).not.toContain('Управление клубом');
-    expect(shell).not.toContain('onOpenConduct={() => open(\'conduct\')}');
+    expect(quick).toContain('data-testid="player-quick-conduct"');
+    expect(quick).toContain('<span>Ведение</span>');
+    expect(shell).toContain("const canOpenConduct = player.judge_level !== 'none';");
+    expect(shell).toContain("onOpenConduct={() => open('conduct')}");
   });
 });

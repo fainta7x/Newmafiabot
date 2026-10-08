@@ -294,7 +294,7 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
     if (s.postNightStage === 'death_protocol') {
       return gate('Протокол убитого #' + (s.shotPlayerSlot ?? '?'),
         'В открытом окне нажми красных #1, #2, чёрных #3, #5, Шерифа #8 — именно в таком порядке. Затем «Сохранить → день».',
-        ['[data-testid="judge-training-death-task"]', '[data-testid="live-death-protocol-save"]']);
+        ['[data-testid="judge-training-death-task"]', '[data-testid="live-death-protocol-save"]', '.live-judge-hud__primary']);
     }
     if (s.nightSubPhase === 'intro') return next('Наступила ночь', 'Включи музыку и открой этап отстрела через центральную панель.');
     if (s.nightSubPhase === 'shooting') {

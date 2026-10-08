@@ -155,6 +155,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   },[tab,playerId,gameQuery,settings]);
 
   const switchTab=(next:Tab)=>{
+    // Selecting the already visible sub-tab must not clear its fetched data.
+    if(tab===next&&!settings) return;
     if(scrollRef.current) scrollByTab.current[tab]=scrollRef.current.scrollTop;
     setSettings(false);
     setError('');

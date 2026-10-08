@@ -69,6 +69,22 @@ describe('CanonicalPremiumPlayerProfile', () => {
     })).toBe(true));
   });
 
+  it('keeps fetched games visible when the active nested Games tab is clicked again', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/summary')) return response(summary('self', 'Игрок'));
+      if (url.includes('/birthday')) return response({});
+      if (url.includes('/games?')) return response({ games: [{ id: 'club:g7', title: 'Тестовый вечер', role: 'sheriff' }], total: 1 });
+      return response({});
+    }));
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
+    await screen.findByText('Игрок');
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
+    expect(await screen.findByText('Тестовый вечер')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Игры' }));
+    expect(screen.getByText('Тестовый вечер')).toBeDefined();
+  });
+
   it('renders elo_after as the primary Elo value with the rounded delta (the old «До игры» line duplicated them)', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

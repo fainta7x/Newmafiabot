@@ -1,4 +1,6 @@
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
+import { determineLiveWinner } from './liveGameFlow.ts';
+import { TRAINING_BEST_MOVE_SEATS, TRAINING_DEATH_PROTOCOL } from './judgeTrainingProtocols.ts';
 import { determineVotingResult } from '../shared/tournamentVoting.ts';
 
 export type TrainingPrompt = {
@@ -118,7 +120,7 @@ export const getTrainingPrompt = (s: PersistedLiveSession | null): TrainingPromp
 
   if (s.phase === 'night') {
     if (s.postNightStage === 'farewell') return p('Последняя речь убитого', 'После отстрела убитый получает 60 секунд на последнюю речь. Следом ОБЯЗАТЕЛЬНО идёт протокол убитого (20 секунд).');
-    if (s.postNightStage === 'death_protocol') return p('Протокол убитого', 'Зафиксируй протокол убитого в открывшемся окне. Только после сохранения перейди ко дню или завершению.');
+    if (s.postNightStage === 'death_protocol') return p('Протокол убитого #' + (s.shotPlayerSlot ?? '?'), 'В окне протокола отметь красных #' + TRAINING_DEATH_PROTOCOL.red.join(', #') + ', чёрных #' + TRAINING_DEATH_PROTOCOL.black.join(', #') + ', Шерифа #' + TRAINING_DEATH_PROTOCOL.sheriff[0] + '. После отметок сохрани протокол.');
     if (s.nightSubPhase === 'intro') return p('Наступила ночь', 'Включи музыку ночи и перейди к отстрелу мафии.');
     if (s.nightSubPhase === 'shooting') {
       const target = trainingNightTarget(s);
@@ -132,7 +134,7 @@ export const getTrainingPrompt = (s: PersistedLiveSession | null): TrainingPromp
       const target = s.activePlayers.find((v) => v.alive && v.team === 'Чёрные')?.slot_num || s.activePlayers.find((v) => v.alive)?.slot_num || 1;
       return p('Проверка Шерифа', 'Шериф проверяет игрока #' + target + '. Отметь его на столе. Не забудь выключить музыку перед утром.');
     }
-    if (s.nightSubPhase === 'best_move') return p('ЛХ первого убитого', 'Убитый первой ночью называет три места за 25 секунд. Отметь их в окне ЛХ и подтверди.');
+    if (s.nightSubPhase === 'best_move') return p('ЛХ первого убитого', 'Открой ЛХ убитого #7 и выбери по порядку #' + TRAINING_BEST_MOVE_SEATS.join(' → #') + '. Затем подтверди протокол.');
     return p('Зафиксируй ночь', 'Проверь записанные отстрел и проверки. Нажми «Зафиксировать ночь», затем проведи последнюю речь и протокол убитого.');
   }
   return p('Продолжай игру', 'Выполняй показанные в Live Game действия ведущего.');
@@ -182,6 +184,15 @@ const requireFoul = (s: PersistedLiveSession, slot: number, amount: number, reas
 
 export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrainingGate | null => {
   if (!s) return null;
+  // The real engine opens the winner confirmation only when the game is won.
+  // It is the final required training task, not an unauthorized action.
+  if (s.phase !== 'setup' && s.postNightStage === 'none' &&
+      s.nightSubPhase !== 'best_move' && !s.votingFarewellQueue?.length) {
+    const winner = determineLiveWinner(s.activePlayers);
+    if (winner) return gate('Заверши игру — победили ' + winner,
+      'Условие победы выполнено. Нажми «Завершить игру», чтобы закрыть учебную партию. Данные виртуальных игроков в CRM не отправляются.',
+      ['[data-testid="live-winner-confirm"]'], 'action');
+  }
 
   if (s.phase === 'zero_night') {
     if (s.zeroNightMusicState === 'pending') return next('Включи музыку нулевой ночи', 'Нажми подсвеченную кнопку включения музыки.');
@@ -281,8 +292,9 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
   if (s.phase === 'night') {
     if (s.postNightStage === 'farewell') return next('Последняя речь убитого', 'Заверши 60-секундную речь убитого игрока #' + s.shotPlayerSlot + '.');
     if (s.postNightStage === 'death_protocol') {
-      return gate('Протокол убитого', 'Зафиксируй протокол в открывшемся окне и продолжи игру.',
-        ['[data-testid="live-death-protocol"]', '.live-judge-hud__primary']);
+      return gate('Протокол убитого #' + (s.shotPlayerSlot ?? '?'),
+        'В открытом окне нажми красных #1, #2, чёрных #3, #5, Шерифа #8 — именно в таком порядке. Затем «Сохранить → день».',
+        ['[data-testid="judge-training-death-task"]', '[data-testid="live-death-protocol-save"]']);
     }
     if (s.nightSubPhase === 'intro') return next('Наступила ночь', 'Включи музыку и открой этап отстрела через центральную панель.');
     if (s.nightSubPhase === 'shooting') {
@@ -306,9 +318,9 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
         : gate('Шериф проверяет #' + target, 'Нажми место #' + target + ' — Шериф проверяет его цвет.',
           [seatTarget(target)], 'night');
     }
-    if (s.nightSubPhase === 'best_move') return gate('Лучший ход первого убитого',
-      'В открытом протоколе укажи три места и подтверди ЛХ.',
-      ['[data-testid="live-best-move-sheet"]', '.live-judge-hud__primary']);
+    if (s.nightSubPhase === 'best_move') return gate('ЛХ первого убитого',
+      'Выбери последовательно #' + TRAINING_BEST_MOVE_SEATS.join(' → #') + ' в открытом окне ЛХ. Затем подтверди.',
+      ['[data-testid="live-best-move-sheet"]']);
     if (s.nightSubPhase === 'morning') return next('Зафиксируй ночь', 'Проверь записанные проверки и отстрел, затем нажми «Зафиксировать ночь».');
     return next('Заверши ночной этап', 'Используй центральную панель.');
   }

@@ -5,9 +5,11 @@ const TRAINING_ROLES = [
   'Мирный', 'Мирный', 'Шериф', 'Мафия', 'Мирный',
 ];
 
+test.describe.configure({ retries: 0 });
+
 for (const width of [360, 390]) {
   test(`guided judge practice does not overlap player identities at ${width}px`, async ({ page }, info) => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     await page.setViewportSize({ width, height: 700 });
     await page.goto('/e2e/live-game.html?mode=training');
 

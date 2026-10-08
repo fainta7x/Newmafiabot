@@ -156,13 +156,13 @@ export function PlayerActionOverlay({
             <div className="sr-only">Фолы: {regularFouls} · Малый тех: {minorTech} · Большой тех: {majorTech}</div>
             {activeSpeakerSlot && <div className="text-[10px] text-amber-300 mt-2">Речь #{activeSpeakerSlot}</div>}
           </div>
-          <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black shrink-0">×</button>
+          <button type="button" data-testid="live-player-actions-close" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black shrink-0">×</button>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           {canEditFouls && (
             <>
-              <button type="button" onClick={() => { onAddRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-amber-950/60 border border-amber-700/70 text-amber-200 text-xs font-black">+ Обычный фол</button>
+              <button type="button" data-testid="live-player-add-regular-foul" data-seat={player.slot_num} onClick={() => { onAddRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-amber-950/60 border border-amber-700/70 text-amber-200 text-xs font-black">+ Обычный фол</button>
               <button type="button" disabled={regularFouls <= 0} onClick={() => { onRemoveRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
               <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-yellow-950/45 border border-yellow-700/60 text-yellow-200 text-xs font-black">Малый тех</button>
               <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-rose-950/55 border border-rose-700/70 text-rose-200 text-xs font-black">Большой тех</button>

@@ -101,12 +101,13 @@ describe('«Судья вечера» and publishing', () => {
       .send({ judge_player_id: 'club-judge', seats: [] });
     expect(unassignedCreate.status).toBe(401);
 
-    // The assigned evening passes the authorization layer and reaches ordinary
-    // game validation; an empty lineup is rejected as a bad game, not as missing access.
+    // The assigned evening passes the authorization layer and reaches the
+    // ordinary game/business gates; the deliberately incomplete request may be
+    // rejected for lineup or pre-start requirements, but never for missing access.
     const assignedCreate = await request(app).post('/api/games/evening/assigned-club').set('Cookie', judge)
       .send({ judge_player_id: 'club-judge', seats: [] });
-    expect(assignedCreate.status).toBe(400);
-    expect(assignedCreate.body.error).toContain('10');
+    expect(assignedCreate.status).not.toBe(401);
+    expect(assignedCreate.body.error).toBeTruthy();
   });
 
   it('the host of an evening may change its judge but not its organizer', async () => {

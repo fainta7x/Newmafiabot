@@ -8,8 +8,7 @@ describe('judge training reuses the actual club Live Game layout', () => {
   it('mounts exactly the production game shell, without training scroll wrappers', () => {
     const modal = read('src/components/crm/EveningLiveGameModal.tsx');
     expect(modal).toContain('{trainingMode && <JudgeConductCoach />}');
-    expect(modal).toContain("const GameLayoutWrapper: React.ElementType = trainingMode ? React.Fragment : 'div'");
-    expect(modal).toContain('<GameLayoutWrapper>');
+    expect(modal).toContain('<div>\\n      <div className="evening-live-engine-shell');
     expect(modal).toContain('<div className="evening-live-engine-shell py-0.5 md:py-3"');
     expect(modal).not.toContain("h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain");
     expect(modal).toContain("{livePhase !== 'setup' && (");

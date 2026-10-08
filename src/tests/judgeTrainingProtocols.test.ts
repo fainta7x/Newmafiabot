@@ -9,6 +9,7 @@ import {
   canToggleTrainingDeathMark,
 } from '../lib/judgeTrainingProtocols.ts';
 import { getJudgeTrainingGate } from '../lib/judgeConductTraining.ts';
+import type { DeathProtocolSelection } from '../lib/liveDeathProtocol.ts';
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
 
 describe('guided LH', () => {
@@ -49,7 +50,7 @@ describe('guided color protocol', () => {
 
   it('follows the selected death-night script exactly and unlocks save after its final mark', () => {
     const plan = getTrainingDeathProtocolPlan(2, 7);
-    const empty = { red: [], black: [], sheriff: [] };
+    const empty: DeathProtocolSelection = { red: [], black: [], sheriff: [] };
     const steps = getTrainingDeathMarkSteps(plan);
     expect(steps.length).toBeGreaterThanOrEqual(1);
     expect(steps.length).toBeLessThanOrEqual(5);
@@ -57,7 +58,7 @@ describe('guided color protocol', () => {
     const blockedSeat = Array.from({ length: 10 }, (_, index) => index + 1)
       .find((seat) => !plan.red.includes(seat) && !plan.black.includes(seat) && !plan.sheriff.includes(seat));
     expect(canToggleTrainingDeathMark(empty, plan, 'black', blockedSeat!)).toBe(false);
-    let selected = { ...empty };
+    let selected: DeathProtocolSelection = { ...empty };
     for (const step of steps) {
       expect(nextTrainingDeathMark(selected, plan)).toEqual(step);
       expect(canToggleTrainingDeathMark(selected, plan, step.mark, step.seat)).toBe(true);

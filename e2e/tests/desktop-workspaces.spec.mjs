@@ -62,6 +62,9 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
     }
     await page.screenshot({ path: testInfo.outputPath(`profile-expanded-${width}.png`), fullPage: true });
     for (const label of ['Игры', 'Роли', 'Elo', 'Награды', 'История клуба', 'Связи']) {
+      // The profile groups related content: Career contains games, roles and Elo;
+      // Awards contains both the showcase and club history.
+      if (label === 'Игры') await profile.getByRole('button', { name: 'Карьера', exact: true }).click();
       await profile.getByRole('button', { name: label, exact: true }).click();
       await expect(profile.getByText('Загрузка…', { exact: true })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

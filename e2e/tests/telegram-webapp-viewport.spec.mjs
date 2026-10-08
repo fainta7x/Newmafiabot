@@ -153,6 +153,7 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await page.goto('/e2e/player-profile.html');
   await expect(page.getByTestId('canonical-premium-profile')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Карьера', exact: true }).click();
   await page.getByRole('button', { name: 'Игры', exact: true }).click();
   await page.getByText('Дополнительные фильтры').click();
   await page.getByLabel('Роль').selectOption('sheriff');
@@ -171,6 +172,22 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await page.getByRole('button', { name: 'Связи', exact: true }).click();
   await expect(page.getByTestId('smart-friend-invite-suggestions')).toBeVisible();
   await page.screenshot({ path: info.outputPath('telegram-profile-owner-connections.png'), fullPage: true });
+});
+
+test('Learning is visible inside Progress on a Telegram phone, without a fifth bottom tab', async ({ page }, info) => {
+  const item = cases[1];
+  await page.setViewportSize({ width: item.width, height: item.height });
+  await installTelegramMock(page, item);
+  await page.goto('/e2e/player-cabinet.html');
+  await page.getByTestId('player-nav-progress').click();
+  await expect(page.getByRole('navigation', { name: 'Разделы прогресса' })).toBeVisible();
+  await page.getByRole('button', { name: 'Обучение', exact: true }).click();
+  await expect(page.getByTestId('player-learning')).toBeVisible();
+  await expect(page.getByTestId('player-learning-judge')).toBeVisible();
+  await expect(page.getByTestId('player-nav-progress')).toBeVisible();
+  expect(await page.getByTestId('player-bottom-nav').locator('button').count()).toBe(4);
+  await assertTelegramGeometry(page, item);
+  await page.screenshot({ path: info.outputPath('telegram-profile-learning.png'), fullPage: true });
 });
 
 test('invitation picker labels every server evening state before sending', async ({ page }, info) => {

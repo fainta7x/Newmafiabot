@@ -21,6 +21,7 @@ import '../src/components/crm/liveGameDeathProtocolCabinet.css';
 
 const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
+const TRAINING_MODE = new URLSearchParams(window.location.search).get('mode') === 'training';
 
 const buildRecoveryPlayers = () => {
   const roles = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'] as const;
@@ -133,6 +134,7 @@ function Harness() {
         ) : (
           <JudgeTestGameModal
             judge={{ id: 'e2e-judge', nickname: 'E2E Judge' }}
+            training={TRAINING_MODE}
             onClose={(completed) => setResult(completed ? 'completed' : 'cancelled')}
           />
         )

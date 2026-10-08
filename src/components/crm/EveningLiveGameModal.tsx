@@ -1,5 +1,6 @@
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
@@ -177,6 +178,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       : null,
   );
   const [livePhase, setLivePhase] = useState('setup');
+  const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
   const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
@@ -197,6 +199,21 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   useEffect(() => {
     broadcastConnectionRef.current = broadcastConnection;
   }, [broadcastConnection]);
+
+  // A virtual table has no independent geometry: attach its decorative CRM
+  // identity overlay to the actual interactive grid, not to the taller
+  // LiveGameEngine shell (which also contains history and control panels).
+  // Real club matches keep their existing overlay placement untouched.
+  useLayoutEffect(() => {
+    if (!trainingMode || livePhase === 'setup') {
+      setTrainingBoardElement(null);
+      return;
+    }
+    const board = document.querySelector<HTMLElement>(
+      '.evening-live-engine-shell[data-training-input-gate="active"] div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card)',
+    );
+    setTrainingBoardElement(board);
+  }, [trainingMode, livePhase, game.id]);
 
   useLayoutEffect(() => {
     liveRecorder.mount();
@@ -414,6 +431,30 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   if (!game.club_protocol) return null;
 
+  const identityOverlay = livePhase === 'setup' ? null : (
+    <div className="evening-live-identity-layer" aria-hidden="true">
+      {livePlayers.map((player) => (
+        <div
+          key={player.seat_number}
+          className="evening-live-identity"
+          style={seatPlacement[player.seat_number]}
+          data-seat={player.seat_number}
+          data-alive={liveAlive[player.seat_number] === false ? 'false' : 'true'}
+        >
+          <PlayerAvatar
+            playerId={player.player_id}
+            nickname={player.display_name}
+            size="xl"
+            forceStoredLookup
+            className="evening-live-player-avatar"
+          />
+          <span className="evening-live-identity-name" title={player.display_name}>{player.display_name}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+
   return (
     <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
@@ -424,7 +465,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
+          {!trainingMode && <button
             type="button"
             disabled={trainingMode}
             onClick={() => void openBroadcastSetup()}
@@ -433,8 +474,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           >
             <MonitorUp className="w-4 h-4" />
             {broadcastConnection === 'live' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-          </button>
-          <button
+          </button>}
+          {!trainingMode && <button
             type="button"
             disabled={trainingMode}
             onClick={() => setRolesHidden((value) => !value)}
@@ -442,7 +483,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}
           >
             {rolesHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={onClose}
@@ -453,6 +494,28 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </button>
         </div>
       </div>
+
+      {trainingMode && (
+        <style>{`
+          /* Synthetic identities share exactly the parent table's used grid tracks.
+             These rules touch only the decorative overlay, never live seats/HUD. */
+          html body .evening-live-engine-shell[data-training-input-gate="active"]
+          div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card)
+          > .evening-live-identity-layer {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            grid-template-columns: inherit !important;
+            grid-template-rows: inherit !important;
+            gap: inherit !important;
+            pointer-events: none !important;
+          }
+        `}</style>
+      )}
+      {trainingMode && <JudgeConductCoach />}
 
       {broadcastSetupOpen && (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">
@@ -579,8 +642,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
-      <div className={trainingMode ? 'h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain' : ''}>
-        {trainingMode && <JudgeConductCoach />}
+      <div>
       <div className="evening-live-engine-shell py-0.5 md:py-3"
         onClickCapture={guardTrainingInput}
         onChangeCapture={guardTrainingInput}
@@ -621,28 +683,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }}
         />
 
-        {livePhase !== 'setup' && (
-          <div className="evening-live-identity-layer" aria-hidden="true">
-            {livePlayers.map((player) => (
-              <div
-                key={player.seat_number}
-                className="evening-live-identity"
-                style={seatPlacement[player.seat_number]}
-                data-seat={player.seat_number}
-                data-alive={liveAlive[player.seat_number] === false ? 'false' : 'true'}
-              >
-                <PlayerAvatar
-                  playerId={player.player_id}
-                  nickname={player.display_name}
-                  size="xl"
-                  forceStoredLookup
-                  className="evening-live-player-avatar"
-                />
-                <span className="evening-live-identity-name" title={player.display_name}>{player.display_name}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {trainingMode
+          ? (identityOverlay && trainingBoardElement ? createPortal(identityOverlay, trainingBoardElement) : null)
+          : identityOverlay}
       </div>
       </div>
     </div>

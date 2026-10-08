@@ -1,0 +1,48 @@
+name: Judge training mobile E2E
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/components/crm/EveningLiveGameModal.tsx'
+      - 'src/components/crm/liveGameTelegram.css'
+      - 'src/components/public/JudgeConductCoach.tsx'
+      - 'e2e/live-game-harness.tsx'
+      - 'e2e/tests/judge-training-mobile-layout.spec.mjs'
+      - '.github/workflows/judge-training-mobile-e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: judge-training-mobile-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  training-mobile:
+    name: Real judge training at 360 and 390 px
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: e2e
+      - name: Open real guided training and inspect phone-sized layout
+        run: npx playwright test --config playwright.config.mjs tests/judge-training-mobile-layout.spec.mjs
+        working-directory: e2e
+      - name: Save screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: judge-training-mobile-screenshots
+          path: e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7

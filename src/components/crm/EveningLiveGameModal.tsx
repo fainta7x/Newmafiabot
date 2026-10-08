@@ -424,6 +424,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (!snapshot || snapshot.sessionKey !== 'club:-2147483000') return;
     const gate = getJudgeTrainingGate(snapshot);
     if (!gate) return;
+    // The confirmation sheet is shown only after the real engine detects a
+    // winner. Never block its actual "Завершить игру" or Undo controls.
+    if (source.closest('[data-testid="live-winner-confirmation"]')) return;
+    // Best move is a real modal outside the seat grid: its training variant
+    // enforces the exact LH order and owns its own Confirm button.
+    if (source.closest('[data-testid="live-best-move-sheet"]')) return;
     // Only the nominated trainee may receive a lesson foul, including through
     // the real HUD player selector. Unrelated discipline/game actions stay gated.
     if (gate.foulSeat && source instanceof HTMLSelectElement &&
@@ -703,6 +709,18 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             setSaving(true);
             setSaveError(null);
             try {
+              if (trainingMode) {
+                // Synthetic players must never be posted to club CRM. Finish
+                // the local exercise using the same close/sandbox-cleanup
+                // callback as a completed test game.
+                finishConfirmedSave({
+                  ...game,
+                  status: 'completed',
+                  winner_team: gameData.winning_team === 'Красные' ? 'red' : 'black',
+                  winner_label: gameData.winning_team,
+                });
+                return;
+              }
               const evidence = liveRecorder.getEvidence();
               // The same chronology as in a tournament game: recorded events, the last changes the recorder could miss,
               // the colour protocols of the killed players and the end of the game.

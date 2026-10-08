@@ -200,6 +200,10 @@ router.post('/onboarding/existing', async (req, res) => {
       success: true,
       status: result.status,
       return_to: result.returnTo,
+      // Inform the claimant which independent confirmation channels exist.
+      // Never expose the old Telegram id or owner contact information.
+      private_confirmation_sent: result.status === 'pending_organizer' && 'privateConfirmationSent' in result
+        ? Boolean(result.privateConfirmationSent) : false,
     });
   } catch (error: any) {
     return res.status(Number(error?.statusCode || 400)).json({

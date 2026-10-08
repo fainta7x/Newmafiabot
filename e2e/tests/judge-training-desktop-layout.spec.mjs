@@ -81,6 +81,29 @@ for (const width of [1366, 1600]) {
         seats,
       };
     });
+    const diagnostics = await page.evaluate(() => {
+      const board = document.querySelector('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card)');
+      const card = board?.querySelector('.live-seat-card[data-seat="1"]');
+      const layer = document.querySelector('.evening-live-engine-shell .evening-live-identity-layer');
+      const identity = layer?.querySelector('.evening-live-identity[data-seat="1"]');
+      const inspect = (el) => {
+        if (!el) return null;
+        const css = getComputedStyle(el), rect = el.getBoundingClientRect();
+        return {
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          position: css.position, display: css.display, gridColumn: css.gridColumn,
+          gridRow: css.gridRow, gridTemplateColumns: css.gridTemplateColumns,
+          top: css.top, left: css.left, width: css.width, inlineStyle: el.getAttribute('style'),
+        };
+      };
+      return {
+        width: innerWidth, height: innerHeight,
+        media768: matchMedia('(min-width: 768px)').matches,
+        media1280: matchMedia('(min-width: 1280px)').matches,
+        board: inspect(board), card: inspect(card), layer: inspect(layer), identity: inspect(identity),
+      };
+    });
+    console.log('DESKTOP_TRAINING_LAYOUT_DIAG ' + JSON.stringify(diagnostics));
     expect(geometry.sameCanonicalWrapper).toBe(true);
     expect(geometry.coachOutsideShell).toBe(true);
     expect(geometry.gridColumns).toBeGreaterThanOrEqual(4);

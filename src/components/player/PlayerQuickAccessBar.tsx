@@ -1,4 +1,4 @@
-import { Settings } from 'lucide-react';
+import { Gavel, Settings } from 'lucide-react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import ProductModeSwitch from '../ProductModeSwitch.tsx';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
@@ -8,7 +8,9 @@ export default function PlayerQuickAccessBar({
   tokenBalance,
   active,
   canOpenAdmin = false,
+  canOpenConduct = false,
   onOpenAdmin,
+  onOpenConduct,
   onOpenWallet,
   onOpenSettings,
 }: {
@@ -16,7 +18,9 @@ export default function PlayerQuickAccessBar({
   tokenBalance: number;
   active: 'wallet' | 'settings' | null;
   canOpenAdmin?: boolean;
+  canOpenConduct?: boolean;
   onOpenAdmin?: () => void;
+  onOpenConduct?: () => void;
   onOpenWallet: () => void;
   /** The gear: my details, notifications, privacy, music (owner decision 2026-10-06). */
   onOpenSettings: () => void;
@@ -35,6 +39,20 @@ export default function PlayerQuickAccessBar({
         <div className="flex shrink-0 items-center gap-1.5">
           {canOpenAdmin && onOpenAdmin ? (
             <ProductModeSwitch activeMode="player" onSwitch={onOpenAdmin} />
+          ) : null}
+
+          {canOpenConduct && onOpenConduct ? (
+            <button
+              data-testid="player-quick-conduct"
+              type="button"
+              onClick={onOpenConduct}
+              aria-label="Открыть ведение игр"
+              title="Ведение"
+              className="ds-focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-amber-200/15 bg-amber-200/[0.07] px-2.5 text-[11px] font-bold text-amber-50/85 transition-colors hover:bg-amber-200/[0.11]"
+            >
+              <Gavel className="h-4 w-4" aria-hidden="true" />
+              <span>Ведение</span>
+            </button>
           ) : null}
 
           <button

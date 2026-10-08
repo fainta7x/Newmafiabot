@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
-import { getTrainingPrompt, getJudgeTrainingGate, planTrainingDay, trainingNightTarget, trainingVotes } from '../lib/judgeConductTraining.ts';
+import { getTrainingPrompt, getJudgeTrainingGate, planTrainingDay, trainingNightTarget, trainingCheckTarget, trainingVotes } from '../lib/judgeConductTraining.ts';
 import { determineVotingResult } from '../shared/tournamentVoting.ts';
 
 const game = (changes: Record<string, unknown> = {}): PersistedLiveSession => ({
@@ -191,6 +191,37 @@ describe('judge training stays scripted beyond the zero round', () => {
       .toEqual(['.live-seat-card[data-seat="9"]']);
     expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'sheriff', sheriffCheckSlot: 9 }))?.allowed)
       .toEqual(['.live-judge-hud__primary']);
+  });
+
+  it('assigns new Don and Sheriff targets on later nights from persisted history', () => {
+    const first = game({ phase: 'night', nightSubPhase: 'don', roundNumber: 1 });
+    const donFirst = trainingCheckTarget(first, 'don');
+    const sheriffFirst = trainingCheckTarget(first, 'sheriff');
+    expect(donFirst).toBe(1);
+    expect(sheriffFirst).toBe(9);
+
+    const second = game({
+      phase: 'night', nightSubPhase: 'don', roundNumber: 2,
+      nightLogs: [{ round: 1, log: 'Н1: выстрел в #7 — убит. Дон: #1 — Шериф. Шериф: #9 — Чёрный.' }],
+    });
+    const donSecond = trainingCheckTarget(second, 'don');
+    const sheriffSecond = trainingCheckTarget(second, 'sheriff');
+    expect(donSecond).not.toBe(donFirst);
+    expect(sheriffSecond).not.toBe(sheriffFirst);
+    expect(second.activePlayers.find((p) => p.slot_num === donSecond)?.alive).toBe(true);
+    expect(second.activePlayers.find((p) => p.slot_num === sheriffSecond)?.alive).toBe(true);
+    expect(trainingCheckTarget(JSON.parse(JSON.stringify(second)), 'don')).toBe(donSecond);
+    expect(trainingCheckTarget(JSON.parse(JSON.stringify(second)), 'sheriff')).toBe(sheriffSecond);
+    expect(getJudgeTrainingGate(second)?.title).toBe('Дон проверяет #' + donSecond);
+    expect(getTrainingPrompt(second).detail).toContain('#' + donSecond);
+
+    const third = game({
+      ...second, roundNumber: 3,
+      nightLogs: [...second.nightLogs, { round: 2, log: 'Дон: #' + donSecond + ' — не Шериф. Шериф: #' + sheriffSecond + ' — Красный.' }],
+      activePlayers: second.activePlayers.map((p) => p.slot_num === 7 ? { ...p, alive: false } : p),
+    });
+    expect(trainingCheckTarget(third, 'don')).not.toBe(donSecond);
+    expect(trainingCheckTarget(third, 'sheriff')).not.toBe(sheriffSecond);
   });
 
   it('keeps the voting gate active for split-vote and later day rounds', () => {

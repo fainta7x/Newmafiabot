@@ -74,13 +74,13 @@ describe('judge conduct coach linear script', () => {
 
   it('requires the nominated player during #2 and allows only that action', () => {
     const gate = getJudgeTrainingGate(game());
-    expect(gate?.allowed).toEqual(['[data-seat="1"] .live-seat-quick-action--nomination']);
+    expect(gate?.allowed).toEqual(['.live-seat-card[data-seat="1"] .live-seat-quick-action--nomination']);
     expect(gate?.title).toBe('Игрок #2 выставляет #1');
     const after = getJudgeTrainingGate(game({ nominations: [1], nominationsMap: { 1: 2 } }));
     expect(after?.allowed).toEqual(['.live-judge-hud__primary']);
     expect(after?.title).toBe('Заверши речь #2');
     expect(getJudgeTrainingGate(game({ activeSpeakerSlot: 7, nominations: [1], nominationsMap: { 1: 2 } }))?.allowed)
-      .toEqual(['[data-seat="3"] .live-seat-quick-action--nomination']);
+      .toEqual(['.live-seat-card[data-seat="3"] .live-seat-quick-action--nomination']);
   });
 
   it('only exposes the five required voters, then Next and Finalize', () => {
@@ -91,6 +91,7 @@ describe('judge conduct coach linear script', () => {
     expect(start?.highlight).toEqual([2, 3, 4, 5, 6].map((n) => '.live-seat-card[data-seat="' + n + '"]'));
     expect(start?.allowed).toContain('[data-testid="live-voting-back-to-speeches"]');
     const votes = { 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 };
+    expect(getJudgeTrainingGate(game({ ...voting, votesByPlayer: votes }))?.allowed).toEqual(['[data-testid="live-voting-next"]', '[data-testid="live-voting-back-to-speeches"]']);
     expect(getJudgeTrainingGate(game({ ...voting, votesByPlayer: votes }))?.highlight).toEqual(['[data-testid="live-voting-next"]']);
     expect(getJudgeTrainingGate(game({ ...voting, votesByPlayer: votes, currentVotingNomineeIndex: 1 }))?.highlight)
       .toEqual(['[data-testid="live-voting-finalize"]']);
@@ -157,7 +158,7 @@ describe('judge training stays scripted beyond the zero round', () => {
 
   it('keeps the voting gate active for split-vote and later day rounds', () => {
     const vote = { phase: 'day_voting', votingStage: 'collecting', currentVotingNomineeIndex: 0,
-      votingRounds: [{ nominated_seats: [1, 3], is_revote: true }], activeVotingRoundIndex: 1,
+      votingRounds: [{ nominated_seats: [1, 3], is_revote: false }, { nominated_seats: [1, 3], is_revote: true }], activeVotingRoundIndex: 1,
       activeSpeakerSlot: null, roundNumber: 2 };
     const guard = getJudgeTrainingGate(game(vote));
     expect(guard?.kind).toBe('vote');

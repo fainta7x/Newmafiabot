@@ -433,6 +433,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       event.stopPropagation();
       return;
     }
+    if (gate.foulSeat && source.closest('.live-seat-card button')) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (gate.allowed.some((selector) => source.closest(selector))) return;
     if (gate.foulSeat && source.closest('[data-testid="live-player-actions-close"]')) return;
     event.preventDefault();
@@ -507,6 +512,32 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
       {trainingMode && (
         <style>{`
+          /* In training, keep the canonical 4x3 table at one stable viewport
+             height between idle, timed speech and voting states. The genuine
+             game layout and its styles are untouched. */
+          @media (max-width: 767px) {
+            html body .evening-live-engine-shell[data-training-input-gate="active"]
+            div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+              height: min(610px, calc(var(--tg-viewport-stable-height, 100dvh) - 60px)) !important;
+              min-height: 0 !important;
+              grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+              grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+              align-items: stretch !important;
+            }
+            html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card {
+              min-height: 0 !important;
+              height: 100% !important;
+            }
+            html body .evening-live-engine-shell[data-training-input-gate="active"] .live-judge-hud {
+              height: 100% !important;
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+            html body .evening-live-engine-shell[data-training-input-gate="active"] .live-judge-hud__body {
+              min-height: 0 !important;
+              overflow-y: auto !important;
+            }
+          }
           /* Synthetic identities share exactly the parent table's used grid tracks.
              These rules touch only the decorative overlay, never live seats/HUD. */
           html body .evening-live-engine-shell[data-training-input-gate="active"]

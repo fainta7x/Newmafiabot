@@ -276,6 +276,10 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
   if (matches.length > 1) throw onboardingError('nickname_ambiguous', 'Найдено несколько профилей с таким ником. Нужна проверка организатора.', 409);
   const target = matches[0];
 
+  // A Telegram-linked profile may still require the organizer to establish
+  // that this *new VK account* belongs to the same person. A private Telegram
+  // confirmation is convenient but must never be the only path.
+  let privateConfirmationSent = false;
   if (platform === 'vk') {
     await ensureVkIntegrationSchema(db);
     const targetVk = await db.get<{ external_user_id: string }>(`SELECT external_user_id FROM player_external_identities WHERE platform='vk' AND player_id=? LIMIT 1`, [target.id]);
@@ -289,8 +293,10 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
           await markOnboardingComplete(db, rawToken, { kind: 'linked', playerId: claim.playerId });
           return { status: 'linked' as const, playerId: claim.playerId, returnTo };
         }
-        await markOnboardingComplete(db, rawToken, { kind: 'private_confirmation', playerId: target.id });
-        return { status: 'private_confirmation' as const, playerId: target.id, returnTo };
+        // Keep the Telegram self-confirmation, but ALSO create a reviewable
+        // request in CRM. Otherwise a player whose old Telegram is unavailable
+        // remains stuck forever on an unexplained confirmation screen.
+        privateConfirmationSent = true;
       } catch (error: any) {
         if (!PRIVATE_CONFIRMATION_UNAVAILABLE_CODES.has(String(error?.code || ''))) throw error;
         // Safe self-service proof is unavailable. The verified VK identity remains
@@ -299,23 +305,35 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
     }
   }
 
-  // Only a profile without its own account (made by the organizer) goes to the organizer for review.
-  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
+  // Telegram-on-Telegram clashes and already-linked VK clashes remain denied.
+  // For VK → an existing Telegram profile, the organizer can explicitly
+  // approve the *additional* channel; nickname alone never grants access.
+  if (await profileHasAccount(db, target) && !(platform === 'vk' && target.telegram_user_id)) {
+    throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
+  }
 
-  const existing = await db.get<{ id: string }>(`
-    SELECT id FROM player_onboarding_link_requests
+  const existing = await db.get<{ id: string; target_player_id: string }>(`
+    SELECT id, target_player_id FROM player_onboarding_link_requests
      WHERE platform=? AND external_user_id=? AND status='pending'
      ORDER BY created_at DESC LIMIT 1
   `, [platform, externalUserId]);
   const requestId = existing?.id ? String(existing.id) : crypto.randomUUID();
+  const now = new Date().toISOString();
   if (!existing) {
-    const now = new Date().toISOString();
     await db.run(`
       INSERT INTO player_onboarding_link_requests (
         id, platform, external_user_id, target_player_id, nickname, return_to, status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
     `, [requestId, platform, externalUserId, target.id, target.nickname, returnTo, now, now]);
+  } else if (String(existing.target_player_id) !== String(target.id)) {
+    // A new choice moves the pending request; no identity is bound until
+    // the organizer explicitly reviews the current target.
+    await db.run(`
+      UPDATE player_onboarding_link_requests
+         SET target_player_id=?, nickname=?, return_to=?, updated_at=?
+       WHERE id=? AND status='pending'
+    `, [target.id, target.nickname, returnTo, now, existing.id]);
   }
   await markOnboardingComplete(db, rawToken, { kind: 'pending_link', linkRequestId: requestId });
-  return { status: 'pending_organizer' as const, requestId, targetPlayerId: target.id, returnTo };
+  return { status: 'pending_organizer' as const, requestId, targetPlayerId: target.id, returnTo, privateConfirmationSent };
 }

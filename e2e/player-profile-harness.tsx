@@ -22,12 +22,26 @@ const summaryFor = (id: string) => ({
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
 });
 const showcase = {
-  awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
+  awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, tournament_id: null as string | null, source_key: null as string | null, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   pinned_awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   earned_achievements: [], timeline: [{ id: 'award-1', type: 'award', date: iso(30), icon: '🏆', title: 'Лучший игрок вечера', description: 'Подтверждено организатором' }],
   achievement_preferences: {path_id:'citizen',pins:[] as string[]},
   achievements: { earned: 3, total: ACHIEVEMENTS.length, percentage: 5, categories:[{id:'all',achievements:ACHIEVEMENTS.map(a=>({...a,rarity_name:'Редкая',story:STORY_IDS.has(a.id),earned:['case_closed','two_shadows','first_game'].includes(a.id),earned_at:['case_closed','two_shadows','first_game'].includes(a.id)?iso(2):null,progress:{current:a.id==='four_faces'?2:a.id==='own_company'?1:0,target:a.id==='four_faces'?4:a.id==='own_company'?3:1},steps:a.id==='four_faces'?['citizen','mafia']:undefined,evidence:a.id==='case_closed'?{gameId:'club:g4',date:iso(2),detail:'Выставил и проголосовал за чёрного №2, который заголосован.'}:null}))}] }, stats: { verified_awards: 1, achievements_earned: 2, achievements_total: 12, completed_games: 48, manual_milestones: 0 },
 };
+// Browser-only artwork fixture. These are examples for review, not real player/tournament records.
+if (params.get('trophies') === '2') {
+  showcase.awards.splice(0, showcase.awards.length,
+    { id: 'demo-bogdan-1', kind: 'placement', title: '1 место', tournament_id: 'demo-bogdan-1', source_key: null,
+      tournament_name: 'Турнир Богдана 1.08', award_date: iso(65), award_year: 2026, place_result: '1 место',
+      team_name: null, description: 'Тестовый кубок для проверки графики', photo_url: null, pinned_position: 1 },
+    { id: 'demo-bogdan-2', kind: 'placement', title: '1 место', tournament_id: 'demo-bogdan-2', source_key: null,
+      tournament_name: 'Турнир Богдана 2.09', award_date: iso(10), award_year: 2026, place_result: '1 место',
+      team_name: null, description: 'Тестовый кубок для проверки графики', photo_url: null, pinned_position: 2 },
+  );
+  showcase.pinned_awards = showcase.awards.slice();
+  showcase.stats.verified_awards = 2;
+}
+
 const connection = { player_id: externalProfile ? 'preview-player' : 'friend-1', nickname: externalProfile ? 'Чагин' : 'Дэнди', avatar_url: '', relationship: 'Часто за одним столом', shared_games: 18, same_team_games: 9, opponent_games: 9, same_team_wins: 6, same_team_win_rate: 66.7, last_played_at: iso(2), last_shared_game_date: iso(2) };
 const startsAt = (days: number) => new Date(now.getTime() + days * 86400000).toISOString();
 const invitationEvening = { id: 'evening-1', title: 'Пятничный вечер', starts_at: startsAt(3), venue: 'Суп с котом', format: 'CASUAL', state: 'eligible' };
@@ -52,6 +66,16 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
       summary: { games: 1, current: 1542, computed_current: 1542, peak: 1542, floor: 1500, net: 42, last_delta: 15 },
       preview: { basis: 'На основе последних игр.', red: { win: outcome, loss: { ...outcome, elo_delta: -8 } }, black: { win: outcome, loss: { ...outcome, elo_delta: -8 } } },
       events: [{ id: 'club:g4', source: 'club', date: iso(2), title: 'Пятничный вечер', game_number: 4, team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15, expected_percent: 50, base_team_delta: 10, carry_modifier: 1, carry_effect: 0, team_delta: 10, personal_game_points: 1, personal_delta: 5, explanation: { headline: 'Победа красных', details: [], formula: '10 + 5' } }],
+    });
+  }
+  if (url.pathname.startsWith('/api/player/tournaments/demo-bogdan-')) {
+    const id = url.pathname.split('/').pop();
+    return json({
+      tournament: { id, title: id === 'demo-bogdan-1' ? 'Турнир Богдана 1.08' : 'Турнир Богдана 2.09',
+        date: iso(10), venue: 'Клуб', stage: null, phase: 'finished', judge: null, organizer: null,
+        entry_fee_rub: 0, prize_fund_rub: 0, games_planned: 0, games_completed: 0 },
+      registration: { capacity: 10, confirmed_count: 10, reserve_count: 0, open: false, mine: null, participated: false },
+      roster: [], games: [], table_hidden: false, provisional: false, standings: [], nominations: [],
     });
   }
   if (url.pathname === '/api/player/achievement-preferences') return json(showcase.achievement_preferences);

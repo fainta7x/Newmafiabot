@@ -2,7 +2,7 @@ import PlayerAchievementPaths, { type AchievementPathsProfile } from './PlayerAc
 import TrophyCabinet from './TrophyCabinet.tsx';
 import { useEffect, useMemo, useState } from 'react';
 
-type Award = { id:string; kind:string; title:string; tournament_name?:string|null; award_date?:string|null; award_year?:number|null; place_result?:string|null; team_name?:string|null; description?:string|null; photo_url?:string|null; pinned_position?:number|null };
+type Award = { id:string; kind:string; title:string; tournament_id?:string|null; source_key?:string|null; tournament_name?:string|null; award_date?:string|null; award_year?:number|null; place_result?:string|null; team_name?:string|null; description?:string|null; photo_url?:string|null; pinned_position?:number|null };
 type Achievement = { id:string; name:string; description:string; icon:string; rarity_name:string; earned_at:string|null; category_name?:string };
 type TimelineItem = { id:string; type:string; date:string|null; icon:string; title:string; description:string|null };
 type Showcase = { evening_titles?:Array<{year:number;count:number}>; evening_win_titles?:Array<{year:number;count:number}>; awards:Award[]; pinned_awards:Award[]; earned_achievements:Achievement[]; timeline:TimelineItem[]; achievement_preferences?:{path_id:string;pins:string[]}|null; achievements:AchievementPathsProfile; stats:{verified_awards:number;achievements_earned:number;achievements_total:number;completed_games:number;manual_milestones:number} };

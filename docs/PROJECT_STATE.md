@@ -668,7 +668,12 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 104. **Интерактивная трофейная витрина игрока (owner, 2026-10-08).** Внутри «Прогресс → Награды → Витрина» вместо декоративного статичного изображения — 2.5D-экспозиция в существующей графитовой палитре: объемные полки и оригинальные SVG-кубки/медали/плакетки, поворот ракурса, страницы полок, кнопки категорий и раскрытие подтвержденной награды. Источник — существующий `/api/player/profiles/:id/showcase`, только `verified` награды; кубок за первое место требует подтверждённого места в турнире. Турниры Богдана не подделывать: если в базе два разных подтверждённых победителя, их кубки находятся в разных профилях; один игрок получает два только при двух настоящих победах. Существующие награды / достижения / закрепление и четыре пункта нижнего меню сохраняются. Кодовая реализация в `TrophyCabinet.tsx`, `TrophyCabinet.css`, `trophyCabinetModel.ts`; после PR проверки и живое тестирование Amvera остаются отдельными этапами.
 
+
+105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
+
 ### Player-facing changes not yet announced
+
+- «Прогресс → Награды»: у каждого турнира свой кубок с уникальными деталями; из награды теперь можно открыть турнир и его итоги либо связанный клубный вечер.
 
 - «Прогресс → Награды»: интерактивная объёмная трофейная витрина. На полках — реальные кубки за турниры, медали, номинации и достижения. Можно поворачивать комнату, выбирать награды и читать их историю.
 

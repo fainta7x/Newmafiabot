@@ -369,3 +369,10 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Reported:** PC version was visually unusable despite working mobile flow. The coach was limited to a ~152px fixed badge with a full-screen task modal; desktop table had no dedicated lesson space. Short 1366×768 viewport could crop bottom events.
 - **Fix in PR #751:** dedicated right rail at ≥1280px, reserved training-only table region, height constraint for short laptops, no real game layout changes. Added full desktop Playwright journey/screenshots at 1366×768 and 1600×900; preserve prior mobile coverage.
 - **Verification:** CI/mobile/desktop result belongs to exact PR head; Amvera rollout separate.
+
+### 2026-10-08 — Trophy cabinet assets and event navigation
+
+- **Observed:** all tournament wins reused one silver SVG cup; award details had only descriptive text and no path back to the source tournament/evening (`TrophyCabinet.tsx`). A first- and second-edition Bogdan trophy looked identical.
+- **Fixed in this workstream:** `TournamentCupAsset.tsx` draws different sculpted cup families with deterministic tournament-based engraving. `trophyCabinetModel.ts` exposes real `tournament_id` or a recognized automatic club-evening `source_key`; no event route is invented from a free-form name.
+- **Fixed in this workstream:** `TrophyCabinet.tsx` offers «Открыть турнир и итоги» using the existing `PlayerTournamentView`, returning to the selected exhibit; automatic evening trophies link to their canonical evening route. Awards without a verifiable relation show no button.
+- **Acceptance:** 390px fixture shows different Bogdan edition silhouettes, click through verified tourney results and Back to the same cabinet; Jest/Vitest validates distinct IDs, honest links, unowned trophies and safe unknown sources. Do not mutate production database or award assignments. Exact-head CI + visual check before merging.

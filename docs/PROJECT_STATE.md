@@ -738,6 +738,8 @@ Owner direction 20:26 Moscow — gameplay-specific purchases for ordinary evenin
 - Required design questions: private role information must not leak through purchase status/notifications; who can know a pairing; conflicting requests and limited roles; consent; scope/limits and preservation of all standard role counts/actions; metadata suitable for future treatment of statistics/Elo.
 - New candidate hypotheses to discuss: opposite-team pairing with a chosen player, a blind role exchange with a consenting participant before role reveal, personal role-rotation package across an evening, a mutually agreed black-team trio. Not approved and not implemented.
 
+Owner correction 20:28 Moscow: reject forced role rotation, opposite-team purchases, coordinated three-player purchases and paid adjacency as unsuitable. Players seek enjoyable preferred play without harm to others; do not assume people want mafia/don or all roles. Teammate wish should not require the other player to own VIP. Consult current sporting rules and actual role dealing before further proposals. No new gameplay perks implemented.
+
 Current stop: Robokassa test adapter merged in PR #754; mounted wallet checkout, authenticated ResultURL settlement and receipt evidence still remain. Merchant/NPD onboarding deferred to tomorrow. This discussion does not authorize implementation of VIP, compendium, new payment rules or paid sporting advantages.
 
 ### Waiting on the owner

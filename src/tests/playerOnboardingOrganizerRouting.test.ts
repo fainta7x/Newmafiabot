@@ -23,6 +23,20 @@ describe('VK-ACCESS-004 organizer routing and UI', () => {
     expect(ui).not.toContain('external_user_id');
   });
 
+  it('renders the actual player-card approval UI and avoids leaking verified external user identifiers', () => {
+    const card = read('src/components/crm/PlayerAccountLinks.tsx');
+    const route = read('src/server/routes/playersRoutes.ts');
+    const onboarding = read('src/components/player/VerifiedPlayerOnboarding.tsx');
+    expect(card).toContain('data-testid="crm-player-pending-account-links"');
+    expect(card).toContain('/api/crm/onboarding-links/');
+    expect(card).toContain('window.confirm');
+    expect(route).toContain('pending_links: pendingLinks');
+    expect(route).toContain("WHERE target_player_id=? AND status='pending'");
+    expect(route).not.toContain('external_user_id: externalUserId');
+    expect(onboarding).toContain('Запросы на привязку');
+    expect(onboarding).toContain('private_confirmation_sent');
+  });
+
   it('documents the channel-neutral verified onboarding contract and runtime separation', () => {
     const docs = read('docs/player-onboarding.md');
     expect(docs).toContain('Nickname is profile data, not identity proof');

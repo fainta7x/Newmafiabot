@@ -18,6 +18,9 @@ for (const width of [360, 390]) {
       await page.getByRole('button', { name: `${player} +`, exact: true }).click();
     }
     await page.getByTestId('judge-training-seat-finish').click();
+    // Training first teaches seat order, then the real judge workflow requires
+    // an explicit confirmation of that already assembled ten-player roster.
+    await page.getByRole('button', { name: 'Подтвердить состав' }).click();
     await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
 
     const intro = page.getByText('Подготовьте 10 карт');

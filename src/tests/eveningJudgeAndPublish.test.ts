@@ -78,6 +78,37 @@ describe('«Судья вечера» and publishing', () => {
     expect(await staff(db, id)).toEqual({ organizer_player_id: null, judge_player_id: 'rating-judge' });
   });
 
+  it('a qualified judge sees and creates games only for evenings assigned to them', async () => {
+    const { db, app } = await setup();
+    const now = new Date().toISOString();
+    const startsAt = later();
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,timezone,format,status,capacity,default_price,created_at,updated_at) VALUES
+      ('assigned-club','Назначенный вечер',?,'Europe/Moscow','CASUAL','published',20,100,?,?),
+      ('other-club','Чужой вечер',?,'Europe/Moscow','CASUAL','published',20,100,?,?)`,
+    [startsAt, now, now, startsAt, now, now]);
+    await db.run(`INSERT INTO evening_staff_assignments (evening_id,organizer_player_id,judge_player_id,assigned_at,updated_at) VALUES
+      ('assigned-club', ?, 'club-judge', ?, ?),
+      ('other-club', ?, ?, ?, ?)`,
+    [PRIMARY_ORGANIZER_PLAYER_ID, now, now, PRIMARY_ORGANIZER_PLAYER_ID, PRIMARY_ORGANIZER_PLAYER_ID, now, now]);
+
+    const judge = `player_token=${generatePlayerSessionToken('club-judge')}`;
+    const dashboard = await request(app).get('/api/player/judging').set('Cookie', judge);
+    expect(dashboard.status, JSON.stringify(dashboard.body)).toBe(200);
+    expect(dashboard.body.permissions.casual).toBe(true);
+    expect(dashboard.body.available_evenings.map((evening: any) => evening.id)).toEqual(['assigned-club']);
+
+    const unassignedCreate = await request(app).post('/api/games/evening/other-club').set('Cookie', judge)
+      .send({ judge_player_id: 'club-judge', seats: [] });
+    expect(unassignedCreate.status).toBe(401);
+
+    // The assigned evening passes the authorization layer and reaches ordinary
+    // game validation; an empty lineup is rejected as a bad game, not as missing access.
+    const assignedCreate = await request(app).post('/api/games/evening/assigned-club').set('Cookie', judge)
+      .send({ judge_player_id: 'club-judge', seats: [] });
+    expect(assignedCreate.status).toBe(400);
+    expect(assignedCreate.body.error).toContain('10');
+  });
+
   it('the host of an evening may change its judge but not its organizer', async () => {
     const { db, app } = await setup();
     const host = `player_token=${generatePlayerSessionToken('host')}`;

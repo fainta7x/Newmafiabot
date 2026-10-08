@@ -19,6 +19,8 @@ describe('judge training reuses the actual club Live Game layout', () => {
   it('keeps canonical table CSS and puts guidance in a dismissible overlay', () => {
     const css = read('src/components/crm/liveGameTelegram.css');
     const coach = read('src/components/public/JudgeConductCoach.tsx');
+    const roleDeal = read('src/components/LiveGameEngine/ClubGameSetupPhase.tsx');
+    expect(roleDeal).toContain('musicTrackId={trainingRoles ? null : undefined}');
     expect(css).not.toContain('Guided judge practice:');
     expect(css).not.toContain('data-training-input-gate="active"');
     expect(coach).toContain('data-testid="judge-training-task-trigger"');

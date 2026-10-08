@@ -27,8 +27,12 @@ concurrency:
 
 jobs:
   training-mobile:
-    name: Real judge training at 360 and 390 px
+    name: Real judge training ${{ matrix.spec }} at 360 and 390 px
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        spec: [judge-training-mobile-layout, judge-training-finalization]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7
@@ -43,13 +47,13 @@ jobs:
       - run: npm ci
         working-directory: e2e
       - name: Open real guided training and inspect phone-sized layout
-        run: npx playwright test --config playwright.config.mjs tests/judge-training-mobile-layout.spec.mjs tests/judge-training-finalization.spec.mjs
+        run: npx playwright test --config playwright.config.mjs tests/${{ matrix.spec }}.spec.mjs --retries=0
         working-directory: e2e
       - name: Save screenshots and traces
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: judge-training-mobile-screenshots
+          name: judge-training-mobile-${{ matrix.spec }}-screenshots
           path: e2e/test-results
           if-no-files-found: ignore
           retention-days: 7

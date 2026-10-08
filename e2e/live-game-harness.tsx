@@ -144,7 +144,7 @@ function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'c
       id: String(p.slot_num),
       team: p.team === 'Чёрные' ? 'black' as const : 'red' as const,
     })));
-    localStorage.setItem('mafia_live_session', JSON.stringify({
+    const winnerSession = JSON.stringify({
       activePlayers: players,
       nominations: [], nominationsMap: {},
       phase: 'day_speeches', roundNumber: 4, dayStarterSlot: 1,
@@ -162,7 +162,12 @@ function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'c
       sheriffCheckSlot: null, sheriffCheckResult: null,
       nightLogs: [], votingFarewellQueue: [], votingFarewellIndex: 0,
       discipline, savedAt: '17:00',
-    }));
+    });
+    // The club recorder mounts before the judge engine's restore handler.
+    // Seed BOTH keys: it reads the scoped copy on mount and the engine reads
+    // the shared copy when constructing its recoverable session banner.
+    localStorage.setItem('mafia_live_session', winnerSession);
+    localStorage.setItem('mafia_live_session:club:' + TEST_GAME_ID, winnerSession);
     setReady(true);
     return () => endTestGameSandbox();
   }, []);

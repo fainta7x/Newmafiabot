@@ -109,9 +109,14 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
         return;
       }
       if (body?.status === 'private_confirmation') {
-        setPendingText('Мы отправили подтверждение владельцу существующего профиля. После подтверждения вход будет связан с этим профилем.');
+        // Compatibility for requests issued before the new organizer-review
+        // fallback was deployed. State the exact channel instead of implying
+        // that the approval appears in the current browser.
+        setPendingText('Подтверждение пришло в личный чат Telegram-бота того аккаунта, который уже связан с этим игровым профилем. Оно не приходит в VK. Если нет доступа к тому Telegram, свяжитесь с организатором клуба.');
       } else {
-        setPendingText('Запрос на связь с существующим профилем отправлен организатору. Новый дубликат игрока не создавался.');
+        setPendingText(body?.private_confirmation_sent
+          ? 'Заявка на привязку VK отправлена организатору в CRM. Дополнительно в личный чат Telegram-бота старого профиля отправлена кнопка подтверждения. Достаточно одного из этих способов.'
+          : 'Заявка на привязку отправлена организатору клуба в CRM. Организатор должен проверить, что это ваш профиль, и нажать «Подтвердить». Дубликат профиля не создавался.');
       }
       setFlow('pending');
     } catch (submitError: any) {
@@ -155,9 +160,13 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
       <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
         <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
           <div className="text-xs uppercase tracking-[0.2em] text-emerald-200/50">Аккаунт подтверждён</div>
-          <h1 className="mt-3 text-2xl font-semibold">Ждём подтверждение профиля</h1>
-          <p className="mt-3 text-sm leading-6 text-white/55">{pendingText}</p>
-          <a href="/player" className="mt-5 block min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center text-sm font-medium text-white/80">Вернуться к входу</a>
+          <h1 className="mt-3 text-2xl font-semibold">Ожидаем привязку игрового профиля</h1>
+          <p className="mt-3 text-sm leading-6 text-white/70">{pendingText}</p>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-3 text-xs leading-5 text-white/60">
+            <strong className="block text-white/80">Что делать дальше?</strong>
+            Попросите организатора открыть «Управление → Игроки → ваш профиль → Привязка профиля» или проверить «Запросы на привязку» в главной панели CRM. После подтверждения снова войдите через тот же {channelLabel(status.platform)}.
+          </div>
+          <a href="/player" className="mt-5 block min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center text-sm font-medium text-white/80">Вернуться ко входу</a>
         </div>
       </main>
     );

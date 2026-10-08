@@ -51,3 +51,7 @@ Do not reset, restore or re-import production Turso as part of deployment. Exist
 ## Environment variables
 
 No new environment variables are required.
+
+## Interactive player trophy cabinet
+
+The 2.5D showcase in «Прогресс → Награды» uses the existing full `/api/player/profiles/:id/showcase` response; it creates no separate reward state and never writes wins, prizes or awards. The first-place trophy is shown only for a verified award with `place_result` equal to first place and an associated tournament. Second and third places are shown as medals; nominations and earned achievements are displayed in separate categories. Pending awards, unearned achievements and awards belonging to someone else are never projected as won. A reopened tournament invalidates automatic trophies through the existing `syncTrustedTournamentAwards` reconciliation. Clickable SVG exhibits, CSS perspective, category filters, shelves, angle controls and award details are purely player-side presentation. Manual verification and earned history keep their current official sources.

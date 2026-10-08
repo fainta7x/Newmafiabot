@@ -71,7 +71,7 @@ export default function JudgeConductCoach() {
 
   if (!session) return null;
   return (
-    <div className="sticky top-0 z-[115] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach">
+    <div className="relative z-[5] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach">
       <style>{'.judge-training-focus { outline: 2px solid rgba(251,191,36,.85) !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }'}</style>
       <section className="rounded-2xl border border-amber-300/30 bg-[#191914] px-3 py-2.5 text-white shadow-[0_5px_18px_rgba(0,0,0,.35)]">
         <div className="flex min-w-0 items-center gap-2">

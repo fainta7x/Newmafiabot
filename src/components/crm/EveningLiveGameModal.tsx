@@ -392,7 +392,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
-          <div className="text-[11px] md:text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
+          <div className="text-[11px] md:text-xs font-black text-white truncate">{trainingMode ? 'Учебная партия' : `Игра #${game.global_game_number}`}</div>
           <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">
             {game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}
           </div>

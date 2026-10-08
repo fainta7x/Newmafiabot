@@ -11,6 +11,19 @@ for (const width of [360, 390]) {
     });
     await page.setViewportSize({ width, height: 700 });
     await page.goto('/e2e/live-game.html?mode=training-finish');
+    const fixture = await page.evaluate(() => {
+      const scoped = localStorage.getItem('mafia_live_session:club:-2147483000');
+      const shared = localStorage.getItem('mafia_live_session');
+      return {
+        marker: localStorage.getItem('mafia_test_game_sandbox_active'),
+        scoped: scoped ? JSON.parse(scoped).phase : null,
+        shared: shared ? JSON.parse(shared).phase : null,
+        sharedKey: shared ? JSON.parse(shared).sessionKey : null,
+        tableSize: shared ? JSON.parse(shared).activePlayers?.length : null,
+      };
+    });
+    console.log('Synthetic winner recovery fixture:', JSON.stringify(fixture));
+    await expect(page.getByRole('button', { name: 'Восстановить', exact: true })).toBeVisible({ timeout: 5000 });
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await expect(page.getByTestId('live-winner-confirmation')).toBeVisible();
     await page.getByTestId('live-winner-confirm').click();

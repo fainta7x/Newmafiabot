@@ -628,6 +628,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           /* On tablet/desktop the training identities are placed over their
              actual LiveGameEngine seats, not via a copied grid map. */
           @media (min-width: 768px) {
+            html body .evening-live-training-modal .evening-live-engine-shell
+            div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+              position: relative !important;
+            }
             html body .evening-live-training-modal .evening-live-identity-layer {
               display: block !important;
             }

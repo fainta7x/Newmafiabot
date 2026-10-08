@@ -1,6 +1,5 @@
 export type PlayerRouteSection =
   | 'home'
-  | 'learning'
   | 'events'
   | 'games'
   | 'conduct'
@@ -37,7 +36,6 @@ export const playerProfilePath = (playerId: string) => `/player/players/${encode
 export const playerPathForSection = (section: PlayerRouteSection, target?: string | null): string => {
   const paths: Record<PlayerRouteSection, string> = {
     home: '/player',
-    learning: '/guide?from=player',
     events: target ? `/player/events/${encodeURIComponent(target)}` : '/player/events',
     games: target ? `/player/games/${encodeURIComponent(target)}` : '/player/games',
     conduct: target === 'music' ? '/player/conduct/music' : '/player/conduct',
@@ -120,10 +118,7 @@ export const appBackTarget = (pathname: string): string | null => {
   // Opened from «Прогресс → Обучение» it carries ?from=progress (kept on every guide screen) and returns there.
   if (parts[0] === 'guide') {
     const search = typeof window !== 'undefined' ? window.location.search : '';
-    const source = new URLSearchParams(search).get('from');
-    if (source === 'progress') return '/player/profile/learning';
-    if (source === 'player') return '/player';
-    return '/player/events';
+    return new URLSearchParams(search).get('from') === 'progress' ? '/player/profile/learning' : '/player/events';
   }
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;

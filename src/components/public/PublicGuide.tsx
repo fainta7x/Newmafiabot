@@ -287,7 +287,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
   };
 
   const goToCabinetTab = (tab: PlayerCabinetNavId) => {
-    if (tab === 'school') { if (screen.tab !== 'home') go({ tab: 'home' }); return; }
+    if (tab === 'progress') { exitGuide(); return; }
     navigateOut(playerPathForSection(PLAYER_NAV_SECTION[tab]));
   };
   const home = screen.tab === 'home';
@@ -295,9 +295,9 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
   const entry = findGuideEntry(screen.tab);
   const shelf = findGuideShelf(screen.tab);
   const View = entry ? GUIDE_VIEWS[entry.view] : null;
-  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Уроки' : shelf?.title || entry?.title || 'Школа мафии';
+  const title = lessonOpen ? GUIDE_LESSONS[screen.lesson!].title : screen.tab === 'lessons' ? 'Уроки' : shelf?.title || entry?.title || 'Обучение';
   // Where this screen lives, shown above the title.
-  const place = lessonOpen ? 'Уроки' : entry ? findGuideShelf(entry.shelf)?.title : 'Школа мафии';
+  const place = lessonOpen ? 'Уроки' : entry ? findGuideShelf(entry.shelf)?.title : 'Обучение';
 
   return (
     <main data-testid="public-guide" data-guide-from-cabinet={fromCabinet ? 'true' : undefined} className={`min-h-screen bg-[#090a0d] px-4 text-white ${fromCabinet ? 'pb-[calc(7rem+env(safe-area-inset-bottom))]' : 'pb-10'}`} style={{ paddingTop: home ? 20 : 0 }}>
@@ -305,10 +305,10 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
         {home ? (
           <header className="text-center">
             {fromCabinet && <button type="button" data-testid="guide-exit-home" onClick={exitGuide} className="mb-4 flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] px-3 text-sm font-medium text-white/75">
-              <ChevronLeft className="h-4 w-4" />Вернуться в кабинет
+              <ChevronLeft className="h-4 w-4" />{cabinetReturnPath.includes("/profile/learning") ? "Вернуться в Прогресс" : "Вернуться в кабинет"}
             </button>}
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
-            <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Школа мафии</h1>
+            <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Обучение</h1>
             <p className="mt-1.5 text-[14px] leading-6 text-white/55">Уроки, тренажёры и правила спортивной мафии.</p>
           </header>
         ) : (
@@ -321,7 +321,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
             </div>
             {fromCabinet ? (
               <button type="button" data-testid="guide-exit" onClick={exitGuide} className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2.5 text-[11px] font-semibold text-white/65">
-                Кабинет <ArrowUpRight className="h-3.5 w-3.5" />
+                {cabinetReturnPath.includes("/profile/learning") ? "Прогресс" : "Кабинет"} <ArrowUpRight className="h-3.5 w-3.5" />
               </button>
             ) : <span className="w-11 shrink-0" aria-hidden="true" />}
           </nav>
@@ -351,7 +351,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
           </section>
         ) : null}
       </div>
-      {fromCabinet && <PlayerBottomNavigation section="learning" onOpen={goToCabinetTab} />}
+      {fromCabinet && <PlayerBottomNavigation section="profile" onOpen={goToCabinetTab} />}
     </main>
   );
 };

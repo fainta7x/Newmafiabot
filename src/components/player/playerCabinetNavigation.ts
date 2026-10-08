@@ -1,6 +1,5 @@
 export type PlayerCabinetSection =
   | 'home'
-  | 'learning'
   | 'events'
   | 'games'
   | 'stats'
@@ -27,14 +26,13 @@ export type PlayerCabinetSection =
  * The wallet and the settings are icons in the header. Old addresses keep working: the sections stay,
  * only their grouping changed.
  */
-export type PlayerCabinetNavId = 'home' | 'evenings' | 'community' | 'progress' | 'school';
+export type PlayerCabinetNavId = 'home' | 'evenings' | 'community' | 'progress';
 
 export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: string }> = [
   { id: 'home', label: 'Главная' },
   { id: 'evenings', label: 'Вечера' },
   { id: 'community', label: 'Сообщество' },
   { id: 'progress', label: 'Прогресс' },
-  { id: 'school', label: 'Школа' },
 ];
 
 /** The section a bottom-menu button opens. */
@@ -43,7 +41,6 @@ export const PLAYER_NAV_SECTION: Record<PlayerCabinetNavId, PlayerCabinetSection
   evenings: 'events',
   community: 'rating',
   progress: 'profile',
-  school: 'learning',
 };
 
 const EVENING_SECTIONS = new Set<PlayerCabinetSection>(['events', 'recaps', 'games']);
@@ -75,6 +72,5 @@ export const isPlayerCabinetNavActive = (
   if (navId === 'evenings') return isPlayerEveningSection(normalized);
   if (navId === 'community') return isPlayerCommunitySection(normalized);
   if (navId === 'progress') return normalized === 'profile';
-  if (navId === 'school') return normalized === 'learning';
   return normalized === navId;
 };

@@ -32,7 +32,7 @@ describe('player cabinet navigation model', () => {
     }
   });
 
-  it('maps every section to its place in the five-item menu with always-accessible School', () => {
+  it('maps every section to its place in the new four-item menu (owner, 2026-10-06)', () => {
     for (const section of ['events', 'recaps', 'games'] as const) expect(isPlayerCabinetNavActive('evenings', section)).toBe(true);
     for (const section of ['rating', 'ratingperiods', 'ratingtournaments', 'club', 'clubworld', 'more'] as const) {
       expect(isPlayerCabinetNavActive('community', section)).toBe(true);
@@ -41,12 +41,10 @@ describe('player cabinet navigation model', () => {
     expect(isPlayerCabinetNavActive('evenings', 'rating')).toBe(false);
     expect(isPlayerCabinetNavActive('community', 'games')).toBe(false);
     expect(isPlayerCabinetNavActive('progress', 'club')).toBe(false);
-    expect(isPlayerCabinetNavActive('school', 'learning')).toBe(true);
-    expect(isPlayerCabinetNavActive('school', 'profile')).toBe(false);
   });
 
   it('highlights exactly the open place and none for the wallet and the settings', () => {
-    const cases = [['home', 'home'], ['events', 'evenings'], ['games', 'evenings'], ['rating', 'community'], ['club', 'community'], ['profile', 'progress'], ['learning', 'school']] as const;
+    const cases = [['home', 'home'], ['events', 'evenings'], ['games', 'evenings'], ['rating', 'community'], ['club', 'community'], ['profile', 'progress']] as const;
     for (const [section, expectedNav] of cases) {
       const active = PLAYER_CABINET_NAV.filter((item) => isPlayerCabinetNavActive(item.id, section)).map((item) => item.id);
       expect(active).toEqual([expectedNav]);
@@ -57,7 +55,7 @@ describe('player cabinet navigation model', () => {
   });
 
   it('keeps the menu order and opens each place on its first screen', () => {
-    expect(PLAYER_CABINET_NAV.map((item) => item.label)).toEqual(['Главная', 'Вечера', 'Сообщество', 'Прогресс', 'Школа']);
-    expect(PLAYER_NAV_SECTION).toEqual({ home: 'home', evenings: 'events', community: 'rating', progress: 'profile', school: 'learning' });
+    expect(PLAYER_CABINET_NAV.map((item) => item.label)).toEqual(['Главная', 'Вечера', 'Сообщество', 'Прогресс']);
+    expect(PLAYER_NAV_SECTION).toEqual({ home: 'home', evenings: 'events', community: 'rating', progress: 'profile' });
   });
 });

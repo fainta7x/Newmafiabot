@@ -728,7 +728,7 @@ Owner selection 20:18 Moscow (ideas retained for design, not implementation appr
 - Poker table visual themes retained as a possible cosmetic feature; no paid gameplay/settings advantage selected.
 - Furniture placement/personal room builder deferred as too complex and distant.
 - Paid thematic evening rejected: player initiatives for thematic evenings should be encouraged freely.
-Continue brainstorming additional app/game cosmetics and expressive features. No final VIP/compendium bundle or price chosen.
+Owner correction 20:20 Moscow: customization and music are already identified directions. Stop proposing more cosmetic variants (intros, win effects, reactions, cards) as new product value; brainstorm genuinely separate paid benefits/directions. Continue discussion, not implementation. No final VIP/compendium bundle or price chosen.
 
 Current stop: Robokassa test adapter merged in PR #754; mounted wallet checkout, authenticated ResultURL settlement and receipt evidence still remain. Merchant/NPD onboarding deferred to tomorrow. This discussion does not authorize implementation of VIP, compendium, new payment rules or paid sporting advantages.
 

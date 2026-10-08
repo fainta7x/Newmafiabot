@@ -348,6 +348,6 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 
 ### 2026-10-08 — Judge training: repeated night checks and copied death protocols
 
-- **Open:** `src/lib/judgeConductTraining.ts` — `checkTarget` always points Don at the live Sheriff and Sheriff at the first black player, so subsequent nights repeat the same targets instead of teaching varied checks.
-- **Open:** `src/lib/judgeTrainingProtocols.ts`, `src/components/crm/EveningDeathProtocolOverlay.tsx` — every killed player receives the identical hard-coded five-mark color protocol; instructions, interaction guard, and confirmation all assume those marks, ignoring player/night context.
+- **Fixed in this workstream:** `src/lib/judgeConductTraining.ts` — `checkTarget` always points Don at the live Sheriff and Sheriff at the first black player, so subsequent nights repeat the same targets instead of teaching varied checks.
+- **Fixed in this workstream:** `src/lib/judgeTrainingProtocols.ts`, `src/components/crm/EveningDeathProtocolOverlay.tsx` — every killed player receives the identical hard-coded five-mark color protocol; instructions, interaction guard, and confirmation all assume those marks, ignoring player/night context.
 - **Scope:** training-only scripts and training-only death-protocol overlay. Keep engine, real referee controls and production protocol unchanged. Acceptance: distinct eligible night checks; reproducible 1–4 color marks with optional Sheriff for each killed player/night; no target/task drift on refresh; focused unit and browser coverage.

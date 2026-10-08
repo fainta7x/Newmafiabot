@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   nextTrainingBestMoveSeat,
   TRAINING_BEST_MOVE_SEATS,
-  TRAINING_DEATH_PROTOCOL,
+  getTrainingDeathProtocolPlan,
+  getTrainingDeathMarkSteps,
   nextTrainingDeathMark,
   matchesTrainingDeathProtocol,
   canToggleTrainingDeathMark,
@@ -22,21 +23,49 @@ describe('guided LH', () => {
 });
 
 describe('guided color protocol', () => {
-  it('prescribes precise red, black, sheriff marks, never free input', () => {
+  it('varies from one to four guessed colors plus an optional Sheriff, without repeating one static protocol', () => {
+    const cases = Array.from({ length: 6 }, (_, index) => index + 1)
+      .flatMap((round) => [2, 5, 7, 9].map((killed) => ({ round, killed, plan: getTrainingDeathProtocolPlan(round, killed) })));
+    const distinct = new Set<string>();
+    const counts = new Set<number>();
+    const sheriffOptions = new Set<boolean>();
+    for (const { round, killed, plan } of cases) {
+      expect(getTrainingDeathProtocolPlan(round, killed)).toEqual(plan); // refresh/restore safe
+      const colored = [...plan.red, ...plan.black];
+      expect(colored.length).toBeGreaterThanOrEqual(1);
+      expect(colored.length).toBeLessThanOrEqual(4);
+      expect(new Set(colored).size).toBe(colored.length);
+      expect(colored).not.toContain(killed);
+      expect(plan.sheriff.length).toBeLessThanOrEqual(1);
+      expect(plan.sheriff).not.toContain(killed);
+      distinct.add(JSON.stringify(plan));
+      counts.add(colored.length);
+      sheriffOptions.add(plan.sheriff.length > 0);
+    }
+    expect(distinct.size).toBeGreaterThanOrEqual(10);
+    expect(counts.size).toBeGreaterThanOrEqual(3);
+    expect(sheriffOptions).toEqual(new Set([true, false]));
+  });
+
+  it('follows the selected death-night script exactly and unlocks save after its final mark', () => {
+    const plan = getTrainingDeathProtocolPlan(2, 7);
     const empty = { red: [], black: [], sheriff: [] };
-    expect(TRAINING_DEATH_PROTOCOL).toEqual({ red: [1, 2], black: [3, 5], sheriff: [8] });
-    expect(nextTrainingDeathMark(empty)).toEqual({ mark: 'red', seat: 1, label: 'Красные' });
-    expect(canToggleTrainingDeathMark(empty, 'black', 3)).toBe(false);
-    expect(canToggleTrainingDeathMark(empty, 'red', 1)).toBe(true);
-    const after1 = { ...empty, red: [1] };
-    expect(nextTrainingDeathMark(after1)?.seat).toBe(2);
-    const afterRed = { ...empty, red: [1, 2] };
-    expect(nextTrainingDeathMark(afterRed)).toEqual({ mark: 'black', seat: 3, label: 'Чёрные' });
-    const afterBlack = { ...afterRed, black: [3, 5] };
-    expect(nextTrainingDeathMark(afterBlack)?.seat).toBe(8);
-    expect(matchesTrainingDeathProtocol({ ...afterBlack, sheriff: [8] })).toBe(true);
-    expect(matchesTrainingDeathProtocol({ ...afterBlack, sheriff: [7] })).toBe(false);
-    expect(matchesTrainingDeathProtocol({ red: [1, 2, 4], black: [3, 5], sheriff: [8] })).toBe(false);
+    const steps = getTrainingDeathMarkSteps(plan);
+    expect(steps.length).toBeGreaterThanOrEqual(1);
+    expect(steps.length).toBeLessThanOrEqual(5);
+    expect(nextTrainingDeathMark(empty, plan)).toEqual(steps[0]);
+    const blockedSeat = Array.from({ length: 10 }, (_, index) => index + 1)
+      .find((seat) => !plan.red.includes(seat) && !plan.black.includes(seat) && !plan.sheriff.includes(seat));
+    expect(canToggleTrainingDeathMark(empty, plan, 'black', blockedSeat!)).toBe(false);
+    let selected = { ...empty };
+    for (const step of steps) {
+      expect(nextTrainingDeathMark(selected, plan)).toEqual(step);
+      expect(canToggleTrainingDeathMark(selected, plan, step.mark, step.seat)).toBe(true);
+      selected = { ...selected, [step.mark]: [...selected[step.mark], step.seat] };
+    }
+    expect(matchesTrainingDeathProtocol(selected, plan)).toBe(true);
+    expect(nextTrainingDeathMark(selected, plan)).toBeNull();
+    expect(matchesTrainingDeathProtocol({ ...selected, red: [...selected.red, 10] }, plan)).toBe(false);
   });
 });
 

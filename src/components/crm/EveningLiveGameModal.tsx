@@ -426,6 +426,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            disabled={trainingMode}
             onClick={() => void openBroadcastSetup()}
             className={`relative w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${broadcastConnection === 'live' ? 'border-emerald-700 bg-emerald-950/70 text-emerald-300' : broadcastConnection === 'offline' ? 'border-rose-800 bg-rose-950/70 text-rose-300' : 'border-slate-800 bg-slate-900 text-slate-400'}`}
             title="OBS-трансляция"
@@ -435,6 +436,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </button>
           <button
             type="button"
+            disabled={trainingMode}
             onClick={() => setRolesHidden((value) => !value)}
             className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${rolesHidden ? 'bg-amber-950/70 border-amber-700 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
             title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}

@@ -1347,11 +1347,23 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   /** Return to the last completed day speech, not just the previous vote click.
    * The vote-entry snapshot contains the full nomination order and speaker progress. */
   const handleBackToDaySpeeches = () => {
+    let fallbackIndex = -1;
     for (let index = historyStack.length - 1; index >= 0; index -= 1) {
       const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
       if (snapshot.phase !== 'day_speeches' || snapshot.roundNumber !== roundNumber) continue;
-      restoreSnapshot(snapshot);
-      setHistoryStack((current) => current.slice(0, index));
+      if (fallbackIndex < 0) fallbackIndex = index;
+      // The latest *active speech*, not the "all speeches finished" screen:
+      // restoring that frame lets the judge correct a missed nomination.
+      if (snapshot.activeSpeakerSlot !== null) {
+        restoreSnapshot(snapshot);
+        setHistoryStack((current) => current.slice(0, index));
+        showToast('Вернулись к последней речи перед голосованием', 'info');
+        return;
+      }
+    }
+    if (fallbackIndex >= 0) {
+      restoreSnapshot(normalizeLiveSnapshotForRestore(historyStack[fallbackIndex]));
+      setHistoryStack((current) => current.slice(0, fallbackIndex));
       showToast('Вернулись к речам перед голосованием', 'info');
       return;
     }

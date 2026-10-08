@@ -5,6 +5,7 @@ type Links = {
   telegram: { linked: boolean; username: string | null };
   vk: { vk_user_id: string; display_name: string | null; url: string } | null;
   claim_link: { expires_at: string } | null;
+  pending_links?: { id: string; platform: 'telegram' | 'vk'; created_at: string }[];
 };
 type ClaimLink = { telegram_url: string | null; web_url: string; expires_at: string; nickname: string };
 
@@ -55,6 +56,15 @@ export default function PlayerAccountLinks({ playerId }: { playerId: string }) {
     const data = await call('claim', `/api/players/${encodeURIComponent(playerId)}/claim-link`);
     if (data) { setClaim(data); await load(); }
   };
+  const resolvePending = async (requestId: string, decision: 'approve' | 'reject') => {
+    if (decision === 'approve' && !window.confirm('Вы лично подтвердили, что этот VK/Telegram аккаунт действительно принадлежит игроку? Привязка даст ему доступ к истории, профилю и жетонам.')) return;
+    const data = await call('resolve:' + requestId,
+      `/api/crm/onboarding-links/${encodeURIComponent(requestId)}/resolve`, { decision });
+    if (data) {
+      setNote(decision === 'approve' ? 'Аккаунт привязан. Попросите игрока снова войти тем же способом.' : 'Заявка отклонена.');
+      await load();
+    }
+  };
   const linkVk = async () => {
     const data = await call('vk', `/api/players/${encodeURIComponent(playerId)}/vk-link`, { vk });
     if (data) { setVk(''); setNote(`VK привязан${data.display_name ? `: ${data.display_name}` : ''}`); await load(); }
@@ -68,6 +78,27 @@ export default function PlayerAccountLinks({ playerId }: { playerId: string }) {
       <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary"><Link2 className="h-4 w-4 text-accent" /> Привязка профиля</div>
       <div className="flex items-center justify-between gap-3 text-[12px]"><span className="text-text-secondary">Telegram</span><strong className={links.telegram.linked ? 'text-success' : 'text-text-muted'}>{links.telegram.linked ? 'привязан' : 'не привязан'}</strong></div>
       <div className="flex items-center justify-between gap-3 text-[12px]"><span className="text-text-secondary">VK</span>{links.vk ? <a href={links.vk.url} target="_blank" rel="noreferrer" className="truncate font-bold text-success">{links.vk.display_name || 'привязан'}</a> : <strong className="text-text-muted">не привязан</strong>}</div>
+      {Boolean(links.pending_links?.length) && (
+        <div data-testid="crm-player-pending-account-links" className="space-y-2 rounded-[12px] border border-warning/30 bg-warning-soft/20 p-3">
+          <p className="text-[12px] font-semibold text-text-primary">Ждут подтверждения · {links.pending_links?.length}</p>
+          <p className="text-[11px] leading-4 text-text-secondary">Игрок подтвердил аккаунт через Telegram или VK. Перед привязкой проверьте у него лично, что это именно его старый игровой профиль. Одного совпадения ника недостаточно.</p>
+          {links.pending_links?.map((item) => (
+            <div key={item.id} className="space-y-2 rounded-[10px] border border-border-soft bg-surface-1 p-2.5">
+              <p className="text-[12px] text-text-primary">
+                {item.platform === 'vk' ? 'Вход через VK' : 'Вход через Telegram'} · {day(item.created_at)}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" disabled={Boolean(busy)} onClick={() => void resolvePending(item.id, 'approve')}
+                  className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[12px] font-bold text-success disabled:opacity-50">
+                  {busy === 'resolve:' + item.id ? 'Обработка…' : 'Подтвердить'}
+                </button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void resolvePending(item.id, 'reject')}
+                  className="min-h-11 rounded-[10px] border border-border-soft px-2 text-[12px] font-bold text-text-secondary disabled:opacity-50">Отклонить</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {fullyLinked ? null : <>
         <p className="text-[11px] leading-4 text-text-muted">Отправьте игроку личную ссылку: он откроет её в Telegram или VK, и этот профиль сразу станет его — без ввода ника и без вашего подтверждения. Ссылка одноразовая, действует 14 дней.</p>

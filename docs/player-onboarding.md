@@ -68,6 +68,28 @@ Organizer actions:
 
 Approval fails closed if the Telegram/VK identity is already owned by another player or the target player already owns another identity of that channel. Repeated resolution is idempotent.
 
+### VK login to an older profile already linked to Telegram
+
+A first-time VK login may find a historical/manual player profile with the same
+nickname that already has a Telegram identity. A notification to that *old*
+Telegram account alone can strand a player with no explanation or access.
+
+- Keep the private Telegram bot confirmation when delivery works.
+- **Also** create an organizer-reviewable request for the *verified VK user*,
+  reusing one pending request per external identity. Telegram may be unavailable:
+  organizer review must still be possible.
+- Show the location of the request in the pending screen:
+  **Управление → Игроки → профиль → Привязка профиля**, or the CRM overview's
+  **Запросы на привязку профиля**. Clarify that a Telegram bot message, if
+  sent, goes to the Telegram linked to the *old* profile, not to the VK account.
+- The same verified request can be approved/rejected in the target player's CRM
+  card, after an explicit identity check. The API exposes only id, platform
+  and creation date; no raw external ids or tokens. Link changes stay protected
+  by the existing organizer authentication and identity-conflict checks.
+- After approval, the player signs in again through the same verified VK login.
+  Never auto-link on a nickname match. Do not create or merge player profiles,
+  balances or statistics in this flow.
+
 ## Compatibility invariants
 
 VK-ACCESS-004 and later onboarding changes must not change:

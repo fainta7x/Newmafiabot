@@ -461,3 +461,60 @@
     gap: 0 !important;
   }
 }
+
+/* Guided judge practice: a single scroll owner and an identity drawn by each
+   interactive seat. The training coach is a sibling, not a nested scroll box.
+   Keep this scoped: live club games retain their approved avatar overlay. */
+@media (max-width: 767px) {
+  html body .fixed.inset-0.z-\\[95\\]:has(> .evening-live-engine-shell[data-training-input-gate="active"])
+    > [data-testid="judge-conduct-coach"] {
+    flex: 0 0 auto !important;
+    padding-block: 4px !important;
+  }
+
+  html body .fixed.inset-0.z-\\[95\\]
+    > .evening-live-engine-shell[data-training-input-gate="active"] {
+    flex: 1 1 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html body .evening-live-engine-shell[data-training-input-gate="active"] > div {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Real game has CRM avatar overlays, but synthetic players only have the
+     same placeholder initial. Show the actual training player identity
+     inside the corresponding seat, never in an independently placed layer. */
+  html body .evening-live-engine-shell[data-training-input-gate="active"]
+    .live-seat-footer__name {
+    display: block !important;
+    position: absolute !important;
+    left: 3px !important;
+    right: 3px !important;
+    bottom: 47px !important;
+    width: auto !important;
+    max-height: 28px !important;
+    overflow: hidden !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-overflow: clip !important;
+    text-align: center !important;
+    font-size: 10px !important;
+    line-height: 13px !important;
+    font-weight: 750 !important;
+    pointer-events: none !important;
+  }
+
+  html body .evening-live-engine-shell[data-training-input-gate="active"]
+    .live-seat-card--voting .live-seat-footer__name {
+    display: none !important;
+  }
+}

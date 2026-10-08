@@ -424,7 +424,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
+          {!trainingMode && <button
             type="button"
             disabled={trainingMode}
             onClick={() => void openBroadcastSetup()}
@@ -433,8 +433,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           >
             <MonitorUp className="w-4 h-4" />
             {broadcastConnection === 'live' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-          </button>
-          <button
+          </button>}
+          {!trainingMode && <button
             type="button"
             disabled={trainingMode}
             onClick={() => setRolesHidden((value) => !value)}
@@ -442,7 +442,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}
           >
             {rolesHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={onClose}
@@ -579,8 +579,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
-      <div className={trainingMode ? 'h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain' : ''}>
-        {trainingMode && <JudgeConductCoach />}
+      {trainingMode && <JudgeConductCoach />}
       <div className="evening-live-engine-shell py-0.5 md:py-3"
         onClickCapture={guardTrainingInput}
         onChangeCapture={guardTrainingInput}
@@ -621,7 +620,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }}
         />
 
-        {livePhase !== 'setup' && (
+        {!trainingMode && livePhase !== 'setup' && (
           <div className="evening-live-identity-layer" aria-hidden="true">
             {livePlayers.map((player) => (
               <div
@@ -643,7 +642,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             ))}
           </div>
         )}
-      </div>
       </div>
     </div>
   );

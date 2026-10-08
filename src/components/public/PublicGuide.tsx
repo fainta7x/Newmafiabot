@@ -15,6 +15,7 @@ import {
 } from './guide/GuideScreens.tsx';
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 import { SplitThreeTraining } from './SplitThreeTraining.tsx';
+import JudgeConductTraining from './JudgeConductTraining.tsx';
 
 /** 'home', 'lessons', a section (shelf id) or a catalog entry id (see src/lib/guideCatalog.ts). */
 export type GuideTab = string;
@@ -34,6 +35,7 @@ const GUIDE_VIEWS: Record<GuideView, React.FC<ViewProps>> = {
   quiz: ({ onQuizFinish }) => <GuideQuiz onFinish={onQuizFinish} />,
   split: () => <SplitVoteTraining />,
   'split-three': () => <SplitThreeTraining />,
+  'judge-conduct': () => <JudgeConductTraining />,
   article: ({ entry }) => <Article blocks={entry.blocks || []} />,
 };
 

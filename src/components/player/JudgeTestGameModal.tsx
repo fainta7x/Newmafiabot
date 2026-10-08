@@ -1,9 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
-import { beginTestGameSandbox, endTestGameSandbox } from '../../lib/testGameSandbox.ts';
-
-const TEST_GAME_ID = -2147483000;
+import { TEST_GAME_ID, beginTestGameSandbox, endTestGameSandbox } from '../../lib/testGameSandbox.ts';
+import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 
 const buildTestGame = (judge: { id: string; nickname: string }): ClubGameRecord => {
   const now = new Date().toISOString();
@@ -100,6 +99,10 @@ const installTestSaveInterceptor = (game: ClubGameRecord) => {
       });
     }
 
+    // A synthetic game must never send gameplay changes to the real API.
+    if (url.pathname.startsWith(testPath.slice(0, testPath.indexOf('/evening-protocol')) + '/')) {
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     return originalFetch.call(window, input as any, init);
   };
 
@@ -112,9 +115,11 @@ const installTestSaveInterceptor = (game: ClubGameRecord) => {
 export default function JudgeTestGameModal({
   judge,
   onClose,
+  training = false,
 }: {
   judge: { id: string; nickname: string };
   onClose: (completed?: boolean) => void;
+  training?: boolean;
 }) {
   const game = useMemo(() => buildTestGame(judge), [judge.id, judge.nickname]);
   const [ready, setReady] = useState(false);
@@ -146,8 +151,9 @@ export default function JudgeTestGameModal({
           onClose(true);
         }}
       />
+      {training && <JudgeConductCoach />}
       <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
-        Тест · не сохраняется
+        {training ? 'Учебная игра · не сохраняется' : 'Тест · не сохраняется'}
       </div>
     </>
   );

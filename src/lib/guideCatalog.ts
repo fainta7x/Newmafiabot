@@ -23,7 +23,7 @@ export const pluralRu = (count: number, one: string, few: string, many: string) 
 
 export type GuideShelfId = 'reference' | 'articles' | 'trainers';
 export type GuideIcon = 'moon' | 'users' | 'scale' | 'book' | 'vote' | 'article' | 'list';
-export type GuideView = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split' | 'split-three' | 'article';
+export type GuideView = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split' | 'split-three' | 'judge-conduct' | 'article';
 
 export type GuideEntry = {
   /** Stable address: /guide?tab=<id>. Never rename a published id — people share links. */
@@ -54,7 +54,7 @@ export type GuideShelf = {
  * /guide?tab=<shelf id>. A shelf without entries is not shown.
  */
 export const GUIDE_SHELVES: GuideShelf[] = [
-  { id: 'trainers', title: 'Тренажёры', summary: 'Попил за столом 10 и 9 человек, тест', lead: 'Задачи с проверкой ответа. Экзамены сохраняются в кабинете игрока.', icon: 'vote', layout: 'rows' },
+  { id: 'trainers', title: 'Тренажёры', summary: 'Попил, судейство, тест', lead: 'Задачи с проверкой ответа. Экзамены сохраняются в кабинете игрока.', icon: 'vote', layout: 'rows' },
   { id: 'reference', title: 'Справочник', summary: 'Вечер, роли, правила, словарь', lead: 'Роли, правила и слова клуба — когда нужно быстро найти ответ.', icon: 'book', layout: 'tiles' },
   { id: 'articles', title: 'Статьи', summary: 'Попил в первый день, договорка', lead: 'Разборы игровых ситуаций.', icon: 'article', layout: 'rows' },
 ];
@@ -73,6 +73,7 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'agreement', shelf: 'articles', view: 'article', icon: 'article', title: 'Договорка', detail: 'Как мафия решает, кого убивать', blocks: blocksTitled('Договорка — как мафия решает, кого убивать') },
   { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
   { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · пять уровней и экзамены' },
+  { id: 'judge-conduct', shelf: 'trainers', view: 'judge-conduct', icon: 'scale', group: 'Ведение игр', title: 'Тренажёр судьи', detail: 'Настоящий Live Game · подсказки и учебная партия' },
   { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Знание правил', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
 ];
 

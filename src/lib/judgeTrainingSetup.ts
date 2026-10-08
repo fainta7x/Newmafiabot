@@ -20,14 +20,14 @@ export const trainingSeatingComplete = (plan: string[], lineup: string[]) =>
 
 /** Real Live Game role deck counts: 6 citizens, 1 sheriff, 2 mafia, 1 don. */
 export const JUDGE_TRAINING_ROLES: Record<number, PhysicalRole> = {
-  1: 'sheriff',
+  1: 'citizen',
   2: 'citizen',
   3: 'mafia',
   4: 'citizen',
   5: 'don',
   6: 'citizen',
   7: 'citizen',
-  8: 'citizen',
+  8: 'sheriff',
   9: 'mafia',
   10: 'citizen',
 };

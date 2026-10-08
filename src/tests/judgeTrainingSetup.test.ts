@@ -32,5 +32,7 @@ describe('guided judge practice setup', () => {
     expect(trainingRolePlacementAllowed(JUDGE_TRAINING_ROLES, 3, 'citizen')).toBe(false);
     expect(trainingRolePlacementAllowed(JUDGE_TRAINING_ROLES, 5, 'don')).toBe(true);
     expect(trainingRolePlacementAllowed(JUDGE_TRAINING_ROLES, 7, 'citizen')).toBe(true);
+    expect(trainingRolePlacementAllowed(JUDGE_TRAINING_ROLES, 8, 'sheriff')).toBe(true);
+    expect(trainingRolePlacementAllowed(JUDGE_TRAINING_ROLES, 1, 'citizen')).toBe(true);
   });
 });

@@ -13,6 +13,9 @@ describe('judge training reuses the actual club Live Game layout', () => {
     expect(modal).not.toContain("h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain");
     expect(modal).toContain("const identityOverlay = livePhase === 'setup' ? null : (");
     expect(modal).toContain("createPortal(identityOverlay, trainingBoardElement)");
+    expect(modal).toContain('grid-template-columns: inherit !important');
+    expect(modal).toContain('grid-template-rows: inherit !important');
+    expect(modal).toContain('height: 100% !important');
     expect(modal).toContain(": identityOverlay");
     expect(modal).toContain("setTrainingBoardElement(board)");
     expect(modal).toContain('className="evening-live-identity-layer"');

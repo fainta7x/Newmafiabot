@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensureVkPlayerAuthSchema } from '../../db/ensureVkPlayerAuthSchema.ts';
+import { ensurePlayerOnboardingSchema } from '../../db/ensurePlayerOnboardingSchema.ts';
 import { findPlayersByNickname } from './playerRegistrationService.ts';
 import { linkVkIdentity } from './vkEveningIntegrationService.ts';
 import {
@@ -350,6 +351,15 @@ export async function confirmVkPlayerIdentityClaim(db: DatabaseWrapper, rawToken
   }
 
   await linkVkIdentity(db, { vkUserId: claim.vk_user_id, playerId: claim.player_id });
+  // The same verified VK claimant may also have an organizer fallback.
+  // Once the old Telegram owner has confirmed, remove that pending task:
+  // no second approval is needed and the CRM must not suggest an unresolved link.
+  await ensurePlayerOnboardingSchema(db);
+  await db.run(`
+    UPDATE player_onboarding_link_requests
+       SET status='approved', resolved_at=?, updated_at=?
+     WHERE platform='vk' AND external_user_id=? AND target_player_id=? AND status='pending'
+  `, [confirmedAt, confirmedAt, claim.vk_user_id, claim.player_id]);
   return {
     vkUserId: claim.vk_user_id,
     playerId: claim.player_id,

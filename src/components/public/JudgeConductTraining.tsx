@@ -30,7 +30,7 @@ export default function JudgeConductTraining() {
         <h2 className="mt-1 text-[23px] font-semibold leading-7 text-white">Проведи свою первую игру</h2>
         <p className="mt-3 text-sm leading-6 text-white/60">
           Ты — судья. Десять виртуальных игроков будут произносить речи, выставлять кандидатов, голосовать и играть ночью.
-          Ты должен записывать их действия в настоящем Live Game Engine.
+          Сначала проведи рассадку и раздачу ролей по заданиям, затем записывай их действия в настоящем Live Game Engine.
         </p>
         <button type="button" onClick={() => setPlaying(true)} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-bold text-black active:bg-amber-100" data-testid="judge-trainer-start">
           Начать учебную партию <ArrowRight className="h-4 w-4" />
@@ -41,8 +41,8 @@ export default function JudgeConductTraining() {
         <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-3">
           <BookOpenCheck className="mt-1 h-5 w-5 shrink-0 text-amber-200/70" />
           <div>
-            <div className="text-sm font-semibold">Сначала знакомство</div>
-            <p className="mt-1 text-xs leading-5 text-white/50">Основные кнопки интерфейса подсвечиваются, а подсказки объясняют, что делать.</p>
+            <div className="text-sm font-semibold">Рассадка, роли и знакомство</div>
+            <p className="mt-1 text-xs leading-5 text-white/50">Посади каждого виртуального игрока на указанное место и раздай заданные роли. Затем познакомься с подсвеченными кнопками интерфейса.</p>
           </div>
         </div>
         <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-3">

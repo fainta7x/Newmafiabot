@@ -2,16 +2,17 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { TEST_GAME_ID, beginTestGameSandbox, endTestGameSandbox } from '../../lib/testGameSandbox.ts';
-import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
+import { createJudgeTrainingSeatingPlan, TRAINING_PEOPLE } from '../../lib/judgeTrainingSetup.ts';
+import JudgeTrainingSeating from './JudgeTrainingSeating.tsx';
 
-const buildTestGame = (judge: { id: string; nickname: string }): ClubGameRecord => {
+const buildTestGame = (judge: { id: string; nickname: string }, lineup: string[]): ClubGameRecord => {
   const now = new Date().toISOString();
   const playerResults = Array.from({ length: 10 }, (_, index) => {
     const seat = index + 1;
     return {
       participant_id: `test-participant-${seat}`,
       player_id: null,
-      display_name: `Игрок ${seat}`,
+      display_name: lineup[index] || `Игрок ${seat}`,
       seat_number: seat,
       role: null,
       team: null,
@@ -121,11 +122,14 @@ export default function JudgeTestGameModal({
   onClose: (completed?: boolean) => void;
   training?: boolean;
 }) {
-  const game = useMemo(() => buildTestGame(judge), [judge.id, judge.nickname]);
+  const seatPlan = useMemo(() => createJudgeTrainingSeatingPlan(), []);
+  const [trainingLineup, setTrainingLineup] = useState<string[] | null>(training ? null : TRAINING_PEOPLE);
+  const game = useMemo(() => buildTestGame(judge, trainingLineup || TRAINING_PEOPLE), [judge.id, judge.nickname, trainingLineup]);
   const [ready, setReady] = useState(false);
   const completedRef = useRef(false);
 
   useLayoutEffect(() => {
+    if (!trainingLineup) return;
     completedRef.current = false;
     beginTestGameSandbox();
     const restoreFetch = installTestSaveInterceptor(game);
@@ -135,14 +139,18 @@ export default function JudgeTestGameModal({
       restoreFetch();
       endTestGameSandbox();
     };
-  }, [game]);
+  }, [game, trainingLineup]);
 
+  if (training && !trainingLineup) {
+    return <JudgeTrainingSeating plan={seatPlan} onClose={() => onClose(false)} onComplete={setTrainingLineup} />;
+  }
   if (!ready) return null;
 
   return (
     <>
       <EveningLiveGameModal
         game={game}
+        trainingMode={training}
         onClose={() => {
           if (!completedRef.current) onClose(false);
         }}
@@ -151,10 +159,9 @@ export default function JudgeTestGameModal({
           onClose(true);
         }}
       />
-      {training && <JudgeConductCoach />}
-      <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
-        {training ? 'Учебная игра · не сохраняется' : 'Тест · не сохраняется'}
-      </div>
+      {!training && <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
+        Тест · не сохраняется
+      </div>}
     </>
   );
 }

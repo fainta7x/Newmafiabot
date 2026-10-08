@@ -11,6 +11,7 @@ import { getLiveGameSetupMode } from './setupMode.js';
 import { getSetupStartValidationError } from './setupState.js';
 import type { ActivePlayerState } from './types.js';
 import { startClubGameFailOpen } from './startClubGameFailOpen.ts';
+import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 
 interface SetupPhaseProps {
   players: Player[];
@@ -24,6 +25,7 @@ interface SetupPhaseProps {
   onCancel: () => void;
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;
+  trainingRoles?: Record<number, PhysicalRole>;
 }
 
 const ClubSpeechRecordingControl = () => (
@@ -97,7 +99,8 @@ export default function SetupPhase(props: SetupPhaseProps) {
           onCancel={props.onCancel}
           validateSetupAndStart={() => { void validateClubSetupAndStart(); }}
           onRoleDealActiveChange={props.onRoleDealActiveChange}
-          speechRecordingControl={<ClubSpeechRecordingControl />}
+          speechRecordingControl={props.trainingRoles ? undefined : <ClubSpeechRecordingControl />}
+          trainingRoles={props.trainingRoles}
         />
       </div>
     );

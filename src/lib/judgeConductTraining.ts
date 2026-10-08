@@ -122,10 +122,10 @@ export const getTrainingPrompt = (s: PersistedLiveSession | null): TrainingPromp
     }
     if (s.nightSubPhase === 'don') {
       const target = s.activePlayers.find((v) => v.alive && v.role === 'Шериф')?.slot_num;
-      return p('Проверка Дона', 'Дон проверяет игрока #' + (target || 1) + '. Отметь его на столе, затем перейди к проверке Шерифа.');
+      return p('Проверка Дона', 'Дон проверяет игрока #' + (target || s.activePlayers.find((v) => v.alive)?.slot_num || 1) + '. Отметь его на столе, затем перейди к проверке Шерифа.');
     }
     if (s.nightSubPhase === 'sheriff') {
-      const target = s.activePlayers.find((v) => v.alive && v.team === 'Чёрные')?.slot_num || 1;
+      const target = s.activePlayers.find((v) => v.alive && v.team === 'Чёрные')?.slot_num || s.activePlayers.find((v) => v.alive)?.slot_num || 1;
       return p('Проверка Шерифа', 'Шериф проверяет игрока #' + target + '. Отметь его на столе. Не забудь выключить музыку перед утром.');
     }
     if (s.nightSubPhase === 'best_move') return p('ЛХ первого убитого', 'Убитый первой ночью называет три места за 25 секунд. Отметь их в окне ЛХ и подтверди.');

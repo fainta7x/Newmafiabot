@@ -1,4 +1,5 @@
 import { Player, GameSlot } from "../../types.js";
+import type { PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 
 export interface ActivePlayerState {
   slot_num: number;
@@ -42,4 +43,5 @@ export interface LiveGameEngineProps {
   onRolesHiddenChange?: (hidden: boolean) => void;
   /** Identity of the game this engine runs (for example `tournament:<gameId>`): a saved session of another game is never offered. */
   sessionKey?: string;
+  trainingRoles?: Record<number, PhysicalRole>;
 }

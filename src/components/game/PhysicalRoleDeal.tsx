@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
+import { JUDGE_TRAINING_ROLE_LABELS, trainingRolePlacementAllowed } from '../../lib/judgeTrainingSetup.ts';
 
 export type PhysicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
 
@@ -16,6 +17,7 @@ type Props = {
   musicTrackTitle?: string | null;
   onCancel: () => void;
   onComplete: (assignments: Record<number, PhysicalRole>) => void;
+  trainingRoles?: Record<number, PhysicalRole>;
 };
 
 const ROLE_META: Record<PhysicalRole, { label: string; marker: string; active: string; countTone: string }> = {
@@ -54,6 +56,7 @@ export default function PhysicalRoleDeal({
   musicTrackTitle,
   onCancel,
   onComplete,
+  trainingRoles,
 }: Props) {
   const sortedSeats = useMemo(() => seats.slice().sort((a, b) => a.seat_number - b.seat_number).slice(0, 10), [seats]);
   // The deck follows the table size: 10 classic, 9 and 8 at a novice table.
@@ -61,6 +64,7 @@ export default function PhysicalRoleDeal({
   const limits = useMemo(() => (isSupportedTableSize(tableSize) ? tableRoleCounts(tableSize) : tableRoleCounts(10)), [tableSize]);
   const limitsLine = `${limits.citizen} / ${limits.sheriff} / ${limits.mafia} / ${limits.don}`;
   const [started, setStarted] = useState(false);
+  const [trainingError, setTrainingError] = useState('');
   const [assignments, setAssignments] = useState<Record<number, PhysicalRole>>(() => {
     const allowed = new Set(sortedSeats.map((seat) => seat.seat_number));
     return Object.fromEntries(
@@ -102,6 +106,11 @@ export default function PhysicalRoleDeal({
 
   const chooseRole = (role: PhysicalRole) => {
     if (!activeSeat) return;
+    if (trainingRoles && !trainingRolePlacementAllowed(trainingRoles, activeSeat.seat_number, role)) {
+      setTrainingError('В задании для места №' + activeSeat.seat_number + ' указана другая карта. Попробуй ещё раз.');
+      return;
+    }
+    setTrainingError('');
     const previous = assignments[activeSeat.seat_number];
     const nextCount = counts[role] - (previous === role ? 1 : 0) + 1;
     if (nextCount > limits[role]) return;
@@ -156,7 +165,7 @@ export default function PhysicalRoleDeal({
             })}
           </div>
 
-          <div className="mt-3 rounded-[16px] bg-black/15 px-3 py-2.5 text-[10px] leading-4 text-white/34">Перемешайте физические карты. После каждой вытянутой карты просто отметьте роль игрока.</div>
+          <div className="mt-3 rounded-[16px] bg-black/15 px-3 py-2.5 text-[10px] leading-4 text-white/34">{trainingRoles ? 'Задание 2 · Раздача ролей. Симулятор назовёт карту каждого игрока. Выбирай указанную роль в настоящем интерфейсе.' : 'Перемешайте физические карты. После каждой вытянутой карты просто отметьте роль игрока.'}</div>
 
           {!musicDisabled && (
             <div className="mt-2.5 flex items-center justify-between gap-3 rounded-[14px] border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
@@ -229,7 +238,13 @@ export default function PhysicalRoleDeal({
               <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[10px] font-semibold text-white/28">{activeIndex + 1} из {tableSize}</span>
             </div>
 
-            <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>
+            {trainingRoles && trainingRoles[activeSeat.seat_number] ? (
+              <div data-testid="judge-training-role-task" className="mt-3 rounded-xl border border-amber-200/25 bg-amber-200/[.07] px-3 py-2.5" aria-live="polite">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/70">Задание · карта игрока</div>
+                <div className="mt-1 text-sm font-semibold text-white">Игрок на месте №{activeSeat.seat_number} получил: {JUDGE_TRAINING_ROLE_LABELS[trainingRoles[activeSeat.seat_number]]}</div>
+              </div>
+            ) : <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>}
+            {trainingError && <p className="mt-2 text-xs text-rose-200" role="alert">{trainingError}</p>}
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               {ROLES.map((role) => {

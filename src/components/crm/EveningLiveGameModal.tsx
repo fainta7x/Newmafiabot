@@ -633,7 +633,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               position: relative !important;
             }
             html body .evening-live-training-modal .evening-live-identity-layer {
+              /* The legacy overlay centers itself with translateX(-50%).
+                 Portalling into the actual board requires zero translation. */
               display: block !important;
+              transform: none !important;
+              translate: none !important;
             }
             html body .evening-live-training-modal .evening-live-identity {
               position: absolute !important;

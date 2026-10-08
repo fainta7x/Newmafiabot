@@ -414,6 +414,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   if (!game.club_protocol) return null;
 
+  // Preserve the original DOM wrapper for live club games verbatim. Only the
+  // synthetic training instance needs the engine as a direct modal child, so
+  // Telegram's existing viewport rules apply without changing table geometry.
+  const GameLayoutWrapper: React.ElementType = trainingMode ? React.Fragment : 'div';
+
   return (
     <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
@@ -581,6 +586,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
+      <GameLayoutWrapper>
       <div className="evening-live-engine-shell py-0.5 md:py-3"
         onClickCapture={guardTrainingInput}
         onChangeCapture={guardTrainingInput}
@@ -644,6 +650,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </div>
         )}
       </div>
+      </GameLayoutWrapper>
     </div>
   );
 };

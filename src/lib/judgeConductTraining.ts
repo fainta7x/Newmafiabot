@@ -32,7 +32,7 @@ export const trainingNightTarget = (session: PersistedLiveSession) => {
   return reds[session.roundNumber % reds.length]?.slot_num ?? session.activePlayers.find((p) => p.alive)?.slot_num ?? 1;
 };
 
-export const trainingVotes = (session: PersistedLiveSession, nominees: number[], isRevote: boolean) => {
+export const trainingVotes = (session: PersistedLiveSession, nominees: number[], _isRevote: boolean) => {
   const alive = session.activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
   // The zero-circle exercise deliberately ties 5:5 BOTH times. A 6:4
   // revote would elect a loser immediately, skipping the real table decision.

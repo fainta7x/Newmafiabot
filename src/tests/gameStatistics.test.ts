@@ -25,6 +25,7 @@ const events = () => { seq = 0; return [
   ev(1, 'shot_target', { target: 7, phase: 'night' }),
   ev(1, 'sheriff_check', { target: 2, phase: 'night' }),
   ev(1, 'don_check', { target: 3, phase: 'night' }),
+  ev(1, 'night_step', { phase: 'night', value: 'morning' }),
   ev(1, 'exit', { seat: 7, value: 'killed', phase: 'night' }),
   ev(1, 'first_killed', { seat: 7 }),
   ev(1, 'best_move', { seat: 7, value: '2,5,3' }),
@@ -72,15 +73,15 @@ describe('statistics of one player', () => {
   const games = () => [game('g1', 'red', events())];
 
   it('measures a red player\'s votes and nominations against the real roles', () => {
-    // seat 1 (red) voted three times: for 2 (mafia), 5 (don), 5 (don); nominated seat 2 and 5, both black
+    // Zero circle and the later raise/leave chain are excluded, while nomination statistics remain descriptive.
     const stats = buildPlayerGameStatistics(games(), 'p1');
     expect(stats.games).toBe(1);
-    expect(stats.votesAsRed).toMatchObject({ count: 3, total: 3, percent: 100 });
+    expect(stats.votesAsRed).toMatchObject({ count: 0, total: 0, percent: null });
     expect(stats.nominationsAsRed).toMatchObject({ count: 2, total: 2, percent: 100 });
     // seat 4 (red) voted once, for the mafia
-    expect(buildPlayerGameStatistics(games(), 'p4').votesAsRed).toMatchObject({ count: 1, total: 1 });
+    expect(buildPlayerGameStatistics(games(), 'p4').votesAsRed).toMatchObject({ count: 0, total: 0 });
     // seat 6 (red) voted for the sheriff: a miss
-    expect(buildPlayerGameStatistics(games(), 'p6').votesAsRed).toMatchObject({ count: 0, total: 1, percent: 0 });
+    expect(buildPlayerGameStatistics(games(), 'p6').votesAsRed).toMatchObject({ count: 0, total: 0, percent: null });
   });
 
   it('counts the best move, the first-killed night and the sheriff and don checks', () => {

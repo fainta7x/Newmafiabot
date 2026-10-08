@@ -20,6 +20,12 @@ export async function ensureAdminDataSchema(db: DatabaseWrapper): Promise<void> 
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS player_achievement_preferences (
+      player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      path_id TEXT,
+      pins_json TEXT NOT NULL DEFAULT '[]'
+    );
+
     CREATE TABLE IF NOT EXISTS player_achievement_overrides (
       player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
       achievement_id TEXT NOT NULL REFERENCES achievement_definitions(id) ON DELETE CASCADE,

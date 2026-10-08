@@ -20,10 +20,10 @@ export async function loadStatGames(db: any, options: { sinceMs?: number | null;
   const limit = options.limit ? Math.max(1, Math.min(2000, Math.trunc(options.limit))) : null;
 
   const clubRows = await db.all(`
-    SELECT g.id, g.created_at, g.game_date, g.protocol_text, e.starts_at AS evening_date,
+    SELECT g.id, g.evening_id, g.created_at, g.game_date, g.protocol_text, e.starts_at AS evening_date,
       COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at) AS completed_at
       FROM games g LEFT JOIN game_evenings e ON e.id = g.evening_id
-     WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL
+     WHERE g.evening_id IS NOT NULL AND g.archived_at IS NULL AND g.protocol_text IS NOT NULL AND (e.status IS NULL OR e.status!='cancelled')
        AND CASE WHEN json_valid(g.protocol_text) THEN json_extract(g.protocol_text,'$.kind')='club_evening_protocol' AND json_extract(g.protocol_text,'$.protocol.status')='completed' AND json_type(g.protocol_text,'$.player_results')='array' ELSE 0 END
        AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))>=julianday(?)
        AND julianday(COALESCE(NULLIF(json_extract(g.protocol_text,'$.protocol.completed_at'),''),g.created_at,g.game_date,e.starts_at))<julianday(?)
@@ -46,14 +46,15 @@ export async function loadStatGames(db: any, options: { sinceMs?: number | null;
         playerId: result.player_id ? String(result.player_id) : null,
       })),
       events: sanitizeLiveGameEvents(payload.protocol?.events),
+      votingRounds: payload.protocol?.votes, eventId: String(row.evening_id),
     });
   }
 
   const tournamentRows = await db.all(`
-    SELECT tg.id AS game_id, tg.completed_at, tg.winner_team, tgp.events_json,
+    SELECT tg.id AS game_id, tg.completed_at, tg.winner_team, tgp.events_json, tgp.votes_json, tg.tournament_id,
       (SELECT json_group_array(json_object('seat_number',tgs.seat_number,'role',tgs.role,'player_id',tp.player_id)) FROM tournament_game_seats tgs JOIN tournament_participants tp ON tp.id=tgs.participant_id WHERE tgs.game_id=tg.id) seats_json
       FROM tournament_games tg JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
-     WHERE tg.status = 'completed'
+     WHERE tg.status = 'completed' AND tgp.status = 'completed'
        AND julianday(tg.completed_at)>=julianday(?) AND julianday(tg.completed_at)<julianday(?)
        ORDER BY julianday(tg.completed_at) DESC,tg.id DESC ${limit ? 'LIMIT ?' : ''}
   `, limit ? [since,until,limit] : [since,until]);
@@ -73,6 +74,7 @@ export async function loadStatGames(db: any, options: { sinceMs?: number | null;
         playerId: seat.player_id ? String(seat.player_id) : null,
       })),
       events: sanitizeLiveGameEvents(parse(row.events_json)),
+      votingRounds: parse(row.votes_json) || [], eventId: String(row.tournament_id),
     });
   }
 

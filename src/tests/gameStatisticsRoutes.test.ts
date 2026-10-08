@@ -92,7 +92,30 @@ describe('statistics across games', () => {
     const summary = await request(app).get('/api/player/profiles/p1/summary').set('Cookie', `player_token=${generatePlayerSessionToken('p1')}`);
     expect(summary.status).toBe(200);
     expect(summary.body.game_stats).toMatchObject({ games: 1 });
-    expect(summary.body.game_stats.votesAsRed).toMatchObject({ count: 1, total: 1, percent: 100 });
+    // The zero-circle vote is deliberately excluded from individual action metrics.
+    expect(summary.body.game_stats.votesAsRed).toMatchObject({ count: 0, total: 0, percent: null });
+    expect(summary.body.game_stats.actions.votes.red).toEqual({ red: 0, black: 0, sheriff: 0, unknown: 0 });
     expect(summary.body.season).toMatchObject({ games: expect.any(Number) });
   });
+  it('counts an ordinary-day ballot and confirmed night check, while excluding the zero-circle vote', async () => {
+    const { db, app } = await setup();
+    const row = await db.get<any>('SELECT id,protocol_text FROM games WHERE global_game_number=1');
+    const payload = JSON.parse(row!.protocol_text);
+    payload.protocol.events = [...events,
+      ev(6, 1, 'night_step', {phase:'night',value:'morning'}),
+      ev(7, 2, 'vote', {seat:1,target:5,value:1}),
+      ev(8, 2, 'vote_round_result', {value:'1:single_eliminated'}),
+      ev(9, 2, 'exit', {seat:5,value:'voted_day'}),
+    ];
+    await db.run('UPDATE games SET protocol_text=? WHERE id=?',[JSON.stringify(payload),row!.id]);
+    const summary = await request(app).get('/api/player/profiles/p1/summary').set('Cookie', `player_token=${generatePlayerSessionToken('p1')}`);
+    expect(summary.status).toBe(200);
+    expect(summary.body.game_stats.votesAsRed).toEqual({count:1,total:1,percent:100});
+    expect(summary.body.game_stats.actions.votes.red).toEqual({red:0,black:1,sheriff:0,unknown:0});
+    expect(summary.body.game_stats.actions.unknownCriticalDays).toBe(1);
+    const sheriff = await request(app).get('/api/player/profiles/p3/summary').set('Cookie', `player_token=${generatePlayerSessionToken('p3')}`);
+    expect(sheriff.status).toBe(200);
+    expect(sheriff.body.game_stats.actions.checks.sheriff).toEqual({red:0,black:1,sheriff:0,unknown:0});
+  });
+
 });

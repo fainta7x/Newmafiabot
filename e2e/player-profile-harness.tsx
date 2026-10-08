@@ -1,3 +1,5 @@
+import { ACHIEVEMENTS } from '../src/lib/achievementCatalog';
+import { STORY_IDS } from '../src/lib/achievementStories';
 import ReactDOM from 'react-dom/client';
 import CanonicalPremiumPlayerProfile from '../src/components/player/CanonicalPremiumPlayerProfile.tsx';
 import '../src/index.css';
@@ -15,13 +17,16 @@ const summaryFor = (id: string) => ({
   viewer: { is_self: id === 'preview-player', is_organizer: false },
   player: { id, nickname: id === 'preview-player' ? 'Чагин' : id === 'friend-1' ? 'Дэнди' : 'Недоступный игрок', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4 },
   stats: { games: 48, wins: 29, win_rate: 60.4 },
+  game_stats: { games:12, votesAsRed:{count:8,total:12,percent:66.7}, nominationsAsRed:{count:3,total:5,percent:60},bestMove:{count:2,averageBlack:2},firstKilled:{count:2,total:20},sheriffChecks:{count:2,total:4,percent:50},donChecks:{count:1,total:3,percent:33.3},
+    actions:{ votes:{red:{red:4,black:8,sheriff:1,unknown:0},black:{red:6,black:1,sheriff:2,unknown:0}},criticalVotes:{red:{red:1,black:3,sheriff:0,unknown:0},black:{red:2,black:0,sheriff:1,unknown:0}},checks:{sheriff:{red:2,black:2,sheriff:0,unknown:0},don:{red:2,black:1,sheriff:1,unknown:0}},excludedVotingDays:5,unknownCriticalDays:2}},
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
 });
 const showcase = {
   awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   pinned_awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   earned_achievements: [], timeline: [{ id: 'award-1', type: 'award', date: iso(30), icon: '🏆', title: 'Лучший игрок вечера', description: 'Подтверждено организатором' }],
-  achievements: { earned: 2, total: 12, percentage: 16.7 }, stats: { verified_awards: 1, achievements_earned: 2, achievements_total: 12, completed_games: 48, manual_milestones: 0 },
+  achievement_preferences: {path_id:'citizen',pins:[] as string[]},
+  achievements: { earned: 3, total: ACHIEVEMENTS.length, percentage: 5, categories:[{id:'all',achievements:ACHIEVEMENTS.map(a=>({...a,rarity_name:'Редкая',story:STORY_IDS.has(a.id),earned:['case_closed','two_shadows','first_game'].includes(a.id),earned_at:['case_closed','two_shadows','first_game'].includes(a.id)?iso(2):null,progress:{current:a.id==='four_faces'?2:a.id==='own_company'?1:0,target:a.id==='four_faces'?4:a.id==='own_company'?3:1},steps:a.id==='four_faces'?['citizen','mafia']:undefined,evidence:a.id==='case_closed'?{gameId:'club:g4',date:iso(2),detail:'Выставил и проголосовал за чёрного №2, который заголосован.'}:null}))}] }, stats: { verified_awards: 1, achievements_earned: 2, achievements_total: 12, completed_games: 48, manual_milestones: 0 },
 };
 const connection = { player_id: externalProfile ? 'preview-player' : 'friend-1', nickname: externalProfile ? 'Чагин' : 'Дэнди', avatar_url: '', relationship: 'Часто за одним столом', shared_games: 18, same_team_games: 9, opponent_games: 9, same_team_wins: 6, same_team_win_rate: 66.7, last_played_at: iso(2), last_shared_game_date: iso(2) };
 const startsAt = (days: number) => new Date(now.getTime() + days * 86400000).toISOString();
@@ -49,6 +54,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
       events: [{ id: 'club:g4', source: 'club', date: iso(2), title: 'Пятничный вечер', game_number: 4, team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15, expected_percent: 50, base_team_delta: 10, carry_modifier: 1, carry_effect: 0, team_delta: 10, personal_game_points: 1, personal_delta: 5, explanation: { headline: 'Победа красных', details: [], formula: '10 + 5' } }],
     });
   }
+  if (url.pathname === '/api/player/achievement-preferences') return json(showcase.achievement_preferences);
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
   if (url.pathname.endsWith('/games')) return json({ games: [4, 3, 2].map(number => ({ id: `club:g${number}`, title: 'Пятничный вечер', date: iso(2), game_number: number, role: number === 4 ? 'sheriff' : 'citizen', team: 'red', won: number !== 3, elo_before: 1527, elo_after: 1542, elo_delta: number === 3 ? -15 : 15 })), total: 3, offset: 0, limit: 15, next_offset: null });

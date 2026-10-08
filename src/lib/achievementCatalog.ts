@@ -1,6 +1,7 @@
+import { ACHIEVEMENT_STORIES } from './achievementStories';
 export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'organizer' | 'special' | 'learning';
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game' | 'split_expert';
+export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game' | 'split_expert' | 'story';
 
 export interface AchievementCategoryDefinition {
   id: AchievementCategoryId;
@@ -91,6 +92,6 @@ const raw: Array<Omit<AchievementDefinition, 'order'>> = [
   { id: 'split_vote_expert', name: 'Нулевой пациент', description: 'Сдать экзамен эксперта в тренажёре попила нулевого круга', icon: '🧪', category: 'learning', metric: 'split_expert', threshold: 1, rarity: 'epic' },
 ];
 
-export const ACHIEVEMENTS: AchievementDefinition[] = raw.map((item, index) => ({ ...item, order: index + 1 }));
+export const ACHIEVEMENTS: AchievementDefinition[] = [...raw, ...ACHIEVEMENT_STORIES].map((item, index) => ({ ...item, order: index + 1 }));
 export const ACHIEVEMENT_ORDER = ACHIEVEMENTS.map((item) => item.id);
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((item) => [item.id, item]));

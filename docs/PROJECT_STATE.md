@@ -399,7 +399,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
      - how the player registers and pays when formats differ;
      - which tables and games the organizer and the OBS overlay see at once.
 11. Achievement overhaul (user request 2026-09-24, for later).
-   - Today: 44 achievements in `src/lib/achievementCatalog.ts`, earned by counters (games, wins, Elo, judged, organized, role wins, ПУ, a game without fouls).
+   - Owner resumed this work on 2026-10-08 and rejected a superficial counter/rename proposal. Current design request: meaningful achievements and progression paths grounded in actual Mafia decisions, saved game mechanics and club career. Draft: `docs/ACHIEVEMENTS_REDESIGN_PROPOSAL.md` (26 candidates, data/recording limits, career paths and migration proposal). Owner approved the proposed first release and clarified action counters on 2026-10-08. Implemented in the current workstream: 16 story/career achievements, saved paths/pins, private evidence and role-separated action counts excluding zero day and raise/leave splits. Critical composition rule is now in BUSINESS_RULES. Local gates and exact-head CI/visual evidence are required before merge; deployment unverified. The remaining 10 candidates are deferred as described in the design document.
+   - Before this workstream: 46 achievements in `src/lib/achievementCatalog.ts`, earned by counters (games, wins, Elo, judged, organized, role wins, ПУ, a game without fouls).
    - The user finds the names and the difficulty poor. Examples:
      - generic names repeat across categories («Мастер», «Легенда», «Мастер побед», «Легенда побед»);
      - Elo steps start at 1400 («Начало пути»), although everyone starts at 1000;
@@ -654,6 +655,8 @@ Rules: `docs/BUSINESS_RULES.md` → «Organizer flow and payment targets».
 Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
+
+- Достижения: истории конкретных партий, ролевые и клубные пути, закрепление любимых историй; подробные проверки и голосования, отдельно критические круги, без нулевого круга и попилов «поднять / оставить».
 
 - «Школа мафии»: интерактивный тренажёр судьи на настоящем игровом движке: подсветка кнопок и виртуальные речи, выставления, голосования, отстрелы и проверки без записи в статистику.
 

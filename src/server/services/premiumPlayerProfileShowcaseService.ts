@@ -41,6 +41,13 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
   const completedGames = [...profile.clubGames, ...profile.tournamentGames]
     .filter((game) => game.status === 'completed' && game.winner_team)
     .sort((a, b) => dateTime(a.date) - dateTime(b.date));
+  // A public award must not expose private game/referral evidence through its achievement payload.
+  if (!isSelf) for (const category of achievements.categories) for (const achievement of category.achievements) {
+    achievement.evidence = null;
+    achievement.steps = undefined;
+  }
+  const preferences = isSelf && await db.get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_achievement_preferences'")
+    ? await db.get<any>('SELECT path_id,pins_json FROM player_achievement_preferences WHERE player_id=?', [playerId]) : null;
   const earnedAchievements = achievements.categories
     .flatMap((category) => category.achievements.map((achievement) => ({ ...achievement, category_name: category.name })))
     .filter((achievement) => achievement.earned)
@@ -71,6 +78,7 @@ export async function loadPremiumProfileShowcase(db: DatabaseWrapper, playerId: 
     evening_titles: eveningTitles,
     evening_win_titles: eveningWinTitles,
     pinned_awards: sortedAwards.filter((award: any) => Number(award.pinned_position || 0) >= 1 && Number(award.pinned_position || 0) <= 3).slice(0, 3),
+    achievement_preferences: preferences ? { path_id: preferences.path_id, pins: JSON.parse(preferences.pins_json || '[]').filter((id: string) => earnedAchievements.some(a => a.id === id)) } : null,
     achievements,
     earned_achievements: earnedAchievements,
     timeline,

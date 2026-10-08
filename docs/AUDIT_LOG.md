@@ -8,6 +8,24 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-08 · Achievement paths review follow-up (PR #742)
+
+Scope: exact-head automated review after the first green release gates.
+
+- `achievementPathsApi.test.ts` — the new summary privacy test assumed a dated story was among the latest three despite newer legacy grants. Status: fixed (PR #742 follow-up); fixture legacy dates made older explicitly, retaining the production three-item limit and positive organizer/negative public evidence assertions.
+
+- `playerAchievementStoriesService.ts` — raw first-killed/best-move markers survive a restoration and could issue two PU stories from retracted evidence. Status: fixed (PR #742 follow-up); PU evidence collapses restorations/replacements and regressions cover retraction, replacement and valid re-selection.
+- `premiumPlayerProfileRoutes.ts` `requireViewer` — a player cookie hides independently authenticated organizer rights, causing the new evidence scrub to hide grounds from player-bound organizers. Status: fixed (PR #742 follow-up); independently authenticated organizer flag retained, API regression covers player-bound organizer cookies and an invalid organizer token.
+- `PlayerGameNumbers.tsx` — vote card headings describe the target color even though cards group by the actor's color. Status: fixed (PR #742 follow-up); headings explicitly say «играл красным/чёрным», target counts retained.
+
+## 2026-10-08 · Achievement paths and action counters release verification
+
+Scope: the approved first release of 16 story/career achievements, role-separated action facts and profile UI, PR #742.
+
+- `src/tests/gameStatisticsRoutes.test.ts` — profile API regression still expects a zero-circle ballot in `votesAsRed`, contrary to the owner-approved exclusion. Status: fixed (PR #742 follow-up); zero-circle exclusion and positive ordinary-day/check API regressions are both asserted.
+- `e2e/tests/achievement-paths-preview.spec.mjs`, `e2e/tests/desktop-workspaces.spec.mjs` — unscoped descendant `summary` selectors now match both nested disclosure controls. Status: fixed (PR #742 follow-up); direct disclosure summaries targeted, visual/overflow assertions preserved.
+- Local full-suite execution was stopped by automatic approval review over possible Telegram traffic. Background integration workers are disabled under Vitest; GitHub test jobs have no production tokens. Local focused tests passed; CI is the full-suite gate. Local exec transport then became unavailable; publication/CI remain accessible through the GitHub connector. No production data or messages were sent by this workstream.
+
 ## 2026-10-07 · Poker bots suddenly play weak (owner report)
 
 Scope: players say the bots got weak after the bot patch; a novice (Диссонанс) went from losing to a 6 000 stack. Checked the bot code history, the card visibility, the bot turn loop and the stored-hand statistics.

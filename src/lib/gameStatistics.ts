@@ -1,4 +1,6 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents';
+import { playerActionMetrics, type PlayerActionMetrics } from './gameActionFacts';
+import type { VotingRound } from '../shared/tournamentVoting';
 import { winRatePercent } from '../shared/stats';
 import { buildGameAnalysis, type AnalysisCircle } from './liveGameAnalysis';
 
@@ -17,6 +19,9 @@ export interface StatGame {
   winner: 'red' | 'black' | null;
   seats: Array<{ seat: number; role: StatRole | null; playerId: string | null }>;
   events: LiveGameEvent[];
+  votingRounds?: VotingRound[];
+  eventId?: string;
+  title?: string;
 }
 
 /** `percent` is null while there is nothing to divide by, so a screen can show «—» instead of a misleading 0. */
@@ -128,6 +133,7 @@ export const buildClubGameStatistics = (games: StatGame[]): ClubGameStatistics =
 };
 
 export interface PlayerGameStatistics {
+  actions?: PlayerActionMetrics;
   /** Games of the player that have a chronology. */
   games: number;
   /** Of the votes he cast as a red player (the marked ballots), how many went to a black player. */
@@ -156,6 +162,7 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string): 
     for (const circle of circles) {
       if (isRed(mine.role)) {
         for (const voting of circle.votings) {
+          if (circle.round <= 1 || voting !== circle.votings.at(-1) || voting.outcome !== 'single_eliminated' || circle.votings.some(v => v.tableVoters.length || v.outcome === 'all_tied_eliminated')) continue;
           for (const { candidate, voters } of voting.votes) {
             if (!voters.includes(seat)) continue;
             votes += 1;
@@ -179,7 +186,13 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string): 
     }
   }
 
+  const actions = playerActionMetrics(games, playerId);
+  votes = actions.votes.red.red + actions.votes.red.black;
+  votesForBlack = actions.votes.red.black;
+  sheriffChecks = actions.checks.sheriff.red + actions.checks.sheriff.black; sheriffHits = actions.checks.sheriff.black;
+  donChecks = actions.checks.don.red + actions.checks.don.black; donHits = actions.checks.don.sheriff;
   return {
+    actions,
     games: prepared.length,
     votesAsRed: share(votesForBlack, votes),
     nominationsAsRed: share(nominationsBlack, nominations),

@@ -55,7 +55,7 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
     const content = await profile.locator('main').boundingBox();
     if (width >= 1024) expect(content.width).toBeGreaterThan(900);
     await page.screenshot({ path: testInfo.outputPath(`profile-overview-${width}.png`), fullPage: true });
-    await profile.getByTestId('profile-more-stats').locator('summary').click();
+    await profile.getByTestId('profile-more-stats').locator(':scope > summary').click();
     if (width >= 1024) {
       const stats = await profile.getByTestId('profile-more-stats').boundingBox();
       expect(stats.width).toBeGreaterThan(content.width - 60);

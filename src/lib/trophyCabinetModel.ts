@@ -75,7 +75,7 @@ export const trophyDesignForTournament = (id: string | null | undefined, title: 
   if (!key) return null;
   const name = String(title || '');
   // Numbered editions are common in tournament names; 1 and 2 must not share a silhouette.
-  const edition = name.match(/(?:^|\s)(?:№\s*)?([1-9]\d?)(?=\s*(?:[.\/-]\s*\d{1,2})?(?:\s|$))/u);
+  const edition = name.match(/(?:^|\s)(?:№\s*)?([1-9]\d?)(?=\s*(?:[./-]\s*\d{1,2})?(?:\s|$))/u);
   const families = ['spire', 'amphora', 'laurel', 'obelisk'] as const;
   let checksum = 2166136261;
   for (const ch of key) checksum = Math.imul(checksum ^ ch.charCodeAt(0), 16777619) >>> 0;

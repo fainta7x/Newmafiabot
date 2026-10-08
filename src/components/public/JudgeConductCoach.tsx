@@ -95,7 +95,7 @@ export default function JudgeConductCoach() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-10 w-full min-w-[90px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-[#252117] px-2.5 text-left text-amber-100 shadow-lg"
+        className="flex h-8 w-full min-w-[90px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-[#252117] px-2.5 text-left text-amber-100 shadow-lg"
         aria-label={'Открыть задание: ' + task.title}
         data-testid="judge-training-task-trigger"
         aria-expanded={open}
@@ -112,7 +112,7 @@ export default function JudgeConductCoach() {
             aria-modal="true"
             aria-label="Задание судьи"
             data-testid="judge-training-task-dialog"
-            className="w-full max-w-md rounded-3xl border border-amber-200/30 bg-[#171715] p-4 text-white shadow-2xl"
+            className="max-h-[calc(100dvh-82px)] w-full max-w-md overflow-y-auto rounded-3xl border border-amber-200/30 bg-[#171715] p-4 text-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">

@@ -4,32 +4,26 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 
-describe('guided judge training mobile table', () => {
-  it('mounts the coach and Live Game as siblings so Telegram viewport rules apply', () => {
+describe('judge training reuses the actual club Live Game layout', () => {
+  it('mounts exactly the production game shell, without training scroll wrappers', () => {
     const modal = read('src/components/crm/EveningLiveGameModal.tsx');
-    expect(modal).toContain('{trainingMode && <JudgeConductCoach />}\n      <div className="evening-live-engine-shell');
+    expect(modal).toContain('{trainingMode && <JudgeConductCoach />}');
+    expect(modal).toContain('<div className="evening-live-engine-shell py-0.5 md:py-3"');
     expect(modal).not.toContain("h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain");
-    expect(modal).toContain('data-training-input-gate={trainingMode ? "active" : undefined}');
-  });
-
-  it('does not render independently positioned duplicate player identities for training', () => {
-    const modal = read('src/components/crm/EveningLiveGameModal.tsx');
-    expect(modal).toContain("{!trainingMode && livePhase !== 'setup' && (");
+    expect(modal).toContain("{livePhase !== 'setup' && (");
+    expect(modal).not.toContain("{!trainingMode && livePhase !== 'setup' && (");
     expect(modal).toContain('className="evening-live-identity-layer"');
-    expect(modal).toContain('title="Закрыть движок"');
   });
 
-  it('keeps all ten seat identities inside their tap targets in the single training scroll area', () => {
+  it('keeps canonical table CSS and puts guidance in a dismissible overlay', () => {
     const css = read('src/components/crm/liveGameTelegram.css');
-    const styleStart = css.indexOf('/* Guided judge practice:');
-    expect(styleStart).toBeGreaterThan(-1);
-    const trainingStyle = css.slice(styleStart);
-    expect(trainingStyle).toContain('.evening-live-engine-shell[data-training-input-gate="active"]');
-    expect(trainingStyle).toContain('overflow-y: auto !important');
-    expect(trainingStyle).toContain('height: auto !important');
-    expect(trainingStyle).toContain('.live-seat-footer__name');
-    expect(trainingStyle).toContain('display: block !important');
-    expect(trainingStyle).toContain('.live-seat-card--voting .live-seat-footer__name');
-    expect(trainingStyle).toContain('display: none !important');
+    const coach = read('src/components/public/JudgeConductCoach.tsx');
+    expect(css).not.toContain('Guided judge practice:');
+    expect(css).not.toContain('data-training-input-gate="active"');
+    expect(coach).toContain('data-testid="judge-training-task-trigger"');
+    expect(coach).toContain('data-testid="judge-training-task-dialog"');
+    expect(coach).toContain('className="fixed right-[62px]');
+    expect(coach).toContain('aria-modal="true"');
+    expect(coach).toContain('setOpen(false)');
   });
 });

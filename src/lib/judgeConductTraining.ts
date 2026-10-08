@@ -1,6 +1,6 @@
 import type { PersistedLiveSession } from '../components/LiveGameEngine/liveSessionStorage.ts';
 import { determineLiveWinner } from './liveGameFlow.ts';
-import { TRAINING_BEST_MOVE_SEATS, TRAINING_DEATH_PROTOCOL } from './judgeTrainingProtocols.ts';
+import { TRAINING_BEST_MOVE_SEATS, getTrainingDeathProtocolPlan, getTrainingDeathMarkSteps } from './judgeTrainingProtocols.ts';
 import { determineVotingResult } from '../shared/tournamentVoting.ts';
 
 export type TrainingPrompt = {
@@ -120,18 +120,23 @@ export const getTrainingPrompt = (s: PersistedLiveSession | null): TrainingPromp
 
   if (s.phase === 'night') {
     if (s.postNightStage === 'farewell') return p('Последняя речь убитого', 'После отстрела убитый получает 60 секунд на последнюю речь. Следом ОБЯЗАТЕЛЬНО идёт протокол убитого (20 секунд).');
-    if (s.postNightStage === 'death_protocol') return p('Протокол убитого #' + (s.shotPlayerSlot ?? '?'), 'В окне протокола отметь красных #' + TRAINING_DEATH_PROTOCOL.red.join(', #') + ', чёрных #' + TRAINING_DEATH_PROTOCOL.black.join(', #') + ', Шерифа #' + TRAINING_DEATH_PROTOCOL.sheriff[0] + '. После отметок сохрани протокол.');
+    if (s.postNightStage === 'death_protocol') {
+      const steps = getTrainingDeathMarkSteps(getTrainingDeathProtocolPlan(s.roundNumber, s.shotPlayerSlot ?? 0));
+      return p('Протокол убитого #' + (s.shotPlayerSlot ?? '?'),
+        'Отметь ' + steps.map((step) => step.label.toLowerCase() + ' #' + step.seat).join(' → ') +
+        '. Слова убитого — его предположения, они могут быть неверными. После отметок сохрани протокол.');
+    }
     if (s.nightSubPhase === 'intro') return p('Наступила ночь', 'Включи музыку ночи и перейди к отстрелу мафии.');
     if (s.nightSubPhase === 'shooting') {
       const target = trainingNightTarget(s);
       return p('Мафия убила #' + target, 'Нажми на место игрока #' + target + ' и зафиксируй отстрел.' + (s.shotPlayerSlot && s.shotPlayerSlot !== target ? ' Сейчас отмечен другой игрок — исправь выбор.' : ' Затем перейди к проверке Дона.'), 'live-judge-hud', Boolean(s.shotPlayerSlot && s.shotPlayerSlot !== target));
     }
     if (s.nightSubPhase === 'don') {
-      const target = s.activePlayers.find((v) => v.alive && v.role === 'Шериф')?.slot_num;
-      return p('Проверка Дона', 'Дон проверяет игрока #' + (target || s.activePlayers.find((v) => v.alive)?.slot_num || 1) + '. Отметь его на столе, затем перейди к проверке Шерифа.');
+      const target = trainingCheckTarget(s, 'don');
+      return p('Проверка Дона', 'Дон проверяет игрока #' + target + '. Отметь его на столе, затем перейди к проверке Шерифа.');
     }
     if (s.nightSubPhase === 'sheriff') {
-      const target = s.activePlayers.find((v) => v.alive && v.team === 'Чёрные')?.slot_num || s.activePlayers.find((v) => v.alive)?.slot_num || 1;
+      const target = trainingCheckTarget(s, 'sheriff');
       return p('Проверка Шерифа', 'Шериф проверяет игрока #' + target + '. Отметь его на столе. Не забудь выключить музыку перед утром.');
     }
     if (s.nightSubPhase === 'best_move') return p('ЛХ первого убитого', 'Открой ЛХ убитого #7 и выбери по порядку #' + TRAINING_BEST_MOVE_SEATS.join(' → #') + '. Затем подтверди протокол.');
@@ -166,10 +171,31 @@ const regularFouls = (s: PersistedLiveSession, slot: number): number =>
   s.discipline?.players?.[String(slot)]?.regularFouls ??
   s.activePlayers.find((player) => player.slot_num === slot)?.fouls ?? 0;
 
-const checkTarget = (s: PersistedLiveSession, kind: 'don' | 'sheriff'): number => {
-  const alive = s.activePlayers.filter((player) => player.alive);
-  if (kind === 'don') return alive.find((player) => player.role === 'Шериф')?.slot_num ?? alive[0]?.slot_num ?? 1;
-  return alive.find((player) => player.team === 'Чёрные')?.slot_num ?? alive[0]?.slot_num ?? 1;
+/**
+ * Every night is a new exercise. First night retains the familiar target;
+ * following nights rotate across living, non-self targets, preferring people
+ * this role has not checked before (from the engine's saved night history).
+ * Purely derived from persisted engine data so recovery doesn't reshuffle.
+ */
+export const trainingCheckTarget = (s: PersistedLiveSession, kind: 'don' | 'sheriff'): number => {
+  const alive = s.activePlayers.filter((p) => p.alive).sort((a, b) => a.slot_num - b.slot_num);
+  const actorRole = kind === 'don' ? 'Дон' : 'Шериф';
+  const targets = alive.filter((p) => p.role !== actorRole);
+  if (!targets.length) return alive[0]?.slot_num ?? 1;
+
+  const initial = kind === 'don'
+    ? targets.find((p) => p.role === 'Шериф')?.slot_num
+    : targets.find((p) => p.team === 'Чёрные')?.slot_num;
+  const start = Math.max(0, targets.findIndex((p) => p.slot_num === initial));
+  const round = Math.max(1, s.roundNumber || 1);
+  const ordered = targets.map((_, index) => targets[(start + round - 1 + index) % targets.length].slot_num);
+
+  const rx = kind === 'don' ? /Дон: #(\d+)/ : /Шериф: #(\d+)/;
+  const previous = (s.nightLogs || []).filter((item) => item.round < round)
+    .map((item) => rx.exec(item.log)?.[1]).filter((seat): seat is string => Boolean(seat)).map(Number);
+  const unchecked = ordered.filter((slot) => !previous.includes(slot));
+  const avoidLast = ordered.filter((slot) => slot !== previous[previous.length - 1]);
+  return (unchecked.length ? unchecked : avoidLast.length ? avoidLast : ordered)[0];
 };
 
 const requireFoul = (s: PersistedLiveSession, slot: number, amount: number, reason: string): JudgeTrainingGate | null => {
@@ -293,7 +319,7 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
     if (s.postNightStage === 'farewell') return next('Последняя речь убитого', 'Заверши 60-секундную речь убитого игрока #' + s.shotPlayerSlot + '.');
     if (s.postNightStage === 'death_protocol') {
       return gate('Протокол убитого #' + (s.shotPlayerSlot ?? '?'),
-        'В открытом окне нажми красных #1, #2, чёрных #3, #5, Шерифа #8 — именно в таком порядке. Затем «Сохранить → день».',
+        'В открытом окне повтори отметки из задания — здесь от 1 до 4 цветов, Шериф может отсутствовать. Протокол отражает догадки игрока, не обязательно истину. Затем нажми «Сохранить → день».',
         ['[data-testid="judge-training-death-task"]', '[data-testid="live-death-protocol-save"]', '.live-judge-hud__primary']);
     }
     if (s.nightSubPhase === 'intro') return next('Наступила ночь', 'Включи музыку и открой этап отстрела через центральную панель.');
@@ -305,14 +331,14 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
           [seatTarget(target)], 'night');
     }
     if (s.nightSubPhase === 'don') {
-      const target = checkTarget(s, 'don');
+      const target = trainingCheckTarget(s, 'don');
       return s.donCheckSlot === target
         ? next('Проверка Дона записана', 'Дон проверил #' + target + '. Перейди к Шерифу.')
         : gate('Дон проверяет #' + target, 'Нажми место #' + target + ' — Дон проверяет, является ли он Шерифом.',
           [seatTarget(target)], 'night');
     }
     if (s.nightSubPhase === 'sheriff') {
-      const target = checkTarget(s, 'sheriff');
+      const target = trainingCheckTarget(s, 'sheriff');
       return s.sheriffCheckSlot === target
         ? next('Проверка Шерифа записана', 'Шериф проверил #' + target + '. Перейди к результатам ночи или ЛХ.')
         : gate('Шериф проверяет #' + target, 'Нажми место #' + target + ' — Шериф проверяет его цвет.',

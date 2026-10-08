@@ -225,6 +225,9 @@ Implemented:
 
 ### Live Game
 
+- **Judge training (2026-10-08 owner request):** training-only night tasks must vary across rounds. Don/Sheriff targets rotate among eligible living players and prefer seats not previously checked by that role; simulated killed-player protocols use 1–4 independent color guesses with optional Sheriff guess, not guaranteed to match true roles. The plan must stay stable during a night and across recovery. Live referee flow, voting rules and table geometry remain unchanged. Implementation PR is tracked in Git; deployed status is a separate verification.
+
+
 The real club launcher currently provides:
 
 - roster confirmation before role dealing;

@@ -227,11 +227,20 @@ for (const width of [360, 390]) {
     const death = page.getByTestId('judge-training-death-task');
     await expect(death).toBeVisible();
     await expect(page.getByTestId('live-death-protocol-save')).toBeDisabled();
-    await expect(page.getByTestId('judge-training-death-black-3')).toBeDisabled();
-    for (const [mark, slot] of [['red', 1], ['red', 2], ['black', 3], ['black', 5], ['sheriff', 8]]) {
-      await expect(death).toContainText('#' + slot);
-      await page.getByTestId('judge-training-death-' + mark + '-' + slot).click();
+    const steps = page.locator('[data-testid^="judge-training-death-"][data-training-next="true"]');
+    const instructions = [];
+    // The exact names are chosen per killed player and night, not hardcoded
+    // to the same five answers for every victim.
+    for (let i = 0; i < 5; i++) {
+      if (await steps.count() === 0) break;
+      await expect(steps).toHaveCount(1);
+      const button = steps.first();
+      instructions.push(await button.getAttribute('data-testid'));
+      await button.click();
     }
+    expect(instructions.length).toBeGreaterThanOrEqual(1);
+    expect(instructions.length).toBeLessThanOrEqual(5);
+    await expect(steps).toHaveCount(0);
     await expect(page.getByTestId('live-death-protocol-save')).toBeEnabled();
     await page.screenshot({ path: info.outputPath(`guided-death-protocol-${width}.png`) });
     await page.getByTestId('live-death-protocol-save').click();

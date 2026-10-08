@@ -345,3 +345,9 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - LOW fixed in this workstream: App.navigatePath compared pathname against paths containing a query, causing incorrect route detection. Normalize location handling; preserve guide source across internal lesson navigation and retain browser back/forward.
 - HIGH fixed in this workstream: selecting the currently active nested profile tab cleared previously fetched data but did not re-run its query, leaving an empty game list. `CanonicalPremiumPlayerProfile.switchTab` now no-ops on an already active tab unless closing settings; covered by unit and mobile browser flows.
 - Owner correction during review: keep «Обучение» inside «Прогресс», not a new top-level «Школа». Status: pending exact-head CI and human mobile review; public learning access must remain usable without a linked player.
+
+### 2026-10-08 — Judge training: repeated night checks and copied death protocols
+
+- **Fixed in this workstream:** `src/lib/judgeConductTraining.ts` — `checkTarget` always points Don at the live Sheriff and Sheriff at the first black player, so subsequent nights repeat the same targets instead of teaching varied checks.
+- **Fixed in this workstream:** `src/lib/judgeTrainingProtocols.ts`, `src/components/crm/EveningDeathProtocolOverlay.tsx` — every killed player receives the identical hard-coded five-mark color protocol; instructions, interaction guard, and confirmation all assume those marks, ignoring player/night context.
+- **Scope:** training-only scripts and training-only death-protocol overlay. Keep engine, real referee controls and production protocol unchanged. Acceptance: distinct eligible night checks; reproducible 1–4 color marks with optional Sheriff for each killed player/night; no target/task drift on refresh; focused unit and browser coverage.

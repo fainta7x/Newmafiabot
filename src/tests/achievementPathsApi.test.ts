@@ -61,12 +61,19 @@ describe('achievement paths auth, persistence and catalog preservation', () => {
     const organizer=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie',both);
     expect(organizer.status).toBe(200);
     expect(find(organizer)).toMatchObject({evidence:{gameId:'club:1'}});
+    // Summary intentionally returns only three latest achievements: give the older catalog fixture older dates.
+    await db.run("UPDATE player_achievements SET earned_at='2020-01-01T00:00:00Z' WHERE player_id='p1' AND achievement_id!='case_closed'");
     const organizerSummary=await request(app).get('/api/player/profiles/p1/summary').set('Cookie',both);
     expect(organizerSummary.status).toBe(200);
     expect(organizerSummary.body.viewer).toMatchObject({is_self:false,is_organizer:true});
     expect(organizerSummary.body.recent_achievements.find((a:any)=>a.id==='case_closed').evidence).toMatchObject({gameId:'club:1'});
     const untrusted=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie','player_token='+generatePlayerSessionToken('p2')+'; organizer_token=invalid');
     expect(untrusted.status).toBe(200);expect(find(untrusted).evidence).toBeNull();
+    const publicSummary=await request(app).get('/api/player/profiles/p1/summary').set('Cookie','player_token='+generatePlayerSessionToken('p2'));
+    expect(publicSummary.status).toBe(200);
+    expect(publicSummary.body.viewer.is_organizer).toBe(false);
+    expect(publicSummary.body.recent_achievements.find((a:any)=>a.id==='case_closed').evidence).toBeNull();
+
 
     const corrected='2026-10-02T20:00:00Z';
     await db.run('UPDATE games SET protocol_text=? WHERE id=1',[JSON.stringify(payload(corrected))]);

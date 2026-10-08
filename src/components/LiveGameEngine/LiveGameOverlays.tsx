@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PendingActionType, PlayerDiscipline } from "../../lib/gameDiscipline.js";
 import type { BestMoveSource } from "../../lib/gameProtocolCore.js";
+import { nextTrainingBestMoveSeat, TRAINING_BEST_MOVE_SEATS } from "../../lib/judgeTrainingProtocols.ts";
 import type { ActivePlayerState } from "./types.js";
 
 interface DisciplineConfirmationOverlayProps {
@@ -205,10 +206,13 @@ interface BestMoveProtocolOverlayProps {
   onReset: () => void;
   onBack: () => void;
   onConfirm: () => void;
+  training?: boolean;
 }
 
-export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, tableSize = 10, onToggleSeat, onReset, onBack, onConfirm }: BestMoveProtocolOverlayProps) {
+export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, tableSize = 10, onToggleSeat, onReset, onBack, onConfirm, training = false }: BestMoveProtocolOverlayProps) {
   if (!source || slot === null) return null;
+  const target = training ? nextTrainingBestMoveSeat(pendingSeats) : null;
+  const trainingComplete = target === null && pendingSeats.length === TRAINING_BEST_MOVE_SEATS.length;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/82 p-4 backdrop-blur-md">
@@ -218,12 +222,19 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
           <h2 className="text-xl font-semibold text-white">Протокол ЛХ</h2>
           <p className="text-sm font-semibold text-white/60">Игрок #{slot} · {nickname || 'Игрок'}</p>
           <p className="text-xs text-white/30">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
+          {training && (
+            <div data-testid="judge-training-best-move-task" role="status" className="mt-3 rounded-xl border border-emerald-300/35 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-100">
+              {target !== null
+                ? `Задание ЛХ: первый убитый #${slot} назвал три номера. Нажми #${target} (${pendingSeats.length + 1} из 3). Порядок: #3 → #5 → #9.`
+                : 'Верно: ЛХ #3 → #5 → #9. Нажми «Подтвердить протокол».'}
+            </div>
+          )}
         </div>
         <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
           {Array.from({ length: tableSize }, (_, index) => index + 1).map((seat) => {
             const order = pendingSeats.indexOf(seat);
             return (
-              <button key={seat} type="button" onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number relative h-14 rounded-xl border font-mono font-bold transition-opacity ${order >= 0 ? 'ring-2 ring-white/55' : 'opacity-60'}`} data-seat={seat}>
+              <button key={seat} type="button" disabled={training && target !== seat && order < 0} aria-label={training ? `ЛХ игрок #${seat}` : undefined} data-training-next={training && target === seat ? 'true' : undefined} onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number relative h-14 rounded-xl border font-mono font-bold transition-opacity disabled:opacity-25 ${training && target === seat ? 'ring-4 ring-emerald-300 shadow-[0_0_18px_rgba(110,231,183,.3)]' : order >= 0 ? 'ring-2 ring-white/55' : 'opacity-60'}`} data-seat={seat}>
                 {seat}
                 {order >= 0 && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#090a0d]">{order + 1}</span>}
               </button>
@@ -233,7 +244,7 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/[0.10] bg-black/30 px-3 text-xs font-semibold text-white/72">← Назад</button>
           <button type="button" onClick={onReset} className="min-h-11 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/46">Сбросить</button>
-          <button type="button" onClick={onConfirm} className="col-span-2 min-h-12 rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d]">Подтвердить протокол</button>
+          <button type="button" disabled={training && !trainingComplete} onClick={onConfirm} data-testid="live-best-move-confirm" className="col-span-2 min-h-12 rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d] disabled:opacity-35">Подтвердить протокол</button>
         </div>
       </div>
     </div>

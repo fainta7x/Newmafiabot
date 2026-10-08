@@ -72,7 +72,7 @@ export function verifyRobokassaTestResult(config: RobokassaTestConfig,
       typeof SignatureValue !== 'string' || Shp_mode !== 'test' || InvId !== expected.invoiceId) return null;
   // Extra Shp fields would alter the signed contract: reject rather than silently ignore.
   if (Object.keys(fields).some((key) => /^shp_/i.test(key) && key !== 'Shp_mode')) return null;
-  if (!/^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$/.test(OutSum)) return null;
+  if (!/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(OutSum)) return null;
   const [whole, fraction = ''] = OutSum.split('.');
   const padded = fraction.padEnd(6, '0');
   if (padded.slice(2) !== '0000') return null;

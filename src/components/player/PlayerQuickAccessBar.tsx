@@ -48,10 +48,10 @@ export default function PlayerQuickAccessBar({
               onClick={onOpenConduct}
               aria-label="Открыть ведение игр"
               title="Ведение"
-              className="ds-focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-amber-200/15 bg-amber-200/[0.07] px-2.5 text-[11px] font-bold text-amber-50/85 transition-colors hover:bg-amber-200/[0.11]"
+              className="ds-focus-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-200/15 bg-amber-200/[0.07] text-[11px] font-bold text-amber-50/85 transition-colors hover:bg-amber-200/[0.11] sm:w-auto sm:gap-1.5 sm:px-2.5"
             >
               <Gavel className="h-4 w-4" aria-hidden="true" />
-              <span>Ведение</span>
+              <span className="hidden sm:inline">Ведение</span>
             </button>
           ) : null}
 

@@ -14,11 +14,12 @@ const progressKey = (s: PersistedLiveSession) => JSON.stringify([
   s.activeSpeakerSlot, s.nominations, s.nominationsMap, s.votingStage,
   s.votingRounds, s.activeVotingRoundIndex, s.currentVotingNomineeIndex,
   s.votesByPlayer, s.revoteSpeakerIndex, s.votingFarewellQueue,
+  s.speechExtendedSlot, s.discipline?.players, s.tableDecisionSelectedVoterSlots,
   s.nightSubPhase, s.postNightStage, s.shotPlayerSlot, s.donCheckSlot, s.sheriffCheckSlot,
-  s.activePlayers.map((v) => [v.slot_num, v.role, v.team, v.alive, v.has_spoken_this_round]),
+  s.activePlayers.map((v) => [v.slot_num, v.role, v.team, v.alive, v.has_spoken_this_round, v.fouls]),
 ]);
 
-/** Inline mission panel. It participates in game layout instead of covering seats, actions or timers. */
+/** Floating lesson card; it never participates in the real game's table layout. */
 export default function JudgeConductCoach() {
   const [session, setSession] = useState<PersistedLiveSession | null>(null);
   const previousKey = useRef('');
@@ -32,6 +33,7 @@ export default function JudgeConductCoach() {
   const highlightSelectors = isTour ? ['[data-testid="' + task.focus + '"]']
     : gate?.highlight ?? ['[data-testid="' + task.focus + '"]'];
   const highlightKey = highlightSelectors.join('|');
+  const focusKind = isTour ? 'action' : gate?.kind || 'action';
 
   useEffect(() => {
     const poll = () => {
@@ -61,19 +63,28 @@ export default function JudgeConductCoach() {
       for (const selector of highlightSelectors) {
         document.querySelectorAll<HTMLElement>(selector).forEach((node) => marked.add(node));
       }
-      document.querySelectorAll('.judge-training-focus').forEach((element) => {
-        if (!marked.has(element as HTMLElement)) element.classList.remove('judge-training-focus');
+      document.querySelectorAll<HTMLElement>('.judge-training-focus').forEach((element) => {
+        if (!marked.has(element)) {
+          element.classList.remove('judge-training-focus');
+          element.removeAttribute('data-judge-training-kind');
+        }
       });
-      marked.forEach((node) => node.classList.add('judge-training-focus'));
+      marked.forEach((node) => {
+        node.classList.add('judge-training-focus');
+        node.dataset.judgeTrainingKind = focusKind;
+      });
     };
     update();
     const observer = new MutationObserver(update);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => {
       observer.disconnect();
-      document.querySelectorAll('.judge-training-focus').forEach((element) => element.classList.remove('judge-training-focus'));
+      document.querySelectorAll<HTMLElement>('.judge-training-focus').forEach((element) => {
+        element.classList.remove('judge-training-focus');
+        element.removeAttribute('data-judge-training-kind');
+      });
     };
-  }, [highlight, highlightKey]);
+  }, [highlight, highlightKey, focusKind]);
 
   // A short fixed voting HUD can require internal scrolling. When the mission
   // becomes "Next" or "Finalize", reveal its button inside that HUD immediately.
@@ -91,7 +102,22 @@ export default function JudgeConductCoach() {
       data-testid="judge-conduct-coach"
       data-training-tour-active={isTour ? 'true' : 'false'}
     >
-      <style>{'.judge-training-focus { outline: 2px solid rgba(251,191,36,.85) !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }'}</style>
+      <style>{`
+        .judge-training-focus { outline: 3px solid #fbbf24 !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }
+        .judge-training-focus[data-judge-training-kind="nomination"] { outline-color: #fb7185 !important; }
+        .judge-training-focus[data-judge-training-kind="foul"] { outline-color: #c4b5fd !important; }
+        .judge-training-focus[data-judge-training-kind="night"] { outline-color: #6ee7b7 !important; }
+        html body .evening-live-engine-shell .live-seat-card.judge-training-focus[data-judge-training-kind="vote"] {
+          outline: 4px solid #22d3ee !important; outline-offset: -5px !important;
+          box-shadow: inset 0 0 0 3px rgba(34,211,238,.50), 0 0 0 2px rgba(34,211,238,.35) !important;
+        }
+        .live-seat-card.judge-training-focus[data-judge-training-kind="vote"]::after {
+          content: "ГОЛОС" !important; position: absolute; top: 42px; right: 4px;
+          z-index: 38; padding: 3px 4px; border-radius: 5px;
+          background: #075985; color: #ecfeff; font: 800 9px/1 ui-sans-serif,system-ui,sans-serif;
+          letter-spacing: .02em; pointer-events: none;
+        }
+      `}</style>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -151,7 +177,9 @@ export default function JudgeConductCoach() {
                   type="button"
                   onClick={() => {
                     setTourIndex((value) => value + 1);
-                    setOpen(false);
+                    // Keep all three introduction cards open while pressing
+                    // "Дальше"; only "К заданиям" dismisses the last card.
+                    if (tourIndex === TOUR.length - 1) setOpen(false);
                   }}
                   className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-amber-200 px-3 text-sm font-semibold text-black"
                 >

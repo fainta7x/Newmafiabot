@@ -713,6 +713,8 @@ Candidates to discuss (assistant proposals, not approved product rules):
 
 Owner correction 2026-10-08: VIP and compendium currently overlap and lack a compelling recurring benefit. Cosmetics and gamification may be included, but are insufficient as the purchase's core value. Focus the discussion on what the player receives and repeatedly uses, not on more tasks. Do not settle names, two separate products or prices before identifying value.
 
+Owner correction 20:16 Moscow: paid learning, coaching and game-review services do not fit this club's audience and are rejected. Continue short brainstorming around app customization, personal expression, social interaction and game/event experiences. Earlier hypotheses below are historical proposals, not approved scope; coaching/training proposals are superseded.
+
 Revised hypotheses (unapproved; feasibility must be checked):
 - Personal improvement loop: choose a role/skill goal, bookmark game situations, receive a bounded human-reviewed game analysis and follow-up practice. Existing protocol metrics cannot prove speech quality, motives or errors; richer analysis requires player notes/video and reviewer capacity.
 - Practical club pass: prepaid participation credits/clear attendance savings, with exact unit economics, expiry and eligibility agreed first; event participation remains a separate cost unless explicitly included.

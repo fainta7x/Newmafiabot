@@ -8,6 +8,14 @@ Rules:
 - A finding is marked `open`, `fixed (PR/commit)` or `wontfix (reason)`. Do not delete fixed entries; change their status.
 - A finding that only exists in a summary or chat does not count as recorded.
 
+## 2026-10-08 · Achievement paths review follow-up (PR #742)
+
+Scope: exact-head automated review after the first green release gates.
+
+- `playerAchievementStoriesService.ts` — raw first-killed/best-move markers survive a restoration and could issue two PU stories from retracted evidence. Status: open; collapse first-killed evidence across restorations and replacements, add a regression.
+- `premiumPlayerProfileRoutes.ts` `requireViewer` — a player cookie hides independently authenticated organizer rights, causing the new evidence scrub to hide grounds from player-bound organizers. Status: open; retain authenticated organizer flag and cover coexisting cookies plus untrusted organizer tokens.
+- `PlayerGameNumbers.tsx` — vote card headings describe the target color even though cards group by the actor's color. Status: open; state actor role explicitly, retaining target breakdowns.
+
 ## 2026-10-08 · Achievement paths and action counters release verification
 
 Scope: the approved first release of 16 story/career achievements, role-separated action facts and profile UI, PR #742.

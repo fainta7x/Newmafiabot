@@ -239,10 +239,10 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
       }
       if (s.currentVotingNomineeIndex === 0) return gate('К следующему кандидату',
         'Нужные голоса записаны, нажми «Следующий».',
-        ['[data-testid="live-voting-next"]', ...backs]);
+        ['[data-testid="live-voting-next"]', ...backs], 'action', ['[data-testid="live-voting-next"]']);
       return gate('Подведи итог голосования',
         'Остальные голоса уйдут последнему кандидату. Нажми «Подвести итог».',
-        ['[data-testid="live-voting-finalize"]', ...backs]);
+        ['[data-testid="live-voting-finalize"]', ...backs], 'action', ['[data-testid="live-voting-finalize"]']);
     }
     if (s.votingStage === 'round_result') {
       return gate('Итог: решение движка',

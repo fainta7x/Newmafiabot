@@ -466,13 +466,13 @@
    interactive seat. The training coach is a sibling, not a nested scroll box.
    Keep this scoped: live club games retain their approved avatar overlay. */
 @media (max-width: 767px) {
-  html body .fixed.inset-0.z-\\[95\\]:has(> .evening-live-engine-shell[data-training-input-gate="active"])
+  html body .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell[data-training-input-gate="active"])
     > [data-testid="judge-conduct-coach"] {
     flex: 0 0 auto !important;
     padding-block: 4px !important;
   }
 
-  html body .fixed.inset-0.z-\\[95\\]
+  html body .fixed.inset-0.z-\[95\]
     > .evening-live-engine-shell[data-training-input-gate="active"] {
     flex: 1 1 0 !important;
     height: 0 !important;

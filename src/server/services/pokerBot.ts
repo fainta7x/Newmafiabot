@@ -201,7 +201,10 @@ const streetBetLevels = (hand: PokerState) => {
 const isCheapCall = (hand: PokerState, bot: PokerPlayer) => {
   const price = Math.min(Math.max(0, hand.current_bet - bot.committed), bot.chips);
   if (price <= 0) return false;
-  if (price / (hand.pot + price) <= CHEAP_CALL_SHARE) return true;
+  // A showdown call must pass its equity test, even when dead money makes it cheap.
+  if (price === bot.chips || hand.players.some((player) => player.id !== bot.id && !player.folded && player.all_in)) return false;
+  const eligible = pokerBotPotLayers(hand, bot, price).reduce((sum, layer) => sum + layer.amount, 0);
+  if (price / Math.max(1, eligible) <= CHEAP_CALL_SHARE) return true;
   // A re-raise: the last level over the one before it (the big blind does not count as a raise before the flop).
   const levels = streetBetLevels(hand).filter((level) => hand.street !== 'preflop' || level > hand.big_blind);
   if (levels.length < 2) return false;
@@ -310,6 +313,50 @@ const raiseTo = (hand: PokerState, bot: PokerPlayer, total: number): PokerBotAct
 const passive = (toCall: number): PokerBotAction => (toCall === 0 ? { type: 'check' } : { type: 'fold' });
 
 export type OpponentRange = number | { range: number; /** The weakest share of hands on this board that still fits his betting (0 = any, 0.5 = better than half of all hands). */ boardMin?: number };
+
+/** Project the engine's contribution layers; excess chips above the bot's stake are never winnable. */
+export const pokerBotPotLayers = (hand: PokerState, bot: PokerPlayer, put: number, response: 'unchanged' | 'call' | 'fold' = 'unchanged') => {
+  const paid = Math.min(bot.chips, Math.max(0, put));
+  const target = bot.committed + paid;
+  const contributors = hand.players.map((player) => {
+    const extra = player.id === bot.id ? paid : response === 'call' && !player.folded && !player.all_in
+      ? Math.min(player.chips, Math.max(0, target - player.committed)) : 0;
+    return { id: player.id, total: player.total_committed + extra,
+      folded: player.folded || (response === 'fold' && player.id !== bot.id && !player.all_in) };
+  });
+  const cap = bot.total_committed + paid;
+  const levels = [...new Set(contributors.map((player) => Math.min(cap, player.total)).filter((total) => total > 0))].sort((a, b) => a - b);
+  let previous = 0;
+  return levels.map((level) => {
+    const amount = contributors.reduce((sum, player) => sum + Math.max(0, Math.min(player.total, level) - previous), 0);
+    previous = level;
+    const opponents = contributors.filter((player) => player.id !== bot.id && !player.folded && player.total >= level).map((player) => player.id);
+    return { amount, opponents };
+  });
+};
+
+// Reuse subset equities across main/side pots and candidate actions. No opponent's actual hole cards are read.
+const potEquityEstimator = (hand: PokerState, bot: PokerPlayer, ranges: Map<string, OpponentRange>, random: () => number, iterations = 0) => {
+  const cache = new Map<string, number>();
+  return (opponents: string[]) => {
+    if (!opponents.length) return 1;
+    const key = opponents.join(':');
+    if (!cache.has(key)) cache.set(key, estimateEquity(hand.hole_cards[bot.id] || [], hand.board,
+      opponents.map((id) => ranges.get(id) ?? 1), random, iterations));
+    return cache.get(key)!;
+  };
+};
+
+const expectedPotReturn = (layers: ReturnType<typeof pokerBotPotLayers>, equity: (opponents: string[]) => number, realization = 1, discount = 0) =>
+  layers.reduce((sum, layer) => sum + layer.amount * (layer.opponents.length ? Math.max(0, equity(layer.opponents) * realization - discount) : 1), 0);
+
+/** Showdown return from the pots a call can win, before subtracting the new chips paid. */
+export const estimatePokerBotCallReturn = (hand: PokerState, bot: PokerPlayer, ranges: Map<string, OpponentRange>, random = Math.random, iterations = 400) => {
+  const price = Math.min(bot.chips, Math.max(0, hand.current_bet - bot.committed));
+  const layers = pokerBotPotLayers(hand, bot, price);
+  return { price, eligible: layers.reduce((sum, layer) => sum + layer.amount, 0),
+    expected: expectedPotReturn(layers, potEquityEstimator(hand, bot, ranges, random, iterations)) };
+};
 
 /**
  * How much a hand is worth as a DRAW on the flop or turn, on the same 0..1 scale as «better than that share of hands»:
@@ -590,10 +637,11 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   if (toCall > 0 && shover && (shover.all_in || toCall >= bot.chips * 0.6)) {
     const profile = pokerOpponentProfile(shover.id);
     const shoveRange = profile.known ? Math.min(1, Math.max(0.04, profile.shove * 1.1)) : raises >= 2 ? 0.05 : 0.08;
-    const equity = estimateEquity(hole, [], [shoveRange], random, 400, 40);
-    const price = Math.min(toCall, bot.chips);
-    const needed = price / (hand.pot + price) + riskPremium;
-    if (equity >= needed) return { type: 'call' };
+    const opponents = hand.players.filter((player) => player.id !== bot.id && !player.folded);
+    const inferred = opponentRanges(hand, bot);
+    const ranges = new Map<string, OpponentRange>(opponents.map((player, index) => [player.id, player.id === shover.id ? shoveRange : inferred[index]]));
+    const { price, eligible, expected } = estimatePokerBotCallReturn(hand, bot, ranges, random);
+    if (expected >= price + riskPremium * eligible) return { type: 'call' };
     return passive(toCall);
   }
 
@@ -647,7 +695,8 @@ const preflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numbe
   const inPosition = Boolean(raiser) && postflopOrder(hand, bot.seat) > postflopOrder(hand, raiser!.seat);
   const realized = equity * (inPosition ? 0.88 : 0.72) * (style >= 1 ? 1.02 : 0.98);
   const price = Math.min(toCall, bot.chips);
-  const needed = price / (hand.pot + price) + riskPremium;
+  const eligible = pokerBotPotLayers(hand, bot, price).reduce((sum, layer) => sum + layer.amount, 0);
+  const needed = price / Math.max(1, eligible) + riskPremium;
   // Re-raise back when well ahead of his range (a 4-bet or more needs a premium hand).
   if ((raises === 2 ? equity >= 0.6 : pct <= 0.025) && bot.chips > toCall) return raiseTo(hand, bot, hand.current_bet * 2.4);
   // Calling a big part of the stack needs a real edge, not a coin flip.
@@ -671,18 +720,21 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
   const toCall = Math.max(0, hand.current_bet - bot.committed);
   const ranges = opponentRanges(hand, bot);
   if (!ranges.length) return passive(toCall);
-  const equity = estimateEquity(hole, hand.board, ranges, random);
-  const pot = hand.pot;
+  const opponents = hand.players.filter((player) => player.id !== bot.id && !player.folded);
+  const equityFor = potEquityEstimator(hand, bot, new Map(opponents.map((player, index) => [player.id, ranges[index]])), random);
+  const price = Math.min(toCall, bot.chips);
+  const callLayers = pokerBotPotLayers(hand, bot, price);
+  const eligible = callLayers.reduce((sum, layer) => sum + layer.amount, 0);
+  const pot = Math.max(0, eligible - price);
   const river = hand.street === 'river';
   const opponentsLeft = ranges.length;
-  const opponentProfiles = hand.players.filter((player) => player.id !== bot.id && !player.folded).map((player) => pokerOpponentProfile(player.id));
+  const foldable = opponents.filter((player) => !player.all_in);
+  const opponentProfiles = foldable.map((player) => pokerOpponentProfile(player.id));
   const stack = bot.chips;
   // Draws keep some value for later streets (implied odds); none on the river.
   // The equity from the simulation already counts the cards to come (draws included); a hand never realises all of it
   // — it has to pay again on later streets and is often out of position — so before the river it is discounted.
-  const realized = river ? equity : equity * 0.93;
-  // In a tournament (ICM) chips lost hurt more than chips won help: a risk premium raises the bar.
-  const needed = (price: number, finalPot: number) => price / finalPot + riskPremium;
+  const realization = river || price === stack || !foldable.length ? 1 : 0.93;
 
   // The player who raised before the flop holds the initiative: his continuation bet is believed more often than a
   // bet from nowhere, because the opponents' ranges mostly missed the flop.
@@ -704,15 +756,14 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
     ? (flopPaired ? 0.05 : 0.1) * (hand.street === 'flop' ? 1 : 0.6) + (blocksTop ? 0.04 : 0)
     : 0;
   const candidates: Candidate[] = [];
-  if (toCall === 0) candidates.push({ action: { type: 'check' }, ev: realized * pot * (river ? 1 : 0.92) });
+  if (toCall === 0) candidates.push({ action: { type: 'check' }, ev: expectedPotReturn(callLayers, equityFor, realization * (river ? 1 : 0.92)) });
   else {
     candidates.push({ action: { type: 'fold' }, ev: 0 });
-    const price = Math.min(toCall, stack);
-    const finalPot = pot + price;
-    candidates.push({ action: { type: 'call' }, ev: realized >= needed(price, finalPot) - 0.02 - (botStyle(bot.id) - 1) * 0.1 ? realized * finalPot - price : -price });
+    const expected = expectedPotReturn(callLayers, equityFor, realization);
+    candidates.push({ action: { type: 'call' }, ev: expected >= price + riskPremium * eligible ? expected - price : -price });
   }
 
-  const sizes = toCall === 0 ? [0.33, 0.66, 1] : [2.5, 3.5];
+  const sizes = !foldable.length ? [] : toCall === 0 ? [0.33, 0.66, 1] : [2.5, 3.5];
   for (const size of sizes) {
     const total = toCall === 0 ? bot.committed + pot * size : hand.current_bet * size;
     const put = Math.min(stack, Math.max(0, total - bot.committed));
@@ -725,9 +776,11 @@ const postflopDecision = (hand: PokerState, bot: PokerPlayer, random: () => numb
     // Every opponent must fold, each by his own profile (not the first one's profile for all).
     const foldEquity = opponentProfiles.reduce((all, other) => all * Math.min(0.85, (other.foldToBet + (hasInitiative ? 0.12 : 0) + story) * versusBettor * sizeFactor), 1);
     // A raise over a bet is called by the stronger part of the range: the caller's equity drops more than for a bet.
-    const calledEquity = Math.max(0, realized - (toCall > 0 ? (river ? 0.3 : 0.18) : 0.1) * Math.min(1.5, ratio));
-    const finalPot = pot + put * (1 + Math.min(1, opponentsLeft));
-    const ev = foldEquity * pot + (1 - foldEquity) * (calledEquity * finalPot - put) - riskPremium * put;
+    const discount = (toCall > 0 ? (river ? 0.3 : 0.18) : 0.1) * Math.min(1.5, ratio);
+    const calledReturn = expectedPotReturn(pokerBotPotLayers(hand, bot, put, 'call'), equityFor, realization, discount);
+    // All-in players cannot fold. Winning an uncontested side pot does not win their main pot.
+    const foldReturn = expectedPotReturn(pokerBotPotLayers(hand, bot, put, 'fold'), equityFor);
+    const ev = foldEquity * foldReturn + (1 - foldEquity) * calledReturn - put - riskPremium * put;
     candidates.push({ action: raiseTo(hand, bot, bot.committed + put), ev });
   }
 

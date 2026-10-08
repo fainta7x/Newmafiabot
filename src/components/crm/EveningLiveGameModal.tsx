@@ -388,7 +388,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     clearStoredDeathProtocols();
     setSaveError(null);
     onUpdated(updated);
-    onClose();
+    // JudgeTestGameModal closes after onUpdated, marking the lesson completed.
+    // Invoking onClose too emits a second conflicting "cancelled" result.
+    if (!trainingMode) onClose();
   };
 
   const retryFinalSave = async () => {

@@ -608,7 +608,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
               height: min(780px, calc(100dvh - 146px)) !important;
               min-height: 0 !important;
-              grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+              /* HUD voting summaries need more vertical space than idle seats. */
+              grid-template-rows: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr) !important;
               align-items: stretch !important;
             }
             html body .evening-live-training-modal .evening-live-engine-shell .live-seat-card {

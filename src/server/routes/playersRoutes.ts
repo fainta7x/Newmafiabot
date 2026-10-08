@@ -14,6 +14,7 @@ import { setOrganizerPlayerAccess } from '../services/organizerPlayerAccessServi
 import { updatePlayerSchema } from '../validation.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { createPlayerClaimLink, ensurePlayerClaimLinkSchema } from '../services/playerClaimLinkService.ts';
+import { ensurePlayerOnboardingSchema } from '../../db/ensurePlayerOnboardingSchema.ts';
 import { linkPlayerVkByProfileLink, loadPlayerVkIdentity } from '../services/vkProfileLinkService.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
@@ -358,6 +359,14 @@ router.get('/:id/account-links', requireOrganizerAuth, async (req, res) => {
     const player = await db.get<any>('SELECT id, telegram_user_id, telegram_username FROM players WHERE id = ? LIMIT 1', [String(req.params.id)]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     await ensurePlayerClaimLinkSchema(db);
+    await ensurePlayerOnboardingSchema(db);
+    const pendingLinks = await db.all<{ id: string; platform: string; created_at: string }>(
+      `SELECT id, platform, created_at
+         FROM player_onboarding_link_requests
+        WHERE target_player_id=? AND status='pending'
+        ORDER BY created_at DESC LIMIT 20`,
+      [player.id],
+    );
     const claim = await db.get<any>(
       'SELECT expires_at FROM player_claim_links WHERE player_id = ? AND used_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1',
       [player.id, new Date().toISOString()],
@@ -366,6 +375,9 @@ router.get('/:id/account-links', requireOrganizerAuth, async (req, res) => {
       telegram: { linked: Boolean(player.telegram_user_id), username: player.telegram_username || null },
       vk: await loadPlayerVkIdentity(db, String(player.id)),
       claim_link: claim ? { expires_at: claim.expires_at } : null,
+      // Safe organizer review metadata only: never expose the raw Telegram/VK
+      // external identity id or any OAuth/claim token in the player card.
+      pending_links: pendingLinks,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить привязки' });

@@ -367,3 +367,5 @@ After registration/preparation, continue through the existing tournament seating
 ### Achievement paths and game-action evidence
 
 `src/lib/achievementStories.ts` owns first-release story conditions/path definitions; `gameActionFacts.ts` owns final-ballot exclusions, confirmed checks and critical composition. `playerAchievementStoriesService.ts` calculates private evidence and career progress; `playerAchievementsService.ts` keeps canonical evaluation and overrides. `PlayerAchievementPaths.tsx` renders paths/pins and the old collection; `PlayerGameNumbers.tsx` renders the action breakdown. `PATCH /api/player/achievement-preferences` persists the authenticated player's settings only.
+
+ Navigation and education UX: src/components/player/playerCabinetNavigation.ts + PlayerBottomNavigation.tsx (five canonical tabs, School as top-level); src/components/public/PublicGuide.tsx (source-aware guide navigation and exit, public mode unchanged); src/App.tsx (SPA query navigation, one Telegram Back owner); src/components/player/PlayerLearningBlock.tsx and CanonicalPremiumPlayerProfile.tsx (legacy route and prominent School gateway).

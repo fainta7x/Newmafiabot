@@ -333,3 +333,14 @@ Scope: desktop screenshot, mission coach, first voting, seat marking, backward n
 - FIXED in this workstream — liveGameEveningBugfixes.css: fixed-size voting HUD hid the Next/Finalize buttons under overflow:hidden; HUD now scrolls internally to keep actions reachable.
 - FIXED in this workstream — CenterPanel.tsx / LiveGameEngine.tsx: collecting stage did not return to pre-voting speeches; restore complete prior day-speech snapshot.
 - FIXED in this workstream — SeatCard.tsx / liveGameEveningBugfixes.css: nominated candidates were represented by a visually distracting nomination quick action; a strong full-card outline now signals candidates.
+
+### 2026-10-08 — Navigation audit: player cabinet → Mafia School
+
+Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram Back, public/deep links, phone journey.
+
+- HIGH fixed in this workstream: School access depends on a home dashboard card or an off-screen horizontal profile tab. Add a clearly named fifth primary tab «Школа» on every normal cabinet screen, while preserving old profile-learning URLs.
+- HIGH fixed in this workstream: App.tsx and PublicGuide.tsx both registered Telegram WebApp Back for /guide; competing handlers could replace the app route instead of navigating within lessons. Give /guide exclusive ownership of its back handler, including a definite exit on School home.
+- MEDIUM fixed in this workstream: guide home had no visible way back to the cabinet and subsequent screens only showed an unlabeled arrow. Provide «Вернуться в кабинет» on School home, «Кабинет» exit on deep pages, and the player's persistent bottom navigation inside the School opened from cabinet; keep purely public guide uncluttered.
+- MEDIUM fixed in this workstream: two competing learning catalogs (ProfileLearningBlock and PublicGuide) generated unnecessary drill-downs. Keep one canonical School catalog and turn the legacy profile learning tab into a clearly labelled gateway with direct trainer shortcut.
+- LOW fixed in this workstream: App.navigatePath compared pathname against paths containing a query, causing incorrect route detection. Normalize location handling; preserve guide source across internal lesson navigation and retain browser back/forward.
+- Status: pending exact-head CI and human mobile review; public guide access needs to remain usable without a linked player.

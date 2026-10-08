@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BookA, BookOpen, Check, ChevronLeft, ChevronRight, Copy, FileText, GraduationCap, ListChecks,
-  Moon, Scale, Sparkles, Users, Vote,
+  Moon, Scale, Sparkles, Users, Vote, ArrowUpRight,
 } from 'lucide-react';
 import {
   GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, findGuideEntry, findGuideShelf, isGuideScreen, pluralRu,
@@ -16,6 +16,9 @@ import {
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 import { SplitThreeTraining } from './SplitThreeTraining.tsx';
 import JudgeConductTraining from './JudgeConductTraining.tsx';
+import PlayerBottomNavigation from '../player/PlayerBottomNavigation.tsx';
+import { PLAYER_NAV_SECTION, type PlayerCabinetNavId } from '../player/playerCabinetNavigation.ts';
+import { playerPathForSection } from '../../lib/appNavigation.ts';
 
 /** 'home', 'lessons', a section (shelf id) or a catalog entry id (see src/lib/guideCatalog.ts). */
 export type GuideTab = string;
@@ -197,7 +200,7 @@ const MoreInSection = ({ entry, go }: { entry: GuideEntry; go: (screen: GuideScr
  * every screen has its own address (/guide?tab=rules, /guide?tab=lessons&lesson=2) and the
  * phone's back button (browser or Telegram) returns to the previous screen.
  */
-export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 'home' }) => {
+export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: string, replace?: boolean) => void }> = ({ initialTab = 'home', onNavigate }) => {
   const [screen, setScreen] = useState<GuideScreen>(() => ({
     tab: isGuideScreen(initialTab) ? initialTab : 'home',
     lesson: initialTab === 'lessons' ? lessonFromSearch(typeof window === 'undefined' ? '' : window.location.search) : undefined,
@@ -205,6 +208,17 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const [progress, setProgress] = useState<GuideProgress>(() => (typeof window === 'undefined' ? EMPTY_PROGRESS : readProgress()));
   const [copied, setCopied] = useState(false);
   const depth = useRef(0);
+  // The guide is still public. Only links explicitly opened from the cabinet
+  // show its bottom navigation and an unambiguous route back.
+  const fromCabinet = typeof window !== 'undefined' && ['player', 'progress'].includes(new URLSearchParams(window.location.search).get('from') || '');
+  const cabinetReturnPath = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('from') === 'progress'
+    ? '/player/profile/learning' : '/player';
+  const navigateOut = useCallback((path: string, replace = false) => {
+    if (onNavigate) onNavigate(path, replace);
+    else if (replace) window.location.replace(path);
+    else window.location.assign(path);
+  }, [onNavigate]);
+  const exitGuide = useCallback(() => navigateOut(cabinetReturnPath, true), [navigateOut, cabinetReturnPath]);
 
   const updateProgress = useCallback((change: (current: GuideProgress) => GuideProgress) => {
     setProgress((current) => { const next = change(current); writeProgress(next); return next; });
@@ -226,14 +240,15 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   }, [screen.tab, updateProgress]);
 
   const back = useCallback(() => {
+    if (screen.tab === 'home' && fromCabinet) { exitGuide(); return; }
     if (depth.current > 0) { window.history.back(); return; }
-    // Opened straight on a section (a shared link): go up one level instead of leaving the page.
+    // Shared deep links climb to their containing section, then the School home.
     const parent = findGuideEntry(screen.tab)?.shelf;
     const up: GuideScreen = screen.tab === 'lessons' && screen.lesson !== undefined ? { tab: 'lessons' } : parent ? { tab: parent } : { tab: 'home' };
     setScreen(up);
     scrollPageTop();
     try { window.history.replaceState({ guide: up }, '', screenUrl(up)); } catch { /* ignore */ }
-  }, [screen]);
+  }, [screen, fromCabinet, exitGuide]);
 
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
@@ -250,11 +265,11 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   useEffect(() => {
     const button = telegramBackButton();
     if (!button) return undefined;
-    if (screen.tab === 'home') { button.hide(); return undefined; }
+    if (screen.tab === 'home' && !fromCabinet) { button.hide(); return undefined; }
     button.show();
     button.onClick(back);
     return () => { button.offClick(back); };
-  }, [screen.tab, back]);
+  }, [screen.tab, fromCabinet, back]);
 
   const finishLesson = (index: number) => {
     const id = GUIDE_LESSONS[index].id;
@@ -271,6 +286,10 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
     } catch { /* clipboard may be unavailable in some webviews */ }
   };
 
+  const goToCabinetTab = (tab: PlayerCabinetNavId) => {
+    if (tab === 'school') { if (screen.tab !== 'home') go({ tab: 'home' }); return; }
+    navigateOut(playerPathForSection(PLAYER_NAV_SECTION[tab]));
+  };
   const home = screen.tab === 'home';
   const lessonOpen = screen.tab === 'lessons' && screen.lesson !== undefined;
   const entry = findGuideEntry(screen.tab);
@@ -281,10 +300,13 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
   const place = lessonOpen ? 'Уроки' : entry ? findGuideShelf(entry.shelf)?.title : 'Школа мафии';
 
   return (
-    <main data-testid="public-guide" className="min-h-screen bg-[#090a0d] px-4 pb-10 text-white" style={{ paddingTop: home ? 20 : 0 }}>
+    <main data-testid="public-guide" data-guide-from-cabinet={fromCabinet ? 'true' : undefined} className={`min-h-screen bg-[#090a0d] px-4 text-white ${fromCabinet ? 'pb-[calc(7rem+env(safe-area-inset-bottom))]' : 'pb-10'}`} style={{ paddingTop: home ? 20 : 0 }}>
       <div className="mx-auto max-w-md space-y-4">
         {home ? (
           <header className="text-center">
+            {fromCabinet && <button type="button" data-testid="guide-exit-home" onClick={exitGuide} className="mb-4 flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] px-3 text-sm font-medium text-white/75">
+              <ChevronLeft className="h-4 w-4" />Вернуться в кабинет
+            </button>}
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] uppercase tracking-wider text-white/55"><Sparkles className="h-3.5 w-3.5" />2LA Noire · Тула</div>
             <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-semibold"><BookOpen className="h-6 w-6 text-white/60" />Школа мафии</h1>
             <p className="mt-1.5 text-[14px] leading-6 text-white/55">Уроки, тренажёры и правила спортивной мафии.</p>
@@ -297,7 +319,11 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
               <div data-testid="guide-place" className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40">{place}</div>
               <h1 className="truncate text-[17px] font-semibold leading-6">{title}</h1>
             </div>
-            <span className="w-11 shrink-0" aria-hidden="true" />
+            {fromCabinet ? (
+              <button type="button" data-testid="guide-exit" onClick={exitGuide} className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2.5 text-[11px] font-semibold text-white/65">
+                Кабинет <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            ) : <span className="w-11 shrink-0" aria-hidden="true" />}
           </nav>
         )}
 
@@ -325,6 +351,7 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab }> = ({ initialTab = 
           </section>
         ) : null}
       </div>
+      {fromCabinet && <PlayerBottomNavigation section="learning" onOpen={goToCabinetTab} />}
     </main>
   );
 };

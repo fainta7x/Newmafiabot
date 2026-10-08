@@ -1,4 +1,5 @@
 import { countGames } from '../../lib/russianPlural';
+import { ChevronRight, GraduationCap } from 'lucide-react';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import PlayerAwardSuggestionAction from './PlayerAwardSuggestionAction.tsx';
@@ -45,7 +46,7 @@ const gameLinkProps = (id:any) => {
 };
 
 export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null}) {
-  const tabs:Array<[Tab,string]>=learning?[...TABS,['learning','Обучение']]:TABS;
+  const tabs:Array<[Tab,string]>=learning?[TABS[0],['learning','Школа'],...TABS.slice(1)]:TABS;
   const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview');
   const [summary,setSummary]=useState<any>(null);
   const [birthday,setBirthday]=useState<any>(null);
@@ -172,6 +173,11 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">
         {isSelf&&<PlayerProfileCompletionCard/>}
+         {isSelf&&<a href="/guide?from=player" data-testid="profile-school-shortcut" className="flex min-h-[66px] items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/[.065] px-4 text-left">
+           <GraduationCap className="h-5 w-5 shrink-0 text-amber-200/80" />
+           <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-white">Школа мафии</strong><span className="mt-1 block text-xs text-white/55">Уроки, правила и тренажёры</span></span>
+           <ChevronRight className="h-4 w-4 shrink-0 text-white/50"/>
+         </a>}
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
         :<section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Победы',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['В сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] text-white/50">{l}</div></div>)}</section>}
         {/* The four numbers above answer «how am I doing»; the rest is one tap away (owner, 2026-10-06: less scrolling). */}

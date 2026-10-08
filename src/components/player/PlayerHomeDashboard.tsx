@@ -81,7 +81,7 @@ export default function PlayerHomeDashboard({
   onOpenRating: () => void;
   /** «Кошелёк → Оплата»: pay a debt for past evenings. */
   onOpenWallet?: () => void;
-  /** «Прогресс → Обучение». */
+  /** Primary «Школа» destination, also reachable in the persistent bottom navigation. */
   onOpenLearning?: () => void;
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);

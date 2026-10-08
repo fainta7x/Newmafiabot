@@ -83,7 +83,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}><PlayerLiveOnlyCenter compact={section !== 'home'} /></div>
 
       {section === 'home' ? (
-        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('learning')} />
       ) : isPlayerEveningSection(section) ? (
         <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} />
       ) : isPlayerCommunitySection(section) ? (

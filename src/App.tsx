@@ -104,13 +104,11 @@ export default function App() {
   }, [rootState.status]);
 
   const navigatePath = useCallback((nextPath: string, replace = false) => {
-    if (window.location.pathname === nextPath) {
-      setPathname(nextPath);
-      return;
-    }
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (current === nextPath) return;
     if (replace) window.history.replaceState({}, '', nextPath);
     else window.history.pushState({}, '', nextPath);
-    setPathname(nextPath);
+    setPathname(window.location.pathname);
   }, []);
 
   useEffect(() => {
@@ -121,7 +119,9 @@ export default function App() {
 
   useEffect(() => {
     const backButton = (window as any).Telegram?.WebApp?.BackButton;
-    if (!backButton) return;
+    // PublicGuide owns Telegram Back inside /guide; attaching App's handler as well
+    // caused the same tap to compete with the guide's internal lesson history.
+    if (!backButton || isRoutePrefix(pathname, '/guide')) return;
     const target = appBackTarget(pathname);
     if (!target) {
       backButton.hide?.();
@@ -230,7 +230,7 @@ export default function App() {
 
   if (isLiveRoute) return <BigScreenLive />;
 
-  if (isGuideRoute) return <PublicGuide initialTab={guideTabFromSearch(window.location.search)} />;
+  if (isGuideRoute) return <PublicGuide initialTab={guideTabFromSearch(window.location.search)} onNavigate={navigatePath} />;
 
   if (isObsBridgeRoute) return <ObsBridgePage />;
 

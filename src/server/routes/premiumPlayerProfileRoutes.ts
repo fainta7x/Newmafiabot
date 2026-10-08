@@ -1,3 +1,6 @@
+import { ensureAdminDataSchema } from '../../db/ensureAdminDataSchema.ts';
+import { STORY_PATHS, STORY_IDS } from '../../lib/achievementStories.ts';
+import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { Router } from 'express';
 import { loadPlayerStaffStats } from '../services/playerStaffStatsService.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
@@ -132,6 +135,24 @@ router.get('/profiles/:playerId/elo', async (req, res) => {
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить историю Elo' });
   }
+});
+
+router.patch('/achievement-preferences', async (req, res) => {
+  const playerId = requirePlayerViewer(req, res);
+  if (!playerId) return;
+  const path = req.body?.path_id;
+  const pins = req.body?.pins;
+  if (!STORY_PATHS.some(p => p.id === path) || !Array.isArray(pins) || pins.length > 3 || new Set(pins).size !== pins.length || pins.some(p => typeof p !== 'string' || !STORY_IDS.has(p)))
+    return res.status(400).json({ error: 'Выберите путь и до трёх полученных достижений.' });
+  try {
+    await ensureAdminDataSchema(req.db);
+    const profile = await loadPlayerAchievementProfile(req.db, playerId);
+    const earned = new Set(profile.categories.flatMap(c => c.achievements).filter(a => a.earned).map(a => a.id));
+    if (pins.some(p => !earned.has(p))) return res.status(400).json({ error: 'Можно закрепить только свои полученные достижения.' });
+    await req.db.run(`INSERT INTO player_achievement_preferences (player_id,path_id,pins_json) VALUES (?,?,?)
+      ON CONFLICT(player_id) DO UPDATE SET path_id=excluded.path_id,pins_json=excluded.pins_json`, [playerId,path,JSON.stringify(pins)]);
+    return res.json({ path_id: path, pins });
+  } catch { return res.status(500).json({ error: 'Не удалось сохранить путь достижений.' }); }
 });
 
 router.get('/profiles/:playerId/showcase', async (req, res) => {

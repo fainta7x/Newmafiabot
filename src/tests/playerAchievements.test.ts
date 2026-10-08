@@ -76,9 +76,9 @@ const addCompletedClubGame = async (db: any, playerId: string, options: { role?:
 
 describe('legacy achievement catalog', () => {
   it('keeps the legacy 40 achievements in display order plus the 5 organizer milestones and the trainer one', () => {
-    expect(ACHIEVEMENTS).toHaveLength(46);
+    expect(ACHIEVEMENTS).toHaveLength(62);
     expect(ACHIEVEMENT_CATEGORIES.map((item) => item.id)).toEqual(['games','wins','rating','roles','judge','organizer','special','learning']);
-    expect(ACHIEVEMENT_ORDER).toEqual([
+    expect(ACHIEVEMENT_ORDER.slice(0,46)).toEqual([
       'first_game','ten_games','twenty_games','thirty_games','fifty_games','seventy_games','hundred_games','one_fifty_games','two_hundred_games',
       'first_win','five_wins','ten_wins','twenty_wins','thirty_wins','forty_wins','fifty_wins','seventy_wins','hundred_wins',
       'elo_1400','elo_1500','elo_1550','elo_1600','elo_1650','elo_1700','elo_1750','elo_1800','elo_1900',

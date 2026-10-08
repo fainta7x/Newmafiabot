@@ -196,6 +196,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     achievementHighlights(db, playerId),
     db.get<any>('SELECT 1 + COUNT(*) AS place FROM players WHERE COALESCE(contact_status, lifecycle_status, \'normal\') != \'blocked\' AND elo > ?', [numeric(player.elo)]),
   ]);
+  if (!canSeePrivate) for (const achievement of achievements.earned) { achievement.evidence = null; achievement.steps = undefined; }
   const games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
   const recent = games.slice(0, 5);
   const wins = games.filter((game) => game.won).length;

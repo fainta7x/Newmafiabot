@@ -363,3 +363,7 @@ After registration/preparation, continue through the existing tournament seating
 - Reviewed projection: `anonymizedSnapshotPolicy.ts`, `anonymizedSnapshotService.ts` under `src/server/services/`.
 - Download/encryption/decryption: `scripts/developmentSnapshot.mjs`; `.github/workflows/development-snapshot.yml`.
 - Operational contract: `docs/DEVELOPMENT_SNAPSHOT.md`; tests: `src/tests/anonymizedSnapshot.test.ts`, `developmentSnapshotDownload.test.mjs`.
+
+### Achievement paths and game-action evidence
+
+`src/lib/achievementStories.ts` owns first-release story conditions/path definitions; `gameActionFacts.ts` owns final-ballot exclusions, confirmed checks and critical composition. `playerAchievementStoriesService.ts` calculates private evidence and career progress; `playerAchievementsService.ts` keeps canonical evaluation and overrides. `PlayerAchievementPaths.tsx` renders paths/pins and the old collection; `PlayerGameNumbers.tsx` renders the action breakdown. `PATCH /api/player/achievement-preferences` persists the authenticated player's settings only.

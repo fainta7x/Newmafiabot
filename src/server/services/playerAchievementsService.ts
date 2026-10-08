@@ -1,3 +1,5 @@
+import { loadPlayerAchievementStories } from './playerAchievementStoriesService.ts';
+import { STORY_IDS, type StoryResult } from '../../lib/achievementStories.ts';
 import {
   ACHIEVEMENT_CATEGORIES,
   ACHIEVEMENT_RARITIES,
@@ -9,6 +11,7 @@ import {
 } from '../../lib/achievementCatalog.ts';
 
 export interface AchievementStats {
+  stories?: Record<string, StoryResult>;
   completedGames: number;
   wins: number;
   elo: number;
@@ -41,6 +44,9 @@ export interface PlayerAchievementProfile {
       rarity: string;
       rarity_name: string;
       rarity_icon: string;
+      story?: boolean;
+      evidence?: StoryResult['evidence'] | null;
+      steps?: string[];
       earned: boolean;
       earned_at: string | null;
       progress: { current: number; target: number } | null;
@@ -78,9 +84,11 @@ const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
   return null;
 };
 
+const storyEvidence = (achievement: AchievementDefinition, stats: AchievementStats) => stats.stories?.[achievement.id]?.evidence || null;
+
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'special', 'learning']);
-const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game', 'split_expert']);
+const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'organizer', 'special', 'learning']);
+const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game', 'split_expert', 'story']);
 const VALID_RARITIES = new Set<AchievementRarity>(['common', 'rare', 'epic', 'legendary']);
 
 const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.get(
@@ -129,6 +137,7 @@ export const loadAchievementDefinitions = async (db: any, includeInactive = fals
 
 export const getAchievementMetricValue = (achievement: AchievementDefinition, stats: AchievementStats): number => {
   switch (achievement.metric) {
+    case 'story': return stats.stories?.[achievement.id]?.current || 0;
     case 'games': return stats.completedGames;
     case 'wins': return stats.wins;
     case 'rating': return stats.elo;
@@ -280,6 +289,9 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     stats.splitVoteExpert = expert ? 1 : 0;
   }
 
+  if (await achievementDefinitionsTableExists(db) && await db.get("SELECT 1 FROM achievement_definitions WHERE metric='story' AND active=1 LIMIT 1")) {
+    stats.stories = await loadPlayerAchievementStories(db, playerId);
+  }
   return stats;
 };
 
@@ -313,18 +325,28 @@ export const evaluatePlayerAchievements = async (db: any, playerId: string): Pro
   ]);
   const overrides = new Map(overrideRows.map((row: any) => [String(row.achievement_id), String(row.state)]));
   const qualifying = definitions.filter((achievement) => overrides.get(achievement.id) !== 'revoke' && qualifiesForAchievement(achievement, stats));
-  if (!qualifying.length) return [];
+  if (!qualifying.length && !stats.stories) return [];
   const now = new Date().toISOString();
   const newlyEarned: string[] = [];
   await db.transaction(async (tx: any) => {
+    // Corrections can invalidate new story evidence; manual/legacy grants and explicit overrides survive.
+    for (const definition of definitions.filter(a => a.metric === 'story' && STORY_IDS.has(a.id))) {
+      if (!qualifiesForAchievement(definition, stats) && overrides.get(definition.id) !== 'grant') {
+        await tx.run("DELETE FROM player_achievements WHERE player_id=? AND achievement_id=? AND source='evaluator'", [playerId, definition.id]);
+      }
+    }
     for (const achievement of qualifying) {
       const result = await tx.run(
         `INSERT OR IGNORE INTO player_achievements
          (id, player_id, achievement_id, earned_at, source, legacy_user_id, created_at)
          VALUES (?, ?, ?, ?, 'evaluator', NULL, ?)`,
-        [`${playerId}:${achievement.id}`, playerId, achievement.id, now, now]
+        [`${playerId}:${achievement.id}`, playerId, achievement.id, stats.stories?.[achievement.id]?.evidence?.date || now, now]
       );
       if (Number(result.changes || 0) > 0) newlyEarned.push(achievement.id);
+      const evidenceDate = stats.stories?.[achievement.id]?.evidence?.date;
+      if (achievement.metric === 'story' && evidenceDate && overrides.get(achievement.id) !== 'grant') {
+        await tx.run("UPDATE player_achievements SET earned_at=? WHERE player_id=? AND achievement_id=? AND source='evaluator'", [evidenceDate, playerId, achievement.id]);
+      }
     }
   });
   return newlyEarned;
@@ -398,7 +420,12 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
           rarity_icon: rarity.icon,
           earned: isEarned,
           earned_at: earnedAt,
-          progress: { current: getAchievementMetricValue(achievement, stats), target: achievement.threshold },
+          story: achievement.metric === 'story',
+          evidence: storyEvidence(achievement, stats),
+          steps: stats.stories?.[achievement.id]?.steps,
+          progress: achievement.metric === 'story'
+            ? { current: Math.round((stats.stories?.[achievement.id]?.current || 0) * (stats.stories?.[achievement.id]?.target || 1)), target: stats.stories?.[achievement.id]?.target || 1 }
+            : { current: getAchievementMetricValue(achievement, stats), target: achievement.threshold },
         };
       });
       const earned = achievements.filter((achievement) => achievement.earned).length;

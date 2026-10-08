@@ -133,7 +133,9 @@ function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancell
 function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    console.log('[winner-test] effect setup', location.href);
     beginTestGameSandbox();
+    console.log('[winner-test] after sandbox begin', localStorage.getItem('mafia_test_game_sandbox_active'));
     const players = buildRecoveryPlayers().map((p) => ({
       ...p,
       alive: p.team === 'Красные',
@@ -168,8 +170,12 @@ function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'c
     // the shared copy when constructing its recoverable session banner.
     localStorage.setItem('mafia_live_session', winnerSession);
     localStorage.setItem('mafia_live_session:club:' + TEST_GAME_ID, winnerSession);
+    console.log('[winner-test] seeded', localStorage.getItem('mafia_test_game_sandbox_active'), localStorage.getItem('mafia_live_session')?.length, localStorage.getItem('mafia_live_session:club:' + TEST_GAME_ID)?.length);
     setReady(true);
-    return () => endTestGameSandbox();
+    return () => {
+      console.log('[winner-test] effect cleanup', localStorage.getItem('mafia_test_game_sandbox_active'));
+      endTestGameSandbox();
+    };
   }, []);
 
   return ready ? (

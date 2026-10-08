@@ -203,13 +203,13 @@ export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrain
         const foul = requireFoul(s, 3, 1, 'Во время речи ведущий фиксирует обычный фол.');
         if (foul) return foul;
       }
-      // During #4's speech, make two regular fouls and exchange them for +30s.
-      if (s.roundNumber === 1 && current === 4 && s.speechExtendedSlot !== 4) {
-        const foul = requireFoul(s, 4, 2, 'Выдай два обычных фола: они позволят прибавить 30 секунд к текущей речи.');
-        if (foul) return foul;
+      // +30 is NOT a refund for two accumulated fouls. In the real game it
+      // ADDS two fouls, and it is forbidden in the zero round. Demonstrate
+      // it on the next day's first eligible speaker (#2 in this practice game).
+      if (s.roundNumber === 2 && current === 2 && s.speechExtendedSlot !== 2) {
         const selector = '[data-testid="live-hud-speech-extension"]';
-        return gate('Добавь +30 секунд игроку #4',
-          'Два обычных фола набраны. Нажми «+30» рядом с таймером: фолы будут списаны, речь увеличится на 30 секунд.',
+        return gate('Добавь +30 секунд игроку #2',
+          'Нажми «+30» у таймера. Это добавит к текущей речи 30 секунд И начислит два обычных фола игроку #2. На нулевом круге такая опция недоступна.',
           [selector], 'foul');
       }
       return next('Заверши речь #' + current, 'Нажми «Завершить речь #' + current + '».');

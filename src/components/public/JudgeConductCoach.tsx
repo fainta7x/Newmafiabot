@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenCheck, ChevronDown, ChevronRight, Eye, MousePointer2, RotateCcw, Sparkles } from 'lucide-react';
+import { BookOpenCheck, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.ts';
 import { getTrainingPrompt, type TrainingPrompt } from '../../lib/judgeConductTraining.ts';
 
 const TOUR: TrainingPrompt[] = [
-  { title: 'Центр управления', detail: 'Здесь находится текущая фаза, таймер и основное действие. Именно отсюда ты будешь начинать и завершать речи.', focus: 'live-judge-hud' },
-  { title: 'Карточки игроков', detail: 'Чтобы выставить кандидата или записать фол, выбери игрока в выпадающем списке «Действия игрока» или нажми его место на столе.', focus: 'live-player-actions-selector' },
-  { title: 'Можно ошибиться', detail: 'Кнопка «Отмена» возвращает предыдущее действие. В учебной игре смело пробуй и исправляй.', focus: 'live-judge-hud' },
-  { title: 'Управляй реальной игрой', detail: 'Подсказки будут сообщать, что виртуальные игроки сделали за столом. Твои нажатия изменяют настоящий Live Engine; симулятор сам НЕ нажимает кнопки вместо тебя.', focus: 'live-judge-hud' },
+  { title: 'Центральная панель', detail: 'Здесь показаны этап игры, таймер и кнопки перехода. Ведущий начинает и завершает речи именно здесь.', focus: 'live-judge-hud' },
+  { title: 'Действия игрока', detail: 'Чтобы выставить кандидата, открой действия нужного игрока на столе или в панели судейства.', focus: 'live-player-actions-selector' },
+  { title: 'Назад и исправления', detail: 'Ошибся с действием? Используй кнопку «Назад» в интерфейсе. Теперь потренируемся на обычной партии.', focus: 'live-judge-hud' },
 ];
 
-const sessionProgressKey = (s: PersistedLiveSession) => JSON.stringify([
+const progressKey = (s: PersistedLiveSession) => JSON.stringify([
   s.phase, s.roundNumber, s.dayStarterSlot, s.zeroNightSubPhase, s.zeroNightMusicState,
   s.activeSpeakerSlot, s.nominations, s.nominationsMap, s.votingStage,
   s.votingRounds, s.activeVotingRoundIndex, s.currentVotingNomineeIndex,
@@ -19,16 +18,16 @@ const sessionProgressKey = (s: PersistedLiveSession) => JSON.stringify([
   s.activePlayers.map((v) => [v.slot_num, v.role, v.team, v.alive, v.has_spoken_this_round]),
 ]);
 
-/** Reads the real engine's session. No simulated buttons, artificial results or second game engine. */
+/** Inline mission panel. It participates in game layout instead of covering seats, actions or timers. */
 export default function JudgeConductCoach() {
   const [session, setSession] = useState<PersistedLiveSession | null>(null);
   const previousKey = useRef('');
   const [tourIndex, setTourIndex] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
-  const [showHints, setShowHints] = useState(true);
+  const [highlight, setHighlight] = useState(true);
   const isTour = session !== null && tourIndex < TOUR.length;
   const progress = useMemo(() => getTrainingPrompt(session), [session]);
-  const prompt = isTour ? TOUR[tourIndex] : progress;
+  const task = isTour ? TOUR[tourIndex] : progress;
 
   useEffect(() => {
     const poll = () => {
@@ -37,13 +36,13 @@ export default function JudgeConductCoach() {
         if (!raw) return;
         const next = JSON.parse(raw) as PersistedLiveSession;
         if (!next?.phase || next.phase === 'setup' || next.sessionKey !== 'club:-2147483000') return;
-        const key = sessionProgressKey(next);
+        const key = progressKey(next);
         if (key !== previousKey.current) {
           previousKey.current = key;
           setSession(next);
         }
       } catch {
-        // Do not interrupt the live engine when a saved frame is being replaced.
+        // A partially written snapshot must never stop the game.
       }
     };
     poll();
@@ -52,63 +51,55 @@ export default function JudgeConductCoach() {
   }, []);
 
   useEffect(() => {
-    if (collapsed || !showHints) return undefined;
-    const selector = '[data-testid="' + prompt.focus + '"]';
+    if (collapsed || !highlight) return undefined;
+    const selector = '[data-testid="' + task.focus + '"]';
     const update = () => {
-      const selected = document.querySelector<HTMLElement>(selector);
-      document.querySelectorAll('.judge-coach-spotlight').forEach((el) => {
-        if (el !== selected) el.classList.remove('judge-coach-spotlight');
+      const target = document.querySelector<HTMLElement>(selector);
+      document.querySelectorAll('.judge-training-focus').forEach((element) => {
+        if (element !== target) element.classList.remove('judge-training-focus');
       });
-      if (selected) selected.classList.add('judge-coach-spotlight');
+      target?.classList.add('judge-training-focus');
     };
     update();
     const observer = new MutationObserver(update);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => {
       observer.disconnect();
-      document.querySelectorAll('.judge-coach-spotlight').forEach((el) => el.classList.remove('judge-coach-spotlight'));
+      document.querySelectorAll('.judge-training-focus').forEach((element) => element.classList.remove('judge-training-focus'));
     };
-  }, [prompt.focus, collapsed, showHints, session?.phase]);
+  }, [collapsed, highlight, task.focus, session?.phase]);
 
+  if (!session) return null;
   return (
-    <>
-      <style>{'.judge-coach-spotlight { outline: 3px solid rgba(251,191,36,.92) !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(245,158,11,.10), 0 0 28px rgba(245,158,11,.25) !important; transition: outline-color .15s ease; } @media (prefers-reduced-motion: no-preference) { .judge-coach-spotlight { animation: judge-coach-glow 2.2s ease-in-out infinite; } @keyframes judge-coach-glow { 50% { outline-color: rgba(251,191,36,.4); } } }'}</style>
-      <div className="pointer-events-none fixed inset-x-2 top-[max(4rem,env(safe-area-inset-top))] z-[160] mx-auto flex max-w-[460px] justify-end text-white" data-testid="judge-conduct-coach">
-        {collapsed ? (
-          <button type="button" className="pointer-events-auto flex min-h-11 items-center gap-2 rounded-2xl border border-amber-300/40 bg-[#181713] px-4 text-xs font-semibold text-amber-100 shadow-xl" onClick={() => setCollapsed(false)}>
-            <Sparkles className="h-4 w-4" /> Подсказка судье <ChevronDown className="h-4 w-4" />
-          </button>
-        ) : (
-          <section className="pointer-events-auto w-full rounded-[22px] border border-amber-200/30 bg-[#171716]/95 p-3.5 shadow-[0_16px_55px_rgba(0,0,0,.68)] backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.13em] text-amber-200/75">
-                <BookOpenCheck className="h-4 w-4" />
-                {isTour ? 'Знакомство · ' + (tourIndex + 1) + '/' + TOUR.length : 'Учебная партия'}
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setShowHints((v) => !v)} aria-label={showHints ? 'Убрать подсветку' : 'Показать подсветку'} title="Подсветка интерфейса" className="grid h-8 w-8 place-items-center rounded-lg text-white/65 active:bg-white/10">
-                  <Eye className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={() => setCollapsed(true)} aria-label="Свернуть подсказку" className="grid h-8 w-8 place-items-center rounded-lg text-white/65 active:bg-white/10">
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
+    <div className="sticky top-0 z-[115] mx-auto w-full max-w-7xl px-2 py-2 sm:px-4" data-testid="judge-conduct-coach">
+      <style>{'.judge-training-focus { outline: 2px solid rgba(251,191,36,.85) !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }'}</style>
+      <section className="rounded-2xl border border-amber-300/30 bg-[#191914] px-3 py-2.5 text-white shadow-[0_5px_18px_rgba(0,0,0,.35)]">
+        <div className="flex min-w-0 items-center gap-2">
+          <BookOpenCheck className="h-4 w-4 shrink-0 text-amber-200"/>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/75">
+              {isTour ? 'Задание · знакомство ' + (tourIndex + 1) + '/' + TOUR.length : 'Задание · учебная партия'}
             </div>
-            <h3 className={'mt-1.5 text-base font-bold ' + (prompt.warning ? 'text-rose-200' : 'text-white')}>{prompt.title}</h3>
-            <p className="mt-1.5 text-xs leading-[19px] text-white/70">{prompt.detail}</p>
-            {isTour ? (
-              <button type="button" onClick={() => setTourIndex((i) => i + 1)} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-200 text-xs font-bold text-stone-950">
-                {tourIndex === TOUR.length - 1 ? 'Начать практику' : 'Понятно, дальше'} <ChevronRight className="h-4 w-4" />
+            <div className={'truncate text-sm font-semibold ' + (task.warning ? 'text-rose-200' : 'text-white')} aria-live="polite">{task.title}</div>
+          </div>
+          <button type="button" onClick={() => setHighlight((v) => !v)} aria-label={highlight ? 'Отключить подсветку элементов' : 'Включить подсветку элементов'} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-white/60">
+            {highlight ? <Eye className="h-4 w-4"/> : <EyeOff className="h-4 w-4"/>}
+          </button>
+          <button type="button" onClick={() => setCollapsed((v) => !v)} aria-label={collapsed ? 'Развернуть задание' : 'Свернуть задание'} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-white/60">
+            {collapsed ? <ChevronDown className="h-4 w-4"/> : <ChevronUp className="h-4 w-4"/>}
+          </button>
+        </div>
+        {!collapsed && (
+          <div className="mt-1.5 pl-6">
+            <p className="text-xs leading-[18px] text-white/65">{task.detail}</p>
+            {isTour && (
+              <button type="button" onClick={() => setTourIndex((v) => v + 1)} className="mt-2 flex min-h-9 items-center gap-1 rounded-lg bg-amber-200 px-3 text-xs font-semibold text-black">
+                {tourIndex === TOUR.length - 1 ? 'Перейти к заданиям' : 'Следующий элемент'} <ChevronRight className="h-4 w-4"/>
               </button>
-            ) : (
-              <div className="mt-2 flex items-center gap-2 text-[10px] leading-4 text-white/40">
-                {prompt.warning ? <RotateCcw className="h-3.5 w-3.5 shrink-0" /> : <MousePointer2 className="h-3.5 w-3.5 shrink-0" />}
-                <span>Сделай действие в игровом интерфейсе. Следующая задача появится автоматически.</span>
-              </div>
             )}
-          </section>
+          </div>
         )}
-      </div>
-    </>
+      </section>
+    </div>
   );
 }

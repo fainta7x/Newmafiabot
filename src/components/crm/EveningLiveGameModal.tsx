@@ -2,6 +2,8 @@ import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
+import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
+import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
@@ -21,6 +23,8 @@ interface EveningLiveGameModalProps {
   onUpdated: (game: ClubGameRecord) => void;
   /** OBS remote control is an organizer tool; an assigned judge only gets the overlay link. */
   obsRemote?: boolean;
+  /** Only synthetic local games enable the guided training layout and task panel. */
+  trainingMode?: boolean;
 }
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
@@ -163,7 +167,7 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated, obsRemote = false }) => {
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated, obsRemote = false, trainingMode = false }) => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
     getPendingClubGameProtocolSave(game.id)
@@ -547,11 +551,14 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
+      <div className={trainingMode ? 'h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain' : ''}>
+        {trainingMode && <JudgeConductCoach />}
       <div className="evening-live-engine-shell py-0.5 md:py-3">
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={getClubJudgeIdentity(game)}
           sessionKey={`club:${game.id}`}
+          trainingRoles={trainingMode ? JUDGE_TRAINING_ROLES : undefined}
           onCancel={onClose}
           onPhaseChange={setLivePhase}
           rolesHidden={rolesHidden}
@@ -603,6 +610,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

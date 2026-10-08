@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
-import PhysicalRoleDeal from '../game/PhysicalRoleDeal.tsx';
+import PhysicalRoleDeal, { type PhysicalRole } from '../game/PhysicalRoleDeal.tsx';
 import { setJudgeMusicTablePlayers } from '../JudgeGameMusicController.tsx';
 import { physicalRoleToLive, roleSetupIsValid, type LiveRole } from './setupRoles.js';
 import type { ActivePlayerState } from './types.js';
@@ -16,6 +16,7 @@ type Props = {
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;
   speechRecordingControl?: React.ReactNode;
+  trainingRoles?: Record<number, PhysicalRole>;
 };
 
 export default function ClubGameSetupPhase({
@@ -27,6 +28,7 @@ export default function ClubGameSetupPhase({
   validateSetupAndStart,
   onRoleDealActiveChange,
   speechRecordingControl,
+  trainingRoles,
 }: Props) {
   const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [awaitingStart, setAwaitingStart] = React.useState(false);
@@ -180,6 +182,7 @@ export default function ClubGameSetupPhase({
           seats={dealSeats}
           musicTrackId={undefined}
           musicTrackTitle="Плейлист вечера"
+          trainingRoles={trainingRoles}
           onCancel={closeRoleDeal}
           onComplete={(assignments) => {
             Object.entries(assignments).forEach(([seatNumber, role]) => handleSelectSetupRole(Number(seatNumber), physicalRoleToLive(role)));

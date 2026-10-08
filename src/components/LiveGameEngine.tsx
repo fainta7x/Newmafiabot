@@ -101,7 +101,7 @@ import {
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange, sessionKey }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange, sessionKey, trainingRoles }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -1662,6 +1662,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           handleSelectSetupPlayer={handleSelectSetupPlayer}
           handleSelectSetupRole={handleSelectSetupRole}
           validateSetupAndStart={validateSetupAndStart}
+          trainingRoles={trainingRoles}
           onCancel={onCancel}
         />
       ) : (

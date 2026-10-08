@@ -190,7 +190,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
             aria-current={tab===key?'page':undefined} onClick={()=>switchTab(key as Tab)}
             className={`min-h-9 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}
       </nav>}
-    </div>
+    </div>}
     <main className="profile-content mx-auto max-w-3xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)]">
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">

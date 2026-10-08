@@ -5,10 +5,17 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'src/components/crm/EveningLiveGameModal.tsx'
+      - 'src/components/crm/EveningDeathProtocolOverlay.tsx'
+      - 'src/components/LiveGameEngine/LiveGameOverlays.tsx'
+      - 'src/components/LiveGameEngine.tsx'
+      - 'src/lib/judgeTrainingProtocols.ts'
+      - 'src/lib/judgeConductTraining.ts'
+      - 'src/components/player/JudgeTestGameModal.tsx'
       - 'src/components/crm/liveGameTelegram.css'
       - 'src/components/public/JudgeConductCoach.tsx'
       - 'e2e/live-game-harness.tsx'
       - 'e2e/tests/judge-training-mobile-layout.spec.mjs'
+      - 'e2e/tests/judge-training-finalization.spec.mjs'
       - '.github/workflows/judge-training-mobile-e2e.yml'
 
 permissions:
@@ -36,7 +43,7 @@ jobs:
       - run: npm ci
         working-directory: e2e
       - name: Open real guided training and inspect phone-sized layout
-        run: npx playwright test --config playwright.config.mjs tests/judge-training-mobile-layout.spec.mjs
+        run: npx playwright test --config playwright.config.mjs tests/judge-training-mobile-layout.spec.mjs tests/judge-training-finalization.spec.mjs
         working-directory: e2e
       - name: Save screenshots and traces
         if: always()

@@ -88,10 +88,13 @@ for (const width of [360, 390]) {
     await page.screenshot({ path: info.outputPath(`real-table-training-${width}.png`), fullPage: false });
     // The lesson still uses the live judge buttons, but must not prompt for
     // player login or try to play real club music during the zero night.
+    await page.getByTestId('judge-training-task-trigger').click();
     for (let step = 0; step < 3; step += 1) {
-      await page.getByTestId('judge-training-task-trigger').click();
+      await expect(page.getByTestId('judge-training-task-dialog')).toBeVisible();
       await page.getByRole('button', { name: step < 2 ? 'Дальше' : 'К заданиям' }).click();
+      if (step < 2) await expect(page.getByTestId('judge-training-task-dialog')).toBeVisible();
     }
+    await expect(page.getByTestId('judge-training-task-dialog')).toHaveCount(0);
     await page.getByRole('button', { name: /Включить музыку ночи/ }).click();
     await expect(page.getByRole('button', { name: /Договорка.*75с/ })).toBeVisible();
     await expect(page.getByText('Player authentication required.')).toHaveCount(0);

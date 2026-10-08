@@ -289,3 +289,20 @@ Verification: rank ordering and short all-in call defects fixed with legal-actio
 Scope: fresh protected history read and independent stress measurements after #734. OPEN: estimateEquity accepts out-of-range hands after retry exhaustion; measure contamination and narrow-range handling before modifying. Production reads only, no balance/data changes.
 
 FIXED, pending CI — range sampling now enumerates legal support and removes retry-budget contamination; exact board reference replaces the noisy 70-hand sample. Impossible inferred supports use the closest legal combination set and remain heuristic. Benchmark streams isolate cards and each actor; learned baseline policies have their own observer/memory. Protected /poker/results request reaches the app but returns HTTP 502; no fresh player data obtained.
+
+### 2026-10-07 — Dissonance protected-history retry
+- Scope: retry the real-player poker export against current production; no bot changes.
+- OPEN / runtime access: protected poker results returns HTTP 502; direct hands export for Диссонанс (limit 300) times out after 25 seconds. No fresh hands received. Current runtime observations and follow-up are owned by PROJECT_STATE.md.
+- No new player-specific bot defect established. Existing code findings and synthetic evidence remain in POKER_DISSONANCE_AUDIT.md and POKER_BOT_SAMPLING_FOLLOWUP.md.
+
+### 2026-10-07 evening — Dissonance live export recovered
+- Scope: retry and analyze 250 real hands; all three protected poker reads succeed. Evidence: POKER_DISSONANCE_LIVE_AUDIT.md.
+- OPEN: pokerBot.ts / preflopDecision all-in branch uses full hand.pot, counting contributions beyond the caller’s eligible layer. Deterministic 7s2d probe changes fold to call solely when the shover stack grows 1,000 → 24,220.
+- OPEN: same branch evaluates [shoveRange] only and ignores other callers’ main-pot equity. Safe repair needs contribution layers and multiway equity, not arbitrary range tightening.
+- Historical net +21,240 over 250 hands; not evidence of cheating or the current token wallet. No code/deploy/data changes in this diagnostic pass.
+
+### 2026-10-08 — owner-authorized eligible-pot bot repair
+- FIXED in implementation: pokerBot.ts call thresholds/EV no longer include inaccessible opposing excess. Main and side pots use their own eligible opponent subsets, including preflop all-in callers.
+- FIXED in implementation: cheap-call fallback cannot override a rejected showdown call; postflop bet EV caps callers’ contributions and never gives all-in seats fold equity.
+- Verified existing adaptation rather than adding player-specific rules: pure-bluff check against a learned caller; retained bluff against a learned folder; legitimate calls against frequent shoves preserved.
+- Focused tests include actual engine side-pot payout agreement. Exact-head CI remains the merge gate; runtime and a new post-fix hand sample remain unverified.

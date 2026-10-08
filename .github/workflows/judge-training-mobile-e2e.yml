@@ -15,6 +15,7 @@ on:
       - 'src/components/public/JudgeConductCoach.tsx'
       - 'e2e/live-game-harness.tsx'
       - 'e2e/tests/judge-training-mobile-layout.spec.mjs'
+      - 'e2e/tests/judge-training-desktop-layout.spec.mjs'
       - 'e2e/tests/judge-training-finalization.spec.mjs'
       - '.github/workflows/judge-training-mobile-e2e.yml'
 
@@ -27,12 +28,12 @@ concurrency:
 
 jobs:
   training-mobile:
-    name: Real judge training ${{ matrix.spec }} at 360 and 390 px
+    name: Guided judge UI ${{ matrix.spec }} across target viewports
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        spec: [judge-training-mobile-layout, judge-training-finalization]
+        spec: [judge-training-mobile-layout, judge-training-desktop-layout, judge-training-finalization]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7
@@ -46,7 +47,7 @@ jobs:
       - run: npm ci
       - run: npm ci
         working-directory: e2e
-      - name: Open real guided training and inspect phone-sized layout
+      - name: Open guided training and inspect target viewport layout
         run: npx playwright test --config playwright.config.mjs tests/${{ matrix.spec }}.spec.mjs --retries=0
         working-directory: e2e
       - name: Save screenshots and traces

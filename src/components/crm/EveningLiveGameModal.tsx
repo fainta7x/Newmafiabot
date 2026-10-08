@@ -179,6 +179,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   );
   const [livePhase, setLivePhase] = useState('setup');
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
+  const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
@@ -214,6 +215,46 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     );
     setTrainingBoardElement(board);
   }, [trainingMode, livePhase, game.id]);
+
+  // The desktop table and the compact phone table use different seat tracks.
+  // Decorative training identities follow the *real clicked seat rectangles*
+  // instead of guessing the responsive placement from a second static map.
+  useLayoutEffect(() => {
+    if (!trainingMode || !trainingBoardElement || typeof ResizeObserver === 'undefined') return;
+    const sync = () => {
+      if (!window.matchMedia('(min-width: 768px)').matches) {
+        setTrainingIdentityPositions((previous) => Object.keys(previous).length ? {} : previous);
+        return;
+      }
+      const boardRect = trainingBoardElement.getBoundingClientRect();
+      const mapped: Record<number, React.CSSProperties> = {};
+      for (const player of livePlayers) {
+        const seat = trainingBoardElement.querySelector<HTMLElement>(
+          '.live-seat-card[data-seat="' + player.seat_number + '"]',
+        );
+        if (!seat) continue;
+        const rect = seat.getBoundingClientRect();
+        mapped[player.seat_number] = {
+          position: 'absolute',
+          left: rect.left - boardRect.left,
+          top: rect.top - boardRect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+      setTrainingIdentityPositions((previous) =>
+        JSON.stringify(previous) === JSON.stringify(mapped) ? previous : mapped);
+    };
+    sync();
+    const resize = new ResizeObserver(sync);
+    resize.observe(trainingBoardElement);
+    trainingBoardElement.querySelectorAll<HTMLElement>('.live-seat-card').forEach((seat) => resize.observe(seat));
+    window.addEventListener('resize', sync);
+    return () => {
+      resize.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [trainingMode, trainingBoardElement, livePlayers]);
 
   useLayoutEffect(() => {
     liveRecorder.mount();
@@ -462,7 +503,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <div
           key={player.seat_number}
           className="evening-live-identity"
-          style={seatPlacement[player.seat_number]}
+          style={trainingMode && trainingIdentityPositions[player.seat_number] ? trainingIdentityPositions[player.seat_number] : seatPlacement[player.seat_number]}
           data-seat={player.seat_number}
           data-alive={liveAlive[player.seat_number] === false ? 'false' : 'true'}
         >
@@ -481,7 +522,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
 
   return (
-    <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
+    <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''} ${trainingMode ? 'evening-live-training-modal' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <div className="text-[11px] md:text-xs font-black text-white truncate">{trainingMode ? 'Учебная партия' : `Игра #${game.global_game_number}`}</div>
@@ -546,6 +587,64 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             html body .evening-live-engine-shell[data-training-input-gate="active"] .live-judge-hud__body {
               min-height: 0 !important;
               overflow-y: auto !important;
+            }
+          }
+          /* Desktop training reserves an actual reading rail beside the
+             untouched LiveGameEngine table. This is intentionally scoped to
+             synthetic practice and never changes real-game table geometry. */
+          @media (min-width: 1280px) {
+            html body .evening-live-training-modal .evening-live-engine-shell {
+              box-sizing: border-box !important;
+              width: calc(100% - 352px) !important;
+              max-width: calc(100% - 352px) !important;
+              margin-left: 0 !important;
+              margin-right: 352px !important;
+              padding-left: 16px !important;
+              padding-right: 8px !important;
+            }
+            /* On short laptop displays, keep the event/footer strip visible
+               without altering the real game's seat layout or grid order. */
+            html body .evening-live-training-modal .evening-live-engine-shell
+            div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+              height: min(780px, calc(100dvh - 146px)) !important;
+              min-height: 0 !important;
+              /* HUD voting summaries need more vertical space than idle seats. */
+              grid-template-rows: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr) !important;
+              align-items: stretch !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-seat-card {
+              min-height: 0 !important;
+              height: 100% !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-judge-hud {
+              height: 100% !important;
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-judge-hud__body {
+              min-height: 0 !important;
+              overflow-y: auto !important;
+            }
+          }
+          /* On tablet/desktop the training identities are placed over their
+             actual LiveGameEngine seats, not via a copied grid map. */
+          @media (min-width: 768px) {
+            html body .evening-live-training-modal .evening-live-engine-shell
+            div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+              position: relative !important;
+            }
+            html body .evening-live-training-modal .evening-live-identity-layer {
+              /* The legacy overlay centers itself with translateX(-50%).
+                 Portalling into the actual board requires zero translation. */
+              display: block !important;
+              transform: none !important;
+              translate: none !important;
+            }
+            html body .evening-live-training-modal .evening-live-identity {
+              position: absolute !important;
+              grid-column: auto !important;
+              grid-row: auto !important;
+              box-sizing: border-box !important;
             }
           }
           /* Synthetic identities share exactly the parent table's used grid tracks.

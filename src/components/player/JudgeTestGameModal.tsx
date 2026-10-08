@@ -141,6 +141,18 @@ export default function JudgeTestGameModal({
     };
   }, [game, trainingLineup]);
 
+  // A synthetic lesson acknowledges the real engine's "music on" action,
+  // but must never open the authenticated club-music picker or play live tracks.
+  // Capture on the event target runs before the regular music controller.
+  useLayoutEffect(() => {
+    if (!training || !trainingLineup) return;
+    const ignoreSyntheticMusicStart = (event: Event) => {
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener('judge-game-music-start', ignoreSyntheticMusicStart, true);
+    return () => window.removeEventListener('judge-game-music-start', ignoreSyntheticMusicStart, true);
+  }, [training, trainingLineup]);
+
   if (training && !trainingLineup) {
     return <JudgeTrainingSeating plan={seatPlan} onClose={() => onClose(false)} onComplete={setTrainingLineup} />;
   }

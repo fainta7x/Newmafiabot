@@ -150,6 +150,14 @@ Do not hide judge-critical copy with ellipsis just to fit a test.
 - Partial voting input is intentionally invisible to spectators. The fixed result must make both totals and voter seats readable.
 - Connection loss uses a restrained warning and preserves the last frame instead of replacing the broadcast with an error screen.
 
+### Guided judge training on PC (desktop-only presentation)
+
+- The **real Live Game** remains the source of truth for seat positions, actions, HUD and scoring. Never alter its production table geometry to fit the tutorial.
+- On wide desktop viewports (≥1280px), guided *synthetic* sessions have a dedicated right reading rail (~320px) and a separate gameplay area. The current step and next action remain readable while the judge clicks the genuine table.
+- The desktop introduction advances inside the rail rather than covering the table with a fullscreen dialog. The mobile compact trigger + optional modal stays the approved small-screen flow.
+- On short laptops (e.g. 1366×768), the training-only 4×3 table height must leave room for the bottom event strip. Individual card/HUD contents scroll within their approved boundaries if needed; important actions must remain reachable.
+- No seat, timer, controls, overlay or protocol may be hidden underneath the rail. Screenshots at 1366×768 and 1600×900 are required when this PC presentation changes.
+
 ### Setup / physical role distribution
 
 The pre-game setup is part of the judge workflow, not a separate settings screen.

@@ -40,10 +40,16 @@ export function buildAchievementStories(games: StatGame[], playerId: string): Re
     }
     const blacks = game.seats.filter(s => blackRole(s.role)).map(s => s.seat);
     if (redRole(mine.role) && game.seats.length === 10 && blacks.length === 3) {
-      const first = facts.events.find(e => e.kind === 'first_killed' && e.seat === mine.seat);
-      const move = facts.events.filter(e => e.kind === 'best_move' && e.seat === mine.seat && first && e.seq > first.seq).at(-1);
+      // The log is additive: restoration retracts the PU marker, and a new marker replaces the old one.
+      let first: (typeof facts.events)[number] | undefined;
+      let move: (typeof facts.events)[number] | undefined;
+      for (const event of facts.events) {
+        if (event.kind === 'first_killed') { first = event; move = undefined; }
+        else if (event.kind === 'restored' && event.seat === first?.seat) { first = undefined; move = undefined; }
+        else if (event.kind === 'best_move' && first && event.seat === first.seat) move = event;
+      }
       const guesses = String(move?.value || '').split(',').map(Number);
-      if (first && move && guesses.length === 3 && new Set(guesses).size === 3 && guesses.every(s => game.seats.some(p => p.seat === s) && s !== mine.seat)) {
+      if (first?.seat === mine.seat && move && guesses.length === 3 && new Set(guesses).size === 3 && guesses.every(s => game.seats.some(p => p.seat === s) && s !== mine.seat)) {
         const hits = guesses.filter(s => blacks.includes(s));
         if (hits.length >= 2) award('two_shadows', game, `ЛХ ПУ: ${guesses.join(', ')}; чёрных: ${hits.length}.`);
         if (hits.length === 3) award('whole_picture', game, `В ЛХ ПУ названа вся чёрная тройка: ${guesses.join(', ')}.`);

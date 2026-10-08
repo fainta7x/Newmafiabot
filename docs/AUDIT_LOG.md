@@ -12,9 +12,9 @@ Rules:
 
 Scope: exact-head automated review after the first green release gates.
 
-- `playerAchievementStoriesService.ts` — raw first-killed/best-move markers survive a restoration and could issue two PU stories from retracted evidence. Status: open; collapse first-killed evidence across restorations and replacements, add a regression.
-- `premiumPlayerProfileRoutes.ts` `requireViewer` — a player cookie hides independently authenticated organizer rights, causing the new evidence scrub to hide grounds from player-bound organizers. Status: open; retain authenticated organizer flag and cover coexisting cookies plus untrusted organizer tokens.
-- `PlayerGameNumbers.tsx` — vote card headings describe the target color even though cards group by the actor's color. Status: open; state actor role explicitly, retaining target breakdowns.
+- `playerAchievementStoriesService.ts` — raw first-killed/best-move markers survive a restoration and could issue two PU stories from retracted evidence. Status: fixed (PR #742 follow-up); PU evidence collapses restorations/replacements and regressions cover retraction, replacement and valid re-selection.
+- `premiumPlayerProfileRoutes.ts` `requireViewer` — a player cookie hides independently authenticated organizer rights, causing the new evidence scrub to hide grounds from player-bound organizers. Status: fixed (PR #742 follow-up); independently authenticated organizer flag retained, API regression covers player-bound organizer cookies and an invalid organizer token.
+- `PlayerGameNumbers.tsx` — vote card headings describe the target color even though cards group by the actor's color. Status: fixed (PR #742 follow-up); headings explicitly say «играл красным/чёрным», target counts retained.
 
 ## 2026-10-08 · Achievement paths and action counters release verification
 

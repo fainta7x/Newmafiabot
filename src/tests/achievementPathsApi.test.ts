@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { ensureAdminDataSchema } from '../db/ensureAdminDataSchema.ts';
 import { evaluatePlayerAchievements } from '../server/services/playerAchievementsService.ts';
 
@@ -56,6 +56,18 @@ describe('achievement paths auth, persistence and catalog preservation', () => {
     expect((await request(app).patch('/api/player/achievement-preferences').set('Cookie',own).send({path_id:'citizen',pins:['case_closed']})).status).toBe(200);
     const other=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie','player_token='+generatePlayerSessionToken('p2'));
     expect(find(other)).toMatchObject({earned:true,evidence:null});expect(other.body.achievement_preferences).toBeNull();
+    await db.run("INSERT INTO organizer_player_access(player_id,granted_at) VALUES ('p2','2026-10-08')");
+    const both='player_token='+generatePlayerSessionToken('p2')+'; organizer_token='+generateOrganizerToken('p2');
+    const organizer=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie',both);
+    expect(organizer.status).toBe(200);
+    expect(find(organizer)).toMatchObject({evidence:{gameId:'club:1'}});
+    const organizerSummary=await request(app).get('/api/player/profiles/p1/summary').set('Cookie',both);
+    expect(organizerSummary.status).toBe(200);
+    expect(organizerSummary.body.viewer).toMatchObject({is_self:false,is_organizer:true});
+    expect(organizerSummary.body.recent_achievements.find((a:any)=>a.id==='case_closed').evidence).toMatchObject({gameId:'club:1'});
+    const untrusted=await request(app).get('/api/player/profiles/p1/showcase').set('Cookie','player_token='+generatePlayerSessionToken('p2')+'; organizer_token=invalid');
+    expect(untrusted.status).toBe(200);expect(find(untrusted).evidence).toBeNull();
+
     const corrected='2026-10-02T20:00:00Z';
     await db.run('UPDATE games SET protocol_text=? WHERE id=1',[JSON.stringify(payload(corrected))]);
     await evaluatePlayerAchievements(db,'p1');

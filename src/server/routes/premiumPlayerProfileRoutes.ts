@@ -33,7 +33,7 @@ type ViewerContext = { viewerId: string; organizer: boolean };
 
 const requireViewer = (req: any, res: any): ViewerContext | null => {
   const playerId = getPlayerSessionId(req);
-  if (playerId) return { viewerId: String(playerId), organizer: false };
+  if (playerId) return { viewerId: String(playerId), organizer: req.userRole === 'ORGANIZER' };
   if (req.userRole === 'ORGANIZER') return { viewerId: '__organizer__', organizer: true };
   res.status(401).json({ error: 'Player authentication required.' });
   return null;

@@ -70,6 +70,19 @@ describe('game stories are supported by specific evidence', () => {
     expect(buildAchievementStories([wrong],'p1').two_shadows.current).toBe(0);
     g.events.find(e=>e.kind==='best_move')!.value='2,2,5';expect(buildAchievementStories([g],'p1').two_shadows.current).toBe(0);
   });
+
+  it('retracts restored first-killed evidence and replaces old PU markers', () => {
+    const old=[{kind:'first_killed',seat:1,phase:'night'},{kind:'best_move',seat:1,value:'2,5,8',phase:'night'}];
+    const restored=make([...old,{kind:'restored',seat:1}]);
+    expect(buildAchievementStories([restored],'p1').two_shadows.current).toBe(0);
+    expect(buildAchievementStories([restored],'p1').whole_picture.current).toBe(0);
+    const replaced=make([...old,{kind:'first_killed',seat:4,phase:'night'},{kind:'best_move',seat:4,value:'2,5,8',phase:'night'}]);
+    expect(buildAchievementStories([replaced],'p1').whole_picture.current).toBe(0);
+    expect(buildAchievementStories([replaced],'p4').whole_picture.current).toBe(1);
+    const corrected=make([...old,{kind:'restored',seat:1},...old]);
+    expect(buildAchievementStories([corrected],'p1').whole_picture.current).toBe(1);
+  });
+
   it('only different confirmed live checks qualify for two cases; partial logs do not unlock', () => {
     const g=make([{kind:'sheriff_check',phase:'night',round:1,target:2},{kind:'night_step',phase:'night',round:1,value:'morning'},
       {kind:'sheriff_check',phase:'night',round:2,target:8},{kind:'night_step',phase:'night',round:2,value:'morning'}]);

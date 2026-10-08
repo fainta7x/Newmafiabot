@@ -12,8 +12,8 @@ Rules:
 
 Scope: the approved first release of 16 story/career achievements, role-separated action facts and profile UI, PR #742.
 
-- `src/tests/gameStatisticsRoutes.test.ts` — profile API regression still expects a zero-circle ballot in `votesAsRed`, contrary to the owner-approved exclusion. Status: open; update the zero-circle expectation and add a positive ordinary-day API case.
-- `e2e/tests/achievement-paths-preview.spec.mjs`, `e2e/tests/desktop-workspaces.spec.mjs` — unscoped descendant `summary` selectors now match both nested disclosure controls. Status: open; target the direct disclosure summary and preserve visual/overflow assertions.
+- `src/tests/gameStatisticsRoutes.test.ts` — profile API regression still expects a zero-circle ballot in `votesAsRed`, contrary to the owner-approved exclusion. Status: fixed (PR #742 follow-up); zero-circle exclusion and positive ordinary-day/check API regressions are both asserted.
+- `e2e/tests/achievement-paths-preview.spec.mjs`, `e2e/tests/desktop-workspaces.spec.mjs` — unscoped descendant `summary` selectors now match both nested disclosure controls. Status: fixed (PR #742 follow-up); direct disclosure summaries targeted, visual/overflow assertions preserved.
 - Local full-suite execution was stopped by automatic approval review over possible Telegram traffic. Background integration workers are disabled under Vitest; GitHub test jobs have no production tokens. Local focused tests passed; CI is the full-suite gate. Local exec transport then became unavailable; publication/CI remain accessible through the GitHub connector. No production data or messages were sent by this workstream.
 
 ## 2026-10-07 · Poker bots suddenly play weak (owner report)

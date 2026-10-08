@@ -153,7 +153,7 @@ for (const width of [360, 390]) {
     for (const slot of [2,3,4,5,6]) await shell.locator('.live-seat-card[data-seat="' + slot + '"]').click();
     await page.getByTestId('live-voting-next').click();
     await page.getByTestId('live-voting-finalize').click();
-    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Итог: решение движка/);
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Первый попил 5:5/);
     await page.getByRole('button', { name: /Речи по 30 секунд/ }).click();
     await page.getByRole('button', { name: 'Следующий игрок' }).click();
     await page.getByRole('button', { name: 'К переголосованию' }).click();

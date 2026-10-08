@@ -225,6 +225,9 @@ Implemented:
 
 ### Live Game
 
+- **Judge training, PC presentation (2026-10-08, owner requested):** desktop tutorial uses a persistent right task rail and an isolated narrower synthetic table so instructions do not obscure actions. Laptop 1366×768 must show bottom event strip; game engine and live-production board are unchanged. PR #751; verified/deployed status must be confirmed from the exact commit and Amvera independently.
+
+
 - **Judge training (2026-10-08 owner request):** training-only night tasks must vary across rounds. Don/Sheriff targets rotate among eligible living players and prefer seats not previously checked by that role; simulated killed-player protocols use 1–4 independent color guesses with optional Sheriff guess, not guaranteed to match true roles. The plan must stay stable during a night and across recovery. Live referee flow, voting rules and table geometry remain unchanged. Implementation PR is tracked in Git; deployed status is a separate verification.
 
 

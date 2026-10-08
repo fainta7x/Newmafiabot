@@ -31,7 +31,7 @@ export const trainingNightTarget = (session: PersistedLiveSession) => {
   return reds[session.roundNumber % reds.length]?.slot_num ?? session.activePlayers.find((p) => p.alive)?.slot_num ?? 1;
 };
 
-const trainingVotes = (session: PersistedLiveSession, nominees: number[], isRevote: boolean) => {
+export const trainingVotes = (session: PersistedLiveSession, nominees: number[], isRevote: boolean) => {
   const alive = session.activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
   const needed = isRevote || session.roundNumber > 1 ? Math.floor(alive.length / 2) + 1 : 5;
   // The first practice ballot is precisely 2,3,4,5,6 against #1 (and five against #3).
@@ -132,4 +132,92 @@ export const getTrainingPrompt = (s: PersistedLiveSession | null): TrainingPromp
     return p('Зафиксируй ночь', 'Проверь записанные отстрел и проверки. Нажми «Зафиксировать ночь», затем проведи последнюю речь и протокол убитого.');
   }
   return p('Продолжай игру', 'Выполняй показанные в Live Game действия ведущего.');
+};
+
+
+/**
+ * Only the zero night and the zero round are hard-gated for the first tutorial.
+ * The selectors point to controls in the real Live Game UI. The same plan
+ * powers the visible mission and the input guard; no buttons are auto-clicked.
+ * "Back to speeches" is deliberately allowed as a correction/escape hatch.
+ */
+export type JudgeTrainingGate = {
+  title: string;
+  detail: string;
+  allowed: string[];
+  highlight: string[];
+};
+
+const next = (title: string, detail: string): JudgeTrainingGate => ({
+  title, detail, allowed: ['.live-judge-hud__primary'], highlight: ['.live-judge-hud__primary'],
+});
+const voteBack = '[data-testid="live-voting-back-to-speeches"]';
+
+export const getJudgeTrainingGate = (s: PersistedLiveSession | null): JudgeTrainingGate | null => {
+  if (!s) return null;
+  if (s.roundNumber !== 1) return null;
+  if (s.phase === 'zero_night') {
+    if (s.zeroNightMusicState === 'pending') return next('Включи музыку нулевой ночи', 'Нажми подсвеченную кнопку включения музыки.');
+    if (!s.zeroNightSubPhase) return next('Договорка мафии', 'Запусти договорку на 75 секунд.');
+    if (s.zeroNightSubPhase === 'agreement') return next('Вызов Шерифа', 'Заверши договорку и вызови Шерифа для жеста ведущему. Это не проверка.');
+    if (s.zeroNightSubPhase === 'sheriff') return next('Свободная посадка', 'Запусти 40 секунд свободной посадки.');
+    if (s.zeroNightSubPhase === 'seating' && s.zeroNightMusicState === 'playing') return next('Выключи музыку', 'Выключи музыку перед открытием нулевого круга.');
+    return next('Открой нулевой круг', 'Разбуди город и перейди к дневным речам.');
+  }
+  if (s.phase === 'day_speeches') {
+    const current = s.activeSpeakerSlot;
+    if (current !== null) {
+      const planned = planTrainingDay(s).find((entry) => entry.speaker === current);
+      if (planned && s.nominationsMap[planned.nominee] !== current) {
+        const selector = '[data-seat="' + planned.nominee + '"] .live-seat-quick-action--nomination';
+        return { title: 'Игрок #' + current + ' выставляет #' + planned.nominee,
+          detail: 'Нажми подсвеченную кнопку «Выставить» у игрока #' + planned.nominee + '. Остальное пока недоступно.',
+          allowed: [selector], highlight: [selector] };
+      }
+      return next('Заверши речь #' + current, 'Выставление записано, если оно было. Нажми «Завершить речь».');
+    }
+    const speaker = s.activePlayers.filter((p) => p.alive && !p.has_spoken_this_round)
+      .sort((a, b) => ((a.slot_num - (s.dayStarterSlot || 1) + 10) % 10) - ((b.slot_num - (s.dayStarterSlot || 1) + 10) % 10))[0];
+    return speaker
+      ? next('Начни речь #' + speaker.slot_num, 'Нажми подсвеченную кнопку, чтобы перейти к речи игрока.')
+      : next('Перейди к голосованию', 'Речи завершены. Нажми «К голосованию».');
+  }
+  if (s.phase !== 'day_voting') return null;
+  const round = s.votingRounds[s.activeVotingRoundIndex];
+  if (!round) return null;
+  const back = s.activeVotingRoundIndex === 0 ? [voteBack] : [];
+  if (s.votingStage === 'collecting' || s.votingStage === 'setup') {
+    const first = round.nominated_seats[0];
+    const desired = trainingVotes(s, round.nominated_seats, Boolean(round.is_revote));
+    const stillNeeded = desired.filter((seat) => s.votesByPlayer[seat] !== first);
+    if (s.currentVotingNomineeIndex === 0 && stillNeeded.length) {
+      const selectors = stillNeeded.map((seat) => '.live-seat-card[data-seat="' + seat + '"]');
+      return { title: 'Голосуют против #' + first,
+        detail: 'Нажми места игроков: ' + stillNeeded.map((seat) => '#' + seat).join(' · ') + '. Другие места заблокированы.',
+        allowed: [...selectors, ...back], highlight: selectors };
+    }
+    if (s.currentVotingNomineeIndex === 0) {
+      return { title: 'Перейди к кандидату #' + round.nominated_seats[1],
+        detail: 'Все пять голосов приняты. Нажми подсвеченную кнопку «Следующий».',
+        allowed: ['[data-testid="live-voting-next"]', ...back],
+        highlight: ['[data-testid="live-voting-next"]'] };
+    }
+    return { title: 'Подведи итог голосования',
+      detail: 'Остальные голоса автоматически достанутся последнему кандидату. Нажми «Подвести итог».',
+      allowed: ['[data-testid="live-voting-finalize"]', ...back],
+      highlight: ['[data-testid="live-voting-finalize"]'] };
+  }
+  if (s.votingStage === 'round_result') {
+    return { title: 'Подтверди итог голосования',
+      detail: 'Если 5:5 — запусти речи по 30 секунд перед переголосованием.',
+      allowed: ['.live-judge-hud__stack .live-judge-action--primary', ...back],
+      highlight: ['.live-judge-hud__stack .live-judge-action--primary'] };
+  }
+  if (s.votingStage === 'revote_speeches') {
+    return { title: 'Речи перед переголосованием', detail: 'Нажми «Следующий игрок» или «К переголосованию».',
+      allowed: ['.live-judge-hud__stack--revote-speech > .live-judge-action'],
+      highlight: ['.live-judge-hud__stack--revote-speech > .live-judge-action'] };
+  }
+  if (s.votingStage === 'resolved' && s.activeSpeakerSlot !== null) return next('Последняя речь', 'Заверши речь заголосованного игрока.');
+  return null;
 };

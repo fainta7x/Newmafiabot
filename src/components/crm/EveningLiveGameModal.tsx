@@ -4,6 +4,8 @@ import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import JudgeConductCoach from '../public/JudgeConductCoach.tsx';
 import { JUDGE_TRAINING_ROLES } from '../../lib/judgeTrainingSetup.ts';
+import { getJudgeTrainingGate } from '../../lib/judgeConductTraining.ts';
+import type { PersistedLiveSession } from '../LiveGameEngine/liveSessionStorage.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
@@ -386,6 +388,30 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     }
   };
 
+  const guardTrainingInput = (event: React.SyntheticEvent<HTMLElement>) => {
+    if (!trainingMode) return;
+    const source = event.target;
+    if (!(source instanceof Element)) return;
+    const coach = document.querySelector('[data-testid="judge-conduct-coach"]');
+    // During the interface introduction only the task card advances the tutorial.
+    if (coach?.getAttribute('data-training-tour-active') === 'true') {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    let snapshot: PersistedLiveSession | null = null;
+    try {
+      const raw = localStorage.getItem('mafia_live_session');
+      if (raw) snapshot = JSON.parse(raw) as PersistedLiveSession;
+    } catch {}
+    if (!snapshot || snapshot.sessionKey !== 'club:-2147483000') return;
+    const gate = getJudgeTrainingGate(snapshot);
+    if (!gate) return; // Beyond the zero round, the game works normally.
+    if (gate.allowed.some((selector) => source.closest(selector))) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   if (!game.club_protocol) return null;
 
   return (
@@ -400,6 +426,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            disabled={trainingMode}
             onClick={() => void openBroadcastSetup()}
             className={`relative w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${broadcastConnection === 'live' ? 'border-emerald-700 bg-emerald-950/70 text-emerald-300' : broadcastConnection === 'offline' ? 'border-rose-800 bg-rose-950/70 text-rose-300' : 'border-slate-800 bg-slate-900 text-slate-400'}`}
             title="OBS-трансляция"
@@ -409,6 +436,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </button>
           <button
             type="button"
+            disabled={trainingMode}
             onClick={() => setRolesHidden((value) => !value)}
             className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${rolesHidden ? 'bg-amber-950/70 border-amber-700 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
             title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}
@@ -553,7 +581,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
       <div className={trainingMode ? 'h-[calc(100dvh-34px)] overflow-y-auto overscroll-contain' : ''}>
         {trainingMode && <JudgeConductCoach />}
-      <div className="evening-live-engine-shell py-0.5 md:py-3">
+      <div className="evening-live-engine-shell py-0.5 md:py-3"
+        onClickCapture={guardTrainingInput}
+        onChangeCapture={guardTrainingInput}
+        onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") guardTrainingInput(event); }}
+        data-training-input-gate={trainingMode ? "active" : undefined}
+      >
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={getClubJudgeIdentity(game)}

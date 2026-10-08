@@ -273,13 +273,14 @@ export default function SeatCard(props: SeatCardProps) {
     <div
       onClick={handleCardClick}
       data-seat={slotNum}
+      data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
       className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {player.alive && phase === "day_speeches" && (
         <div className="live-seat-quickbar">
-          <button
+          {!isNominated && <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
@@ -289,8 +290,8 @@ export default function SeatCard(props: SeatCardProps) {
             title={isNominated ? "Снять выставление" : "Выставить"}
             aria-label={isNominated ? `Снять выставление #${slotNum}` : `Выставить #${slotNum}`}
           >
-            <ListPlus /><span>{isNominated ? 'Снять' : 'Выставить'}</span>
-          </button>
+            <ListPlus /><span>Выставить</span>
+          </button>}
           {renderRegularFoulControls()}
         </div>
       )}

@@ -5,7 +5,7 @@ import { TEST_GAME_ID, beginTestGameSandbox, endTestGameSandbox } from '../../li
 import { createJudgeTrainingSeatingPlan, TRAINING_PEOPLE } from '../../lib/judgeTrainingSetup.ts';
 import JudgeTrainingSeating from './JudgeTrainingSeating.tsx';
 
-const buildTestGame = (judge: { id: string; nickname: string }, lineup: string[]): ClubGameRecord => {
+export const buildTestGame = (judge: { id: string; nickname: string }, lineup: string[]): ClubGameRecord => {
   const now = new Date().toISOString();
   const playerResults = Array.from({ length: 10 }, (_, index) => {
     const seat = index + 1;

@@ -1665,6 +1665,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         nickname={bestMovePlayerNickname}
         tableSize={activePlayers.length}
         pendingSeats={pendingBestMoveSeats}
+        training={Boolean(trainingRoles)}
         onToggleSeat={handleToggleBestMoveSeat}
         onReset={() => setPendingBestMoveSeats([])}
         onBack={handleUndoAction}

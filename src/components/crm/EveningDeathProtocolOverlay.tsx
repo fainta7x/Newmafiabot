@@ -1,5 +1,6 @@
 import React from 'react';
 import { determineLiveWinner, type LiveFlowPlayer, type LiveWinnerTeam } from '../../lib/liveGameFlow';
+import { nextTrainingDeathMark, matchesTrainingDeathProtocol, canToggleTrainingDeathMark } from '../../lib/judgeTrainingProtocols.ts';
 import {
   type DeathProtocolSelection,
   emptyDeathProtocolSelection,
@@ -21,6 +22,7 @@ interface EveningDeathProtocolOverlayProps {
   finishGame?: boolean;
   submitting?: boolean;
   tableSize?: number;
+  training?: boolean;
 }
 
 // 10 seats, or 8–9 at a novice table.
@@ -39,10 +41,13 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   finishGame = false,
   submitting = false,
   tableSize = 10,
+  training = false,
 }) => {
   const seatNumbers = seatNumbersFor(tableSize);
+  const nextStep = training ? nextTrainingDeathMark(value) : null;
+  const completedTrainingProtocol = training && matchesTrainingDeathProtocol(value);
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
-    if (submitting) return;
+    if (submitting || (training && !canToggleTrainingDeathMark(value, mark, seat))) return;
     const other = mark === 'red' ? 'black' : 'red';
     const isSelected = value[mark].includes(seat);
     onChange({
@@ -53,7 +58,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   };
 
   const toggleSheriff = (seat: number) => {
-    if (submitting) return;
+    if (submitting || (training && !canToggleTrainingDeathMark(value, 'sheriff', seat))) return;
     onChange({ ...value, sheriff: value.sheriff[0] === seat ? [] : [seat] });
   };
 
@@ -77,11 +82,13 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
             <button
               key={`${mark}-${seat}`}
               type="button"
-              disabled={submitting}
+              disabled={submitting || (training && !canToggleTrainingDeathMark(value, mark, seat))}
               onClick={() => onToggle(seat)}
               aria-pressed={selected}
+              data-testid={training ? 'judge-training-death-' + mark + '-' + seat : undefined}
+              data-training-next={training && nextStep?.mark === mark && nextStep.seat === seat ? 'true' : undefined}
               className={`min-w-0 aspect-square rounded-lg sm:rounded-xl border font-mono font-black text-[11px] sm:text-sm transition active:scale-95 disabled:opacity-60 ${
-                selected ? activeClass : 'bg-slate-950/80 border-slate-700 text-slate-400 hover:border-slate-500'
+                selected ? activeClass : training && nextStep?.mark === mark && nextStep.seat === seat ? 'bg-emerald-900 border-emerald-300 text-emerald-50 ring-2 ring-emerald-300' : 'bg-slate-950/80 border-slate-700 text-slate-400 hover:border-slate-500'
               }`}
             >
               {seat}
@@ -106,6 +113,14 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
           </div>
         </div>
 
+        {training && (
+          <div data-testid="judge-training-death-task" role="status" className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold text-emerald-100">
+            {nextStep
+              ? `Задание: убитый #${killedSlot} озвучил цветной протокол. В строке «${nextStep.label}» нажми #${nextStep.seat}. Следуй подсветке; остальные номера заблокированы.`
+              : 'Протокол заполнен: красные #1, #2; чёрные #3, #5; Шериф #8. Нажми «Сохранить → день».'}
+          </div>
+        )}
+
         {renderRow('Красные', 'red', 'bg-rose-600 border-rose-400 text-white shadow-[0_0_12px_rgba(244,63,94,0.28)]', (seat) => toggleTeam('red', seat))}
         {renderRow('Чёрные', 'black', 'bg-slate-950 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]', (seat) => toggleTeam('black', seat))}
         {renderRow('Шериф', 'sheriff', 'bg-emerald-700 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)]', toggleSheriff)}
@@ -119,7 +134,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
           <button type="button" disabled={submitting} onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
             Сбросить
           </button>
-          <button type="button" disabled={submitting} onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase disabled:opacity-60">
+          <button type="button" data-testid="live-death-protocol-save" disabled={submitting || (training && !completedTrainingProtocol)} onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase disabled:opacity-60">
             {submitting ? 'Сохраняем…' : finishGame ? 'Сохранить → протокол' : 'Сохранить → день'}
           </button>
         </div>
@@ -135,6 +150,7 @@ type LiveSessionView = {
   timeLeft: number;
   killedName: string;
   winner: LiveWinnerTeam | null;
+  training: boolean;
 };
 
 const emptyLiveSession = (): LiveSessionView => ({
@@ -144,6 +160,7 @@ const emptyLiveSession = (): LiveSessionView => ({
   timeLeft: 0,
   killedName: '',
   winner: null,
+  training: false,
 });
 
 const findEngineButton = (labels: string | string[]): HTMLButtonElement | null => {
@@ -198,6 +215,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
           timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
           killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
           winner,
+          training: parsed?.sessionKey === 'club:-2147483000',
         };
         const signature = JSON.stringify(next);
         if (signature !== lastSignature) {
@@ -234,6 +252,10 @@ export const EveningDeathProtocolBridge: React.FC = () => {
 
   const handleConfirm = () => {
     if (submitting) return;
+    if (session.training && !matchesTrainingDeathProtocol(value)) {
+      setError('Заверши учебные отметки цветного протокола перед сохранением.');
+      return;
+    }
     storeDeathProtocol(killedSlot, normalizeDeathProtocolSelection(value));
     setSubmitting(true);
     setError(null);
@@ -300,6 +322,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       onBack={handleBack}
       error={error}
       finishGame={session.winner !== null}
+      training={session.training}
       submitting={submitting}
       tableSize={session.tableSize}
     />

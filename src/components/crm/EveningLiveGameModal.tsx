@@ -388,7 +388,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     clearStoredDeathProtocols();
     setSaveError(null);
     onUpdated(updated);
-    onClose();
+    // JudgeTestGameModal closes after onUpdated, marking the lesson completed.
+    // Invoking onClose too emits a second conflicting "cancelled" result.
+    if (!trainingMode) onClose();
   };
 
   const retryFinalSave = async () => {
@@ -406,9 +408,14 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   };
 
   const guardTrainingInput = (event: React.SyntheticEvent<HTMLElement>) => {
-    if (!trainingMode) return;
+    // Setup and recovery are not game actions. A stored snapshot may already
+    // contain a late-game prompt, but the real engine has not restored it yet.
+    if (!trainingMode || livePhase === 'setup') return;
     const source = event.target;
     if (!(source instanceof Element)) return;
+    // Terminal win confirmation sits above the tutorial card. Permit it even
+    // if the introduction was never opened or completed.
+    if (source.closest('[data-testid="live-winner-confirmation"]')) return;
     const coach = document.querySelector('[data-testid="judge-conduct-coach"]');
     // During the interface introduction only the task card advances the tutorial.
     if (coach?.getAttribute('data-training-tour-active') === 'true') {
@@ -424,6 +431,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (!snapshot || snapshot.sessionKey !== 'club:-2147483000') return;
     const gate = getJudgeTrainingGate(snapshot);
     if (!gate) return;
+    // Best move is a real modal outside the seat grid: its training variant
+    // enforces the exact LH order and owns its own Confirm button.
+    if (source.closest('[data-testid="live-best-move-sheet"]')) return;
     // Only the nominated trainee may receive a lesson foul, including through
     // the real HUD player selector. Unrelated discipline/game actions stay gated.
     if (gate.foulSeat && source instanceof HTMLSelectElement &&
@@ -556,7 +566,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }
         `}</style>
       )}
-      {trainingMode && <JudgeConductCoach />}
+      {trainingMode && livePhase !== 'setup' && <JudgeConductCoach />}
 
       {broadcastSetupOpen && (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">
@@ -703,6 +713,18 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             setSaving(true);
             setSaveError(null);
             try {
+              if (trainingMode) {
+                // Synthetic players must never be posted to club CRM. Finish
+                // the local exercise using the same close/sandbox-cleanup
+                // callback as a completed test game.
+                finishConfirmedSave({
+                  ...game,
+                  status: 'completed',
+                  winner_team: gameData.winning_team === 'Красные' ? 'red' : 'black',
+                  winner_label: gameData.winning_team,
+                });
+                return;
+              }
               const evidence = liveRecorder.getEvidence();
               // The same chronology as in a tournament game: recorded events, the last changes the recorder could miss,
               // the colour protocols of the killed players and the end of the game.

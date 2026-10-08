@@ -9,7 +9,7 @@ test.describe.configure({ retries: 0 });
 
 for (const width of [360, 390]) {
   test(`judge training mirrors the real table without overlapping its seats at ${width}px`, async ({ page }, info) => {
-    test.setTimeout(160_000);
+    test.setTimeout(210_000);
     await page.setViewportSize({ width, height: 700 });
     await page.goto('/e2e/live-game.html?mode=training');
 
@@ -192,5 +192,49 @@ for (const width of [360, 390]) {
     expect(live.phase).toBe('night');
     expect(live.alive).toBe(10);
     await page.screenshot({ path: info.outputPath(`night-after-two-ties-${width}.png`) });
+
+    // First real night: the lesson scripts shot, Don and Sheriff, then asks
+    // the first killed player for three exact LH places (not free input).
+    const hud = page.getByTestId('live-judge-hud');
+    await hud.getByRole('button', { name: /Включить музыку ночи/ }).click();
+    await hud.getByRole('button', { name: 'Отстрел', exact: true }).click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Мафия стреляет в #7/);
+    await shell.locator('.live-seat-card[data-seat="7"]').click();
+    await hud.getByRole('button', { name: /Проверка Дона/ }).click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Дон проверяет #8/);
+    await shell.locator('.live-seat-card[data-seat="8"]').click();
+    await hud.getByRole('button', { name: /Проверка Шерифа/ }).click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Шериф проверяет #3/);
+    await shell.locator('.live-seat-card[data-seat="3"]').click();
+    await hud.getByRole('button', { name: /Выключить музыку/ }).click();
+    await hud.getByRole('button', { name: /ЛХ первого убитого/ }).click();
+
+    const bestMove = page.getByTestId('live-best-move-sheet');
+    await expect(bestMove).toBeVisible();
+    await expect(page.getByTestId('judge-training-best-move-task')).toContainText('Нажми #3');
+    await expect(page.getByTestId('live-best-move-confirm')).toBeDisabled();
+    await expect(bestMove.locator('button[data-seat="4"]')).toBeDisabled();
+    for (const slot of [3, 5, 9]) {
+      await bestMove.locator('button[data-seat="' + slot + '"]').click();
+    }
+    await expect(page.getByTestId('live-best-move-confirm')).toBeEnabled();
+    await page.screenshot({ path: info.outputPath(`guided-best-move-${width}.png`) });
+    await page.getByTestId('live-best-move-confirm').click();
+    await hud.getByRole('button', { name: /Зафиксировать ночь/ }).click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Последняя речь убитого/);
+    await hud.getByRole('button', { name: /Протокол убитого/ }).click();
+
+    const death = page.getByTestId('judge-training-death-task');
+    await expect(death).toBeVisible();
+    await expect(page.getByTestId('live-death-protocol-save')).toBeDisabled();
+    await expect(page.getByTestId('judge-training-death-black-3')).toBeDisabled();
+    for (const [mark, slot] of [['red', 1], ['red', 2], ['black', 3], ['black', 5], ['sheriff', 8]]) {
+      await expect(death).toContainText('#' + slot);
+      await page.getByTestId('judge-training-death-' + mark + '-' + slot).click();
+    }
+    await expect(page.getByTestId('live-death-protocol-save')).toBeEnabled();
+    await page.screenshot({ path: info.outputPath(`guided-death-protocol-${width}.png`) });
+    await page.getByTestId('live-death-protocol-save').click();
+    await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Начни речь/);
   });
 }

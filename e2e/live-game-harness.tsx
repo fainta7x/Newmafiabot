@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import JudgeGameMusicController from '../src/components/JudgeGameMusicController.tsx';
 import LiveGameEngine from '../src/components/LiveGameEngine.tsx';
 import { EveningDeathProtocolBridge } from '../src/components/crm/EveningDeathProtocolOverlay.tsx';
-import JudgeTestGameModal from '../src/components/player/JudgeTestGameModal.tsx';
+import JudgeTestGameModal, { buildTestGame } from '../src/components/player/JudgeTestGameModal.tsx';
+import { EveningLiveGameModal } from '../src/components/crm/EveningLiveGameModal.tsx';
+import { TEST_GAME_ID } from '../src/lib/testGameSandbox.ts';
+import { TRAINING_PEOPLE } from '../src/lib/judgeTrainingSetup.ts';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
 import { createEmptyLiveProtocolMarkers } from '../src/lib/gameProtocolCore.ts';
@@ -22,6 +25,7 @@ import '../src/components/crm/liveGameDeathProtocolCabinet.css';
 const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 const TRAINING_MODE = new URLSearchParams(window.location.search).get('mode') === 'training';
+const TRAINING_FINISH_MODE = new URLSearchParams(window.location.search).get('mode') === 'training-finish';
 
 const buildRecoveryPlayers = () => {
   const roles = ['Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный', 'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный'] as const;
@@ -123,13 +127,75 @@ function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancell
   );
 }
 
+/** A real saved synthetic winner state, used only by browser regression tests.
+ * No game-engine internals are mocked: restore, winner confirmation,
+ * onGameFinished, local completion, and sandbox cleanup all execute. */
+function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    // This is an isolated Playwright browser context, not an actual test game
+    // opened inside the user's cabinet. Do not set the recovery sandbox marker:
+    // app initialization intentionally removes interrupted sandbox snapshots.
+    const players = buildRecoveryPlayers().map((p) => ({
+      ...p,
+      alive: p.team === 'Красные',
+      eliminated_phase: p.team === 'Чёрные' ? 'Убит' : '',
+      exit_reason: (p.team === 'Чёрные' ? 'killed' : 'alive') as 'killed' | 'alive',
+    }));
+    const discipline = createInitialGameDiscipline(players.map((p) => ({
+      id: String(p.slot_num),
+      team: p.team === 'Чёрные' ? 'black' as const : 'red' as const,
+    })));
+    const winnerSession = JSON.stringify({
+      activePlayers: players,
+      nominations: [], nominationsMap: {},
+      phase: 'day_speeches', roundNumber: 4, dayStarterSlot: 1,
+      sessionKey: 'club:' + TEST_GAME_ID,
+      nightSubPhase: 'intro', postNightStage: 'none',
+      protocolMarkers: createEmptyLiveProtocolMarkers(),
+      activeBestMoveSource: null, activeBestMoveSlot: null, pendingBestMoveSeats: [],
+      votingRounds: [], activeVotingRoundIndex: 0, votesByPlayer: {}, votes: {},
+      votingStage: 'setup', revoteSpeakerIndex: 0,
+      tableLeaveVotesInput: null, currentVotingNomineeIndex: 0,
+      activeSpeakerSlot: null, customTimerLabel: null,
+      timeLeft: 60, timerMax: 60, isTimerRunning: false,
+      zeroNightSubPhase: null, zeroNightMusicState: 'stopped',
+      shotPlayerSlot: null, donCheckSlot: null, donCheckResult: null,
+      sheriffCheckSlot: null, sheriffCheckResult: null,
+      nightLogs: [], votingFarewellQueue: [], votingFarewellIndex: 0,
+      discipline, savedAt: '17:00',
+    });
+    // The club recorder mounts before the judge engine's restore handler.
+    // Seed BOTH keys: it reads the scoped copy on mount and the engine reads
+    // the shared copy when constructing its recoverable session banner.
+    localStorage.setItem('mafia_live_session', winnerSession);
+    localStorage.setItem('mafia_live_session:club:' + TEST_GAME_ID, winnerSession);
+    setReady(true);
+    return () => {
+      localStorage.removeItem('mafia_live_session');
+      localStorage.removeItem('mafia_live_session:club:' + TEST_GAME_ID);
+    };
+  }, []);
+
+  return ready ? (
+    <EveningLiveGameModal
+      game={buildTestGame({ id: 'e2e-judge', nickname: 'E2E Judge' }, TRAINING_PEOPLE)}
+      trainingMode
+      onClose={() => onResult('cancelled')}
+      onUpdated={() => onResult('completed')}
+    />
+  ) : null;
+}
+
 function Harness() {
   const [result, setResult] = useState<'running' | 'completed' | 'cancelled'>('running');
 
   return (
     <AppErrorBoundary>
       {result === 'running' ? (
-        RECOVERY_MODE || AUDIT_MODE ? (
+        TRAINING_FINISH_MODE ? (
+          <TrainingFinishShell onResult={setResult} />
+        ) : RECOVERY_MODE || AUDIT_MODE ? (
           <RecoveryShell onResult={setResult} />
         ) : (
           <JudgeTestGameModal

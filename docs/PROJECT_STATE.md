@@ -730,6 +730,14 @@ Owner selection 20:18 Moscow (ideas retained for design, not implementation appr
 - Paid thematic evening rejected: player initiatives for thematic evenings should be encouraged freely.
 Owner correction 20:20 Moscow: customization and music are already identified directions. Stop proposing more cosmetic variants (intros, win effects, reactions, cards) as new product value; brainstorm genuinely separate paid benefits/directions. Continue discussion, not implementation. No final VIP/compendium bundle or price chosen.
 
+Owner direction 20:26 Moscow — gameplay-specific purchases for ordinary evenings:
+- Core desired value is a selectable gameplay experience, engagement/distinction and potentially useful rewards, not further cosmetics, training, club fragmentation, roadmap voting or generic perks.
+- Owner accepts discussing a chosen role for one game on ordinary non-tournament evenings.
+- Owner proposes an evening preference: if dealt mafia/don, a selected player becomes a black teammate; also explore selecting a red teammate. Exact duration, probability, payment/consumption and mutual consent are undecided.
+- These are design ideas, not authorization to implement or amend canonical game rules. Do not silently extend to tournaments/rated play or claim balance is proved.
+- Required design questions: private role information must not leak through purchase status/notifications; who can know a pairing; conflicting requests and limited roles; consent; scope/limits and preservation of all standard role counts/actions; metadata suitable for future treatment of statistics/Elo.
+- New candidate hypotheses to discuss: opposite-team pairing with a chosen player, a blind role exchange with a consenting participant before role reveal, personal role-rotation package across an evening, a mutually agreed black-team trio. Not approved and not implemented.
+
 Current stop: Robokassa test adapter merged in PR #754; mounted wallet checkout, authenticated ResultURL settlement and receipt evidence still remain. Merchant/NPD onboarding deferred to tomorrow. This discussion does not authorize implementation of VIP, compendium, new payment rules or paid sporting advantages.
 
 ### Waiting on the owner

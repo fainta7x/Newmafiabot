@@ -561,6 +561,28 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               padding-left: 16px !important;
               padding-right: 8px !important;
             }
+            /* On short laptop displays, keep the event/footer strip visible
+               without altering the real game's seat layout or grid order. */
+            html body .evening-live-training-modal .evening-live-engine-shell
+            div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+              height: min(780px, calc(100dvh - 146px)) !important;
+              min-height: 0 !important;
+              grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+              align-items: stretch !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-seat-card {
+              min-height: 0 !important;
+              height: 100% !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-judge-hud {
+              height: 100% !important;
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+            html body .evening-live-training-modal .evening-live-engine-shell .live-judge-hud__body {
+              min-height: 0 !important;
+              overflow-y: auto !important;
+            }
           }
           /* Synthetic identities share exactly the parent table's used grid tracks.
              These rules touch only the decorative overlay, never live seats/HUD. */

@@ -119,21 +119,24 @@ describe('judge conduct coach linear script', () => {
 });
 
 describe('judge training stays scripted beyond the zero round', () => {
-  it('awards one ordinary foul to #3 and two to #4 before the real +30 control', () => {
-    const at = (slot: number, fouls: number, extended: number | null = null) => game({
+  it('teaches an ordinary foul on zero round and +30 only on an eligible later day', () => {
+    const at = (slot: number, roundNumber: number, fouls: number, extended: number | null = null) => game({
+      roundNumber,
       activeSpeakerSlot: slot,
       speechExtendedSlot: extended,
       activePlayers: game().activePlayers.map(p => ({ ...p, fouls: p.slot_num === slot ? fouls : 0 })),
     });
-    const a = getJudgeTrainingGate(at(3, 0));
-    expect(a?.kind).toBe('foul');
-    expect(a?.foulSeat).toBe(3);
-    expect(a?.allowed).toContain('[data-testid="live-player-add-regular-foul"][data-seat="3"]');
-    expect(getJudgeTrainingGate(at(3, 1))?.title).toBe('Заверши речь #3');
-    expect(getJudgeTrainingGate(at(4, 1))?.title).toBe('Обычный фол игроку #4');
-    const extra = getJudgeTrainingGate(at(4, 2));
-    expect(extra?.allowed).toEqual(['[data-testid="live-hud-speech-extension"]']);
-    expect(getJudgeTrainingGate(at(4, 0, 4))?.title).toBe('Заверши речь #4');
+    const foul = getJudgeTrainingGate(at(3, 1, 0));
+    expect(foul?.kind).toBe('foul');
+    expect(foul?.foulSeat).toBe(3);
+    expect(foul?.allowed).toContain('[data-testid="live-player-add-regular-foul"][data-seat="3"]');
+    expect(getJudgeTrainingGate(at(3, 1, 1))?.title).toBe('Заверши речь #3');
+    // There must be no +30 instruction anywhere in the zero circle.
+    expect(getJudgeTrainingGate(at(4, 1, 0))?.title).toBe('Заверши речь #4');
+    const extension = getJudgeTrainingGate(at(2, 2, 0));
+    expect(extension?.allowed).toEqual(['[data-testid="live-hud-speech-extension"]']);
+    expect(extension?.detail).toContain('начислит два обычных фола');
+    expect(getJudgeTrainingGate(at(2, 2, 2, 2))?.title).toBe('Заверши речь #2');
   });
 
   it('teaches shooting and Don/Sheriff checks by specified seats, never arbitrary clicks', () => {

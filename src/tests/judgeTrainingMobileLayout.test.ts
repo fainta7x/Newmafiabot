@@ -26,9 +26,11 @@ describe('judge training reuses the actual club Live Game layout', () => {
     const coach = read('src/components/public/JudgeConductCoach.tsx');
     const roleDeal = read('src/components/LiveGameEngine/ClubGameSetupPhase.tsx');
     expect(roleDeal).toContain('musicTrackId={trainingRoles ? null : undefined}');
+    const music = read('src/components/JudgeGameMusicController.tsx');
+    expect(music).toContain("document.querySelector('.evening-live-engine-shell[data-training-input-gate=\\\"active\\\"]')");
+    expect(music).toContain("window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }))");
     const sandbox = read('src/components/player/JudgeTestGameModal.tsx');
-    expect(sandbox).toContain("window.addEventListener('judge-game-music-start', ignoreSyntheticMusicStart, true)");
-    expect(sandbox).toContain("window.removeEventListener('judge-game-music-start', ignoreSyntheticMusicStart, true)");
+    expect(sandbox).not.toContain('stopImmediatePropagation');
     expect(css).not.toContain('Guided judge practice:');
     expect(css).not.toContain('data-training-input-gate="active"');
     expect(coach).toContain('data-testid="judge-training-task-trigger"');

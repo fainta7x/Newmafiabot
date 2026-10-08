@@ -10,6 +10,9 @@ for (const width of [360, 390]) {
       }
     });
     await page.setViewportSize({ width, height: 700 });
+    page.on('console', (msg) => {
+      if (msg.text().includes('[winner-test]')) console.log(msg.text());
+    });
     await page.goto('/e2e/live-game.html?mode=training-finish');
     const fixture = await page.evaluate(() => {
       const scoped = localStorage.getItem('mafia_live_session:club:-2147483000');

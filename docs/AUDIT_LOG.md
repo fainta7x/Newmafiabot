@@ -333,3 +333,15 @@ Scope: desktop screenshot, mission coach, first voting, seat marking, backward n
 - FIXED in this workstream — liveGameEveningBugfixes.css: fixed-size voting HUD hid the Next/Finalize buttons under overflow:hidden; HUD now scrolls internally to keep actions reachable.
 - FIXED in this workstream — CenterPanel.tsx / LiveGameEngine.tsx: collecting stage did not return to pre-voting speeches; restore complete prior day-speech snapshot.
 - FIXED in this workstream — SeatCard.tsx / liveGameEveningBugfixes.css: nominated candidates were represented by a visually distracting nomination quick action; a strong full-card outline now signals candidates.
+
+### 2026-10-08 — Navigation audit: player cabinet → Mafia School
+
+Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram Back, public/deep links, phone journey.
+
+- HIGH fixed in this workstream: learning was hidden among eight horizontal profile tabs. Owner rejected an additional main-menu tab. Instead group the eight profile views into five visible destinations inside «Прогресс»: Обзор / Карьера (Игры, Роли, Elo) / Награды (Достижения, История) / Связи / Обучение. Preserve profile deep links.
+- HIGH fixed in this workstream: App.tsx and PublicGuide.tsx both registered Telegram WebApp Back for /guide; competing handlers could replace the app route instead of navigating within lessons. Give /guide exclusive ownership of its back handler, including a definite exit on School home.
+- MEDIUM fixed in this workstream: guide home had no clear return and nested pages only showed an arrow. Offer «Вернуться в Прогресс» on learning home, a labelled «Прогресс» exit on deep pages and the existing four-tab bottom bar inside guide opened from Progress; public guide stays accessible without sign-in.
+- MEDIUM fixed in this workstream: duplicative learning listings obscured a clear path. Keep the learning entry in «Прогресс» as a categorized hub (Уроки, Тренажёры, Правила) linking into one canonical guide catalog, with a featured judge trainer.
+- LOW fixed in this workstream: App.navigatePath compared pathname against paths containing a query, causing incorrect route detection. Normalize location handling; preserve guide source across internal lesson navigation and retain browser back/forward.
+- HIGH fixed in this workstream: selecting the currently active nested profile tab cleared previously fetched data but did not re-run its query, leaving an empty game list. `CanonicalPremiumPlayerProfile.switchTab` now no-ops on an already active tab unless closing settings; covered by unit and mobile browser flows.
+- Owner correction during review: keep «Обучение» inside «Прогресс», not a new top-level «Школа». Status: pending exact-head CI and human mobile review; public learning access must remain usable without a linked player.

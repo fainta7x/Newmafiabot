@@ -1,4 +1,5 @@
 import { countGames } from '../../lib/russianPlural';
+import { ChevronRight, GraduationCap } from 'lucide-react';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import PlayerAwardSuggestionAction from './PlayerAwardSuggestionAction.tsx';
@@ -46,7 +47,16 @@ const gameLinkProps = (id:any) => {
 
 export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings,learning,initialTab}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode;/** «Обучение» tab of the own «Прогресс». */learning?:ReactNode;initialTab?:string|null}) {
   const tabs:Array<[Tab,string]>=learning?[...TABS,['learning','Обучение']]:TABS;
+  const mainTabs: Array<[Tab,string]> = learning
+    ? [['overview','Обзор'],['games','Карьера'],['awards','Награды'],['connections','Связи'],['learning','Обучение']]
+    : [['overview','Обзор'],['games','Карьера'],['awards','Награды'],['connections','Связи']];
+  const groupOf=(value:Tab):Tab=>value==='roles'||value==='elo'?'games':value==='history'?'awards':value;
   const [tab,setTab]=useState<Tab>(()=>tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview');
+  const activeGroup=groupOf(tab);
+  useEffect(()=>{
+    const requested=tabs.some(([key])=>key===initialTab)?initialTab as Tab:'overview';
+    setTab(requested);
+  },[initialTab]);
   const [summary,setSummary]=useState<any>(null);
   const [birthday,setBirthday]=useState<any>(null);
   const [data,setData]=useState<any>(null);
@@ -145,6 +155,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   },[tab,playerId,gameQuery,settings]);
 
   const switchTab=(next:Tab)=>{
+    // Selecting the already visible sub-tab must not clear its fetched data.
+    if(tab===next&&!settings) return;
     if(scrollRef.current) scrollByTab.current[tab]=scrollRef.current.scrollTop;
     setSettings(false);
     setError('');
@@ -167,11 +179,29 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
       <div className="profile-identity flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
     </header>
-    {!settings&&<nav data-profile-sticky-tabs className="profile-sticky-tabs sticky z-10 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#090a0d]/96 px-3 py-2" aria-label="Разделы профиля">{tabs.map(([k,l])=><button key={k} data-track={`profile-tab-${k}`} onClick={()=>switchTab(k)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${tab===k?'bg-white text-black':'bg-white/8 text-white/70'}`}>{l}</button>)}</nav>}
+    {!settings&&<div className="sticky z-10 border-b border-white/10 bg-[#090a0d]/96 px-2 py-2" data-profile-sticky-tabs>
+      {isSelf&&<p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[.12em] text-white/35">Прогресс</p>}
+      <nav className={`grid ${learning?'grid-cols-5':'grid-cols-4'} gap-1`} aria-label={isSelf?'Разделы прогресса':'Разделы профиля'}>
+        {mainTabs.map(([key,label])=><button key={key} type="button" data-track={`profile-group-${key}`}
+          aria-current={activeGroup===key?'page':undefined} onClick={()=>switchTab(key)}
+          className={`min-h-11 min-w-0 rounded-xl px-0.5 text-center text-[10px] font-semibold sm:text-xs ${activeGroup===key?'bg-white text-black':'bg-white/[.07] text-white/75 hover:bg-white/[.11]'}`}>{label}</button>)}
+      </nav>
+      {(activeGroup==='games'||activeGroup==='awards')&&<nav className="mt-2 flex gap-1.5" aria-label={activeGroup==='games'?'Разделы карьеры':'Разделы наград'}>
+        {(activeGroup==='games'?[['games','Игры'],['roles','Роли'],['elo','Elo']]:[['awards','Достижения'],['history','История клуба']]).map(([key,label])=>
+          <button key={key} type="button" data-track={`profile-tab-${key}`}
+            aria-current={tab===key?'page':undefined} onClick={()=>switchTab(key as Tab)}
+            className={`min-h-9 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}
+      </nav>}
+    </div>}
     <main className="profile-content mx-auto max-w-3xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)]">
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">
         {isSelf&&<PlayerProfileCompletionCard/>}
+         {isSelf&&<button type="button" onClick={()=>switchTab('learning')} data-testid="profile-learning-shortcut" className="flex min-h-[66px] items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/[.065] px-4 text-left">
+           <GraduationCap className="h-5 w-5 shrink-0 text-amber-200/80" />
+           <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-white">Обучение</strong><span className="mt-1 block text-xs text-white/55">Уроки, правила и тренажёры</span></span>
+           <ChevronRight className="h-4 w-4 shrink-0 text-white/50"/>
+         </button>}
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
         :<section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Победы',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['В сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] text-white/50">{l}</div></div>)}</section>}
         {/* The four numbers above answer «how am I doing»; the rest is one tap away (owner, 2026-10-06: less scrolling). */}

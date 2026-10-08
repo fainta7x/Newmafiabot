@@ -87,16 +87,18 @@ const requirePlayer = (req: Request, res: Response): string | null => {
   return playerId;
 };
 
-const loadAvailableEvenings = async (db: any, formats: HostFormat[]) => {
+const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: string) => {
   if (!formats.length) return [];
   const evenings = await db.all(`
     SELECT e.*,
            (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
       FROM game_evenings e
-     WHERE e.status IN ('published', 'active')
+      JOIN evening_staff_assignments staff ON staff.evening_id = e.id
+     WHERE staff.judge_player_id = ?
+       AND e.status IN ('published', 'active')
      ORDER BY CASE WHEN e.status = 'active' THEN 0 ELSE 1 END, e.starts_at ASC
      LIMIT 20
-  `);
+  `, [playerId]);
 
   const allowed = evenings.filter((evening: any) => canHostEveningFormat({ host_formats: formats.join(',') }, evening.format));
   return Promise.all(allowed.map(async (evening: any) => {
@@ -176,7 +178,7 @@ router.get('/judging', async (req, res) => {
          ORDER BY COALESCE(tg.started_at, t.date) DESC, tg.game_number DESC
          LIMIT 60
       `, [playerId]),
-      loadAvailableEvenings(db, formats),
+      loadAvailableEvenings(db, formats, playerId),
     ]);
 
     const clubGames = clubRows.map((row: any) => {

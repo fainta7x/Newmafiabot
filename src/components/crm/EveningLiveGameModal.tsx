@@ -179,6 +179,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   );
   const [livePhase, setLivePhase] = useState('setup');
   const [trainingBoardElement, setTrainingBoardElement] = useState<HTMLElement | null>(null);
+  const [trainingIdentityPositions, setTrainingIdentityPositions] = useState<Record<number, React.CSSProperties>>({});
   const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
@@ -214,6 +215,46 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     );
     setTrainingBoardElement(board);
   }, [trainingMode, livePhase, game.id]);
+
+  // The desktop table and the compact phone table use different seat tracks.
+  // Decorative training identities follow the *real clicked seat rectangles*
+  // instead of guessing the responsive placement from a second static map.
+  useLayoutEffect(() => {
+    if (!trainingMode || !trainingBoardElement || typeof ResizeObserver === 'undefined') return;
+    const sync = () => {
+      if (!window.matchMedia('(min-width: 768px)').matches) {
+        setTrainingIdentityPositions((previous) => Object.keys(previous).length ? {} : previous);
+        return;
+      }
+      const boardRect = trainingBoardElement.getBoundingClientRect();
+      const mapped: Record<number, React.CSSProperties> = {};
+      for (const player of livePlayers) {
+        const seat = trainingBoardElement.querySelector<HTMLElement>(
+          '.live-seat-card[data-seat="' + player.seat_number + '"]',
+        );
+        if (!seat) continue;
+        const rect = seat.getBoundingClientRect();
+        mapped[player.seat_number] = {
+          position: 'absolute',
+          left: rect.left - boardRect.left,
+          top: rect.top - boardRect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+      setTrainingIdentityPositions((previous) =>
+        JSON.stringify(previous) === JSON.stringify(mapped) ? previous : mapped);
+    };
+    sync();
+    const resize = new ResizeObserver(sync);
+    resize.observe(trainingBoardElement);
+    trainingBoardElement.querySelectorAll<HTMLElement>('.live-seat-card').forEach((seat) => resize.observe(seat));
+    window.addEventListener('resize', sync);
+    return () => {
+      resize.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [trainingMode, trainingBoardElement, livePlayers]);
 
   useLayoutEffect(() => {
     liveRecorder.mount();
@@ -462,7 +503,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <div
           key={player.seat_number}
           className="evening-live-identity"
-          style={seatPlacement[player.seat_number]}
+          style={trainingMode && trainingIdentityPositions[player.seat_number] ? trainingIdentityPositions[player.seat_number] : seatPlacement[player.seat_number]}
           data-seat={player.seat_number}
           data-alive={liveAlive[player.seat_number] === false ? 'false' : 'true'}
         >
@@ -584,21 +625,18 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               overflow-y: auto !important;
             }
           }
-          /* Mobile seats use the training overlay's familiar 4x3 placement.
-             The real engine switches to a 5-column table at md width.
-             Match that exact canonical desktop seating order for avatars,
-             without changing any interactive seat. */
+          /* On tablet/desktop the training identities are placed over their
+             actual LiveGameEngine seats, not via a copied grid map. */
           @media (min-width: 768px) {
-            html body .evening-live-training-modal .evening-live-identity[data-seat="1"] { grid-column: 1 !important; grid-row: 3 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="2"] { grid-column: 2 !important; grid-row: 3 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="3"] { grid-column: 3 !important; grid-row: 3 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="4"] { grid-column: 4 !important; grid-row: 3 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="5"] { grid-column: 5 !important; grid-row: 3 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="6"] { grid-column: 5 !important; grid-row: 1 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="7"] { grid-column: 4 !important; grid-row: 1 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="8"] { grid-column: 3 !important; grid-row: 1 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="9"] { grid-column: 2 !important; grid-row: 1 !important; }
-            html body .evening-live-training-modal .evening-live-identity[data-seat="10"] { grid-column: 1 !important; grid-row: 1 !important; }
+            html body .evening-live-training-modal .evening-live-identity-layer {
+              display: block !important;
+            }
+            html body .evening-live-training-modal .evening-live-identity {
+              position: absolute !important;
+              grid-column: auto !important;
+              grid-row: auto !important;
+              box-sizing: border-box !important;
+            }
           }
           /* Synthetic identities share exactly the parent table's used grid tracks.
              These rules touch only the decorative overlay, never live seats/HUD. */

@@ -217,6 +217,16 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     const player = await db.get('SELECT judge_level, host_formats FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!canHostEveningFormat(player, evening.format)) return false;
 
+    // «Может вести» is a qualification, not a blanket permission to open games on
+    // every evening of that format. A player may create a club game from the
+    // personal judge workspace only when the organizer explicitly assigned them
+    // as this evening's judge.
+    const assignment = await db.get(
+      'SELECT judge_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1',
+      [decodeURIComponent(clubCreateMatch[1])],
+    );
+    if (String(assignment?.judge_player_id || '') !== playerId) return false;
+
     const requestedJudgeId = req.body?.judge_player_id == null ? playerId : String(req.body.judge_player_id);
     if (requestedJudgeId !== playerId) return false;
 

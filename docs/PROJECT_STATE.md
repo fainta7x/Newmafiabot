@@ -14,6 +14,10 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
+## Active owner-reported bug (2026-10-08): stranded VK account linking
+
+A player whose record was created earlier manually can sign in via VK but encounter an indefinite «Ждём подтверждение профиля» screen if the record already has a Telegram link. The old path sent a personal message to the linked Telegram user but created no organizer-reviewable request. Owner requested a clear explanation and manual approval in the CRM player's card. This workstream provides an additional organizer approval path with explicit identity verification; no nickname-only automatic link, no production database edits. Verify PR CI and Amvera deployment separately.
+
 ## Handoff (2026-09-30, end of the Claude session)
 
 For the next assistant:

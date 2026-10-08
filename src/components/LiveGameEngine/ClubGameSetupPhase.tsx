@@ -180,7 +180,8 @@ export default function ClubGameSetupPhase({
       {showPhysicalDeal && rosterConfirmed && (
         <PhysicalRoleDeal
           seats={dealSeats}
-          musicTrackId={undefined}
+          // Synthetic judge training must not request the authenticated real-game music player.
+          musicTrackId={trainingRoles ? null : undefined}
           musicTrackTitle="Плейлист вечера"
           trainingRoles={trainingRoles}
           onCancel={closeRoleDeal}

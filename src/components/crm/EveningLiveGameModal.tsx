@@ -584,6 +584,22 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               overflow-y: auto !important;
             }
           }
+          /* Mobile seats use the training overlay's familiar 4x3 placement.
+             The real engine switches to a 5-column table at md width.
+             Match that exact canonical desktop seating order for avatars,
+             without changing any interactive seat. */
+          @media (min-width: 768px) {
+            html body .evening-live-training-modal .evening-live-identity[data-seat="1"] { grid-column: 1 !important; grid-row: 3 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="2"] { grid-column: 2 !important; grid-row: 3 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="3"] { grid-column: 3 !important; grid-row: 3 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="4"] { grid-column: 4 !important; grid-row: 3 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="5"] { grid-column: 5 !important; grid-row: 3 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="6"] { grid-column: 5 !important; grid-row: 1 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="7"] { grid-column: 4 !important; grid-row: 1 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="8"] { grid-column: 3 !important; grid-row: 1 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="9"] { grid-column: 2 !important; grid-row: 1 !important; }
+            html body .evening-live-training-modal .evening-live-identity[data-seat="10"] { grid-column: 1 !important; grid-row: 1 !important; }
+          }
           /* Synthetic identities share exactly the parent table's used grid tracks.
              These rules touch only the decorative overlay, never live seats/HUD. */
           html body .evening-live-engine-shell[data-training-input-gate="active"]

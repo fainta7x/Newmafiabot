@@ -7,6 +7,7 @@ export type CabinetVerifiedAward = {
   kind: string;
   title: string;
   tournament_id?: string | null;
+  source_key?: string | null;
   tournament_name?: string | null;
   award_date?: string | null;
   award_year?: number | null;
@@ -37,6 +38,12 @@ export type CabinetItem = {
   date: string | null;
   description: string | null;
   awardId: string | null;
+  /** Real canonical tournament ID. Never infer navigation from a displayed title. */
+  tournamentId: string | null;
+  /** Only automatic club-evening titles have this trustworthy ID. */
+  eveningId: string | null;
+  /** Every documented tournament has stable, reproducible personalized details. */
+  trophyDesignKey: string | null;
   pinned: boolean;
   photoUrl: string | null;
   /** Verified first place; not a decorative "winner" badge created by the room. */
@@ -60,6 +67,30 @@ export const isMedalPlace = (raw?: string | null) => {
   return /(?:^|[^\d])[23]\s*(?:-?\s*(?:е|ое|й|я)\s*)?место(?:\b|$)/i.test(text);
 };
 
+/** First two numbered tournament trophies use different sculpted families. New tournaments
+ * receive a stable family and an individualized engraving, independent of award owner.
+ * Name/ID alone never grants a trophy: that is decided by the verified awards service. */
+export const trophyDesignForTournament = (id: string | null | undefined, title: string | null | undefined): string | null => {
+  const key = String(id || title || '').trim();
+  if (!key) return null;
+  const name = String(title || '');
+  // Numbered editions are common in tournament names; 1 and 2 must not share a silhouette.
+  const edition = name.match(/(?:^|\s)(?:№\s*)?([1-9]\d?)(?=\s*(?:[.\/-]\s*\d{1,2})?(?:\s|$))/u);
+  const families = ['spire', 'amphora', 'laurel', 'obelisk'] as const;
+  let checksum = 2166136261;
+  for (const ch of key) checksum = Math.imul(checksum ^ ch.charCodeAt(0), 16777619) >>> 0;
+  const index = edition ? (Number(edition[1]) - 1) % families.length : checksum % families.length;
+  return families[index] + ':' + checksum.toString(36).toUpperCase().slice(0, 5);
+};
+
+export const eveningIdFromAward = (sourceKey?: string | null): string | null => {
+  const value = String(sourceKey || '');
+  if (!/^club-evening-(?:mvp|wins):/.test(value)) return null;
+  const first = value.indexOf(':');
+  const last = value.lastIndexOf(':');
+  return first >= 0 && last > first + 1 ? value.slice(first + 1, last) : null;
+};
+
 export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: CabinetAchievement[]): CabinetItem[] => {
   const verified = awards.filter(a => a.verification_status === undefined || a.verification_status === null || a.verification_status === 'verified');
   const items: CabinetItem[] = verified.map(award => {
@@ -77,6 +108,9 @@ export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: Cabin
       date: award.award_date || (award.award_year ? String(award.award_year) : null),
       description: award.description || award.place_result || null,
       awardId: award.id,
+      tournamentId: award.tournament_id ? String(award.tournament_id) : null,
+      eveningId: eveningIdFromAward(award.source_key),
+      trophyDesignKey: category === 'cups' ? trophyDesignForTournament(award.tournament_id, award.tournament_name) : null,
       pinned: Number(award.pinned_position || 0) > 0,
       photoUrl: award.photo_url || null,
       tournamentWinner: first,
@@ -94,6 +128,9 @@ export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: Cabin
       date: achievement.earned_at,
       description: achievement.description || null,
       awardId: null,
+      tournamentId: null,
+      eveningId: null,
+      trophyDesignKey: null,
       pinned: false,
       photoUrl: null,
       tournamentWinner: false,

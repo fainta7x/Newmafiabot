@@ -56,3 +56,11 @@
 @media(min-width:560px){.trophy-cabinet__header{padding:20px 22px}.trophy-cabinet__viewport{height:430px;perspective:900px}.trophy-cabinet__room{height:395px}.trophy-cabinet__shelves{gap:20px;padding:24px 10px 8px}.trophy-cabinet__object-wrap{height:125px}.trophy-cabinet__object{height:120px;width:95px}.trophy-cabinet__object--medal,.trophy-cabinet__object--plaque{height:100px}.trophy-cabinet__exhibit-name{font-size:11px;line-height:14px;min-height:28px}.trophy-cabinet__exhibit-caption{font-size:10px}.trophy-cabinet__categories button{font-size:12px}}
 @media(max-width:360px){.trophy-cabinet__categories{padding-left:6px;padding-right:6px;gap:3px}.trophy-cabinet__categories button{font-size:9px}.trophy-cabinet__viewport{height:316px}.trophy-cabinet__room{height:280px}.trophy-cabinet__shelves{gap:7px}.trophy-cabinet__object-wrap{height:80px}.trophy-cabinet__object{height:77px}.trophy-cabinet__exhibit-name{font-size:8px;line-height:11px}.trophy-cabinet__hint{font-size:9px}.trophy-cabinet__controls button{width:34px;height:36px}}
 @media(prefers-reduced-motion:reduce){.trophy-cabinet *{animation:none!important;transition:none!important}}
+
+/* A single, explicit doorway from a verified award to its real tournament/evening.
+   The existing tournament view is reused; no duplicated result calculations. */
+.trophy-cabinet__destination{min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:7px;padding:0 13px;border-radius:12px;border:1px solid rgba(205,217,230,.22);background:linear-gradient(125deg,rgba(200,211,223,.14),rgba(200,211,223,.055));color:#eff2f4;text-decoration:none;font-size:13px;font-weight:650;text-align:left}
+.trophy-cabinet__destination svg{flex-shrink:0;opacity:.7}
+.trophy-cabinet__destination:hover,.trophy-cabinet__destination:focus-visible{border-color:rgba(227,238,248,.45);background:rgba(200,211,223,.17)}
+.trophy-cabinet__event-overlay{position:fixed;inset:0;z-index:180;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;background:#090a0d;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.trophy-cabinet__object--cup{overflow:visible;filter:drop-shadow(0 2px 3px rgba(255,248,230,.1))}

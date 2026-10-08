@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw, Trophy, X } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, RotateCcw, Trophy, X } from 'lucide-react';
+import TournamentCupAsset from './TournamentCupAsset.tsx';
+import PlayerTournamentView from './PlayerTournamentView.tsx';
 import { CABINET_CATEGORIES, cabinetItems, type CabinetAchievement, type CabinetCategory, type CabinetItem, type CabinetVerifiedAward } from '../../lib/trophyCabinetModel.ts';
 import './TrophyCabinet.css';
 
@@ -14,15 +16,7 @@ const formatDate = (raw:string|null) => {
 
 /** Original lightweight vector exhibits: perspective is applied by the room, not baked into a static picture. */
 function Exhibit({item}:{item:CabinetItem}) {
-  if(item.shape==='cup') return <svg className="trophy-cabinet__object trophy-cabinet__object--cup" viewBox="0 0 104 124" fill="none" aria-hidden="true">
-    <defs><linearGradient id="cabinet-cup-metal" x1="5" y1="15" x2="95" y2="106" gradientUnits="userSpaceOnUse"><stop stopColor="#D7D3CB"/><stop offset=".26" stopColor="#66727F"/><stop offset=".5" stopColor="#ECE9E0"/><stop offset=".75" stopColor="#45515C"/><stop offset="1" stopColor="#A2AAB0"/></linearGradient></defs>
-    <path d="M23 21H13C7 21 6 28 9 37C12 49 22 55 33 53M81 21H91C97 21 98 28 95 37C92 49 82 55 71 53" stroke="url(#cabinet-cup-metal)" strokeWidth="7" strokeLinecap="round"/>
-    <path d="M20 12H84L77 52C75 64 64 72 52 72S29 64 27 52L20 12Z" fill="url(#cabinet-cup-metal)" stroke="#9BA5AB"/>
-    <ellipse cx="52" cy="12" rx="33" ry="5" fill="#8C94A0" stroke="#E5DFCF" strokeWidth="2"/>
-    <path d="M47 73H57V88H47V73ZM37 88H67L73 99H31L37 88Z" fill="url(#cabinet-cup-metal)"/>
-    <path d="M23 100H81V110H23V100Z" fill="#282F39" stroke="#A9B2B8" strokeWidth="1.6"/>
-    <path d="M28 110H76V117H28V110Z" fill="#11161D" stroke="#747C84"/><rect x="39" y="102" width="26" height="6" rx="1" fill="#B8A580" fillOpacity=".7"/>
-  </svg>;
+  if(item.shape==='cup') return <TournamentCupAsset designKey={item.trophyDesignKey} />;
   if(item.shape==='medal') return <svg className="trophy-cabinet__object trophy-cabinet__object--medal" viewBox="0 0 104 124" fill="none" aria-hidden="true">
     <defs><linearGradient id="cabinet-medal-metal" x1="25" y1="23" x2="81" y2="106"><stop stopColor="#E9E7D7"/><stop offset=".5" stopColor="#687485"/><stop offset="1" stopColor="#B9BFC3"/></linearGradient></defs>
     <path d="M26 8H43L52 34L61 8H78L62 53H42L26 8Z" fill="#566878" stroke="#B9C3C6" strokeWidth="2"/>
@@ -47,6 +41,7 @@ export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy
   const [page,setPage]=useState(0);
   const [angle,setAngle]=useState(0);
   const [selectedId,setSelectedId]=useState<string|null>(null);
+  const [openTournamentId,setOpenTournamentId]=useState<string|null>(null);
   const drag=useRef<{x:number;angle:number}|null>(null);
   const items=useMemo(()=>cabinetItems(awards,earnedAchievements),[awards,earnedAchievements]);
   const filtered=items.filter(item=>item.category===category);
@@ -126,8 +121,17 @@ export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy
       {formatDate(active.date)&&<p className="trophy-cabinet__date">{formatDate(active.date)}</p>}
       {active.description&&<p className="trophy-cabinet__description">{active.description}</p>}
       {active.photoUrl&&<img src={active.photoUrl} alt={'Фото награды '+active.title} loading="lazy"/>}
+      {active.tournamentId && <button type="button" data-testid="cabinet-open-tournament" className="trophy-cabinet__destination" onClick={()=>setOpenTournamentId(active.tournamentId)}>
+        Открыть турнир и итоги <ArrowUpRight size={17}/>
+      </button>}
+      {active.eveningId && <a data-testid="cabinet-open-evening" className="trophy-cabinet__destination" href={'/player/events/' + encodeURIComponent(active.eveningId)}>
+        Открыть вечер <ArrowUpRight size={17}/>
+      </a>}
       {active.awardId&&onPinAward&&<button type="button" disabled={busy} className="trophy-cabinet__pin"
         onClick={()=>onPinAward(active.awardId!)}>{active.pinned?'Убрать из закреплённых':'Закрепить в профиле'}</button>}
     </aside>}
+    {openTournamentId && <div className="trophy-cabinet__event-overlay" data-testid="cabinet-tournament-overlay" role="dialog" aria-modal="true" aria-label="Турнир и его результаты">
+      <PlayerTournamentView tournamentId={openTournamentId} onBack={()=>setOpenTournamentId(null)} />
+    </div>}
   </section>;
 }

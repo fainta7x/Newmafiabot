@@ -711,6 +711,15 @@ Candidates to discuss (assistant proposals, not approved product rules):
 - Illustrative discussion prices only: VIP 299 RUB per 30 days; compendium 599 RUB per season. Not market-validated or approved prices. Manual one-time purchase first is a candidate; recurring billing is not decided.
 - Decide what has real value: customization, music, learning or financial perks. Avoid inventing an entitlement to operationally costly services before agreeing fulfilment.
 
+Owner correction 2026-10-08: VIP and compendium currently overlap and lack a compelling recurring benefit. Cosmetics and gamification may be included, but are insufficient as the purchase's core value. Focus the discussion on what the player receives and repeatedly uses, not on more tasks. Do not settle names, two separate products or prices before identifying value.
+
+Revised hypotheses (unapproved; feasibility must be checked):
+- Personal improvement loop: choose a role/skill goal, bookmark game situations, receive a bounded human-reviewed game analysis and follow-up practice. Existing protocol metrics cannot prove speech quality, motives or errors; richer analysis requires player notes/video and reviewer capacity.
+- Practical club pass: prepaid participation credits/clear attendance savings, with exact unit economics, expiry and eligibility agreed first; event participation remains a separate cost unless explicitly included.
+- Members' practice group: regular small-group role/situation sessions and discussions with a judge, only if scheduling, capacity and who delivers are established.
+- Personal game notebook: save reasoning and situations from one's games, link video timecodes where recordings exist, track chosen improvement goals; notes/bookmarks alone may have insufficient paid value.
+- Compendium rewards could use agreed service/participation credits, not just cosmetic unlocks; never promise benefits or margins before they are funded and fulfilment is designed.
+
 Current stop: Robokassa test adapter merged in PR #754; mounted wallet checkout, authenticated ResultURL settlement and receipt evidence still remain. Merchant/NPD onboarding deferred to tomorrow. This discussion does not authorize implementation of VIP, compendium, new payment rules or paid sporting advantages.
 
 ### Waiting on the owner

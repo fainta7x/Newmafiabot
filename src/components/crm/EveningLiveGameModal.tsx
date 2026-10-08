@@ -406,7 +406,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   };
 
   const guardTrainingInput = (event: React.SyntheticEvent<HTMLElement>) => {
-    if (!trainingMode) return;
+    // Setup and recovery are not game actions. A stored snapshot may already
+    // contain a late-game prompt, but the real engine has not restored it yet.
+    if (!trainingMode || livePhase === 'setup') return;
     const source = event.target;
     if (!(source instanceof Element)) return;
     // Terminal win confirmation sits above the tutorial card. Permit it even
@@ -562,7 +564,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }
         `}</style>
       )}
-      {trainingMode && <JudgeConductCoach />}
+      {trainingMode && livePhase !== 'setup' && <JudgeConductCoach />}
 
       {broadcastSetupOpen && (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">

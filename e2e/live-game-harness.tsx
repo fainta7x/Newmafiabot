@@ -5,7 +5,7 @@ import LiveGameEngine from '../src/components/LiveGameEngine.tsx';
 import { EveningDeathProtocolBridge } from '../src/components/crm/EveningDeathProtocolOverlay.tsx';
 import JudgeTestGameModal, { buildTestGame } from '../src/components/player/JudgeTestGameModal.tsx';
 import { EveningLiveGameModal } from '../src/components/crm/EveningLiveGameModal.tsx';
-import { beginTestGameSandbox, endTestGameSandbox, TEST_GAME_ID } from '../src/lib/testGameSandbox.ts';
+import { TEST_GAME_ID } from '../src/lib/testGameSandbox.ts';
 import { TRAINING_PEOPLE } from '../src/lib/judgeTrainingSetup.ts';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
@@ -133,9 +133,9 @@ function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancell
 function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    console.log('[winner-test] effect setup', location.href);
-    beginTestGameSandbox();
-    console.log('[winner-test] after sandbox begin', localStorage.getItem('mafia_test_game_sandbox_active'));
+    // This is an isolated Playwright browser context, not an actual test game
+    // opened inside the user's cabinet. Do not set the recovery sandbox marker:
+    // app initialization intentionally removes interrupted sandbox snapshots.
     const players = buildRecoveryPlayers().map((p) => ({
       ...p,
       alive: p.team === 'Красные',
@@ -170,11 +170,10 @@ function TrainingFinishShell({ onResult }: { onResult: (result: 'completed' | 'c
     // the shared copy when constructing its recoverable session banner.
     localStorage.setItem('mafia_live_session', winnerSession);
     localStorage.setItem('mafia_live_session:club:' + TEST_GAME_ID, winnerSession);
-    console.log('[winner-test] seeded', localStorage.getItem('mafia_test_game_sandbox_active'), localStorage.getItem('mafia_live_session')?.length, localStorage.getItem('mafia_live_session:club:' + TEST_GAME_ID)?.length);
     setReady(true);
     return () => {
-      console.log('[winner-test] effect cleanup', localStorage.getItem('mafia_test_game_sandbox_active'));
-      endTestGameSandbox();
+      localStorage.removeItem('mafia_live_session');
+      localStorage.removeItem('mafia_live_session:club:' + TEST_GAME_ID);
     };
   }, []);
 

@@ -423,8 +423,18 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     } catch {}
     if (!snapshot || snapshot.sessionKey !== 'club:-2147483000') return;
     const gate = getJudgeTrainingGate(snapshot);
-    if (!gate) return; // Beyond the zero round, the game works normally.
+    if (!gate) return;
+    // Only the nominated trainee may receive a lesson foul, including through
+    // the real HUD player selector. Unrelated discipline/game actions stay gated.
+    if (gate.foulSeat && source instanceof HTMLSelectElement &&
+        source.matches('[data-testid="live-player-actions-center-selector"]') &&
+        Number(source.value) !== gate.foulSeat) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (gate.allowed.some((selector) => source.closest(selector))) return;
+    if (gate.foulSeat && source.closest('[data-testid="live-player-actions-close"]')) return;
     event.preventDefault();
     event.stopPropagation();
   };

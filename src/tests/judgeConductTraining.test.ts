@@ -100,8 +100,8 @@ describe('judge conduct coach linear script', () => {
     const voting = { phase: 'day_voting', activeSpeakerSlot: null, votingStage: 'revote_speeches',
       votingRounds: [{ nominated_seats: [1, 3], is_revote: false }], activeVotingRoundIndex: 0 };
     expect(getJudgeTrainingGate(game(voting))?.allowed).toEqual(['.live-judge-hud__stack--revote-speech > .live-judge-action']);
-    expect(getJudgeTrainingGate(game({ ...voting, roundNumber: 2 }))).toBeNull();
-    expect(getJudgeTrainingGate(game({ phase: 'night' }))).toBeNull();
+    expect(getJudgeTrainingGate(game({ ...voting, roundNumber: 2 }))?.title).toBe('Попил: речи по 30 секунд');
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'shooting' }))?.title).toBe('Мафия стреляет в #7');
   });
 
   it('targets a live red player during the night, and teaches the mandatory post-kill steps', () => {
@@ -117,3 +117,50 @@ describe('judge conduct coach linear script', () => {
     expect(hint.detail).toContain('НЕТ');
   });
 });
+
+describe('judge training stays scripted beyond the zero round', () => {
+  it('awards one ordinary foul to #3 and two to #4 before the real +30 control', () => {
+    const at = (slot: number, fouls: number, extended: number | null = null) => game({
+      activeSpeakerSlot: slot,
+      speechExtendedSlot: extended,
+      activePlayers: game().activePlayers.map(p => ({ ...p, fouls: p.slot_num === slot ? fouls : 0 })),
+    });
+    const a = getJudgeTrainingGate(at(3, 0));
+    expect(a?.kind).toBe('foul');
+    expect(a?.foulSeat).toBe(3);
+    expect(a?.allowed).toContain('[data-testid="live-player-add-regular-foul"][data-seat="3"]');
+    expect(getJudgeTrainingGate(at(3, 1))?.title).toBe('Заверши речь #3');
+    expect(getJudgeTrainingGate(at(4, 1))?.title).toBe('Обычный фол игроку #4');
+    const extra = getJudgeTrainingGate(at(4, 2));
+    expect(extra?.allowed).toEqual(['[data-testid="live-hud-speech-extension"]']);
+    expect(getJudgeTrainingGate(at(4, 0, 4))?.title).toBe('Заверши речь #4');
+  });
+
+  it('teaches shooting and Don/Sheriff checks by specified seats, never arbitrary clicks', () => {
+    const shot = getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'shooting' }));
+    expect(shot?.allowed).toEqual(['.live-seat-card[data-seat="7"]']);
+    expect(shot?.kind).toBe('night');
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'shooting', shotPlayerSlot: 7 }))?.allowed)
+      .toEqual(['.live-judge-hud__primary']);
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'don' }))?.allowed)
+      .toEqual(['.live-seat-card[data-seat="1"]']);
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'don', donCheckSlot: 1 }))?.title)
+      .toBe('Проверка Дона записана');
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'sheriff' }))?.allowed)
+      .toEqual(['.live-seat-card[data-seat="9"]']);
+    expect(getJudgeTrainingGate(game({ phase: 'night', nightSubPhase: 'sheriff', sheriffCheckSlot: 9 }))?.allowed)
+      .toEqual(['.live-judge-hud__primary']);
+  });
+
+  it('keeps the voting gate active for split-vote and later day rounds', () => {
+    const vote = { phase: 'day_voting', votingStage: 'collecting', currentVotingNomineeIndex: 0,
+      votingRounds: [{ nominated_seats: [1, 3], is_revote: true }], activeVotingRoundIndex: 1,
+      activeSpeakerSlot: null, roundNumber: 2 };
+    const guard = getJudgeTrainingGate(game(vote));
+    expect(guard?.kind).toBe('vote');
+    expect(guard?.allowed).not.toContain(backToSpeechesTest);
+    expect(guard?.allowed.some(s => s.includes('live-seat-card'))).toBe(true);
+  });
+});
+
+const backToSpeechesTest = '[data-testid="live-voting-back-to-speeches"]';

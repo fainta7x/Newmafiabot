@@ -144,8 +144,7 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: /Завершить речь #4/ }).click();
 
     for (let seat = 5; seat <= 10; seat += 1) {
-      await page.getByRole('button', { name: new RegExp('^Речь #' + seat + '
-) }).click();
+      await page.getByRole('button', { name: new RegExp('^Речь #' + seat) }).click();
       if (seat === 7) await shell.locator('.live-seat-card[data-seat="3"] .live-seat-quick-action--nomination').click();
       await page.getByRole('button', { name: new RegExp('Завершить речь #' + seat) }).click();
     }

@@ -409,6 +409,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (!trainingMode) return;
     const source = event.target;
     if (!(source instanceof Element)) return;
+    // Terminal win confirmation sits above the tutorial card. Permit it even
+    // if the introduction was never opened or completed.
+    if (source.closest('[data-testid="live-winner-confirmation"]')) return;
     const coach = document.querySelector('[data-testid="judge-conduct-coach"]');
     // During the interface introduction only the task card advances the tutorial.
     if (coach?.getAttribute('data-training-tour-active') === 'true') {
@@ -424,9 +427,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     if (!snapshot || snapshot.sessionKey !== 'club:-2147483000') return;
     const gate = getJudgeTrainingGate(snapshot);
     if (!gate) return;
-    // The confirmation sheet is shown only after the real engine detects a
-    // winner. Never block its actual "Завершить игру" or Undo controls.
-    if (source.closest('[data-testid="live-winner-confirmation"]')) return;
     // Best move is a real modal outside the seat grid: its training variant
     // enforces the exact LH order and owns its own Confirm button.
     if (source.closest('[data-testid="live-best-move-sheet"]')) return;

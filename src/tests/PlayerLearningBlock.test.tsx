@@ -1,22 +1,26 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import PlayerLearningBlock from '../components/player/PlayerLearningBlock.tsx';
 import { appBackTarget } from '../lib/appNavigation.ts';
-import { GUIDE_ENTRIES, GUIDE_LESSONS } from '../lib/guideCatalog.ts';
 
-describe('«Прогресс → Обучение» (owner, 2026-10-06)', () => {
-  it('lists every lesson and every guide entry with its /guide address', () => {
+afterEach(() => cleanup());
+
+describe('«Прогресс → Обучение»: categorized entry rather than a duplicate guide', () => {
+  it('offers an immediate judge trainer and three clearly named directions', () => {
     render(<PlayerLearningBlock />);
-    for (const [index, lesson] of GUIDE_LESSONS.entries()) {
-      expect(screen.getByText(lesson.title).closest('a')?.getAttribute('href')).toBe(`/guide?tab=lessons&lesson=${index + 1}&from=progress`);
+    expect(screen.getByTestId('player-learning')).toBeDefined();
+    expect(screen.getByTestId('player-learning-judge').getAttribute('href')).toBe('/guide?from=progress&tab=judge-conduct');
+    for (const tab of ['lessons', 'trainers', 'reference']) {
+      expect(screen.getByTestId('player-learning-section-' + tab).getAttribute('href'))
+        .toBe('/guide?from=progress&tab=' + tab);
     }
-    for (const entry of GUIDE_ENTRIES) {
-      expect(screen.getAllByText(entry.title).some((node) => node.closest('a')?.getAttribute('href') === `/guide?tab=${entry.id}&from=progress`)).toBe(true);
-    }
+    expect(screen.getByText('Уроки')).toBeDefined();
+    expect(screen.getByText('Тренажёры')).toBeDefined();
+    expect(screen.getByText('Правила и справочник')).toBeDefined();
   });
 
-  it('Telegram Back on a guide page opened from «Обучение» returns to «Обучение»', () => {
+  it('Telegram Back on a guide page opened from «Обучение» returns to Progress Learning', () => {
     window.history.replaceState(null, '', '/guide?tab=roles&from=progress');
     expect(appBackTarget('/guide')).toBe('/player/profile/learning');
     window.history.replaceState(null, '', '/guide?tab=roles');

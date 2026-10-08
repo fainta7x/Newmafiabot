@@ -57,6 +57,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
     await screen.findByText('Игрок');
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
     fireEvent.click(screen.getByRole('button', { name: 'Игры' }));
     fireEvent.click(screen.getByText('Дополнительные фильтры'));
     fireEvent.change(screen.getByLabelText('Роль'), { target: { value: 'sheriff' } });
@@ -79,6 +80,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     // another player's Elo history is the simple list from the profile endpoint
     render(<CanonicalPremiumPlayerProfile playerId="other" selfPlayerId="self" mode="public" />);
     await screen.findByText('Игрок');
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
     fireEvent.click(screen.getByRole('button', { name: 'Elo' }));
     expect(await screen.findByText('1205')).toBeDefined();
     expect(screen.getByText('+15')).toBeDefined();
@@ -91,6 +93,22 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(await screen.findByTestId('elo-journey-stub')).toBeDefined();
     // the simple list of the profile endpoint is not fetched for himself: one history, not two
     expect(screen.queryByText('История Elo')).toBeNull();
+  });
+
+  it('keeps Learning as a first-level Progress category and supports old deep links', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).includes('/summary') ? response(summary('self', 'Игрок')) : response({})));
+    const view = render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" learning={<p data-testid="learning-hub-stub">Мои уроки</p>} initialTab="learning" />);
+    expect(await screen.findByTestId('learning-hub-stub')).toBeDefined();
+    const main = screen.getByRole('navigation', { name: 'Разделы прогресса' });
+    expect(main.querySelectorAll('button')).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
+    expect(screen.getByRole('navigation', { name: 'Разделы карьеры' })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Роли' }));
+    expect(screen.getByRole('button', { name: 'Карьера' }).getAttribute('aria-current')).toBe('page');
+    view.rerender(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" learning={<p data-testid="learning-hub-stub">Мои уроки</p>} initialTab="elo" />);
+    expect(screen.getByRole('button', { name: 'Карьера' }).getAttribute('aria-current')).toBe('page');
+    view.rerender(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" learning={<p data-testid="learning-hub-stub">Мои уроки</p>} initialTab="learning" />);
+    expect(await screen.findByTestId('learning-hub-stub')).toBeDefined();
   });
 
   it('shows owner-only award suggestion and smart friend suggestions', async () => {
@@ -113,6 +131,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     }));
     render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
     await screen.findByText('Игрок');
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
     fireEvent.click(screen.getByRole('button', { name: 'Игры' }));
     expect(await screen.findByText(/Вечер 3 октября · №4/)).toBeDefined();
     expect(screen.getByText(/Мафия · Чёрные · победа/)).toBeDefined();
@@ -140,6 +159,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     render(<CanonicalPremiumPlayerProfile playerId="other" selfPlayerId="self" mode="public" />);
     await screen.findByText('Скрытный');
     expect(screen.getByTestId('profile-stats-hidden')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Карьера' }));
     fireEvent.click(screen.getByRole('button', { name: 'Elo' }));
     expect(await screen.findByText('Игровая статистика скрыта игроком')).toBeDefined();
     expect(screen.queryByText(/Истории Elo пока нет/)).toBeNull();

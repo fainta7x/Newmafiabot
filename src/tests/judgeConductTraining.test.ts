@@ -110,7 +110,7 @@ describe('judge conduct coach linear script', () => {
     expect(trainingNightTarget(game({ phase: 'night' }))).toBe(7);
     expect(getTrainingPrompt(game({ phase: 'night', nightSubPhase: 'shooting' })).title).toBe('Мафия убила #7');
     expect(getTrainingPrompt(game({ phase: 'night', postNightStage: 'farewell' })).detail).toContain('60 секунд');
-    expect(getTrainingPrompt(game({ phase: 'night', postNightStage: 'death_protocol' })).title).toBe('Протокол убитого');
+    expect(getTrainingPrompt(game({ phase: 'night', postNightStage: 'death_protocol', shotPlayerSlot: 7 })).title).toBe('Протокол убитого #7');
   });
 
   it('treats the Sheriff gesture in zero night as distinct from a night check', () => {

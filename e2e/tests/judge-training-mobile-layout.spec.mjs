@@ -144,7 +144,7 @@ for (const width of [360, 390]) {
       if (seat === 7) await shell.locator('.live-seat-card[data-seat="3"] .live-seat-quick-action--nomination').click();
       await page.getByRole('button', { name: new RegExp('Завершить речь #' + seat) }).click();
     }
-    await page.getByRole('button', { name: /К голосованию/ }).click();
+    await page.getByTestId('live-judge-hud').getByRole('button', { name: 'К голосованию', exact: true }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Голоса против #1/);
     const voter = shell.locator('.live-seat-card[data-seat="2"]');
     await expect(voter).toHaveAttribute('data-judge-training-kind', 'vote');

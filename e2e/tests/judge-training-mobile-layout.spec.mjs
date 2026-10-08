@@ -13,7 +13,7 @@ for (const width of [360, 390]) {
 
     for (let seat = 1; seat <= 10; seat += 1) {
       const description = await page.getByTestId('judge-training-seat-task').innerText();
-      const player = description.match(/Игрок \\d+/)?.[0];
+      const player = description.match(/Игрок \d+/)?.[0];
       expect(player, `training seat ${seat} should name a player`).toBeTruthy();
       await page.getByRole('button', { name: `${player} +`, exact: true }).click();
     }
@@ -37,7 +37,7 @@ for (const width of [360, 390]) {
     await expect(page.locator('button[title="OBS-трансляция"]')).toHaveCount(0);
 
     const geometry = await page.evaluate(() => {
-      const modal = document.querySelector('.fixed.inset-0.z-\\\\[95\\\\]');
+      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]');
       const shell = document.querySelector('.evening-live-engine-shell[data-training-input-gate="active"]');
       const coach = document.querySelector('[data-testid="judge-conduct-coach"]');
       const cards = Array.from(shell?.querySelectorAll('.live-seat-card') || []);
@@ -74,7 +74,7 @@ for (const width of [360, 390]) {
     expect(geometry.docWidth).toBeLessThanOrEqual(geometry.viewport + 1);
     expect(geometry.seatBounds).toHaveLength(10);
     for (const seat of geometry.seatBounds) {
-      expect(seat.label).toMatch(/^Игрок \\d+$/);
+      expect(seat.label).toMatch(/^Игрок \d+$/);
       expect(seat.visible).toBe(true);
       expect(seat.inside).toBe(true);
     }

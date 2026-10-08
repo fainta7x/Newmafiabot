@@ -197,7 +197,7 @@ for (const width of [360, 390]) {
     // the first killed player for three exact LH places (not free input).
     const hud = page.getByTestId('live-judge-hud');
     await hud.getByRole('button', { name: /Включить музыку ночи/ }).click();
-    await hud.getByRole('button', { name: /Стрельба мафии/ }).click();
+    await hud.getByRole('button', { name: 'Отстрел', exact: true }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Мафия стреляет в #7/);
     await shell.locator('.live-seat-card[data-seat="7"]').click();
     await hud.getByRole('button', { name: /Проверка Дона/ }).click();

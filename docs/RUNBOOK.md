@@ -98,6 +98,71 @@ Use the smallest relevant suite: `smoke`, `crm`, `live-game`, or `all`.
 
 Green Playwright execution is not visual approval; inspect screenshots for clipping, overlap, hierarchy, player identity and mobile safe-area problems.
 
+## 4a. Focused debugging / anti-stall loop
+
+Use this for all bug reports, especially Telegram Live Game training, UI overlaps, unresponsive controls and browser tests. The assistant-level stop rules are in `AGENTS.md`.
+
+### A. Reproduce one defect and identify the owning layer
+
+Before editing, write a compact *bug card* (in your working notes or PR):
+
+```text
+Symptom / user action:
+Expected → observed:
+Reproduction (viewport / phase / exact control):
+Evidence (error, log, screenshot, failing assertion):
+Suspected owner / files:
+One focused acceptance test:
+Production behavior that must NOT change:
+```
+
+For **"button does nothing"** inspect, in order:
+
+`rendered + enabled → actual hit target (overlay/pointer events) → capture/bubble guard → onClick → state transition → API/local persistence → parent completion callback`.
+
+A click observed by Playwright is not proof of successful completion. Assert the final state and side effect (including no unintended CRM write for synthetic games). If the UI uses a modal, also test that its overlay does not block setup/recovery or confirmation controls.
+
+For **a failing E2E** classify the failure *before changing code*:
+
+- **Product defect:** correct fixture and real action expose broken UI/game behavior → fix its source and add a regression.
+- **Fixture/test defect:** stale locator, wrong label, incomplete snapshot, storage/session-key mismatch, auth/sandbox cleanup, impossible game state → repair only the test harness, using the real production lifecycle as the reference.
+- **Infrastructure failure:** runner unavailable, test never executed, browser install/network outage → report the blocker; don't change product behavior or soften assertions.
+
+In Mafia training specifically, distinguish `LiveGameEngine` canonical production behavior from the training-only `JudgeConductCoach`, scripted input gate and synthetic fixtures. Don't redefine real nomination/voting/discipline rules or table geometry to make a lesson/test pass. Read `docs/BUSINESS_RULES.md` for rule questions.
+
+### B. Cheap feedback before costly CI
+
+1. Read the exact source and the *first failing assertion*, along with screenshot/error context when interaction or layout is involved.
+2. Make **one cause-based minimal fix**; where useful, add or update a focused regression.
+3. Run the smallest relevant check: `npx vitest run src/tests/<relevant>.test.ts`, a targeted `--testNamePattern`, `npm run project:affected -- <changed files>`, or the single Playwright spec. On screenshots, inspect 360/390 px output.
+4. When the focused case is green, run `npm run project:verify:fast` for a coherent batch; let the required PR CI run once the candidate is ready. Use broader Playwright only if the failure spans a whole journey, or for explicit release/visual verification.
+5. If a focused regression fails **twice after attempted fixes**, pause patching. Check fixture setup order, storage/sandbox lifetime, real button labels, overlay interception, and the state after the click. State what new evidence would change the hypothesis before another edit.
+
+An E2E of an end-of-game callback **must not** simulate hours of unrelated speeches if a saved, valid, isolated winner snapshot tests that callback. Conversely, a test of the whole night should cover the real night flow and proper transition, not just the existence of controls. Avoid one giant E2E combining otherwise independent, expensive scenarios; split into independent tests with explicit assertions.
+
+**Never** make a red build green by reducing coverage, replacing genuine actions with arbitrary mocked state, increasing timeouts without evidence, `force: true` clicking through overlays, or altering a live-game rule for a fixture. A wrong expected label can be corrected once the actual UI is verified.
+
+### C. CI / status checks without busy-waiting
+
+- Use the **exact PR head SHA** as the identity of the tested code. An earlier green commit does not validate a later edit.
+- Read the failing job log once, identify cause and do a targeted fix; don't run the same failed job repeatedly without change.
+- CI may run asynchronously. Record workflow URL and status, and check only after a meaningful interval or after useful work has been done. Do **not** poll the same workflow dozens of times in a row.
+- If no new work is available and CI is still pending, **end with a truthful handoff** rather than keeping the user waiting or claiming background execution. A future follow-up can retrieve the persisted PR/check status.
+- Keep updates proportional to progress. Provide a real outcome, changed finding or exact blocker—not repeated "testing..." updates.
+- Merge only when the required checks for the exact head pass and any required interactive/visual evidence is inspected; verify merged `main`. Distinguish merged, deployed and live-verified.
+
+### D. Compact handoff template
+
+```text
+Change: [one-line behavior change]
+Branch / PR / exact head SHA: ...
+Focused check: passed/failed (exact spec)
+Full CI: passed/failed/pending (exact workflow)
+Unresolved: [one concrete symptom + evidence, or none]
+Next single action: ...
+main merged?: yes/no     Amvera deployed?: confirmed/unconfirmed
+```
+
 ## 5. CI failure handling
 
 When a required job fails:

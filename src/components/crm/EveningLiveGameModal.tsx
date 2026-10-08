@@ -454,6 +454,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       </div>
 
+      {trainingMode && <JudgeConductCoach />}
+
       {broadcastSetupOpen && (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/10 bg-[#111319] p-5 shadow-2xl">
@@ -579,7 +581,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
-      {trainingMode && <JudgeConductCoach />}
       <div className="evening-live-engine-shell py-0.5 md:py-3"
         onClickCapture={guardTrainingInput}
         onChangeCapture={guardTrainingInput}
@@ -620,7 +621,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }}
         />
 
-        {!trainingMode && livePhase !== 'setup' && (
+        {livePhase !== 'setup' && (
           <div className="evening-live-identity-layer" aria-hidden="true">
             {livePlayers.map((player) => (
               <div

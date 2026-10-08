@@ -65,6 +65,13 @@ export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchE
   new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
 );
 export const requestJudgeNightMusicStart = () => {
+  // Training runs the real game engine without a player session. The teaching
+  // step should advance, but must never trigger the authenticated music API.
+  // Real games do not set this training-only attribute.
+  if (typeof document !== 'undefined' &&
+      document.querySelector('.evening-live-engine-shell[data-training-input-gate="active"]')) {
+    return true;
+  }
   window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }));
   return true;
 };

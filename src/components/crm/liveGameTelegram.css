@@ -493,6 +493,51 @@
   /* Real game has CRM avatar overlays, but synthetic players only have the
      same placeholder initial. Show the actual training player identity
      inside the corresponding seat, never in an independently placed layer. */
+  /* In training the court is two compact five-seat edges around one readable
+     judge console. This intentionally differs from the 4-column live table,
+     whose high cards consumed most of the phone's vertical space. */
+  html body .evening-live-engine-shell[data-training-input-gate="active"]
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-rows: 112px minmax(340px, auto) 112px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    gap: 4px !important;
+    align-items: stretch !important;
+  }
+
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+  }
+
+  /* Clockwise numbering: top 8–2, bottom 7–3. No phantom tall cards. */
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="8"]  { grid-column: 1 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="9"]  { grid-column: 2 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="10"] { grid-column: 3 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="1"]  { grid-column: 4 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="2"]  { grid-column: 5 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="7"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="6"]  { grid-column: 2 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="5"]  { grid-column: 3 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="4"]  { grid-column: 4 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell[data-training-input-gate="active"] .live-seat-card[data-seat="3"]  { grid-column: 5 !important; grid-row: 3 !important; }
+
+  html body .evening-live-engine-shell[data-training-input-gate="active"] [data-testid="live-judge-hud"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 340px !important;
+    max-height: none !important;
+  }
+
+  /* The footer chips remain inside each compact card; player name appears
+     between the quick action at the top and the seat/role chips at the bottom. */
   html body .evening-live-engine-shell[data-training-input-gate="active"]
     .live-seat-footer__name {
     display: block !important;

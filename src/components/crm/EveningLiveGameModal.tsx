@@ -481,7 +481,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
 
   return (
-    <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
+    <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''} ${trainingMode ? 'evening-live-training-modal' : ''}`}>
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <div className="text-[11px] md:text-xs font-black text-white truncate">{trainingMode ? 'Учебная партия' : `Игра #${game.global_game_number}`}</div>
@@ -546,6 +546,20 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             html body .evening-live-engine-shell[data-training-input-gate="active"] .live-judge-hud__body {
               min-height: 0 !important;
               overflow-y: auto !important;
+            }
+          }
+          /* Desktop training reserves an actual reading rail beside the
+             untouched LiveGameEngine table. This is intentionally scoped to
+             synthetic practice and never changes real-game table geometry. */
+          @media (min-width: 1280px) {
+            html body .evening-live-training-modal .evening-live-engine-shell {
+              box-sizing: border-box !important;
+              width: calc(100% - 352px) !important;
+              max-width: calc(100% - 352px) !important;
+              margin-left: 0 !important;
+              margin-right: 352px !important;
+              padding-left: 16px !important;
+              padding-right: 8px !important;
             }
           }
           /* Synthetic identities share exactly the parent table's used grid tracks.

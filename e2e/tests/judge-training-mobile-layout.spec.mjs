@@ -23,9 +23,8 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Подтвердить состав' }).click();
     await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
 
-    const intro = page.getByText('Подготовьте 10 карт');
-    await expect(intro).toBeVisible();
-    await intro.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
+    await expect(page.getByTestId('physical-role-deal-intro')).toBeVisible();
+    await page.getByTestId('physical-role-deal-start').click();
 
     for (const role of TRAINING_ROLES) {
       await page.getByRole('button', { name: new RegExp(role) }).click();

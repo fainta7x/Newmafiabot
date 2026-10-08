@@ -64,6 +64,21 @@ Other docs should link to the owner instead of restating mutable facts.
 - **Digest of changes for players (owner rule, 2026-10-05).** Keep the list «Player-facing changes not yet announced» in `docs/PROJECT_STATE.md` up to date: add a short plain-words line whenever a merged change alters what players can do or see (new or changed screens, features, rules, wording they notice). Fixes, internal work and anything invisible to players do not go on it. After roughly ten merged PRs, or sooner when something notable lands, ask the owner whether to publish a digest — offer a short draft. «Да» → publish it (the club's public channel, or hand over the finished text if the app has no way to post it) and clear the published lines; «ещё подождём» → keep collecting and ask again later. Never publish without the owner's «да».
 - Record every new idea, request or open question from the owner in `docs/PROJECT_STATE.md` (current queue or «Waiting on the owner») in the same session, even if it is not built now. Ideas that live only in chat get lost.
 
+## 4a. Anti-stall protocol — mandatory for bug fixes and UI work
+
+This is a **workflow contract**, not a promise that external CI or deployments will finish instantly. Detailed test commands and failure triage live in [`docs/RUNBOOK.md`](docs/RUNBOOK.md) under **Focused debugging / anti-stall loop**.
+
+1. **Define one observable failure first.** Record the exact reproduction, expected/actual outcome, first suspect layer, evidence (screenshot/error/failed test), and one acceptance check. Separate an actual app bug from a broken test fixture or selector.
+2. **Trace the real action path before editing.** For a nonresponsive button, inspect click interception/overlays, disabled state, handler, state transition, persistence/API and completion callback. For game rules, consult `docs/BUSINESS_RULES.md`; a test must not redefine the rules.
+3. **Patch the smallest owner.** Keep the proven live-game UI, card geometry and production behavior unchanged when fixing training-only UI. Do not redesign a working layout to accommodate a test.
+4. **Test in layers, not full CI on every tweak.** Start with the one focused Vitest/spec or typecheck of the affected code. For browser interaction, run the shortest relevant Playwright flow at 360/390 px and inspect failure artifacts. Only after a coherent change passes focused checks should broad required CI run. Do not manually rerun the entire workflow without a new cause-based fix.
+5. **No blind retries.** After **two unsuccessful fixes of the same symptom**, stop editing, re-examine the actual runtime/fixture/logs and name a new root-cause hypothesis. Do not merely relax an assertion, force-click, invent new production behavior or keep committing variants.
+6. **No CI polling loop.** Record the PR, exact head SHA, workflow/job URL and current state. Check once when a result can reasonably have changed; if still queued/running, do other useful work or hand off an explicit *pending verification* status. Do not issue dozens of near-identical status requests or suggest you are working in the background.
+7. **Communicate results, not activity.** Give concise progress only when there is a genuine new finding, fix or test result. Never call a feature *fixed*, *merged*, *deployed* or *verified* based on code edits alone. If blocked, say precisely where and what next check is needed.
+8. **Stop with a reproducible handoff.** If the same issue remains unresolved after focused attempts or external CI is still running, provide: branch/PR and SHA, passed checks, exact failing test + cause (known/unknown), the next single step, and whether `main`/runtime changed. Respect the 3-PR budget below.
+
+**Important:** don't confuse `main` merged, Amvera deployed, and runtime-verified. An isolated screenshot or green build proves neither all interactions nor deployment. Documentation-only changes should be verified by reading the committed diff rather than repeatedly running the entire gameplay E2E suite.
+
 ## 5. PR budget — hard rule (GPT/Codex only)
 
 **Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.

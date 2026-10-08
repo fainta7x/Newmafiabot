@@ -26,6 +26,7 @@ export default function JudgeConductCoach() {
   const [tourIndex, setTourIndex] = useState(0);
   const [open, setOpen] = useState(true);
   const [highlight, setHighlight] = useState(true);
+  const [desktopExpanded, setDesktopExpanded] = useState(true);
   const isTour = session !== null && tourIndex < TOUR.length;
   const progress = useMemo(() => getTrainingPrompt(session), [session]);
   const gate = useMemo(() => getJudgeTrainingGate(session), [session]);
@@ -97,12 +98,20 @@ export default function JudgeConductCoach() {
   if (!session) return null;
   return (
     <div
-      className="fixed right-[62px] z-[118] max-w-[min(152px,calc(100vw-156px))]"
+      className="fixed right-[62px] z-[118] max-w-[min(152px,calc(100vw-156px))] md:max-w-[220px] xl:right-4 xl:bottom-4 xl:w-[320px] xl:max-w-none"
       style={{ top: 'calc(var(--live-safe-top, 0px) + 2px)' }}
       data-testid="judge-conduct-coach"
       data-training-tour-active={isTour ? 'true' : 'false'}
     >
       <style>{`
+        /* Desktop task rail lives outside the canonical game board. */
+        @media (min-width: 1280px) {
+          [data-testid="judge-conduct-coach"] {
+            top: 64px !important;
+            height: calc(100dvh - 80px);
+            max-height: calc(100dvh - 80px);
+          }
+        }
         .judge-training-focus { outline: 3px solid #fbbf24 !important; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(245,158,11,.12) !important; }
         .judge-training-focus[data-judge-training-kind="nomination"] { outline-color: #fb7185 !important; }
         .judge-training-focus[data-judge-training-kind="foul"] { outline-color: #c4b5fd !important; }
@@ -121,7 +130,7 @@ export default function JudgeConductCoach() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-8 w-full min-w-[90px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-[#252117] px-2.5 text-left text-amber-100 shadow-lg"
+        className="flex h-8 w-full min-w-[90px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-[#252117] px-2.5 text-left text-amber-100 shadow-lg xl:hidden"
         aria-label={'Открыть задание: ' + task.title}
         data-testid="judge-training-task-trigger"
         aria-expanded={open}
@@ -132,7 +141,7 @@ export default function JudgeConductCoach() {
         </span>
       </button>
       {open && (
-        <div className="fixed inset-0 z-[160] flex items-start justify-center bg-slate-950/65 px-3 pt-[max(64px,env(safe-area-inset-top))]" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[160] flex items-start justify-center bg-slate-950/65 px-3 pt-[max(64px,env(safe-area-inset-top))] xl:hidden" onClick={() => setOpen(false)}>
           <section
             role="dialog"
             aria-modal="true"
@@ -201,6 +210,80 @@ export default function JudgeConductCoach() {
           </section>
         </div>
       )}
+      <aside
+        aria-label="Панель обучения судьи"
+        data-testid="judge-training-desktop-panel"
+        className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#111319] text-white shadow-[0_16px_48px_rgba(0,0,0,.36)] xl:flex"
+      >
+        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/10 text-amber-200">
+            <BookOpenCheck className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/70">Обучение судьи</p>
+            <p className="mt-0.5 truncate text-sm font-semibold text-white/90">
+              {isTour ? 'Знакомство со столом' : 'Раунд ' + session.roundNumber + ' · ' + (session.phase === 'night' || session.phase === 'zero_night' ? 'Ночь' : session.phase === 'day_voting' ? 'Голосование' : 'Речи')}
+            </p>
+          </div>
+          <button type="button" onClick={() => setDesktopExpanded((value) => !value)}
+            aria-label={desktopExpanded ? 'Свернуть учебную панель' : 'Развернуть учебную панель'}
+            aria-expanded={desktopExpanded}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+          >
+            {desktopExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        {desktopExpanded ? (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+              <p className="text-[10px] font-bold uppercase tracking-[.12em] text-white/35">
+                {isTour ? 'Шаг ' + (tourIndex + 1) + ' из ' + TOUR.length : 'Текущее задание'}
+              </p>
+              <h2 className={'mt-2 text-xl font-semibold leading-snug ' + (task.warning ? 'text-rose-200' : 'text-white')} aria-live="polite">
+                {task.title}
+              </h2>
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-white/70">{task.detail}</p>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.035] p-3">
+                <p className="text-xs leading-5 text-white/55">
+                  {isTour
+                    ? 'Посмотри на подсвеченный элемент игрового стола. Нажми «Дальше», чтобы продолжить знакомство.'
+                    : 'Нужное действие подсвечено прямо на игровом столе. После его выполнения задание обновится автоматически.'}
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-white/10 bg-[#14161b] p-4">
+              {isTour ? (
+                <button type="button" data-testid="judge-training-desktop-next"
+                  onClick={() => {
+                    setTourIndex((value) => value + 1);
+                    if (tourIndex === TOUR.length - 1) setOpen(false);
+                  }}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-[#090a0d] hover:bg-white/90"
+                >
+                  {tourIndex === TOUR.length - 1 ? 'К заданиям' : 'Дальше'} <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-white/40">Следуй подсветке на столе</span>
+                  <button type="button" data-testid="judge-training-desktop-highlight"
+                    aria-label={highlight ? 'Выключить подсветку' : 'Включить подсветку'}
+                    onClick={() => setHighlight((value) => !value)}
+                    className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-xs font-semibold text-amber-100 hover:bg-white/5"
+                  >
+                    {highlight ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    Подсветка
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="p-4 text-sm leading-6 text-white/60">
+            {task.title}
+            <p className="mt-2 text-xs text-white/40">Нажми значок сверху, чтобы раскрыть инструкцию.</p>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }

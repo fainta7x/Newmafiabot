@@ -3,6 +3,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotPlanningService.ts';
 import { replaceOrganizerPlayerSlotSelection } from '../services/organizerEveningSlotSelectionService.ts';
+import { loadLatestEveningRescheduleNotice, retryEveningRescheduleNotice } from '../services/eveningRescheduleService.ts';
 
 export const eveningSlotRoutes = Router();
 
@@ -22,6 +23,22 @@ const requirePlayer = async (req: Request, res: Response) => {
   }
   return player;
 };
+
+eveningSlotRoutes.get('/:eveningId/reschedule-notice', requireOrganizerAuth, async (req, res) => {
+  try {
+    return res.json({ notice: await loadLatestEveningRescheduleNotice(req.db, String(req.params.eveningId)) });
+  } catch (error: any) {
+    return sendError(res, error, 'Не удалось загрузить уведомления о переносе');
+  }
+});
+
+eveningSlotRoutes.post('/:eveningId/reschedule-notice/retry', requireOrganizerAuth, async (req, res) => {
+  try {
+    return res.json(await retryEveningRescheduleNotice(req.db, String(req.params.eveningId)));
+  } catch (error: any) {
+    return sendError(res, error, 'Не удалось повторить уведомления о переносе');
+  }
+});
 
 eveningSlotRoutes.get('/:eveningId/slots', requireOrganizerAuth, async (req, res) => {
   try {

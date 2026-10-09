@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
 /**
@@ -11,6 +11,13 @@ const moscowParts = (value: string) => {
     day: date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' }),
     time: date.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' }),
   };
+};
+
+type Notice = {
+  telegram_status: string;
+  vk_status: string;
+  personal_status: string;
+  retry_available: boolean;
 };
 
 const authHeaders = (json = false) => {
@@ -32,6 +39,35 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeUrl = `/api/evenings/${encodeURIComponent(eveningId)}/reschedule-notice`;
+  const loadNotice = async () => {
+    try {
+      const response = await fetch(noticeUrl, { credentials: 'include', headers: authHeaders() });
+      if (response.ok) setNotice((await response.json()).notice || null);
+    } catch { /* The time editor remains usable while status is temporarily unavailable. */ }
+  };
+  useEffect(() => { void loadNotice(); }, [eveningId, startsAt]);
+
+  const retry = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`${noticeUrl}/retry`, {
+        method: 'POST', credentials: 'include', headers: authHeaders(true),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Не удалось повторить уведомления');
+      if (body.paused) throw new Error('Отправка публикаций сейчас приостановлена');
+      setNotice(body.notice || null);
+      setMessage('Повторная отправка обработана. Проверьте статусы Telegram и ВК.');
+    } catch (error: any) {
+      setError(error?.message || 'Не удалось повторить уведомления');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     if (busy || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return;
@@ -57,6 +93,7 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось перенести начало');
       onMoved({ starts_at: body.event.starts_at, ends_at: body.event.ends_at ?? null });
+      await loadNotice();
       setMessage(`Начало перенесено на ${day} в ${time}. Игры вечера сдвинулись вместе с ним.`);
       setOpen(false);
     } catch (err: any) {
@@ -78,6 +115,17 @@ export const EveningStartTimeEditor = ({ eveningId, startsAt, onMoved }: {
         <button type="button" disabled={busy || (day === current.day && time === current.time)} onClick={() => void save()} className="min-h-[44px] rounded-[10px] bg-accent px-3 text-[12px] font-bold text-white disabled:opacity-50">Сохранить</button>
         <button type="button" disabled={busy} onClick={() => setOpen(false)} className="min-h-[44px] rounded-[10px] px-2 text-[12px] text-text-muted">Отмена</button>
       </div> : null}
+      {notice && [notice.telegram_status, notice.vk_status, notice.personal_status].some((status) => !['published', 'queued'].includes(status)) ? (
+        <div className="mt-2 space-y-2 rounded-[12px] border border-warning/40 bg-warning-soft px-3 py-3 text-[12px] text-text-primary">
+          <p>Уведомления о переносе дошли не везде: Telegram — {notice.telegram_status === 'published' ? '✓' : 'не отправлено'},
+            {' '}ВК — {notice.vk_status === 'published' ? '✓' : 'не отправлено'},
+            {' '}личные — {notice.personal_status === 'queued' ? 'поставлены в очередь' : 'нужен повтор'}.</p>
+          <button type="button" disabled={busy || !notice.retry_available} onClick={() => void retry()}
+            className="min-h-10 rounded-[10px] border border-warning/40 bg-surface-1 px-3 font-semibold disabled:opacity-50">
+            Повторить недоставленные
+          </button>
+        </div>
+      ) : null}
       {message ? <p className="mt-2 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
       {error ? <p className="mt-2 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
     </div>

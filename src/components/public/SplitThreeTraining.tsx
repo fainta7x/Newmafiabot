@@ -279,16 +279,23 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
 
           {checked && broken && breakState ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-              <p className="font-semibold text-white">{checked.right ? 'Верно!' : 'Неверно.'}</p>
-              <p>{broken.breaker} сломал попил — все, кто ещё не голосовал, голосуют в {broken.breaker}: <strong className="text-white">{seatList(breakState.pool)}</strong>.</p>
-              <p className="text-white/70">Сломавший хочет вывести не себя, а другого, поэтому с ним никто не голосует.</p>
+              <p className="font-bold text-white">{checked.right ? '✓ Верно' : 'Разбор ошибки'}</p>
+               {!checked.right ? assignmentMistakes(
+                 splitThreeBreakVotes(broken, { [broken.breaker]: breakState.pool }),
+                 splitThreeBreakVotes(broken, checked.answer as Record<number, number[]>),
+                 aliveSeats(broken.killed).filter((seat) => seat !== broken.breaker),
+               ).map((mistake) => <p key={mistake} className="text-amber-200">{mistake}</p>) : null}
+               <p><b className="text-white">Почему:</b> {broken.breaker} не поставил руку — оставшиеся голоса должны идти в него: <strong>{seatList(breakState.pool)}</strong>.</p>
+               <p className="text-white/70">Сломавший хочет вывести не себя, а другого, поэтому с ним никто не голосует.</p>
               {breakState.voted.length ? <p>{seatList(breakState.voted)} уже подняли руки за {breakState.first} — переголосовать не могут.</p> : null}
             </div>
           ) : null}
           {checked && chooseLevel && choiceRule && sheriffs ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-              <p className="font-semibold text-white">{checked.right ? 'Верно!' : 'Неверно.'}</p>
-              <p>{sheriffs.trusted.black && sheriffs.doubted.black
+              <p className="font-bold text-white">{checked.right ? '✓ Верно' : 'Разбор ошибки'}</p>
+               {!checked.right ? <p className="text-amber-200">Ты выбрал {Array.isArray(checked.answer) ? checked.answer.join(', ') : 'другие номера'}. Обязательные номера: {choiceRule.required.join(', ')}{choiceRule.freeThird ? ' + третий вне этих проверок и шерифов' : ''}.</p> : null}
+               <p><b className="text-white">Почему:</b> смотри, кого проверки считают чёрным в обеих версиях.</p>
+               <p>{sheriffs.trusted.black && sheriffs.doubted.black
                 ? `Чёрные проверки у обоих шерифов — пилим обе чёрные проверки и шерифа, которому город верит меньше: ${choiceRule.required.join(', ')}.`
                 : sheriffs.doubted.black
                   ? `Чёрная проверка только у шерифа ${sheriffs.doubted.seat}, которому город верит меньше, — пилим его и его чёрную проверку: ${choiceRule.required.join(', ')}, и ещё одного игрока.`
@@ -298,14 +305,19 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           ) : null}
           {checked && expected && !broken ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-              <p className="font-semibold text-white">{checked.right ? 'Верно!' : medium ? 'Распределение голосов неверное.' : `Тебе нужно голосовать в ${correctSplitThreeVote(scenario)}.`}</p>
-              {sheriffs ? splitThreeVersions(scenario).map(({ sheriff, blacks, into }) => (
+              <p className="font-bold text-white">{checked.right ? '✓ Верно' : 'Разбор ошибки'}</p>
+               {!checked.right && !medium ? <p className="text-amber-200">Твой голос: в {checked.answer as number}. Правильно — в {correctSplitThreeVote(scenario)}.</p> : null}
+               {!checked.right && medium ? assignmentMistakes(expected, checked.answer as Record<number, number[]>, aliveSeats(scenario.killed))
+                 .map((mistake) => <p key={mistake} className="text-amber-200">{mistake}</p>) : null}
+               <p><b className="text-white">Почему:</b> {sheriffs ? 'Сначала учитываем опасные руки из двух версий шерифов, затем заполняем свободные тройки.' : 'Сами пилящиеся первыми голосуют в первого. Остальные шесть по порядку мест — тройками во второго и третьего.'}</p>
+               {sheriffs ? splitThreeVersions(scenario).map(({ sheriff, blacks, into }) => (
                 <p key={sheriff} className="text-white/70">Если прав шериф {sheriff}, мафия — {blacks.join(' и ')}: {into.length ? `${blacks.length > 1 ? 'они голосуют' : 'он голосует'} в ${into.join(' или ')}` : `чёрных по другой версии в попиле нет — ${blacks.length > 1 ? 'голосуют' : 'голосует'} как обычно`}.</p>
               )) : null}
-              {scenario.candidates.map((candidate) => (
-                <p key={candidate}>В {candidate} {expected[candidate].length ? `голосуют ${seatList(expected[candidate])}` : 'никто не голосует'}{!sheriffs && candidate === scenario.split[0] ? ' — сами пилящиеся' : ''}.</p>
-              ))}
-              <p>Каждый из трёх пилящихся получает по 3 голоса.</p>
+              <details className="rounded-xl border border-white/10 p-2.5">
+                 <summary className="cursor-pointer font-semibold text-white">Все правильные голоса</summary>
+                 <div className="mt-2 space-y-1">{scenario.candidates.map((candidate) => <p key={candidate}>В {candidate}: {expected[candidate].length ? seatList(expected[candidate]) : 'никто'}.</p>)}</div>
+               </details>
+               <p>Каждый из трёх пилящихся получает по 3 голоса.</p>
             </div>
           ) : null}
 

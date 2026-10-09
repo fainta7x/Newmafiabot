@@ -426,7 +426,10 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
       `SELECT e.id, e.title, e.starts_at, e.format, e.venue, ep.response_status,
               (SELECT COUNT(*) FROM evening_slot_registrations r
                  JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS games
+                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS games,
+              (SELECT MIN(s.slot_number) FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS first_game
          FROM evening_participants ep
          JOIN game_evenings e ON e.id = ep.evening_id
         WHERE ep.player_id = ?
@@ -444,7 +447,7 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
         tokens: Number(player.tokens || 0),
         game_level: String(player.game_level || 'unrated'),
       },
-      evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0) })),
+      evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0), first_game: row.first_game == null ? null : Number(row.first_game) })),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить записи игрока' });

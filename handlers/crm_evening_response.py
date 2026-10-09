@@ -4,12 +4,12 @@ import aiohttp
 from aiogram import Bot, F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 
 import bot_menu
 import config
 import database
-from bot_api import cast_evening_vote, schedule_evening_followup, submit_evening_response
+from bot_api import cast_evening_vote, get_evening_slots, schedule_evening_followup, submit_evening_response
 from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
@@ -165,6 +165,32 @@ async def send_crm_evening_self_test(message: Message):
     )
 
 
+@router.callback_query(F.data.startswith("evlate:"))
+async def choose_late_start(callback: CallbackQuery, bot: Bot):
+    try:
+        _, evening_id, slot_id = callback.data.split(":", 2)
+    except (AttributeError, ValueError):
+        await callback.answer("Некорректная игра", show_alert=True)
+        return
+    if not evening_id or not slot_id:
+        await callback.answer("Некорректная игра", show_alert=True)
+        return
+    result = await submit_evening_response(evening_id, callback.from_user.id, "late", starting_slot_id=slot_id)
+    if not result.get("success"):
+        await callback.answer("Не удалось сохранить время прибытия. Обнови вечер и попробуй снова.", show_alert=True)
+        return
+    await callback.answer("✅ Записали с выбранной игры и на все следующие", show_alert=True)
+    if callback.message and callback.message.chat.type == ChatType.PRIVATE:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=_response_keyboard(evening_id, "late"))
+        except Exception:
+            pass
+    try:
+        await refresh_crm_group_stats(bot, evening_id)
+    except Exception:
+        pass
+
+
 @router.callback_query(F.data.startswith("evr:"))
 async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
     try:
@@ -175,6 +201,33 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
 
     if response_status not in _STATUS_LABELS or not evening_id:
         await callback.answer("Некорректный статус", show_alert=True)
+        return
+
+    if response_status == "late":
+        slots_result = await get_evening_slots(evening_id)
+        slots = (slots_result.get("data") or {}).get("slots") or []
+        if not slots_result.get("success") or not slots:
+            await callback.answer("Не удалось получить список игр. Попробуй позже.", show_alert=True)
+            return
+        rows = []
+        for slot in slots:
+            slot_id = str(slot.get("id") or "")
+            if not slot_id:
+                continue
+            number = slot.get("slot_number") or "?"
+            starts_at = _parse_starts_at(slot.get("starts_at"))
+            clock = starts_at.strftime("%H:%M") if starts_at else "время уточняется"
+            rows.append([InlineKeyboardButton(text=f"С игры №{number} · {clock}", callback_data=f"evlate:{evening_id}:{slot_id}")])
+        if not rows:
+            await callback.answer("Для вечера пока нет доступных игр.", show_alert=True)
+            return
+        await callback.answer()
+        if callback.message:
+            await callback.message.answer(
+                "⏳ <b>С какой игры тебя ждать?</b>\\nЗапишем на неё и все следующие.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            )
         return
 
     result = await submit_evening_response(

@@ -181,7 +181,7 @@ router.get('/evenings/:eveningId/slots', async (req, res) => {
       return res.status(404).json({ error: 'Вечер недоступен' });
     }
     const plan = await loadEveningSlotPlan(db, String(evening.id));
-    return res.json({ success: true, slots: plan.slots.map((slot) => ({
+    return res.json({ success: true, slots: plan.slots.filter((slot) => slot.status === 'open').map((slot) => ({
       id: String(slot.id), slot_number: slot.slot_number, starts_at: slot.starts_at,
     })) });
   } catch (error: any) {
@@ -316,9 +316,10 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     let lateSlotIds: string[] = [];
     if (responseStatus === 'late') {
       const plan = await loadEveningSlotPlan(db, String(evening.id), String(player.id));
-      const index = plan.slots.findIndex((slot) => String(slot.id) === startingSlotId);
+      const availableSlots = plan.slots.filter((slot) => slot.status === 'open');
+      const index = availableSlots.findIndex((slot) => String(slot.id) === startingSlotId);
       if (index < 0) return res.status(400).json({ error: 'Эта игра больше недоступна', code: 'invalid_starting_slot' });
-      lateSlotIds = plan.slots.slice(index).map((slot) => String(slot.id));
+      lateSlotIds = availableSlots.slice(index).map((slot) => String(slot.id));
     }
 
     const now = new Date().toISOString();

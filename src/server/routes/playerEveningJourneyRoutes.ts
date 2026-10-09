@@ -3,6 +3,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
+import { loadPlayerEveningWorkspace } from '../services/playerEveningWorkspaceService.ts';
 
 const router = Router();
 
@@ -42,6 +43,18 @@ const recapIsFresh = (value: string | null | undefined) => {
   return age >= 0 && age <= 20 * 60 * 60 * 1000;
 };
 
+router.get('/evenings/:eveningId/overview', async (req, res) => {
+  const playerId = requirePlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const overview = await loadPlayerEveningWorkspace(req.db, String(req.params.eveningId), playerId);
+    return res.json(overview);
+  } catch (error: any) {
+    const status = Number(error?.statusCode || 500);
+    return res.status(status).json({ error: status === 500 ? 'Не удалось загрузить вечер' : error?.message || 'Вечер недоступен' });
+  }
+});
+
 router.get('/evening-journey', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
@@ -51,16 +64,17 @@ router.get('/evening-journey', async (req, res) => {
     const player = await db.get('SELECT id, game_level FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
-    const active = await db.get(`
+    const activeRows = await db.all(`
       SELECT id, title, starts_at, venue, format, status
         FROM game_evenings
        WHERE status = 'active' AND settled_at IS NULL
        ORDER BY datetime(starts_at) DESC
-       LIMIT 1
+       LIMIT 12
     `);
+    const active = activeRows.find((row: any) => playerLevelAllowsEveningFormat(player.game_level, row.format)) || null;
 
     if (active) {
-      const [gameRows, presentRow, participant] = await Promise.all([
+      const [gameRows, presentRow, participant, rosterRows] = await Promise.all([
         db.all(`
           SELECT g.id, g.global_game_number, g.winner_team, g.judge_name, g.protocol_text,
                  g.created_at, et.name AS table_name
@@ -76,6 +90,14 @@ router.get('/evening-journey', async (req, res) => {
            WHERE evening_id = ? AND player_id = ?
            LIMIT 1
         `, [active.id, playerId]),
+        db.all(`
+          SELECT p.id AS player_id, p.nickname, ep.response_status, ep.attendance_status
+            FROM evening_participants ep
+            JOIN players p ON p.id = ep.player_id
+           WHERE ep.evening_id = ?
+             AND (ep.response_status IN ('going', 'late', 'thinking') OR ep.attendance_status = 'attended')
+           ORDER BY CASE WHEN ep.attendance_status = 'attended' THEN 0 ELSE 1 END, p.nickname
+        `, [active.id]),
       ]);
 
       const games = gameRows.map((row: any, index: number) => {
@@ -108,13 +130,15 @@ router.get('/evening-journey', async (req, res) => {
           winner_team: winnerTeam,
           players,
           self_played: Boolean(selfResult),
+          self_seat: selfResult ? Number(selfResult.seat_number || 0) : null,
           self_won: status === 'completed' && selfTeam && winnerTeam ? selfTeam === winnerTeam : null,
         };
       });
 
       const completed = games.filter((game: any) => game.status === 'completed');
       const currentGame = games.filter((game: any) => game.status !== 'completed').slice(-1)[0] || null;
-      const selfSeat = currentGame?.players.find((item: any) => item.player_id === playerId) || null;
+      const selfCurrentGame = games.find((game: any) => game.status !== 'completed' && game.self_played) || null;
+      const selfSeat = selfCurrentGame?.players.find((item: any) => item.player_id === playerId) || null;
       const redWins = completed.filter((game: any) => game.winner_team === 'red').length;
       const blackWins = completed.filter((game: any) => game.winner_team === 'black').length;
       const latestSelfGame = completed.slice().reverse().find((game: any) => game.self_played) || null;
@@ -140,11 +164,14 @@ router.get('/evening-journey', async (req, res) => {
             attendance_status: attendanceStatus,
             state: selfState,
             seat_number: selfSeat?.seat_number || null,
+            game_id: selfCurrentGame?.id || null,
           },
           score: { red: redWins, black: blackWins, completed: completed.length, total_created: games.length },
           present_count: Number(presentRow?.total || 0),
+          roster: rosterRows.map((person: any) => ({ player_id: String(person.player_id), nickname: String(person.nickname || 'Игрок'), response_status: person.response_status, attendance_status: person.attendance_status })),
           current_game: currentGame,
-          recent_results: completed.slice(-4).reverse().map((game: any) => ({
+          current_games: games.filter((game: any) => game.status !== 'completed'),
+          recent_results: completed.slice().reverse().map((game: any) => ({
             id: game.id,
             game_key: game.game_key,
             local_number: game.local_number,

@@ -131,11 +131,13 @@ export default function PlayerEventsCalendar({
   initialEventId = null,
   onEventChange,
   embedded = false,
+  onOpenGame,
 }: {
   initialEventId?: string | null;
   onEventChange?: (eventId: string | null) => void;
   /** Inside «Вечера»: the section already has its title and tabs. */
   embedded?: boolean;
+  onOpenGame?: (gameKey: string, eveningId: string) => void;
 }) {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -309,7 +311,7 @@ export default function PlayerEventsCalendar({
   };
 
   if (selected?.event_type === 'custom') return <PlayerCustomEventDetail eventId={selected.id} onBack={closeEvent} onSaved={() => void load()} />;
-  if (selected) return <PlayerEventSlotDetail event={selected} onBack={closeEvent} onSaved={() => void load()} />;
+  if (selected) return <PlayerEventSlotDetail event={selected} onBack={closeEvent} onSaved={() => void load()} onOpenGame={onOpenGame} />;
 
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const leading = (first.getDay() + 6) % 7;

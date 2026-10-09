@@ -1,5 +1,18 @@
 # Audit log
 
+## 2026-10-09 · CRM route cleanup follow-up (Codex/CI)
+
+- [fixed] `eveningRouteService.ts`: planned announcement time was repeated twice while the same Monday 19:00 due time was already present in the pending message. Use the existing due text directly while pending; focused pending regression remains authoritative.
+- [fixed] `EveningPersonalInvites.tsx` and `EveningParticipantsView.tsx`: changing a quick response reloaded only the personal-invites subview, leaving the primary game-registration dashboard stale. Successful saves now notify the parent and bump the sibling's refresh key; added a focused callback test.
+
+## 2026-10-09 · CRM route cleanup (owner UI request)
+
+- [fixed in PR] `EveningWorkspace.tsx` mounted a second overview underneath the route with duplicated timing, messaging and responses controls. The route is now the single home.
+- [fixed in PR] `EveningRouteView.tsx` did not expose the existing move-start editor or announcement channel controls from the corresponding Preparation steps. Both are inline and collapsed by default.
+- [fixed in PR] `EveningPersonalInvites.tsx` duplicated the answers dashboard in the wrong tab. Keep its useful contact and quick status features in a collapsed section of `EveningParticipantsView.tsx`.
+- [unchanged] The Monday 19:00 Moscow auto-announcement schedule is fixed by `weeklyAnnouncementDue.ts`; this request changes placement only, not the scheduler. UI check: controls expand and mobile viewport remains usable.
+
+
 ## 2026-10-09 · Evening route, host and move notices
 
 - UI: «День вечера» duplicated preparation/gathering duties — fixed by moving staff/tables and start to those stages; cancel belongs under closing, without loosening cancellation permission.

@@ -53,7 +53,11 @@ describe('evening route', () => {
     expect(shortfall.detail).toContain('1-я 1/11');
     const prepare = response.body.stages.find((stage: any) => stage.id === 'prepare');
     expect(prepare.steps.find((step: any) => step.id === 'publish').status).toBe('done');
-    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['staff', 'tables']));
+    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['timing', 'staff', 'tables', 'posts', 'invites']));
+    expect(prepare.steps.find((step: any) => step.id === 'timing').detail).toContain('МСК');
+    expect(prepare.steps.find((step: any) => step.id === 'posts').detail).toContain('План:');
+    expect(prepare.steps.find((step: any) => step.id === 'posts').target).toBeUndefined();
+    expect(prepare.steps.find((step: any) => step.id === 'invites').target).toBe('participants');
     expect(gather.steps.map((step: any) => step.id)).toContain('start');
     expect(response.body.stages.find((stage: any) => stage.id === 'closeout').steps.map((step: any) => step.id)).toContain('cancel');
 

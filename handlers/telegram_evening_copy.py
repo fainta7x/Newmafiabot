@@ -487,9 +487,9 @@ def recruitment_private_text(evening: dict, underfilled_slots: list[dict]) -> st
         when = "на ближайшем вечере"
     shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
-        "Привет! 👋\n\n"
-        f"На играх {when} пока есть недобор:\n{shortages}\n\n"
-        "Если можешь присоединиться — выбери подходящие игры кнопкой ниже 👇"
+        "🔔 <b>Нужны игроки</b>\n\n"
+        f"📅 {when}\n📍 {venue_html(evening.get('venue'))}\n\n{shortages}\n\n"
+        "Можешь прийти? Ответь кнопкой и выбери игры 👇"
     )
 
 
@@ -504,9 +504,9 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
         when = "на ближайшем вечере"
     shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
-        "Ребята, всем привет! 👋\n\n"
-        f"На играх {when} пока не везде собран полный состав:\n{shortages}\n\n"
-        "Если можете присоединиться к этим играм — записывайтесь, пожалуйста 🙌"
+        "🎭 <b>Нужны игроки</b>\n\n"
+        f"📅 {when}\n📍 {venue_html(evening.get('venue'))}\n\n{shortages}\n\n"
+        "Можешь прийти? Запишись на нужные игры 👇"
     )
 
 

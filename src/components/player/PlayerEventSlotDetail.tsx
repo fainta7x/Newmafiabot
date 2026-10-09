@@ -5,6 +5,7 @@ import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFor
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 import VenueAddress from '../public/VenueAddress.tsx';
+import PlayerEveningWorkspace from './PlayerEveningWorkspace.tsx';
 
 type EventItem = {
   id: string;
@@ -44,16 +45,19 @@ export default function PlayerEventSlotDetail({
   event,
   onBack,
   onSaved,
+  onOpenGame,
 }: {
   event: EventItem;
   onBack: () => void;
   onSaved: () => void;
+  onOpenGame?: (gameKey: string, eveningId: string) => void;
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [draft, setDraft] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   const [saveError, setSaveError] = useState<{ message: string; needsFirstApplication: boolean } | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
 
@@ -120,6 +124,7 @@ export default function PlayerEventSlotDetail({
       setPlan(body as Plan);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
       setSaved(true);
+      setWorkspaceRefreshKey(value => value + 1);
       onSaved();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить');
@@ -154,6 +159,8 @@ export default function PlayerEventSlotDetail({
         {error && <div className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-3 text-xs text-rose-100">{error}</div>}
 
         {!plan && !error && <div className="mt-3 rounded-2xl bg-white/[0.035] px-3 py-6 text-center text-sm text-white/35">Загружаем игры вечера…</div>}
+
+        <PlayerEveningWorkspace eveningId={event.id} onOpenGame={onOpenGame} refreshKey={workspaceRefreshKey} />
 
         {plan && (
           <>

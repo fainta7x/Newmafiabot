@@ -768,3 +768,7 @@ Owner-approved small adjustments (branch fix/evening-route-host-reschedule-20261
 ### Organizer CRM evening route tools — owner request 2026-10-09
 
 Route visual organization refinement requested after deployment of #757: **date/start-time editing** (not announcement delivery time) now expands directly in the Preparation step; the Telegram/VK announcement step shows the planned Monday 19:00 Moscow automatic due time and expands its existing channel management controls. No new custom send-time configuration or scheduler behavior is introduced. The standalone «Анонс и приглашения» block beneath the route is removed. The contact/quick-answer view formerly shown there is now a lazy, collapsed «Написать игрокам лично» section on the «Ответы» tab, next to the canonical «Ответы и игры» dashboard; its Telegram links and response editing are preserved. Stage/registration/notification business rules are unchanged. Pending deploy and visual verification after merge.
+
+### Split trainer presentation and feedback — owner 2026-10-09
+
+User reports unreadable/overloaded table visuals, lengthy wordy tasks, and insufficient why-this-is-wrong feedback. Focused improvement: clearer nomination chips, explicit seats/legible vote destination labels, short task facts and rules-based answers/mistakes in both split trainers including timed expert/broken splits. Do not change scoring, generated votes, exams, achievements, time limits or player progress. Pending focused/mobile/CI verification and Amvera release separately.

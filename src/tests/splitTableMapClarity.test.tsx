@@ -19,4 +19,15 @@ describe('readable split table visual', () => {
     expect(within(legend).getAllByText('3 гол.')).toHaveLength(2);
     expect(screen.getByTestId('split-table-seat-10').textContent).toContain('10');
   });
+  it('uses 0 for place 10 inside a multi-person group and 10 if it is the only voter', () => {
+    render(<SplitTableMap candidates={[2, 8]} split={[2, 8]} votes={{ 2: [1, 2, 10], 8: [9] }} />);
+    const legend = screen.getByTestId('split-map-vote-legend');
+    expect(within(legend).getByText('120')).toBeTruthy();
+    expect(within(legend).getByText('9')).toBeTruthy();
+  });
+  it('keeps the single voter 10 written in full', () => {
+    render(<SplitTableMap candidates={[2, 8]} split={[2, 8]} votes={{ 2: [10], 8: [1, 2] }} />);
+    const legend = screen.getByTestId('split-map-vote-legend');
+    expect(within(legend).getByText('10')).toBeTruthy();
+  });
 });

@@ -5,6 +5,8 @@
  * with their checks and — when `votes` is given — whom every seat votes for, in the split player's
  * colour, so the way the table divides is visible at a glance.
  */
+import { seatList } from '../../../lib/splitVoteTraining.ts';
+
 const SEATS = Array.from({ length: 10 }, (_, index) => index + 1);
 /** Colours of the split players, in nomination order. */
 export const SPLIT_COLORS = ['#38bdf8', '#c084fc', '#34d399'] as const;
@@ -95,7 +97,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
           <p className="font-bold text-white">{voteCount ? 'Куда ушли голоса' : 'Голосов пока нет'}</p>
           {candidates.filter((candidate) => (votes[candidate]?.length ?? 0) > 0).map((candidate) => <div key={candidate} className="flex items-center gap-2">
             <span className="min-w-10 shrink-0 rounded-md px-1.5 py-0.5 text-center font-black" style={{ color: splitColor(candidate), backgroundColor: splitColor(candidate) + '20' }}>{'В ' + candidate}</span>
-            <span className="min-w-0 flex-1 text-white/90">{[...votes[candidate]].sort((a, b) => a - b).join(', ')}</span>
+            <span className="min-w-0 flex-1 text-white/90">{votes[candidate].length === 1 ? String(votes[candidate][0]) : seatList(votes[candidate])}</span>
             <span className="shrink-0 text-white/60">{votes[candidate].length} гол.</span>
           </div>)}
         </div> : null}

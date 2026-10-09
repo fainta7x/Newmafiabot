@@ -285,7 +285,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
                  splitThreeBreakVotes(broken, checked.answer as Record<number, number[]>),
                  aliveSeats(broken.killed).filter((seat) => seat !== broken.breaker),
                ).map((mistake) => <p key={mistake} className="text-amber-200">{mistake}</p>) : null}
-               <p><b className="text-white">Почему:</b> {broken.breaker} не поставил руку — оставшиеся голоса должны идти в него: <strong>{seatList(breakState.pool)}</strong>.</p>
+               <p><b className="text-white">Почему:</b> {broken.breaker} не поставил руку — оставшиеся голоса должны идти в {broken.breaker}: <strong>{seatList(breakState.pool)}</strong>.</p>
                <p className="text-white/70">Сломавший хочет вывести не себя, а другого, поэтому с ним никто не голосует.</p>
               {breakState.voted.length ? <p>{seatList(breakState.voted)} уже подняли руки за {breakState.first} — переголосовать не могут.</p> : null}
             </div>

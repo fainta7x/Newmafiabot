@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-09 · Split-vote trainers CI follow-up
+
+- [fixed] Required Vitest splitThreeScreen test still expected the old breaker-feedback expression. Updated explanation explicitly names the breaker rather than an ambiguous pronoun, retaining the numeric regression assertion.
+- [fixed] Mobile Playwright preview assertions retained four phrases that were intentionally replaced by short teaching copy. Updated these assertions to verify equivalent learner-visible guidance and statuses; no release gate disabled or relaxed to ignore runtime failures.
+- [fixed] `SplitTableMap.tsx` legend printed comma-delimited voters instead of club notation: use canonical `seatList` for groups, retain literal `10` for a singleton seat 10; new focused tests cover both.
+
 ## 2026-10-09 · Split-vote trainers UX
 
 - [fixed in PR] `SplitTableMap.tsx`: cramped schematic mixed nomination order, vote color, self seat and sheriff flags; tiny arrow labels collided with seat circles. Preserve seating rule but add clear labeled chips, a vote-by-candidate list and readable within-seat vote arrows.

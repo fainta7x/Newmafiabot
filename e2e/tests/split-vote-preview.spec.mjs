@@ -14,7 +14,7 @@ test('split-vote exercise fits a Telegram-sized screen and explains the choice',
   await page.screenshot({ path: testInfo.outputPath('split-vote-choice.png') });
   await page.getByRole('button', { name: /^В \d+$/ }).first().click();
   await page.getByRole('button', { name: 'Проверить ответ' }).click();
-  await expect(page.getByRole('status')).toContainText('по 5 голосов');
+  await expect(page.getByRole('status')).toContainText('ровно 5 голосов');
   await page.getByRole('button', { name: 'Следующая задача' }).click();
   await expect(page.getByRole('button', { name: 'Проверить ответ' })).toBeDisabled();
 });
@@ -38,7 +38,7 @@ test('whole-table voting uses nomination order on a phone', async ({ page }, tes
   await expect(page.getByTestId('split-vote-review')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.getByRole('button', { name: 'Проверить голосование' }).click();
-  await expect(page.getByRole('status')).toContainText('Распределение голосов неверное');
+  await expect(page.getByRole('status')).toContainText('Разбор ошибки');
 });
 
 test('passed exam is clearly marked on a phone', async ({ page }, testInfo) => {
@@ -125,7 +125,7 @@ test('three-way split hard level shows both sheriffs on a phone', async ({ page 
   await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium', 'three_break', 'three_choose'] } }));
   await page.goto('/e2e/split-vote.html?tab=split-three');
   await page.getByTestId('split-three-level-three_hard').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
-  await expect(page.getByTestId('split-three-sheriffs')).toContainText('Город меньше верит шерифу');
+  await expect(page.getByTestId('split-three-sheriffs')).toContainText('меньше верят');
   // The task opens from its conditions even though the level card was lower on the page.
   await expect(page.getByTestId('split-three-sheriffs')).toBeInViewport();
   await expect(page.getByTestId('split-table-map')).toBeVisible();
@@ -156,7 +156,7 @@ test('three-way broken split: the break, the timer and the table fit a phone', a
   await page.route('**/api/player/split-vote-progress', (route) => route.fulfill({ json: { passed: ['three_easy', 'three_medium'] } }));
   await page.goto('/e2e/split-vote.html?tab=split-three');
   await page.getByTestId('split-three-level-three_break').getByRole('button', { name: 'Практика · 5 вопросов' }).click();
-  await expect(page.getByTestId('split-three-break')).toContainText('не поставил руку');
+  await expect(page.getByTestId('split-three-break')).toContainText('не поднял руку');
   await expect(page.getByTestId('split-three-timer')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('split-three-break-390.png'), fullPage: true });

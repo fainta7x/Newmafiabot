@@ -10,13 +10,14 @@ type Game = {
   judge_name: string | null;
   players: Array<{ seat_number: number; player_id: string | null; nickname: string }>;
   self_played: boolean;
+  self_seat?: number | null;
   self_won: boolean | null;
 };
 
 type Journey = {
   phase: string;
   evening?: { id: string; title: string; starts_at: string | null; venue: string | null };
-  participation?: { state?: string; response_status?: string; attendance_status?: string; seat_number?: number | null };
+  participation?: { state?: string; response_status?: string; attendance_status?: string; seat_number?: number | null; game_id?: number | null };
   score?: { red: number; black: number; completed: number };
   present_count?: number;
   roster?: Array<{ player_id: string; nickname: string; response_status: string; attendance_status: string }>;
@@ -76,7 +77,7 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
         {activeGames.map((game) => <div key={game.id} className="mt-3 rounded-2xl bg-black/20 p-3">
           <div className="text-xs font-semibold">Сейчас игра {game.local_number} · {game.table_name || 'Стол'}</div>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
-            {game.players.map((player) => <div key={player.seat_number} className={`truncate rounded-lg px-2 py-1.5 text-[11px] ${player.player_id && journey.participation?.seat_number === player.seat_number ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/[0.05] text-white/55'}`}>#{player.seat_number} {player.nickname}</div>)}
+            {game.players.map((player) => <div key={player.seat_number} className={`truncate rounded-lg px-2 py-1.5 text-[11px] ${game.self_seat != null && game.self_seat === player.seat_number ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/[0.05] text-white/55'}`}>#{player.seat_number} {player.nickname}</div>)}
           </div>
           <p className="mt-2 text-[11px] text-white/35">Роли и закрытые проверки откроются только после завершения партии.</p>
         </div>)}

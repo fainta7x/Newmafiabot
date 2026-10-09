@@ -33,6 +33,23 @@ describe('SQLite-backed player analytics cache', () => {
     expect(scanCount()).toBe(2);
   });
 
+  it('never retains an uncommitted game snapshot after transaction rollback', async () => {
+    const db = createDatabaseConnection(':memory:'); opened.push(db);
+    await loadCompletedGameSnapshots(db);
+    db.sqlite.exec('BEGIN');
+    try {
+      expect(sqliteReadVersion(db)).toBeNull();
+      await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)',
+        ['temporary-player', 'Temporary', new Date().toISOString(), new Date().toISOString()]);
+      await loadCompletedGameSnapshots(db);
+    } finally {
+      db.sqlite.exec('ROLLBACK');
+    }
+    expect(sqliteReadVersion(db)).not.toBeNull();
+    expect(await db.get('SELECT id FROM players WHERE id = ?', ['temporary-player'])).toBeUndefined();
+    expect(await loadCompletedGameSnapshots(db)).toEqual([]);
+  });
+
   it('invalidates cached snapshots and fingerprints when another SQLite connection commits', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mafia-cache-')); dirs.push(dir);
     const filename = path.join(dir, 'test.sqlite');

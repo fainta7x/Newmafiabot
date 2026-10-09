@@ -169,3 +169,10 @@ def test_learning_back_button_respects_entrypoint():
     _, club = bot_home.learn_view("more")
     assert novice.inline_keyboard[-1][0].callback_data == "home:home"
     assert club.inline_keyboard[-1][0].callback_data == "home:more"
+
+
+def test_signup_faq_and_evening_card_explain_full_evening_booking():
+    answer, _ = bot_home.faq_answer_view("signup")
+    assert "записан на все игры вечера" in answer
+    card, _ = bot_home.evening_view({"id": "ev", "format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"})
+    assert "«✅ Буду» — на все игры" in card

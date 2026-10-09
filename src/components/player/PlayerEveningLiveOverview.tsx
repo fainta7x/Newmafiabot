@@ -30,12 +30,11 @@ const stateLabel: Record<string, string> = {
 const winner = (team: Game['winner_team']) => team === 'red' ? 'Победа красных' : team === 'black' ? 'Победа чёрных' : 'Ожидаем результат';
 
 export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }: {
-  onOpenGame: (gameKey: string) => void;
+  onOpenGame: (gameKey: string, eveningId: string) => void;
   onOpenEvening: (eveningId: string) => void;
 }) {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -47,8 +46,6 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
         if (alive) { setJourney(body.journey || null); setError(''); }
       } catch (err: any) {
         if (alive) setError(err?.message || 'Не удалось обновить вечер');
-      } finally {
-        if (alive) setRefreshing(false);
       }
     };
     void load();
@@ -86,7 +83,7 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
         </div>
         {recent.length > 0 && <div className="mt-3 space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Завершённые игры · полные протоколы</h3>
-          {recent.map(game => <button key={game.id} type="button" onClick={() => onOpenGame(game.game_key)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl bg-black/25 px-3 text-left text-xs">
+          {recent.map(game => <button key={game.id} type="button" onClick={() => onOpenGame(game.game_key, journey.evening!.id)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl bg-black/25 px-3 text-left text-xs">
             <span><strong>Игра {game.local_number}</strong><span className="mt-1 block text-white/45">{game.table_name || 'Стол'} · {winner(game.winner_team)}</span></span>
             <span className="text-white/50">Протокол ›</span>
           </button>)}

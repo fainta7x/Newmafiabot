@@ -186,6 +186,7 @@ export const SplitVoteTraining: React.FC = () => {
              <div className="flex flex-wrap gap-1.5 text-[12px]">
                <span data-testid="split-vote-nominees" className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white/85">Выставлены: <b className="text-white">{scenario.candidates.join(' → ')}</b></span>
                <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white/85">Попил: <b className="text-white">{scenario.pair[0]} / {scenario.pair[1]}</b></span>
+               <p className="sr-only">Попил между {scenario.pair[0]} и {scenario.pair[1]}</p>
                <span data-testid="split-vote-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span>
              </div>
              <p className="text-[12px] leading-5 text-white/60">{interactive ? 'Выбирай руки для каждого кандидата по порядку. Последний заберёт оставшиеся.' : 'Найди своё место на схеме и выбери кандидата.'}</p>

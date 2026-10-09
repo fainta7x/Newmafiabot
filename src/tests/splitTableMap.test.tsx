@@ -35,8 +35,10 @@ describe('split table map', () => {
     expect(screen.getByTestId('split-table-seat-1').textContent).toContain('Ш');
     expect(screen.getByTestId('split-table-seat-2').textContent).toContain('Ч');
     expect(screen.getByTestId('split-table-seat-6').textContent).toContain('К');
-    expect(screen.getByTestId('split-table-seat-3').textContent).toContain('ты →2');
+    expect(screen.getByTestId('split-table-seat-3').textContent).toContain('ТЫ');
+    expect(screen.getByTestId('split-table-seat-3').textContent).toContain('→2');
     expect(screen.getByTestId('split-table-seat-9').textContent).toContain('→7');
-    expect(screen.getByTestId('split-table-map').textContent).toContain('пилится 4 — 3 гол.');
+    expect(screen.getByTestId('split-map-vote-legend').textContent).toContain('В 4');
+    expect(screen.getByTestId('split-map-vote-legend').textContent).toContain('3 гол.');
   });
 });

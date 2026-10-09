@@ -229,7 +229,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <SplitThreeBreakTask key={`${position}`} scenario={broken} onProgress={setBreakVotes}
               onDone={(answer, timedOut) => finish(!timedOut && isCorrectSplitThreeBreak(broken, answer), answer)} />
           ) : null}
-          {broken ? tableMap : null}
+          {/* The broken-split drill needs only the split and the missed hand, not the full scenario map. */}
 
           {chooseLevel && !checked ? <div className="space-y-3" data-testid="split-three-choose">
             <h3 className="text-base font-semibold">Кого пилить? Выбери троих</h3>

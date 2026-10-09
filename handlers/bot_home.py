@@ -121,12 +121,13 @@ def newcomer_home(first_name: str | None, evenings: list[dict]) -> tuple[str, In
         "Мафия — игра, где за столом прячутся несколько «злодеев», а остальные пытаются их вычислить по словам, "
         "голосам и поступкам. Опыт не нужен: на вечере для новичков всё объясним с нуля.\n\n"
         f"{nearest}"
-        "С чего начнём? 👇"
+        "Выбирай, что интересно 👇"
     )
     rows = [
         [InlineKeyboardButton(text="📅 Записаться на вечер", callback_data="home:events")],
         [InlineKeyboardButton(text="🎭 Что за игра?", callback_data="home:game"),
          InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq")],
+        [InlineKeyboardButton(text="📚 Правила и тренажёры", callback_data="home:learn")],
     ]
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -354,14 +355,14 @@ def faq_answer_view(key: str) -> tuple[str, InlineKeyboardMarkup]:
     return f"<b>{escape(title)}</b>\n\n{escape(answer)}", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def learn_view() -> tuple[str, InlineKeyboardMarkup]:
+def learn_view(back_to: str = "more") -> tuple[str, InlineKeyboardMarkup]:
     rows = _pairs([
         _app_button("🎓 Школа мафии", "/guide"),
         _app_button("🧠 Тренажёры", "/guide?tab=trainers"),
         _app_button("📖 Правила", "/guide?tab=reference"),
         InlineKeyboardButton(text="🎬 Пример игры", url=GAME_EXAMPLE_URL),
     ])
-    rows.append(_back("more"))
+    rows.append(_back(back_to))
     return (
         "📚 <b>Обучение</b>\n\nПравила простыми словами, словарь мафиозных слов и тренажёры — "
         "чтобы спокойно разобраться до вечера или потренироваться между играми.",
@@ -491,7 +492,8 @@ async def home_callback(callback: CallbackQuery) -> None:
     elif section == "faq":
         await _show(callback, *(faq_answer_view(arg) if arg else faq_view()))
     elif section in ("learn", "rules"):  # «rules» came from cards sent before the regulations left the menu
-        await _show(callback, *learn_view())
+        audience = await _audience(callback.from_user.id)
+        await _show(callback, *learn_view("home" if audience == "newcomer" else "more"))
     elif section == "groups":
         result = await get_telegram_destinations()
         rows = ((result.get("data") or {}).get("destinations") or []) if result.get("success") else []

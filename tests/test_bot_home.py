@@ -176,3 +176,26 @@ def test_signup_faq_and_evening_card_explain_full_evening_booking():
     assert "записан на все игры вечера" in answer
     card, _ = bot_home.evening_view({"id": "ev", "format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"})
     assert "«✅ Буду» — на все игры" in card
+
+
+def test_late_registration_displays_selected_games_in_home_and_mine():
+    home = {"player": {"nickname": "Лиса", "game_level": "club"},
+            "evenings": [{"id": "c", "response_status": "late", "games": 3}]}
+    text, _ = bot_home.club_home("Лиса", home, EVENINGS)
+    assert "с выбранной игры (3 игр)" in text
+    mine, _ = bot_home.mine_view(home)
+    assert "⏳ приду позже · игр: 3" in mine
+
+
+def test_stale_evening_callback_offers_fresh_navigation(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=EVENINGS))
+    monkeypatch.setattr(bot_home, "_show", AsyncMock())
+    callback = SimpleNamespace(data="home:ev:cancelled", from_user=SimpleNamespace(id=12))
+    asyncio.run(bot_home.home_callback(callback))
+    bot_home._show.assert_awaited_once()
+    args = bot_home._show.await_args.args
+    assert "больше не работает" in args[1]

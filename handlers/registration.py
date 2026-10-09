@@ -296,11 +296,17 @@ async def start_with_registration(message: Message, command: CommandObject, stat
 
     await state.set_state(RegistrationForm.waiting_for_nickname)
     await state.update_data(pending_start_arg=args)
+    from handlers.telegram_evening_copy import club_links
+    organizer_url = club_links().get("organizer_telegram")
+    organizer_markup = (InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✉️ У меня уже есть профиль — написать организатору", url=organizer_url)],
+    ]) if organizer_url else None)
     await message.answer(
         "🎭 Добро пожаловать в 2LA Noire!\n\n"
         "Чтобы зарегистрироваться, пришли одним сообщением свой игровой ник. "
         "Он будет отображаться в приложении, записях, играх, рейтингах и турнирах.\n\n"
-        "Если ты уже играл в клубе и профиль точно есть в базе, не создавай второй — напиши организатору для привязки существующего профиля."
+        "Если у тебя уже есть профиль в клубе, не создавай второй — организатор поможет привязать его к Telegram.",
+        reply_markup=organizer_markup,
     )
 
 

@@ -204,3 +204,25 @@ def test_stale_evening_callback_offers_fresh_navigation(monkeypatch):
 def test_late_arrival_slot_time_is_displayed_in_club_timezone():
     from handlers.crm_evening_response import _parse_starts_at
     assert _parse_starts_at("2026-10-16T18:00:00Z").strftime("%H:%M") == "21:00"
+
+
+def test_late_arrival_callback_fits_telegram_limit_and_resolves_current_slot(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from handlers import crm_evening_response as handler
+
+    slots = [{"id": "slot-uuid-" + "x" * 27, "slot_number": 3, "starts_at": "2026-10-16T19:00:00Z"}]
+    monkeypatch.setattr(handler, "get_evening_slots", AsyncMock(return_value={"success": True, "data": {"slots": slots}}))
+    submit = AsyncMock(return_value={"success": True})
+    monkeypatch.setattr(handler, "submit_evening_response", submit)
+    monkeypatch.setattr(handler, "refresh_crm_group_stats", AsyncMock())
+    message = SimpleNamespace(chat=SimpleNamespace(type="private"), edit_reply_markup=AsyncMock())
+    callback = SimpleNamespace(
+        data="evlate:" + "a" * 36 + ":3", from_user=SimpleNamespace(id=42),
+        message=message, answer=AsyncMock(),
+    )
+    assert len(callback.data.encode("utf-8")) <= 64
+    asyncio.run(handler.choose_late_start(callback, SimpleNamespace()))
+    assert submit.await_args.kwargs["starting_slot_id"] == slots[0]["id"]
+    assert submit.await_args.args == ("a" * 36, 42, "late")

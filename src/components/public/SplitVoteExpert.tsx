@@ -178,10 +178,13 @@ export const SplitVoteExpertSession = ({ mode, onExit, onPassed, scenarios }: {
          <p className="text-[12px] text-white/75">Попил: <b className="text-white">{scenario.pair.join(' / ')}</b> · часть голосов уже потрачена</p>
        </div>
        {/* Who already voted, and after the round the votes as they were cast. */}
-      <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={outcome ? allExpertVotes(scenario, outcome.answer) : expertHistory(scenario).votes} />
-      {!outcome ? <ExpertRound key={round} scenario={scenario} onDone={done} /> : <>
-        <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100"><b>Уже произошло:</b> {describeBreak(scenario)}</p>
-        <OutcomeView scenario={scenario} outcome={outcome} />
+      {!outcome ? <>
+         <ExpertRound key={round} scenario={scenario} onDone={done} />
+         <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={expertHistory(scenario).votes} />
+       </> : <>
+         <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={allExpertVotes(scenario, outcome.answer)} />
+         <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100"><b>Уже произошло:</b> {describeBreak(scenario)}</p>
+         <OutcomeView scenario={scenario} outcome={outcome} />
       </>}
       {finished ? <div data-testid="split-vote-result" className={`rounded-2xl border p-4 text-sm leading-6 ${finished === 'passed' ? 'border-emerald-400/50 bg-emerald-500/[.12] text-emerald-100' : 'border-white/15 bg-white/[.06]'}`}>
         <strong className="block text-base">{finished === 'passed' ? 'Экзамен сдан: 5 из 5' : finished === 'failed' ? `Экзамен не сдан: ошибка в задаче ${position + 1}` : `Практика завершена: ${correct} из 5`}</strong>

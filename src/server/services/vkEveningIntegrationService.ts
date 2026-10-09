@@ -24,6 +24,7 @@ type VkResponseStatus = Exclude<EveningResponseStatus, 'unanswered'>;
 type EveningRow = {
   id: string;
   title: string;
+  judge_nickname?: string | null;
   starts_at: string;
   timezone: string | null;
   venue: string | null;
@@ -141,6 +142,18 @@ const loadEvening = async (db: DatabaseWrapper, eveningId: string): Promise<Even
      LIMIT 1
   `, [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  // Sparse and historical test schemas may not have evening staffing yet.
+  const staffTable = await db.get<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'",
+  );
+  if (staffTable) {
+    const staff = await db.get<{ nickname: string }>(`
+      SELECT p.nickname FROM evening_staff_assignments s
+        JOIN players p ON p.id = s.judge_player_id
+       WHERE s.evening_id = ? LIMIT 1
+    `, [eveningId]);
+    evening.judge_nickname = staff?.nickname || null;
+  }
   return evening;
 };
 
@@ -168,6 +181,7 @@ export const buildVkEveningAnnouncement = (evening: EveningRow) => {
     `📅 ${formatDate(evening)}`,
   ];
   if (evening.venue) lines.push(`📍 ${evening.venue}`);
+  if (evening.judge_nickname) lines.push(`🎙 Ведущий вечера: ${evening.judge_nickname}`);
   if (Number(evening.default_price || 0) > 0) lines.push(`💳 ${Number(evening.default_price).toLocaleString('ru-RU')} ₽`);
   lines.push('', 'Отметься в опросе — ответ попадёт в общую запись 2LA Noire.');
   return lines.join('\n');

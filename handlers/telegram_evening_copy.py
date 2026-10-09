@@ -239,6 +239,9 @@ def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
         f"📅 {format_start(evening.get('starts_at'), timezone_name)}",
         f"📍 {venue}",
     ]
+    judge = escape(str(evening.get("judge_nickname") or "").strip()[:80])
+    if judge:
+        lines.append(f"🎙 Ведущий вечера: {judge}")
     briefing = _novice_briefing_line(canonical_format, evening.get("starts_at"), timezone_name)
     if briefing:
         lines.append(f"🎓 {briefing}")
@@ -389,6 +392,9 @@ def club_short_text(evening: dict, slots: list[dict] | None = None, *, action: b
     lines = [f"Привет! {when}, играем в мафию — ждём тебя 🎭"]
     if details:
         lines.append(f"📍 {details}")
+    judge = escape(str(evening.get("judge_nickname") or "").strip()[:80])
+    if judge:
+        lines.append(f"🎙 Ведущий вечера: {judge}")
     if action:
         lines.append(_CLUB_ACTION)
     return "\n".join(lines)
@@ -420,6 +426,9 @@ def novice_short_text(evening: dict, slots: list[dict] | None = None, *, action:
     details = " · ".join(part for part in (place, price) if part)
     if details:
         lines.append(f"📍 {details}")
+    judge = escape(str(evening.get("judge_nickname") or "").strip()[:80])
+    if judge:
+        lines.append(f"🎙 Ведущий вечера: {judge}")
     if action:
         lines.append(_CLUB_ACTION)
     return "\n".join(lines)

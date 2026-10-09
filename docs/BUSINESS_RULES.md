@@ -428,6 +428,8 @@ Closing a club evening should be **fast, flexible and fact-based**, not a rigid 
 
 ## Announcements
 
+**Evening host and rescheduling (owner-approved 2026-10-09):** Club/novice/rating announcements name the specifically assigned «Судья вечера» as «Ведущий вечера»; this is a staffing fact, not an ordinary player/role grant. After a published evening's date/time changes before it starts, tell players who answered «Иду», «Приду позже» or «Думаю» via their chosen personal notification channel, and issue a separate correction in the evening's main Telegram destination and VK public wall. Keep existing posts synchronized; do not duplicate the original announcement. An unchanged start sends nothing. Cancelling remains pre-start-only even though its control is grouped with closing tasks.
+
 The intended flow is:
 
 `organizer creates/publishes evening -> connected channels/bot notify players -> players respond -> statuses appear in the application`

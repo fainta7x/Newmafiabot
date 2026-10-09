@@ -16,7 +16,7 @@ describe('evening route', () => {
     const games = { total: 0, unfinished: 0 };
     expect(currentRouteStage({ status: 'draft', starts_at: '2026-09-25T16:00:00Z' }, games, now)).toBe('prepare');
     expect(currentRouteStage({ status: 'published', starts_at: '2026-09-25T16:00:00Z' }, games, now)).toBe('gather');
-    expect(currentRouteStage({ status: 'published', starts_at: '2026-09-24T16:00:00Z' }, games, now)).toBe('day');
+    expect(currentRouteStage({ status: 'published', starts_at: '2026-09-24T16:00:00Z' }, games, now)).toBe('gather');
     expect(currentRouteStage({ status: 'active', starts_at: '2026-09-24T08:00:00Z' }, { total: 2, unfinished: 1 }, now)).toBe('live');
     expect(currentRouteStage({ status: 'active', starts_at: '2026-09-24T08:00:00Z' }, { total: 3, unfinished: 0 }, now)).toBe('closeout');
     // A closed evening has no stage of its own: it is the end of «Закрытие».
@@ -39,7 +39,7 @@ describe('evening route', () => {
     expect(response.body.current_stage).toBe('gather');
     expect(response.body.stages.map((stage: any) => [stage.id, stage.state])).toEqual([
       // Nothing was announced or sent yet, so the past «Подготовка» stays yellow, not «done».
-      ['prepare', 'attention'], ['gather', 'current'], ['day', 'upcoming'], ['live', 'upcoming'], ['closeout', 'upcoming'],
+      ['prepare', 'attention'], ['gather', 'current'], ['live', 'upcoming'], ['closeout', 'upcoming'],
     ]);
     const gather = response.body.stages.find((stage: any) => stage.id === 'gather');
     const answers = gather.steps.find((step: any) => step.id === 'answers');
@@ -53,6 +53,9 @@ describe('evening route', () => {
     expect(shortfall.detail).toContain('1-я 1/11');
     const prepare = response.body.stages.find((stage: any) => stage.id === 'prepare');
     expect(prepare.steps.find((step: any) => step.id === 'publish').status).toBe('done');
+    expect(prepare.steps.map((step: any) => step.id)).toEqual(expect.arrayContaining(['staff', 'tables']));
+    expect(gather.steps.map((step: any) => step.id)).toContain('start');
+    expect(response.body.stages.find((stage: any) => stage.id === 'closeout').steps.map((step: any) => step.id)).toContain('cancel');
 
     expect((await request(app).get('/api/evenings/r1/route')).status).toBe(401);
   });
@@ -69,7 +72,7 @@ describe('evening route', () => {
       VALUES ('e1','c1','p1','going','going','pending','unpaid',?,?)`, [now, now]);
 
     const open = (await request(app).get('/api/evenings/c1/route').set('Cookie', organizerCookie())).body;
-    expect(open.stages.map((stage: any) => stage.id)).toEqual(['prepare', 'gather', 'day', 'live', 'closeout']);
+    expect(open.stages.map((stage: any) => stage.id)).toEqual(['prepare', 'gather', 'live', 'closeout']);
     expect(open.stages.flatMap((stage: any) => stage.steps).some((step: any) => step.id === 'created')).toBe(false);
     expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.map((step: any) => step.id)).toEqual(['money', 'close']);
     expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.find((step: any) => step.id === 'close').detail).toContain('нет отметки у 1 игрок');

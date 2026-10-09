@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-09 · Evening route, host and move notices
+
+- UI: «День вечера» duplicated preparation/gathering duties — fixed by moving staff/tables and start to those stages; cancel belongs under closing, without loosening cancellation permission.
+- Telegram/VK: existing announcement formatters showed the assigned judge only in player rosters — fixed by reading `evening_staff_assignments.judge_player_id`; refreshing existing posts when this assignment changes.
+- Slot reschedule: game times and original channel posts updated but registrants received no distinct notice — add individually keyed personal outbox deliveries and a separate Telegram/VK correction, guarded against no-op edits.
+- Verification: targeted route/start/notification tests; external provider delivery and Amvera deploy remain separate checks.
+
 Owner of: findings of code/behaviour audits (what was found, what is fixed, what is still open). Current queue and deploy state stay in `docs/PROJECT_STATE.md`; this file is the evidence behind the queue, so an audit never lives only in chat.
 
 Rules:

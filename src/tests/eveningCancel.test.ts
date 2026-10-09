@@ -23,7 +23,7 @@ async function setup() {
   return db;
 }
 
-describe('cancelling an evening from «Сбор»', () => {
+describe('cancelling an evening from «Закрытие»', () => {
   it('cancels only that evening, tells the player and posts to its own group', async () => {
     const db = await setup();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
@@ -31,7 +31,7 @@ describe('cancelling an evening from «Сбор»', () => {
     const fetchImpl = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as any;
 
     const route = await loadEveningRoute(db, 'nov');
-    const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'cancel')!;
+    const step = route.stages.find((stage) => stage.id === 'closeout')!.steps.find((item) => item.id === 'cancel')!;
     expect(step.action).toBe('cancel_evening');
 
     const draft = await buildCancelPostDraft(db, 'nov');
@@ -55,7 +55,7 @@ describe('cancelling an evening from «Сбор»', () => {
     expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('published');
 
     const after = await loadEveningRoute(db, 'nov');
-    const done = after.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'cancel')!;
+    const done = after.stages.find((stage) => stage.id === 'closeout')!.steps.find((item) => item.id === 'cancel')!;
     // VK is not configured in tests, so the post is only «partial» and can be repeated.
     expect(done.title).toBe('Пост об отмене дошёл не везде');
     expect(done.status).toBe('attention');
@@ -79,7 +79,7 @@ describe('cancelling an evening from «Сбор»', () => {
     await cancelEveningByOrganizer(db, 'nov', { text: 'Отмена' }, fetchImpl);
     expect((await loadCancelPost(db, 'nov')).telegram_status).toBe('failed');
     const route = await loadEveningRoute(db, 'nov');
-    const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'cancel')!;
+    const step = route.stages.find((stage) => stage.id === 'closeout')!.steps.find((item) => item.id === 'cancel')!;
     expect(step.status).toBe('attention');
     expect(step.action).toBe('cancel_evening');
     fail = false;

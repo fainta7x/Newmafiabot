@@ -111,7 +111,8 @@ export async function loadPlayerEveningWorkspace(db: any, eveningId: string, vie
 
   if (isCompleted) {
     const personallyPlayed = games.some((game: any) => game.players.some((person: any) => person.player_id === viewerId));
-    if (!self && !personallyPlayed) {
+    const attended = String(self?.attendance_status || '') === 'attended';
+    if (!attended && !personallyPlayed) {
       throw Object.assign(new Error('Итоги доступны участникам вечера'), { statusCode: 403 });
     }
   }

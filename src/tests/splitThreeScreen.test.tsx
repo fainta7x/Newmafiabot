@@ -99,7 +99,7 @@ describe('three-way split trainer screen', () => {
     render(<SplitThreeTraining initial={[broken, broken]} />);
     await waitFor(() => expect(screen.getByTestId('split-three-level-three_break').querySelector('button')!.hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getAllByRole('button', { name: 'Практика · 5 вопросов' })[2]);
-    expect(screen.getByTestId('split-three-break').textContent).toContain('3 не поднял руку');
+    expect(screen.getByTestId('split-three-break-message').textContent).toBe('Попил сломан! 3 не поставил руку в 1. Что делаем дальше?');
     expect(screen.getByTestId('split-three-timer').textContent).toContain('15 с');
     // 1 and 2 cannot vote again.
     expect(screen.queryByRole('button', { name: '1', exact: true } as never)).toBeNull();

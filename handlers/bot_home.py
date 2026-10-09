@@ -138,21 +138,35 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
     mine = {str(item.get("id")): item for item in (home or {}).get("evenings") or []}
     lines = [f"🎭 <b>2LA Noire · клуб</b>", "", f"Привет, <b>{name}</b>!" if name else "Привет!"]
     upcoming = [item for item in evenings if not _is_novice_evening(item)][:1] or evenings[:1]
+    action_evening = None
+    action_label = None
     for evening in upcoming:
         own = mine.get(str(evening.get("id")))
-        status = _STATUS_TEXT.get(str((own or {}).get("response_status")), "ты ещё не ответил")
+        answer = str((own or {}).get("response_status") or "unanswered")
+        status = _STATUS_TEXT.get(answer, "ты ещё не ответил")
         games = int((own or {}).get("games") or 0)
-        if games and (own or {}).get("response_status") == "late":
-            status += f" · с выбранной игры ({games} игр)"
-        elif games and (own or {}).get("response_status") == "going":
+        first_game = (own or {}).get("first_game")
+        if answer == "late":
+            status += f" · с игры №{first_game}" if first_game else " · уточни стартовую игру"
+        elif games and answer == "going":
             status += f" · {games} игр"
         lines += ["", f"📅 Ближайший вечер: <b>{_when(evening.get('starts_at'))}</b>",
                   f"👥 Идут: {int(evening.get('attending_count') or 0)} · ты: {status}"]
+        action_evening = str(evening.get("id") or "")
+        action_label = {
+            "going": "✏️ Изменить запись",
+            "late": "⏳ Изменить время прибытия",
+            "thinking": "🤔 Определиться с вечером",
+            "declined": "🔄 Пересмотреть ответ",
+        }.get(answer, "✅ Ответить на приглашение")
+        break
     text = "\n".join(lines)
     rows: list[list[InlineKeyboardButton]] = []
     app = _app_button(bot_menu.APP_BUTTON_TEXT, "/player")
     if app:
         rows.append([app])
+    if action_evening and action_label:
+        rows.append([InlineKeyboardButton(text=action_label, callback_data=f"home:ev:{action_evening}")])
     rows.append([
         InlineKeyboardButton(text="📅 Расписание", callback_data="home:events"),
         InlineKeyboardButton(text="👤 Мои записи", callback_data="home:mine"),
@@ -314,7 +328,10 @@ def mine_view(data: dict | None, error: str | None = None) -> tuple[str, InlineK
             for evening in evenings:
                 status = _STATUS_TEXT.get(str(evening.get("response_status")), "")
                 games = int(evening.get("games") or 0)
-                games_text = f" · игр: {games}" if games else (" · игры пока не выбраны" if evening.get("response_status") == "late" else "")
+                first_game = evening.get("first_game")
+                games_text = (f" · с игры №{first_game}, всего {games}" if first_game and evening.get("response_status") == "late"
+                              else f" · игр: {games}" if games
+                              else " · уточни стартовую игру" if evening.get("response_status") == "late" else "")
                 lines.append(f"• <b>{_when(evening.get('starts_at'))}</b> — {status}{games_text}")
                 rows.append([InlineKeyboardButton(text=f"✏️ {_when(evening.get('starts_at'))}", callback_data=f"home:ev:{evening.get('id')}")])
         else:

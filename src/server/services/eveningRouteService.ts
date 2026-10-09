@@ -136,7 +136,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
       : { id: 'publish', title: 'Открыть запись', detail: 'Игроки увидят вечер в календаре и смогут записаться. Анонсы в Telegram и ВК — отдельный шаг', status: 'todo', action: 'publish' },
-    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: `${postsDetail} · План: ${announcementLabel} (МСК)`, status: telegramPosts || vkPosts ? 'done' : published && !announcementPending ? 'attention' : 'todo' },
+    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: announcementPending || !published ? postsDetail : `${postsDetail} · План: ${announcementLabel} (МСК)`, status: telegramPosts || vkPosts ? 'done' : published && !announcementPending ? 'attention' : 'todo' },
     { id: 'invites', title: 'Личная рассылка анонса', detail: invitesSent ? `Доставлено: ${invitesSent}` : 'Пока не отправлена', status: invitesSent ? 'done' : published ? 'attention' : 'todo', target: 'participants' },
   );
 

@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-09 · CRM route cleanup follow-up (Codex/CI)
+
+- [fixed] `eveningRouteService.ts`: planned announcement time was repeated twice while the same Monday 19:00 due time was already present in the pending message. Use the existing due text directly while pending; focused pending regression remains authoritative.
+- [fixed] `EveningPersonalInvites.tsx` and `EveningParticipantsView.tsx`: changing a quick response reloaded only the personal-invites subview, leaving the primary game-registration dashboard stale. Successful saves now notify the parent and bump the sibling's refresh key; added a focused callback test.
+
 ## 2026-10-09 · CRM route cleanup (owner UI request)
 
 - [fixed in PR] `EveningWorkspace.tsx` mounted a second overview underneath the route with duplicated timing, messaging and responses controls. The route is now the single home.

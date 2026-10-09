@@ -37,7 +37,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
           {showContacts ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
         </button>
         {showContacts ? <div className="border-t border-border-soft p-2.5">
-          <EveningPersonalInvites key={eveningId} eveningId={eveningId} />
+          <EveningPersonalInvites key={eveningId} eveningId={eveningId} onChanged={refresh} />
         </div> : null}
       </section>
 

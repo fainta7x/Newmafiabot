@@ -170,6 +170,25 @@ router.get('/evenings/open', async (req, res) => {
   }
 });
 
+router.get('/evenings/:eveningId/slots', async (req, res) => {
+  try {
+    const db = req.db;
+    const evening = await db.get(
+      "SELECT id, status, settled_at FROM game_evenings WHERE id = ?",
+      [req.params.eveningId],
+    );
+    if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+      return res.status(404).json({ error: 'Вечер недоступен' });
+    }
+    const plan = await loadEveningSlotPlan(db, String(evening.id));
+    return res.json({ success: true, slots: plan.slots.map((slot) => ({
+      id: String(slot.id), slot_number: slot.slot_number, starts_at: slot.starts_at,
+    })) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить игры' });
+  }
+});
+
 router.get('/evenings/:eveningId/participants', async (req, res) => {
   try {
     const db = req.db;

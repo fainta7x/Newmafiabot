@@ -243,3 +243,30 @@ def test_home_primary_action_follows_player_response():
         assert any(b.callback_data == "home:ev:c" for row in kb.inline_keyboard for b in row)
         if status == "late":
             assert "с игры №3" in text
+
+
+def test_missing_mine_data_does_not_replace_card_with_empty_records(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "get_player_home", AsyncMock(return_value={"success": False, "error": "unavailable"}))
+    callback = SimpleNamespace(
+        data="home:mine", from_user=SimpleNamespace(id=42), answer=AsyncMock()
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не получилось получить записи. Попробуй ещё раз позже.", show_alert=True
+    )
+
+
+def test_stale_lineup_callback_has_new_evening_navigation(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=EVENINGS))
+    monkeypatch.setattr(bot_home, "_show", AsyncMock())
+    callback = SimpleNamespace(data="home:lineup:old", from_user=SimpleNamespace(id=42))
+    asyncio.run(bot_home.home_callback(callback))
+    assert "больше не работает" in bot_home._show.await_args.args[1]

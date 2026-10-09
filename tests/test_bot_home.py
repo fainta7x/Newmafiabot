@@ -20,7 +20,7 @@ def test_newcomer_gets_a_short_friendly_menu():
     text, markup = bot_home.newcomer_home("Аня", EVENINGS)
     assert "Ближайший вечер для новичков: <b>пт, 2 октября · 19:00</b>" in text
     rows = _texts(markup)
-    assert rows == [["📅 Записаться на вечер"], ["🎭 Что за игра?", "❓ Вопросы"]]
+    assert rows == [["📅 Записаться на вечер"], ["🎭 Что за игра?", "❓ Вопросы"], ["📚 Правила и тренажёры"]]
 
 
 def test_newcomer_sees_only_novice_evenings():
@@ -160,3 +160,10 @@ def test_lineups_callback_does_not_claim_no_evenings_on_api_outage(monkeypatch):
     callback.answer.assert_awaited_once_with(
         "Не удалось загрузить составы. Попробуй чуть позже.", show_alert=True
     )
+
+
+def test_learning_back_button_respects_entrypoint():
+    _, novice = bot_home.learn_view("home")
+    _, club = bot_home.learn_view("more")
+    assert novice.inline_keyboard[-1][0].callback_data == "home:home"
+    assert club.inline_keyboard[-1][0].callback_data == "home:more"

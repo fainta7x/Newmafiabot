@@ -47,7 +47,7 @@ export default function PlayerEveningsHub({
         <SegmentedControl ariaLabel="Разделы вечеров" value={section} items={TABS} onValueChange={(next) => onOpen(next)} itemClassName="!px-1 text-[13px]" />
       </div>
 
-      {section === 'events' ? <PlayerEveningLiveOverview onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
+      {section === 'events' && !target ? <PlayerEveningLiveOverview onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
 
       {section === 'events' ? (
         <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} />

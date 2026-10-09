@@ -36,7 +36,7 @@ _WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 # Frequent questions: (key, button, answer). Friendly, for newcomers; facts follow docs/BUSINESS_RULES.md.
 FAQ: tuple[tuple[str, str, str], ...] = (
     ("signup", "📝 Как записаться",
-     "Проще простого 🙂 Открой в меню список вечеров, выбери подходящий вечер и нажми «✅ Буду» — всё, ты в списке!\n\n"
+     "Проще простого 🙂 Открой в меню список вечеров, выбери подходящий вечер и нажми «✅ Буду» — ты записан на все игры вечера!\n\n"
      "Сможешь только на часть вечера? Нажми «🎯 Выбрать игры» и отметь нужные. "
      "А если планы поменяются, просто нажми «❌ Не буду» — так место достанется кому-то ещё."),
     ("price", "💳 Сколько стоит",
@@ -121,12 +121,13 @@ def newcomer_home(first_name: str | None, evenings: list[dict]) -> tuple[str, In
         "Мафия — игра, где за столом прячутся несколько «злодеев», а остальные пытаются их вычислить по словам, "
         "голосам и поступкам. Опыт не нужен: на вечере для новичков всё объясним с нуля.\n\n"
         f"{nearest}"
-        "С чего начнём? 👇"
+        "Выбирай, что интересно 👇"
     )
     rows = [
         [InlineKeyboardButton(text="📅 Записаться на вечер", callback_data="home:events")],
         [InlineKeyboardButton(text="🎭 Что за игра?", callback_data="home:game"),
          InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq")],
+        [InlineKeyboardButton(text="📚 Правила и тренажёры", callback_data="home:learn")],
     ]
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -137,16 +138,39 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
     mine = {str(item.get("id")): item for item in (home or {}).get("evenings") or []}
     lines = [f"🎭 <b>2LA Noire · клуб</b>", "", f"Привет, <b>{name}</b>!" if name else "Привет!"]
     upcoming = [item for item in evenings if not _is_novice_evening(item)][:1] or evenings[:1]
+    action_evening = None
+    action_label = None
     for evening in upcoming:
         own = mine.get(str(evening.get("id")))
-        status = _STATUS_TEXT.get(str((own or {}).get("response_status")), "ты ещё не ответил")
+        answer = str((own or {}).get("response_status") or "unanswered")
+        status = _STATUS_TEXT.get(answer, "ты ещё не ответил")
+        games = int((own or {}).get("games") or 0)
+        first_game = (own or {}).get("first_game")
+        if answer == "late":
+            status += f" · с игры №{first_game}" if first_game else " · уточни стартовую игру"
+        elif games and answer == "going":
+            status += f" · {games} игр"
         lines += ["", f"📅 Ближайший вечер: <b>{_when(evening.get('starts_at'))}</b>",
                   f"👥 Идут: {int(evening.get('attending_count') or 0)} · ты: {status}"]
+        action_evening = str(evening.get("id") or "")
+        action_label = {
+            "going": "✏️ Изменить запись",
+            "late": "⏳ Изменить время прибытия",
+            "thinking": "🤔 Определиться с вечером",
+            "declined": "🔄 Пересмотреть ответ",
+        }.get(answer, "✅ Ответить на приглашение")
+        break
     text = "\n".join(lines)
     rows: list[list[InlineKeyboardButton]] = []
     app = _app_button(bot_menu.APP_BUTTON_TEXT, "/player")
     if app:
         rows.append([app])
+    if action_evening and action_label:
+        rows.append([InlineKeyboardButton(text=action_label, callback_data=f"home:ev:{action_evening}")])
+    elif not upcoming:
+        results = _app_button("🏁 Мои результаты прошлых вечеров", "/player/games")
+        if results:
+            rows.append([results])
     rows.append([
         InlineKeyboardButton(text="📅 Расписание", callback_data="home:events"),
         InlineKeyboardButton(text="👤 Мои записи", callback_data="home:mine"),
@@ -278,7 +302,7 @@ def evening_view(evening: dict) -> tuple[str, InlineKeyboardMarkup]:
     evening_id = str(evening.get("id") or "")
     coming = int(evening.get("attending_count") or 0)
     thinking = int(evening.get("thinking_count") or 0)
-    text = f"{event_base_text(evening)}\n\n👥 Идут: <b>{coming}</b>" + (f" · думают: {thinking}" if thinking else "")
+    text = f"{event_base_text(evening)}\n\n👥 Идут: <b>{coming}</b>" + (f" · думают: {thinking}" if thinking else "") + "\n\n«✅ Буду» — на все игры. На часть вечера — выбери игры отдельно."
     rows = [
         [InlineKeyboardButton(text="✅ Буду", callback_data=f"evr:{evening_id}:going"),
          InlineKeyboardButton(text="⏳ Приду позже", callback_data=f"evr:{evening_id}:late")],
@@ -308,7 +332,10 @@ def mine_view(data: dict | None, error: str | None = None) -> tuple[str, InlineK
             for evening in evenings:
                 status = _STATUS_TEXT.get(str(evening.get("response_status")), "")
                 games = int(evening.get("games") or 0)
-                games_text = f" · игр: {games}" if games else ""
+                first_game = evening.get("first_game")
+                games_text = (f" · с игры №{first_game}, всего {games}" if first_game and evening.get("response_status") == "late"
+                              else f" · игр: {games}" if games
+                              else " · уточни стартовую игру" if evening.get("response_status") == "late" else "")
                 lines.append(f"• <b>{_when(evening.get('starts_at'))}</b> — {status}{games_text}")
                 rows.append([InlineKeyboardButton(text=f"✏️ {_when(evening.get('starts_at'))}", callback_data=f"home:ev:{evening.get('id')}")])
         else:
@@ -354,14 +381,14 @@ def faq_answer_view(key: str) -> tuple[str, InlineKeyboardMarkup]:
     return f"<b>{escape(title)}</b>\n\n{escape(answer)}", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def learn_view() -> tuple[str, InlineKeyboardMarkup]:
+def learn_view(back_to: str = "more") -> tuple[str, InlineKeyboardMarkup]:
     rows = _pairs([
         _app_button("🎓 Школа мафии", "/guide"),
         _app_button("🧠 Тренажёры", "/guide?tab=trainers"),
         _app_button("📖 Правила", "/guide?tab=reference"),
         InlineKeyboardButton(text="🎬 Пример игры", url=GAME_EXAMPLE_URL),
     ])
-    rows.append(_back("more"))
+    rows.append(_back(back_to))
     return (
         "📚 <b>Обучение</b>\n\nПравила простыми словами, словарь мафиозных слов и тренажёры — "
         "чтобы спокойно разобраться до вечера или потренироваться между играми.",
@@ -465,18 +492,36 @@ async def home_callback(callback: CallbackQuery) -> None:
             return
         await _show(callback, *events_view(evenings, await _audience(callback.from_user.id)))
     elif section == "ev":
-        evenings = await _open_evenings() or []
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не удалось проверить вечер. Попробуй чуть позже.", show_alert=True)
+            return
         evening = next((item for item in evenings if str(item.get("id")) == arg), None)
         if not evening:
-            await callback.answer("Запись на этот вечер уже закрыта", show_alert=True)
+            await _show(callback, *stale_link_view(evenings, event_gone=True))
             return
         await _show(callback, *evening_view(evening))
     elif section == "mine":
         result = await get_player_home(callback.from_user.id)
-        await _show(callback, *mine_view(result.get("data") if result.get("success") else None, result.get("error")))
+        error = result.get("error")
+        if not result.get("success") and error != "not_found":
+            await callback.answer("Не получилось получить записи. Попробуй ещё раз позже.", show_alert=True)
+            return
+        await _show(callback, *mine_view(result.get("data") if result.get("success") else None, error))
     elif section == "lineups":
-        await _show(callback, *lineups_view(await _open_evenings() or []))
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не удалось загрузить составы. Попробуй чуть позже.", show_alert=True)
+            return
+        await _show(callback, *lineups_view(evenings))
     elif section == "lineup":
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не получилось проверить состав. Попробуй позже.", show_alert=True)
+            return
+        if not any(str(evening.get("id")) == arg for evening in evenings):
+            await _show(callback, *stale_link_view(evenings, event_gone=True))
+            return
         from handlers.crm_booking import build_crm_evening_stats_text
         text = await build_crm_evening_stats_text(arg)
         markup = InlineKeyboardMarkup(inline_keyboard=[_back("lineups", "⬅️ К составам")])
@@ -484,7 +529,8 @@ async def home_callback(callback: CallbackQuery) -> None:
     elif section == "faq":
         await _show(callback, *(faq_answer_view(arg) if arg else faq_view()))
     elif section in ("learn", "rules"):  # «rules» came from cards sent before the regulations left the menu
-        await _show(callback, *learn_view())
+        audience = await _audience(callback.from_user.id)
+        await _show(callback, *learn_view("home" if audience == "newcomer" else "more"))
     elif section == "groups":
         result = await get_telegram_destinations()
         rows = ((result.get("data") or {}).get("destinations") or []) if result.get("success") else []
@@ -494,4 +540,4 @@ async def home_callback(callback: CallbackQuery) -> None:
         await _handle_club_access(callback.message, await _main_menu(callback.from_user.id), callback.from_user)
         await callback.answer()
     else:
-        await callback.answer()
+        await _show(callback, *stale_link_view(await _open_evenings()))

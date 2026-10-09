@@ -170,6 +170,25 @@ router.get('/evenings/open', async (req, res) => {
   }
 });
 
+router.get('/evenings/:eveningId/slots', async (req, res) => {
+  try {
+    const db = req.db;
+    const evening = await db.get(
+      "SELECT id, status, settled_at FROM game_evenings WHERE id = ?",
+      [req.params.eveningId],
+    );
+    if (!evening || !['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+      return res.status(404).json({ error: 'Вечер недоступен' });
+    }
+    const plan = await loadEveningSlotPlan(db, String(evening.id));
+    return res.json({ success: true, slots: plan.slots.filter((slot) => slot.status === 'open').map((slot) => ({
+      id: String(slot.id), slot_number: slot.slot_number, starts_at: slot.starts_at,
+    })) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить игры' });
+  }
+});
+
 router.get('/evenings/:eveningId/participants', async (req, res) => {
   try {
     const db = req.db;
@@ -287,6 +306,22 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       });
     }
 
+    const startingSlotId = String(req.body?.starting_slot_id ?? '').trim();
+    if (responseStatus === 'late' && !startingSlotId) {
+      return res.status(400).json({ error: 'Укажите игру, с которой придёте', code: 'starting_slot_required' });
+    }
+    if (startingSlotId && responseStatus !== 'late') {
+      return res.status(400).json({ error: 'Стартовая игра доступна только для ответа «Приду позже»' });
+    }
+    let lateSlotIds: string[] = [];
+    if (responseStatus === 'late') {
+      const plan = await loadEveningSlotPlan(db, String(evening.id), String(player.id));
+      const availableSlots = plan.slots.filter((slot) => slot.status === 'open');
+      const index = availableSlots.findIndex((slot) => String(slot.id) === startingSlotId);
+      if (index < 0) return res.status(400).json({ error: 'Эта игра больше недоступна', code: 'invalid_starting_slot' });
+      lateSlotIds = availableSlots.slice(index).map((slot) => String(slot.id));
+    }
+
     const now = new Date().toISOString();
     const defaultPrice = Math.max(0, Number(evening.default_price || 0));
     const participantId = randomUUID();
@@ -326,6 +361,11 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
         String(player.id),
         plan.slots.map((slot) => slot.id),
       );
+    } else if (responseStatus === 'late') {
+      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), lateSlotIds, { notifyOrganizer: false });
+      await setParticipantResponse(db, String(participant.id), 'late');
+      await notifyOrganizerAboutResponse(db, String(participant.id), existingParticipant?.response_status ?? null, 'late')
+        .catch((error) => console.warn('[BOT RSVP] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     } else {
       // Clearing the games is a step towards the chosen answer; only that answer alerts the organizer.
       await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false });
@@ -386,7 +426,10 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
       `SELECT e.id, e.title, e.starts_at, e.format, e.venue, ep.response_status,
               (SELECT COUNT(*) FROM evening_slot_registrations r
                  JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS games
+                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS games,
+              (SELECT MIN(s.slot_number) FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = ep.id AND s.evening_id = e.id) AS first_game
          FROM evening_participants ep
          JOIN game_evenings e ON e.id = ep.evening_id
         WHERE ep.player_id = ?
@@ -404,7 +447,7 @@ router.get('/players/by-telegram/:telegramUserId/home', async (req, res) => {
         tokens: Number(player.tokens || 0),
         game_level: String(player.game_level || 'unrated'),
       },
-      evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0) })),
+      evenings: evenings.map((row) => ({ ...row, games: Number(row.games || 0), first_game: row.first_game == null ? null : Number(row.first_game) })),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить записи игрока' });

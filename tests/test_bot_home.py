@@ -20,7 +20,7 @@ def test_newcomer_gets_a_short_friendly_menu():
     text, markup = bot_home.newcomer_home("Аня", EVENINGS)
     assert "Ближайший вечер для новичков: <b>пт, 2 октября · 19:00</b>" in text
     rows = _texts(markup)
-    assert rows == [["📅 Записаться на вечер"], ["🎭 Что за игра?", "❓ Вопросы"]]
+    assert rows == [["📅 Записаться на вечер"], ["🎭 Что за игра?", "❓ Вопросы"], ["📚 Правила и тренажёры"]]
 
 
 def test_newcomer_sees_only_novice_evenings():
@@ -35,7 +35,7 @@ def test_club_player_gets_the_full_menu():
     text, markup = bot_home.club_home("Аня", home, EVENINGS)
     assert "Ближайший вечер: <b>пт, 2 октября · 21:00</b>" in text and "ты: ✅ иду" in text
     rows = _texts(markup)
-    assert len(rows) <= 3
+    assert len(rows) <= 4
     flat = [t for row in rows for t in row]
     for section in ("📅 Расписание", "👤 Мои записи", "👥 Составы", "☰ Ещё"):
         assert section in flat
@@ -128,3 +128,145 @@ def test_old_link_without_open_evenings_still_offers_the_app(monkeypatch):
     text, markup = bot_home.stale_link_view([])
     assert "Ближайших вечеров пока нет" in text
     assert [t for row in _texts(markup) for t in row] == ["🎭 Открыть 2LA Noire"]
+
+
+def test_evening_callback_does_not_claim_booking_closed_on_api_outage(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
+    callback = SimpleNamespace(
+        data="home:ev:123",
+        from_user=SimpleNamespace(id=42, first_name="Игрок"),
+        answer=AsyncMock(),
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не удалось проверить вечер. Попробуй чуть позже.", show_alert=True
+    )
+
+
+def test_lineups_callback_does_not_claim_no_evenings_on_api_outage(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
+    callback = SimpleNamespace(
+        data="home:lineups",
+        from_user=SimpleNamespace(id=42, first_name="Игрок"),
+        answer=AsyncMock(),
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не удалось загрузить составы. Попробуй чуть позже.", show_alert=True
+    )
+
+
+def test_learning_back_button_respects_entrypoint():
+    _, novice = bot_home.learn_view("home")
+    _, club = bot_home.learn_view("more")
+    assert novice.inline_keyboard[-1][0].callback_data == "home:home"
+    assert club.inline_keyboard[-1][0].callback_data == "home:more"
+
+
+def test_signup_faq_and_evening_card_explain_full_evening_booking():
+    answer, _ = bot_home.faq_answer_view("signup")
+    assert "записан на все игры вечера" in answer
+    card, _ = bot_home.evening_view({"id": "ev", "format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"})
+    assert "«✅ Буду» — на все игры" in card
+
+
+def test_late_registration_displays_selected_games_in_home_and_mine():
+    home = {"player": {"nickname": "Лиса", "game_level": "club"},
+            "evenings": [{"id": "c", "response_status": "late", "games": 3}]}
+    text, _ = bot_home.club_home("Лиса", home, EVENINGS)
+    assert "уточни стартовую игру" in text
+    mine, _ = bot_home.mine_view(home)
+    assert "⏳ приду позже · игр: 3" in mine
+
+
+def test_stale_evening_callback_offers_fresh_navigation(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=EVENINGS))
+    monkeypatch.setattr(bot_home, "_show", AsyncMock())
+    callback = SimpleNamespace(data="home:ev:cancelled", from_user=SimpleNamespace(id=12))
+    asyncio.run(bot_home.home_callback(callback))
+    bot_home._show.assert_awaited_once()
+    args = bot_home._show.await_args.args
+    assert "больше не работает" in args[1]
+
+
+def test_late_arrival_slot_time_is_displayed_in_club_timezone():
+    from handlers.crm_evening_response import _parse_starts_at
+    assert _parse_starts_at("2026-10-16T18:00:00Z").strftime("%H:%M") == "21:00"
+
+
+def test_late_arrival_callback_fits_telegram_limit_and_resolves_current_slot(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from handlers import crm_evening_response as handler
+
+    slots = [{"id": "slot-uuid-" + "x" * 27, "slot_number": 3, "starts_at": "2026-10-16T19:00:00Z"}]
+    monkeypatch.setattr(handler, "get_evening_slots", AsyncMock(return_value={"success": True, "data": {"slots": slots}}))
+    submit = AsyncMock(return_value={"success": True})
+    monkeypatch.setattr(handler, "submit_evening_response", submit)
+    monkeypatch.setattr(handler, "refresh_crm_group_stats", AsyncMock())
+    message = SimpleNamespace(chat=SimpleNamespace(type="private"), edit_reply_markup=AsyncMock())
+    callback = SimpleNamespace(
+        data="evlate:" + "a" * 36 + ":3", from_user=SimpleNamespace(id=42),
+        message=message, answer=AsyncMock(),
+    )
+    assert len(callback.data.encode("utf-8")) <= 64
+    asyncio.run(handler.choose_late_start(callback, SimpleNamespace()))
+    assert submit.await_args.kwargs["starting_slot_id"] == slots[0]["id"]
+    assert submit.await_args.args == ("a" * 36, 42, "late")
+
+
+def test_home_primary_action_follows_player_response():
+    for status, button in (
+        ("going", "✏️ Изменить запись"),
+        ("late", "⏳ Изменить время прибытия"),
+        ("thinking", "🤔 Определиться с вечером"),
+        ("unanswered", "✅ Ответить на приглашение"),
+    ):
+        home = {"player": {"game_level": "club"}, "evenings": (
+            [] if status == "unanswered" else [{"id": "c", "response_status": status, "games": 2, "first_game": 3}]
+        )}
+        text, kb = bot_home.club_home("Игрок", home, EVENINGS)
+        assert button in [b.text for row in kb.inline_keyboard for b in row]
+        assert any(b.callback_data == "home:ev:c" for row in kb.inline_keyboard for b in row)
+        if status == "late":
+            assert "с игры №3" in text
+
+
+def test_missing_mine_data_does_not_replace_card_with_empty_records(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "get_player_home", AsyncMock(return_value={"success": False, "error": "unavailable"}))
+    callback = SimpleNamespace(
+        data="home:mine", from_user=SimpleNamespace(id=42), answer=AsyncMock()
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не получилось получить записи. Попробуй ещё раз позже.", show_alert=True
+    )
+
+
+def test_stale_lineup_callback_has_new_evening_navigation(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=EVENINGS))
+    monkeypatch.setattr(bot_home, "_show", AsyncMock())
+    callback = SimpleNamespace(data="home:lineup:old", from_user=SimpleNamespace(id=42))
+    asyncio.run(bot_home.home_callback(callback))
+    assert "больше не работает" in bot_home._show.await_args.args[1]

@@ -141,11 +141,13 @@ const buildNotifications = async (db: any, playerId: string) => {
     }
   }
 
-  const [snapshots, eloTimeline, eveningSummaries] = await Promise.all([
+  // One request needs the same game snapshots and Elo timeline for notifications
+  // and the evening summary. Reuse them instead of querying/parsing every game twice.
+  const [snapshots, eloTimeline] = await Promise.all([
     loadCompletedGameSnapshots(db),
     loadPlayerEloHistory(db),
-    loadPlayerEveningSummaries(db, playerId, 3),
   ]);
+  const eveningSummaries = await loadPlayerEveningSummaries(db, playerId, 3, { snapshots, eloTimeline });
 
   const personalGames = snapshots.filter((game) => game.players.some((item) => item.player_id === playerId));
   const recentGame = personalGames[0];

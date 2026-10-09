@@ -20,6 +20,7 @@ type Journey = {
   score?: { red: number; black: number; completed: number };
   present_count?: number;
   current_game?: Game | null;
+  current_games?: Game[];
   recent_results?: Game[];
 };
 
@@ -56,6 +57,7 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
   const active = journey?.phase === 'live' && journey.evening;
   if (!active && !error) return null;
   const recent = journey?.recent_results || [];
+  const activeGames = journey?.current_games || (journey?.current_game ? [journey.current_game] : []);
   return <section data-testid="player-evening-live-overview" className="mx-auto mb-3 w-full max-w-[430px] px-3">
     <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
       {active ? <>
@@ -70,19 +72,19 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
             <div className="text-[10px] text-white/35">красные / чёрные</div>
           </div>
         </div>
-        {journey.current_game && <div className="mt-3 rounded-2xl bg-black/20 p-3">
-          <div className="text-xs font-semibold">Сейчас игра {journey.current_game.local_number} · {journey.current_game.table_name || 'Стол'}</div>
+        {activeGames.map((game) => <div key={game.id} className="mt-3 rounded-2xl bg-black/20 p-3">
+          <div className="text-xs font-semibold">Сейчас игра {game.local_number} · {game.table_name || 'Стол'}</div>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
-            {journey.current_game.players.map((player) => <div key={player.seat_number} className={`truncate rounded-lg px-2 py-1.5 text-[11px] ${player.player_id && journey.participation?.seat_number === player.seat_number ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/[0.05] text-white/55'}`}>#{player.seat_number} {player.nickname}</div>)}
+            {game.players.map((player) => <div key={player.seat_number} className={`truncate rounded-lg px-2 py-1.5 text-[11px] ${player.player_id && journey.participation?.seat_number === player.seat_number ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/[0.05] text-white/55'}`}>#{player.seat_number} {player.nickname}</div>)}
           </div>
           <p className="mt-2 text-[11px] text-white/35">Роли и закрытые проверки откроются только после завершения партии.</p>
-        </div>}
+        </div>)}
         <div className="mt-3 flex items-center justify-between gap-2">
           <div className="text-xs text-white/40">{journey.score?.completed || 0} завершённых игр · {journey.present_count || 0} участников</div>
           <button type="button" onClick={() => onOpenEvening(journey.evening!.id)} className="min-h-10 rounded-xl bg-white/[0.08] px-3 text-xs font-semibold">Моё участие ›</button>
         </div>
         {recent.length > 0 && <div className="mt-3 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Завершённые игры · полные протоколы</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Все завершённые игры · полные протоколы</h3>
           {recent.map(game => <button key={game.id} type="button" onClick={() => onOpenGame(game.game_key, journey.evening!.id)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl bg-black/25 px-3 text-left text-xs">
             <span><strong>Игра {game.local_number}</strong><span className="mt-1 block text-white/45">{game.table_name || 'Стол'} · {winner(game.winner_team)}</span></span>
             <span className="text-white/50">Протокол ›</span>

@@ -26,7 +26,8 @@ describe('Elo history is replayed only when its inputs change', () => {
     expect(afterPlayer).not.toBe(first);
     expect(await loadPlayerEloHistory(db)).toBe(afterPlayer);
     // Unrelated writes must not force a full canonical Elo replay.
-    await db.run('INSERT INTO organizer_tasks (id,title,created_at,updated_at) VALUES (?,?,?,?)', ['unrelated-task', 'Not an Elo event', now, now]);
+    db.sqlite.exec('CREATE TABLE perf_unrelated (id INTEGER PRIMARY KEY, value TEXT)');
+    await db.run('INSERT INTO perf_unrelated (value) VALUES (?)', ['Not an Elo event']);
     expect(await loadPlayerEloHistory(db)).toBe(afterPlayer);
     await db.run("UPDATE players SET elo = 1012 WHERE id = 'p1'"); // what every rated save does (canonical rebuild)
     const afterElo = await loadPlayerEloHistory(db);

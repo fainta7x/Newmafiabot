@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { sqliteReadVersion } from './sqliteReadVersion.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 import {
@@ -286,15 +287,8 @@ async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null>
   // (data_version) changed the database. These O(1) counters avoid scanning every
   // historical protocol / result on each profile and notification refresh.
   // The canonical Elo generation also changes for explicit rating rebuilds.
-  try {
-    const local = db.sqlite.prepare('SELECT total_changes() AS changes').get() as { changes: number };
-    const external = db.sqlite.pragma('data_version', { simple: true }) as number;
-    if (Number.isFinite(local?.changes) && Number.isFinite(external)) {
-      return JSON.stringify([currentEloInputsGeneration(), local.changes, external]);
-    }
-  } catch {
-    // Non-native database wrappers still use the existing content fingerprint.
-  }
+  const version = sqliteReadVersion(db);
+  if (version !== null) return JSON.stringify([currentEloInputsGeneration(), version]);
   try {
     const parts = await Promise.all([
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w, COUNT(archived_at) AS a FROM games`),

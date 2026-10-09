@@ -8,6 +8,10 @@ import type { DatabaseWrapper } from '../../db/index.ts';
  */
 export function sqliteReadVersion(db: Pick<DatabaseWrapper, 'sqlite'>): string | null {
   try {
+    // total_changes() counts writes even if the surrounding transaction later
+    // rolls back. Never cache a view of uncommitted rows: after rollback the
+    // counters would otherwise match that stale cached version indefinitely.
+    if (db.sqlite.inTransaction) return null;
     const local = db.sqlite.prepare('SELECT total_changes() AS changes').get() as { changes: number };
     const external = db.sqlite.pragma('data_version', { simple: true }) as number;
     if (Number.isSafeInteger(local?.changes) && Number.isSafeInteger(external)) {

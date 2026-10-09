@@ -14,6 +14,14 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
+## Telegram bot UX — partially completed (2026-10-09)
+
+**Status: PARTIAL / further improvements remain.** PR #768 was squash-merged into `main` as `e116902b55dde3b6ce7845f33daafe3ee9e2f726` after green CI. This is a code/CI milestone **only**; Amvera deployment and real Telegram runtime acceptance have not been verified here.
+
+Implemented in code: «✅ Буду» selects all evening games; «⏳ Приду позже» requires the first game and selects that game onward; partial game selection remains available; personalized home action and RSVP state; more useful reminders for going/late/thinking/unanswered players; stale evening/lineup link recovery; clearer first-run guidance and organizer contact when an existing player needs profile linking. Existing per-evening personal results and MVP flow are reused rather than duplicated.
+
+**Still open / not a complete bot overhaul:** verify live Telegram flows after deployment (late-game callbacks, actual roster and change of RSVP, manual-existing-profile claim approval, reminder delivery/idempotency, post-evening result delivery); continue auditing the full invitation → game → post-game journey, recovery scenarios and notification relevance against actual club use. Do not describe the bot as fully finished based on PR #768 alone. New product work requires owner approval under `AGENTS.md`.
+
 ## Active owner-reported bug (2026-10-08): stranded VK account linking
 
 A player whose record was created earlier manually can sign in via VK but encounter an indefinite «Ждём подтверждение профиля» screen if the record already has a Telegram link. The old path sent a personal message to the linked Telegram user but created no organizer-reviewable request. Owner requested a clear explanation and manual approval in the CRM player's card. This workstream provides an additional organizer approval path with explicit identity verification; no nickname-only automatic link, no production database edits. Verify PR CI and Amvera deployment separately.
@@ -672,6 +680,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 105. 2026-10-08, owner-approved trophy assets and event navigation: every verified tournament cup now derives a stable unique engraved design from its real tournament ID/title, with four separate in-app SVG silhouettes; the two numbered Bogdan editions render different cup forms rather than simple recolors. The existing trophy room, navigation and reward ownership remain unchanged. A verified tournament award opens the existing player tournament screen (roster/games/results) with Back to the selected trophy. A club-evening trophy opens its genuine evening from the trusted automatic source key. Unlinked historical/manual awards have no false event navigation. No production award grants or database writes; Fandorin/first-tournament winner see their respective cups only when their official tournament awards are present. Unit and 390px visual fixture demonstrate the behavior; CI and deployed status remain to verify.
 
 ### Player-facing changes not yet announced
+
+- Telegram-бот: «Буду» записывает на все игры, а «Приду позже» предлагает выбрать стартовую игру; главное меню подсказывает следующее действие, напоминания учитывают ответ, устаревшие кнопки ведут к актуальным вечерам.
 
 - «Вечера»: у каждого доступного клубного вечера появилась подробная страница с участниками, столами, статусом участия и всеми партиями. Во время игры видны рассадка и ход вечера, после окончания партии — полный протокол без права редактирования. Личные роли незавершённых партий не раскрываются.
 

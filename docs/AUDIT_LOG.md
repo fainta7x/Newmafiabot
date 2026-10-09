@@ -1,5 +1,18 @@
 # Audit log
 
+## 2026-10-09 · Split-vote trainers CI follow-up
+
+- [fixed] Required Vitest splitThreeScreen test still expected the old breaker-feedback expression. Updated explanation explicitly names the breaker rather than an ambiguous pronoun, retaining the numeric regression assertion.
+- [fixed] Mobile Playwright preview assertions retained four phrases that were intentionally replaced by short teaching copy. Updated these assertions to verify equivalent learner-visible guidance and statuses; no release gate disabled or relaxed to ignore runtime failures.
+- [fixed] `SplitTableMap.tsx` legend printed comma-delimited voters instead of club notation: use canonical `seatList` for groups, retain literal `10` for a singleton seat 10; new focused tests cover both.
+
+## 2026-10-09 · Split-vote trainers UX
+
+- [fixed in PR] `SplitTableMap.tsx`: cramped schematic mixed nomination order, vote color, self seat and sheriff flags; tiny arrow labels collided with seat circles. Preserve seating rule but add clear labeled chips, a vote-by-candidate list and readable within-seat vote arrows.
+- [fix in PR] `SplitVoteTraining.tsx`, `SplitThreeTraining.tsx`, `SplitVoteExpert.tsx`: conditions were scattered verbose sentences, and feedback lacked precise rationale or first incorrectly placed voting hand. Keep rule engines intact; simplify task briefs and add rule-based error feedback.
+- Verification target: tasks at 360/390 CSS px, no spoilers before checking, full exam/achievement state and 15-second deadlines unchanged.
+
+
 ## 2026-10-09 · CRM route cleanup follow-up (Codex/CI)
 
 - [fixed] `eveningRouteService.ts`: planned announcement time was repeated twice while the same Monday 19:00 due time was already present in the pending message. Use the existing due text directly while pending; focused pending regression remains authoritative.

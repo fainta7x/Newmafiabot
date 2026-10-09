@@ -59,8 +59,12 @@ router.get('/evening-journey', async (req, res) => {
        LIMIT 1
     `);
 
+    if (active && !playerLevelAllowsEveningFormat(player.game_level, active.format)) {
+      return res.json({ journey: { phase: 'idle' } });
+    }
+
     if (active) {
-      const [gameRows, presentRow, participant] = await Promise.all([
+      const [gameRows, presentRow, participant, rosterRows] = await Promise.all([
         db.all(`
           SELECT g.id, g.global_game_number, g.winner_team, g.judge_name, g.protocol_text,
                  g.created_at, et.name AS table_name
@@ -76,6 +80,14 @@ router.get('/evening-journey', async (req, res) => {
            WHERE evening_id = ? AND player_id = ?
            LIMIT 1
         `, [active.id, playerId]),
+        db.all(`
+          SELECT p.id AS player_id, p.nickname, ep.response_status, ep.attendance_status
+            FROM evening_participants ep
+            JOIN players p ON p.id = ep.player_id
+           WHERE ep.evening_id = ?
+             AND (ep.response_status IN ('going', 'late', 'thinking') OR ep.attendance_status = 'attended')
+           ORDER BY CASE WHEN ep.attendance_status = 'attended' THEN 0 ELSE 1 END, p.nickname
+        `, [active.id]),
       ]);
 
       const games = gameRows.map((row: any, index: number) => {
@@ -143,6 +155,7 @@ router.get('/evening-journey', async (req, res) => {
           },
           score: { red: redWins, black: blackWins, completed: completed.length, total_created: games.length },
           present_count: Number(presentRow?.total || 0),
+          roster: rosterRows.map((person: any) => ({ player_id: String(person.player_id), nickname: String(person.nickname || 'Игрок'), response_status: person.response_status, attendance_status: person.attendance_status })),
           current_game: currentGame,
           current_games: games.filter((game: any) => game.status !== 'completed'),
           recent_results: completed.slice().reverse().map((game: any) => ({

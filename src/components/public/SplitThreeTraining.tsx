@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { seatList } from '../../lib/splitVoteTraining.ts';
 import { SplitTableMap } from './guide/SplitTableMap.tsx';
+import { assignmentMistakes } from '../../lib/splitTrainingFeedback.ts';
 import { SplitThreeBreakTask } from './SplitThreeBreakTask.tsx';
 import {
   generateSplitThreeBreak, generateSplitThreeChoice, isCorrectSplitThreeBreak, isCorrectSplitThreeChoice, splitThreeBreakState,
@@ -197,24 +198,33 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <span>{LEVEL_TITLES[session.level]} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span>
             <span>{session.mode === 'endless' ? `Задача ${position + 1}` : `Вопрос ${position + 1} из 5`}</span>
           </div>
-          <p className="text-sm text-white/65">Убит <strong className="text-white" data-testid="split-three-killed">{scenario.killed}</strong>. За столом 9 человек.</p>
-          {sheriffs ? (
-            <div data-testid="split-three-sheriffs" className="space-y-1 rounded-2xl border border-amber-300/30 bg-amber-400/[.07] p-3 text-sm leading-6 text-white/80">
-              <p>Шерифами назвались <strong className="text-white">{sheriffs.trusted.seat}</strong> и <strong className="text-white">{sheriffs.doubted.seat}</strong>. Город меньше верит шерифу <strong className="text-white">{sheriffs.doubted.seat}</strong>.</p>
-              <p>Шериф {sheriffs.doubted.seat} проверил {sheriffs.doubted.check} — <strong className="text-white">{sheriffs.doubted.black ? 'чёрный' : 'красный'}</strong>.</p>
-              <p>Шериф {sheriffs.trusted.seat} проверил {sheriffs.trusted.check} — <strong className="text-white">{sheriffs.trusted.black ? 'чёрный' : 'красный'}</strong>.</p>
-              <div data-testid="split-three-teams" className="mt-2 space-y-0.5 border-t border-amber-300/20 pt-2 text-[13px]">
-                {(['doubted', 'trusted'] as const).map((who) => (
-                  <p key={who}>Если прав шериф {sheriffs[who].seat}: мафия — <strong className="text-white">{blackIfReal(sheriffs, who).join(', ')}</strong>.</p>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {!broken ? tableMap : null}
-          <p className="text-sm text-white/65" data-testid="split-three-nominees">Выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
-          {!chooseLevel ? <p className="text-sm text-white/65" data-testid="split-three-split">{session.level === 'three_easy' ? 'Пилим всех троих.' : <>Пилим: <strong className="text-white">{scenario.split.join(', ')}</strong>.</>}</p> : null}
-          {session.level === 'three_easy' ? <p className="text-sm text-white/65" data-testid="split-three-seat">Твой номер за столом — <strong className="text-white">{scenario.seat}</strong>.</p> : null}
-
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
+             <h2 className="text-lg font-black leading-6 text-white">{chooseLevel ? 'Выбери троих для попила' : breakLevel ? 'Спаси сломанный попил' : session.level === 'three_easy' ? 'В кого голосуешь ты?' : 'Распредели 9 голосов'}</h2>
+             <div className="flex flex-wrap gap-1.5 text-[12px]">
+               <span className="rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-rose-200">Убит: <strong data-testid="split-three-killed">{scenario.killed}</strong></span>
+               <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">В игре: 9</span>
+               {!chooseLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">Попил: 3 / 3 / 3</span> : null}
+               {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span> : null}
+             </div>
+             <p data-testid="split-three-nominees" className="text-[12px] leading-5 text-white/75">Выставлены: <strong className="text-white">{scenario.candidates.join(' → ')}</strong></p>
+             {!chooseLevel ? <p data-testid="split-three-split" className="text-[12px] text-white/75">Пилим: <b className="text-white">{scenario.split.join(' / ')}</b></p> : null}
+           </div>
+           {sheriffs ? (
+            <div data-testid="split-three-sheriffs" className="space-y-2 rounded-2xl border border-amber-300/30 bg-amber-400/[.07] p-3 text-sm leading-5">
+               <p className="font-bold text-amber-200">Два шерифа · меньше верят {sheriffs.doubted.seat}</p>
+               <div className="grid gap-2 sm:grid-cols-2">
+                 {(['trusted', 'doubted'] as const).map((who) => <div key={who} className="rounded-xl bg-black/20 p-2.5">
+                   <span className="text-[11px] text-white/55">{who === 'trusted' ? 'Больше доверяют' : 'Меньше доверяют'}</span>
+                   <p className="font-bold text-white">Шериф {sheriffs[who].seat}</p>
+                   <p className="text-white/80">Проверка {sheriffs[who].check}: <b className={sheriffs[who].black ? 'text-rose-200' : 'text-emerald-200'}>{sheriffs[who].black ? 'чёрный' : 'красный'}</b></p>
+                 </div>)}
+               </div>
+               <div data-testid="split-three-teams" className="space-y-0.5 border-t border-amber-300/20 pt-2 text-[12px] text-white/75">
+                 {(['doubted', 'trusted'] as const).map((who) => <p key={who}>Если прав {sheriffs[who].seat} → чёрные: <b className="text-white">{blackIfReal(sheriffs, who).join(', ')}</b></p>)}
+               </div>
+             </div>
+           ) : null}
+           {!broken ? tableMap : null}
           {broken && !checked ? (
             <SplitThreeBreakTask key={`${position}`} scenario={broken} onProgress={setBreakVotes}
               onDone={(answer, timedOut) => finish(!timedOut && isCorrectSplitThreeBreak(broken, answer), answer)} />
@@ -249,7 +259,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           {medium && !checked ? (nomineeIndex < scenario.candidates.length ? (
             <div className="space-y-3" data-testid="split-three-interactive">
               <h3 className="text-base font-semibold">Кто голосует в {scenario.candidates[nomineeIndex]}?</h3>
-              <p className="text-xs text-white/60">Кандидат {nomineeIndex + 1} из {scenario.candidates.length}. Кто ни за кого не проголосует, уйдёт в последнего — в {scenario.candidates[scenario.candidates.length - 1]}.</p>
+              <p className="text-xs text-white/60">{nomineeIndex + 1} из {scenario.candidates.length} · Отметь руки. Оставшиеся пойдут в последнего: {scenario.candidates[scenario.candidates.length - 1]}.</p>
               <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
                 {aliveSeats(scenario.killed).filter((seat) => !taken.includes(seat)).map((seat) => (
                   <button key={seat} type="button" aria-pressed={selected.includes(seat)} onClick={() => setSelected((current) => (current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat]))}

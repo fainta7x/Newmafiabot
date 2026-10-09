@@ -51,10 +51,10 @@ export const SplitThreeBreakTask = ({ scenario, onDone, onProgress }: {
 
   return (
     <div className="space-y-3" data-testid="split-three-break">
-      <p className="rounded-2xl border border-rose-300/40 bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-100">
-        <b>Сломанный попил:</b> голосуют в {first}. {voted.length ? <>Руки уже отданы: <strong>{seatList(voted)}</strong>. </> : null}
-         Игрок <strong>{scenario.breaker}</strong> не поднял руку.
-       </p>
+      <p className="text-sm font-semibold text-white" data-testid="split-three-break-split">Пилим {scenario.split.join(" / ")}</p>
+      <p data-testid="split-three-break-message" className="rounded-2xl border border-rose-300/40 bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-100">
+        <strong>Попил сломан!</strong> <strong>{scenario.breaker}</strong> не поставил руку в <strong>{first}</strong>. Что делаем дальше?
+      </p>
       <div className="flex items-center gap-3" data-testid="split-three-timer">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10"><div className={`h-full ${left <= 5 ? 'bg-rose-400' : 'bg-white'}`} style={{ width: `${(left / SPLIT_THREE_BREAK_SECONDS) * 100}%` }} /></div>
         <span className={`w-10 text-right text-sm font-semibold tabular-nums ${left <= 5 ? 'text-rose-300' : 'text-white'}`}>{left} с</span>

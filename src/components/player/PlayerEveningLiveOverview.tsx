@@ -19,6 +19,7 @@ type Journey = {
   participation?: { state?: string; response_status?: string; attendance_status?: string; seat_number?: number | null };
   score?: { red: number; black: number; completed: number };
   present_count?: number;
+  roster?: Array<{ player_id: string; nickname: string; response_status: string; attendance_status: string }>;
   current_game?: Game | null;
   current_games?: Game[];
   recent_results?: Game[];
@@ -83,6 +84,13 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
           <div className="text-xs text-white/40">{journey.score?.completed || 0} завершённых игр · {journey.present_count || 0} участников</div>
           <button type="button" onClick={() => onOpenEvening(journey.evening!.id)} className="min-h-10 rounded-xl bg-white/[0.08] px-3 text-xs font-semibold">Моё участие ›</button>
         </div>
+        {(journey.roster?.length || 0) > 0 && <details className="mt-3 rounded-2xl bg-black/20 p-3">
+          <summary className="cursor-pointer text-xs font-semibold">Участники вечера · {journey.roster!.length}</summary>
+          <div className="mt-3 space-y-1.5">{journey.roster!.map(person => <div key={person.player_id} className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.04] px-3 py-2 text-xs">
+            <span className="min-w-0 truncate">{person.nickname}</span>
+            <span className="shrink-0 text-white/40">{person.attendance_status === 'attended' ? 'На месте' : person.response_status === 'late' ? 'Опаздывает' : person.response_status === 'going' ? 'Записан' : 'Думает'}</span>
+          </div>)}</div>
+        </details>}
         {recent.length > 0 && <div className="mt-3 space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Все завершённые игры · полные протоколы</h3>
           {recent.map(game => <button key={game.id} type="button" onClick={() => onOpenGame(game.game_key, journey.evening!.id)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl bg-black/25 px-3 text-left text-xs">

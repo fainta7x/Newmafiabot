@@ -2,6 +2,7 @@ import type { PlayerMeResponse } from '../../types/player.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerEveningSummaries from './PlayerEveningSummaries.tsx';
+import PlayerEveningLiveOverview from './PlayerEveningLiveOverview.tsx';
 import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx';
 
 /**
@@ -37,10 +38,12 @@ export default function PlayerEveningsHub({
         <SegmentedControl ariaLabel="Разделы вечеров" value={section} items={TABS} onValueChange={(next) => onOpen(next)} itemClassName="!px-1 text-[13px]" />
       </div>
 
+      {section === 'events' ? <PlayerEveningLiveOverview onOpenGame={(gameKey) => onOpen('games', gameKey)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
+
       {section === 'events' ? (
         <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} />
       ) : section === 'recaps' ? (
-        <PlayerEveningSummaries initialEveningId={target} embedded />
+        <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameKey) => onOpen('games', gameKey)} embedded />
       ) : (
         <div className="player-games-v2">
           <PlayerHistoryStatsView data={data} initialGameKey={target} onGameChange={(gameKey) => onOpen('games', gameKey)} />

@@ -13,7 +13,7 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
  * The evening route (user-approved 2026-09-24): one ordered path from preparation to «after»,
  * computed from the evening's real data so every step shows what is done and where to act.
  */
-export type RouteStageId = 'prepare' | 'gather' | 'day' | 'live' | 'closeout';
+export type RouteStageId = 'prepare' | 'gather' | 'live' | 'closeout';
 export type RouteTarget = 'overview' | 'participants' | 'management' | 'tables' | 'closeout' | 'games';
 export type RouteStepStatus = 'done' | 'todo' | 'attention' | 'info';
 export type RouteStep = {
@@ -28,14 +28,12 @@ export type RouteStep = {
 export type RouteStage = { id: RouteStageId; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: RouteStep[] };
 
 const STAGES: Array<{ id: RouteStageId; title: string; hint: string }> = [
-  { id: 'prepare', title: 'Подготовка', hint: 'Вечер создан, игры настроены, анонс опубликован.' },
-  { id: 'gather', title: 'Сбор', hint: 'Собираем ответы и закрываем недобор по играм.' },
-  { id: 'day', title: 'День вечера', hint: 'Столы, судьи и старт вечера.' },
+  { id: 'prepare', title: 'Подготовка', hint: 'Назначаем команду и столы, настраиваем игры и публикуем анонс.' },
+  { id: 'gather', title: 'Сбор', hint: 'Собираем ответы, устраняем недобор и начинаем вечер.' },
   { id: 'live', title: 'Вечер идёт', hint: 'Отмечаем пришедших, проводим игры, задания вечера.' },
   { id: 'closeout', title: 'Закрытие', hint: 'Оплаты сверены — закрываем вечер: итоги, долги и статистика сохранятся.' },
 ];
 
-const moscowDate = (ms: number) => new Date(ms).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
 const plural = (n: number, one: string, few: string, many: string) => {
   const mod10 = n % 10; const mod100 = n % 100;
   if (mod10 === 1 && mod100 !== 11) return one;
@@ -51,20 +49,18 @@ async function tables(db: DatabaseWrapper) {
 
 /** Which stage the evening is in now. */
 export function currentRouteStage(evening: any, games: { total: number; unfinished: number }, now = Date.now()): RouteStageId {
-  if (evening.status === 'completed' || evening.settled_at) return 'closeout';
+  if (evening.status === 'completed' || evening.status === 'cancelled' || evening.settled_at) return 'closeout';
   if (evening.status === 'active') {
     const start = new Date(String(evening.starts_at)).getTime();
     const late = Number.isFinite(start) && now - start > 5 * 60 * 60 * 1000;
     return (games.total > 0 && games.unfinished === 0) || late ? 'closeout' : 'live';
   }
-  if (evening.status === 'draft') return 'prepare';
-  const start = new Date(String(evening.starts_at)).getTime();
-  return Number.isFinite(start) && moscowDate(start) <= moscowDate(now) ? 'day' : 'gather';
+  return evening.status === 'draft' ? 'prepare' : 'gather';
 }
 
 const taskStage = (task: any): RouteStageId => {
   const key = String(task.automation_key || '');
-  if (key.startsWith('evening-template:preparation:') || key.startsWith('evening-manual:preparation:')) return 'day';
+  if (key.startsWith('evening-template:preparation:') || key.startsWith('evening-manual:preparation:')) return 'prepare';
   if (key.startsWith('evening-template:during:') || key.startsWith('evening-manual:during:')) return 'live';
   return 'closeout';
 };
@@ -113,7 +109,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
 
   const stageNow = currentRouteStage(evening, { total: games.length, unfinished: unfinishedGames }, now);
   const published = evening.status !== 'draft';
-  const steps: Record<RouteStageId, RouteStep[]> = { prepare: [], gather: [], day: [], live: [], closeout: [] };
+  const steps: Record<RouteStageId, RouteStep[]> = { prepare: [], gather: [], live: [], closeout: [] };
   // Until the weekly announcement is due, «not sent» is the expected state, not a problem.
   const announcementDueMs = weeklyAnnouncementDueMs(evening.starts_at);
   const announcementPending = !telegramPosts && !vkPosts && now < announcementDueMs;
@@ -126,6 +122,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         : 'Ещё не отправлен';
 
   steps.prepare.push(
+    { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
+    { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
@@ -152,15 +150,15 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
       target: 'participants',
     },
   );
-  // Cancelling is available while the evening has not started (owner, 2026-10-02).
+  // Cancelling stays available before start, but belongs to «Закрытие», not «Сбор».
   const cancelPost = await loadCancelPost(db, eveningId);
   if (evening.status === 'cancelled') {
     const cancelLegs = [(cancelPost as any).telegram_status === 'published' ? 'Telegram ✓' : 'Telegram —', (cancelPost as any).vk_status === 'published' ? 'ВК ✓' : 'ВК —'].join(' · ');
-    steps.gather.push(cancelPost.state === 'published'
+    steps.closeout.push(cancelPost.state === 'published'
       ? { id: 'cancel', title: 'Вечер отменён', detail: `Пост об отмене: ${cancelLegs}`, status: 'done' }
       : { id: 'cancel', title: cancelPost.state === 'none' ? 'Вечер отменён, поста об отмене нет' : 'Пост об отмене дошёл не везде', detail: cancelPost.state === 'none' ? 'Игроки предупреждены. Можно выложить пост в Telegram и ВК' : `${cancelLegs} — можно повторить`, status: 'attention', action: 'cancel_evening' });
   } else if (evening.status === 'published' && !evening.settled_at) {
-    steps.gather.push({ id: 'cancel', title: 'Отменить вечер', detail: 'Не собрали игроков? Предупредим всех записавшихся и выложим пост в Telegram и ВК', status: 'info', action: 'cancel_evening' });
+    steps.closeout.push({ id: 'cancel', title: 'Отменить вечер', detail: 'Не собрали игроков? Предупредим всех записавшихся и выложим пост в Telegram и ВК', status: 'info', action: 'cancel_evening' });
   }
   if (format === 'NOVICE') {
     steps.gather.push({ id: 'novice-decision', title: 'Решение по вечеру новичков', detail: 'Проверка группы в четверг в 20:00, решение до пятницы 15:00. Автоотмены нет.', status: 'info' });
@@ -181,14 +179,12 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         ? { id: 'today-post', title: 'Играем сегодня? Реши про пост', detail: 'В 17:00 набралось меньше нужных игр — пост сам не ушёл. Опубликуй или реши, что не публикуем', status: 'attention', action: canPostToday ? 'today_post' : undefined }
       : todayPost.state === 'partial'
         ? { id: 'today-post', title: 'Пост «Сегодня играем» дошёл не везде', detail: `${todayLegs} — можно повторить`, status: 'attention', action: 'today_post' }
-        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: 'Уйдёт сам в 17:00, если набрано 4 игры. Можно выложить раньше', status: stageNow === 'day' ? 'todo' : 'info', action: canPostToday ? 'today_post' : undefined },
+        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: 'Уйдёт сам в 17:00, если набрано 4 игры. Можно выложить раньше', status: 'info', action: canPostToday ? 'today_post' : undefined },
   );
-  steps.day.push(
-    { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
-    { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
-    evening.status === 'active' || stageNow === 'closeout'
+  steps.gather.push(
+    evening.status === 'active' || evening.status === 'completed' || Boolean(evening.settled_at)
       ? { id: 'start', title: 'Вечер начат', status: 'done' }
-      : { id: 'start', title: 'Начать вечер', detail: 'Нажимают, когда игроки собираются', status: stageNow === 'day' ? 'todo' : 'info', action: published ? 'start' : undefined },
+      : { id: 'start', title: 'Начать вечер', detail: 'Нажимают, когда игроки собираются', status: published && new Date(String(evening.starts_at)).getTime() - now <= 3 * 60 * 60 * 1000 ? 'todo' : 'info', action: evening.status === 'published' ? 'start' : undefined },
   );
 
   const gathered = await loadGatheredPost(db, eveningId);

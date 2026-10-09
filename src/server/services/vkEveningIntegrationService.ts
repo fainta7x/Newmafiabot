@@ -24,6 +24,7 @@ type VkResponseStatus = Exclude<EveningResponseStatus, 'unanswered'>;
 type EveningRow = {
   id: string;
   title: string;
+  judge_nickname?: string | null;
   starts_at: string;
   timezone: string | null;
   venue: string | null;
@@ -135,9 +136,12 @@ export const parseVkPollVoteCallback = (payload: any): VkPollVoteCallback | null
 
 const loadEvening = async (db: DatabaseWrapper, eveningId: string): Promise<EveningRow> => {
   const evening = await db.get<EveningRow>(`
-    SELECT id, title, starts_at, timezone, venue, format, status, default_price, settled_at
-      FROM game_evenings
-     WHERE id = ?
+    SELECT e.id, e.title, e.starts_at, e.timezone, e.venue, e.format, e.status, e.default_price, e.settled_at,
+           p.nickname AS judge_nickname
+      FROM game_evenings e
+      LEFT JOIN evening_staff_assignments s ON s.evening_id = e.id
+      LEFT JOIN players p ON p.id = s.judge_player_id
+     WHERE e.id = ?
      LIMIT 1
   `, [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
@@ -168,6 +172,7 @@ export const buildVkEveningAnnouncement = (evening: EveningRow) => {
     `📅 ${formatDate(evening)}`,
   ];
   if (evening.venue) lines.push(`📍 ${evening.venue}`);
+  if (evening.judge_nickname) lines.push(`🎙 Ведущий вечера: ${evening.judge_nickname}`);
   if (Number(evening.default_price || 0) > 0) lines.push(`💳 ${Number(evening.default_price).toLocaleString('ru-RU')} ₽`);
   lines.push('', 'Отметься в опросе — ответ попадёт в общую запись 2LA Noire.');
   return lines.join('\n');

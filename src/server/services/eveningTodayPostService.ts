@@ -85,6 +85,11 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
   const lines: string[] = ['🎭 Всем привет! Сегодня играем в мафию!', ''];
   if (chosen) lines.push(`🕘 Ждём всех к ${chosen.slot_number}-й игре — в ${time(chosen.starts_at)}`);
   if (evening.venue) lines.push(`📍 ${String(evening.venue)}`);
+  const judge = await db.get<{ nickname: string }>(
+    'SELECT p.nickname FROM evening_staff_assignments s JOIN players p ON p.id = s.judge_player_id WHERE s.evening_id = ? LIMIT 1',
+    [eveningId],
+  );
+  if (judge?.nickname) lines.push(`🎙 Ведущий вечера: ${judge.nickname}`);
   lines.push('', `👥 Состав (${coming.length}):`, ...(roster.length ? roster : ['Пока пусто — стань первым!']));
   if (slots.length) {
     lines.push('', `🎲 Игры: ${slots.map((slot: any) => slot.registered_count >= perSlot ? `${slot.slot_number}-я ✓` : `${slot.slot_number}-я ${slot.registered_count}/${perSlot}`).join(' · ')}`);

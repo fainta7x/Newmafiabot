@@ -141,6 +141,11 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
     for evening in upcoming:
         own = mine.get(str(evening.get("id")))
         status = _STATUS_TEXT.get(str((own or {}).get("response_status")), "ты ещё не ответил")
+        games = int((own or {}).get("games") or 0)
+        if games and (own or {}).get("response_status") == "late":
+            status += f" · с выбранной игры ({games} игр)"
+        elif games and (own or {}).get("response_status") == "going":
+            status += f" · {games} игр"
         lines += ["", f"📅 Ближайший вечер: <b>{_when(evening.get('starts_at'))}</b>",
                   f"👥 Идут: {int(evening.get('attending_count') or 0)} · ты: {status}"]
     text = "\n".join(lines)
@@ -309,7 +314,7 @@ def mine_view(data: dict | None, error: str | None = None) -> tuple[str, InlineK
             for evening in evenings:
                 status = _STATUS_TEXT.get(str(evening.get("response_status")), "")
                 games = int(evening.get("games") or 0)
-                games_text = f" · игр: {games}" if games else ""
+                games_text = f" · игр: {games}" if games else (" · игры пока не выбраны" if evening.get("response_status") == "late" else "")
                 lines.append(f"• <b>{_when(evening.get('starts_at'))}</b> — {status}{games_text}")
                 rows.append([InlineKeyboardButton(text=f"✏️ {_when(evening.get('starts_at'))}", callback_data=f"home:ev:{evening.get('id')}")])
         else:
@@ -472,7 +477,7 @@ async def home_callback(callback: CallbackQuery) -> None:
             return
         evening = next((item for item in evenings if str(item.get("id")) == arg), None)
         if not evening:
-            await callback.answer("Запись на этот вечер уже закрыта", show_alert=True)
+            await _show(callback, *stale_link_view(evenings, event_gone=True))
             return
         await _show(callback, *evening_view(evening))
     elif section == "mine":
@@ -503,4 +508,4 @@ async def home_callback(callback: CallbackQuery) -> None:
         await _handle_club_access(callback.message, await _main_menu(callback.from_user.id), callback.from_user)
         await callback.answer()
     else:
-        await callback.answer()
+        await _show(callback, *stale_link_view(await _open_evenings()))

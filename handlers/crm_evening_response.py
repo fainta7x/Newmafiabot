@@ -173,9 +173,13 @@ async def choose_late_start(callback: CallbackQuery, bot: Bot):
     except (AttributeError, ValueError):
         await callback.answer("Некорректная игра", show_alert=True)
         return
-    if not evening_id or not slot_id:
-        await callback.answer("Некорректная игра", show_alert=True)
+    slots_result = await get_evening_slots(evening_id)
+    slots = (slots_result.get("data") or {}).get("slots") or []
+    selected = next((item for item in slots if str(item.get("slot_number")) == slot_id), None)
+    if not slots_result.get("success") or not selected:
+        await callback.answer("Игра недоступна. Открой вечер и выбери ещё раз.", show_alert=True)
         return
+    slot_id = str(selected["id"])
     result = await submit_evening_response(evening_id, callback.from_user.id, "late", starting_slot_id=slot_id)
     if not result.get("success"):
         await callback.answer("Не удалось сохранить время прибытия. Обнови вечер и попробуй снова.", show_alert=True)
@@ -218,7 +222,7 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
             number = slot.get("slot_number") or "?"
             starts_at = _parse_starts_at(slot.get("starts_at"))
             clock = starts_at.strftime("%H:%M") if starts_at else "время уточняется"
-            rows.append([InlineKeyboardButton(text=f"С игры №{number} · {clock}", callback_data=f"evlate:{evening_id}:{slot_id}")])
+            rows.append([InlineKeyboardButton(text=f"С игры №{number} · {clock}", callback_data=f"evlate:{evening_id}:{number}")])
         if not rows:
             await callback.answer("Для вечера пока нет доступных игр.", show_alert=True)
             return

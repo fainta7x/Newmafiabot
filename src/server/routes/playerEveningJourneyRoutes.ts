@@ -3,6 +3,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
+import { loadPlayerEveningWorkspace } from '../services/playerEveningWorkspaceService.ts';
 
 const router = Router();
 
@@ -42,6 +43,18 @@ const recapIsFresh = (value: string | null | undefined) => {
   return age >= 0 && age <= 20 * 60 * 60 * 1000;
 };
 
+router.get('/evenings/:eveningId/overview', async (req, res) => {
+  const playerId = requirePlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const overview = await loadPlayerEveningWorkspace(req.db, String(req.params.eveningId), playerId);
+    return res.json(overview);
+  } catch (error: any) {
+    const status = Number(error?.statusCode || 500);
+    return res.status(status).json({ error: status === 500 ? 'Не удалось загрузить вечер' : error?.message || 'Вечер недоступен' });
+  }
+});
+
 router.get('/evening-journey', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
@@ -51,17 +64,14 @@ router.get('/evening-journey', async (req, res) => {
     const player = await db.get('SELECT id, game_level FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
-    const active = await db.get(`
+    const activeRows = await db.all(`
       SELECT id, title, starts_at, venue, format, status
         FROM game_evenings
        WHERE status = 'active' AND settled_at IS NULL
        ORDER BY datetime(starts_at) DESC
-       LIMIT 1
+       LIMIT 12
     `);
-
-    if (active && !playerLevelAllowsEveningFormat(player.game_level, active.format)) {
-      return res.json({ journey: { phase: 'idle' } });
-    }
+    const active = activeRows.find((row: any) => playerLevelAllowsEveningFormat(player.game_level, row.format)) || null;
 
     if (active) {
       const [gameRows, presentRow, participant, rosterRows] = await Promise.all([
@@ -126,7 +136,8 @@ router.get('/evening-journey', async (req, res) => {
 
       const completed = games.filter((game: any) => game.status === 'completed');
       const currentGame = games.filter((game: any) => game.status !== 'completed').slice(-1)[0] || null;
-      const selfSeat = currentGame?.players.find((item: any) => item.player_id === playerId) || null;
+      const selfCurrentGame = games.find((game: any) => game.status !== 'completed' && game.self_played) || null;
+      const selfSeat = selfCurrentGame?.players.find((item: any) => item.player_id === playerId) || null;
       const redWins = completed.filter((game: any) => game.winner_team === 'red').length;
       const blackWins = completed.filter((game: any) => game.winner_team === 'black').length;
       const latestSelfGame = completed.slice().reverse().find((game: any) => game.self_played) || null;
@@ -152,6 +163,7 @@ router.get('/evening-journey', async (req, res) => {
             attendance_status: attendanceStatus,
             state: selfState,
             seat_number: selfSeat?.seat_number || null,
+            game_id: selfCurrentGame?.id || null,
           },
           score: { red: redWins, black: blackWins, completed: completed.length, total_created: games.length },
           present_count: Number(presentRow?.total || 0),

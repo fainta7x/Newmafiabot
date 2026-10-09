@@ -199,3 +199,8 @@ def test_stale_evening_callback_offers_fresh_navigation(monkeypatch):
     bot_home._show.assert_awaited_once()
     args = bot_home._show.await_args.args
     assert "больше не работает" in args[1]
+
+
+def test_late_arrival_slot_time_is_displayed_in_club_timezone():
+    from handlers.crm_evening_response import _parse_starts_at
+    assert _parse_starts_at("2026-10-16T18:00:00Z").strftime("%H:%M") == "21:00"

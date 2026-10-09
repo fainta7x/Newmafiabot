@@ -50,7 +50,7 @@ export default function PlayerEveningsHub({
       {section === 'events' ? <PlayerEveningLiveOverview onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
 
       {section === 'events' ? (
-        <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} />
+        <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} />
       ) : section === 'recaps' ? (
         <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'recaps', eveningId)} embedded />
       ) : (

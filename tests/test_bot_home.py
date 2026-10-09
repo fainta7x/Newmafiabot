@@ -128,3 +128,35 @@ def test_old_link_without_open_evenings_still_offers_the_app(monkeypatch):
     text, markup = bot_home.stale_link_view([])
     assert "Ближайших вечеров пока нет" in text
     assert [t for row in _texts(markup) for t in row] == ["🎭 Открыть 2LA Noire"]
+
+
+def test_evening_callback_does_not_claim_booking_closed_on_api_outage(monkeypatch):
+    import asyncio
+    from unittest.mock import AsyncMock, SimpleNamespace
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
+    callback = SimpleNamespace(
+        data="home:ev:123",
+        from_user=SimpleNamespace(id=42, first_name="Игрок"),
+        answer=AsyncMock(),
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не удалось проверить вечер. Попробуй чуть позже.", show_alert=True
+    )
+
+
+def test_lineups_callback_does_not_claim_no_evenings_on_api_outage(monkeypatch):
+    import asyncio
+    from unittest.mock import AsyncMock, SimpleNamespace
+
+    monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
+    callback = SimpleNamespace(
+        data="home:lineups",
+        from_user=SimpleNamespace(id=42, first_name="Игрок"),
+        answer=AsyncMock(),
+    )
+    asyncio.run(bot_home.home_callback(callback))
+    callback.answer.assert_awaited_once_with(
+        "Не удалось загрузить составы. Попробуй чуть позже.", show_alert=True
+    )

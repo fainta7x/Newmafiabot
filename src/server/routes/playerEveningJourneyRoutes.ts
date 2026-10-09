@@ -130,6 +130,7 @@ router.get('/evening-journey', async (req, res) => {
           winner_team: winnerTeam,
           players,
           self_played: Boolean(selfResult),
+          self_seat: selfResult ? Number(selfResult.seat_number || 0) : null,
           self_won: status === 'completed' && selfTeam && winnerTeam ? selfTeam === winnerTeam : null,
         };
       });

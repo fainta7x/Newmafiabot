@@ -58,6 +58,7 @@ export default function PlayerEventSlotDetail({
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  const [registrationLocked, setRegistrationLocked] = useState(false);
   const [saveError, setSaveError] = useState<{ message: string; needsFirstApplication: boolean } | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
 
@@ -80,6 +81,7 @@ export default function PlayerEventSlotDetail({
     setPlan(null);
     setDraft([]);
     setSaved(false);
+    setRegistrationLocked(false);
     setSaveError(null);
     void load();
     // The list above keeps its scroll position; open the evening from its title.
@@ -100,11 +102,13 @@ export default function PlayerEventSlotDetail({
   const changed = Boolean(plan && (draft.length !== plan.selection.slot_ids.length || draft.some((id) => !plan.selection.slot_ids.includes(id))));
 
   const toggleSlot = (slotId: string) => {
+    if (registrationLocked) return;
     setSaved(false);
     setDraft((current) => current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]);
   };
 
   const save = async () => {
+    if (registrationLocked) return;
     setBusy(true);
     setError('');
     setSaveError(null);
@@ -160,7 +164,7 @@ export default function PlayerEventSlotDetail({
 
         {!plan && !error && <div className="mt-3 rounded-2xl bg-white/[0.035] px-3 py-6 text-center text-sm text-white/35">Загружаем игры вечера…</div>}
 
-        <PlayerEveningWorkspace eveningId={event.id} onOpenGame={onOpenGame} refreshKey={workspaceRefreshKey} />
+        <PlayerEveningWorkspace eveningId={event.id} onOpenGame={onOpenGame} onCanChangeSelection={(allowed) => setRegistrationLocked(!allowed)} refreshKey={workspaceRefreshKey} />
 
         {plan && (
           <>
@@ -177,8 +181,8 @@ export default function PlayerEventSlotDetail({
             </section>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-10 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
-              <button type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
+              <button disabled={registrationLocked} type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-10 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
+              <button disabled={registrationLocked} type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
             </div>
 
             <div className="mt-3 space-y-2">
@@ -186,7 +190,7 @@ export default function PlayerEventSlotDetail({
                 const selected = draft.includes(slot.id);
                 const ready = slot.registered_count >= 11;
                 return (
-                  <button key={slot.id} type="button" onClick={() => toggleSlot(slot.id)} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                  <button key={slot.id} disabled={registrationLocked} type="button" onClick={() => toggleSlot(slot.id)} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
@@ -219,8 +223,8 @@ export default function PlayerEventSlotDetail({
                   {saveError.needsFirstApplication ? <button type="button" onClick={onBack} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
                 </div>
               ) : null}
-              <button disabled={busy || !changed} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
-                {busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
+              <button disabled={busy || !changed || registrationLocked} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
+                {registrationLocked ? 'Запись закрыта после отметки явки' : busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
               </button>
             </section>
           </>

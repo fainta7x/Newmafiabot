@@ -1,3 +1,4 @@
+import { sqliteReadVersion } from './sqliteReadVersion.ts';
 export type AnalyticsTeam = 'red' | 'black';
 
 export type AnalyticsPlayerResult = {
@@ -60,7 +61,27 @@ const validDate = (value: unknown): { iso: string; ms: number } | null => {
   return { iso: date.toISOString(), ms };
 };
 
-export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGameSnapshot[]> {
+// Many independent player screens request the same finished-game history at
+// once. Keep the parsed projection until SQLite reports a write; every save,
+// protocol correction or cross-process commit invalidates it automatically.
+// Always hand callers their own outer array so sort/reverse cannot mutate cache.
+const snapshotCache = new WeakMap<object, { version: string; promise: Promise<CompletedGameSnapshot[]> }>();
+
+export function loadCompletedGameSnapshots(db: any): Promise<CompletedGameSnapshot[]> {
+  const version = sqliteReadVersion(db);
+  const cached = snapshotCache.get(db as object);
+  if (version !== null && cached?.version === version) return cached.promise.then((rows) => rows.slice());
+  const promise = loadCompletedGameSnapshotsUncached(db);
+  if (version !== null) {
+    snapshotCache.set(db as object, { version, promise });
+    void promise.catch(() => {
+      if (snapshotCache.get(db as object)?.promise === promise) snapshotCache.delete(db as object);
+    });
+  }
+  return promise.then((rows) => rows.slice());
+}
+
+async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGameSnapshot[]> {
   const [clubRows, tournamentRows] = await Promise.all([
     db.all(`
       SELECT g.id, g.evening_id, g.global_game_number, g.game_date, g.created_at,

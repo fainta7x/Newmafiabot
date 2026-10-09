@@ -55,6 +55,26 @@ router.get('/evenings/:eveningId/overview', async (req, res) => {
   }
 });
 
+// The cabinet's floating live indicator polls frequently. Keep it strictly
+// presence-only: a complete journey reads game protocols and can replay
+// historical Elo, neither of which belongs on a ten-second heartbeat.
+router.get('/evening-live-status', async (req, res) => {
+  const playerId = requirePlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const player = await req.db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    const active = await req.db.all(`
+      SELECT format FROM game_evenings
+       WHERE status = 'active' AND settled_at IS NULL
+       ORDER BY datetime(starts_at) DESC LIMIT 12
+    `);
+    return res.json({ live: active.some((row: any) => playerLevelAllowsEveningFormat(player.game_level, row.format)) });
+  } catch {
+    return res.status(500).json({ error: 'Не удалось проверить активный вечер' });
+  }
+});
+
 router.get('/evening-journey', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
@@ -190,10 +210,22 @@ router.get('/evening-journey', async (req, res) => {
       });
     }
 
-    const summaries = await loadPlayerEveningSummaries(db, playerId, 1);
-    const latestSummary = summaries[0] || null;
-    if (latestSummary && recapIsFresh(latestSummary.settled_at || latestSummary.starts_at)) {
-      return res.json({ journey: { phase: 'recap', recap: latestSummary } });
+    // An idle/opening cabinet previously calculated every historical game and
+    // Elo timeline *even when no evening had finished recently*. With the live
+    // indicator and notifications polling, this could stall the shared SQLite
+    // event loop. The cheap time-window probe avoids those full-history reads.
+    const recentCompletedEvening = await db.get(`
+      SELECT id FROM game_evenings
+       WHERE (status = 'completed' OR settled_at IS NOT NULL)
+         AND datetime(COALESCE(settled_at, starts_at)) BETWEEN datetime('now', '-20 hours') AND datetime('now')
+       LIMIT 1
+    `);
+    if (recentCompletedEvening) {
+      const summaries = await loadPlayerEveningSummaries(db, playerId, 1);
+      const latestSummary = summaries[0] || null;
+      if (latestSummary && recapIsFresh(latestSummary.settled_at || latestSummary.starts_at)) {
+        return res.json({ journey: { phase: 'recap', recap: latestSummary } });
+      }
     }
 
     const upcomingRows = await db.all(`

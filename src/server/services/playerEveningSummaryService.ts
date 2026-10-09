@@ -1,5 +1,5 @@
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
-import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
+import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
 
 export type EveningSummaryAward = {
@@ -128,10 +128,11 @@ export async function loadPlayerEveningSummaries(
   db: any,
   playerId: string,
   limit = 8,
+  preloaded: { snapshots?: CompletedGameSnapshot[]; eloTimeline?: PlayerEloHistoryEvent[] } = {},
 ): Promise<PlayerEveningSummary[]> {
   const [snapshots, eloTimeline, eveningRows, votesAvailable] = await Promise.all([
-    loadCompletedGameSnapshots(db),
-    loadPlayerEloHistory(db),
+    preloaded.snapshots ?? loadCompletedGameSnapshots(db),
+    preloaded.eloTimeline ?? loadPlayerEloHistory(db),
     db.all(`
       SELECT e.id, e.title, e.starts_at, e.settled_at, e.venue, e.status,
              ep.attendance_status

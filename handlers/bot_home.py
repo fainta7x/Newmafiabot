@@ -36,7 +36,7 @@ _WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 # Frequent questions: (key, button, answer). Friendly, for newcomers; facts follow docs/BUSINESS_RULES.md.
 FAQ: tuple[tuple[str, str, str], ...] = (
     ("signup", "📝 Как записаться",
-     "Проще простого 🙂 Открой в меню список вечеров, выбери подходящий вечер и нажми «✅ Буду» — всё, ты в списке!\n\n"
+     "Проще простого 🙂 Открой в меню список вечеров, выбери подходящий вечер и нажми «✅ Буду» — ты записан на все игры вечера!\n\n"
      "Сможешь только на часть вечера? Нажми «🎯 Выбрать игры» и отметь нужные. "
      "А если планы поменяются, просто нажми «❌ Не буду» — так место достанется кому-то ещё."),
     ("price", "💳 Сколько стоит",
@@ -279,7 +279,7 @@ def evening_view(evening: dict) -> tuple[str, InlineKeyboardMarkup]:
     evening_id = str(evening.get("id") or "")
     coming = int(evening.get("attending_count") or 0)
     thinking = int(evening.get("thinking_count") or 0)
-    text = f"{event_base_text(evening)}\n\n👥 Идут: <b>{coming}</b>" + (f" · думают: {thinking}" if thinking else "")
+    text = f"{event_base_text(evening)}\n\n👥 Идут: <b>{coming}</b>" + (f" · думают: {thinking}" if thinking else "") + "\n\n«✅ Буду» — на все игры. На часть вечера — выбери игры отдельно."
     rows = [
         [InlineKeyboardButton(text="✅ Буду", callback_data=f"evr:{evening_id}:going"),
          InlineKeyboardButton(text="⏳ Приду позже", callback_data=f"evr:{evening_id}:late")],

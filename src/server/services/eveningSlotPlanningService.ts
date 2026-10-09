@@ -6,6 +6,7 @@ import { RATING_ENTRY_FEE } from '../../lib/ratingEveningMoney.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
+import { notifyEveningRescheduled } from './eveningRescheduleService.ts';
 
 export const SLOT_PRICE = 100;
 export const CLUB_EVENING_MAX_PRICE = 400;
@@ -323,10 +324,14 @@ export async function updateEveningSlotSettings(
       [nextStartsAt, plusMinutes(nextStartsAt, nextCount * nextDuration), nextPrice, now, eveningId],
     );
   });
-  // A published evening already has posts in Telegram and VK: they show the new times at once.
+  // Existing announcements update as before; an actual move also gets its own notice.
   if (String(evening.status || '') === 'published') {
     await enqueueTelegramEveningSync(db, eveningId).catch((error) => console.warn('[SLOTS] Telegram evening sync failed:', error));
     kickVkLiveEveningSync(db);
+    if (startMoved) {
+      await notifyEveningRescheduled(db, eveningId, String(evening.starts_at), nextStartsAt)
+        .catch((error) => console.warn('[SLOTS] Reschedule notice failed:', error));
+    }
   }
   return loadEveningSlotPlan(db, eveningId);
 }

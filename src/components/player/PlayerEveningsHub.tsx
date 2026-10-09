@@ -40,7 +40,7 @@ export default function PlayerEveningsHub({
       {section === 'events' ? (
         <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} />
       ) : section === 'recaps' ? (
-        <PlayerEveningSummaries initialEveningId={target} embedded />
+        <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameId) => onOpen('games', gameId.startsWith('club:') || gameId.startsWith('tournament:') ? gameId : `club:${gameId}`)} embedded />
       ) : (
         <div className="player-games-v2">
           <PlayerHistoryStatsView data={data} initialGameKey={target} onGameChange={(gameKey) => onOpen('games', gameKey)} />

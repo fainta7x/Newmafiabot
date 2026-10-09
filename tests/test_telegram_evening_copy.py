@@ -33,7 +33,7 @@ def test_group_post_lists_players_who_answered_but_have_no_games():
     assert "игра 1 — <b>4</b> игрока" in text
     assert "Записались на игры: 2" in text
     assert "Идут на весь вечер, игры не выбрали (1)</b>: Вика" in text
-    assert "Придут позже, игры не выбрали (1)</b>: Даня" in text
+    assert "Придут позже, время прибытия не уточнили (1)</b>: Даня" in text
     assert "Пока думают (1)</b>: Гоша" in text
     assert "Не смогут (1)</b>: Ева" in text
     assert text.count("Вика") == 1 and text.count("Даня") == 1
@@ -157,4 +157,4 @@ def test_full_evening_rsvp_is_explicit_and_partial_games_are_optional():
     from handlers.telegram_evening_copy import private_event_text, recruitment_private_text
     evening = {"format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"}
     assert "запишем на все игры" in private_event_text(evening)
-    assert "На отдельные игры" in recruitment_private_text(evening, [])
+    assert "укажи игру, с которой начнёшь" in recruitment_private_text(evening, [])

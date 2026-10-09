@@ -104,7 +104,7 @@ def test_club_post_is_the_owners_short_text():
     expected = (
         "Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭\n"
         "📍 Суп с Котом, 21:00 · 100 ₽ за игру, не больше 400 ₽ за вечер\n"
-        "Отметь кнопкой ниже, придёшь ли, и выбери игры"
+        "Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры."
     )
     post = thematic_event_text(evening, [], [
         {"player_id": "a", "nickname": "Аня", "response_status": "going", "selected_games": 0},
@@ -113,7 +113,7 @@ def test_club_post_is_the_owners_short_text():
     # The group post starts with the owner's text, keeps who is coming and ends with what to press.
     assert post.startswith(expected.rsplit("\n", 1)[0])
     assert "Аня" in post and "Пока думают (1)</b>: Боря" in post
-    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    assert post.endswith("Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры.")
     assert private_event_text(evening) == expected
     assert private_event_text(evening, reminder=True).startswith("🔔")
 
@@ -126,7 +126,7 @@ def test_novice_group_post_invites_to_play_and_keeps_who_is_coming():
     assert post.startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками — приходи 🎭\n"
                            "Никогда не играл — не страшно: в 18:30 объясним правила, потом сыграем вместе. Можно прийти одному.")
     assert "Пока думают (1)</b>: Лёша" in post
-    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    assert post.endswith("Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры.")
     assert private_event_text(evening).startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками")
 
 
@@ -151,3 +151,10 @@ def test_recruitment_reminders_put_when_where_and_action_first():
         assert "📍 Суп с Котом, Пушкинский проезд, 4А" in message
         assert "игра 2: нужно ещё 3 игрока (7/10)" in message
         assert "👇" in message
+
+
+def test_full_evening_rsvp_is_explicit_and_partial_games_are_optional():
+    from handlers.telegram_evening_copy import private_event_text, recruitment_private_text
+    evening = {"format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"}
+    assert "запишем на все игры" in private_event_text(evening)
+    assert "На отдельные игры" in recruitment_private_text(evening, [])

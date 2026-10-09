@@ -48,10 +48,11 @@ const ownStatus = (value: string) =>
     : value === 'thinking' ? 'Ты пока думаешь' : value === 'declined' ? 'Ты отказался от участия' : 'Пока нет записи';
 
 export default function PlayerEveningWorkspace({
-  eveningId, onOpenGame, refreshKey = 0,
+  eveningId, onOpenGame, onCanChangeSelection, refreshKey = 0,
 }: {
   eveningId: string;
   onOpenGame?: (gameKey: string, eveningId: string) => void;
+  onCanChangeSelection?: (allowed: boolean) => void;
   refreshKey?: number;
 }) {
   const [data, setData] = useState<PlayerEveningWorkspaceData | null>(null);
@@ -67,7 +68,11 @@ export default function PlayerEveningWorkspace({
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload?.error || 'Не удалось загрузить вечер');
-        if (active) { setData(payload as PlayerEveningWorkspaceData); setError(''); }
+        if (active) {
+          setData(payload as PlayerEveningWorkspaceData);
+          setError('');
+          onCanChangeSelection?.(Boolean(payload?.participation?.can_change_selection));
+        }
       } catch (cause: any) {
         if (active) setError(cause?.message || 'Не удалось загрузить вечер');
       } finally {
@@ -121,6 +126,8 @@ export default function PlayerEveningWorkspace({
       <div className="flex items-start justify-between gap-3">
         <div><h2 className="text-sm font-semibold">Вечер в деталях</h2>
           <p className="mt-1 text-xs text-white/50">{data.evening.status === 'completed' ? 'Вечер завершён' : data.evening.status === 'active' ? 'Вечер идёт' : 'Идёт набор'} · {ownStatus(data.participation.response_status)}</p>
+          {data.participation.registration_status === 'waitlist' && <p className="mt-1 text-[11px] text-amber-100/70">Ты в резерве</p>}
+          {data.participation.registration_status === 'confirmed' && <p className="mt-1 text-[11px] text-emerald-100/70">Участие подтверждено</p>}
           {data.participation.attendance_status === 'attended' && <p className="mt-1 text-[11px] text-emerald-200/70">Твоё присутствие отмечено</p>}
         </div>
         <div className="shrink-0 rounded-xl bg-black/25 px-3 py-2 text-center">

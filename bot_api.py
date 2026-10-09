@@ -177,7 +177,7 @@ async def get_evening_participants(evening_id: str) -> dict[str, Any]:
         return {"success": False, "error": "unavailable"}
 
 
-async def submit_evening_response(evening_id: str, telegram_user_id: int, response_status: str) -> dict[str, Any]:
+async def submit_evening_response(evening_id: str, telegram_user_id: int, response_status: str, starting_slot_id: str | None = None) -> dict[str, Any]:
     """Submit one canonical CRM-evening response for a Telegram account."""
     if not BOT_API_BASE_URL or not BOT_API_SECRET:
         logger.error("[Backend API] Evening response API configuration is incomplete")
@@ -188,6 +188,8 @@ async def submit_evening_response(evening_id: str, telegram_user_id: int, respon
         "telegram_user_id": int(telegram_user_id),
         "response_status": response_status,
     }
+    if starting_slot_id:
+        payload["starting_slot_id"] = starting_slot_id
 
     try:
         timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)

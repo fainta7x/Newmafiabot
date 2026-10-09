@@ -132,7 +132,8 @@ def test_old_link_without_open_evenings_still_offers_the_app(monkeypatch):
 
 def test_evening_callback_does_not_claim_booking_closed_on_api_outage(monkeypatch):
     import asyncio
-    from unittest.mock import AsyncMock, SimpleNamespace
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
 
     monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
     callback = SimpleNamespace(
@@ -148,7 +149,8 @@ def test_evening_callback_does_not_claim_booking_closed_on_api_outage(monkeypatc
 
 def test_lineups_callback_does_not_claim_no_evenings_on_api_outage(monkeypatch):
     import asyncio
-    from unittest.mock import AsyncMock, SimpleNamespace
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
 
     monkeypatch.setattr(bot_home, "_open_evenings", AsyncMock(return_value=None))
     callback = SimpleNamespace(

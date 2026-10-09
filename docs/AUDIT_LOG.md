@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-09 · Broken three-way split prompt wording
+
+- [fixed in PR] `SplitThreeBreakTask.tsx` displayed a long and mechanical broken-split condition, including votes already cast and a separate sentence about the breaker. The owner requested direct wording: «Попил сломан! 8 не поставил руку в 1. Что делаем дальше?»; both numbers come from the existing scenario. Details about prior hands remain in the voting step, without changing vote distribution or the 15-second deadline.
+- Regression: test both the owner's example and a different breaker/first nominee, and keep mobile preview checking the live generated wording.
+
+
 ## 2026-10-09 · Split-vote trainers CI follow-up
 
 - [fixed] Required Vitest splitThreeScreen test still expected the old breaker-feedback expression. Updated explanation explicitly names the breaker rather than an ambiguous pronoun, retaining the numeric regression assertion.

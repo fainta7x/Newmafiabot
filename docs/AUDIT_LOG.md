@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-09 · Robokassa deployment-state reconciliation
+
+- Scope: document review of the verified provider-test milestone; no runtime or production-data changes.
+- [fixed in PR] `docs/PROJECT_STATE.md`: canonical Live deployment field still limited live code to September PRs, contradicting the verified PR #760 test flow. Replace it with scoped deployment evidence and mark the September handoff historical; retain unverified live settlement/receipt limits.
+- Validation: exact committed documentation diff; the provider success message is owner-reported, public health/configuration checks are separately observed.
+
 ## 2026-10-09 · Split-vote trainers CI follow-up
 
 - [fixed] Required Vitest splitThreeScreen test still expected the old breaker-feedback expression. Updated explanation explicitly names the breaker rather than an ambiguous pronoun, retaining the numeric regression assertion.

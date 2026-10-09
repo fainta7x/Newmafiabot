@@ -201,15 +201,15 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
              <h2 className="text-lg font-black leading-6 text-white">{chooseLevel ? 'Выбери троих для попила' : breakLevel ? 'Спаси сломанный попил' : session.level === 'three_easy' ? 'В кого голосуешь ты?' : 'Распредели 9 голосов'}</h2>
              <div className="flex flex-wrap gap-1.5 text-[12px]">
-               <span className="rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-rose-200">Убит: <strong data-testid="split-three-killed">{scenario.killed}</strong></span>
-               <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">В игре: 9</span>
-               {!chooseLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">Попил: 3 / 3 / 3</span> : null}
+               {!breakLevel ? <span className="rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-rose-200">Убит: <strong data-testid="split-three-killed">{scenario.killed}</strong></span> : null}
+               {!breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">В игре: 9</span> : null}
+               {!chooseLevel && !breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">Попил: 3 / 3 / 3</span> : null}
                {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span> : null}
              </div>
-             <p data-testid="split-three-nominees" className="text-[12px] leading-5 text-white/75">Выставлены: <strong className="text-white">{scenario.candidates.join(' → ')}</strong></p>
-             {!chooseLevel ? <p data-testid="split-three-split" className="text-[12px] text-white/75">Пилим: <b className="text-white">{scenario.split.join(' / ')}</b></p> : null}
+             {!breakLevel ? <p data-testid="split-three-nominees" className="text-[12px] leading-5 text-white/75">Выставлены: <strong className="text-white">{scenario.candidates.join(' → ')}</strong></p> : null}
+             {!chooseLevel && !breakLevel ? <p data-testid="split-three-split" className="text-[12px] text-white/75">Пилим: <b className="text-white">{scenario.split.join(' / ')}</b></p> : null}
            </div>
-           {sheriffs ? (
+           {sheriffs && !breakLevel ? (
             <div data-testid="split-three-sheriffs" className="space-y-2 rounded-2xl border border-amber-300/30 bg-amber-400/[.07] p-3 text-sm leading-5">
                <p className="font-bold text-amber-200">Два шерифа · меньше верят {sheriffs.doubted.seat}</p>
                <div className="grid gap-2 sm:grid-cols-2">

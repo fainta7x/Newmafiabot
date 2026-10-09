@@ -136,15 +136,24 @@ export const parseVkPollVoteCallback = (payload: any): VkPollVoteCallback | null
 
 const loadEvening = async (db: DatabaseWrapper, eveningId: string): Promise<EveningRow> => {
   const evening = await db.get<EveningRow>(`
-    SELECT e.id, e.title, e.starts_at, e.timezone, e.venue, e.format, e.status, e.default_price, e.settled_at,
-           p.nickname AS judge_nickname
-      FROM game_evenings e
-      LEFT JOIN evening_staff_assignments s ON s.evening_id = e.id
-      LEFT JOIN players p ON p.id = s.judge_player_id
-     WHERE e.id = ?
+    SELECT id, title, starts_at, timezone, venue, format, status, default_price, settled_at
+      FROM game_evenings
+     WHERE id = ?
      LIMIT 1
   `, [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  // Sparse and historical test schemas may not have evening staffing yet.
+  const staffTable = await db.get<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'evening_staff_assignments'",
+  );
+  if (staffTable) {
+    const staff = await db.get<{ nickname: string }>(`
+      SELECT p.nickname FROM evening_staff_assignments s
+        JOIN players p ON p.id = s.judge_player_id
+       WHERE s.evening_id = ? LIMIT 1
+    `, [eveningId]);
+    evening.judge_nickname = staff?.nickname || null;
+  }
   return evening;
 };
 

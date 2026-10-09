@@ -119,9 +119,9 @@ describe('«Сегодня играем» post', () => {
     const step = route.stages.find((stage) => stage.id === 'gather')!.steps.find((item) => item.id === 'today-post')!;
     expect(step.status).toBe('attention');
     expect(step.title).toBe('Играем сегодня? Реши про пост');
-    // The evening day is current, but the open decision keeps «Сбор» yellow and opens it first.
-    expect(route.current_stage).toBe('day');
-    expect(route.stages.find((stage) => stage.id === 'gather')!.state).toBe('attention');
+    // «День вечера» was absorbed into gathering; its pending decision opens that stage.
+    expect(route.current_stage).toBe('gather');
+    expect(route.stages.find((stage) => stage.id === 'gather')!.state).toBe('current');
     expect(route.open_stage).toBe('gather');
     await skipTodayPost(db, 'ev');
     const after = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:06:00Z'));

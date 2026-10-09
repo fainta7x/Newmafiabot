@@ -168,7 +168,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     (todayPost as any).telegram_status === 'published' ? 'Telegram ✓' : (todayPost as any).telegram_status === 'failed' ? 'Telegram ✗' : 'Telegram —',
     (todayPost as any).vk_status === 'published' ? 'ВК ✓' : (todayPost as any).vk_status === 'failed' ? 'ВК ✗' : 'ВК —',
   ].join(' · ');
-  const canPostToday = published && evening.status !== 'completed' && !evening.settled_at;
+  const canPostToday = ['published', 'active'].includes(String(evening.status)) && !evening.settled_at;
   // The post closes the gathering (owner, 2026-10-02), so it sits under «Сбор» after the game set.
   steps.gather.push(
     todayPost.state === 'published'
@@ -211,12 +211,14 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     pendingExpected ? `нет отметки у ${players(pendingExpected)}` : '',
     unfinishedGames ? `не завершено игр: ${unfinishedGames}` : '',
   ].filter(Boolean);
-  steps.closeout.push(
-    { id: 'money', title: 'Оплаты', detail: debtors ? `Не оплатили: ${players(debtors)}` : 'Все оплатили', status: debtors ? 'attention' : 'done', target: 'closeout' },
-    closed
-      ? { id: 'close', title: 'Вечер закрыт', status: 'done' }
-      : { id: 'close', title: 'Закрыть вечер', detail: blockers.length ? `Сначала: ${blockers.join(', ')}` : 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? (blockers.length ? 'attention' : 'todo') : 'info', target: 'closeout' },
-  );
+  if (evening.status !== 'cancelled') {
+    steps.closeout.push(
+      { id: 'money', title: 'Оплаты', detail: debtors ? `Не оплатили: ${players(debtors)}` : 'Все оплатили', status: debtors ? 'attention' : 'done', target: 'closeout' },
+      closed
+        ? { id: 'close', title: 'Вечер закрыт', status: 'done' }
+        : { id: 'close', title: 'Закрыть вечер', detail: blockers.length ? `Сначала: ${blockers.join(', ')}` : 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? (blockers.length ? 'attention' : 'todo') : 'info', target: 'closeout' },
+    );
+  }
 
   for (const task of tasks) {
     const stage = taskStage(task);
@@ -233,7 +235,8 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     steps: steps[stage.id],
   }));
   // The nearest past stage with an open problem opens first; otherwise the current one.
-  const openStage = [...stages].reverse().find((stage) => stage.state === 'attention')?.id || stageNow;
+  const currentNeedsAttention = steps[stageNow].some((step) => step.status === 'attention');
+  const openStage = currentNeedsAttention ? stageNow : ([...stages].reverse().find((stage) => stage.state === 'attention')?.id || stageNow);
 
   return {
     evening: { id: String(evening.id), title: String(evening.title || ''), status: String(evening.status), format, starts_at: evening.starts_at },

@@ -35,7 +35,7 @@ def test_club_player_gets_the_full_menu():
     text, markup = bot_home.club_home("Аня", home, EVENINGS)
     assert "Ближайший вечер: <b>пт, 2 октября · 21:00</b>" in text and "ты: ✅ иду" in text
     rows = _texts(markup)
-    assert len(rows) <= 3
+    assert len(rows) <= 4
     flat = [t for row in rows for t in row]
     for section in ("📅 Расписание", "👤 Мои записи", "👥 Составы", "☰ Ещё"):
         assert section in flat
@@ -182,7 +182,7 @@ def test_late_registration_displays_selected_games_in_home_and_mine():
     home = {"player": {"nickname": "Лиса", "game_level": "club"},
             "evenings": [{"id": "c", "response_status": "late", "games": 3}]}
     text, _ = bot_home.club_home("Лиса", home, EVENINGS)
-    assert "с выбранной игры (3 игр)" in text
+    assert "уточни стартовую игру" in text
     mine, _ = bot_home.mine_view(home)
     assert "⏳ приду позже · игр: 3" in mine
 
@@ -226,3 +226,20 @@ def test_late_arrival_callback_fits_telegram_limit_and_resolves_current_slot(mon
     asyncio.run(handler.choose_late_start(callback, SimpleNamespace()))
     assert submit.await_args.kwargs["starting_slot_id"] == slots[0]["id"]
     assert submit.await_args.args == ("a" * 36, 42, "late")
+
+
+def test_home_primary_action_follows_player_response():
+    for status, button in (
+        ("going", "✏️ Изменить запись"),
+        ("late", "⏳ Изменить время прибытия"),
+        ("thinking", "🤔 Определиться с вечером"),
+        ("unanswered", "✅ Ответить на приглашение"),
+    ):
+        home = {"player": {"game_level": "club"}, "evenings": (
+            [] if status == "unanswered" else [{"id": "c", "response_status": status, "games": 2, "first_game": 3}]
+        )}
+        text, kb = bot_home.club_home("Игрок", home, EVENINGS)
+        assert button in [b.text for row in kb.inline_keyboard for b in row]
+        assert any(b.callback_data == "home:ev:c" for row in kb.inline_keyboard for b in row)
+        if status == "late":
+            assert "с игры №3" in text

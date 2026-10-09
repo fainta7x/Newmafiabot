@@ -51,6 +51,7 @@ export const SplitThreeBreakTask = ({ scenario, onDone, onProgress }: {
 
   return (
     <div className="space-y-3" data-testid="split-three-break">
+      <p className="text-sm font-semibold text-white" data-testid="split-three-break-split">Пилим {scenario.split.join(" / ")}</p>
       <p data-testid="split-three-break-message" className="rounded-2xl border border-rose-300/40 bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-100">
         <strong>Попил сломан!</strong> <strong>{scenario.breaker}</strong> не поставил руку в <strong>{first}</strong>. Что делаем дальше?
       </p>

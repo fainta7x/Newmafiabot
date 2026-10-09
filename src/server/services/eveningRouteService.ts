@@ -121,15 +121,23 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         ? `Ещё не отправлен. Уйдёт сам ${new Date(announcementDueMs).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}`
         : 'Ещё не отправлен';
 
+  const startMs = new Date(String(evening.starts_at)).getTime();
+  const startLabel = Number.isFinite(startMs)
+    ? new Date(startMs).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : String(evening.starts_at || 'Не указано');
+  const announcementLabel = Number.isFinite(announcementDueMs)
+    ? new Date(announcementDueMs).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : 'понедельник, 19:00 МСК';
   steps.prepare.push(
+    { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК) · нажми, чтобы перенести`, status: 'info' },
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
     published
       ? { id: 'publish', title: 'Запись в приложении открыта', detail: 'Вечер виден игрокам в календаре', status: 'done' }
       : { id: 'publish', title: 'Открыть запись', detail: 'Игроки увидят вечер в календаре и смогут записаться. Анонсы в Telegram и ВК — отдельный шаг', status: 'todo', action: 'publish' },
-    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: postsDetail, status: telegramPosts || vkPosts ? 'done' : published && !announcementPending ? 'attention' : 'todo', target: 'overview' },
-    { id: 'invites', title: 'Личные приглашения', detail: invitesSent ? `Отправлено: ${invitesSent}` : 'Ещё не отправлены', status: invitesSent ? 'done' : published ? 'attention' : 'todo', target: 'overview' },
+    { id: 'posts', title: 'Анонс в Telegram и ВК', detail: `${postsDetail} · План: ${announcementLabel} (МСК)`, status: telegramPosts || vkPosts ? 'done' : published && !announcementPending ? 'attention' : 'todo' },
+    { id: 'invites', title: 'Личная рассылка анонса', detail: invitesSent ? `Доставлено: ${invitesSent}` : 'Пока не отправлена', status: invitesSent ? 'done' : published ? 'attention' : 'todo', target: 'participants' },
   );
 
   const coming = answers.going + answers.late;

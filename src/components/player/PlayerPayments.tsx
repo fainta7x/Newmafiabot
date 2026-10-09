@@ -59,6 +59,7 @@ type PaymentData = {
   history: PaymentItem[];
   free_evening_credits: number;
   online_payment_available: boolean;
+  robokassa_test_available?: boolean;
   online_payment?: OnlinePaymentData;
 };
 
@@ -95,7 +96,7 @@ const statusClass = (status: string) => {
   return 'bg-rose-400/[0.08] text-rose-200/80';
 };
 
-function PaymentCard({ item, freeCredits, applying, onUseFree }: { item: PaymentItem; freeCredits: number; applying: boolean; onUseFree: (id: string) => void }) {
+function PaymentCard({ item, freeCredits, applying, onUseFree, testAvailable = false, paying = false, onTestPay }: { item: PaymentItem; freeCredits: number; applying: boolean; onUseFree: (id: string) => void; testAvailable?: boolean; paying?: boolean; onTestPay?: (id: string) => void }) {
   const canUseFree = freeCredits > 0 && item.outstanding > 0 && item.amount_paid === 0 && item.payment_status !== 'waived';
   return (
     <article className="rounded-2xl bg-black/20 p-3">
@@ -115,6 +116,11 @@ function PaymentCard({ item, freeCredits, applying, onUseFree }: { item: Payment
       {canUseFree && (
         <button type="button" disabled={applying} onClick={() => onUseFree(item.participant_id)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-medium text-white/70 disabled:opacity-40">
           {applying ? 'Применяем…' : '🎟️ Использовать бесплатный вечер'}
+        </button>
+      )}
+      {testAvailable && item.outstanding > 0 && item.payment_status !== 'waived' && (
+        <button type="button" disabled={paying || applying} onClick={() => onTestPay?.(item.participant_id)} className="mt-3 min-h-11 w-full rounded-xl border border-amber-200/20 bg-amber-200/[0.07] px-3 py-2 text-sm font-medium text-amber-100 disabled:opacity-40">
+          {paying ? 'Открываем оплату…' : `Тест оплаты · ${rubles(item.outstanding)}`}
         </button>
       )}
     </article>
@@ -183,6 +189,8 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
   const [data, setData] = useState<PaymentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -197,6 +205,61 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
   };
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('robokassa_test_return')) return;
+    const id = params.get('robokassa_test_invoice');
+    setTestMessage('Возврат с оплаты. Проверяем подтверждение Robokassa…');
+    if (!id || !/^[1-9][0-9]{0,14}$/.test(id)) {
+      setTestMessage('Подтверждение тестовой оплаты пока не получено.');
+      return;
+    }
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const check = async () => {
+      try {
+        const response = await fetch(`/api/payments/robokassa/test/invoices/${id}`, { credentials: 'include' });
+        const invoice = await response.json();
+        if (stopped) return;
+        if (!response.ok) { setTestMessage('Открой тестовый кабинет, чтобы проверить этот платёж.'); return; }
+        if (invoice.status === 'confirmed') { setTestMessage('Robokassa подтвердила тестовую оплату. Деньги не списаны, долг не изменён.'); return; }
+        if (invoice.status === 'needs_review') { setTestMessage('Тестовая оплата подтверждена, но сумма или запись на вечер изменились. Нужна сверка.'); return; }
+        if (++attempts < 10) { timer = setTimeout(() => { void check(); }, 1500); return; }
+        setTestMessage('Подтверждение от Robokassa пока не получено. Обнови страницу позже.');
+      } catch {
+        if (!stopped) setTestMessage('Не удалось проверить тестовую оплату. Обнови страницу позже.');
+      }
+    };
+    void check();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, []);
+
+  const testPay = async (participantId: string) => {
+    if (payingId || applyingId) return;
+    setPayingId(participantId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/payments/robokassa/test/checkout/${encodeURIComponent(participantId)}`, { method: 'POST', credentials: 'include' });
+      const checkout = await response.json();
+      if (!response.ok) throw new Error(checkout.error || 'Не удалось открыть тестовую оплату');
+      if (checkout.action !== 'https://auth.robokassa.ru/Merchant/Index.aspx' || checkout.method !== 'POST' || checkout.fields?.IsTest !== '1') throw new Error('Некорректный ответ оплаты');
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = checkout.action;
+      for (const [name, value] of Object.entries(checkout.fields)) {
+        if (typeof value !== 'string') throw new Error('Некорректные поля оплаты');
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = name; input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      try { form.submit(); } finally { form.remove(); }
+    } catch (payError: any) {
+      setError(payError?.message || 'Не удалось открыть тестовую оплату');
+    } finally { setPayingId(null); }
+  };
 
   const useFreeEvening = async (participantId: string) => {
     if (applyingId) return;
@@ -220,6 +283,7 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
       {!embedded && <div className="px-1 pb-1 pt-2"><div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div><h1 className="mt-1 text-2xl font-semibold text-white">Оплата</h1><p className="mt-1 text-sm text-white/45">Вечера, жетоны, поддержка клуба и целевые сборы</p></div>}
 
       {error && <p className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70">{error}</p>}
+      {testMessage && <p role="status" className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-sm leading-5 text-amber-100/80">{testMessage}</p>}
       {!data ? <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Загрузка оплаты…</div> : (
         <>
           {!historyOnly && <section className={embedded ? "rounded-2xl border border-white/10 bg-white/[0.03] p-3" : "rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4"}>
@@ -231,7 +295,9 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
 
           {!historyOnly && data.online_payment && <PaymentPurposeGrid online={data.online_payment} />}
 
-          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId === item.participant_id} onUseFree={useFreeEvening} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
+          {!historyOnly && data.robokassa_test_available && <p className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.05] px-3 py-3 text-xs leading-5 text-amber-100/70">Тест Robokassa: выбери вечер ниже. Деньги не списываются, настоящий долг и жетоны не меняются.</p>}
+
+          {!historyOnly && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Долги и предстоящие вечера</h2>{data.current.length ? <div className="space-y-2">{data.current.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={data.free_evening_credits} applying={applyingId === item.participant_id || payingId !== null} onUseFree={useFreeEvening} testAvailable={data.robokassa_test_available} paying={payingId !== null} onTestPay={testPay} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Долгов и предстоящих оплат нет.</p>}</section>}
 
           {view !== 'current' && <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4"><h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">История вечеров</h2>{data.history.length ? <div className="space-y-2">{data.history.map((item) => <PaymentCard key={item.participant_id} item={item} freeCredits={0} applying={false} onUseFree={() => {}} />)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">История оплат пока пустая.</p>}</section>}
         </>

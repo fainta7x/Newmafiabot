@@ -79,6 +79,7 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 
 - Player UI: `src/components/player/PlayerWalletHub.tsx`.
 - API: `playerEconomyRoutes.ts`, `playerPaymentRoutes.ts`, `playerTokensRoutes.ts`, `commerceAdminRoutes.ts`.
+- Robokassa test flow: `robokassaTestRoutes.ts` (mounted before cookie-based DB selection), `robokassaTestPaymentService.ts` (isolated test invoice persistence), `robokassaTestAdapter.ts` (provider signatures). `playerPaymentEligibility.ts` shares wallet/checkout eligibility. No real settlement; setup procedure: `ROBOKASSA_SETUP.md`.
 - Token ledger: `src/server/services/tokenLedgerService.ts`.
 - External online acquiring/SBP is intentionally disabled until explicit provider decision; manual accounting is real functionality.
 

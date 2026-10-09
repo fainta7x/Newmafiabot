@@ -144,7 +144,8 @@ router.get('/evening-journey', async (req, res) => {
           score: { red: redWins, black: blackWins, completed: completed.length, total_created: games.length },
           present_count: Number(presentRow?.total || 0),
           current_game: currentGame,
-          recent_results: completed.slice(-4).reverse().map((game: any) => ({
+          current_games: games.filter((game: any) => game.status !== 'completed'),
+          recent_results: completed.slice().reverse().map((game: any) => ({
             id: game.id,
             game_key: game.game_key,
             local_number: game.local_number,

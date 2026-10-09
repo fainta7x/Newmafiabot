@@ -177,6 +177,28 @@ async def get_evening_participants(evening_id: str) -> dict[str, Any]:
         return {"success": False, "error": "unavailable"}
 
 
+async def get_evening_slots(evening_id: str) -> dict[str, Any]:
+    """Fetch the available games for a late-arrival RSVP."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/slots"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_base_headers()) as response:
+                if response.status != 200:
+                    return {"success": False, "error": "unavailable"}
+                data = await response.json()
+                if not isinstance(data, dict) or not isinstance(data.get("slots"), list):
+                    return {"success": False, "error": "invalid"}
+                return {"success": True, "data": data}
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Failed to load evening slots")
+        return {"success": False, "error": "unavailable"}
+
+
 async def submit_evening_response(evening_id: str, telegram_user_id: int, response_status: str, starting_slot_id: str | None = None) -> dict[str, Any]:
     """Submit one canonical CRM-evening response for a Telegram account."""
     if not BOT_API_BASE_URL or not BOT_API_SECRET:

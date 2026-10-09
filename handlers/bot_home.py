@@ -465,7 +465,10 @@ async def home_callback(callback: CallbackQuery) -> None:
             return
         await _show(callback, *events_view(evenings, await _audience(callback.from_user.id)))
     elif section == "ev":
-        evenings = await _open_evenings() or []
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не удалось проверить вечер. Попробуй чуть позже.", show_alert=True)
+            return
         evening = next((item for item in evenings if str(item.get("id")) == arg), None)
         if not evening:
             await callback.answer("Запись на этот вечер уже закрыта", show_alert=True)
@@ -475,7 +478,11 @@ async def home_callback(callback: CallbackQuery) -> None:
         result = await get_player_home(callback.from_user.id)
         await _show(callback, *mine_view(result.get("data") if result.get("success") else None, result.get("error")))
     elif section == "lineups":
-        await _show(callback, *lineups_view(await _open_evenings() or []))
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не удалось загрузить составы. Попробуй чуть позже.", show_alert=True)
+            return
+        await _show(callback, *lineups_view(evenings))
     elif section == "lineup":
         from handlers.crm_booking import build_crm_evening_stats_text
         text = await build_crm_evening_stats_text(arg)

@@ -46,7 +46,7 @@ describe('SQLite-backed player analytics cache', () => {
       db.sqlite.exec('ROLLBACK');
     }
     expect(sqliteReadVersion(db)).not.toBeNull();
-    expect(await db.get('SELECT id FROM players WHERE id = ?', ['temporary-player'])).toBeUndefined();
+    expect(await db.get('SELECT id FROM players WHERE id = ?', ['temporary-player'])).toBeNull();
     expect(await loadCompletedGameSnapshots(db)).toEqual([]);
   });
 

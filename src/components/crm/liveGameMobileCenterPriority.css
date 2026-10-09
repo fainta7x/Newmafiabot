@@ -16,7 +16,7 @@
   html body .evening-live-engine-shell .live-seat-card[data-seat="10"] { grid-column: 2 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="1"]  { grid-column: 3 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="2"]  { grid-column: 4 !important; grid-row: 1 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="8"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="8"]  { grid-column: 1 !important; grid-row: 2 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="3"]  { grid-column: 4 !important; grid-row: 2 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="7"]  { grid-column: 1 !important; grid-row: 3 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="6"]  { grid-column: 2 !important; grid-row: 3 !important; }
@@ -32,7 +32,7 @@
     overflow: hidden !important;
   }
 
-  /* The CRM avatar/name overlay mirrors the same four-row geometry. */
+  /* The CRM avatar/name overlay mirrors the same three-row geometry. */
   html body .evening-live-engine-shell .evening-live-identity-layer {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
@@ -45,7 +45,7 @@
   html body .evening-live-engine-shell .evening-live-identity[data-seat="10"] { grid-column: 2 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="1"]  { grid-column: 3 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="2"]  { grid-column: 4 !important; grid-row: 1 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="8"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="8"]  { grid-column: 1 !important; grid-row: 2 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="3"]  { grid-column: 4 !important; grid-row: 2 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="7"]  { grid-column: 1 !important; grid-row: 3 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="6"]  { grid-column: 2 !important; grid-row: 3 !important; }

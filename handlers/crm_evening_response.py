@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import aiohttp
 from aiogram import Bot, F, Router
@@ -26,7 +27,7 @@ _STATUS_LABELS = {
 
 def _parse_starts_at(value: str) -> datetime | None:
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Moscow"))
     except (TypeError, ValueError):
         return None
 

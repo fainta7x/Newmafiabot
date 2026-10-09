@@ -167,6 +167,10 @@ def club_home(first_name: str | None, home: dict | None, evenings: list[dict]) -
         rows.append([app])
     if action_evening and action_label:
         rows.append([InlineKeyboardButton(text=action_label, callback_data=f"home:ev:{action_evening}")])
+    elif not upcoming:
+        results = _app_button("🏁 Мои результаты прошлых вечеров", "/player/games")
+        if results:
+            rows.append([results])
     rows.append([
         InlineKeyboardButton(text="📅 Расписание", callback_data="home:events"),
         InlineKeyboardButton(text="👤 Мои записи", callback_data="home:mine"),

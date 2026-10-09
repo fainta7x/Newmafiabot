@@ -346,7 +346,7 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
     budget = _RESPONSE_NAME_BUDGET
     for status, title in (
         ("going", "✅ Идут на весь вечер, игры не выбрали"),
-        ("late", "⏳ Придут позже, игры не выбрали"),
+        ("late", "⏳ Придут позже, время прибытия не уточнили"),
         ("thinking", "🤔 Пока думают"),
         ("declined", "❌ Не смогут"),
     ):
@@ -489,7 +489,7 @@ def recruitment_private_text(evening: dict, underfilled_slots: list[dict]) -> st
     return (
         "🔔 <b>Нужны игроки</b>\n\n"
         f"📅 {when}\n📍 {venue_html(evening.get('venue'))}\n\n{shortages}\n\n"
-        "На весь вечер — «✅ Буду». На отдельные игры — выбери их в приложении 👇"
+        "На весь вечер — «✅ Буду». Если придёшь позже, укажи игру, с которой начнёшь 👇"
     )
 
 

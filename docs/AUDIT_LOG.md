@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-09 · Robokassa deployment-state reconciliation
+
+- Scope: document review of the verified provider-test milestone and owner-supplied SMZ screenshots; no runtime or production-data changes.
+- [fixed in PR] `docs/PROJECT_STATE.md`: canonical Live deployment field still limited live code to September PRs, contradicting the verified PR #760 test flow. Replace it with scoped evidence and mark the September handoff historical; retain unverified live settlement/receipt limits.
+- Validation: exact committed documentation diff; provider success is owner-reported, SMZ activation/partner authorization are visible in supplied screenshots, and health/configuration checks were separately observed.
+
 ## 2026-10-09 · Broken three-way split prompt wording
 
 - [fixed in PR] `SplitThreeBreakTask.tsx` displayed a long and mechanical broken-split condition, including votes already cast and a separate sentence about the breaker. The owner requested direct wording: «Попил сломан! 8 не поставил руку в 1. Что делаем дальше?»; both numbers come from the existing scenario. Details about prior hands remain in the voting step, without changing vote distribution or the 15-second deadline.

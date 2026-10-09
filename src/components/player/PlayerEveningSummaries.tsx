@@ -55,7 +55,7 @@ export default function PlayerEveningSummaries({
 }: {
   onBack?: () => void;
   initialEveningId?: string | null;
-  onOpenGame?: (gameId: string) => void;
+  onOpenGame?: (gameId: string, eveningId: string) => void;
   embedded?: boolean;
 }) {
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
@@ -115,7 +115,7 @@ export default function PlayerEveningSummaries({
 
             {selected.player.roles.length > 0 && <div className="flex flex-wrap gap-1.5 px-1">{selected.player.roles.map((role) => <span key={role} className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-white/35">{roleLabel(role)}</span>)}</div>}
 
-            {onOpenGame && selected.game_ids.length > 0 && <section className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Игры вечера</div><div className="mt-2 grid grid-cols-2 gap-1.5">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId)} className="min-h-10 rounded-xl bg-white/[0.05] text-[11px] font-semibold text-white/55">Игра {index + 1} ›</button>)}</div></section>}
+            {onOpenGame && selected.game_ids.length > 0 && <section className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Игры вечера</div><div className="mt-2 grid grid-cols-2 gap-1.5">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="min-h-10 rounded-xl bg-white/[0.05] text-[11px] font-semibold text-white/55">Игра {index + 1} ›</button>)}</div></section>}
           </>}
         </>}
       </div>

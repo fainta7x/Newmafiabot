@@ -169,7 +169,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
                           ) : <EveningAnnouncementSettings
                             eveningId={eveningId}
                             status={route.evening.status}
-                            readonly={!canMove}
+                            readonly={['completed', 'cancelled'].includes(route.evening.status) || Boolean(route.evening.settled_at)}
                           />}
                         </div> : null}
                       </div>

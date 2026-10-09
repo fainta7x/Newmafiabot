@@ -129,7 +129,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     ? new Date(announcementDueMs).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
     : 'понедельник, 19:00 МСК';
   steps.prepare.push(
-    { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК) · нажми, чтобы перенести`, status: 'info' },
+    { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК)${['draft', 'published'].includes(String(evening.status)) ? ' · нажми, чтобы перенести' : ''}`, status: 'info' },
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },

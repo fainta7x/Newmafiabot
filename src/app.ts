@@ -54,6 +54,7 @@ import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.t
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
+import { createRobokassaTestRoutes } from './server/routes/robokassaTestRoutes.ts';
 import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
 import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
 import playerSplitVoteProgressRoutes from './server/routes/playerSplitVoteProgressRoutes.ts';
@@ -149,6 +150,12 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
   const db = customDb || (await getDb());
+  // ResultURL is public and cookie-independent, but always writes to the isolated test DB.
+  app.use('/api/payments/robokassa', createRobokassaTestRoutes(async () => {
+    const testDb = await getIsolatedTestDb();
+    if (testDb.dbPath === db.dbPath) throw new Error('Payment test database must be isolated');
+    return testDb;
+  }));
   logStartupMutationRegistry();
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);

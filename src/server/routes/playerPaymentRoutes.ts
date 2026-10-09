@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { isAttendingResponse } from '../../lib/eveningResponse.ts';
-import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import { getPlayerSessionId } from '../auth.ts';
+import { getPlayerSessionId, isTestEnvironmentRequest } from '../auth.ts';
+import { isSettledEvening, isPaymentExpected } from '../services/playerPaymentEligibility.ts';
+import { robokassaTestAvailable } from './robokassaTestRoutes.ts';
 import { loadClubNews } from '../services/clubDigestService.ts';
 import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
 
@@ -15,16 +15,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
     return null;
   }
   return playerId;
-};
-
-const isSettledEvening = (row: any): boolean =>
-  String(row.evening_status || '') === 'completed' || Boolean(row.settled_at);
-
-// Same rule as the CRM (owner, 2026-10-01): a novice evening asks money only from those marked as arrived.
-const isPaymentExpected = (row: any): boolean => {
-  const attended = String(row.attendance_status || '') === 'attended';
-  if (isSettledEvening(row) || normalizeEveningFormat(row.evening_format) === 'NOVICE') return attended;
-  return attended || isAttendingResponse(row);
 };
 
 const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: unknown) => {
@@ -158,6 +148,7 @@ router.get('/payments', async (req, res) => {
       history,
       free_evening_credits: Number(freeEvening?.count || 0),
       online_payment_available: false,
+      robokassa_test_available: isTestEnvironmentRequest(req) && robokassaTestAvailable(),
       online_payment: {
         available: false,
         provider: null,

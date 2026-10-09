@@ -499,7 +499,11 @@ async def home_callback(callback: CallbackQuery) -> None:
         await _show(callback, *evening_view(evening))
     elif section == "mine":
         result = await get_player_home(callback.from_user.id)
-        await _show(callback, *mine_view(result.get("data") if result.get("success") else None, result.get("error")))
+        error = result.get("error")
+        if not result.get("success") and error != "not_found":
+            await callback.answer("Не получилось получить записи. Попробуй ещё раз позже.", show_alert=True)
+            return
+        await _show(callback, *mine_view(result.get("data") if result.get("success") else None, error))
     elif section == "lineups":
         evenings = await _open_evenings()
         if evenings is None:
@@ -507,6 +511,13 @@ async def home_callback(callback: CallbackQuery) -> None:
             return
         await _show(callback, *lineups_view(evenings))
     elif section == "lineup":
+        evenings = await _open_evenings()
+        if evenings is None:
+            await callback.answer("Не получилось проверить состав. Попробуй позже.", show_alert=True)
+            return
+        if not any(str(evening.get("id")) == arg for evening in evenings):
+            await _show(callback, *stale_link_view(evenings, event_gone=True))
+            return
         from handlers.crm_booking import build_crm_evening_stats_text
         text = await build_crm_evening_stats_text(arg)
         markup = InlineKeyboardMarkup(inline_keyboard=[_back("lineups", "⬅️ К составам")])

@@ -52,9 +52,9 @@ export const SplitThreeBreakTask = ({ scenario, onDone, onProgress }: {
   return (
     <div className="space-y-3" data-testid="split-three-break">
       <p className="rounded-2xl border border-rose-300/40 bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-100">
-        ⚠️ Голосуем за {first}. {voted.length ? <>Уже подняли руки: <strong>{seatList(voted)}</strong>. </> : null}
-        <strong>{scenario.breaker}</strong> не поставил руку — попил сломан.
-      </p>
+        <b>Сломанный попил:</b> голосуют в {first}. {voted.length ? <>Руки уже отданы: <strong>{seatList(voted)}</strong>. </> : null}
+         Игрок <strong>{scenario.breaker}</strong> не поднял руку.
+       </p>
       <div className="flex items-center gap-3" data-testid="split-three-timer">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10"><div className={`h-full ${left <= 5 ? 'bg-rose-400' : 'bg-white'}`} style={{ width: `${(left / SPLIT_THREE_BREAK_SECONDS) * 100}%` }} /></div>
         <span className={`w-10 text-right text-sm font-semibold tabular-nums ${left <= 5 ? 'text-rose-300' : 'text-white'}`}>{left} с</span>
@@ -62,7 +62,7 @@ export const SplitThreeBreakTask = ({ scenario, onDone, onProgress }: {
       <h3 className="text-base font-semibold">Кто голосует в {candidate}?</h3>
       <p className="text-xs text-white/60">
         {index === startIndex && voted.length ? `${seatList(voted)} уже проголосовали в ${first}. ` : ''}
-        {index === lastIndex ? 'Это последний кандидат: все, кто ещё не голосовал, голосуют в него.' : `Кто ни за кого не проголосует, уйдёт в последнего — в ${scenario.candidates[lastIndex]}.`}
+        {index === lastIndex ? 'Оставшиеся руки попадут сюда автоматически.' : `Отметь свободные руки. Остальные пойдут в последнего — ${scenario.candidates[lastIndex]}.`}
       </p>
       <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
         {available.map((seat) => (

@@ -75,10 +75,10 @@ const ExpertRound = ({ scenario, onDone }: { scenario: ExpertScenario; onDone: (
         </div>
         <span data-testid="split-vote-timer" className={`w-10 text-right text-sm font-bold tabular-nums ${left <= 5 ? 'text-rose-300' : 'text-white'}`}>{left} с</span>
       </div>
-      <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100" data-testid="split-vote-break">⚠️ {describeBreak(scenario)}</p>
+      <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100" data-testid="split-vote-break"><b>Уже произошло:</b> {describeBreak(scenario)}</p>
       {index < lastIndex ? <>
         <h3 className="text-base font-semibold">Кто голосует в {candidate}?</h3>
-        <p className="text-xs text-white/60">Кто ни за кого не проголосует, уйдёт в последнего — в {scenario.candidates[lastIndex]}.</p>
+        <p className="text-xs text-white/60">Отметь свободные руки. Последний ({scenario.candidates[lastIndex]}) заберёт оставшиеся.</p>
         <div className="grid grid-cols-5 gap-2" role="group" aria-label="Голосующие игроки">
           {available.map((seat) => (
             <button key={seat} type="button" aria-pressed={selected.includes(seat)} onClick={() => setSelected((current) => (current.includes(seat) ? current.filter((value) => value !== seat) : [...current, seat]))}
@@ -96,7 +96,9 @@ const OutcomeView = ({ scenario, outcome }: { scenario: ExpertScenario; outcome:
   const { votes, startIndex } = expertHistory(scenario);
   return (
     <div role="status" className="space-y-2 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
-      <p className="font-semibold text-white">{outcome.ok ? 'Попил спасён!' : outcome.timedOut ? 'Время вышло.' : 'Попил не состоялся.'}</p>
+      <h3 className="text-base font-black text-white">{outcome.ok ? '✓ Попил спасён' : 'Разбор ошибки'}</h3>
+       {outcome.timedOut ? <p className="text-amber-200">Время вышло: нужно успеть распределить свободные руки за {EXPERT_SECONDS} секунд.</p> : null}
+       <p><b className="text-white">Цель:</b> за {scenario.pair[0]} и {scenario.pair[1]} должно быть поровну, больше, чем за других.</p>
       {!outcome.ok && outcome.reason && !outcome.timedOut ? <p>{outcome.reason}</p> : null}
       <p className="text-white/60">Итог голосования:</p>
       <ul className="space-y-0.5">
@@ -109,7 +111,7 @@ const OutcomeView = ({ scenario, outcome }: { scenario: ExpertScenario; outcome:
             <li key={candidate}>В {candidate}: {seats(index < startIndex ? votes[candidate] : example[candidate] ?? [])}{index < startIndex ? ' (уже проголосовали)' : ''}</li>
           ))}
         </ul>
-        <p className="text-white/60">Кто страхует — неважно. Остальные голосуют как по обычным правилам попила.</p>
+        <p className="text-white/60">Почему это работает: уже отданные голоса нельзя вернуть. Страховочные руки уходят в других выставленных, а оставшиеся — по обычной схеме, чтобы у пары было поровну.</p>
       </> : null}
     </div>
   );
@@ -170,12 +172,15 @@ export const SplitVoteExpertSession = ({ mode, onExit, onPassed, scenarios }: {
         <span>Эксперт · {mode === 'exam' ? 'экзамен' : mode === 'practice' ? 'практика' : 'без конца'}</span>
         <span>{mode === 'endless' ? `Задача ${position + 1}` : `Задача ${Math.min(position + 1, 5)} из 5`}</span>
       </div>
-      <p data-testid="split-vote-nominees" className="text-sm text-white/65">В нулевом круге выставлены по порядку: <strong className="text-white">{scenario.candidates.join(', ')}</strong>.</p>
-      <p className="text-sm text-white/65">Договорились о попиле между <strong className="text-white">{scenario.pair[0]} и {scenario.pair[1]}</strong>. За 15 секунд распредели оставшихся так, чтобы попил состоялся.</p>
-      {/* Who already voted, and after the round the votes as they were cast. */}
+      <div className="space-y-1.5 rounded-2xl border border-white/10 bg-white/[.06] p-3">
+         <h2 className="text-lg font-black leading-6 text-white">Спаси попил за {EXPERT_SECONDS} секунд</h2>
+         <p data-testid="split-vote-nominees" className="text-[12px] text-white/75">Выставлены: <b className="text-white">{scenario.candidates.join(' → ')}</b></p>
+         <p className="text-[12px] text-white/75">Попил: <b className="text-white">{scenario.pair.join(' / ')}</b> · часть голосов уже потрачена</p>
+       </div>
+       {/* Who already voted, and after the round the votes as they were cast. */}
       <SplitTableMap candidates={scenario.candidates} split={scenario.pair} votes={outcome ? allExpertVotes(scenario, outcome.answer) : expertHistory(scenario).votes} />
       {!outcome ? <ExpertRound key={round} scenario={scenario} onDone={done} /> : <>
-        <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100">⚠️ {describeBreak(scenario)}</p>
+        <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2.5 text-sm leading-6 text-amber-100"><b>Уже произошло:</b> {describeBreak(scenario)}</p>
         <OutcomeView scenario={scenario} outcome={outcome} />
       </>}
       {finished ? <div data-testid="split-vote-result" className={`rounded-2xl border p-4 text-sm leading-6 ${finished === 'passed' ? 'border-emerald-400/50 bg-emerald-500/[.12] text-emerald-100' : 'border-white/15 bg-white/[.06]'}`}>

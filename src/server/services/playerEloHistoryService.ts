@@ -280,15 +280,9 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
  * the protocol sizes, the stored Elo, the tournament participants and the generation of the canonical rebuild, which
  * every rated save runs; when it cannot be read the timeline is replayed as before.
  */
-const timelineCache = new WeakMap<object, { fingerprint: string; timeline: Promise<PlayerEloHistoryEvent[]> }>();
+const timelineCache = new WeakMap<object, { version: string | null; fingerprint: string; timeline: Promise<PlayerEloHistoryEvent[]> }>();
 
 async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null> {
-  // SQLite tells us when this connection (total_changes) or another connection
-  // (data_version) changed the database. These O(1) counters avoid scanning every
-  // historical protocol / result on each profile and notification refresh.
-  // The canonical Elo generation also changes for explicit rating rebuilds.
-  const version = sqliteReadVersion(db);
-  if (version !== null) return JSON.stringify([currentEloInputsGeneration(), version]);
   try {
     const parts = await Promise.all([
       db.get(`SELECT COUNT(*) AS c, MAX(rowid) AS r, TOTAL(LENGTH(protocol_text)) AS s, TOTAL(LENGTH(COALESCE(winner_team, ''))) AS w, COUNT(archived_at) AS a FROM games`),
@@ -309,13 +303,22 @@ async function eloInputsFingerprint(db: DatabaseWrapper): Promise<string | null>
 }
 
 export async function loadPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHistoryEvent[]> {
-  const fingerprint = await eloInputsFingerprint(db);
+  const version = sqliteReadVersion(db);
   const cached = timelineCache.get(db as object);
-  if (fingerprint && cached && cached.fingerprint === fingerprint) return cached.timeline;
+  // The common read-only path is O(1), even with a long history.
+  if (version !== null && cached?.version === version) return cached.timeline;
+  // A database write is not necessarily a game/Elo change (it may just mark a
+  // notification read). Recheck the original input fingerprint before replaying
+  // the expensive chronological Elo calculation; preserve existing semantics.
+  const fingerprint = await eloInputsFingerprint(db);
+  if (fingerprint && cached?.fingerprint === fingerprint) {
+    cached.version = version;
+    return cached.timeline;
+  }
   const timeline = replayPlayerEloHistory(db);
   if (fingerprint) {
-    timelineCache.set(db as object, { fingerprint, timeline });
-    timeline.catch(() => { if (timelineCache.get(db as object)?.timeline === timeline) timelineCache.delete(db as object); });
+    timelineCache.set(db as object, { version, fingerprint, timeline });
+    void timeline.catch(() => { if (timelineCache.get(db as object)?.timeline === timeline) timelineCache.delete(db as object); });
   }
   return timeline;
 }

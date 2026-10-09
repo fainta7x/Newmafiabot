@@ -70,12 +70,16 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
   const gamesSql = tables.has('evening_slot_registrations')
     ? '(SELECT COUNT(*) FROM evening_slot_registrations r WHERE r.participant_id = ep.id)'
     : '0';
+  const firstGameSql = tables.has('evening_slot_registrations') && tables.has('evening_game_slots')
+    ? '(SELECT MIN(s.slot_number) FROM evening_slot_registrations r JOIN evening_game_slots s ON s.id = r.slot_id WHERE r.participant_id = ep.id)'
+    : 'NULL';
   const rows = await db.all<any>(`
     SELECT ep.id AS participant_id, ep.player_id, ep.response_status, ep.rsvp_followup_at,
            COALESCE(p.contact_status, p.lifecycle_status, 'normal') AS contact_state,
            e.id AS evening_id, e.title, e.starts_at, e.venue,
            ${announcedSql} AS announced_by_bot,
-           ${gamesSql} AS selected_games
+           ${gamesSql} AS selected_games,
+           ${firstGameSql} AS first_game
       FROM evening_participants ep
       JOIN players p ON p.id = ep.player_id
       JOIN game_evenings e ON e.id = ep.evening_id
@@ -124,15 +128,16 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
 
     if ((response === 'going' || response === 'late') && untilStart <= DAY_MS) {
       const needsGames = response === 'late' && !Number(row.selected_games);
+      const arrival = response === 'late' && row.first_game ? `с игры №${Number(row.first_game)}` : 'позже';
       await send(`reminder:24h:${eveningId}:${playerId}`, 'evening_reminder',
-        `⏰ Напоминаем: ${response === 'late' ? 'ты придёшь позже' : 'ты идёшь'} на игровой вечер\n${header}${needsGames ? '\nВыбери игры, на которые успеешь, — так мы правильно соберём столы.' : ''}`,
+        `⏰ Напоминаем: ${response === 'late' ? `ты придёшь ${arrival}` : 'ты идёшь'} на игровой вечер\n${header}${needsGames ? '\nУточни в боте, с какой игры придёшь, — тогда организатор будет знать, когда тебя ждать.' : ''}`,
         [appButton(eveningId, needsGames ? '🎯 Выбрать игры' : '📍 Открыть вечер')]);
     }
 
     if (response === 'late' && !Number(row.selected_games)) {
       await send(`late-games:${eveningId}:${playerId}`, 'evening_pick_games',
-        `🎯 Ты придёшь позже — выбери игры, на которые успеешь\n${header}\nТак организатор поймёт, в какие столы тебя ждать.`,
-        [appButton(eveningId, '🎯 Выбрать игры')]);
+        `⏳ Ты указал позднее прибытие, но не выбрал стартовую игру\n${header}\nОткрой вечер и нажми «Приду позже», чтобы уточнить игру.`,
+        [[{ text: '⏳ Уточнить игру', callback_data: `evr:${eveningId}:late` }]]);
     }
 
     if (response === 'thinking') {

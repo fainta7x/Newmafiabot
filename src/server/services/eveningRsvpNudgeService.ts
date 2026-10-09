@@ -131,7 +131,7 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
       const arrival = response === 'late' && row.first_game ? `с игры №${Number(row.first_game)}` : 'позже';
       await send(`reminder:24h:${eveningId}:${playerId}`, 'evening_reminder',
         `⏰ Напоминаем: ${response === 'late' ? `ты придёшь ${arrival}` : 'ты идёшь'} на игровой вечер\n${header}${needsGames ? '\nУточни в боте, с какой игры придёшь, — тогда организатор будет знать, когда тебя ждать.' : ''}`,
-        [appButton(eveningId, needsGames ? '🎯 Выбрать игры' : '📍 Открыть вечер')]);
+        needsGames ? [[{ text: '⏳ Уточнить игру', callback_data: `evr:${eveningId}:late` }]] : [appButton(eveningId, '📍 Открыть вечер')]);
     }
 
     if (response === 'late' && !Number(row.selected_games)) {

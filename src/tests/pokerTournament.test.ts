@@ -77,3 +77,30 @@ describe('poker tournament tables', () => {
     }
   });
 });
+
+describe('a hand where the blinds put everybody all-in', () => {
+  const players = [
+    { id: 'a', nickname: 'A', seat: 1, chips: 15 },
+    { id: 'b', nickname: 'B', seat: 2, chips: 20 },
+  ];
+
+  it('runs the board out and pays the pot at once when there is no deal animation', async () => {
+    const { createPokerHand } = await import('../server/services/pokerEngine.ts');
+    const hand = createPokerHand({ id: 'h1', players, small_blind: 15, big_blind: 20 });
+    expect(hand.street).toBe('finished');
+    expect(hand.board).toHaveLength(5);
+    expect(hand.players.reduce((sum, player) => sum + player.chips, 0)).toBe(35);
+  });
+
+  it('runs the board out by itself once the animated deal is over, instead of waiting for a move nobody can make', async () => {
+    const { createPokerHand, advancePokerAnimation } = await import('../server/services/pokerEngine.ts');
+    const hand = createPokerHand({ id: 'h2', players, small_blind: 15, big_blind: 20, animate: true });
+    expect(hand.animation_phase).toBe('dealing');
+    const later = Date.now() + 60_000;
+    advancePokerAnimation(hand, later);
+    advancePokerAnimation(hand, later + 60_000);
+    expect(hand.street).toBe('finished');
+    expect(hand.board).toHaveLength(5);
+    expect(hand.players.reduce((sum, player) => sum + player.chips, 0)).toBe(35);
+  });
+});

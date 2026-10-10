@@ -84,9 +84,12 @@ const settleBusts = async (db: DatabaseWrapper, row: RunningRow, config: PokerTo
       if (handPlayer && lobby.hand!.street !== 'finished') continue; // still playing this hand, all-in is not out
       const stack = handPlayer ? handPlayer.chips : seat.chips;
       if (stack > 0) continue;
-      busted.push({ id: seat.id, nickname: seat.nickname, startChips: Math.max(0, Math.trunc(handPlayer?.start_chips ?? 0)) });
+      const note = lobby.tournament!.bust_notes?.find((item) => item.id === seat.id);
+      busted.push({ id: seat.id, nickname: seat.nickname, startChips: Math.max(0, Math.trunc(handPlayer?.start_chips ?? note?.start_chips ?? 0)) });
     }
   }
+  // Whatever was noted has now been read (or the player is no longer at zero).
+  for (const lobby of lobbies) if (lobby.tournament!.bust_notes?.length) lobby.tournament!.bust_notes = [];
   if (!busted.length) return;
   const nowIso = new Date(nowMs).toISOString();
   if (rebuyOpen) {
@@ -140,7 +143,7 @@ const balanceTables = (row: RunningRow, config: PokerTournamentConfig) => {
       for (const seat of smallest.players.slice()) {
         const target = others.filter((lobby) => lobby.players.length < capacity).sort((a, b) => a.players.length - b.players.length)[0];
         if (!target) { moved = false; break; }
-        target.players.push({ id: seat.id, nickname: seat.nickname, seat: freePokerSeat(target), chips: seat.chips });
+        target.players.push({ ...seat, seat: freePokerSeat(target) });
         smallest.players = smallest.players.filter((item) => item.id !== seat.id);
       }
       if (moved) removePokerTournamentLobby(smallest.id);
@@ -151,7 +154,7 @@ const balanceTables = (row: RunningRow, config: PokerTournamentConfig) => {
     if (biggest && smallest && biggest !== smallest && biggest.players.length - smallest.players.length >= 2 && betweenHands(biggest) && smallest.players.length < capacity) {
       syncSeatsFromFinishedHand(biggest);
       const seat = biggest.players.slice().sort((a, b) => b.seat - a.seat)[0];
-      smallest.players.push({ id: seat.id, nickname: seat.nickname, seat: freePokerSeat(smallest), chips: seat.chips });
+      smallest.players.push({ ...seat, seat: freePokerSeat(smallest) });
       biggest.players = biggest.players.filter((item) => item.id !== seat.id);
       continue;
     }
@@ -166,6 +169,8 @@ export async function processRunningPokerTournament(db: DatabaseWrapper, row: Ru
   const startedAtMs = Date.parse(row.started_at);
 
   if (!pokerTournamentLobbies(row.id).length) await seatTables(db, row, config, startedAtMs);
+  // Settle before the tables move on, so a finished hand is read before the next deal replaces it; and once more after.
+  await settleBusts(db, row, config, startedAtMs, nowMs);
   for (const lobby of pokerTournamentLobbies(row.id)) tickPokerLobby(lobby);
 
   await settleBusts(db, row, config, startedAtMs, nowMs);

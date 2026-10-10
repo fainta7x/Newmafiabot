@@ -18,6 +18,8 @@ export type PokerLobbyTournament = {
   alive?: number;
   /** The last hand whose busts were settled, so a hand is settled once. */
   last_settled_hand?: string | null;
+  /** Who ran out of chips in a hand that was replaced by the next deal before the tournament service saw it (with the stack they started it with). */
+  bust_notes?: Array<{ id: string; nickname: string; start_chips: number }>;
   /** People who left the tournament at this table, best place first. */
   out?: Array<{ id: string; nickname: string; place: number }>;
 };
@@ -455,6 +457,14 @@ export const nextPokerHand = (lobby: PokerLobby) => {
   if (!hand || lobby.status === 'finished') throw new Error('Игра не идёт.');
   if (hand.street !== 'finished') throw new Error('Текущая раздача ещё не закончилась.');
   recordFinishedHand(lobby);
+  // The tournament service reads busts from the finished hand; if the next deal replaces it first, keep what it would have read.
+  if (lobby.tournament) {
+    const notes = lobby.tournament.bust_notes || [];
+    for (const handPlayer of hand.players) {
+      if (handPlayer.chips <= 0 && !notes.some((note) => note.id === handPlayer.id)) notes.push({ id: handPlayer.id, nickname: handPlayer.nickname, start_chips: Math.max(0, Math.trunc(handPlayer.start_chips ?? 0)) });
+    }
+    lobby.tournament.bust_notes = notes;
+  }
   for (const player of lobby.players) {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;

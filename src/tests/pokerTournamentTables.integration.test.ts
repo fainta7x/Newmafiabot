@@ -112,6 +112,40 @@ describe('poker tournament tables', () => {
     expect(places).toEqual([1, 2, 3, 4]);
   });
 
+  it('orders simultaneous bust-outs by their starting stacks even when the next deal replaced the hand before anyone looked', async () => {
+    const id = await begin(6, { seatsPerTable: 8, rebuyUntilLevel: 0 });
+    await withPersistedPokerRuntime(db, () => {
+      const lobby = pokerTournamentLobbies(id)[0];
+      tickPokerLobby(lobby);
+      const hand = lobby.hand!;
+      hand.street = 'finished';
+      hand.finished_at = Date.now() - 10_000; // long past the result pause: the next tick deals again
+      for (const player of hand.players) {
+        if (player.id === 'p1') { player.chips = 0; player.start_chips = 300; }
+        if (player.id === 'p2') { player.chips = 0; player.start_chips = 800; }
+      }
+      tickPokerLobby(lobby); // the next deal replaces the finished hand
+      expect(lobby.hand!.id).not.toBe(hand.id);
+    });
+    await tickPokerTournaments(db, start + 6000);
+    expect(await entry(id, 'p1')).toMatchObject({ status: 'eliminated', place: 6 });
+    expect(await entry(id, 'p2')).toMatchObject({ status: 'eliminated', place: 5 });
+  });
+
+  it('keeps a player away while his table is closed and he is moved', async () => {
+    const id = await begin(4, { seatsPerTable: 2, rebuyUntilLevel: 0 });
+    const tables = await lobbies(id);
+    const away = tables[1].players[0];
+    await withPersistedPokerRuntime(db, () => { for (const lobby of pokerTournamentLobbies(id)) for (const seat of lobby.players) if (seat.id === away) seat.sitting_out = true; });
+    // The other table's two players bust one after another so that the small table has to be closed.
+    await bust(id, [tables[0].players[0]], start + 5000);
+    await tickPokerTournaments(db, start + 6000);
+    await bust(id, [tables[0].players[1]], start + 30_000);
+    await tickPokerTournaments(db, start + 31_000);
+    const moved = await withPersistedPokerRuntime(db, () => pokerTournamentLobbies(id).flatMap((lobby) => lobby.players).find((seat) => seat.id === away));
+    expect(moved?.sitting_out).toBe(true);
+  });
+
   describe('a whole tournament played by the machinery itself', () => {
     afterEach(() => { vi.useRealTimers(); });
 

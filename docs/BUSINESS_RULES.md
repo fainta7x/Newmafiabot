@@ -88,7 +88,7 @@ The first-killed best-move timer is recovery-safe: its absolute deadline is part
 
 When a night kill creates mandatory end-of-night actions, the game must complete them in protocol order rather than auto-finishing as soon as the winning team becomes mathematically known:
 
-1. first-killed best move / ЛХ when applicable;
+1. first-killed best move / ЛХ when applicable. Whoever the mafia kills on the first night — a red player or a mafia/Don shooting himself — goes through this step, otherwise a skipped step would give the role away. A black player's ЛХ is worth nothing: it is dropped when the protocol is saved, it gives no points and no Ci, and the judge may simply skip it (owner, 2026-10-10);
 2. killed player’s **60-second** last speech;
 3. killed-player protocol with the approved **20-second total**;
 4. only then either open the next day or explicitly finish the game if a winner has been determined.

@@ -91,12 +91,17 @@ export function liveRoundToTournamentDay(roundNumber: number): number {
   return Math.max(0, Math.trunc(roundNumber) - 1);
 }
 
+/**
+ * Whoever the mafia kills on the first night is the «first killed» and goes through the same best-move (ЛХ) chain,
+ * whatever the role (owner, 2026-10-10): a black player who shot himself must not be recognisable by a skipped step.
+ * A black first-killed gets no points for the best move and may skip it; see `clubGameProtocolService`.
+ */
 export function canRegisterFirstKilled(
   roundNumber: number,
-  role: string,
+  _role: string,
   wasActuallyKilled: boolean
 ): boolean {
-  return roundNumber === 1 && wasActuallyKilled && (role === 'Мирный' || role === 'Шериф');
+  return roundNumber === 1 && wasActuallyKilled;
 }
 
 export function getSingularZeroRoundElimination(

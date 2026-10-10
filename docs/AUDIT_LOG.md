@@ -461,3 +461,9 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Fixed in this workstream:** `TournamentCupAsset.tsx` draws different sculpted cup families with deterministic tournament-based engraving. `trophyCabinetModel.ts` exposes real `tournament_id` or a recognized automatic club-evening `source_key`; no event route is invented from a free-form name.
 - **Fixed in this workstream:** `TrophyCabinet.tsx` offers «Открыть турнир и итоги» using the existing `PlayerTournamentView`, returning to the selected exhibit; automatic evening trophies link to their canonical evening route. Awards without a verifiable relation show no button.
 - **Acceptance:** 390px fixture shows different Bogdan edition silhouettes, click through verified tourney results and Back to the same cabinet; Jest/Vitest validates distinct IDs, honest links, unowned trophies and safe unknown sources. Do not mutate production database or award assignments. Exact-head CI + visual check before merging.
+
+### 2026-10-10 — Mafia shooting himself on night 1 had no ЛХ step
+
+- **Reported (owner):** when the mafia killed one of its own on the first night, the game skipped the best-move (ЛХ) step, which revealed the victim as black.
+- **Defect:** `canRegisterFirstKilled` (`src/lib/liveVoting.ts`) accepted red roles only, so the engine did not register a black first killed; both save paths (`validateFirstKilled` in `tournamentProtocolRoutes.ts`, club canonicalization) also rejected it.
+- **Fixed:** any first-night victim now goes through ЛХ and may skip it. Black best moves are dropped at save (`blackBestMoves.ts`) so no score, Elo or token calculation pays them; Ci stays red-only. Status: fixed.

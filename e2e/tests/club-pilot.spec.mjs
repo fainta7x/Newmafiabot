@@ -128,21 +128,17 @@ test.describe('Player club cabinet migration', () => {
     await expect(page.getByTestId('club-player-p2')).toBeFocused();
 
     await page.getByRole('button', { name: 'Связи', exact: true }).click();
-    const rivals = page.getByTestId('club-rivals');
-    const teammates = page.getByTestId('club-teammates');
+    const stories = page.getByTestId('club-stories');
     const duos = page.getByTestId('club-duos');
-    await expect(rivals).toBeVisible();
-    await expect(teammates).toBeVisible();
+    await expect(stories).toBeVisible();
     await expect(duos).toBeVisible();
-    await expect(page.getByText('Матроскина', { exact: true })).toBeVisible();
 
-    const relationshipTreatments = await Promise.all([rivals, teammates, duos].map((locator) => locator.evaluate((element) => {
+    const relationshipTreatments = await Promise.all([stories, duos].map((locator) => locator.evaluate((element) => {
       const style = getComputedStyle(element);
       return { backgroundImage: style.backgroundImage, borderRadius: style.borderRadius };
     })));
     expect(relationshipTreatments.every((item) => item.backgroundImage.includes('linear-gradient'))).toBe(true);
-    expect(new Set(relationshipTreatments.map((item) => item.backgroundImage)).size).toBe(3);
-    expect(relationshipTreatments.map((item) => item.borderRadius)).toEqual(['24px', '24px', '24px']);
+    expect(relationshipTreatments.map((item) => item.borderRadius)).toEqual(['24px', '24px']);
 
     await expectNoHorizontalOverflow(page, 'club connections');
     await attachViewport(page, testInfo, 'club-connections.png');

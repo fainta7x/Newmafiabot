@@ -792,6 +792,19 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 - Dealing runs at 0.8 of the old time; a bot waits 0.45 s to fold or check, 0.7 s to call and 0.95 s to raise; a player's own cards fade after he folds.
 - The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».
 
+## Poker MTT (owner, 2026-10-10)
+
+A poker multi-table tournament is its own event with its own record; it is not a cash table. Decided with the owner; step 1 (settings, registration, start) is built, the tables, eliminations and prizes follow.
+
+- **Entry is free** for everybody and gives a starting stack for nothing. Tournament chips are **nominal**: they exist only inside the tournament and are never cashed out into club tokens. Club tokens move only for re-buys (paid from the player's own tokens) and for prizes.
+- **Players:** no hard cap (the owner expects roughly 4 to 20, more is allowed). The organizer sets the minimum (default 4) and an optional maximum; with no maximum registration stays open until the start.
+- **Start:** automatic at the set time when at least the minimum registered. With fewer the tournament is **cancelled** and everyone registered gets a personal message. A tournament that is running cannot be cancelled.
+- **Format «турбо»:** the first level is the cash-game 10/20, each level raises the blinds by roughly half (10/20, 15/30, 20/40, 30/60, 40/80, 50/100, 75/150, 100/200 …); default level length 6 minutes, default stack 1,000 chips. Every one of these is a setting of the tournament (level length, stack, seats per table, re-buy, prizes).
+- **Re-buy:** a player who busted may buy back in with his own tokens (default 500 tokens for 1,000 chips) until the end of the chosen level (default level 4); after that nobody returns and busting is final.
+- **Tables:** as few tables as possible, filled evenly (10 players at 6 seats: 5 + 5; 20: four tables of 5; 4: one table). The seat count per table is a setting, 2 to 8 (the table engine seats eight at most). Tables merge as players bust until a final table remains.
+- **Prizes:** the organizer sets a token payout for each of the first places (a winner only, or first, second and third and so on). Besides tokens the winners get achievements and a cup in the profile.
+- Not built yet: seating and play at the tables, eliminations and places, re-buy payments, prize payouts, achievements and cup, the calendar listing, and the table chat with emotes.
+
 ## Club connections (owner approved, 2026-10-07)
 The club panel leads with pairs for red and black separately. Preserve the existing best-pair score (win percentage + twice the joint-game count capped at ten games), minimum two games; show up to five. «Самые сыгранные» orders by joint games, then team wins. Single-game pairs appear separately as «Первые совместные игры», never as proven strong pairs. All counts use completed canonical club/tournament snapshots. Personal rival wins mean the viewer’s team won, not a personal defeat of the other player. Recent meetings aggregate only games the viewer played in his latest completed event; source and event id together identify an event. A person may appear on both sides after changing teams between games. No changes to Elo, awards or game rules.
 

@@ -11,6 +11,7 @@ describe('«Прогресс → Обучение»: categorized entry rather th
     render(<PlayerLearningBlock />);
     expect(screen.getByTestId('player-learning')).toBeDefined();
     expect(screen.getByTestId('player-learning-judge').getAttribute('href')).toBe('/guide?from=progress&tab=judge-conduct');
+    expect(screen.getByTestId('player-learning-reasoning').getAttribute('href')).toBe('/guide?from=progress&tab=quiz');
     for (const tab of ['lessons', 'trainers', 'reference']) {
       expect(screen.getByTestId('player-learning-section-' + tab).getAttribute('href'))
         .toBe('/guide?from=progress&tab=' + tab);

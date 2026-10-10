@@ -10,7 +10,6 @@
  * Texts about the game come only from the organizer's explanations (see docs/BUSINESS_RULES.md).
  */
 import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, type GuideBlock } from './clubGuide.ts';
-import { GUIDE_QUIZ } from './clubGuideQuiz.ts';
 
 /** «1 часть», «3 части», «6 частей». */
 export const pluralRu = (count: number, one: string, few: string, many: string) => {
@@ -54,7 +53,7 @@ export type GuideShelf = {
  * /guide?tab=<shelf id>. A shelf without entries is not shown.
  */
 export const GUIDE_SHELVES: GuideShelf[] = [
-  { id: 'trainers', title: 'Тренажёры', summary: 'Попил, судейство, тест', lead: 'Задачи с проверкой ответа. Экзамены сохраняются в кабинете игрока.', icon: 'vote', layout: 'rows' },
+  { id: 'trainers', title: 'Тренажёры', summary: 'Попил, судейство, игровая логика', lead: 'Игровая логика, попил и судейство: практика с разбором ошибок. У попилов отдельные экзамены.', icon: 'vote', layout: 'rows' },
   { id: 'reference', title: 'Справочник', summary: 'Вечер, роли, правила, словарь', lead: 'Роли, правила и слова клуба — когда нужно быстро найти ответ.', icon: 'book', layout: 'tiles' },
   { id: 'articles', title: 'Статьи', summary: 'Попил в первый день, договорка', lead: 'Разборы игровых ситуаций.', icon: 'article', layout: 'rows' },
 ];
@@ -74,7 +73,7 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
   { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · пять уровней и экзамены' },
   { id: 'judge-conduct', shelf: 'trainers', view: 'judge-conduct', icon: 'scale', group: 'Ведение игр', title: 'Тренажёр судьи', detail: 'Рассадка, роли и задания на настоящем Live Game' },
-  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Знание правил', title: 'Проверь себя', detail: `${GUIDE_QUIZ.length} ${pluralRu(GUIDE_QUIZ.length, 'короткий вопрос', 'коротких вопроса', 'коротких вопросов')}. Ни на что не влияет` },
+  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Игровое мышление', title: 'Игровое мышление', detail: '5 ступеней · 15 ситуаций · разбор решений' },
 ];
 
 export type GuideLessonContent =

@@ -10,14 +10,6 @@ beforeEach(() => window.localStorage.clear());
 afterEach(() => cleanup());
 
 const decisions = (cases: typeof REASONING_LEVELS[number]['cases']) => cases.flatMap((item) => item.steps);
-const chooseAnswer = (points: 0 | 1 | 2) => {
-  const buttons = screen.getAllByTestId(/^reasoning-option-/);
-  // The course always contains exactly one answer worth 2 points; for wrong answers choose the first 0.
-  const currentQuestion = screen.getByRole('group');
-  expect(currentQuestion).toBeTruthy();
-  const choices = buttons.map((button) => button.textContent || '');
-  return { buttons, choices, points };
-};
 const complete = (levelIndex: number, point: 0 | 2) => {
   const level = REASONING_LEVELS[levelIndex];
   const cases = reasoningCasesForAttempt(level, 0);

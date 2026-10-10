@@ -142,6 +142,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     });
     setSelected(null);
     setRevealed(false);
+    setOwnReason('');
   };
   const next = () => {
     if (!revealed || !hasSelection || selected === null || !current) return;

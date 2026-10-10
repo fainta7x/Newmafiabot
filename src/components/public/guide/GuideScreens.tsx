@@ -183,7 +183,7 @@ export const LessonScreen = ({ index, onNext, onPrevious }: { index: number; onN
       <div className="sticky bottom-0 -mx-4 grid grid-cols-[auto_1fr] gap-2 bg-gradient-to-t from-[#090a0d] via-[#090a0d] to-transparent px-4 pt-6"
         style={{ paddingBottom: 'calc(12px + var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
         <button type="button" onClick={onPrevious} className="grid min-h-12 w-12 place-items-center rounded-2xl border border-white/15 text-white/75" aria-label={index === 0 ? 'К списку уроков' : 'Предыдущий урок'}><ChevronLeft className="h-5 w-5" /></button>
-        <button type="button" onClick={onNext} className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-sm font-semibold text-black">{last ? 'Проверить себя' : 'Следующий урок'}<ChevronRight className="h-4 w-4" /></button>
+        <button type="button" onClick={onNext} className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-sm font-semibold text-black">{last ? 'Игровое мышление' : 'Следующий урок'}<ChevronRight className="h-4 w-4" /></button>
       </div>
     </div>
   );
@@ -206,8 +206,8 @@ export const LessonPath = ({ progress, onLesson, onQuiz }: { progress: GuideProg
     })}
     <li>
       <button type="button" onClick={onQuiz} className="flex min-h-[64px] w-full items-center gap-3 rounded-3xl border border-dashed border-white/20 p-3 pr-2 text-left">
-        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${progress.quizBest !== null ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white'}`}><ListChecks className="h-5 w-5" /></span>
-        <span className="min-w-0 flex-1"><strong className="block text-[15px] text-white">Проверь себя</strong><span className="mt-0.5 block text-[13px] leading-5 text-white/55">{progress.quizBest !== null ? `Лучший результат: ${progress.quizBest} из ${GUIDE_QUIZ.length}` : 'Короткий тест в конце пути. Ни на что не влияет.'}</span></span>
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${progress.quizBest === 5 ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white'}`}><ListChecks className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1"><strong className="block text-[15px] text-white">Игровое мышление</strong><span className="mt-0.5 block text-[13px] leading-5 text-white/55">{progress.quizBest === 5 ? 'Все пять глав пройдены' : 'Факты, выгода, команды и проверка версий · пять глав.'}</span></span>
         <ChevronRight className="h-5 w-5 shrink-0 text-white/35" aria-hidden="true" />
       </button>
     </li>

@@ -205,6 +205,48 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect((screen.getByTestId('reasoning-own-explanation') as HTMLTextAreaElement).value).toBe('');
   });
 
+
+  it('does not pretend a claimed Sheriff proves a color before the Sheriff identity is known', () => {
+    const caseItem = REASONING_LEVELS[0].cases.find((item) => item.id === 'sheriff-claim')!;
+    expect(caseItem.facts.join(' ')).toContain('№8 ещё не выступал');
+    expect(caseItem.facts.join(' ')).toContain('неизвестно, настоящий ли №1 шериф');
+    expect(caseItem.facts.join(' ')).not.toMatch(/раскрыл.*роль/);
+
+    const [observed, hypotheses] = caseItem.steps;
+    expect(observed.mode).toBeUndefined();
+    expect(observed.options.filter((option) => option.points === 2).map((option) => option.label))
+      .toEqual(['№1 дал чёрную проверку №8']);
+    expect(observed.options.some((option) => option.points === 0 && option.label.includes('уже достоверна'))).toBe(true);
+    expect(hypotheses.mode).toBe('multiple');
+    expect(hypotheses.options.map((option) => option.plausible)).toEqual([true, true, true, false]);
+    expect(hypotheses.options[0].label).toContain('настоящий шериф');
+    expect(hypotheses.options[1].label).toContain('чёрную проверку красному №8');
+    expect(hypotheses.options[2].label).toContain('чёрную проверку чёрному №8');
+    expect(hypotheses.options[2].feedback).toContain('окрасниться');
+    expect(hypotheses.options[3].label).toContain('даже если №1 лжешериф');
+    expect(hypotheses.options[3].feedback).toContain('№8 может быть красным или чёрным');
+  });
+
+  it('distinguishes an unconfirmed Sheriff claim from a confirmed real Sheriff check', () => {
+    const verified = REASONING_LEVELS.find((level) => level.id === 'reconstruct')!
+      .cases.find((item) => item.id === 'sheriff')!;
+    expect(verified.facts.join(' ')).toContain('настоящий шериф');
+    expect(verified.facts.join(' ')).toContain('№6 действительно чёрный');
+    const review = REASONING_LEVELS[0].cases.flatMap((item) => [item.title, ...item.facts]);
+    expect(review.join(' ')).not.toContain('свою роль не раскрыл');
+  });
+
+  it('uses okrasnenie only for black-player tactics instead of a generic trust shortcut', () => {
+    const lines = REASONING_LEVELS.flatMap((level) => level.cases.flatMap((item) =>
+      [item.title, ...item.facts, ...item.steps.flatMap((decision) =>
+        [decision.prompt, ...decision.options.flatMap((option) => [option.label, option.feedback])])])).join(' ');
+    expect(lines).toContain('окрасниться');
+    expect(lines).not.toContain('ради доверия');
+    expect(lines).not.toContain('получил доверие');
+    expect(lines).not.toContain('обвиняет мирного');
+    expect(lines).not.toContain('№8 свою роль не раскрыл');
+  });
+
   it('does not unlock later chapters from invalid saved progress', () => {
     window.localStorage.setItem('mafia-reasoning-course-v1', JSON.stringify({ passed: ['motives', 'teams'] }));
     render(<MafiaReasoningCourse />);

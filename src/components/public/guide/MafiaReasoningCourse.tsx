@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, Check, LockKeyhole, RotateCcw, TriangleAlert, CheckSquare2, Square } from 'lucide-react';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed, reasoningCasesForAttempt, reasoningCasesByIds,
@@ -107,6 +107,8 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const [progress, setProgress] = useState<CourseProgress>(readProgress);
   const [levelIndex, setLevelIndex] = useState(0);
   const [view, setView] = useState<'chapters' | 'practice'>('chapters');
+  const courseTop = useRef<HTMLDivElement>(null);
+  const initialView = useRef(true);
   const [selected, setSelected] = useState<ReasoningAnswer | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [ownReason, setOwnReason] = useState('');
@@ -125,6 +127,10 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const courseComplete = REASONING_LEVELS.every((item) => progress.passed.includes(item.id));
 
   useEffect(() => saveProgress(progress), [progress]);
+  useEffect(() => {
+    if (initialView.current) { initialView.current = false; return; }
+    courseTop.current?.scrollIntoView?.({ behavior: 'auto', block: 'start' });
+  }, [view, levelIndex]);
 
   const selectLevel = (index: number) => {
     if (!reasoningUnlocked(index, progress.passed)) return;
@@ -173,7 +179,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const outputLabel = (points: number) => points === 2 ? 'Хорошо подмечено' :
     points === 1 ? 'Не все варианты рассмотрены' : 'Здесь есть ошибка в рассуждении';
 
-  return <div className="space-y-4" data-testid="mafia-reasoning-course">
+  return <div ref={courseTop} className="space-y-4" data-testid="mafia-reasoning-course">
     {view === 'chapters' ? <>
       <header className="px-1">
         <h2 className="text-xl font-semibold">Игровое мышление</h2>
@@ -193,7 +199,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
             </span>
             <span className="min-w-0 flex-1"><strong className="block text-[14px]">{item.title}</strong>
               <span className="mt-0.5 block text-[12px] leading-4 text-white/50">
-                {locked ? 'Откроется после предыдущей темы' : answered === total ? 'Пройдено · можно повторить' : answered ? `Продолжить · ${answered}/${total}` : `${total} вопросов`}
+                {locked ? 'Откроется после предыдущей темы' : passed ? 'Пройдено · можно повторить' : answered === total ? 'Посмотреть результат' : answered ? `Продолжить · ${answered}/${total}` : `${total} вопросов`}
               </span>
             </span>
             {!locked ? <ArrowRight className="h-4 w-4 shrink-0 text-white/55" /> : null}
@@ -225,9 +231,9 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
         </div>
         <ResultDetails cases={cases} answers={answers} />
         <div className="grid gap-2">
-          {passedNow && levelIndex < REASONING_LEVELS.length - 1 ? <button type="button" onClick={() => selectLevel(levelIndex + 1)} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-3 font-semibold text-black">Следующая глава <ArrowRight className="h-4 w-4" /></button> : null}
-          {courseComplete ? <p className="text-center text-sm text-emerald-200">Все пять глав пройдены. Попробуй применить этот подход на следующей игре.</p> : null}
-          <button type="button" onClick={restart} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/20 px-3 text-sm font-semibold"><RotateCcw className="h-4 w-4" /> {level.id === 'facts' ? 'Другие ситуации' : 'Пройти главу ещё раз'}</button>
+          {passedNow && levelIndex < REASONING_LEVELS.length - 1 ? <button type="button" onClick={() => selectLevel(levelIndex + 1)} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-3 font-semibold text-black">Следующая тема <ArrowRight className="h-4 w-4" /></button> : null}
+          {courseComplete ? <p className="text-center text-sm text-emerald-200">Все темы пройдены.</p> : null}
+          <button type="button" onClick={restart} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/20 px-3 text-sm font-semibold"><RotateCcw className="h-4 w-4" /> {level.id === 'facts' ? 'Другие ситуации' : 'Пройти ещё раз'}</button>
         </div>
       </div> : current ? <div data-testid="reasoning-task" className="space-y-4">
         <div className="flex items-center justify-between gap-3">

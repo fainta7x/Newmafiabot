@@ -178,6 +178,33 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(screen.getByRole('status').textContent).toContain('Хорошо подмечено');
     expect(screen.getByRole('status').textContent).toContain('Возможная версия:');
   });
+  it('does not leak the right answer through length and tests plausible cardinalities', () => {
+    const normal = REASONING_LEVELS.flatMap((level) => level.cases.flatMap((item) => item.steps))
+      .filter((decision) => decision.mode !== 'multiple');
+    const longestRight = normal.filter((decision) => {
+      const best = decision.options.find((option) => option.points === 2)!;
+      return best.label.length >= Math.max(...decision.options.map((option) => option.label.length));
+    }).length;
+    expect(longestRight).toBeGreaterThan(5);
+    expect(longestRight).toBeLessThan(normal.length / 2);
+
+    const multiple = REASONING_LEVELS.flatMap((level) => level.cases.flatMap((item) => item.steps))
+      .filter((decision) => decision.mode === 'multiple');
+    expect(multiple.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(multiple.map((decision) => decision.options.filter((option) => option.plausible).length)).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('invites free self-explanation without pretending to score free text', () => {
+    render(<MafiaReasoningCourse />);
+    fireEvent.change(screen.getByTestId('reasoning-own-explanation'), { target: { value: 'Я вижу только речь №10, но не его роль' } });
+    fireEvent.click(screen.getByTestId('reasoning-option-1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не его роль');
+    expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не оценивается автоматически');
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
+    expect((screen.getByTestId('reasoning-own-explanation') as HTMLTextAreaElement).value).toBe('');
+  });
+
   it('does not unlock later chapters from invalid saved progress', () => {
     window.localStorage.setItem('mafia-reasoning-course-v1', JSON.stringify({ passed: ['motives', 'teams'] }));
     render(<MafiaReasoningCourse />);

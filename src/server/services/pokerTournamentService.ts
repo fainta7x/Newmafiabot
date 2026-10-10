@@ -14,7 +14,7 @@ type TournamentRow = {
   id: string; title: string; description: string; organizer_player_id: string | null;
   status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; started_at: string | null; finished_at: string | null; config_json: string;
-  created_at: string; updated_at: string;
+  notified_at: string | null; created_at: string; updated_at: string;
 };
 
 const parseConfig = (row: Pick<TournamentRow, 'config_json'>): PokerTournamentConfig => JSON.parse(row.config_json);
@@ -83,21 +83,25 @@ export async function listPokerTournaments(db: DatabaseWrapper) {
 }
 
 export async function registerForPokerTournament(db: DatabaseWrapper, tournamentId: string, playerId: string) {
-  const row = await getPokerTournamentRow(db, tournamentId);
-  if (row.status !== 'registration') throw new PokerTournamentError(409, 'Запись на этот турнир закрыта');
-  const config = parseConfig(row);
-  const existing = await db.get<{ status: string }>('SELECT status FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [tournamentId, playerId]);
-  if (existing && existing.status !== 'cancelled') return row; // idempotent
-  if (config.maxPlayers !== null && await registeredCount(db, tournamentId) >= config.maxPlayers) {
-    throw new PokerTournamentError(409, 'Все места на турнир заняты');
-  }
-  const now = new Date().toISOString();
-  if (existing) {
-    await db.run("UPDATE poker_tournament_entries SET status = 'registered', updated_at = ? WHERE tournament_id = ? AND player_id = ?", [now, tournamentId, playerId]);
-  } else {
-    await db.run('INSERT INTO poker_tournament_entries (tournament_id, player_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [tournamentId, playerId, 'registered', now, now]);
-  }
-  return row;
+  // Status, capacity and the write happen in one transaction (they run one after another), so two players cannot
+  // both take the last place and a registration cannot slip in while the scheduler starts or cancels the tournament.
+  return db.transaction(async (tx) => {
+    const row = await getPokerTournamentRow(tx, tournamentId);
+    if (row.status !== 'registration') throw new PokerTournamentError(409, 'Запись на этот турнир закрыта');
+    const config = parseConfig(row);
+    const existing = await tx.get<{ status: string }>('SELECT status FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [tournamentId, playerId]);
+    if (existing && existing.status !== 'cancelled') return row; // idempotent
+    if (config.maxPlayers !== null && await registeredCount(tx, tournamentId) >= config.maxPlayers) {
+      throw new PokerTournamentError(409, 'Все места на турнир заняты');
+    }
+    const now = new Date().toISOString();
+    if (existing) {
+      await tx.run("UPDATE poker_tournament_entries SET status = 'registered', updated_at = ? WHERE tournament_id = ? AND player_id = ?", [now, tournamentId, playerId]);
+    } else {
+      await tx.run('INSERT INTO poker_tournament_entries (tournament_id, player_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [tournamentId, playerId, 'registered', now, now]);
+    }
+    return row;
+  });
 }
 
 export async function unregisterFromPokerTournament(db: DatabaseWrapper, tournamentId: string, playerId: string) {
@@ -110,29 +114,44 @@ export async function unregisterFromPokerTournament(db: DatabaseWrapper, tournam
   return row;
 }
 
-export async function cancelPokerTournament(db: DatabaseWrapper, tournamentId: string, reason: string, notify = true) {
+export async function cancelPokerTournament(db: DatabaseWrapper, tournamentId: string, reason: string, notify = true, nowMs = Date.now()) {
   const row = await getPokerTournamentRow(db, tournamentId);
   if (row.status === 'finished' || row.status === 'cancelled') return row;
   if (row.status === 'running') throw new PokerTournamentError(409, 'Идущий турнир отменить нельзя');
-  const now = new Date().toISOString();
-  await db.run("UPDATE poker_tournaments SET status = 'cancelled', cancel_reason = ?, updated_at = ? WHERE id = ?", [reason, now, tournamentId]);
-  if (notify) await notifyPokerTournamentPlayers(db, row, 'cancelled', `Покерный турнир «${row.title}» отменён: ${reason}`);
-  return { ...row, status: 'cancelled' as const, cancel_reason: reason, updated_at: now };
+  const now = new Date(nowMs).toISOString();
+  const changed = await db.run("UPDATE poker_tournaments SET status = 'cancelled', cancel_reason = ?, updated_at = ? WHERE id = ? AND status = 'registration'", [reason, now, tournamentId]);
+  if (!changed.changes) return getPokerTournamentRow(db, tournamentId);
+  const cancelled = { ...row, status: 'cancelled' as const, cancel_reason: reason, updated_at: now };
+  if (notify) await deliverPokerTournamentNotices(db, cancelled);
+  return cancelled;
 }
 
-async function notifyPokerTournamentPlayers(db: DatabaseWrapper, row: TournamentRow, kind: string, text: string) {
+const noticeText = (row: TournamentRow) => row.status === 'cancelled'
+  ? `Покерный турнир «${row.title}» отменён: ${row.cancel_reason || 'отменён организатором'}`
+  : `Покерный турнир «${row.title}» начался`;
+
+/**
+ * Queues the personal message for everyone registered and only then marks the tournament as announced. Every
+ * message has its own idempotency key, so the scheduler repeats this for any tournament without the mark (a
+ * crash or a failing channel never loses the message, and nothing is sent twice).
+ */
+async function deliverPokerTournamentNotices(db: DatabaseWrapper, row: TournamentRow) {
+  const kind = row.status === 'cancelled' ? 'cancelled' : 'started';
   const players = await db.all<{ player_id: string }>("SELECT player_id FROM poker_tournament_entries WHERE tournament_id = ? AND status != 'cancelled'", [row.id]);
-  for (const { player_id } of players) {
-    try {
+  try {
+    for (const { player_id } of players) {
       await queuePersonalNotification(db, {
         notificationKey: `poker-tournament:${kind}:${row.id}:${player_id}`,
         playerId: String(player_id),
         eventType: `poker_tournament_${kind}`,
         entityId: row.id,
-        text,
+        text: noticeText(row),
         actionPath: '/player',
       });
-    } catch { /* a message that cannot be queued must never stop the tournament clock */ }
+    }
+    await db.run('UPDATE poker_tournaments SET notified_at = ? WHERE id = ? AND notified_at IS NULL', [new Date().toISOString(), row.id]);
+  } catch (error) {
+    console.error('[POKER TOURNAMENT] notice delivery will be retried:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -149,16 +168,23 @@ export async function tickPokerTournaments(db: DatabaseWrapper, nowMs = Date.now
     const config = parseConfig(row);
     const players = await registeredCount(db, row.id);
     if (players < config.minPlayers) {
-      await cancelPokerTournament(db, row.id, `записалось ${players} из ${config.minPlayers} нужных игроков`);
-      result.cancelled.push(row.id);
+      const after = await cancelPokerTournament(db, row.id, `записалось ${players} из ${config.minPlayers} нужных игроков`, true, nowMs);
+      if (after.status === 'cancelled') result.cancelled.push(row.id);
       continue;
     }
     const now = new Date(nowMs).toISOString();
-    await db.run("UPDATE poker_tournaments SET status = 'running', started_at = ?, updated_at = ? WHERE id = ? AND status = 'registration'", [now, now, row.id]);
-    await db.run("UPDATE poker_tournament_entries SET status = 'playing', updated_at = ? WHERE tournament_id = ? AND status = 'registered'", [now, row.id]);
-    await notifyPokerTournamentPlayers(db, row, 'started', `Покерный турнир «${row.title}» начался`);
-    result.started.push(row.id);
+    // The status and the entries change together, and a start is reported only when this very call made it.
+    const started = await db.transaction(async (tx) => {
+      const changed = await tx.run("UPDATE poker_tournaments SET status = 'running', started_at = ?, updated_at = ? WHERE id = ? AND status = 'registration'", [now, now, row.id]);
+      if (!changed.changes) return false;
+      await tx.run("UPDATE poker_tournament_entries SET status = 'playing', updated_at = ? WHERE tournament_id = ? AND status = 'registered'", [now, row.id]);
+      return true;
+    });
+    if (started) result.started.push(row.id);
   }
+  // Messages that did not get out the first time (a crash, a failing channel) are retried here.
+  const unannounced = await db.all<TournamentRow>("SELECT * FROM poker_tournaments WHERE status IN ('cancelled','running') AND notified_at IS NULL AND updated_at >= ?", [new Date(nowMs - 2 * 24 * 60 * 60_000).toISOString()]);
+  for (const row of unannounced) await deliverPokerTournamentNotices(db, row);
   return result;
 }
 

@@ -117,12 +117,15 @@ export type PokerTournamentClock = {
   big: number;
   secondsToNextLevel: number | null;
   isLastLevel: boolean;
+  /** 1-based count of levels that have passed, NOT clamped: the blinds stop at the last level, the count goes on. */
+  elapsedLevel: number;
 };
 
 export function pokerTournamentClock(config: Pick<PokerTournamentConfig, 'levels' | 'levelMinutes'>, startedAtMs: number, nowMs: number): PokerTournamentClock {
   const levelMs = config.levelMinutes * 60_000;
   const elapsed = Math.max(0, nowMs - startedAtMs);
-  const index = Math.min(config.levels.length - 1, Math.floor(elapsed / levelMs));
+  const elapsedIndex = Math.floor(elapsed / levelMs);
+  const index = Math.min(config.levels.length - 1, elapsedIndex);
   const isLastLevel = index >= config.levels.length - 1;
   const { small, big } = config.levels[index];
   return {
@@ -131,12 +134,13 @@ export function pokerTournamentClock(config: Pick<PokerTournamentConfig, 'levels
     big,
     secondsToNextLevel: isLastLevel ? null : Math.max(0, Math.ceil(((index + 1) * levelMs - elapsed) / 1000)),
     isLastLevel,
+    elapsedLevel: elapsedIndex + 1,
   };
 }
 
-/** A busted player may re-buy while the current level is within the re-buy window. */
-export const pokerTournamentRebuyOpen = (config: Pick<PokerTournamentConfig, 'rebuyUntilLevel'>, clock: Pick<PokerTournamentClock, 'level'>): boolean =>
-  config.rebuyUntilLevel > 0 && clock.level <= config.rebuyUntilLevel;
+/** A busted player may re-buy until the chosen level ends. It counts elapsed levels, so even a cutoff at the last blind level expires. */
+export const pokerTournamentRebuyOpen = (config: Pick<PokerTournamentConfig, 'rebuyUntilLevel'>, clock: Pick<PokerTournamentClock, 'elapsedLevel'>): boolean =>
+  config.rebuyUntilLevel > 0 && clock.elapsedLevel <= config.rebuyUntilLevel;
 
 /**
  * Table sizes for `players` people at tables of at most `seatsPerTable`: as few tables as possible, filled evenly

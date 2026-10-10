@@ -61,6 +61,28 @@ describe('poker tournament registration and start', () => {
     expect(await db.all("SELECT player_id FROM poker_tournament_entries WHERE tournament_id=? AND status!='cancelled'", [row.id])).toHaveLength(2);
   });
 
+  it('never lets two players that register at the same moment take more places than the limit', async () => {
+    const row = await make({ minPlayers: 2, maxPlayers: 2 });
+    await registerForPokerTournament(db, row.id, 'p1');
+    const results = await Promise.allSettled([registerForPokerTournament(db, row.id, 'p2'), registerForPokerTournament(db, row.id, 'p3'), registerForPokerTournament(db, row.id, 'p4')]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(await db.all("SELECT player_id FROM poker_tournament_entries WHERE tournament_id=? AND status!='cancelled'", [row.id])).toHaveLength(2);
+  });
+
+  it('retries a cancellation message that did not get out the first time, once, for everybody', async () => {
+    const row = await make({ minPlayers: 4 });
+    for (const id of ['p1', 'p2']) await registerForPokerTournament(db, row.id, id);
+    await tickPokerTournaments(db, start + 1000);
+    // Pretend the process died after the cancellation: no message was queued and the tournament is not marked announced.
+    await db.run('DELETE FROM personal_notification_deliveries WHERE notification_key LIKE ?', [`poker-tournament:cancelled:${row.id}:%`]);
+    await db.run('UPDATE poker_tournaments SET notified_at = NULL WHERE id = ?', [row.id]);
+    await tickPokerTournaments(db, start + 20_000);
+    await tickPokerTournaments(db, start + 40_000);
+    const notices = await db.all<any>('SELECT player_id FROM personal_notification_deliveries WHERE notification_key LIKE ?', [`poker-tournament:cancelled:${row.id}:%`]);
+    expect(notices.map((entry) => entry.player_id).sort()).toEqual(['p1', 'p2']);
+    expect((await db.get<any>('SELECT notified_at FROM poker_tournaments WHERE id = ?', [row.id])).notified_at).not.toBeNull();
+  });
+
   it('is created by the organizer only and registered for over the player API', async () => {
     const organizer = `organizer_token=${generateOrganizerToken()}`;
     const player = `player_token=${generatePlayerSessionToken('p1')}`;

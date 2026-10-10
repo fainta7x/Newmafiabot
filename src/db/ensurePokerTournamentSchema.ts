@@ -16,6 +16,7 @@ export async function ensurePokerTournamentSchema(db: DatabaseWrapper): Promise<
       start_at TEXT NOT NULL,
       started_at TEXT,
       finished_at TEXT,
+      notified_at TEXT,
       config_json TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL

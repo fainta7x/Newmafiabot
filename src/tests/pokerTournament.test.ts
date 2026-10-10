@@ -41,9 +41,19 @@ describe('poker tournament clock', () => {
   });
 
   it('closes the re-buy after the chosen level', () => {
-    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 4 }, { level: 4 })).toBe(true);
-    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 4 }, { level: 5 })).toBe(false);
-    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 0 }, { level: 1 })).toBe(false);
+    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 4 }, { elapsedLevel: 4 })).toBe(true);
+    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 4 }, { elapsedLevel: 5 })).toBe(false);
+    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: 0 }, { elapsedLevel: 1 })).toBe(false);
+  });
+
+  it('still closes a re-buy set to the last blind level once that level has passed', () => {
+    const last = TURBO_BLIND_LEVELS.length;
+    const during = pokerTournamentClock(config, startedAt, startedAt + (last - 1) * 6 * 60_000 + 1000);
+    const after = pokerTournamentClock(config, startedAt, startedAt + last * 6 * 60_000 + 1000);
+    expect(during.level).toBe(last);
+    expect(after.level).toBe(last);
+    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: last }, during)).toBe(true);
+    expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: last }, after)).toBe(false);
   });
 });
 

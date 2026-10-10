@@ -6,8 +6,8 @@ Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` c
 
 - [fixed] `handlers/crm_evening_response.py`: late-arrival prompt "С какой игры тебя ждать?" contained a literal `\\n` (backslash-n shown to players in Telegram). Now a real line break.
 - [fixed] `EveningActiveRosterView.tsx`: add-to-evening picker hid every player who already had any participant row, but the roster hides «Не буду» / «Пока думаю» / «не пришёл» rows, so such a player (e.g. a walk-in who had answered no) could not be added anywhere. They now stay in the picker and are returned to the roster.
-- [open, low] `pokerInviteService.ts`: invite text hardcodes «вход 1 000 🪙» although buy-ins are now variable (from 10 BB, #737).
-- [open, low] `pokerInviteService.queuePokerInvite`: cooldown check and insert are not atomic; two simultaneous invites can both pass (worst case one extra message).
+- [fixed] `pokerInviteService.ts`: invite text hardcodes «вход 1 000 🪙» although buy-ins are now variable (from 10 BB, #737).
+- [fixed] `pokerInviteService.queuePokerInvite`: cooldown check and insert are not atomic; two simultaneous invites can both pass (worst case one extra message).
 - [open, info] `/api/bot/.../respond` now returns 400 `starting_slot_required` for «late» without a game; any old client that sends plain «late» (old Telegram buttons are handled by the new callback) would be rejected.
 - [checked, no defect] poker create/join charge-before-seat ordering: token debit and table snapshot are one transaction (`withPersistedPokerRuntime` rolls both back); regression test added (`pokerBuyInExploit.integration.test.ts`).
 - [checked, no defect] Robokassa test checkout/ResultURL: signed, amount checked, test-DB only, idempotent, success/fail redirects confirm nothing.

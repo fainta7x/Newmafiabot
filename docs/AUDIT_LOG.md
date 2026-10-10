@@ -10,6 +10,7 @@ Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` c
 - [fixed] `pokerInviteService.queuePokerInvite`: cooldown check and insert are not atomic; two simultaneous invites can both pass (worst case one extra message).
 - [open, info] `/api/bot/.../respond` now returns 400 `starting_slot_required` for «late» without a game; any old client that sends plain «late» (old Telegram buttons are handled by the new callback) would be rejected.
 - [checked, no defect] poker create/join charge-before-seat ordering: token debit and table snapshot are one transaction (`withPersistedPokerRuntime` rolls both back); regression test added (`pokerBuyInExploit.integration.test.ts`).
+- [checked 2026-10-10, no defect] Browser pass on current `main` (local Chromium via the preview build, 360/390 px and desktop): all 69 preview specs (live-game compact geometry after #769, trophy cabinet, Telegram viewport matrix, cabinet, split-vote trainers) and the 6 judge-trainer specs (mobile layout, finalization, desktop) pass; screenshots of the 360 px table, trophy cabinet and judge-trainer table/death protocol inspected. Observation only: at 360x700 the bottom «События» bar of the training table sits at the screen edge, partly under the floating clipboard button; not reproduced as a functional break.
 - [checked, no defect] Robokassa test checkout/ResultURL: signed, amount checked, test-DB only, idempotent, success/fail redirects confirm nothing.
 
 ## 2026-10-09 · Broken three-way split prompt wording

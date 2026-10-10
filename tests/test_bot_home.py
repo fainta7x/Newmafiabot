@@ -270,3 +270,40 @@ def test_stale_lineup_callback_has_new_evening_navigation(monkeypatch):
     callback = SimpleNamespace(data="home:lineup:old", from_user=SimpleNamespace(id=42))
     asyncio.run(bot_home.home_callback(callback))
     assert "больше не работает" in bot_home._show.await_args.args[1]
+
+
+def test_direct_browser_link_is_in_the_more_menu(monkeypatch):
+    import bot_menu
+    import config
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example/player")
+    assert bot_menu.direct_app_url() == "https://club.example"
+    _, more = bot_home.more_view()
+    buttons = [button for row in more.inline_keyboard for button in row]
+    browser = next(button for button in buttons if button.text == bot_menu.BROWSER_BUTTON_TEXT)
+    assert browser.url == "https://club.example" and browser.web_app is None
+
+
+def test_link_command_replies_with_a_copyable_plain_address(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    import bot_menu
+    import config
+    from handlers import registration
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example")
+    sent = []
+
+    async def answer(text, **kwargs):
+        sent.append((text, kwargs))
+
+    asyncio.run(registration.send_direct_link(SimpleNamespace(answer=answer)))
+    text, kwargs = sent[0]
+    assert "<code>https://club.example</code>" in text
+    assert kwargs["reply_markup"].inline_keyboard[0][0].url == "https://club.example"
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "")
+    sent.clear()
+    asyncio.run(registration.send_direct_link(SimpleNamespace(answer=answer)))
+    assert "не настроен" in sent[0][0]

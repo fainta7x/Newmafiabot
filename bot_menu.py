@@ -84,6 +84,27 @@ def cabinet_inline_keyboard(text: str = CABINET_BUTTON_TEXT) -> InlineKeyboardMa
     )
 
 
+BROWSER_BUTTON_TEXT = "🌐 Открыть в браузере"
+
+
+def direct_app_url() -> str | None:
+    """The app's plain web address: works in any browser, no Telegram needed (owner, 2026-10-10)."""
+    base = cabinet_app_url()
+    if not base:
+        return None
+    return base[:-len("/player")] if base.endswith("/player") else base
+
+
+def browser_button() -> InlineKeyboardButton | None:
+    url = direct_app_url()
+    return InlineKeyboardButton(text=BROWSER_BUTTON_TEXT, url=url) if url else None
+
+
+def browser_inline_keyboard() -> InlineKeyboardMarkup | None:
+    button = browser_button()
+    return InlineKeyboardMarkup(inline_keyboard=[[button]]) if button else None
+
+
 def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / изменить игры") -> InlineKeyboardMarkup | None:
     return app_inline_keyboard(event_app_path(evening_id), text)
 

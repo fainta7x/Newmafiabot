@@ -190,6 +190,23 @@ async def _send_normal_start(
     await send_home(message)
 
 
+@router.message(Command("link"), F.chat.type == "private")
+async def send_direct_link(message: Message):
+    url = bot_menu.direct_app_url()
+    if not url:
+        await message.answer("⚠️ Адрес приложения пока не настроен в боте. Сообщи организатору.")
+        return
+    await message.answer(
+        "🌐 <b>Прямая ссылка на приложение</b>\n\n"
+        f"<code>{url}</code>\n\n"
+        "Работает в любом браузере, Telegram не нужен. Нажми на ссылку, чтобы скопировать, "
+        "или открой кнопкой ниже. Войти можно через Telegram или ВКонтакте.",
+        parse_mode="HTML",
+        reply_markup=bot_menu.browser_inline_keyboard(),
+        disable_web_page_preview=True,
+    )
+
+
 @router.message(Command("app"), F.chat.type == "private")
 async def open_player_app(message: Message):
     inline_kb = bot_menu.app_inline_keyboard()

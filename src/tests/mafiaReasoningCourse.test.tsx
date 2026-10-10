@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import MafiaReasoningCourse, { reasoningScore, reasoningUnlocked } from '../components/public/guide/MafiaReasoningCourse.tsx';
 import {
-  REASONING_LEVELS, reasoningCasesForAttempt, reasoningMaxPoints, reasoningPassed,
+  REASONING_LEVELS, reasoningCasesForAttempt, reasoningMaxPoints, reasoningPassed, reasoningDecisionPoints, reasoningOptionOrder,
 } from '../lib/mafiaReasoningCourse.ts';
 
 beforeEach(() => window.localStorage.clear());
@@ -14,8 +14,10 @@ const complete = (levelIndex: number, point: 0 | 2) => {
   const level = REASONING_LEVELS[levelIndex];
   const cases = reasoningCasesForAttempt(level, 0);
   for (const question of decisions(cases)) {
-    const index = question.options.findIndex((answer) => answer.points === point);
-    fireEvent.click(screen.getByTestId('reasoning-option-' + index));
+    const chosen = question.mode === 'multiple'
+      ? question.options.flatMap((option, index) => (option.plausible === (point === 2) ? [index] : []))
+      : [question.options.findIndex((answer) => answer.points === point)];
+    for (const index of chosen) fireEvent.click(screen.getByTestId('reasoning-option-' + index));
     fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
     expect(screen.getByRole('status').textContent).toContain(point === 2 ? 'Хорошо подмечено' : 'Здесь есть ошибка');
     fireEvent.click(screen.getByRole('button', { name: /Следующий вопрос|Посмотреть разбор главы/ }));
@@ -34,8 +36,13 @@ describe('Mafia reasoning: case bank and plain language', () => {
       expect(item.steps).toHaveLength(2);
       for (const decision of item.steps) {
         expect(decision.options).toHaveLength(3);
-        expect(decision.options.filter((option) => option.points === 2)).toHaveLength(1);
         expect(decision.options.some((option) => option.points === 0)).toBe(true);
+        if (decision.mode === 'multiple') {
+          expect(decision.options.filter((option) => option.plausible).length).toBeGreaterThanOrEqual(2);
+          expect(decision.options.some((option) => option.plausible === false)).toBe(true);
+        } else {
+          expect(decision.options.filter((option) => option.points === 2)).toHaveLength(1);
+        }
         expect(decision.options.every((option) => option.feedback.length > 25)).toBe(true);
       }
     }
@@ -70,8 +77,12 @@ describe('Mafia reasoning: case bank and plain language', () => {
   it('scores analysis over color-guessing and keeps each stage locked until passed', () => {
     const level = REASONING_LEVELS[0];
     const questions = decisions(reasoningCasesForAttempt(level, 0));
-    const strong = questions.map((item) => item.options.findIndex((option) => option.points === 2));
-    const traps = questions.map((item) => item.options.findIndex((option) => option.points === 0));
+    const strong = questions.map((item) => item.mode === 'multiple'
+      ? item.options.flatMap((option, index) => (option.plausible ? [index] : []))
+      : item.options.findIndex((option) => option.points === 2));
+    const traps = questions.map((item) => item.mode === 'multiple'
+      ? [item.options.findIndex((option) => !option.plausible)]
+      : item.options.findIndex((option) => option.points === 0));
     expect(reasoningScore(level, strong)).toBe(20);
     expect(reasoningScore(level, traps)).toBe(0);
     expect(reasoningUnlocked(1, ['facts'])).toBe(true);
@@ -117,6 +128,56 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 4 из 6');
   });
 
+
+  it('treats red-red, black-black and black-red protection as compatible, not proven', () => {
+    const facts = REASONING_LEVELS[0].cases.find((item) => item.id === 'votes')!;
+    const multi = facts.steps[1];
+    expect(multi.mode).toBe('multiple');
+    const copy = multi.options.map((option) => option.label).join(' ');
+    expect(copy).toContain('мирный и считает №7 мафией');
+    expect(copy).toContain('мафия и спасает напарника №2');
+    expect(copy).toContain('мафия и сохраняет мирного №2');
+    const plausible = multi.options.flatMap((option, i) => option.plausible ? [i] : []);
+    expect(reasoningDecisionPoints(multi, plausible)).toBe(2);
+    expect(reasoningDecisionPoints(multi, plausible.slice(0, 1))).toBe(1);
+    expect(reasoningDecisionPoints(multi, [...plausible, multi.options.findIndex((option) => !option.plausible)])).toBe(0);
+    expect(reasoningDecisionPoints(multi, [...plausible, plausible[0]])).toBe(0);
+    expect(reasoningDecisionPoints(multi, [])).toBe(0);
+  });
+
+  it('balances answer locations with a reproducible display permutation', () => {
+    const cases = reasoningCasesForAttempt(REASONING_LEVELS[0], 0);
+    const positions = decisions(cases).map((question, index) => {
+      const indexInOriginal = question.options.findIndex((option) => option.points === 2);
+      const order = reasoningOptionOrder(question, index, 0);
+      expect(new Set(order).size).toBe(question.options.length);
+      return order.indexOf(indexInOriginal);
+    });
+    // The first correct choice is not always the second or the longest.
+    expect(new Set(positions).size).toBeGreaterThan(2);
+    const before = reasoningOptionOrder(decisions(cases)[0], 0, 0);
+    const after = reasoningOptionOrder(decisions(cases)[0], 0, 1);
+    expect(before).not.toEqual(after);
+  });
+
+  it('allows choosing several hypotheses and gives per-option feedback', () => {
+    // First batch: "votes" is its third case and starts at decision 5 of 10.
+    render(<MafiaReasoningCourse />);
+    const firstFour = decisions(reasoningCasesForAttempt(REASONING_LEVELS[0], 0)).slice(0, 5);
+    for (const question of firstFour) {
+      const right = question.options.findIndex((option) => option.points === 2);
+      fireEvent.click(screen.getByTestId('reasoning-option-' + right));
+      fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
+    }
+    expect(screen.getByText(/Можно выбрать несколько ответов/)).toBeTruthy();
+    const question = REASONING_LEVELS[0].cases.find((item) => item.id === 'votes')!.steps[1];
+    const selected = question.options.flatMap((option, i) => option.plausible ? [i] : []);
+    for (const index of selected) fireEvent.click(screen.getByTestId('reasoning-option-' + index));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    expect(screen.getByRole('status').textContent).toContain('Хорошо подмечено');
+    expect(screen.getByRole('status').textContent).toContain('Возможная версия:');
+  });
   it('does not unlock later chapters from invalid saved progress', () => {
     window.localStorage.setItem('mafia-reasoning-course-v1', JSON.stringify({ passed: ['motives', 'teams'] }));
     render(<MafiaReasoningCourse />);

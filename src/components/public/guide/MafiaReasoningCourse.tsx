@@ -24,7 +24,7 @@ const readProgress = (): CourseProgress => {
         result.answers[level.id] = raw.answers[level.id]
           .slice(0, decisions.length)
           .filter((value: unknown, index: number) =>
-            Number.isInteger(value) && value >= 0 && value < decisions[index].decision.options.length);
+            typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < decisions[index].decision.options.length);
       }
       if (typeof raw.best?.[level.id] === 'number') {
         result.best[level.id] = Math.max(0, Math.min(reasoningMaxPoints(level), raw.best[level.id]));

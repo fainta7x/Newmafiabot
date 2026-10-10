@@ -72,11 +72,6 @@ export function validateFirstKilled(
     if (Array.isArray(shots)) {
       const night1 = shots.find((s) => s && Number(s.night_number) === 1);
       if (night1 && night1.result === 'killed') {
-        // Older protocols never registered a black victim (e.g. a lone mafia who shot himself) as «first killed»;
-        // they stay valid. New games register him like any other first-night victim (owner, 2026-10-10).
-        const victim = seats.find((s) => Number(s.seat_number) === Number(night1.target_seat));
-        const victimRole = normalizeRole(victim?.role);
-        if (victimRole === 'mafia' || victimRole === 'don') return null;
         return 'В первую ночь был убит игрок, но первоубиенный не выбран в протоколе';
       }
     }

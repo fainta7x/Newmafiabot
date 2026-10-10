@@ -86,7 +86,7 @@ const unavailableReasonLabel = (context: InvitationContext) => {
 
 // What the inviter can do next: most often sign up for an evening first.
 const unavailableReasonHint = (context: InvitationContext) => {
-  if (context.reason === 'no_active_evening') return 'Сначала запишись на вечер сам: звать можно только на тот вечер, куда идёшь ты.';
+  if (context.reason === 'no_active_evening') return 'Сначала нужно записаться на вечер: звать можно только на тот, куда идёт сам приглашающий.';
   return 'Приглашение не записывает игрока на вечер — он запишется сам.';
 };
 
@@ -245,7 +245,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       {isSelf && inbox.length > 0 ? (
         <div className="rounded-[26px] border border-amber-200/10 bg-amber-200/[0.045] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/55">Приглашения</div>
-          <h2 className="mt-1 text-base font-semibold">Тебя зовут на игру</h2>
+          <h2 className="mt-1 text-base font-semibold">Зовут на игру</h2>
           <p className="mt-1 text-xs leading-5 text-white/40">Принятое приглашение — ещё не запись. Записаться можно на странице вечера.</p>
           <div className="mt-3 space-y-2">
             {inbox.map((item) => (
@@ -273,7 +273,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4" data-testid="invitation-picker">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
           <h2 className="mt-1 text-base font-semibold">Пригласить на игровой вечер</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">Звать можно на вечера, на которые ты сам записан.</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Звать можно на вечера, на которые записан сам приглашающий.</p>
           <select value={selectedEveningId} onChange={(event) => setSelectedEveningId(event.target.value)} className="mobile-field mt-3 w-full text-sm" aria-label="Игровой вечер для приглашения">
             {context.evenings.map((evening) => {
               const state = evening.existing_invitation ? 'already_invited' : evening.state || 'eligible';
@@ -315,7 +315,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи</div><h2 className="mt-1 text-base font-semibold">{isSelf ? 'С кем ты играешь' : 'С кем играет игрок'}</h2></div>
+          <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи</div><h2 className="mt-1 text-base font-semibold">{isSelf ? 'С кем я играю' : 'С кем играет игрок'}</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
         {connections && connections.length > 0 ? (
@@ -341,7 +341,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
             ))}
             {!shown.length ? <div className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">{filter === 'mates' ? 'Пока нет игроков, с кем получилось сыграть в одной команде.' : 'Пока нет игроков, с кем получилось сыграть друг против друга.'}</div> : null}
           </div>
-        ) : <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">{isSelf ? 'Сыграй ещё пару игр — и здесь появятся люди, с которыми ты играешь.' : 'Пока нет общих игр, чтобы что-то показать.'}</div>}
+        ) : <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">{isSelf ? 'Здесь появятся игроки, с которыми уже сыграно несколько игр.' : 'Пока нет общих игр, чтобы что-то показать.'}</div>}
       </div>
 
       {isSelf ? <PersonalRecentEvening /> : null}

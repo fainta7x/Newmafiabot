@@ -69,7 +69,7 @@ export default function PersonalTeamwork() {
 
   return (
     <div data-testid="personal-teamwork" className="space-y-3">
-      <Card testId="my-team" eyebrow="Команда" title="Моя команда" hint="С кем ты чаще всего играешь заодно.">
+      <Card testId="my-team" eyebrow="Команда" title="Моя команда" hint="Кто чаще всего в одной команде.">
         {hasTeam ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {([['red', '🔴 За красных'], ['black', '⚫ За чёрных']] as const).map(([team, label]) => (
@@ -82,14 +82,14 @@ export default function PersonalTeamwork() {
               </div>
             ))}
           </div>
-        ) : <p className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">Сыграй ещё несколько игр — и здесь появится твоя команда.</p>}
+        ) : <p className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">После нескольких игр здесь появится команда.</p>}
       </Card>
 
       {data.role_pairs.length ? (
-        <Card testId="role-pairs" eyebrow="Роли" title="Мои пары по ролям" hint="Кто чаще всего рядом, когда ты играешь эту роль.">
+        <Card testId="role-pairs" eyebrow="Роли" title="Мои пары по ролям" hint="Кто чаще всего рядом в этой роли.">
           {data.role_pairs.map((entry) => (
             <div key={entry.my_role}>
-              <h3 className="mb-2 text-xs font-semibold text-white/65">Когда ты {ROLE_LABEL[entry.my_role]} · {countGames(entry.games)}</h3>
+              <h3 className="mb-2 text-xs font-semibold text-white/65">Роль: {ROLE_LABEL[entry.my_role]} · {countGames(entry.games)}</h3>
               <div className="space-y-2">
                 {entry.partners.map((item) => (
                   <Row key={item.player_id} person={item} line={<>{item.partner_role ? `Чаще всего ${ROLE_LABEL[item.partner_role] || 'в команде'} · ` : ''}{wins(item)}</>} />
@@ -101,14 +101,14 @@ export default function PersonalTeamwork() {
       ) : null}
 
       {data.opponents.hard.length || data.opponents.easy.length ? (
-        <Card testId="my-opponents" eyebrow="Соперники" title="С кем играть против" hint="Показываем тех, с кем ты сыграл против друг друга хотя бы три раза.">
+        <Card testId="my-opponents" eyebrow="Соперники" title="С кем играть против" hint="Здесь те, с кем игра друг против друга была хотя бы три раза.">
           <div className="grid gap-3 sm:grid-cols-2">
             {([['hard', 'Сложные соперники', 'border border-rose-200/[0.07] bg-rose-300/[0.035]'], ['easy', 'Удобные соперники', 'border border-emerald-200/[0.07] bg-emerald-300/[0.035]']] as const).map(([key, label, tone]) => (
               <div key={key}>
                 <h3 className="mb-2 text-xs font-semibold text-white/65">{label}</h3>
                 <div className="space-y-2">
                   {data.opponents[key].map((item) => (
-                    <Row key={item.player_id} person={item} tone={tone} line={`Против друг друга ${countGames(item.games)} · побед твоей команды: ${item.wins} из ${item.games}`} />
+                    <Row key={item.player_id} person={item} tone={tone} line={`Против друг друга ${countGames(item.games)} · побед: ${item.wins} из ${item.games}`} />
                   ))}
                   {!data.opponents[key].length ? <p className="text-xs text-white/40">Пока нет.</p> : null}
                 </div>
@@ -132,7 +132,7 @@ export default function PersonalTeamwork() {
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-white/65">Ближе всего к следующей ступени</h3>
               {closest.map((item) => (
-                <Row key={item.player_id} person={item} line={`Ещё ${countGames(item.games_to_next || 0)} в одной команде — и вы «${NEXT_STEP[item.stage]}»`} />
+                <Row key={item.player_id} person={item} line={`Ещё ${countGames(item.games_to_next || 0)} в одной команде до ступени «${NEXT_STEP[item.stage]}»`} />
               ))}
             </div>
           ) : null}
@@ -140,7 +140,7 @@ export default function PersonalTeamwork() {
       ) : null}
 
       {data.never_played.length ? (
-        <Card testId="never-played" eyebrow="Новые встречи" title="Ещё не играли вместе" hint="Игроки, которые недавно играли в клубе, а с тобой за один стол ещё не садились. Открой профиль и позови на вечер.">
+        <Card testId="never-played" eyebrow="Новые встречи" title="Ещё не играли вместе" hint="Недавно играли в клубе, но за одним столом пока не сидели. Позвать на вечер можно из профиля.">
           {data.never_played.map((item) => (
             <Row key={item.player_id} person={item} line={`За последние три месяца: ${countGames(item.recent_games)}`} />
           ))}

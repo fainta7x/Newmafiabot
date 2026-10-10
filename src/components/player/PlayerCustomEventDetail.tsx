@@ -45,7 +45,7 @@ export default function PlayerCustomEventDetail({ eventId, onBack, onSaved }: { 
       {!registered && Number(event.allow_guest) ? <label className="mt-3 flex min-h-12 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-3.5 text-sm"><span>Возьму с собой +1</span><input type="checkbox" checked={guest} onChange={(e) => setGuest(e.target.checked)} className="h-5 w-5" /></label> : null}
       {error ? <p className="mt-3 rounded-xl bg-rose-300/[0.08] px-3 py-2 text-sm text-rose-100">{error}</p> : null}
       <button type="button" disabled={busy || (!registered && (!Number(event.registration_open) || Number(event.participant_count) >= Number(event.participant_limit)))} onClick={() => void save()} className={`mt-3 min-h-12 w-full rounded-2xl text-sm font-semibold disabled:opacity-40 ${registered ? 'bg-white/[0.08] text-white' : 'bg-white text-black'}`}>{busy ? 'Сохраняем…' : registered ? 'Отменить запись' : Number(event.registration_open) ? 'Записаться' : 'Запись закрыта'}</button>
-      {registered ? <p className="mt-2 text-center text-xs text-emerald-200/70">Вы записаны{Number(event.guest_count) ? ' вместе с гостем' : ''}</p> : null}
+      {registered ? <p className="mt-2 text-center text-xs text-emerald-200/70">Запись есть{Number(event.guest_count) ? ' вместе с гостем' : ''}</p> : null}
     </> : !error ? <p className="mt-4 text-sm text-white/45">Загружаем событие…</p> : null}
     {!event && error ? <p className="mt-4 rounded-xl bg-rose-300/[0.08] px-3 py-2 text-sm text-rose-100">{error}</p> : null}
   </div></main>;

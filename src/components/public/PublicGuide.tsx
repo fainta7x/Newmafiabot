@@ -134,7 +134,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
 
       {recent && RecentIcon ? (
         <section className="space-y-2">
-          <ShelfTitle>Вы недавно открывали</ShelfTitle>
+          <ShelfTitle>Недавно открывали</ShelfTitle>
           <button type="button" data-testid="guide-recent" onClick={() => go({ tab: recent.id })} className="flex min-h-[64px] w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[.045] p-3 pr-2 text-left active:bg-white/[.08]">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[.08] text-white/80"><RecentIcon className="h-5 w-5" /></span>
             <span className="min-w-0 flex-1"><strong className="block text-[15px] text-white">{recent.title}</strong><span className="mt-0.5 block truncate text-[13px] text-white/55">{findGuideShelf(recent.shelf)?.title}</span></span>
@@ -146,7 +146,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
       {doneCount < total ? (
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[.10] via-white/[.04] to-transparent p-4">
           <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/50"><GraduationCap className="h-4 w-4" />Путь новичка</div>
-          <p className="mt-1.5 text-[15px] leading-6 text-white/80">{started ? `Пройдено ${doneCount} из ${total}. Продолжим?` : 'Впервые в мафии? Короткие уроки — и вы готовы к первой игре.'}</p>
+          <p className="mt-1.5 text-[15px] leading-6 text-white/80">{started ? `Пройдено ${doneCount} из ${total}. Продолжим?` : 'Впервые в мафии? Короткие уроки — и можно садиться за первую игру.'}</p>
           <button type="button" data-testid="guide-continue" onClick={() => (nextLesson >= 0 ? go({ tab: 'lessons', lesson: nextLesson }) : go({ tab: 'quiz' }))}
             className="mt-3 flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-black">
             {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Тренировать мышление'}<ChevronRight className="h-4 w-4" />

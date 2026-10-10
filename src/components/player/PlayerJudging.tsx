@@ -57,9 +57,9 @@ const formatDate = (value?: string | null) => {
 
 const levelDescription: Record<JudgeLevel, string> = {
   none: 'Нет полномочий на самостоятельное ведение игр.',
-  trainee: 'Можно вести игры новичков, если организатор назначил вас ведущим конкретной игры.',
-  host: 'Можно вести новичковые и обычные клубные игры, если вы назначены ведущим.',
-  judge: 'Можно вести любые клубные, рейтинговые и турнирные игры, если вы назначены судьёй.',
+  trainee: 'Можно вести игры новичков, если организатор назначил ведущим конкретной игры.',
+  host: 'Можно вести новичковые и обычные клубные игры, если назначен ведущим.',
+  judge: 'Можно вести любые клубные, рейтинговые и турнирные игры, если назначен судьёй.',
 };
 
 const permissionLabel = (key: keyof PlayerJudgingDashboard['permissions']) => {
@@ -203,7 +203,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Турнир · игра №{currentGame.game_number}</div>
           <h2 className="mt-2 text-xl font-semibold text-white">{tournamentGame.tournament_title}</h2>
           <div className="mt-1 text-sm text-white/40">{formatDate(tournamentGame.tournament_date)}{tournamentGame.venue ? ` · ${tournamentGame.venue}` : ''}</div>
-          <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">Вы назначены судьёй только этой игры. Способ ведения можно выбрать после подготовки ролей и запуска игры.</div>
+          <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">Судейство назначено только на эту игру. Способ ведения можно выбрать после подготовки ролей и запуска игры.</div>
         </section>
 
         {feedback && <div className={`rounded-2xl px-3 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-400/[0.08] text-emerald-100/75' : 'bg-rose-400/[0.08] text-rose-100/75'}`}>{feedback.text}</div>}
@@ -284,7 +284,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
           <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Какие игры я веду</div>
             <div className="mt-2 text-2xl font-semibold text-white">{dashboard.player.judge_level_label}</div>
-            <p className="mt-2 text-sm leading-5 text-white/40">{dashboard.player.judge_level === 'none' ? levelDescription.none : 'Вести можно те игры, на которые вас назначил организатор.'}</p>
+            <p className="mt-2 text-sm leading-5 text-white/40">{dashboard.player.judge_level === 'none' ? levelDescription.none : 'Вести можно те игры, на которые назначил организатор.'}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {(Object.keys(dashboard.permissions) as Array<keyof typeof dashboard.permissions>).map((key) => (
                 <span key={key} className={`rounded-full border px-2.5 py-1 text-xs ${dashboard.permissions[key] ? 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100/75' : 'border-white/10 bg-white/[0.03] text-white/25'}`}>{permissionLabel(key)}</span>
@@ -305,7 +305,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
                   return <article key={`club:${game.id}`} className="rounded-2xl bg-black/20 p-3">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.evening_title}</div><div className="mt-1 text-xs text-white/35">Игра #{game.global_game_number} · {formatDate(game.evening_starts_at)}</div></div><span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-1 text-[11px] text-white/50">{EVENING_FORMAT_LABELS[format]}</span></div>
                     {game.table_name && <div className="mt-1 text-xs text-white/30">Стол: {game.table_name}</div>}
-                    {game.can_conduct ? <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setClubLiveGame(game)} className="min-h-11 rounded-xl bg-white px-2 text-xs font-semibold text-black">Вести игру</button><button type="button" onClick={() => setClubProtocolGame(game)} className="min-h-11 rounded-xl border border-white/15 bg-white/[0.05] px-2 text-xs font-semibold text-white">Заполнить протокол</button></div> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Ваш текущий ранг не позволяет вести этот формат.</div>}
+                    {game.can_conduct ? <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setClubLiveGame(game)} className="min-h-11 rounded-xl bg-white px-2 text-xs font-semibold text-black">Вести игру</button><button type="button" onClick={() => setClubProtocolGame(game)} className="min-h-11 rounded-xl border border-white/15 bg-white/[0.05] px-2 text-xs font-semibold text-white">Заполнить протокол</button></div> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Текущий ранг не позволяет вести этот формат.</div>}
                   </article>;
                 }
                 const game = assignment.game as JudgingTournamentGame;
@@ -313,7 +313,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
                   <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.tournament_title}</div><div className="mt-1 text-xs text-white/35">Игра №{game.game_number} · {formatDate(game.tournament_date)}</div></div><span className="shrink-0 rounded-full bg-amber-300/[0.08] px-2 py-1 text-[11px] text-amber-100/65">Турнир</span></div>
                   {game.can_conduct ? <button type="button" disabled={tournamentLoading} onClick={() => void openTournament(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{tournamentLoading ? 'Открываем…' : game.status === 'active' ? 'Открыть игру' : 'Подготовить игру'}</button> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Проведение станет доступно после запуска турнира организатором.</div>}
                 </article>;
-              }) : <div className="rounded-2xl bg-black/20 px-3 py-8 text-center text-sm text-white/35">Сейчас у вас нет назначенных активных игр.</div>}
+              }) : <div className="rounded-2xl bg-black/20 px-3 py-8 text-center text-sm text-white/35">Назначенных активных игр сейчас нет.</div>}
             </div>
           </section>
 

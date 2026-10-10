@@ -136,7 +136,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   const goBack = onBack || (() => window.history.back());
   const renderSpeechClip = (clip: SpeechClip) => <div key={clip.id} className="rounded-2xl border border-white/[0.06] bg-black/15 p-3">
     <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-white/25">Круг {clip.round_number} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div>
-    <audio className="mt-2 h-9 w-full" controls preload="none" src={clip.audio_url}>Ваш браузер не поддерживает воспроизведение аудио.</audio>
+    <audio className="mt-2 h-9 w-full" controls preload="none" src={clip.audio_url}>Браузер не поддерживает воспроизведение аудио.</audio>
   </div>;
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем партию…" description="Собираем сохранённую хронологию игры." /></div></main>;

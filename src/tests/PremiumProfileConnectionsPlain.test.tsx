@@ -22,7 +22,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it('shows one plain personal list with Напарники / Соперники filters and no rule-book wording', async () => {
   mockApi();
   render(<PremiumProfileConnections playerId="me" selfPlayerId="me" />);
-  expect(await screen.findByText('С кем ты играешь')).toBeTruthy();
+  expect(await screen.findByText('С кем я играю')).toBeTruthy();
   expect(screen.getByText('Лучший напарник')).toBeTruthy();
   expect(screen.getByText('Вместе выиграли 2 из 5 игр (40%)')).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/Только факты|скрытого рейтинга|выборк/);

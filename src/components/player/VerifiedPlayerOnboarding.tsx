@@ -85,7 +85,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
   const submit = async (kind: 'new' | 'existing') => {
     const value = nickname.trim().replace(/\s+/g, ' ');
     if (!value) {
-      setError(kind === 'new' ? 'Придумайте игровой ник.' : 'Введите ник, под которым вы уже играли.');
+      setError(kind === 'new' ? 'Нужен игровой ник.' : 'Нужен ник, под которым уже играли.');
       return;
     }
     if (value.length > 60) {
@@ -116,7 +116,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
       } else {
         setPendingText(body?.private_confirmation_sent
           ? 'Заявка на привязку VK отправлена организатору в CRM. Дополнительно в личный чат Telegram-бота старого профиля отправлена кнопка подтверждения. Достаточно одного из этих способов.'
-          : 'Заявка на привязку отправлена организатору клуба в CRM. Организатор должен проверить, что это ваш профиль, и нажать «Подтвердить». Дубликат профиля не создавался.');
+          : 'Заявка на привязку отправлена организатору клуба в CRM. Организатор должен проверить, что профиль именно этого игрока, и нажать «Подтвердить». Дубликат профиля не создавался.');
       }
       setFlow('pending');
     } catch (submitError: any) {
@@ -139,15 +139,15 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
       <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
         <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
           <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
-          <h1 className="mt-3 text-2xl font-semibold">{claim?.nickname ? `Ваш профиль «${claim.nickname}»` : 'Войти в кабинет игрока'}</h1>
-          {claim?.nickname ? <p className="mt-2 rounded-2xl border border-emerald-200/15 bg-emerald-300/[0.06] px-3 py-3 text-sm leading-6 text-emerald-50/80" data-testid="claim-signin-hint">Организатор клуба приготовил для вас профиль. Войдите через VK кнопкой ниже — и он станет вашим. В Telegram просто откройте ссылку из сообщения организатора.</p> : null}
+          <h1 className="mt-3 text-2xl font-semibold">{claim?.nickname ? `Профиль «${claim.nickname}»` : 'Войти в кабинет игрока'}</h1>
+          {claim?.nickname ? <p className="mt-2 rounded-2xl border border-emerald-200/15 bg-emerald-300/[0.06] px-3 py-3 text-sm leading-6 text-emerald-50/80" data-testid="claim-signin-hint">Организатор клуба приготовил профиль. Вход через VK кнопкой ниже — и профиль привяжется. В Telegram достаточно открыть ссылку из сообщения организатора.</p> : null}
           {claim?.error ? <p className="mt-2 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{claim.error}</p> : null}
           <p className="mt-2 text-sm leading-6 text-white/50">
-            Сначала подтвердите аккаунт. Если вы уже связаны с игровым профилем, кабинет откроется сразу. Новый ник понадобится только при создании нового профиля.
+            Сначала нужно подтвердить аккаунт. Если связь с игровым профилем уже есть, кабинет откроется сразу. Новый ник понадобится только при создании нового профиля.
           </p>
           <div className="mt-5"><VkPlayerAccess compact /></div>
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs leading-5 text-white/45">
-            В Telegram подтверждение выполняется автоматически при открытии Mini App. В VK используйте кнопку выше.
+            В Telegram подтверждение выполняется автоматически при открытии Mini App. В VK подходит кнопка выше.
           </div>
           {canOpenAdmin && <a href="/admin" className="mt-4 block text-center text-xs text-white/35">Открыть панель организатора</a>}
         </div>
@@ -164,7 +164,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
           <p className="mt-3 text-sm leading-6 text-white/70">{pendingText}</p>
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-3 text-xs leading-5 text-white/60">
             <strong className="block text-white/80">Что делать дальше?</strong>
-            Попросите организатора открыть «Управление → Игроки → ваш профиль → Привязка профиля» или проверить «Запросы на привязку» в главной панели CRM. После подтверждения снова войдите через тот же {channelLabel(status.platform)}.
+            Организатору нужно открыть «Управление → Игроки → профиль → Привязка профиля» или проверить «Запросы на привязку» в главной панели CRM. После подтверждения нужно снова войти через тот же {channelLabel(status.platform)}.
           </div>
           <a href="/player" className="mt-5 block min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center text-sm font-medium text-white/80">Вернуться ко входу</a>
         </div>
@@ -181,8 +181,8 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
         <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5" data-testid="claim-onboarding">
           <div className="text-xs uppercase tracking-[0.2em] text-emerald-200/50">{platform} подтверждён</div>
           {claim.nickname ? <>
-            <h1 className="mt-3 text-2xl font-semibold">Это ваш профиль «{claim.nickname}»?</h1>
-            <p className="mt-2 text-sm leading-6 text-white/50">Организатор клуба приготовил его для вас: игры, визиты и жетоны уже там. Нажмите «Да» — и он будет связан с вашим {platform}.</p>
+            <h1 className="mt-3 text-2xl font-semibold">Это профиль «{claim.nickname}»?</h1>
+            <p className="mt-2 text-sm leading-6 text-white/50">Организатор клуба приготовил его: игры, визиты и жетоны уже там. После «Да» профиль будет связан с аккаунтом {platform}.</p>
             {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{error}</div>}
             <button type="button" disabled={busy} onClick={() => void acceptClaim()} className="mt-5 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{busy ? 'Привязываем…' : 'Да, это я'}</button>
           </> : <>
@@ -199,11 +199,11 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
     <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
       <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5" data-testid="verified-player-onboarding">
         <div className="text-xs uppercase tracking-[0.2em] text-emerald-200/50">{platform} подтверждён</div>
-        <h1 className="mt-3 text-2xl font-semibold">{choosingNickname ? (flow === 'new' ? 'Создать игровой профиль' : 'Найти мой профиль') : 'Вы уже играли в 2LA Noire?'}</h1>
+        <h1 className="mt-3 text-2xl font-semibold">{choosingNickname ? (flow === 'new' ? 'Создать игровой профиль' : 'Найти мой профиль') : 'Уже играли в 2LA Noire?'}</h1>
         {!choosingNickname ? (
           <>
             <p className="mt-2 text-sm leading-6 text-white/50">
-              Выберите подходящий вариант. Мы не объединяем профили только по совпадению ника.
+              Нужно выбрать подходящий вариант. Профили только по совпадению ника не объединяются.
             </p>
             <button type="button" onClick={() => { setFlow('existing'); setError(null); }} className="mt-5 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">
               Я уже играл в клубе
@@ -216,8 +216,8 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
           <>
             <p className="mt-2 text-sm leading-6 text-white/50">
               {flow === 'new'
-                ? 'Придумайте ник, под которым будете отображаться в играх, рейтингах и турнирах.'
-                : 'Введите ник, под которым вы уже играли. Одного ника мало: профиль свяжем после проверки.'}
+                ? 'Ник отображается в играх, рейтингах и турнирах — его нужно придумать.'
+                : 'Нужен ник, под которым уже играли. Одного ника мало: профиль свяжем после проверки.'}
             </p>
             <label className="mt-5 block text-xs font-medium uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
             <input
@@ -226,7 +226,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
               maxLength={60}
               autoFocus
               autoComplete="nickname"
-              placeholder={flow === 'new' ? 'Придумайте ник' : 'Ваш существующий ник'}
+              placeholder={flow === 'new' ? 'Игровой ник' : 'Существующий ник'}
               className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-white outline-none placeholder:text-white/20 focus:border-white/25"
             />
             {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{error}</div>}

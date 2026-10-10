@@ -60,7 +60,7 @@ export default function PlayerInsightsPanel() {
 
   return <div className="mt-5 rounded-[22px] border border-white/[0.06] bg-white/[0.022] p-3">
     <button type="button" onClick={() => setExpanded((value) => !value)} className="flex w-full items-start justify-between gap-3 text-left">
-      <span><span className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">🧠 Моя аналитика</span><span className="mt-1 block text-[11px] text-white/30">Как ты играешь в последнее время</span></span><span className="text-white/25">{expanded ? '⌃' : '⌄'}</span>
+      <span><span className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">🧠 Моя аналитика</span><span className="mt-1 block text-[11px] text-white/30">Как идёт игра в последнее время</span></span><span className="text-white/25">{expanded ? '⌃' : '⌄'}</span>
     </button>
 
     <div className="mt-3 grid grid-cols-3 gap-1.5 text-center" aria-label="Форма"><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.recent10.games ? `${data.performance.recent10.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">последние 10 игр</div></div><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.recent20.games ? `${data.performance.recent20.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">последние 20 игр</div></div><div className="rounded-xl bg-black/15 p-2"><div className="text-sm font-black">{data.performance.last30_days.games ? `${data.performance.last30_days.win_rate}%` : '—'}</div><div className="text-[11px] text-white/25">за 30 дней</div></div></div>

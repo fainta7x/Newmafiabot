@@ -76,9 +76,9 @@ export default function SmartFriendInviteSuggestions() {
 
   return (
     <section data-testid="smart-friend-invite-suggestions" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Позови своих</div>
-      <h2 className="mt-1 text-base font-semibold">С кем ты часто играешь</h2>
-      <p className="mt-1 text-xs leading-5 text-white/40">Знакомые по играм, которые ещё не записались на ближайший вечер, куда идёшь ты.</p>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать на вечер</div>
+      <h2 className="mt-1 text-base font-semibold">С кем часто играется</h2>
+      <p className="mt-1 text-xs leading-5 text-white/40">Знакомые по играм, которые ещё не записаны на ближайший вечер, куда запись уже есть.</p>
 
       {loading ? <div className="py-5 text-center text-xs text-white/30">Ищем, кого можно позвать…</div> : null}
 

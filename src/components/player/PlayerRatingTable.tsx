@@ -22,7 +22,7 @@ export default function PlayerRatingTable({ playerId }: { playerId: string }) {
   return <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white"><div className="player-workspace player-rating-layout mx-auto w-full max-w-[430px] space-y-3">
     {self ? <button type="button" onClick={() => openCanonicalPlayerProfile(self.player_id)} data-testid="rating-self-card" className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-white/10 px-3 py-2 text-left" style={{ background: 'linear-gradient(145deg, color-mix(in srgb, var(--ds-accent) 12%, transparent), rgba(255,255,255,0.035))' }}>
       <div className="text-2xl font-semibold leading-none">#{self.place}</div>
-      <div className="min-w-0 flex-1 text-xs leading-4 text-white/45">твоё место<br />из {players?.length || 0}</div>
+      <div className="min-w-0 flex-1 text-xs leading-4 text-white/45">моё место<br />из {players?.length || 0}</div>
       <div className="text-right"><div className="text-lg font-semibold leading-none">{Math.round(Number(self.elo || 0))}</div><div className="mt-1 text-[11px] uppercase tracking-[0.12em] text-white/32">Elo</div></div>
     </button> : null}
 

@@ -75,10 +75,10 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
   const vkLinked = state.channel_status?.vk?.linked === true;
   return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4" data-testid="player-notification-settings">
     <h2 className="font-semibold">Личные уведомления</h2>
-    <p className="mt-1 text-sm text-white/50">Выберите один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
+    <p className="mt-1 text-sm text-white/50">Выбирается один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
     {!vkLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3">
       <div className="text-sm font-medium">VK не связан с профилем</div>
-      <p className="mt-1 text-xs leading-5 text-white/45">Привяжите свой VK через VK ID. Он привяжется к профилю, в который вы сейчас вошли.</p>
+      <p className="mt-1 text-xs leading-5 text-white/45">VK привязывается через VK ID — к профилю, в который выполнен вход.</p>
       <button type="button" disabled={busy} onClick={()=>void linkVk()} className="mt-3 min-h-11 w-full rounded-xl bg-[#2688eb] px-3 text-sm font-semibold text-white disabled:opacity-40">Связать VK</button>
     </div> : <div className="mt-4 rounded-xl bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">VK связан с этим игровым профилем</div>}
     {state.available_channels.length ? <label className="mt-4 flex items-center justify-between gap-3 text-sm"><span>Получать личные уведомления</span><input type="checkbox" checked={state.personal_enabled} disabled={busy} onChange={(e)=>void save({ personal_enabled:e.target.checked })}/></label> : null}
@@ -92,7 +92,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
       })}
     </div>
     {state.channel_status?.vk?.problem?.message ? <div className="mt-3 rounded-xl bg-amber-400/10 p-3 text-sm text-amber-100">{state.channel_status.vk.problem.message}</div> : null}
-    {!state.available_channels.length ? <div className="mt-3 text-sm text-white/50">Сначала свяжите Telegram или VK с игровым профилем.</div> : null}
+    {!state.available_channels.length ? <div className="mt-3 text-sm text-white/50">Сначала нужно связать Telegram или VK с игровым профилем.</div> : null}
     <button type="button" disabled={busy || !state.personal_enabled || !state.effective_channel} onClick={()=>void sendTest()} className="mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/[.06] px-3 text-sm font-medium disabled:opacity-40">Отправить тестовое уведомление</button>
     {message ? <div className="mt-2 text-xs text-emerald-300">{message}</div> : null}
     {error ? <div className="mt-2 text-xs text-rose-300">{error}</div> : null}

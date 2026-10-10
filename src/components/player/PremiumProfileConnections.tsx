@@ -1,4 +1,4 @@
-import { countWins } from '../../lib/russianPlural';
+import PersonalRecentEvening from './PersonalRecentEvening.tsx';
 import { useEffect, useMemo, useState } from 'react';
 
 type SharedGame = {
@@ -85,8 +85,8 @@ const unavailableReasonLabel = (context: InvitationContext) => {
 
 // What the inviter can do next: most often sign up for an evening first.
 const unavailableReasonHint = (context: InvitationContext) => {
-  if (context.reason === 'no_active_evening') return 'Сначала запишитесь на вечер сами — пригласить можно только на вечер, куда идёте вы. Приглашение само по себе не записывает на вечер.';
-  return 'Приглашение само по себе не записывает на вечер.';
+  if (context.reason === 'no_active_evening') return 'Сначала запишись на вечер сам: звать можно только на тот вечер, куда идёшь ты.';
+  return 'Приглашение не записывает игрока на вечер — он запишется сам.';
 };
 
 function openPlayerProfile(playerId: string) {
@@ -127,6 +127,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const [selectedEveningId, setSelectedEveningId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [filter, setFilter] = useState<'all' | 'mates' | 'rivals'>('all');
 
   const loadConnections = async () => {
     setConnectionsError('');
@@ -179,6 +180,13 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   useEffect(() => { void loadConnections(); }, [playerId]);
   useEffect(() => { setContext(null); setSelectedEveningId(''); void (isSelf ? loadInbox() : loadInviteContext()); }, [playerId, selfPlayerId]);
 
+  const shown = useMemo(() => {
+    const list = connections || [];
+    if (filter === 'mates') return list.filter((item) => item.same_team_games > 0).sort((a, b) => b.same_team_games - a.same_team_games);
+    if (filter === 'rivals') return list.filter((item) => item.opponent_games > 0).sort((a, b) => b.opponent_games - a.opponent_games);
+    return list;
+  }, [connections, filter]);
+
   const selectedEvening = useMemo(() => context?.evenings.find((item) => item.id === selectedEveningId) || null, [context, selectedEveningId]);
   const selectedState = selectedEvening?.existing_invitation ? 'already_invited' : selectedEvening?.state || 'eligible';
   const canSendSelected = Boolean(selectedEveningId && selectedEvening && selectedState === 'eligible' && context?.can_invite);
@@ -196,7 +204,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось отправить приглашение');
-      setMessage(body.created === false ? 'Приглашение уже было отправлено.' : 'Приглашение отправлено. Запись на вечер у игрока не изменилась.');
+      setMessage(body.created === false ? 'Приглашение уже было отправлено.' : 'Приглашение отправлено. Игрок запишется на вечер сам.');
       await loadInviteContext();
     } catch (error: any) {
       setMessage(error?.message || 'Не удалось отправить приглашение');
@@ -222,7 +230,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         openEvening(invitation.evening_id);
         return;
       }
-      if (action === 'accept') setMessage('Приглашение принято. Место не забронировано — запись подтверждается отдельно.');
+      if (action === 'accept') setMessage('Приглашение принято. Теперь запишись на вечер на его странице.');
       await loadInbox();
     } catch (error: any) {
       setMessage(error?.message || 'Не удалось обработать приглашение');
@@ -237,7 +245,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div className="rounded-[26px] border border-amber-200/10 bg-amber-200/[0.045] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/55">Приглашения</div>
           <h2 className="mt-1 text-base font-semibold">Тебя зовут на игру</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">Принять приглашение — не то же самое, что записаться. Место подтверждается на странице вечера.</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Принятое приглашение — ещё не запись. Записаться можно на странице вечера.</p>
           <div className="mt-3 space-y-2">
             {inbox.map((item) => (
               <article key={item.id} className="rounded-2xl bg-black/20 p-3">
@@ -264,7 +272,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4" data-testid="invitation-picker">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
           <h2 className="mt-1 text-base font-semibold">Пригласить на игровой вечер</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">Показываем только вечера, на которые ты уже идёшь. Состояние записи игрока проверяется перед отправкой.</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Звать можно на вечера, на которые ты сам записан.</p>
           <select value={selectedEveningId} onChange={(event) => setSelectedEveningId(event.target.value)} className="mobile-field mt-3 w-full text-sm" aria-label="Игровой вечер для приглашения">
             {context.evenings.map((evening) => {
               const state = evening.existing_invitation ? 'already_invited' : evening.state || 'eligible';
@@ -273,7 +281,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
           </select>
           {selectedEvening ? <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span className="text-white/35">{selectedEvening.venue || 'Площадка не указана'}</span><span className={selectedState === 'eligible' ? 'text-emerald-200/65' : 'text-white/35'}>{inviteStateLabel(selectedState)}</span></div> : null}
           <button type="button" disabled={busy || !canSendSelected} onClick={() => void sendInvitation()} className="mt-3 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-35">{busy ? 'Отправляем…' : selectedState === 'eligible' ? 'Позвать на этот вечер' : inviteStateLabel(selectedState)}</button>
-          <p className="mt-2 text-[11px] leading-4 text-white/30">Приглашение появится в приложении и уйдёт в Telegram, если он привязан. Оно не создаёт запись автоматически.</p>
+          <p className="mt-2 text-[11px] leading-4 text-white/30">Игрок получит приглашение в приложении и в Telegram. Записаться на вечер он решит сам.</p>
         </div>
       ) : null}
 
@@ -288,9 +296,9 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       {message ? <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-3 text-xs leading-5 text-white/65">{message}</div> : null}
 
       {(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">История клуба</div>
-        <h2 className="mt-1 text-base font-semibold">Кто кого привёл в 2LA noire</h2>
-        <p className="mt-1 text-xs leading-5 text-white/35">Это отдельная историческая связь, подтверждённая организатором. Она не относится к приглашениям на конкретный вечер.</p>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Клуб</div>
+        <h2 className="mt-1 text-base font-semibold">Кто привёл в клуб</h2>
+        <p className="mt-1 text-xs leading-5 text-white/35">Это отмечает организатор.</p>
         <div className="mt-3 space-y-2">
           {invitedBy ? <ReferralLink label="В клуб пригласил" player={invitedBy} /> : null}
           {invitedPlayers.map((item) => <ReferralLink key={item.player_id} label="Пригласил в клуб" player={item} />)}
@@ -298,33 +306,42 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       </div> : null}
 
       {mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Успешная связка</div>
-        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">{countWins(mostSuccessful.same_team_wins || 0)} в {mostSuccessful.same_team_games} совместных играх · {Number(mostSuccessful.same_team_win_rate || 0).toFixed(1)}%</div><div className="mt-1 text-[11px] text-white/28">Показывается только при достаточной выборке, без влияния на рейтинг.</div></div><span className="text-white/25">→</span></div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Лучший напарник</div>
+        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">Вместе выиграли {mostSuccessful.same_team_wins || 0} из {mostSuccessful.same_team_games} игр ({Math.round(Number(mostSuccessful.same_team_win_rate || 0))}%)</div></div><span className="text-white/25">→</span></div>
       </button> : null}
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи за столом</div><h2 className="mt-1 text-base font-semibold">С кем чаще пересекается игрок</h2></div>
+          <div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи</div><h2 className="mt-1 text-base font-semibold">{isSelf ? 'С кем ты играешь' : 'С кем играет игрок'}</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
-        <p className="mt-1 text-xs leading-5 text-white/35">Только факты завершённых игр: один стол, одна команда или разные стороны. Без скрытого рейтинга совместимости.</p>
-        {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Считаем связи…</div> : connections.length ? (
+        {connections && connections.length > 0 ? (
+          <div role="group" aria-label="Кого показать" className="mt-3 grid grid-cols-3 gap-1.5">
+            {([['all', 'Все'], ['mates', 'Напарники'], ['rivals', 'Соперники']] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`min-h-10 rounded-xl px-2 text-xs ${filter === value ? 'bg-white text-black font-semibold' : 'bg-white/[0.05] text-white/55'}`}>{label}</button>
+            ))}
+          </div>
+        ) : null}
+        {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Загружаем…</div> : connections.length ? (
           <div className="mt-3 space-y-2">
-            {connections.map((item) => (
+            {shown.map((item) => (
               <button key={item.player_id} type="button" onClick={() => openPlayerProfile(item.player_id)} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 p-2.5 text-left active:bg-white/[0.05]">
                 <Avatar src={item.avatar_url} name={item.nickname} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{item.nickname}</div>
-                  <div className="mt-0.5 text-xs text-white/40">{item.relationship}</div>
-                  <div className="mt-1 text-[11px] text-white/28">вместе {item.same_team_games} · против {item.opponent_games} · всего {item.shared_games}{item.same_team_games >= 3 ? ` · побед вместе ${item.same_team_wins || 0} (${Number(item.same_team_win_rate || 0).toFixed(1)}%)` : ''}</div>
-                  {item.last_shared_game_date ? <div className="mt-1 text-[11px] text-white/22">Последняя общая игра: {fmtDate(item.last_shared_game_date)}</div> : null}
+                  <div className="mt-0.5 text-xs text-white/45">{item.relationship}</div>
+                  <div className="mt-1 text-[11px] text-white/40">{item.same_team_games} в одной команде · {item.opponent_games} друг против друга{item.same_team_games >= 3 ? ` · вместе выиграли ${item.same_team_wins || 0} из ${item.same_team_games} (${Math.round(Number(item.same_team_win_rate || 0))}%)` : ''}</div>
+                  {item.last_shared_game_date ? <div className="mt-1 text-[11px] text-white/30">Последний раз играли: {fmtDate(item.last_shared_game_date)}</div> : null}
                 </div>
                 <span className="text-white/25">→</span>
               </button>
             ))}
+            {!shown.length ? <div className="rounded-2xl bg-black/20 px-3 py-5 text-center text-xs text-white/35">{filter === 'mates' ? 'Пока нет игроков, с кем получилось сыграть в одной команде.' : 'Пока нет игроков, с кем получилось сыграть друг против друга.'}</div> : null}
           </div>
-        ) : <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">Нужно минимум две завершённые совместные игры, чтобы показать связь.</div>}
+        ) : <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">{isSelf ? 'Сыграй ещё пару игр — и здесь появятся люди, с которыми ты играешь.' : 'Пока нет общих игр, чтобы что-то показать.'}</div>}
       </div>
+
+      {isSelf ? <PersonalRecentEvening /> : null}
     </section>
   );
 }

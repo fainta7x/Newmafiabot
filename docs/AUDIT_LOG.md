@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-10 · Player «Связи»: duplicated blocks and rule-book wording (owner request)
+
+- [fixed, step 1] The same personal data was shown in 3–4 places (Community → Связи rivals/teammates/recent, profile → Связи list, insights panel opponents, invite suggestions). Community is now club-wide only; personal lists live in the profile.
+- [fixed] Misleading title «С кем хорошо играется вместе» (it was the most-played-with list, not a quality ranking) — removed with the block; profile list is titled «С кем ты играешь».
+- [fixed] Rule-book phrases in club stories, best pairs, profile list, insights panel and invitations («Минимум две совместные игры», «События: N», «В порядке имён выше», «Только факты завершённых игр… без скрытого рейтинга», «Нужно ≥3 очных игр», «Показывается только при достаточной выборке…») rewritten or removed.
+- [open, pre-existing] `e2e/tests/club-pilot.spec.mjs` fails on `main` before this change as well (stale selectors, not part of the CI preview set); its connections assertions were updated for the new structure but could not be verified.
+
 ## 2026-10-10 · Owner-reported: protocol editor cannot be finished; deleted games take evening numbers
 
 - [fixed] `EveningGameProtocolModal.tsx`: every save wrote the server's echo (a fresh object) back into state, which re-triggered the autosave effect — an endless «сохранение… / есть изменения» loop; the pending 1-second timer also held a stale closure of the draft, so «Завершить игру» was overwritten by a draft save and the game fell back to «Не завершена». Now: autosave compares against the last server-confirmed snapshot (echo never re-saves), saves are serialized and only the newest may update the screen, the pending autosave is cancelled by complete/reopen, and the reasons completion is blocked (roles, winner) are shown on screen instead of `alert()`. Regression tests: `EveningGameProtocolModalAutosave.test.tsx` (failed before: 6 saves for one edit; final status draft).

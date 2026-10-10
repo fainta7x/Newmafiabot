@@ -67,11 +67,11 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: nu
           <h4 className="mt-1 text-sm font-semibold leading-6">{decision.prompt}</h4>
           <p className="mt-1 text-[13px] leading-5 text-white/65">Твой выбор: {chosen?.label}</p>
           <p className="mt-1 text-[13px] leading-5 text-amber-100/85">{chosen?.feedback}</p>
-          <p className="mt-2 text-[13px] leading-5 text-emerald-200/85"><strong>Сильнее:</strong> {stronger?.label}</p>
+          <p className="mt-2 text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {stronger?.label}</p>
         </article>;
       })}
     </section>
-  ) : <p className="text-[13px] text-emerald-200">Все решения опирались на сильную аргументацию.</p>;
+  ) : <p className="text-[13px] text-emerald-200">Во всех вопросах ты выбрал хорошо обоснованный ответ.</p>;
 };
 
 /**
@@ -92,7 +92,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const done = position >= decisions.length;
   const current = done ? null : decisions[position];
   const score = reasoningScore(level, answers, cases);
-  const passedNow = done && reasoningPassed(score, level, cases);
+  const passedNow = done && (progress.passed.includes(level.id) || reasoningPassed(score, level, cases));
   const courseComplete = REASONING_LEVELS.every((item) => progress.passed.includes(item.id));
 
   useEffect(() => saveProgress(progress), [progress]);
@@ -175,7 +175,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           <strong className="text-xl">{score} из {reasoningMaxPoints(level, cases)} баллов</strong>
           <p className="mt-2 text-[13px] leading-5 text-white/70">{passedNow
             ? 'Глава освоена. Можно переходить к более сложным игровым ситуациям.'
-            : 'Пока не хватает устойчивости. Посмотри конкретные ошибки и попробуй ещё раз.'}</p>
+            : 'Посмотри, где ты принял догадку за факт, и попробуй ещё раз.'}</p>
           <p className="mt-2 text-[12px] text-white/50">Для следующей главы нужно {Math.ceil(reasoningMaxPoints(level, cases) * 5 / 6)} баллов. Мы оцениваем не угадывание цвета, а насколько обоснован твой ответ.</p>
         </div>
         <ResultDetails cases={cases} answers={answers} />

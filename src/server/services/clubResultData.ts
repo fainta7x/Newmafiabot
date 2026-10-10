@@ -119,9 +119,10 @@ export async function loadGameBlank(db: DatabaseWrapper, gameId: string): Promis
   const game = await db.get<any>(`
     SELECT g.id, g.global_game_number, g.game_date, g.judge_name, g.judge_player_id, g.protocol_text,
            e.title, e.format, e.starts_at, j.nickname AS judge_nickname,
-           -- The game's number within its evening, counted like the CRM (all its games, archived included,
-           -- in creation order): the second evening of a day starts at №1 (owner, 2026-10-01).
-           (SELECT COUNT(*) FROM games o WHERE o.evening_id = g.evening_id AND o.id <= g.id) AS local_number
+           -- The game's number within its evening: only games actually kept (deleted/archived ones never take a
+           -- number), in creation order. The second evening of a day starts at №1 (owner, 2026-10-01; deleted
+           -- test games stop counting, owner 2026-10-10).
+           (SELECT COUNT(*) FROM games o WHERE o.evening_id = g.evening_id AND o.archived_at IS NULL AND o.id <= g.id) AS local_number
       FROM games g
       JOIN game_evenings e ON e.id = g.evening_id
  LEFT JOIN players j ON j.id = g.judge_player_id
@@ -476,15 +477,17 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
   const evening = await db.get<any>('SELECT id, title, format, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;
   const scored = isScoredFormat(evening.format);
-  // Numbered like the CRM: all the evening's games in creation order, archived ones keep their number.
+  // Numbered like the CRM: the evening's kept games in creation order; archived (deleted) games take no number.
   const rows = (await db.all<any>(
     'SELECT id, global_game_number, protocol_text, archived_at FROM games WHERE evening_id = ? ORDER BY id',
     [eveningId],
   ));
   const elo = await loadClubElo(db);
   const players = new Map<string, EveningPlayerResult>();
-  for (const [index, row] of rows.entries()) {
+  let keptNumber = 0;
+  for (const row of rows) {
     if (row.archived_at) continue;
+    keptNumber += 1;
     const envelope = parse(row.protocol_text);
     if (!isCompleted(envelope)) continue;
     const gameElo = elo.get(String(row.id));
@@ -494,7 +497,7 @@ export async function loadEveningPlayerResults(db: DatabaseWrapper, eveningId: s
       const role = normalizeRole(result?.role);
       const win = won(role, envelope.protocol.winner_team);
       const entry = players.get(playerId) || { playerId, games: [], wins: 0, points: scored ? 0 : null, eloDelta: null, eloAfter: null };
-      entry.games.push({ number: String(index + 1), role, won: win });
+      entry.games.push({ number: String(keptNumber), role, won: win });
       if (win) entry.wins += 1;
       if (scored) entry.points = (entry.points || 0) + gameResultPoints(envelope, result).total;
       const change = gameElo?.get(playerId);

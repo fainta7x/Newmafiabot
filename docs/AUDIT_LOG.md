@@ -7,6 +7,16 @@
 - [fixed] Rule-book phrases in club stories, best pairs, profile list, insights panel and invitations («Минимум две совместные игры», «События: N», «В порядке имён выше», «Только факты завершённых игр… без скрытого рейтинга», «Нужно ≥3 очных игр», «Показывается только при достаточной выборке…») rewritten or removed.
 - [open, pre-existing] `e2e/tests/club-pilot.spec.mjs` fails on `main` before this change as well (stale selectors, not part of the CI preview set); its connections assertions were updated for the new structure but could not be verified.
 
+## 2026-10-10 · Review of «Факт или фантазия» task clarity
+
+Scope: first-chapter content, mobile coaching interface, repeated practice and saved attempts. Owner reports too few similar tasks, unclear prompts/explanations and unnatural player references. No changes to Live Game, split-vote or judge trainers.
+
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: the first chapter had 3 near-duplicate cases; now 10 distinct situations, with 5 per attempt and alternating case selections on repeat.
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: vague assertions, mind-reading and shorthand nicknames made some explanations hard to follow; revised the first chapter and player references throughout all five chapters.
+- [fixed in unmerged PR, CI pending] `src/components/public/guide/MafiaReasoningCourse.tsx`: two questions per case looked repetitive; context now explicitly identifies the situation and step, with clearer explanations, dynamic scoring and migration of existing local attempts.
+- [verification pending] Focused bank/rotation/legacy-storage/UI tests, TypeScript/lint/build, PR mobile preview. Main must stay unchanged until the owner completes hands-on review and explicitly authorizes merge.
+
+
 ## 2026-10-10 · Owner-reported: protocol editor cannot be finished; deleted games take evening numbers
 
 - [fixed] `EveningGameProtocolModal.tsx`: every save wrote the server's echo (a fresh object) back into state, which re-triggered the autosave effect — an endless «сохранение… / есть изменения» loop; the pending 1-second timer also held a stale closure of the draft, so «Завершить игру» was overwritten by a draft save and the game fell back to «Не завершена». Now: autosave compares against the last server-confirmed snapshot (echo never re-saves), saves are serialized and only the newest may update the screen, the pending autosave is cancelled by complete/reopen, and the reasons completion is blocked (roles, winner) are shown on screen instead of `alert()`. Regression tests: `EveningGameProtocolModalAutosave.test.tsx` (failed before: 6 saves for one edit; final status draft).

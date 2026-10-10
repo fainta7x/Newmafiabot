@@ -89,26 +89,62 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(reasoningUnlocked(4, ['facts', 'motives', 'team'])).toBe(false);
   });
 
+  it('opens a chapter as its own view, resumes answered questions and returns to the picker', () => {
+    render(<MafiaReasoningCourse />);
+    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    expect(screen.queryByText(/Ответы сохраняются только на этом устройстве/)).toBeNull();
+
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Игровое мышление' })).toBeNull();
+    expect(screen.queryByTestId('reasoning-level-motives')).toBeNull();
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 1 из 10');
+
+    fireEvent.click(screen.getByTestId('reasoning-option-1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    expect(screen.getByTestId('reasoning-level-facts').textContent).toContain('Продолжить · 1/10');
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+    cleanup();
+    render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+  });
+
   it('works on all five first-chapter situations and saves the passed result', () => {
     const finished = vi.fn();
     render(<MafiaReasoningCourse onCourseComplete={finished} />);
     expect(screen.getByText(/В банке 10 ситуаций/)).toBeTruthy();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-level-motives')).toBeNull();
     complete(0, 2);
     expect(screen.getByTestId('reasoning-result').textContent).toContain('20 из 20');
-    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
     expect(finished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.queryByTestId('reasoning-result')).toBeNull();
+    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
     cleanup();
     render(<MafiaReasoningCourse />);
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByTestId('reasoning-result').textContent).toContain('20 из 20');
   });
 
   it('explains mistakes without unlocking and offers different scenarios when retried', () => {
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByText('Игрок №10 говорит уверенно')).toBeTruthy();
     complete(0, 0);
-    expect(screen.getByTestId('reasoning-review').textContent).toContain('Что стоит переосмыслить');
+    expect(screen.getByTestId('reasoning-review').textContent).toContain('Разобрать ошибки');
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     expect(screen.getByTestId('reasoning-result').textContent).toContain('0 из 20');
     fireEvent.click(screen.getByRole('button', { name: 'Другие ситуации' }));
@@ -116,6 +152,8 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(screen.getByText('Выставил — не значит проголосовал')).toBeTruthy();
     cleanup();
     render(<MafiaReasoningCourse />);
+    expect(screen.getByTestId('reasoning-level-facts')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByText('Выставил — не значит проголосовал')).toBeTruthy();
   });
 
@@ -124,7 +162,8 @@ describe('Mafia reasoning: case bank and plain language', () => {
       answers: { facts: [1, 0, 1] }, passed: [], best: {},
     }));
     render(<MafiaReasoningCourse />);
-    expect(screen.getByText(/В банке 10 ситуаций/)).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 4 из 6');
   });
 
@@ -161,8 +200,9 @@ describe('Mafia reasoning: case bank and plain language', () => {
   });
 
   it('allows choosing several hypotheses and gives per-option feedback', () => {
-    // First batch: "votes" is its third case and starts at decision 5 of 10.
+    // First batch: "votes" is its third case and starts at decision 6 of 10.
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     const firstFour = decisions(reasoningCasesForAttempt(REASONING_LEVELS[0], 0)).slice(0, 5);
     for (const question of firstFour) {
       const right = question.options.findIndex((option) => option.points === 2);
@@ -196,11 +236,13 @@ describe('Mafia reasoning: case bank and plain language', () => {
 
   it('invites free self-explanation without pretending to score free text', () => {
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    fireEvent.click(screen.getByText('Своя версия (необязательно)'));
     fireEvent.change(screen.getByTestId('reasoning-own-explanation'), { target: { value: 'Я вижу только речь №10, но не его роль' } });
     fireEvent.click(screen.getByTestId('reasoning-option-1'));
     fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
     expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не его роль');
-    expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не оценивается автоматически');
+    expect(screen.queryByText(/на рейтинг Elo и награды/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
     expect((screen.getByTestId('reasoning-own-explanation') as HTMLTextAreaElement).value).toBe('');
   });

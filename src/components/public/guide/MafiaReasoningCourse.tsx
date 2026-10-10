@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert } from 'lucide-react';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed,
-  type ReasoningDecision, type ReasoningLevel,
+  type ReasoningLevel,
 } from '../../../lib/mafiaReasoningCourse.ts';
 
 type CourseProgress = { answers: Record<string, number[]>; passed: string[]; best: Record<string, number> };
@@ -32,8 +32,9 @@ const readProgress = (): CourseProgress => {
       if (Array.isArray(raw.passed) && raw.passed.includes(level.id)) result.passed.push(level.id);
     }
     // Earlier stages must be passed; an invalid/tampered cache never opens higher stages.
+    const savedPasses: string[] = Array.isArray(raw.passed) ? raw.passed.filter((item: unknown) => typeof item === 'string') : [];
     result.passed = REASONING_LEVELS.map((item) => item.id).filter((id, index) =>
-      raw.passed?.includes(id) && (index === 0 || REASONING_LEVELS.slice(0, index).every((previous) => raw.passed?.includes(previous.id))));
+      savedPasses.includes(id) && REASONING_LEVELS.slice(0, index).every((previous) => savedPasses.includes(previous.id)));
     return result;
   } catch { return blank(); }
 };

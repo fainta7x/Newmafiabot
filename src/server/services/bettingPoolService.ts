@@ -59,6 +59,12 @@ const normalizeRole = (value: unknown): BettingRoleSnapshot['role'] | null => {
 
 const roleTeam = (role: BettingRoleSnapshot['role']): BetTeam => role === 'mafia' || role === 'don' ? 'black' : 'red';
 
+/**
+ * Bets stay open for eight minutes after the game starts (owner, 2026-10-10): the agreement, the sheriff call and the
+ * seating take about two minutes, so the viewers can still bet through the first speeches up to about the sixth one.
+ */
+export const BETTING_WINDOW_MS = 8 * 60_000;
+
 const withTransaction = async <T>(db: DatabaseWrapper, work: (tx: DatabaseWrapper) => Promise<T>): Promise<T> => {
   // The production Turso wrapper does not expose the local better-sqlite3
   // `sqlite` handle.  Starting a game must still be able to open its bet pool.
@@ -187,7 +193,7 @@ export const openBetPoolForGame = async (
   }
 
   const now = new Date();
-  const closes = new Date(now.getTime() + 90_000);
+  const closes = new Date(now.getTime() + BETTING_WINDOW_MS);
   const pool: BettingPoolRow = {
     id: `betpool_${crypto.randomUUID()}`,
     game_id: gameId,
@@ -330,6 +336,12 @@ export const settleBetPool = async (db: DatabaseWrapper, gameId: number, winner:
   if (pool.status === 'refunded') return poolPayload(pool);
   if (pool.status === 'settled' && pool.settled_winner === winner) return poolPayload(pool);
   if (pool.status === 'settled') pool = await reverseSettledPayouts(tx, pool);
+
+  // Nobody bet against them: a pool with stakes on one side only has no losers to pay the winners (owner, 2026-10-10).
+  // Every stake goes back, otherwise a lone bettor would lose a lost bet but only break even on a won one.
+  const redStake = Number(pool.red_pool || 0);
+  const blackStake = Number(pool.black_pool || 0);
+  if (redStake + blackStake > 0 && (redStake <= 0 || blackStake <= 0)) return refundBetPool(tx, gameId);
 
   const bets = await tx.all<any>("SELECT * FROM betting_bets WHERE pool_id = ? AND status != 'refunded' ORDER BY placed_at ASC, id ASC", [pool.id]);
   const winnerPool = winner === 'red' ? Number(pool.red_pool || 0) : Number(pool.black_pool || 0);

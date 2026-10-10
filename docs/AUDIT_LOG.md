@@ -467,3 +467,9 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Reported (owner):** when the mafia killed one of its own on the first night, the game skipped the best-move (ЛХ) step, which revealed the victim as black.
 - **Defect:** `canRegisterFirstKilled` (`src/lib/liveVoting.ts`) accepted red roles only, so the engine did not register a black first killed; both save paths (`validateFirstKilled` in `tournamentProtocolRoutes.ts`, club canonicalization) also rejected it.
 - **Fixed:** any first-night victim now goes through ЛХ and may skip it. Black best moves are dropped at save (`blackBestMoves.ts`) so no score, Elo or token calculation pays them; Ci stays red-only. Status: fixed.
+
+### 2026-10-10 — Betting with a single bettor, and a short bet window
+
+- **Reported (player via owner):** a lone bettor lost 50 on a lost bet but got 0 net on a won bet; the bet window (90 seconds) was too short.
+- **Defect:** `settleBetPool` (`bettingPoolService.ts`) paid a winner pool with no opposing stakes at coefficient 1 (stake back only) while the lost side burned its stake.
+- **Fixed:** a pool with stakes on one side only is refunded in full whichever team wins; window is `BETTING_WINDOW_MS` = 8 minutes. Status: fixed.

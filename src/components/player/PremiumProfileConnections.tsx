@@ -1,4 +1,5 @@
 import PersonalRecentEvening from './PersonalRecentEvening.tsx';
+import PersonalTeamwork from './PersonalTeamwork.tsx';
 import { useEffect, useMemo, useState } from 'react';
 
 type SharedGame = {
@@ -309,6 +310,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Лучший напарник</div>
         <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">Вместе выиграли {mostSuccessful.same_team_wins || 0} из {mostSuccessful.same_team_games} игр ({Math.round(Number(mostSuccessful.same_team_win_rate || 0))}%)</div></div><span className="text-white/25">→</span></div>
       </button> : null}
+
+      {isSelf ? <PersonalTeamwork /> : null}
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">

@@ -204,7 +204,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
                {!breakLevel ? <span className="rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-rose-200">Убит: <strong data-testid="split-three-killed">{scenario.killed}</strong></span> : null}
                {!breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">В игре: 9</span> : null}
                {!chooseLevel && !breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">Попил: 3 / 3 / 3</span> : null}
-               {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span> : null}
+               {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Я: {scenario.seat}</span> : null}
              </div>
              {!breakLevel ? <p data-testid="split-three-nominees" className="text-[12px] leading-5 text-white/75">Выставлены: <strong className="text-white">{scenario.candidates.join(' → ')}</strong></p> : null}
              {!chooseLevel && !breakLevel ? <p data-testid="split-three-split" className="text-[12px] text-white/75">Пилим: <b className="text-white">{scenario.split.join(' / ')}</b></p> : null}

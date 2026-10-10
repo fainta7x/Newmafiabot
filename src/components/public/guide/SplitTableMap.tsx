@@ -53,7 +53,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
       <div className="flex flex-wrap gap-1.5 text-[12px]">
         {split.length ? <span className="rounded-lg bg-white/10 px-2 py-1 font-bold text-white">Попил: {split.join(' / ')}</span> : <span className="rounded-lg bg-white/10 px-2 py-1 text-white">Выбери, кого пилить</span>}
         {killed ? <span className="rounded-lg border border-rose-400/30 px-2 py-1 font-semibold text-rose-200">Убит: {killed}</span> : null}
-        {seat ? <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-200">Ты: {seat}</span> : null}
+        {seat ? <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-200">Я: {seat}</span> : null}
       </div>
       <svg viewBox="0 0 300 300" role="img" aria-label="Круглый стол. Стрелка у номера означает, за кого этот игрок проголосовал." className="mx-auto block w-full max-w-[294px]">
         <circle cx="150" cy="150" r="78" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" />

@@ -120,7 +120,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
   it('works on all five first-chapter situations and saves the passed result', () => {
     const finished = vi.fn();
     render(<MafiaReasoningCourse onCourseComplete={finished} />);
-    expect(screen.getByText(/В банке 10 ситуаций/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     expect(screen.queryByTestId('reasoning-task')).toBeNull();
     fireEvent.click(screen.getByTestId('reasoning-level-facts'));
@@ -145,8 +145,10 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(screen.getByText('Игрок №10 говорит уверенно')).toBeTruthy();
     complete(0, 0);
     expect(screen.getByTestId('reasoning-review').textContent).toContain('Разобрать ошибки');
-    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     expect(screen.getByTestId('reasoning-result').textContent).toContain('0 из 20');
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     fireEvent.click(screen.getByRole('button', { name: 'Другие ситуации' }));
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 1 из 10');
     expect(screen.getByText('Выставил — не значит проголосовал')).toBeTruthy();

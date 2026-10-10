@@ -59,6 +59,8 @@ interface CenterPanelProps {
   canUndoLastVote?: boolean;
   handleUndoLastVote?: () => void;
   handleAllocateVotes: (nominee: number, count: number) => void;
+  quickSplitAvailable?: boolean;
+  handleQuickSplit?: (pair: [number, number]) => void;
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
   shotPlayerSlot: number | null;
@@ -152,6 +154,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleInteractiveAutoRemainder,
     canUndoLastVote = false,
     handleUndoLastVote,
+    quickSplitAvailable = false,
+    handleQuickSplit,
     speechExtensionAvailability,
     onSpeechExtension,
     speechExtended = false,
@@ -188,6 +192,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
+  const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
   const timerDeadlineRef = React.useRef<number | null>(null);
   const timerIdentityRef = React.useRef('');
   const bestMoveDeadlineRef = React.useRef<number | null>(null);
@@ -539,6 +544,32 @@ export default function CenterPanel(props: CenterPanelProps) {
               ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
               : `Нажмите игроков, голосующих против #${nominee}.`}
           </div>
+          {quickSplitAvailable && handleQuickSplit ? (
+            splitPicking ? (
+              <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
+                <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
+                <div className="live-judge-quick-split__seats">
+                  {currentRound.nominated_seats.map((seat) => (
+                    <button
+                      key={seat}
+                      type="button"
+                      aria-pressed={splitPicking.includes(seat)}
+                      disabled={splitPicking.includes(seat)}
+                      onClick={() => {
+                        if (!splitPicking.length) return setSplitPicking([seat]);
+                        handleQuickSplit([splitPicking[0], seat]);
+                        setSplitPicking(null);
+                      }}
+                      className="live-judge-quick-split__seat"
+                    >#{seat}</button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
+              </div>
+            ) : (
+              <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
+            )
+          ) : null}
           <div className="live-judge-vote-actions">
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
             {isLast ? (

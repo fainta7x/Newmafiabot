@@ -1,3 +1,5 @@
+import { splitVoteGroups } from "./splitVoteTraining.js";
+
 export function getExplicitVoteCounts(
   nominatedSeats: number[],
   votesByPlayer: Record<number, number>,
@@ -111,4 +113,17 @@ export function getSingularZeroRoundElimination(
   if (dayNumber !== 0 || eliminatedSeats.length !== 1) return null;
   const seat = eliminatedSeats[0];
   return Number.isInteger(seat) && seat >= 1 && seat <= 10 ? seat : null;
+}
+
+/**
+ * One-button «попил» in the zero round (owner, 2026-10-10): who the town splits between is all the judge says, the
+ * hands follow the club's split scheme (`splitVoteGroups`). The scheme is written for a full table of ten, so for any
+ * other table there is no quick split and the judge records the hands as usual. Other nominees get no votes.
+ */
+export function quickSplitAssignments(pair: [number, number], eligibleSeats: number[]): Record<number, number> | null {
+  const [first, second] = [...pair].sort((a, b) => a - b);
+  const full = eligibleSeats.length === 10 && Array.from({ length: 10 }, (_, index) => index + 1).every((seat) => eligibleSeats.includes(seat));
+  if (!full || first === second || first < 1 || second > 10) return null;
+  const groups = splitVoteGroups([first, second]);
+  return Object.fromEntries([...groups.first.map((seat) => [seat, first]), ...groups.second.map((seat) => [seat, second])]);
 }

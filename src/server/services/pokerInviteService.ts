@@ -182,18 +182,6 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
     throw new PokerInviteError('notifications_disabled', 'Игрок отключил личные уведомления.');
   }
 
-  const latest = await db.get<any>(`
-    SELECT created_at FROM poker_invites
-     WHERE sender_player_id=? AND target_player_id=?
-     ORDER BY created_at DESC LIMIT 1
-  `, [input.senderPlayerId, input.targetPlayerId]);
-  if (latest?.created_at) {
-    const remaining = POKER_INVITE_COOLDOWN_MS - Math.max(0, now - new Date(String(latest.created_at)).getTime());
-    if (remaining > 0) {
-      throw new PokerInviteError('cooldown', 'Этого игрока уже звали. Можно повторить через пару минут.', Math.ceil(remaining / 1000));
-    }
-  }
-
   const id = crypto.randomUUID();
   const createdAt = new Date(now).toISOString();
   const actionPath = `/player/poker/${encodeURIComponent(input.lobbyId)}`;
@@ -201,12 +189,24 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   const replyMarkup = base ? {
     inline_keyboard: [[{ text: '🃏 Сесть за стол', web_app: { url: `${base}${actionPath}` } }]],
   } : null;
-  const rawText = `🃏 ${input.senderNickname} зовёт тебя сыграть в покер\n${input.lobbyTitle} · игра на клубные жетоны · вход 1 000 🪙`;
+  const rawText = `🃏 ${input.senderNickname} зовёт тебя сыграть в покер\n${input.lobbyTitle} · игра на клубные жетоны · вход от 200 🪙 (10 ББ), сумму выбираешь сам`;
 
-  await db.run(
-    'INSERT INTO poker_invites (id,sender_player_id,target_player_id,lobby_id,created_at) VALUES (?,?,?,?,?)',
-    [id, input.senderPlayerId, input.targetPlayerId, input.lobbyId, createdAt],
+  // Cooldown check and insert are ONE statement, so two simultaneous invites cannot both pass.
+  const cutoff = new Date(now - POKER_INVITE_COOLDOWN_MS).toISOString();
+  const inserted = await db.run(
+    `INSERT INTO poker_invites (id,sender_player_id,target_player_id,lobby_id,created_at)
+     SELECT ?,?,?,?,? WHERE NOT EXISTS (
+       SELECT 1 FROM poker_invites WHERE sender_player_id=? AND target_player_id=? AND created_at>?)`,
+    [id, input.senderPlayerId, input.targetPlayerId, input.lobbyId, createdAt, input.senderPlayerId, input.targetPlayerId, cutoff],
   );
+  if (!inserted.changes) {
+    const latest = await db.get<any>(
+      'SELECT created_at FROM poker_invites WHERE sender_player_id=? AND target_player_id=? ORDER BY created_at DESC LIMIT 1',
+      [input.senderPlayerId, input.targetPlayerId],
+    );
+    const remaining = POKER_INVITE_COOLDOWN_MS - Math.max(0, now - new Date(String(latest?.created_at || createdAt)).getTime());
+    throw new PokerInviteError('cooldown', 'Этого игрока уже звали. Можно повторить через пару минут.', Math.max(1, Math.ceil(remaining / 1000)));
+  }
   await enqueueTelegramMessage(db, {
     messageKey: `poker-invite:${id}`,
     category: 'personal',

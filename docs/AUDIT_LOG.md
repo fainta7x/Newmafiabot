@@ -5,6 +5,7 @@
 - [fixed, step 1] The same personal data was shown in 3–4 places (Community → Связи rivals/teammates/recent, profile → Связи list, insights panel opponents, invite suggestions). Community is now club-wide only; personal lists live in the profile.
 - [fixed] Misleading title «С кем хорошо играется вместе» (it was the most-played-with list, not a quality ranking) — removed with the block; profile list is titled «С кем ты играешь».
 - [fixed] Rule-book phrases in club stories, best pairs, profile list, insights panel and invitations («Минимум две совместные игры», «События: N», «В порядке имён выше», «Только факты завершённых игр… без скрытого рейтинга», «Нужно ≥3 очных игр», «Показывается только при достаточной выборке…») rewritten or removed.
+- [fixed after review] Opponent rankings («Сложные/Удобные соперники») and the social graph in `PlayerInsightsPanel` removed so the profile list is the single owner; club-story entries keep the distinct event count required by BUSINESS_RULES (plain wording «вечеров и турниров: N»); invitation delivery wording stays channel-neutral. Step 2 brings nemesis/comfortable back inside the personal list.
 - [open, pre-existing] `e2e/tests/club-pilot.spec.mjs` fails on `main` before this change as well (stale selectors, not part of the CI preview set); its connections assertions were updated for the new structure but could not be verified.
 
 ## 2026-10-10 · Review of «Факт или фантазия» task clarity

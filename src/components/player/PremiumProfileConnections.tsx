@@ -281,7 +281,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
           </select>
           {selectedEvening ? <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span className="text-white/35">{selectedEvening.venue || 'Площадка не указана'}</span><span className={selectedState === 'eligible' ? 'text-emerald-200/65' : 'text-white/35'}>{inviteStateLabel(selectedState)}</span></div> : null}
           <button type="button" disabled={busy || !canSendSelected} onClick={() => void sendInvitation()} className="mt-3 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-35">{busy ? 'Отправляем…' : selectedState === 'eligible' ? 'Позвать на этот вечер' : inviteStateLabel(selectedState)}</button>
-          <p className="mt-2 text-[11px] leading-4 text-white/30">Игрок получит приглашение в приложении и в Telegram. Записаться на вечер он решит сам.</p>
+          <p className="mt-2 text-[11px] leading-4 text-white/30">Игрок получит приглашение в приложении и сообщением, если у него подключены уведомления. Записаться на вечер он решит сам.</p>
         </div>
       ) : null}
 

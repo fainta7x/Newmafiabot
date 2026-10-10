@@ -11,7 +11,7 @@ function Members({ members, roles }: { members: ConnectionMember[]; roles?: stri
   </button>)}</div>;
 }
 function Sample({ sample, color }: { sample: ConnectionSample; color?: string }) {
-  return <p className="mt-2 text-xs leading-relaxed text-white/55">{color && <span className="font-semibold text-white/75">{color} · </span>}{countGames(sample.games)} вместе · {countWins(sample.wins)} ({sample.win_rate}%)</p>;
+  return <p className="mt-2 text-xs leading-relaxed text-white/55">{color && <span className="font-semibold text-white/75">{color} · </span>}{countGames(sample.games)} вместе · {countWins(sample.wins)} ({sample.win_rate}%) · вечеров и турниров: {sample.events}</p>;
 }
 function StoryCard({ title, description, empty, children }: { title: string; description: string; empty: boolean; children: ReactNode }) {
   return <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-black/15 p-4">
@@ -45,7 +45,7 @@ export default function ClubConnectionStories({ stories }: { stories: Stories })
         <StoryCard title="Равные соперники" description="Играли друг против друга не меньше четырёх раз, и никто явно не перевешивает." empty={!stories.balanced_rivalries.length}>
           {stories.balanced_rivalries.map(g => <div key={key(g.members)}><Members members={g.members} />
             <p className="mt-2 text-xs text-white/65">Побед: {g.a_wins} : {g.b_wins}</p>
-            <p className="mt-1 text-[11px] text-white/45">{countGames(g.games)} друг против друга</p>
+            <p className="mt-1 text-[11px] text-white/45">{countGames(g.games)} друг против друга · вечеров и турниров: {g.events}</p>
           </div>)}
         </StoryCard>
         <StoryCard title="Играют вместе и за красных, и за чёрных" description="Пара собиралась в одну команду за оба цвета — не меньше двух игр за каждый." empty={!stories.versatile_pairs.length}>
@@ -55,7 +55,7 @@ export default function ClubConnectionStories({ stories }: { stories: Stories })
       {view === 'circle' && <StoryCard title="Кто знает всех" description="Игроки, которые сидели за одним столом с самым большим числом разных людей." empty={!stories.table_circles.length}>
         {stories.table_circles.map(p => <div key={p.player_id}><Members members={[p]} />
           <p className="mt-2 text-xs text-white/65">Разных игроков за столом: {p.people}</p>
-          <p className="mt-1 text-[11px] text-white/45">{countGames(p.games)}</p>
+          <p className="mt-1 text-[11px] text-white/45">{countGames(p.games)} · вечеров и турниров: {p.events}</p>
         </div>)}
       </StoryCard>}
     </div>

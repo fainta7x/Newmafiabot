@@ -37,7 +37,7 @@ export default function TournamentBroadcastPanel({
       setCopied(key);
       window.setTimeout(() => setCopied(null), 1800);
     } catch {
-      setError('Не удалось скопировать ссылку. Выделите её вручную.');
+      setError('Не удалось скопировать ссылку. Её можно выделить вручную.');
     }
   };
 
@@ -66,7 +66,7 @@ export default function TournamentBroadcastPanel({
         <div className="mt-5 border-t border-white/10 pt-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">{obsRemote ? '2. ' : ''}Игровая графика</div>
           <p className="mt-2 text-sm leading-6 text-white/55">
-            Ссылка та же, что в клубных играх: добавьте её в OBS один раз как «Источник браузера» 1920 × 1080 с прозрачным фоном.
+            Ссылка та же, что в клубных играх: её нужно один раз добавить в OBS как «Источник браузера» 1920 × 1080 с прозрачным фоном.
           </p>
 
           {!config && !error ? <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-4 text-sm text-white/45">Готовим защищённую ссылку…</div> : null}

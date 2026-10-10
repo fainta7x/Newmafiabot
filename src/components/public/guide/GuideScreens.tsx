@@ -39,7 +39,7 @@ export const RolesScreen = () => {
   const red = role.team === 'red';
   return (
     <div className="space-y-3">
-      <p className="px-1 text-[14px] leading-6 text-white/65">Две команды: <strong className="text-rose-200">красные</strong> — город, <strong className="text-white">чёрные</strong> — мафия. Выберите роль.</p>
+      <p className="px-1 text-[14px] leading-6 text-white/65">Две команды: <strong className="text-rose-200">красные</strong> — город, <strong className="text-white">чёрные</strong> — мафия. Нужно выбрать роль.</p>
       <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Роли">
         {ROLES.map((item, index) => (
           <button key={item.name} type="button" role="tab" data-testid="guide-role" aria-selected={active === index} onClick={() => setActive(index)}
@@ -82,8 +82,8 @@ export const RulesScreen = () => {
         { value: 'detailed', label: 'Подробно', testId: 'guide-rules-detailed' },
       ]} />
       <p className="px-1 text-[13px] leading-5 text-white/50">{mode === 'simple'
-        ? 'Главное для первого вечера. Нажмите на тему, чтобы раскрыть её.'
-        : 'Полный свод с терминами клуба — для тех, кто уже играл. Незнакомое слово ищите в «Словаре».'}</p>
+        ? 'Главное для первого вечера. Тема раскрывается нажатием.'
+        : 'Полный свод с терминами клуба — для тех, кто уже играл. Незнакомое слово можно найти в «Словаре».'}</p>
       <Accordion key={mode} blocks={mode === 'simple' ? SIMPLE_RULES : TABLE_RULES} />
     </div>
   );
@@ -120,7 +120,7 @@ export const GlossaryScreen = () => {
           <p className="mt-1 text-[14px] leading-6 text-white/70">{item.meaning}</p>
         </article>
       ))}
-      {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Спросите судью перед игрой.</p> : null}
+      {!terms.length ? <p className="py-8 text-center text-[14px] text-white/45">Такого слова пока нет. Уточнить можно у судьи перед игрой.</p> : null}
       <p className="text-center text-[12px] text-white/35">В словаре {GLOSSARY.length} {pluralRu(GLOSSARY.length, 'слово', 'слова', 'слов')}.</p>
     </div>
   );

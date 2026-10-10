@@ -27,8 +27,8 @@ type Journey = {
 };
 
 const stateLabel: Record<string, string> = {
-  playing: 'Ты за столом', waiting: 'Ты на вечере, ждёшь игру',
-  expected: 'Ты записан на вечер', watching: 'Ты пока не записан',
+  playing: 'За столом', waiting: 'На вечере, ожидание игры',
+  expected: 'Запись на вечер есть', watching: 'Записи на вечер пока нет',
 };
 const winner = (team: Game['winner_team']) => team === 'red' ? 'Победа красных' : team === 'black' ? 'Победа чёрных' : 'Ожидаем результат';
 

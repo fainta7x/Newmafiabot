@@ -78,7 +78,7 @@ describe('PlayerEventsCalendar', () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/player/novice/applications', expect.objectContaining({
       body: JSON.stringify({ entry_route: 'NOVICE', evening_id: null }),
     })));
-    expect(await screen.findByText(/Готово! Теперь выберите новичковый вечер/)).toBeTruthy();
+    expect(await screen.findByText(/Готово! Теперь можно выбрать новичковый вечер/)).toBeTruthy();
   });
 
   it('replaces the first-application choices with a single pending status', async () => {

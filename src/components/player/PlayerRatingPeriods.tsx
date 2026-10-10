@@ -296,7 +296,7 @@ export default function PlayerRatingPeriods({
                     <button type="button" onClick={() => setSelectedPlayerId(selfStanding.player_id)} className="mt-3 w-full rounded-2xl bg-white/[0.06] px-3 py-2.5 text-sm font-medium text-white/65">Посмотреть мои игры и начисления</button>
                   </>
                 ) : (
-                  <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">В этом периоде у вас пока нет зачётных игр.</p>
+                  <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">В этом периоде пока нет зачётных игр.</p>
                 )}
                 <div className="mt-3 flex items-center justify-between text-xs text-white/30"><span>Завершённых игр: {detail.completed_games_count}</span><span>В таблице: {detail.standings.length}</span></div>
                 {detail.warnings.length > 0 && <div className="mt-2 text-[11px] text-white/25">{countGames(detail.warnings.length)} не вошли в расчёт из-за неполного протокола.</div>}

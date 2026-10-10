@@ -355,7 +355,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
         <>
           {betError && <p className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100/70">{betError}</p>}
           {!betting && !betError && <Section title="Ставки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Ищем активную игру…</p></Section>}
-          {betting?.blocked && <Section title={`Игра №${betting.blocked.game_number || betting.blocked.game_id}`}><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/55">{betting.blocked.reason}. Состав и роли этой игры вам не показываются.</p></Section>}
+          {betting?.blocked && <Section title={`Игра №${betting.blocked.game_number || betting.blocked.game_id}`}><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/55">{betting.blocked.reason}. Состав и роли этой игры скрыты.</p></Section>}
           {betting && !activePool && !betting.blocked && <Section title="Ставки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сейчас нет игры с открытыми ставками.</p></Section>}
 
           {activePool && (
@@ -387,7 +387,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
               </div>
 
               {activePool.my_bet ? (
-                <Section title="Ваша ставка">
+                <Section title="Ставка">
                   <div className="rounded-2xl bg-black/20 p-3">
                     <div className="flex items-center justify-between gap-3"><span className="text-sm text-white/55">{activePool.my_bet.team === 'red' ? '🔴 Красные' : '⚫ Чёрные'}</span><strong className="text-white">{formatTokens(activePool.my_bet.amount)} <TokenIcon /></strong></div>
                     <div className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="text-white/35">Коэффициент сейчас</span><strong className="text-white/80">{formatCoefficient(currentMyCoefficient || 1)}</strong></div>
@@ -403,7 +403,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
                   </div>
                   <div className="mt-3 flex gap-2"><input inputMode="numeric" value={betAmount} onChange={(event) => setBetAmount(event.target.value.replace(/[^0-9]/g, ''))} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-base text-white outline-none" /><div className="flex items-center rounded-xl bg-black/20 px-3 text-sm text-white/40"><TokenIcon /></div></div>
                   <div className="mt-2 grid grid-cols-4 gap-1">{[50, 100, 250, 500].map((preset) => <button key={preset} type="button" onClick={() => setBetAmount(String(preset))} className="rounded-lg bg-white/[0.05] py-2 text-[11px] text-white/45">{preset}</button>)}</div>
-                  {projected && <div className="mt-3 rounded-2xl bg-black/20 p-3 text-sm"><div className="flex justify-between text-white/45"><span>Коэффициент после вашей ставки</span><strong className="text-white/80">{formatCoefficient(projected.coefficient)}</strong></div><div className="mt-2 flex justify-between text-white/45"><span>Выплата, если линия не изменится</span><strong className="text-emerald-200/80">{formatTokens(projected.payout)} <TokenIcon /></strong></div></div>}
+                  {projected && <div className="mt-3 rounded-2xl bg-black/20 p-3 text-sm"><div className="flex justify-between text-white/45"><span>Коэффициент после ставки</span><strong className="text-white/80">{formatCoefficient(projected.coefficient)}</strong></div><div className="mt-2 flex justify-between text-white/45"><span>Выплата, если линия не изменится</span><strong className="text-emerald-200/80">{formatTokens(projected.payout)} <TokenIcon /></strong></div></div>}
                   <button type="button" disabled={placingBet || amount < 50 || amount > Number(betting?.balance || 0)} onClick={() => void placeBet()} className="mt-3 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.06] disabled:text-white/25">{placingBet ? 'Принимаем…' : amount > Number(betting?.balance || 0) ? 'Не хватает жетонов' : <>Поставить {formatTokens(amount)} <TokenIcon /></>}</button>
                   <p className="mt-3 text-xs leading-5 text-white/35">Ставки игроков образуют общий банк. 90% проигранного банка распределяется победителям, 10% выводится из оборота. Максимальный коэффициент — x10. Итоговый коэффициент станет известен, когда ставки закроются.</p>
                 </Section>

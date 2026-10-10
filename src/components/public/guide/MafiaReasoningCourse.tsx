@@ -86,14 +86,14 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: Re
               })}
             </div>
           ) : <>
-            <p className="mt-1 text-[13px] leading-5 text-white/65">Твой выбор: {chosen?.label}</p>
+            <p className="mt-1 text-[13px] leading-5 text-white/65">Выбор: {chosen?.label}</p>
             <p className="mt-1 text-[13px] leading-5 text-amber-100/85">{chosen?.feedback}</p>
             <p className="mt-2 text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {stronger?.label}</p>
           </>}
         </article>;
       })}
     </section>
-  ) : <p className="text-[13px] text-emerald-200">Во всех вопросах ты выбрал хорошо обоснованный ответ.</p>;
+  ) : <p className="text-[13px] text-emerald-200">Во всех вопросах выбран хорошо обоснованный ответ.</p>;
 };
 
 /**
@@ -206,8 +206,8 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           <strong className="text-xl">{score} из {reasoningMaxPoints(level, cases)} баллов</strong>
           <p className="mt-2 text-[13px] leading-5 text-white/70">{passedNow
             ? 'Глава освоена. Можно переходить к более сложным игровым ситуациям.'
-            : 'Посмотри, где ты принял догадку за факт, и попробуй ещё раз.'}</p>
-          <p className="mt-2 text-[12px] text-white/50">Для следующей главы нужно {Math.ceil(reasoningMaxPoints(level, cases) * 5 / 6)} баллов. Мы оцениваем не угадывание цвета, а насколько обоснован твой ответ.</p>
+            : 'Стоит посмотреть, где догадка принята за факт, и попробовать ещё раз.'}</p>
+          <p className="mt-2 text-[12px] text-white/50">Для следующей главы нужно {Math.ceil(reasoningMaxPoints(level, cases) * 5 / 6)} баллов. Мы оцениваем не угадывание цвета, а насколько обоснован ответ.</p>
         </div>
         <ResultDetails cases={cases} answers={answers} />
         <div className="grid gap-2">
@@ -233,7 +233,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           <h4 className="text-[16px] font-semibold leading-6">{current.decision.prompt}</h4>
         </div>
         <label className="block space-y-2">
-          <span className="text-[12px] font-medium text-white/65">Прежде чем выбрать ответ: на каких фактах ты основываешься?</span>
+          <span className="text-[12px] font-medium text-white/65">Прежде чем выбрать ответ: на каких фактах он основан?</span>
           <textarea data-testid="reasoning-own-explanation" value={ownReason} onChange={(event) => setOwnReason(event.target.value.slice(0, 350))}
             disabled={revealed} rows={2} placeholder="Можно кратко написать свою мысль. Это не обязательно и не влияет на баллы."
             className="w-full resize-y rounded-xl border border-white/15 bg-white/[.025] px-3 py-2 text-[13px] leading-5 text-white placeholder:text-white/35 outline-none focus:border-amber-200/50 disabled:opacity-70" />
@@ -256,14 +256,14 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
         </div>
         {revealed && hasSelection ? <div role="status" className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
           <div className="flex items-center gap-2 text-[13px] font-semibold">{points === 0 ? <TriangleAlert className="h-4 w-4 text-amber-200" /> : <Check className="h-4 w-4 text-emerald-200" />}{outputLabel(points)}</div>
-          {ownReason.trim() ? <p data-testid="reasoning-own-review" className="text-[13px] leading-5 text-white/65"><strong>Ты рассуждал так:</strong> {ownReason.trim()}. Сравни свою причину с разбором ниже — текст не оценивается автоматически.</p> : null}
+          {ownReason.trim() ? <p data-testid="reasoning-own-review" className="text-[13px] leading-5 text-white/65"><strong>Ход рассуждения:</strong> {ownReason.trim()}. Сравни свою причину с разбором ниже — текст не оценивается автоматически.</p> : null}
           {multiple && Array.isArray(selected) ? (
             <div className="space-y-2">
               {current.decision.options.map((option, index) => {
                 const checked = selected.includes(index);
                 if (!checked && !option.plausible) return null;
                 return <p key={index} className="text-[13px] leading-5 text-white/75">
-                  <strong>{checked ? (option.plausible ? 'Возможная версия:' : 'Необоснованный вывод:') : 'Ты не отметил возможную версию:'}</strong> {option.label}. {option.feedback}
+                  <strong>{checked ? (option.plausible ? 'Возможная версия:' : 'Необоснованный вывод:') : 'Возможная версия не отмечена:'}</strong> {option.label}. {option.feedback}
                 </p>;
               })}
             </div>

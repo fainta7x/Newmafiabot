@@ -52,7 +52,7 @@ describe('poker table screen', () => {
     });
     render(<PlayerPoker initialLobbyId="invite-table" />);
     await act(async () => { await vi.advanceTimersByTimeAsync(10); });
-    expect(screen.getByText('вас позвали')).not.toBeNull();
+    expect(screen.getByText('есть приглашение')).not.toBeNull();
     const headings = screen.getAllByText(/Стол Фантома|Другой стол/);
     expect(headings[0].textContent).toContain('Стол Фантома');
     expect((fetch as any).mock.calls.some((call: any[]) => String(call[0]).endsWith('/invite-table/join'))).toBe(false);

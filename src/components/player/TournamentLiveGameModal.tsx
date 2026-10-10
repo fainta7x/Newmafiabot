@@ -119,7 +119,7 @@ export const mapEngineResult = (
     shots: Array.isArray(gameData?.shots) && gameData.shots.length ? gameData.shots : (previousProtocol.shots || []),
     // The chronology of the game — kept next to the protocol for analysis and statistics.
     events: Array.isArray(gameData?.events) && gameData.events.length ? gameData.events : (previousProtocol.events || []),
-    judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Проверьте журнал голосований/ночей перед финальным подтверждением.'].filter(Boolean).join('\n') || null,
+    judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Перед финальным подтверждением стоит проверить журнал голосований и ночей.'].filter(Boolean).join('\n') || null,
   };
 
   return { protocol, player_results: playerResults };
@@ -293,7 +293,7 @@ export default function TournamentLiveGameModal({
       const raw = localStorage.getItem(pendingSaveKey);
       if (!raw) return;
       finishedGameRef.current = JSON.parse(raw);
-      setError('Результат прошлого раза не успел сохраниться. Повторите сохранение или заполните протокол вручную.');
+      setError('Результат прошлого раза не успел сохраниться. Можно повторить сохранение или заполнить протокол вручную.');
     } catch { /* an unreadable copy is ignored */ }
   }, [payload, pendingSaveKey]);
 

@@ -65,7 +65,7 @@ export default function PlayerMusicSlots() {
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Моя музыка</div>
       <h3 className="mt-2 text-lg font-semibold text-white">2 трека для вечера</h3>
       <p className="mt-1 text-xs leading-5 text-white/35">
-        Добавьте ссылку на трек Яндекс Музыки (плейлисты сюда не подходят). Он попадёт в общий плейлист только когда вы отмечены на месте.
+        Нужна ссылка на трек Яндекс Музыки (плейлисты сюда не подходят). Трек попадёт в общий плейлист только при отметке на месте.
       </p>
 
       {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-xs text-rose-100/75">{error}</div>}

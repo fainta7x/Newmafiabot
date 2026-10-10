@@ -182,7 +182,7 @@ export default function PlayerHomeDashboard({
           <section data-testid="player-home-debt" className="rounded-[28px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-rose-100/70">Оплата</div>
             <p className="mt-2 text-base font-semibold">Долг за прошлые вечера: {debt.toLocaleString('ru-RU')} ₽</p>
-            <p className="mt-1 text-sm leading-5 text-white/55">Оплатите, когда будет удобно, — способы оплаты в кошельке.</p>
+            <p className="mt-1 text-sm leading-5 text-white/55">Оплатить можно в удобное время — способы оплаты в кошельке.</p>
             <button type="button" onClick={onOpenWallet} className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
               <span>Оплатить</span><span>→</span>
             </button>
@@ -204,7 +204,7 @@ export default function PlayerHomeDashboard({
               <>
                 <h2 className="mt-2 text-lg font-semibold">Выбери свой путь</h2>
                 <ol className="mt-2 space-y-1 text-sm leading-5 text-white/65">
-                  <li>1. Выбери: ты новичок или уже умеешь играть.</li>
+                  <li>1. Выбор пути: новичок или уже играет.</li>
                   <li>2. Новичок сразу записывается на вечер; опытного игрока сначала проверит организатор.</li>
                   <li>3. Новичкам первые два вечера бесплатно.</li>
                 </ol>
@@ -276,7 +276,7 @@ export default function PlayerHomeDashboard({
         )}
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Твоя игра</div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Моя игра</div>
           {stats.completedGames === 0 ? (
             <p className="mt-2 text-sm leading-5 text-white/60">После первой сыгранной игры здесь появятся Elo, место в рейтинге и процент побед.</p>
           ) : <div className="mt-3 grid grid-cols-4 gap-1.5">

@@ -43,7 +43,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
 
   return <Card data-testid="club-directory" className="overflow-hidden">
     <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-3">
-      <div className="min-w-0"><CardTitle>Игроки клуба</CardTitle><CardDescription className="mt-1">Откройте единый профиль: игры, роли, Elo и достижения.</CardDescription></div>
+      <div className="min-w-0"><CardTitle>Игроки клуба</CardTitle><CardDescription className="mt-1">Единый профиль: игры, роли, Elo и достижения.</CardDescription></div>
       {players ? <Badge variant="neutral" aria-label={`${countPlayers(players.length)}`} className="shrink-0 tabular-nums">{players.length}</Badge> : null}
     </CardHeader>
     <CardContent className="px-3 pb-3">
@@ -56,7 +56,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
             <div className="flex shrink-0 items-center gap-2"><div className="text-right"><div className="text-sm font-bold tabular-nums text-foreground">{item.elo}</div><div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-subtle-foreground)]">ELO</div></div><ChevronRight className="h-4 w-4 text-[var(--ds-subtle-foreground)] transition-transform group-active:translate-x-0.5" aria-hidden="true" /></div>
           </button>)}
         </div>
-      ) : <AsyncState kind="empty" title="Никого не нашли" description="Попробуйте изменить запрос." icon={<UserRound className="h-5 w-5" />} compact className="mt-3" />}
+      ) : <AsyncState kind="empty" title="Никого не нашли" description="Можно изменить запрос." icon={<UserRound className="h-5 w-5" />} compact className="mt-3" />}
     </CardContent>
   </Card>;
 }

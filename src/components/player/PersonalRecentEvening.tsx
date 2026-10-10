@@ -41,7 +41,7 @@ export default function PersonalRecentEvening() {
       <h2 className="mt-1 text-base font-semibold">{event.title}</h2>
       <p className="mt-0.5 text-xs text-white/45">{when}</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {([['teammates', 'Были в твоей команде', 'mate'], ['rivals', 'Играли против тебя', 'rival']] as const).map(([key, label, kind]) => (
+        {([['teammates', 'Были в одной команде', 'mate'], ['rivals', 'Были соперниками', 'rival']] as const).map(([key, label, kind]) => (
           <div key={key}>
             <h3 className="mb-2 text-xs font-semibold text-white/65">{label}</h3>
             <div className="space-y-2">{event[key].map((item) => <Row key={item.player_id} item={item} kind={kind} />)}</div>

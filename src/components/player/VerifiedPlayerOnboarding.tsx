@@ -217,7 +217,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
             <p className="mt-2 text-sm leading-6 text-white/50">
               {flow === 'new'
                 ? 'Придумайте ник, под которым будете отображаться в играх, рейтингах и турнирах.'
-                : 'Введите точный ник, под которым вы уже играли. Связь будет подтверждена безопасно — одного совпадения ника недостаточно.'}
+                : 'Введите ник, под которым вы уже играли. Одного ника мало: профиль свяжем после проверки.'}
             </p>
             <label className="mt-5 block text-xs font-medium uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
             <input

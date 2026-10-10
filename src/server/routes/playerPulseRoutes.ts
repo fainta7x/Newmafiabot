@@ -142,7 +142,7 @@ router.get('/pulse', async (req, res) => {
       power_ranking: ranking,
       players_with_form: currentEntries.length,
       meta: {
-        formula: 'Последние 10 игр: свежие результаты имеют больший вес; победная серия даёт небольшой бонус. Это развлекательный рейтинг, не Elo.',
+        formula: 'Считаем последние 10 игр: чем свежее результат, тем он важнее; серия побед даёт небольшой бонус. Это развлекательный рейтинг, не Elo.',
         previous_cutoff: new Date(previousCutoff).toISOString(),
       },
     });

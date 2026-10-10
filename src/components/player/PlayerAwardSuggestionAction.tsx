@@ -90,7 +90,7 @@ export default function PlayerAwardSuggestionAction() {
   return (
     <section data-testid="award-suggestion-action" className="rounded-[24px] border border-white/10 bg-white/[0.045] p-4">
       <div className="text-sm font-semibold">Награда или исправление</div>
-      <p className="mt-1 text-xs leading-5 text-white/45">Игрок отправляет только предложение. Проверенной наградой оно станет после подтверждения организатором.</p>
+      <p className="mt-1 text-xs leading-5 text-white/45">Это только предложение: наградой оно станет, когда организатор подтвердит.</p>
       {message ? <div className="mt-3 rounded-xl bg-white/[0.05] px-3 py-2 text-xs text-white/65">{message}</div> : null}
       <button type="button" onClick={() => setOpen((value) => !value)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 px-3 text-sm font-semibold text-white/70">
         {open ? 'Скрыть форму' : 'Предложить награду или исправление'}

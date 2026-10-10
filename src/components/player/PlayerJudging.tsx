@@ -237,7 +237,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
         ) : currentGame.status === 'active' ? (
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
             <div className="text-sm font-medium text-white">Как проводить игру?</div>
-            <p className="mt-1 text-sm leading-5 text-white/40">Оба режима сохраняют один и тот же турнирный протокол и запускают одинаковые расчёты после завершения.</p>
+            <p className="mt-1 text-sm leading-5 text-white/40">Какой режим ни выберешь, протокол и расчёты будут одинаковые.</p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setTournamentLiveOpen(true)} className="min-h-12 rounded-2xl bg-white px-3 text-sm font-semibold text-black">Вести игру</button>
               <button type="button" onClick={() => setProtocolOpen(true)} className="min-h-12 rounded-2xl border border-white/15 bg-white/[0.05] px-3 text-sm font-semibold text-white">Заполнить протокол</button>

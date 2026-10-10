@@ -133,7 +133,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Оплатить через приложение</h2>
-          <p className="mt-1 text-xs leading-5 text-white/35">Каждый платёж сохраняет своё назначение — деньги за вечер не смешиваются с жетонами, поддержкой или сборами.</p>
+          <p className="mt-1 text-xs leading-5 text-white/35">Платёж за вечер, жетоны, поддержку и сборы считаются отдельно.</p>
         </div>
         <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${online.available ? 'bg-emerald-400/[0.08] text-emerald-200/80' : 'bg-amber-300/[0.08] text-amber-100/60'}`}>{online.available ? 'СБП доступно' : 'Подключение'}</span>
       </div>
@@ -161,7 +161,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
 
       {!online.available && (
         <div className="mt-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.035] px-3 py-3 text-[11px] leading-5 text-amber-50/55">
-          Интерфейс и назначения платежей уже разделены. Кнопки включатся после подключения платёжного провайдера — до этого приложение не создаёт фиктивные «оплачено» и не меняет баланс жетонов.
+          Оплата в приложении пока не подключена: эти кнопки заработают позже. Пока они ничего не списывают и не отмечают платёж оплаченным.
         </div>
       )}
 

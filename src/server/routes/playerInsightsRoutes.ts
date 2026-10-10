@@ -185,15 +185,15 @@ router.get('/insights', async (req, res) => {
     if (trend != null && Math.abs(trend) >= 10) {
       insights.push({
         kind: trend > 0 ? 'improving' : 'cooling',
-        title: trend > 0 ? 'Форма выше карьерной' : 'Форма ниже карьерной',
-        text: `Последние 10: ${recent10.win_rate}% против карьерных ${career.win_rate}% (${trend > 0 ? '+' : ''}${trend} п.п.).`,
+        title: trend > 0 ? 'Сейчас играешь лучше, чем обычно' : 'Сейчас играешь хуже, чем обычно',
+        text: `В последних 10 играх выиграно ${recent10.win_rate}%, за всю карьеру — ${career.win_rate}%.`,
       });
     }
     if (strongestRole && weakestRole && strongestRole.role !== weakestRole.role && strongestRole.win_rate - weakestRole.win_rate >= 20) {
       insights.push({
         kind: 'role_gap',
-        title: 'Выраженная ролевая разница',
-        text: `Лучше всего: ${strongestRole.role} ${strongestRole.win_rate}%; сложнее всего: ${weakestRole.role} ${weakestRole.win_rate}%.`,
+        title: 'Роли получаются по-разному',
+        text: `Лучше всего выходит ${strongestRole.role} (${strongestRole.win_rate}% побед), сложнее всего — ${weakestRole.role} (${weakestRole.win_rate}%).`,
       });
     }
     if (red.games >= 5 && black.games >= 5 && Math.abs(red.win_rate - black.win_rate) >= 15) {
@@ -201,7 +201,7 @@ router.get('/insights', async (req, res) => {
       insights.push({
         kind: 'side_gap',
         title: `Сильнее за ${better}`,
-        text: `Красные ${red.win_rate}% · чёрные ${black.win_rate}%.`,
+        text: `За красных выиграно ${red.win_rate}%, за чёрных — ${black.win_rate}%.`,
       });
     }
 

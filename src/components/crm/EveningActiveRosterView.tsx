@@ -151,34 +151,33 @@ export default function EveningActiveRosterView({
     try {
       const revived = selectedPlayerIds.map((id) => inactiveByPlayerId.get(String(id))).filter(Boolean) as EveningParticipant[];
       const freshIds = selectedPlayerIds.filter((id) => !inactiveByPlayerId.has(String(id)));
+      if (freshIds.length) {
+        const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/participants/bulk`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player_ids: freshIds,
+            table_id: null,
+            response_status: 'unanswered',
+            registration_status: 'invited',
+            amount_due: evening.default_price,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || body?.details || 'Не удалось добавить игроков');
+      }
       if (revived.length) {
-        await api.bulkUpdateParticipants(eveningId, revived.map((participant) => ({
-          id: participant.id,
-          response_status: 'unanswered',
-          attendance_fact: 'pending',
-        } as Partial<EveningParticipant>)));
+        // A positive answer survives a mistaken «не пришёл»; only declined/thinking go back to «Нет ответа».
+        await api.bulkUpdateParticipants(eveningId, revived.map((participant) => {
+          const answer = getEveningResponse(participant);
+          return {
+            id: participant.id,
+            response_status: answer === 'going' || answer === 'late' ? answer : 'unanswered',
+            attendance_fact: 'pending',
+          } as Partial<EveningParticipant>;
+        }));
       }
-      if (!freshIds.length) {
-        setSelectedPlayerIds([]);
-        setAddSearch('');
-        setShowAdd(false);
-        await load(true);
-        return;
-      }
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/participants/bulk`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player_ids: freshIds,
-          table_id: null,
-          response_status: 'unanswered',
-          registration_status: 'invited',
-          amount_due: evening.default_price,
-        }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || body?.details || 'Не удалось добавить игроков');
       setSelectedPlayerIds([]);
       setAddSearch('');
       setShowAdd(false);

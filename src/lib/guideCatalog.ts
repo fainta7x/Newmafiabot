@@ -73,7 +73,7 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
   { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · пять уровней и экзамены' },
   { id: 'judge-conduct', shelf: 'trainers', view: 'judge-conduct', icon: 'scale', group: 'Ведение игр', title: 'Тренажёр судьи', detail: 'Рассадка, роли и задания на настоящем Live Game' },
-  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Игровое мышление', title: 'Игровое мышление', detail: '5 ступеней · 15 ситуаций · разбор решений' },
+  { id: 'quiz', shelf: 'trainers', view: 'quiz', icon: 'list', group: 'Игровое мышление', title: 'Игровое мышление', detail: '5 ступеней · 10 ситуаций в первой главе · разбор ошибок' },
 ];
 
 export type GuideLessonContent =

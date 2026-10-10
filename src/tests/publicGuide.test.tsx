@@ -82,10 +82,10 @@ describe('public guide for novices', () => {
     expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
     expect(screen.getByText('Не угадывай цвета. Объясняй действия.')).toBeTruthy();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: '№10 красный: он не нервничал' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Проверить рассуждение' }));
-    expect(screen.getByRole('status').textContent).toContain('Логическая ловушка');
-    expect(screen.getByRole('status').textContent).toContain('Сильнее:');
+    fireEvent.click(screen.getByRole('button', { name: '№10 — красный, потому что говорил спокойно' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    expect(screen.getByRole('status').textContent).toContain('Здесь есть ошибка в рассуждении');
+    expect(screen.getByRole('status').textContent).toContain('Более обоснованный ответ:');
   });
 
   it('offers a linked learning route and remembers what was read', () => {

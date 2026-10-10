@@ -212,7 +212,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
       fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
     }
-    expect(screen.getByText(/Можно выбрать несколько ответов/)).toBeTruthy();
+    expect(screen.getByText(/Можно выбрать несколько вариантов/)).toBeTruthy();
     const question = REASONING_LEVELS[0].cases.find((item) => item.id === 'votes')!.steps[1];
     const selected = question.options.flatMap((option, i) => option.plausible ? [i] : []);
     for (const index of selected) fireEvent.click(screen.getByTestId('reasoning-option-' + index));

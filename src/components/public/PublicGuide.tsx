@@ -10,13 +10,14 @@ import {
 import { scrollPageTop } from '../../lib/scrollPageTop.ts';
 import { Article } from './guide/GuideBlocks.tsx';
 import {
-  EMPTY_PROGRESS, EveningScreen, GlossaryScreen, GuideQuiz, LessonPath, LessonScreen, RolesScreen, RulesScreen,
+  EMPTY_PROGRESS, EveningScreen, GlossaryScreen, LessonPath, LessonScreen, RolesScreen, RulesScreen,
   readProgress, writeProgress, type GuideProgress,
 } from './guide/GuideScreens.tsx';
 import { SplitVoteTraining } from './SplitVoteTraining.tsx';
 import { SplitThreeTraining } from './SplitThreeTraining.tsx';
 import JudgeConductTraining from './JudgeConductTraining.tsx';
 import PlayerBottomNavigation from '../player/PlayerBottomNavigation.tsx';
+import MafiaReasoningCourse from './guide/MafiaReasoningCourse.tsx';
 import { PLAYER_NAV_SECTION, type PlayerCabinetNavId } from '../player/playerCabinetNavigation.ts';
 import { playerPathForSection } from '../../lib/appNavigation.ts';
 
@@ -35,7 +36,7 @@ const GUIDE_VIEWS: Record<GuideView, React.FC<ViewProps>> = {
   roles: () => <RolesScreen />,
   rules: () => <RulesScreen />,
   glossary: () => <GlossaryScreen />,
-  quiz: ({ onQuizFinish }) => <GuideQuiz onFinish={onQuizFinish} />,
+  quiz: ({ onQuizFinish }) => <MafiaReasoningCourse onCourseComplete={() => onQuizFinish(5)} />,
   split: () => <SplitVoteTraining />,
   'split-three': () => <SplitThreeTraining />,
   'judge-conduct': () => <JudgeConductTraining />,
@@ -110,7 +111,7 @@ const SectionCard = ({ id, icon: Icon, title, detail, onOpen, children }: {
 
 const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: GuideScreen) => void }) => {
   const nextLesson = GUIDE_LESSONS.findIndex((lesson) => !progress.lessons.includes(lesson.id));
-  const doneCount = GUIDE_LESSONS.filter((lesson) => progress.lessons.includes(lesson.id)).length + (progress.quizBest !== null ? 1 : 0);
+  const doneCount = GUIDE_LESSONS.filter((lesson) => progress.lessons.includes(lesson.id)).length + (progress.quizBest === 5 ? 1 : 0);
   const total = GUIDE_LESSONS.length + 1;
   const started = doneCount > 0;
   const recent = progress.recent ? findGuideEntry(progress.recent) : null;
@@ -148,7 +149,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
           <p className="mt-1.5 text-[15px] leading-6 text-white/80">{started ? `Пройдено ${doneCount} из ${total}. Продолжим?` : 'Впервые в мафии? Короткие уроки — и вы готовы к первой игре.'}</p>
           <button type="button" data-testid="guide-continue" onClick={() => (nextLesson >= 0 ? go({ tab: 'lessons', lesson: nextLesson }) : go({ tab: 'quiz' }))}
             className="mt-3 flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-black">
-            {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Проверить себя'}<ChevronRight className="h-4 w-4" />
+            {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Тренировать мышление'}<ChevronRight className="h-4 w-4" />
           </button>
         </section>
       ) : null}

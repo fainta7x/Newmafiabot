@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-10 · Owner-reported: protocol editor cannot be finished; deleted games take evening numbers
+
+- [fixed] `EveningGameProtocolModal.tsx`: every save wrote the server's echo (a fresh object) back into state, which re-triggered the autosave effect — an endless «сохранение… / есть изменения» loop; the pending 1-second timer also held a stale closure of the draft, so «Завершить игру» was overwritten by a draft save and the game fell back to «Не завершена». Now: autosave compares against the last server-confirmed snapshot (echo never re-saves), saves are serialized and only the newest may update the screen, the pending autosave is cancelled by complete/reopen, and the reasons completion is blocked (roles, winner) are shown on screen instead of `alert()`. Regression tests: `EveningGameProtocolModalAutosave.test.tsx` (failed before: 6 saves for one edit; final status draft).
+- [fixed, owner rule 2026-10-10] Evening game numbers counted deleted/archived games in the CRM list, the Telegram result blank (`clubResultData.loadGameBlank`) and personal results (`loadEveningPlayerResults`), while the player app did not — a deleted test game made the real first game «№2». All now number kept games only; the archive list shows «Удалённая игра». `global_game_number` is unchanged (separate counter, may have gaps). Rule recorded in BUSINESS_RULES.
+- [open, info] Results already posted to Telegram with the old numbering are not edited.
+
 ## 2026-10-10 · Audit of everything merged after #725 (last Claude PR) up to #769
 
 Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` clean, full Vitest 2168 passed (3 failures only because this container exports a real `ORGANIZER_PASSWORD`; green with it unset), Python bot tests 63 passed. Read in detail: Robokassa test payments, Telegram late-arrival RSVP (#768), evening reschedule notices (#757), player evening workspace (#765/#766), poker buy-ins/invites (#737, pokerInviteService), judge scoping (#739), VK profile claim fallback (#752), perf caches (#767), club relationships privacy. Not covered: live-game mobile geometry hotfix (#769), judge-trainer content, trophy cabinet visuals — need browser/phone checks.

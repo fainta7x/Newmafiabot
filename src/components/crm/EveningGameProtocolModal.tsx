@@ -73,55 +73,92 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [saveError, setSaveError] = useState<string | null>(null);
-  const firstRender = useRef(true);
+  const [completeHint, setCompleteHint] = useState<string | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the server last confirmed. The autosave only runs when the editor differs from it, so the server's own
+  // echo (a fresh object every time) can never start another save, and an unchanged protocol is never re-sent.
+  const snapshot = (nextProtocol: TournamentGameProtocolData, nextResults: PlayerResultData[]) => JSON.stringify({ nextProtocol, nextResults });
+  const savedSnapshotRef = useRef<string>(snapshot(protocol, playerResults));
+  const latestRef = useRef({ protocol, playerResults });
+  latestRef.current = { protocol, playerResults };
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const saveSeqRef = useRef(0);
 
   useEffect(() => {
     if (!isOpen || !game.club_protocol) return;
     setProtocol(game.club_protocol.protocol);
     setPlayerResults(game.club_protocol.player_results);
+    savedSnapshotRef.current = snapshot(game.club_protocol.protocol, game.club_protocol.player_results);
     setSaveState('saved');
     setSaveError(null);
+    setCompleteHint(null);
     setActiveTab('players');
-    firstRender.current = true;
   }, [game.id, isOpen]);
 
-  const save = async (
-    nextProtocol: TournamentGameProtocolData = protocol,
-    nextResults: PlayerResultData[] = playerResults
-  ) => {
+  const cancelAutoSave = () => {
+    if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
+  };
+
+  // Saves go to the server one after another, and only the newest one may update the screen: an older answer
+  // arriving late can no longer put a finished game back to a draft.
+  const save = (
+    nextProtocol: TournamentGameProtocolData = latestRef.current.protocol,
+    nextResults: PlayerResultData[] = latestRef.current.playerResults,
+    options: { replaceEditor?: boolean } = {},
+  ): Promise<boolean> => {
+    cancelAutoSave();
+    const seq = ++saveSeqRef.current;
+    const sent = snapshot(nextProtocol, nextResults);
     setSaveState('saving');
     setSaveError(null);
-    try {
-      const updated = await clubGamesApi.saveProtocol(game.id, {
-        protocol: nextProtocol,
-        player_results: nextResults,
-      });
-      if (updated.club_protocol) {
-        setProtocol(updated.club_protocol.protocol);
-        setPlayerResults(updated.club_protocol.player_results);
+    const run = async () => {
+      try {
+        const updated = await clubGamesApi.saveProtocol(game.id, { protocol: nextProtocol, player_results: nextResults });
+        if (seq !== saveSeqRef.current) return true; // a newer save is already on its way and will decide
+        const echoed = updated.club_protocol;
+        const untouched = snapshot(latestRef.current.protocol, latestRef.current.playerResults) === sent;
+        if (echoed) {
+          savedSnapshotRef.current = snapshot(echoed.protocol, echoed.player_results);
+          if (options.replaceEditor || untouched) {
+            setProtocol(echoed.protocol);
+            setPlayerResults(echoed.player_results);
+          }
+        } else {
+          savedSnapshotRef.current = sent;
+        }
+        onUpdated(updated);
+        if (options.replaceEditor || untouched) setSaveState('saved');
+        else { setSaveState('unsaved'); scheduleAutoSave(); }
+        return true;
+      } catch (err) {
+        console.error(err);
+        if (seq === saveSeqRef.current) {
+          setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить протокол');
+          setSaveState('error');
+        }
+        return false;
       }
-      setSaveState('saved');
-      onUpdated(updated);
-      return true;
-    } catch (err) {
-      console.error(err);
-      setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить протокол');
-      setSaveState('error');
-      return false;
-    }
+    };
+    const result = queueRef.current.then(run, run);
+    queueRef.current = result;
+    return result;
+  };
+
+  const scheduleAutoSave = () => {
+    cancelAutoSave();
+    autoSaveRef.current = setTimeout(() => { autoSaveRef.current = null; void save(); }, 1000);
   };
 
   useEffect(() => {
     if (!isOpen || protocol.status === 'completed') return;
-    if (firstRender.current) {
-      firstRender.current = false;
+    if (snapshot(protocol, playerResults) === savedSnapshotRef.current) {
+      cancelAutoSave();
+      setSaveState((current) => (current === 'unsaved' ? 'saved' : current));
       return;
     }
-    setSaveState('unsaved');
-    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
-    autoSaveRef.current = setTimeout(() => save(), 1000);
-    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
+    setSaveState((current) => (current === 'saving' ? current : 'unsaved'));
+    scheduleAutoSave();
+    return cancelAutoSave;
   }, [protocol, playerResults]);
 
   const updatePlayerResult = (participantId: string, updates: Partial<PlayerResultData>) => {
@@ -316,25 +353,26 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   }, {}), [playerResults]);
 
   const completeGame = async () => {
-    // Roles follow the table size: 10 classic, 9 and 8 at a novice table.
+    // Say exactly what is missing, on screen (an alert() can be swallowed by a Telegram WebView).
     if (!roleCountsMatchTable(roleCounts, playerResults.length)) {
-      alert(`Перед завершением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
+      setCompleteHint(`Перед завершением установите роли: ${isSupportedTableSize(playerResults.length) ? tableRolesLabel(playerResults.length) : '6 мирных, Шериф, 2 мафии и Дон'}.`);
       setActiveTab('players');
       return;
     }
     if (!protocol.winner_team) {
-      alert('Укажите победившую команду.');
+      setCompleteHint('Укажите победившую команду во вкладке «Итог».');
       setActiveTab('summary');
       return;
     }
+    setCompleteHint(null);
     const completed = { ...protocol, status: 'completed' as const };
-    await save(completed, playerResults);
+    await save(completed, playerResults, { replaceEditor: true });
   };
 
   const reopenDraft = async () => {
     if (!confirm('Вернуть завершённую игру в режим корректировки?')) return;
     const draft = { ...protocol, status: 'draft' as const, completed_at: null };
-    await save(draft, playerResults);
+    await save(draft, playerResults, { replaceEditor: true });
   };
 
   if (!isOpen) return null;
@@ -361,6 +399,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
               </div>
               <p className="text-xs text-slate-400 mt-1">{game.table_name || 'Стол не указан'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
               {protocol.status === 'completed' ? <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 text-[11px] font-black text-amber-200 disabled:opacity-50"><PencilLine className="h-4 w-4" />Исправить протокол</button> : null}
+              {completeHint ? <p role="alert" className="mt-2 text-[11px] font-bold text-amber-300">{completeHint}</p> : null}
               {saveState === 'error' && saveError ? <p role="alert" className="mt-2 text-[11px] font-bold text-rose-300">Не сохранилось: {saveError}</p> : null}
             </div>
             <button type="button" onClick={async () => { if (protocol.status === 'draft' && saveState !== 'saved') await save(); onClose(); }} className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white">

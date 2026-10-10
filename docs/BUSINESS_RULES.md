@@ -275,6 +275,7 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 
 - The secret OBS overlay may show all assigned roles and alive/out status; the ordinary public `/live` page must remain role-safe.
 - The current game number must be visible. When available, show both the game’s global club number and its order within the current evening.
+- **Game order within an evening (owner, 2026-10-10).** The evening number counts only games that were actually kept, in creation order. A game that is deleted (archived) — e.g. a test game made to try the screen — never takes a number: if the first game is deleted, the next one is «Игра 1». This holds everywhere (CRM list, Telegram result blank, personal results, player app). The club-wide counter (`global_game_number`) is a separate running counter and may have gaps.
 - Nominations must preserve their actual order of выставление. A nomination remains distinct from a vote.
 - While the judge is collecting/correcting ballots, the overlay may show the candidate set but must not show partial counts or individual choices.
 - Only after the judge fixes the round result may the overlay show totals and the exact voter-to-candidate mapping.

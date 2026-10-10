@@ -278,32 +278,52 @@ def test_direct_browser_link_is_in_the_more_menu(monkeypatch):
 
     monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example/player")
     assert bot_menu.direct_app_url() == "https://club.example"
+    assert bot_menu.browser_player_url() == "https://club.example/player"
     _, more = bot_home.more_view()
     buttons = [button for row in more.inline_keyboard for button in row]
     browser = next(button for button in buttons if button.text == bot_menu.BROWSER_BUTTON_TEXT)
-    assert browser.url == "https://club.example" and browser.web_app is None
+    # A player must land on the cabinet: the site root is the organizer sign-in in a plain browser.
+    assert browser.url == "https://club.example/player" and browser.web_app is None
 
 
-def test_link_command_replies_with_a_copyable_plain_address(monkeypatch):
+def _run_link(user_id):
     import asyncio
     from types import SimpleNamespace
 
-    import bot_menu
-    import config
     from handlers import registration
 
-    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example")
     sent = []
 
     async def answer(text, **kwargs):
         sent.append((text, kwargs))
 
-    asyncio.run(registration.send_direct_link(SimpleNamespace(answer=answer)))
-    text, kwargs = sent[0]
-    assert "<code>https://club.example</code>" in text
-    assert kwargs["reply_markup"].inline_keyboard[0][0].url == "https://club.example"
+    message = SimpleNamespace(answer=answer, from_user=SimpleNamespace(id=user_id))
+    asyncio.run(registration.send_direct_link(message))
+    return sent[0]
+
+
+def test_link_command_gives_players_the_player_address_and_an_honest_login_note(monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example")
+    monkeypatch.setattr(config, "ADMIN_IDS", [1])
+    text, kwargs = _run_link(42)
+    assert "<code>https://club.example/player</code>" in text
+    assert "через ВКонтакте" in text and "только из приложения внутри Telegram" in text
+    assert "организатора" not in text
+    assert [[b.url for b in row] for row in kwargs["reply_markup"].inline_keyboard] == [["https://club.example/player"]]
+
+
+def test_link_command_adds_the_organizer_address_for_admins_and_handles_missing_config(monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://club.example")
+    monkeypatch.setattr(config, "ADMIN_IDS", [1])
+    text, kwargs = _run_link(1)
+    assert "<code>https://club.example</code>" in text and "по паролю организатора" in text
+    urls = [b.url for row in kwargs["reply_markup"].inline_keyboard for b in row]
+    assert urls == ["https://club.example/player", "https://club.example"]
 
     monkeypatch.setattr(config, "PLAYER_APP_URL", "")
-    sent.clear()
-    asyncio.run(registration.send_direct_link(SimpleNamespace(answer=answer)))
-    assert "не настроен" in sent[0][0]
+    text, _ = _run_link(42)
+    assert "не настроен" in text

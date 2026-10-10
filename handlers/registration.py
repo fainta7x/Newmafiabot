@@ -190,6 +190,33 @@ async def _send_normal_start(
     await send_home(message)
 
 
+@router.message(Command("link"), F.chat.type == "private")
+async def send_direct_link(message: Message):
+    player_url = bot_menu.browser_player_url()
+    if not player_url:
+        await message.answer("⚠️ Адрес приложения пока не настроен в боте. Сообщи организатору.")
+        return
+    user_id = message.from_user.id if getattr(message, "from_user", None) else None
+    is_admin = user_id in config.ADMIN_IDS
+    text = (
+        "🌐 <b>Прямая ссылка на приложение</b>\n\n"
+        f"<code>{player_url}</code>\n\n"
+        "Откроется в любом браузере. В браузере вход через ВКонтакте; вход через Telegram работает только "
+        "из приложения внутри Telegram (кнопка «🎭 Открыть 2LA Noire»)."
+    )
+    if is_admin:
+        text += (
+            "\n\n🛠 <b>Кабинет организатора</b> (вход по паролю организатора):\n"
+            f"<code>{bot_menu.direct_app_url()}</code>"
+        )
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=bot_menu.browser_inline_keyboard(is_admin=is_admin),
+        disable_web_page_preview=True,
+    )
+
+
 @router.message(Command("app"), F.chat.type == "private")
 async def open_player_app(message: Message):
     inline_kb = bot_menu.app_inline_keyboard()

@@ -3,6 +3,7 @@ import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 import { buildClubRelationships } from '../services/clubRelationshipsService.ts';
+import { buildPersonalTeamwork } from '../services/personalTeamworkService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
 
 const router = Router();
@@ -167,6 +168,26 @@ router.get('/relationships', async (req, res) => {
     return res.json(buildClubRelationships(snapshots, viewerId, canViewConnections));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось рассчитать связи игроков' });
+  }
+});
+
+router.get('/team-connections', async (req, res) => {
+  const viewerId = requirePlayerId(req, res);
+  if (!viewerId) return;
+
+  try {
+    const db = req.db;
+    await ensurePlayerProfileVisibilitySchema(db);
+    const [snapshots, players] = await Promise.all([
+      loadCompletedGameSnapshots(db),
+      db.all('SELECT id, profile_visibility_json FROM players'),
+    ]);
+    const visibleIds = new Set(players.filter((player: any) => parsePlayerProfileVisibility(player.profile_visibility_json).connections).map((player: any) => String(player.id)));
+    const canViewConnections = (id: string) => id === String(viewerId) || visibleIds.has(id);
+    const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
+    return res.json(buildPersonalTeamwork(snapshots, viewerId, canViewConnections, avatarUrl));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось собрать твою команду' });
   }
 });
 

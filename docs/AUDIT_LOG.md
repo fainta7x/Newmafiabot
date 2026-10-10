@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-10 · Review of «Факт или фантазия» task clarity
+
+Scope: first-chapter content, mobile coaching interface, repeated practice and saved attempts. Owner reports too few similar tasks, unclear prompts/explanations and unnatural player references. No changes to Live Game, split-vote or judge trainers.
+
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: the first chapter had 3 near-duplicate cases; now 10 distinct situations, with 5 per attempt and alternating case selections on repeat.
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: vague assertions, mind-reading and shorthand nicknames made some explanations hard to follow; revised the first chapter and player references throughout all five chapters.
+- [fixed in unmerged PR, CI pending] `src/components/public/guide/MafiaReasoningCourse.tsx`: two questions per case looked repetitive; context now explicitly identifies the situation and step, with clearer explanations, dynamic scoring and migration of existing local attempts.
+- [verification pending] Focused bank/rotation/legacy-storage/UI tests, TypeScript/lint/build, PR mobile preview. Main must stay unchanged until the owner completes hands-on review and explicitly authorizes merge.
+
 ## 2026-10-10 · Audit of everything merged after #725 (last Claude PR) up to #769
 
 Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` clean, full Vitest 2168 passed (3 failures only because this container exports a real `ORGANIZER_PASSWORD`; green with it unset), Python bot tests 63 passed. Read in detail: Robokassa test payments, Telegram late-arrival RSVP (#768), evening reschedule notices (#757), player evening workspace (#765/#766), poker buy-ins/invites (#737, pokerInviteService), judge scoping (#739), VK profile claim fallback (#752), perf caches (#767), club relationships privacy. Not covered: live-game mobile geometry hotfix (#769), judge-trainer content, trophy cabinet visuals — need browser/phone checks.

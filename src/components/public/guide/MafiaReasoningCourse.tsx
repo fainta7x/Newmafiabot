@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert, CheckSquare2, Square } from 'lucide-react';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed, reasoningCasesForAttempt, reasoningCasesByIds,
-  type ReasoningLevel, type ReasoningCase,
+  reasoningDecisionPoints, reasoningOptionOrder,
+  type ReasoningLevel, type ReasoningCase, type ReasoningAnswer, type ReasoningDecision,
 } from '../../../lib/mafiaReasoningCourse.ts';
 
-type CourseProgress = { answers: Record<string, number[]>; passed: string[]; best: Record<string, number>; caseIds: Record<string, string[]>; attempts: Record<string, number> };
+type CourseProgress = { answers: Record<string, ReasoningAnswer[]>; passed: string[]; best: Record<string, number>; caseIds: Record<string, string[]>; attempts: Record<string, number> };
 const STORAGE_KEY = 'mafia-reasoning-course-v1';
 const blank = (): CourseProgress => ({ answers: {}, passed: [], best: {}, caseIds: {}, attempts: {} });
 const allDecisions = (cases: ReasoningCase[]) => cases.flatMap((item) =>
   item.steps.map((decision, stepIndex) => ({ case: item, decision, stepIndex })));
-export const reasoningScore = (level: ReasoningLevel, answers: number[], cases: ReasoningCase[] = reasoningCasesForAttempt(level, 0)): number =>
-  allDecisions(cases).reduce((total, { decision }, index) => total + (decision.options[answers[index]]?.points ?? 0), 0);
+export const reasoningScore = (level: ReasoningLevel, answers: ReasoningAnswer[], cases: ReasoningCase[] = reasoningCasesForAttempt(level, 0)): number =>
+  allDecisions(cases).reduce((total, { decision }, index) => total + reasoningDecisionPoints(decision, answers[index]), 0);
 export const reasoningUnlocked = (levelIndex: number, passed: string[]): boolean =>
   levelIndex === 0 || passed.includes(REASONING_LEVELS[levelIndex - 1]?.id);
 const readProgress = (): CourseProgress => {
@@ -31,10 +32,19 @@ const readProgress = (): CourseProgress => {
         ? raw.attempts[level.id] : 0;
       const decisions = allDecisions(cases);
       if (Array.isArray(raw.answers?.[level.id])) {
-        result.answers[level.id] = raw.answers[level.id]
-          .slice(0, decisions.length)
-          .filter((value: unknown, index: number) =>
-            typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < decisions[index].decision.options.length);
+        const checked: ReasoningAnswer[] = [];
+        for (let index = 0; index < Math.min(raw.answers[level.id].length, decisions.length); index++) {
+          const value: unknown = raw.answers[level.id][index];
+          const question = decisions[index].decision;
+          const valid = question.mode === 'multiple'
+            ? Array.isArray(value) && value.length > 0 && new Set(value).size === value.length &&
+              value.every((item: unknown) => typeof item === 'number' && Number.isInteger(item) &&
+                item >= 0 && item < question.options.length)
+            : typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < question.options.length;
+          if (!valid) break; // do not attach a later answer to the wrong scenario
+          checked.push(value as ReasoningAnswer);
+        }
+        result.answers[level.id] = checked;
       }
       if (typeof raw.best?.[level.id] === 'number') {
         result.best[level.id] = Math.max(0, Math.min(reasoningMaxPoints(level, cases), raw.best[level.id]));
@@ -53,21 +63,33 @@ const saveProgress = (value: CourseProgress) => {
 };
 
 const answerCount = (cases: ReasoningCase[]) => allDecisions(cases).length;
-const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: number[] }) => {
+const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: ReasoningAnswer[] }) => {
   const mistakes = allDecisions(cases).flatMap(({ decision, case: item }, index) =>
-    decision.options[answers[index]]?.points === 2 ? [] : [{ decision, title: item.title, selected: answers[index] }]);
+    reasoningDecisionPoints(decision, answers[index]) === 2 ? [] : [{ decision, title: item.title, selected: answers[index] }]);
   return mistakes.length ? (
     <section className="space-y-2" data-testid="reasoning-review">
       <h3 className="text-[15px] font-semibold">Что стоит переосмыслить</h3>
       {mistakes.map(({ decision, title, selected }, index) => {
-        const chosen = decision.options[selected];
+        const chosen = typeof selected === 'number' ? decision.options[selected] : null;
         const stronger = decision.options.find((option) => option.points === 2);
         return <article key={index} className="rounded-2xl border border-white/10 bg-white/[.035] p-3">
           <p className="text-[11px] text-white/45">{title}</p>
           <h4 className="mt-1 text-sm font-semibold leading-6">{decision.prompt}</h4>
-          <p className="mt-1 text-[13px] leading-5 text-white/65">Твой выбор: {chosen?.label}</p>
-          <p className="mt-1 text-[13px] leading-5 text-amber-100/85">{chosen?.feedback}</p>
-          <p className="mt-2 text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {stronger?.label}</p>
+          {decision.mode === 'multiple' && Array.isArray(selected) ? (
+            <div className="mt-2 space-y-2">
+              {decision.options.map((option, optionIndex) => {
+                const wasSelected = selected.includes(optionIndex);
+                if (!wasSelected && !option.plausible) return null;
+                return <p key={optionIndex} className="text-[13px] leading-5 text-white/70">
+                  <strong>{wasSelected ? (option.plausible ? 'Подходит:' : 'Не подходит:') : 'Стоило рассмотреть:'}</strong> {option.label}. {option.feedback}
+                </p>;
+              })}
+            </div>
+          ) : <>
+            <p className="mt-1 text-[13px] leading-5 text-white/65">Твой выбор: {chosen?.label}</p>
+            <p className="mt-1 text-[13px] leading-5 text-amber-100/85">{chosen?.feedback}</p>
+            <p className="mt-2 text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {stronger?.label}</p>
+          </>}
         </article>;
       })}
     </section>
@@ -82,7 +104,7 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: nu
 export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseComplete?: () => void }) {
   const [progress, setProgress] = useState<CourseProgress>(readProgress);
   const [levelIndex, setLevelIndex] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<ReasoningAnswer | null>(null);
   const [revealed, setRevealed] = useState(false);
   const level = REASONING_LEVELS[levelIndex];
   const cases = reasoningCasesByIds(level, progress.caseIds[level.id] || []);
@@ -91,6 +113,9 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const position = answers.length;
   const done = position >= decisions.length;
   const current = done ? null : decisions[position];
+  const order = current ? reasoningOptionOrder(current.decision, position, progress.attempts[level.id] || 0) : [];
+  const multiple = current?.decision.mode === 'multiple';
+  const hasSelection = multiple ? Array.isArray(selected) && selected.length > 0 : typeof selected === 'number';
   const score = reasoningScore(level, answers, cases);
   const passedNow = done && (progress.passed.includes(level.id) || reasoningPassed(score, level, cases));
   const courseComplete = REASONING_LEVELS.every((item) => progress.passed.includes(item.id));
@@ -117,7 +142,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     setRevealed(false);
   };
   const next = () => {
-    if (!revealed || selected === null || !current) return;
+    if (!revealed || !hasSelection || selected === null || !current) return;
     const nextAnswers = [...answers, selected];
     const isFinal = nextAnswers.length === decisions.length;
     const nextScore = reasoningScore(level, nextAnswers, cases);
@@ -134,9 +159,11 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     if (passed && REASONING_LEVELS.every((item) => newPassed.includes(item.id)) && !courseComplete) onCourseComplete?.();
   };
 
-  const feedback = current && selected !== null ? current.decision.options[selected] : null;
+  const points = current ? reasoningDecisionPoints(current.decision, selected ?? undefined) : 0;
+  const feedback = current && typeof selected === 'number' ? current.decision.options[selected] : null;
   const bestOption = current?.decision.options.find((option) => option.points === 2);
-  const outputLabel = (points: number) => points === 2 ? 'Хорошо подмечено' : points === 1 ? 'Возможная версия, но не факт' : 'Здесь есть ошибка в рассуждении';
+  const outputLabel = (points: number) => points === 2 ? 'Хорошо подмечено' :
+    points === 1 ? 'Не все варианты рассмотрены' : 'Здесь есть ошибка в рассуждении';
 
   return <div className="space-y-4" data-testid="mafia-reasoning-course">
     <header className="rounded-[24px] border border-amber-200/20 bg-gradient-to-br from-amber-300/[.1] to-white/[.02] p-4">
@@ -197,22 +224,44 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           <h4 className="text-[15px] font-semibold">{current.case.title}</h4>
           {current.case.facts.map((fact, index) => <p key={index} className="text-[13px] leading-5 text-white/80">{fact}</p>)}
         </div>
-        <h4 className="text-[16px] font-semibold leading-6">{current.decision.prompt}</h4>
-        <div className="space-y-2" role="group" aria-label={current.decision.prompt}>
-          {current.decision.options.map((option, index) => (
-            <button key={option.label} type="button" disabled={revealed} aria-pressed={selected === index}
-              data-testid={`reasoning-option-${index}`} onClick={() => setSelected(index)}
-              className={`w-full min-h-12 rounded-2xl border px-3 py-3 text-left text-[13px] leading-5 transition-colors ${selected === index ? 'border-amber-200/70 bg-amber-200/[.1] text-white' : 'border-white/15 bg-white/[.025] text-white/75'} disabled:opacity-90`}>
-              {option.label}
-            </button>
-          ))}
+        <div className="space-y-1">
+          {multiple ? <p className="text-[12px] text-amber-100/75">Можно выбрать несколько ответов. Отметь все версии, которые пока возможны — это не значит, что они доказаны.</p> : <p className="text-[12px] text-white/50">Выбери один наиболее обоснованный ответ.</p>}
+          <h4 className="text-[16px] font-semibold leading-6">{current.decision.prompt}</h4>
         </div>
-        {revealed && feedback ? <div role="status" className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
-          <div className="flex items-center gap-2 text-[13px] font-semibold">{feedback.points === 0 ? <TriangleAlert className="h-4 w-4 text-amber-200" /> : <Check className="h-4 w-4 text-emerald-200" />}{outputLabel(feedback.points)}</div>
-          <p className="text-[13px] leading-5 text-white/75"><strong>Почему:</strong> {feedback.feedback}</p>
-          {feedback.points !== 2 ? <p className="text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {bestOption?.label}</p> : null}
+        <div className="space-y-2" role="group" aria-label={current.decision.prompt}>
+          {order.map((index) => {
+            const option = current.decision.options[index];
+            const checked = Array.isArray(selected) ? selected.includes(index) : selected === index;
+            return <button key={index} type="button" disabled={revealed} aria-pressed={checked}
+              data-testid={`reasoning-option-${index}`} onClick={() => setSelected((prev) => {
+                if (!multiple) return index;
+                const chosen = Array.isArray(prev) ? prev : [];
+                return chosen.includes(index) ? chosen.filter((item) => item !== index) : [...chosen, index].sort((a, b) => a - b);
+              })}
+              className={`flex w-full min-h-12 items-center gap-2 rounded-2xl border px-3 py-3 text-left text-[13px] leading-5 transition-colors ${checked ? 'border-amber-200/70 bg-amber-200/[.1] text-white' : 'border-white/15 bg-white/[.025] text-white/75'} disabled:opacity-90`}>
+              {multiple ? (checked ? <CheckSquare2 className="h-5 w-5 shrink-0 text-amber-200" /> : <Square className="h-5 w-5 shrink-0 text-white/40" />) : null}
+              <span>{option.label}</span>
+            </button>;
+          })}
+        </div>
+        {revealed && hasSelection ? <div role="status" className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
+          <div className="flex items-center gap-2 text-[13px] font-semibold">{points === 0 ? <TriangleAlert className="h-4 w-4 text-amber-200" /> : <Check className="h-4 w-4 text-emerald-200" />}{outputLabel(points)}</div>
+          {multiple && Array.isArray(selected) ? (
+            <div className="space-y-2">
+              {current.decision.options.map((option, index) => {
+                const checked = selected.includes(index);
+                if (!checked && !option.plausible) return null;
+                return <p key={index} className="text-[13px] leading-5 text-white/75">
+                  <strong>{checked ? (option.plausible ? 'Возможная версия:' : 'Необоснованный вывод:') : 'Ты не отметил возможную версию:'}</strong> {option.label}. {option.feedback}
+                </p>;
+              })}
+            </div>
+          ) : <>
+            <p className="text-[13px] leading-5 text-white/75"><strong>Почему:</strong> {feedback?.feedback}</p>
+            {points !== 2 ? <p className="text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {bestOption?.label}</p> : null}
+          </>}
         </div> : null}
-        <button type="button" disabled={selected === null && !revealed} onClick={() => revealed ? next() : setRevealed(true)}
+        <button type="button" disabled={!hasSelection} onClick={() => revealed ? next() : setRevealed(true)}
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-40">
           {revealed ? (position === decisions.length - 1 ? 'Посмотреть разбор главы' : 'Следующий вопрос') : 'Разобрать ответ'}
           <ArrowRight className="h-4 w-4" />

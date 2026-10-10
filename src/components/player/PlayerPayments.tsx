@@ -161,7 +161,7 @@ function PaymentPurposeGrid({ online }: { online: OnlinePaymentData }) {
 
       {!online.available && (
         <div className="mt-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.035] px-3 py-3 text-[11px] leading-5 text-amber-50/55">
-          Оплата в приложении пока не подключена, кнопки заработают позже. До этого баланс жетонов и долги не меняются.
+          Оплата в приложении пока не подключена: эти кнопки заработают позже. Пока они ничего не списывают и не отмечают платёж оплаченным.
         </div>
       )}
 

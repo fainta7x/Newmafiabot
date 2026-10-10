@@ -101,13 +101,13 @@ describe('public guide for novices', () => {
     fireEvent.click(screen.getByRole('button', { name: /Следующий урок/ }));
     expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Как не получить замечание');
     fireEvent.click(screen.getByRole('button', { name: /Игровое мышление/ }));
-    expect(screen.getByTestId('guide-quiz')).toBeTruthy();
+    expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
     cleanup();
 
     // The home screen shows the progress and offers the next step.
     render(<PublicGuide />);
     expect(screen.getByText('Пройдено 4 из 5')).toBeTruthy();
-    expect(screen.getByTestId('guide-continue').textContent).toContain('Проверить себя');
+    expect(screen.getByTestId('guide-continue').textContent).toContain('Тренировать мышление');
   });
 
   it('keeps the catalog consistent so new lessons, articles and trainers slot in', () => {

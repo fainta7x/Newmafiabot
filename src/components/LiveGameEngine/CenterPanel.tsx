@@ -548,7 +548,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             splitPicking ? (
               <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
                 <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
-                <div className="live-judge-voting-order__list">
+                <div className="live-judge-quick-split__seats">
                   {currentRound.nominated_seats.map((seat) => (
                     <button
                       key={seat}
@@ -560,7 +560,7 @@ export default function CenterPanel(props: CenterPanelProps) {
                         handleQuickSplit([splitPicking[0], seat]);
                         setSplitPicking(null);
                       }}
-                      className="live-judge-voting-order__seat"
+                      className="live-judge-quick-split__seat"
                     >#{seat}</button>
                   ))}
                 </div>

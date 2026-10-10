@@ -890,7 +890,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     updateCurrentRoundVotes(assignments);
     setCurrentVotingNomineeIndex(current.nominated_seats.length - 1);
     const [low, high] = [...pair].sort((x, y) => x - y);
-    setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: попил между #${low} и #${high}.` }]);
     showToast(`Попил #${low} и #${high}: голоса расставлены`, 'info');
   };
 

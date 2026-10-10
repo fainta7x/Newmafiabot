@@ -411,3 +411,34 @@
 .evening-live-engine-shell .live-seat-card[data-nominated='true'].live-seat-card--speaking {
   box-shadow: inset 0 0 0 1px rgba(255, 223, 143, .33), 0 0 0 3px rgba(242, 183, 92, .4) !important;
 }
+
+/* One-button zero-round split: the nominee picker is a real tap target, not a compact order chip. */
+html body .live-judge-quick-split__seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+html body .live-judge-quick-split__seat {
+  display: inline-flex;
+  min-width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+html body .live-judge-quick-split__seat:disabled {
+  border-color: rgba(251, 113, 133, 0.52);
+  background: rgba(225, 52, 88, 0.17);
+  color: #ffe0e7;
+}
+
+html body .live-judge-quick-split .live-judge-action {
+  min-height: 44px;
+}

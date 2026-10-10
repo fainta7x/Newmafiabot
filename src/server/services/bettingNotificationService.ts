@@ -2,7 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
 import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
-import type { BettingRoleSnapshot } from './bettingPoolService.ts';
+import { BETTING_WINDOW_MS, type BettingRoleSnapshot } from './bettingPoolService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
 const roleLabel = (role: BettingRoleSnapshot['role']) => {
@@ -29,7 +29,7 @@ const buildBettingText = (input: {
     ...black.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
     '',
     'Коэффициенты меняются от ставок игроков.',
-    'Окно ставок — 90 секунд после старта игры.',
+    `Окно ставок — ${BETTING_WINDOW_MS / 60_000} минут после старта игры.`,
   ].join('\n');
 };
 

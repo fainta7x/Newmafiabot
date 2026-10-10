@@ -3,7 +3,7 @@ import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert, Check
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed, reasoningCasesForAttempt, reasoningCasesByIds,
   reasoningDecisionPoints, reasoningOptionOrder,
-  type ReasoningLevel, type ReasoningCase, type ReasoningAnswer, type ReasoningDecision,
+  type ReasoningLevel, type ReasoningCase, type ReasoningAnswer,
 } from '../../../lib/mafiaReasoningCourse.ts';
 
 type CourseProgress = { answers: Record<string, ReasoningAnswer[]>; passed: string[]; best: Record<string, number>; caseIds: Record<string, string[]>; attempts: Record<string, number> };
@@ -106,6 +106,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const [levelIndex, setLevelIndex] = useState(0);
   const [selected, setSelected] = useState<ReasoningAnswer | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [ownReason, setOwnReason] = useState('');
   const level = REASONING_LEVELS[levelIndex];
   const cases = reasoningCasesByIds(level, progress.caseIds[level.id] || []);
   const decisions = allDecisions(cases);
@@ -127,6 +128,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     setLevelIndex(index);
     setSelected(null);
     setRevealed(false);
+    setOwnReason('');
   };
   const restart = () => {
     setProgress((prev) => {
@@ -156,6 +158,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     }));
     setSelected(null);
     setRevealed(false);
+    setOwnReason('');
     if (passed && REASONING_LEVELS.every((item) => newPassed.includes(item.id)) && !courseComplete) onCourseComplete?.();
   };
 
@@ -228,6 +231,12 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           {multiple ? <p className="text-[12px] text-amber-100/75">Можно выбрать несколько ответов. Отметь все версии, которые пока возможны — это не значит, что они доказаны.</p> : <p className="text-[12px] text-white/50">Выбери один наиболее обоснованный ответ.</p>}
           <h4 className="text-[16px] font-semibold leading-6">{current.decision.prompt}</h4>
         </div>
+        <label className="block space-y-2">
+          <span className="text-[12px] font-medium text-white/65">Прежде чем выбрать ответ: на каких фактах ты основываешься?</span>
+          <textarea data-testid="reasoning-own-explanation" value={ownReason} onChange={(event) => setOwnReason(event.target.value.slice(0, 350))}
+            disabled={revealed} rows={2} placeholder="Можно кратко написать свою мысль. Это не обязательно и не влияет на баллы."
+            className="w-full resize-y rounded-xl border border-white/15 bg-white/[.025] px-3 py-2 text-[13px] leading-5 text-white placeholder:text-white/35 outline-none focus:border-amber-200/50 disabled:opacity-70" />
+        </label>
         <div className="space-y-2" role="group" aria-label={current.decision.prompt}>
           {order.map((index) => {
             const option = current.decision.options[index];
@@ -246,6 +255,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
         </div>
         {revealed && hasSelection ? <div role="status" className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
           <div className="flex items-center gap-2 text-[13px] font-semibold">{points === 0 ? <TriangleAlert className="h-4 w-4 text-amber-200" /> : <Check className="h-4 w-4 text-emerald-200" />}{outputLabel(points)}</div>
+          {ownReason.trim() ? <p data-testid="reasoning-own-review" className="text-[13px] leading-5 text-white/65"><strong>Ты рассуждал так:</strong> {ownReason.trim()}. Сравни свою причину с разбором ниже — текст не оценивается автоматически.</p> : null}
           {multiple && Array.isArray(selected) ? (
             <div className="space-y-2">
               {current.decision.options.map((option, index) => {

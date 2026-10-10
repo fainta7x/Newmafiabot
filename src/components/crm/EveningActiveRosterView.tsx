@@ -17,6 +17,10 @@ const isActiveEveningParticipant = (participant: EveningParticipant) => {
   return response === 'going' || response === 'late' || response === 'unanswered';
 };
 
+const inactiveLabel = (participant: EveningParticipant) => (
+  participant.attendance_status === 'no_show' ? 'Отмечен «не пришёл»' : getEveningResponse(participant) === 'declined' ? 'Ответил «Не буду»' : 'Ответил «Пока думаю»'
+);
+
 const responseLabel = (participant: EveningParticipant) => {
   const response = getEveningResponse(participant);
   if (response === 'going') return 'Иду';
@@ -88,10 +92,18 @@ export default function EveningActiveRosterView({
     if (filter === 'expected') return participant.attendance_status !== 'attended';
     return true;
   });
+  // Only people who are in the working roster are hidden from the picker. Those who answered
+  // «Не буду»/«Пока думаю» or were marked «не пришёл» stay addable and are brought back to the roster.
   const existingPlayerIds = useMemo(
-    () => new Set((evening?.participants || []).map((participant) => String(participant.player_id))),
-    [evening],
+    () => new Set(participants.map((participant) => String(participant.player_id))),
+    [participants],
   );
+  const inactiveByPlayerId = useMemo(() => {
+    const map = new Map<string, EveningParticipant>();
+    (evening?.participants || []).filter((participant) => !isActiveEveningParticipant(participant))
+      .forEach((participant) => map.set(String(participant.player_id), participant));
+    return map;
+  }, [evening]);
   const availablePlayers = useMemo(() => {
     const query = addSearch.trim().toLocaleLowerCase('ru-RU');
     return allPlayers
@@ -137,20 +149,35 @@ export default function EveningActiveRosterView({
     setAdding(true);
     setError('');
     try {
-      const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/participants/bulk`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player_ids: selectedPlayerIds,
-          table_id: null,
-          response_status: 'unanswered',
-          registration_status: 'invited',
-          amount_due: evening.default_price,
-        }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || body?.details || 'Не удалось добавить игроков');
+      const revived = selectedPlayerIds.map((id) => inactiveByPlayerId.get(String(id))).filter(Boolean) as EveningParticipant[];
+      const freshIds = selectedPlayerIds.filter((id) => !inactiveByPlayerId.has(String(id)));
+      if (freshIds.length) {
+        const response = await fetch(`/api/evenings/${encodeURIComponent(eveningId)}/participants/bulk`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player_ids: freshIds,
+            table_id: null,
+            response_status: 'unanswered',
+            registration_status: 'invited',
+            amount_due: evening.default_price,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || body?.details || 'Не удалось добавить игроков');
+      }
+      if (revived.length) {
+        // A positive answer survives a mistaken «не пришёл»; only declined/thinking go back to «Нет ответа».
+        await api.bulkUpdateParticipants(eveningId, revived.map((participant) => {
+          const answer = getEveningResponse(participant);
+          return {
+            id: participant.id,
+            response_status: answer === 'going' || answer === 'late' ? answer : 'unanswered',
+            attendance_fact: 'pending',
+          } as Partial<EveningParticipant>;
+        }));
+      }
       setSelectedPlayerIds([]);
       setAddSearch('');
       setShowAdd(false);
@@ -252,7 +279,7 @@ export default function EveningActiveRosterView({
               return <button key={player.id} type="button" onClick={() => setSelectedPlayerIds((current) => selected ? current.filter((id) => id !== player.id) : [...current, player.id])} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[56px] w-full items-center gap-3 px-3 text-left`}>
                 <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${selected ? 'border-accent bg-accent text-white' : 'border-border-soft bg-surface-2'}`}>{selected ? '✓' : ''}</span>
                 <PlayerAvatar playerId={player.id} nickname={player.nickname} size="xs" />
-                <span className="min-w-0"><strong className="block truncate text-[14px] text-text-primary">{player.nickname}</strong>{player.full_name ? <span className="block truncate text-[12px] text-text-muted">{player.full_name}</span> : null}</span>
+                <span className="min-w-0"><strong className="block truncate text-[14px] text-text-primary">{player.nickname}</strong>{inactiveByPlayerId.has(String(player.id)) ? <span className="block truncate text-[12px] text-warning">{inactiveLabel(inactiveByPlayerId.get(String(player.id))!)} · вернуть в состав</span> : player.full_name ? <span className="block truncate text-[12px] text-text-muted">{player.full_name}</span> : null}</span>
               </button>;
             })}
             {!availablePlayers.length ? <div className="p-5 text-center text-[12px] text-text-muted">Никого не найдено или все уже добавлены в событие.</div> : null}

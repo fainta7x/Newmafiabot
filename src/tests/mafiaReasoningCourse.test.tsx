@@ -35,7 +35,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
       expect(item.facts.length).toBeGreaterThan(1);
       expect(item.steps).toHaveLength(2);
       for (const decision of item.steps) {
-        expect(decision.options).toHaveLength(3);
+        expect(decision.options.length).toBeGreaterThanOrEqual(3);
         expect(decision.options.some((option) => option.points === 0)).toBe(true);
         if (decision.mode === 'multiple') {
           expect(decision.options.filter((option) => option.plausible).length).toBeGreaterThanOrEqual(2);

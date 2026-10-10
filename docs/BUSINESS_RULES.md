@@ -183,7 +183,8 @@ The conducted-game interface is a judge protocol surface, not a generic game UI.
 ## Live Game betting resilience
 
 - A valid conducted game must never be blocked by betting-pool creation, betting notifications or loss of network connectivity.
-- Betting opens one idempotent 90-second pool from the canonical game/seat/role snapshot. Repeating the start request must not reset the deadline or existing bets.
+- Betting opens one idempotent pool from the canonical game/seat/role snapshot, open for **eight minutes** after the game starts (owner, 2026-10-10: about two minutes of agreement, sheriff call and seating, then the first speeches up to roughly the sixth). Repeating the start request must not reset the deadline or existing bets.
+- A pool with stakes on one side only has nobody to pay the winners: when the game ends, **every stake is returned** whichever team wins (owner, 2026-10-10; before, a lone bettor lost a lost bet but only broke even on a won one).
 - Seated players and the canonical judge cannot bet on their own game.
 - `LIVE_BETTING_ENABLED=false` is an emergency kill switch for betting only; canonical game validation and Live Game progression remain active.
 - A betting or notification failure must be recorded as an explicit degraded state. It must not be represented as a healthy betting pool.

@@ -12,9 +12,9 @@ describe('tournament protocol validators accept what the live engine records', (
     expect(validateShots([{ night_number: 1, target_seat: 11, result: 'miss' }])).not.toBeNull();
   });
 
-  it('needs no first-killed when the first-night victim is black, but does for a red victim', () => {
+  it('needs a first-killed marker for any first-night victim, black or red', () => {
     const seats = [{ participant_id: 'p1', seat_number: 1, role: 'mafia' }, { participant_id: 'p2', seat_number: 2, role: 'citizen' }];
-    expect(validateFirstKilled(null, seats, [], [{ night_number: 1, target_seat: 1, result: 'killed' }])).toBeNull();
+    expect(validateFirstKilled(null, seats, [], [{ night_number: 1, target_seat: 1, result: 'killed' }])).not.toBeNull();
     expect(validateFirstKilled(null, seats, [], [{ night_number: 1, target_seat: 2, result: 'killed' }])).not.toBeNull();
   });
 

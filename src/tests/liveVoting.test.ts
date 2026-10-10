@@ -38,11 +38,11 @@ describe('live voting parity helpers', () => {
     expect(liveRoundToTournamentDay(2)).toBe(1);
   });
 
-  it('only allows first-killed marker for an eligible red player on Night 1', () => {
+  it('registers the first-night victim as first killed whatever the role, only on Night 1 and only if actually killed', () => {
     expect(canRegisterFirstKilled(1, 'Мирный', true)).toBe(true);
     expect(canRegisterFirstKilled(1, 'Шериф', true)).toBe(true);
-    expect(canRegisterFirstKilled(1, 'Мафия', true)).toBe(false);
-    expect(canRegisterFirstKilled(1, 'Дон', true)).toBe(false);
+    expect(canRegisterFirstKilled(1, 'Мафия', true)).toBe(true); // a black self-shot goes through ЛХ too (owner, 2026-10-10)
+    expect(canRegisterFirstKilled(1, 'Дон', true)).toBe(true);
     expect(canRegisterFirstKilled(2, 'Мирный', true)).toBe(false);
     expect(canRegisterFirstKilled(1, 'Мирный', false)).toBe(false);
   });

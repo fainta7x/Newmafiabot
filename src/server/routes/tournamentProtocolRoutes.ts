@@ -7,6 +7,7 @@ import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { determineVotingResult, validateVotingHierarchy } from '../../shared/tournamentVoting.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
+import { blackParticipantIds, withoutBlackBestMoves } from '../services/blackBestMoves.ts';
 
 const router = Router();
 
@@ -71,10 +72,6 @@ export function validateFirstKilled(
     if (Array.isArray(shots)) {
       const night1 = shots.find((s) => s && Number(s.night_number) === 1);
       if (night1 && night1.result === 'killed') {
-        // A black victim (e.g. a lone mafia who shot himself) never becomes a "first killed" — the engine registers none.
-        const victim = seats.find((s) => Number(s.seat_number) === Number(night1.target_seat));
-        const victimRole = normalizeRole(victim?.role);
-        if (victimRole === 'mafia' || victimRole === 'don') return null;
         return 'В первую ночь был убит игрок, но первоубиенный не выбран в протоколе';
       }
     }
@@ -87,8 +84,8 @@ export function validateFirstKilled(
   }
 
   const normRole = normalizeRole(fkSeat.role);
-  if (normRole !== 'citizen' && normRole !== 'sheriff') {
-    return `Первоубиенным может быть только мирный житель или Шериф (роль выбранного игрока: ${fkSeat.role || 'не указана'})`;
+  if (!normRole) {
+    return `У первоубиенного игрока должна быть указана роль (сейчас: ${fkSeat.role || 'не указана'})`;
   }
 
   if (playerResults && Array.isArray(playerResults)) {
@@ -985,6 +982,8 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       }];
     }
     if (!bestMoves) bestMoves = [];
+    // A black first-killed goes through the ЛХ step but it scores nothing for him (owner, 2026-10-10).
+    bestMoves = withoutBlackBestMoves(bestMoves, blackParticipantIds(seats));
 
     const bestMoveErr = validateBestMoves(
       bestMoves,
@@ -1292,6 +1291,8 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       }];
     }
     if (!bestMoves) bestMoves = [];
+    // A black first-killed goes through the ЛХ step but it scores nothing for him (owner, 2026-10-10).
+    bestMoves = withoutBlackBestMoves(bestMoves, blackParticipantIds(seats));
 
     const bestMoveErr = validateBestMoves(
       bestMoves,

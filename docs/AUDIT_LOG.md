@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-10 · Audit of everything merged after #725 (last Claude PR) up to #769
+
+Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` clean, full Vitest 2168 passed (3 failures only because this container exports a real `ORGANIZER_PASSWORD`; green with it unset), Python bot tests 63 passed. Read in detail: Robokassa test payments, Telegram late-arrival RSVP (#768), evening reschedule notices (#757), player evening workspace (#765/#766), poker buy-ins/invites (#737, pokerInviteService), judge scoping (#739), VK profile claim fallback (#752), perf caches (#767), club relationships privacy. Not covered: live-game mobile geometry hotfix (#769), judge-trainer content, trophy cabinet visuals — need browser/phone checks.
+
+- [fixed] `handlers/crm_evening_response.py`: late-arrival prompt "С какой игры тебя ждать?" contained a literal `\\n` (backslash-n shown to players in Telegram). Now a real line break.
+- [fixed] `EveningActiveRosterView.tsx`: add-to-evening picker hid every player who already had any participant row, but the roster hides «Не буду» / «Пока думаю» / «не пришёл» rows, so such a player (e.g. a walk-in who had answered no) could not be added anywhere. They now stay in the picker and are returned to the roster.
+- [open, low] `pokerInviteService.ts`: invite text hardcodes «вход 1 000 🪙» although buy-ins are now variable (from 10 BB, #737).
+- [open, low] `pokerInviteService.queuePokerInvite`: cooldown check and insert are not atomic; two simultaneous invites can both pass (worst case one extra message).
+- [open, info] `/api/bot/.../respond` now returns 400 `starting_slot_required` for «late» without a game; any old client that sends plain «late» (old Telegram buttons are handled by the new callback) would be rejected.
+- [checked, no defect] poker create/join charge-before-seat ordering: token debit and table snapshot are one transaction (`withPersistedPokerRuntime` rolls both back); regression test added (`pokerBuyInExploit.integration.test.ts`).
+- [checked, no defect] Robokassa test checkout/ResultURL: signed, amount checked, test-DB only, idempotent, success/fail redirects confirm nothing.
+
 ## 2026-10-09 · Broken three-way split prompt wording
 
 - [fixed in PR] `SplitThreeBreakTask.tsx` displayed a long and mechanical broken-split condition, including votes already cast and a separate sentence about the breaker. The owner requested direct wording: «Попил сломан! 8 не поставил руку в 1. Что делаем дальше?»; both numbers come from the existing scenario. Details about prior hands remain in the voting step, without changing vote distribution or the 15-second deadline.

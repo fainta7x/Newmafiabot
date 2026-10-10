@@ -8,6 +8,7 @@ import {
 } from "../shared/tournamentVoting.js";
 import {
   canRegisterFirstKilled,
+  quickSplitAssignments,
   findDecidedVoteLeader,
   getExplicitVoteCounts,
   getSingularZeroRoundElimination,
@@ -873,6 +874,26 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
   };
 
+  /** One button for the zero-round «попил»: the judge names the two split players, the hands follow the club scheme. */
+  const quickSplitAvailable = phase === 'day_voting' && votingStage === 'collecting' && roundNumber === 1
+    && activeVotingRoundIndex === 0 && votingRounds[0]?.is_revote === false
+    && (votingRounds[0]?.nominated_seats.length ?? 0) >= 2
+    && quickSplitAssignments([1, 2], activePlayers.filter((p) => p.alive).map((p) => p.slot_num)) !== null;
+
+  const handleQuickSplit = (pair: [number, number]) => {
+    const current = votingRounds[activeVotingRoundIndex];
+    if (!current || !quickSplitAvailable || !pair.every((seat) => current.nominated_seats.includes(seat))) return;
+    const assignments = quickSplitAssignments(pair, activePlayers.filter((p) => p.alive).map((p) => p.slot_num));
+    if (!assignments) return;
+    saveSnapshot();
+    setVotesByPlayer(assignments);
+    updateCurrentRoundVotes(assignments);
+    setCurrentVotingNomineeIndex(current.nominated_seats.length - 1);
+    const [low, high] = [...pair].sort((x, y) => x - y);
+    setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: попил между #${low} и #${high}.` }]);
+    showToast(`Попил #${low} и #${high}: голоса расставлены`, 'info');
+  };
+
   const handleAllocateVotes = (nominee: number, desiredCount: number) => {
     const current = votingRounds[activeVotingRoundIndex];
     if (!current || !current.nominated_seats.includes(nominee)) return;
@@ -1574,6 +1595,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       canUndoLastVote,
       handleUndoLastVote,
       handleAllocateVotes,
+      quickSplitAvailable,
+      handleQuickSplit,
       handleResolveVoting,
       nightSubPhase,
       shotPlayerSlot,

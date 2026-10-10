@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-10 · App-wide wording audit (owner request: no rule-book language, plain words)
+
+Scope: ~420 long Russian sentences across `src/components` (player 108, public 63, CRM 227, live game 16) plus player-facing server texts (`playerInsightsRoutes`, `playerPulseRoutes`, `playerStoriesRoutes`, `playerReplayRoutes`, `playerPaymentRoutes`). Read the player and public sets in full, the CRM set by keyword.
+
+- [fixed] 28 rule-book / developer-speak phrases rewritten in plain words: game-number footnotes, payments («Интерфейс и назначения платежей уже разделены…»), Elo journey, achievement paths, progression, replay disclaimer, invite suggestions, award suggestion, privacy note, betting hints, live-center and evening hidden-roles lines (unified «Роли и проверки откроются после игры.»), judging mode note, onboarding, public join, server insights («п.п.», «Выраженная ролевая разница»), pulse/stories/replay/payment captions, and CRM texts («Серверный адаптер публикации готов», «Никакой курс автоматически не придуман», «через журнал жетонов», «канонические статистические критерии»).
+- [open] Mixed address form: onboarding, events calendar, judge screens, guides and the public guide use «вы», most other player screens and the bot use «ты». Needs an owner decision (proposal: «ты» for all player screens) before a sweep.
+- [open] The rest of the CRM texts are operational notes written for the organizer; not rewritten in bulk. Point at any screen that reads badly and it will be rewritten.
+- [open] Business-rule footnotes inside the mafia trainers/guides (`SplitThreeTraining`, `SplitVoteTraining`) are lessons, not UI boilerplate; left as is.
+
 ## 2026-10-10 · Player «Связи»: duplicated blocks and rule-book wording (owner request)
 
 - [fixed, step 1] The same personal data was shown in 3–4 places (Community → Связи rivals/teammates/recent, profile → Связи list, insights panel opponents, invite suggestions). Community is now club-wide only; personal lists live in the profile.

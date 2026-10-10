@@ -118,7 +118,7 @@ export default function PlayerEveningWorkspace({
         #{person.seat_number} {person.nickname}
       </div>)}
     </div>
-    {game.status !== 'completed' && <p className="mt-2 text-[11px] text-white/35">Скрытые роли и проверки не раскрываются до окончания партии.</p>}
+    {game.status !== 'completed' && <p className="mt-2 text-[11px] text-white/35">Роли и проверки откроются после игры.</p>}
   </article>;
 
   return <section data-testid="player-evening-workspace" className="mt-3 space-y-3 text-white">

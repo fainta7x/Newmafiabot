@@ -343,7 +343,7 @@ export default function PlayerProgressionPanel() {
       </div>}
 
       {tab === 'titles' && <div className="space-y-2">
-        <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.025] p-3"><div className="text-[11px] font-semibold text-amber-100/55">Звание — верхушка карьерной ветки</div><div className="mt-1 text-[11px] leading-4 text-white/30">Большинство званий требуют одновременно дистанцию, победы и серию. Открытое звание можно поставить рядом с ником.</div></div>
+        <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.025] p-3"><div className="text-[11px] font-semibold text-amber-100/55">Звание — верхушка карьерной ветки</div><div className="mt-1 text-[11px] leading-4 text-white/30">Для большинства званий нужны и много игр, и победы, и серия. Полученное звание можно поставить рядом с ником.</div></div>
         {data.titles.map((title) => {
           const selected = data.player.selected_title?.id === title.id;
           return <div key={title.id} className={`rounded-[22px] border p-3.5 ${selected ? 'border-amber-200/25 bg-amber-200/[0.065]' : title.unlocked ? 'border-white/10 bg-white/[0.04]' : 'border-white/[0.04] bg-white/[0.018]'}`}>

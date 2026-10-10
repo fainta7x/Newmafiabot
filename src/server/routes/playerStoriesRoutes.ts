@@ -75,7 +75,7 @@ const summarizeEvening = (evening: any, games: CompletedGameSnapshot[], attendan
       ...playerOfEvening,
       win_rate: winRate(playerOfEvening.wins, playerOfEvening.games),
       avatar_url: avatarUrl(playerOfEvening.player_id),
-      basis: 'По результатам вечера: сначала число побед, затем винрейт и количество сыгранных игр.',
+      basis: 'Выше тот, у кого больше побед; при равенстве — выше доля побед и больше игр.',
     } : null,
   };
 };
@@ -159,7 +159,7 @@ router.get('/stories', async (req, res) => {
       recent_games: recentGames,
       latest_evening: eveningRecaps[0] || null,
       meta: {
-        player_of_evening: 'Автоматическая развлекательная номинация по результатам вечера; не является официальной судейской наградой.',
+        player_of_evening: 'Шуточная номинация по итогам вечера, не официальная награда.',
       },
     });
   } catch (error: any) {

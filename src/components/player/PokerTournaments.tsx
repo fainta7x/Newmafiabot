@@ -9,7 +9,9 @@ type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; settings: Settings; players: number; spots_left: number | null;
   clock: { level: number; small: number; big: number; secondsToNextLevel: number | null } | null; rebuy_open: boolean;
-  my_entry: { status: string; rebuys: number; place: number | null } | null;
+  my_entry: { status: string; rebuys: number; place: number | null; busted?: boolean } | null;
+  alive: number | null; waiting_rebuy: number | null; my_table_id: string | null;
+  standings: Array<{ nickname: string; place: number }>;
 };
 
 const whenLabel = (iso: string) => new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
@@ -27,7 +29,7 @@ const prizeText = (prizes: number[]) => prizes.some((amount) => amount > 0)
   : 'без денежных призов';
 
 /** «Покерные турниры»: registration for the club's poker MTTs and, for the organizer, creating one. */
-export default function PokerTournaments() {
+export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (tableId: string) => void } = {}) {
   const [items, setItems] = useState<Tournament[] | null>(null);
   const [canOrganize, setCanOrganize] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -132,6 +134,18 @@ export default function PokerTournaments() {
             </p>
             {item.status === 'running' && item.clock ? <p className="mt-1 text-[11px] text-amber-100/80">Блайнды {item.clock.small}/{item.clock.big}, уровень {item.clock.level}</p> : null}
             {item.status === 'cancelled' && item.cancel_reason ? <p className="mt-1 text-[11px] text-white/45">Отменён: {item.cancel_reason}</p> : null}
+            {item.status === 'running' ? (
+              <div className="mt-2 space-y-2 text-[11px] text-white/70">
+                <p>В игре {item.alive ?? item.players}{item.waiting_rebuy ? `, ждут докупки: ${item.waiting_rebuy}` : ''}</p>
+                {item.my_entry?.place ? <p className="font-bold text-rose-200">Я выбыл: {item.my_entry.place} место</p> : null}
+                {item.my_table_id && onOpenTable ? <button type="button" onClick={() => onOpenTable(item.my_table_id!)} className="min-h-11 w-full rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black">К моему столу</button> : null}
+              </div>
+            ) : null}
+            {item.status === 'finished' && item.standings.length ? (
+              <ol className="mt-2 space-y-0.5 text-[11px] text-white/70">
+                {item.standings.slice(0, 10).map((entry) => <li key={entry.place}><b className="text-amber-100">{entry.place}.</b> {entry.nickname}</li>)}
+              </ol>
+            ) : null}
             {item.status === 'registration' ? (
               <div className="mt-3 flex gap-2">
                 {mine ? (

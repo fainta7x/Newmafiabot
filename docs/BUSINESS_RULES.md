@@ -794,7 +794,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 
 ## Poker MTT (owner, 2026-10-10)
 
-A poker multi-table tournament is its own event with its own record; it is not a cash table. Decided with the owner; step 1 (settings, registration, start) is built, the tables, eliminations and prizes follow.
+A poker multi-table tournament is its own event with its own record; it is not a cash table. Decided with the owner; settings, registration, start, the tables, eliminations and places are built; re-buy payments, prizes, achievements and the cup follow.
 
 - **Entry is free** for everybody and gives a starting stack for nothing. Tournament chips are **nominal**: they exist only inside the tournament and are never cashed out into club tokens. Club tokens move only for re-buys (paid from the player's own tokens) and for prizes.
 - **Players:** no hard cap (the owner expects roughly 4 to 20, more is allowed). The organizer sets the minimum (default 4) and an optional maximum; with no maximum registration stays open until the start.
@@ -803,7 +803,10 @@ A poker multi-table tournament is its own event with its own record; it is not a
 - **Re-buy:** a player who busted may buy back in with his own tokens (default 500 tokens for 1,000 chips) until the end of the chosen level (default level 4); after that nobody returns and busting is final.
 - **Tables:** as few tables as possible, filled evenly (10 players at 6 seats: 5 + 5; 20: four tables of 5; 4: one table). The seat count per table is a setting, 2 to 8 (the table engine seats eight at most). Tables merge as players bust until a final table remains.
 - **Prizes:** the organizer sets a token payout for each of the first places (a winner only, or first, second and third and so on). Besides tokens the winners get achievements and a cup in the profile.
-- Not built yet: seating and play at the tables, eliminations and places, re-buy payments, prize payouts, achievements and cup, the calendar listing, and the table chat with emotes.
+- **At the tables:** the tables are ordinary poker tables with the blinds of the tournament clock; hands are dealt by themselves, nobody leaves a tournament table (closing the screen only sets «away»; an away player is still dealt in, folded and blinded out, and nobody is removed for being idle). Nobody can be seated or kicked by hand, there are no bots.
+- **Bust-outs and places:** a player out of chips is out for good unless the re-buy is open. While it is open he stays seated and waits; when the chosen level ends, everyone still waiting is out, the later bust-out placed higher. After that the first to go out takes place N (N = players still alive), several out in one hand are ordered by the stack they started it with (bigger stack higher). The last player standing is first; the winner is declared a few seconds after the last hand's result.
+- **Tables are balanced between hands only:** when the players fit at fewer tables the smallest table is closed and its players move to the emptiest of the others; tables are kept within one seat of each other. A moved player is dealt in from the next hand.
+- Not built yet: re-buy payments, prize payouts, achievements and the cup, the calendar listing, and the table chat with emotes.
 
 ## Club connections (owner approved, 2026-10-07)
 The club panel leads with pairs for red and black separately. Preserve the existing best-pair score (win percentage + twice the joint-game count capped at ten games), minimum two games; show up to five. «Самые сыгранные» orders by joint games, then team wins. Single-game pairs appear separately as «Первые совместные игры», never as proven strong pairs. All counts use completed canonical club/tournament snapshots. Personal rival wins mean the viewer’s team won, not a personal defeat of the other player. Recent meetings aggregate only games the viewer played in his latest completed event; source and event id together identify an event. A person may appear on both sides after changing teams between games. No changes to Elo, awards or game rules.

@@ -38,6 +38,26 @@ describe('PokerTournaments', () => {
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/ptr_1/register'))).toBe(true));
   });
 
+  it('shows a running tournament with the field left, and takes a seated player to his table', async () => {
+    mockFetch([tournament({ status: 'running', alive: 7, waiting_rebuy: 1, my_table_id: 'ptt_ptr_1_2', standings: [], my_entry: { status: 'playing', rebuys: 0, place: null } })]);
+    const open = vi.fn();
+    render(<PokerTournaments onOpenTable={open} />);
+    await screen.findByText(/В игре 7, ждут докупки: 1/);
+    fireEvent.click(screen.getByRole('button', { name: 'К моему столу' }));
+    expect(open).toHaveBeenCalledWith('ptt_ptr_1_2');
+  });
+
+  it('tells a player who is out his place, and lists the places of a finished tournament', async () => {
+    mockFetch([
+      tournament({ id: 'a', status: 'running', alive: 3, my_entry: { status: 'eliminated', rebuys: 0, place: 5 } }),
+      tournament({ id: 'b', title: 'Старый', status: 'finished', standings: [{ nickname: 'Победитель', place: 1 }, { nickname: 'Второй', place: 2 }] }),
+    ]);
+    render(<PokerTournaments />);
+    await screen.findByText('Я выбыл: 5 место');
+    expect(screen.getByText('Победитель')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'К моему столу' })).toBeNull();
+  });
+
   it('shows a registered player the way out, and the organizer the create form', async () => {
     mockFetch([tournament({ my_entry: { status: 'registered', rebuys: 0, place: null } })], true);
     render(<PokerTournaments />);

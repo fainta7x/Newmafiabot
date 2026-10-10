@@ -10,6 +10,8 @@ import {
 import { applyPokerAction } from '../services/pokerEngine.ts';
 import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
 import { mutateTokenBalance, TokenInsufficientFundsError } from '../services/tokenLedgerService.ts';
+import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
+import { processRunningPokerTournaments } from '../services/pokerTournamentTablesService.ts';
 import { loadPokerInviteCandidates, PokerInviteError, queuePokerInvite } from '../services/pokerInviteService.ts';
 
 const router = Router();
@@ -79,6 +81,22 @@ const settlePokerExits = async (db: any, exits: PokerSeatExit[]) => {
   }
 };
 
+// A tournament's busts, places and table changes are settled while its players poll; at most once a second per database.
+const lastTournamentPass = new WeakMap<object, number>();
+const tournamentSchemaReady = new WeakSet<object>();
+const settleTournamentsThrottled = async (db: any) => {
+  const now = Date.now();
+  if (now - (lastTournamentPass.get(db) || 0) < 1000) return;
+  lastTournamentPass.set(db, now);
+  try {
+    if (!tournamentSchemaReady.has(db)) { await ensurePokerTournamentSchema(db); tournamentSchemaReady.add(db); }
+    await processRunningPokerTournaments(db, now);
+  } catch (error) {
+    // A tournament problem must never stop the ordinary poker tables.
+    console.error('[POKER TOURNAMENT] table pass failed:', error instanceof Error ? error.message : String(error));
+  }
+};
+
 const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Request, res: Response, next: NextFunction) => {
   try {
     const reply = await withPersistedPokerRuntime((req as any).db, async () => {
@@ -87,6 +105,7 @@ const route = (handler: (req: any) => Promise<Reply> | Reply) => async (req: Req
       const tableId = (req as any).params?.id;
       if (viewer && tableId) { const seated = getPokerLobby(String(tableId)); if (seated) touchPokerSeat(seated, String(viewer)); }
       await settlePokerExits((req as any).db, sweepIdlePokerSeats());
+      await settleTournamentsThrottled((req as any).db);
       return handler(req);
     });
     const viewer = getPlayerSessionId(req as any);
@@ -184,6 +203,8 @@ router.post('/poker/lobbies/:id/join', route(async (req) => {
       await chargePokerBuyIn(req.db, player.id, table.id, buyIn, 'buy_in');
     }
     joinPokerLobby(table, player, buyIn);
+    // Coming back to a tournament table ends the «away» that closing the screen set.
+    if (table.tournament && alreadySeated) setPokerSitOut(table, player.id, false);
   } catch (error) { conflict(error, 'Не удалось войти в лобби.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
@@ -238,6 +259,11 @@ router.post('/poker/lobbies/:id/start', route(async (req) => {
 router.post('/poker/lobbies/:id/leave', route(async (req) => {
   const player = await actor(req); const table = getPokerLobby(String(req.params.id));
   if (!table) return { body: { lobby: null } };
+  // Nobody leaves a tournament table: closing the screen only sets «away», and an away player is folded hand by hand.
+  if (table.tournament) {
+    if (table.players.some((item) => item.id === player.id)) setPokerSitOut(table, player.id, true);
+    return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
+  }
   const payout = pokerMoneyMode(table) === 'club_tokens' && table.players.some((item) => item.id === player.id)
     ? pokerEffectiveStack(table, player.id) : 0;
   const left = leavePokerLobby(table, player.id);
@@ -277,6 +303,7 @@ router.get('/poker/lobbies/:id/history', route(async (req) => {
 }));
 router.post('/poker/lobbies/:id/rebuy', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
+  if (table.tournament) throw new PokerRouteError(409, 'В турнире докупка делается кнопкой турнира.');
   try {
     const amount = pokerMoneyMode(table) === 'club_tokens' ? parsePokerBuyIn(req.body?.buy_in_tokens) : POKER_BUY_IN_TOKENS;
     if (pokerMoneyMode(table) === 'club_tokens') await chargePokerBuyIn(req.db, player.id, table.id, amount, 'rebuy');

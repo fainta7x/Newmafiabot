@@ -5,6 +5,9 @@ import {
   normalizePokerTournamentConfig, pokerTournamentClock, pokerTournamentRebuyOpen, type PokerTournamentConfig,
 } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { withPersistedPokerRuntime } from './pokerPersistenceService.ts';
+import { pokerTableForPlayer } from './pokerLobbyService.ts';
+import { processRunningPokerTournaments } from './pokerTournamentTablesService.ts';
 
 export class PokerTournamentError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -28,9 +31,18 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
   const config = parseConfig(row);
   const players = await registeredCount(db, row.id);
   const mine = viewerId
-    ? await db.get<{ status: string; rebuys: number; place: number | null }>('SELECT status, rebuys, place FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [row.id, viewerId])
+    ? await db.get<{ status: string; rebuys: number; place: number | null; busted_at: string | null }>('SELECT status, rebuys, place, busted_at FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [row.id, viewerId])
     : null;
   const clock = row.status === 'running' && row.started_at ? pokerTournamentClock(config, Date.parse(row.started_at), nowMs) : null;
+  const count = async (where: string) => Number((await db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM poker_tournament_entries WHERE tournament_id = ? AND ${where}`, [row.id]))?.n || 0);
+  const alive = row.status === 'running' ? await count("status = 'playing' AND busted_at IS NULL") : null;
+  const waitingRebuy = row.status === 'running' ? await count("status = 'playing' AND busted_at IS NOT NULL") : null;
+  const standings = row.status === 'running' || row.status === 'finished'
+    ? await db.all<{ nickname: string; place: number }>(
+      `SELECT COALESCE(p.nickname, 'Игрок') AS nickname, e.place FROM poker_tournament_entries e LEFT JOIN players p ON p.id = e.player_id
+        WHERE e.tournament_id = ? AND e.place IS NOT NULL ORDER BY e.place ASC LIMIT 50`, [row.id])
+    : [];
+  const myTable = viewerId && row.status === 'running' ? pokerTableForPlayer(viewerId) : null;
   return {
     id: row.id,
     title: row.title,
@@ -45,7 +57,11 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
     spots_left: config.maxPlayers === null ? null : Math.max(0, config.maxPlayers - players),
     clock,
     rebuy_open: Boolean(clock && pokerTournamentRebuyOpen(config, clock)),
-    my_entry: mine && mine.status !== 'cancelled' ? { status: mine.status, rebuys: Number(mine.rebuys), place: mine.place } : null,
+    alive,
+    waiting_rebuy: waitingRebuy,
+    standings,
+    my_table_id: myTable?.tournament?.id === row.id ? myTable.id : null,
+    my_entry: mine && mine.status !== 'cancelled' ? { status: mine.status, rebuys: Number(mine.rebuys), place: mine.place, busted: Boolean(mine.busted_at) } : null,
   };
 }
 
@@ -182,6 +198,9 @@ export async function tickPokerTournaments(db: DatabaseWrapper, nowMs = Date.now
     });
     if (started) result.started.push(row.id);
   }
+  // Running tournaments: tables, hands' busts, places, balancing and the finish all live in the poker runtime.
+  const running = await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM poker_tournaments WHERE status = 'running'");
+  if (Number(running?.n || 0) > 0) await withPersistedPokerRuntime(db, () => processRunningPokerTournaments(db, nowMs));
   // Messages that did not get out the first time (a crash, a failing channel) are retried here.
   const unannounced = await db.all<TournamentRow>("SELECT * FROM poker_tournaments WHERE status IN ('cancelled','running') AND notified_at IS NULL AND updated_at >= ?", [new Date(nowMs - 2 * 24 * 60 * 60_000).toISOString()]);
   for (const row of unannounced) await deliverPokerTournamentNotices(db, row);

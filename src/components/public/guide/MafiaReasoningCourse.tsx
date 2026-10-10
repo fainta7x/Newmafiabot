@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronLeft, LockKeyhole, RotateCcw, Target, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert } from 'lucide-react';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed,
   type ReasoningDecision, type ReasoningLevel,
@@ -32,7 +32,8 @@ const readProgress = (): CourseProgress => {
       if (Array.isArray(raw.passed) && raw.passed.includes(level.id)) result.passed.push(level.id);
     }
     // Earlier stages must be passed; an invalid/tampered cache never opens higher stages.
-    result.passed = result.passed.filter((id, index) => index === 0 || result.passed.includes(REASONING_LEVELS[index - 1].id));
+    result.passed = REASONING_LEVELS.map((item) => item.id).filter((id, index) =>
+      raw.passed?.includes(id) && (index === 0 || REASONING_LEVELS.slice(0, index).every((previous) => raw.passed?.includes(previous.id))));
     return result;
   } catch { return blank(); }
 };
@@ -193,10 +194,7 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           {revealed ? (position === decisions.length - 1 ? 'Посмотреть разбор главы' : 'Следующее решение') : 'Проверить рассуждение'}
           <ArrowRight className="h-4 w-4" />
         </button>
-        {position > 0 && !revealed ? <button type="button" onClick={() => {
-          setProgress((prev) => ({ ...prev, answers: { ...prev.answers, [level.id]: answers.slice(0, -1) } }));
-          setSelected(null);
-        }} className="flex min-h-11 items-center gap-2 text-[12px] text-white/50"><ChevronLeft className="h-4 w-4" /> Вернуться к предыдущему решению</button> : null}
+
       </div> : null}
     </section>
   </div>;

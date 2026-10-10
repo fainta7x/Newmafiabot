@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowRight, Check, LockKeyhole, RotateCcw, Target, TriangleAlert, CheckSquare2, Square } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, ChevronLeft, Check, LockKeyhole, RotateCcw, TriangleAlert, CheckSquare2, Square } from 'lucide-react';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed, reasoningCasesForAttempt, reasoningCasesByIds,
   reasoningDecisionPoints, reasoningOptionOrder,
@@ -67,8 +67,9 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: Re
   const mistakes = allDecisions(cases).flatMap(({ decision, case: item }, index) =>
     reasoningDecisionPoints(decision, answers[index]) === 2 ? [] : [{ decision, title: item.title, selected: answers[index] }]);
   return mistakes.length ? (
-    <section className="space-y-2" data-testid="reasoning-review">
-      <h3 className="text-[15px] font-semibold">Что стоит переосмыслить</h3>
+    <details className="space-y-2" data-testid="reasoning-review">
+      <summary className="cursor-pointer text-[15px] font-semibold">Разобрать ошибки · {mistakes.length}</summary>
+      <div className="mt-2 space-y-2">
       {mistakes.map(({ decision, title, selected }, index) => {
         const chosen = typeof selected === 'number' ? decision.options[selected] : null;
         const stronger = decision.options.find((option) => option.points === 2);
@@ -92,8 +93,9 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: Re
           </>}
         </article>;
       })}
-    </section>
-  ) : <p className="text-[13px] text-emerald-200">Во всех вопросах выбран хорошо обоснованный ответ.</p>;
+      </div>
+    </details>
+  ) : <p className="text-[13px] text-emerald-200">Все ответы верны.</p>;
 };
 
 /**
@@ -104,6 +106,9 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: Re
 export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseComplete?: () => void }) {
   const [progress, setProgress] = useState<CourseProgress>(readProgress);
   const [levelIndex, setLevelIndex] = useState(0);
+  const [view, setView] = useState<'chapters' | 'practice'>('chapters');
+  const courseTop = useRef<HTMLDivElement>(null);
+  const initialView = useRef(true);
   const [selected, setSelected] = useState<ReasoningAnswer | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [ownReason, setOwnReason] = useState('');
@@ -122,10 +127,15 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const courseComplete = REASONING_LEVELS.every((item) => progress.passed.includes(item.id));
 
   useEffect(() => saveProgress(progress), [progress]);
+  useEffect(() => {
+    if (initialView.current) { initialView.current = false; return; }
+    courseTop.current?.scrollIntoView?.({ behavior: 'auto', block: 'start' });
+  }, [view, levelIndex]);
 
   const selectLevel = (index: number) => {
     if (!reasoningUnlocked(index, progress.passed)) return;
     setLevelIndex(index);
+    setView('practice');
     setSelected(null);
     setRevealed(false);
     setOwnReason('');
@@ -169,51 +179,61 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
   const outputLabel = (points: number) => points === 2 ? 'Хорошо подмечено' :
     points === 1 ? 'Не все варианты рассмотрены' : 'Здесь есть ошибка в рассуждении';
 
-  return <div className="space-y-4" data-testid="mafia-reasoning-course">
-    <header className="rounded-[24px] border border-amber-200/20 bg-gradient-to-br from-amber-300/[.1] to-white/[.02] p-4">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-amber-100/70"><Target className="h-4 w-4" /> Школа игрового мышления</div>
-      <h2 className="mt-2 text-xl font-semibold leading-7">Не угадывай цвета. Объясняй действия.</h2>
-      <p className="mt-2 text-[13px] leading-6 text-white/65">Сначала прочитай, что произошло за столом. Затем выбери ответ и посмотри разбор. Здесь важно не угадать цвет игрока, а понять его действия.</p>
-      <p className="mt-2 text-[12px] leading-5 text-white/45">Ответы сохраняются только на этом устройстве. На игры, рейтинг Elo и награды обучение не влияет.</p>
-    </header>
-
-    <section aria-label="Уровни мышления" className="space-y-2">
-      {REASONING_LEVELS.map((item, index) => {
-        const locked = !reasoningUnlocked(index, progress.passed);
-        const passed = progress.passed.includes(item.id);
-        const active = index === levelIndex;
-        return <button key={item.id} type="button" disabled={locked} data-testid={`reasoning-level-${item.id}`} onClick={() => selectLevel(index)}
-          aria-pressed={active} className={`flex min-h-[64px] w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left ${active ? 'border-amber-200/50 bg-amber-200/[.09]' : 'border-white/10 bg-white/[.035]'} ${locked ? 'opacity-50' : ''}`}>
-          <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${passed ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/10 text-white/75'}`}>
-            {locked ? <LockKeyhole className="h-4 w-4" /> : passed ? <Check className="h-5 w-5" /> : index + 1}
-          </span>
-          <span className="min-w-0 flex-1"><strong className="block text-[14px]">{item.title}</strong><span className="mt-0.5 block text-[11px] leading-4 text-white/50">{item.skill}</span></span>
-          {progress.best[item.id] !== undefined ? <span className="shrink-0 text-[12px] text-white/45">{progress.best[item.id]} баллов</span> : null}
-        </button>;
-      })}
-    </section>
-
-    <section className="space-y-4 rounded-[24px] border border-white/10 bg-white/[.04] p-4" aria-label={`Глава ${levelIndex + 1}`}>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Глава {levelIndex + 1} из {REASONING_LEVELS.length}</p>
-        <h3 className="mt-1 text-lg font-semibold">{level.title}</h3>
-        <p className="mt-1 text-[13px] leading-5 text-white/60">{level.lead}</p>
-        {level.id === 'facts' ? <p className="mt-2 text-[12px] leading-5 text-amber-100/75">В банке {level.cases.length} ситуаций. За один раз — {cases.length}. При повторном прохождении задачи сменятся.</p> : null}
-      </div>
+  return <div ref={courseTop} className="space-y-4" data-testid="mafia-reasoning-course">
+    {view === 'chapters' ? <>
+      <header className="px-1">
+        <h2 className="text-xl font-semibold">Игровое мышление</h2>
+        <p className="mt-1 text-sm text-white/60">Выберите тему, чтобы начать.</p>
+      </header>
+      <section aria-label="Уровни мышления" className="space-y-2">
+        {REASONING_LEVELS.map((item, index) => {
+          const locked = !reasoningUnlocked(index, progress.passed);
+          const passed = progress.passed.includes(item.id);
+          const total = answerCount(reasoningCasesByIds(item, progress.caseIds[item.id] || []));
+          const answered = progress.answers[item.id]?.length || 0;
+          return <button key={item.id} type="button" disabled={locked}
+            data-testid={`reasoning-level-${item.id}`} onClick={() => selectLevel(index)}
+            className={`flex min-h-[64px] w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[.035] px-3 py-3 text-left ${locked ? 'opacity-45' : 'hover:border-amber-200/40'}`}>
+            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${passed ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/10 text-white/75'}`}>
+              {locked ? <LockKeyhole className="h-4 w-4" /> : passed ? <Check className="h-5 w-5" /> : index + 1}
+            </span>
+            <span className="min-w-0 flex-1"><strong className="block text-[14px]">{item.title}</strong>
+              <span className="mt-0.5 block text-[12px] leading-4 text-white/50">
+                {locked ? 'Откроется после предыдущей темы' : passed ? 'Пройдено · можно повторить' : answered === total ? 'Посмотреть результат' : answered ? `Продолжить · ${answered}/${total}` : `${total} вопросов`}
+              </span>
+            </span>
+            {!locked ? <ArrowRight className="h-4 w-4 shrink-0 text-white/55" /> : null}
+          </button>;
+        })}
+      </section>
+    </> : <section className="space-y-4" aria-label={`Глава ${levelIndex + 1}`} data-testid="reasoning-practice">
+      <header className="flex items-start gap-3">
+        <button type="button" data-testid="reasoning-back-to-chapters" onClick={() => {
+          setView('chapters');
+          setSelected(null);
+          setRevealed(false);
+          setOwnReason('');
+        }} className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-white/15 px-3 text-sm text-white/80">
+          <ChevronLeft className="h-4 w-4" /> Темы
+        </button>
+        <div className="min-w-0 flex-1 pt-1">
+          <p className="text-[11px] text-white/45">Тема {levelIndex + 1} из {REASONING_LEVELS.length}</p>
+          <h3 className="text-lg font-semibold leading-6">{level.title}</h3>
+        </div>
+      </header>
 
       {done ? <div data-testid="reasoning-result" className="space-y-4">
         <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
           <strong className="text-xl">{score} из {reasoningMaxPoints(level, cases)} баллов</strong>
           <p className="mt-2 text-[13px] leading-5 text-white/70">{passedNow
-            ? 'Глава освоена. Можно переходить к более сложным игровым ситуациям.'
-            : 'Стоит посмотреть, где догадка принята за факт, и попробовать ещё раз.'}</p>
-          <p className="mt-2 text-[12px] text-white/50">Для следующей главы нужно {Math.ceil(reasoningMaxPoints(level, cases) * 5 / 6)} баллов. Мы оцениваем не угадывание цвета, а насколько обоснован ответ.</p>
+            ? 'Тема пройдена!'
+            : 'Ошибки можно разобрать ниже и попробовать ещё раз.'}</p>
         </div>
         <ResultDetails cases={cases} answers={answers} />
         <div className="grid gap-2">
-          {passedNow && levelIndex < REASONING_LEVELS.length - 1 ? <button type="button" onClick={() => selectLevel(levelIndex + 1)} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-3 font-semibold text-black">Следующая глава <ArrowRight className="h-4 w-4" /></button> : null}
-          {courseComplete ? <p className="text-center text-sm text-emerald-200">Все пять глав пройдены. Попробуй применить этот подход на следующей игре.</p> : null}
-          <button type="button" onClick={restart} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/20 px-3 text-sm font-semibold"><RotateCcw className="h-4 w-4" /> {level.id === 'facts' ? 'Другие ситуации' : 'Пройти главу ещё раз'}</button>
+          {passedNow && levelIndex < REASONING_LEVELS.length - 1 ? <button type="button" onClick={() => selectLevel(levelIndex + 1)} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-3 font-semibold text-black">Следующая тема <ArrowRight className="h-4 w-4" /></button> : null}
+          {courseComplete ? <p className="text-center text-sm text-emerald-200">Все темы пройдены.</p> : null}
+          <button type="button" onClick={restart} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/20 px-3 text-sm font-semibold"><RotateCcw className="h-4 w-4" /> {level.id === 'facts' ? 'Другие ситуации' : 'Пройти ещё раз'}</button>
         </div>
       </div> : current ? <div data-testid="reasoning-task" className="space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -224,20 +244,15 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           {decisions.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index < position ? 'bg-emerald-400' : index === position ? 'bg-amber-200' : 'bg-white/15'}`} />)}
         </div>
         <div className="space-y-2 rounded-2xl bg-black/25 p-3">
-          <p className="text-[11px] uppercase tracking-widest text-white/40">Ситуация {Math.floor(position / 2) + 1} из {cases.length} · Шаг {current.stepIndex + 1} из 2</p>
+          <p className="text-[11px] uppercase tracking-widest text-white/40">Ситуация {Math.floor(position / 2) + 1} из {cases.length}</p>
           <h4 className="text-[15px] font-semibold">{current.case.title}</h4>
           {current.case.facts.map((fact, index) => <p key={index} className="text-[13px] leading-5 text-white/80">{fact}</p>)}
         </div>
         <div className="space-y-1">
-          {multiple ? <p className="text-[12px] text-amber-100/75">Можно выбрать несколько ответов. Отметь все версии, которые пока возможны — это не значит, что они доказаны.</p> : <p className="text-[12px] text-white/50">Выбери один наиболее обоснованный ответ.</p>}
+          {multiple ? <p className="text-[12px] text-amber-100/75">Можно выбрать несколько вариантов</p> : null}
           <h4 className="text-[16px] font-semibold leading-6">{current.decision.prompt}</h4>
         </div>
-        <label className="block space-y-2">
-          <span className="text-[12px] font-medium text-white/65">Прежде чем выбрать ответ: на каких фактах он основан?</span>
-          <textarea data-testid="reasoning-own-explanation" value={ownReason} onChange={(event) => setOwnReason(event.target.value.slice(0, 350))}
-            disabled={revealed} rows={2} placeholder="Можно кратко написать свою мысль. Это не обязательно и не влияет на баллы."
-            className="w-full resize-y rounded-xl border border-white/15 bg-white/[.025] px-3 py-2 text-[13px] leading-5 text-white placeholder:text-white/35 outline-none focus:border-amber-200/50 disabled:opacity-70" />
-        </label>
+
         <div className="space-y-2" role="group" aria-label={current.decision.prompt}>
           {order.map((index) => {
             const option = current.decision.options[index];
@@ -254,11 +269,19 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
             </button>;
           })}
         </div>
+        <details className="rounded-xl border border-white/10 bg-white/[.025] px-3 py-2">
+          <summary className="cursor-pointer text-[12px] text-white/70">Своя версия (необязательно)</summary>
+          <textarea data-testid="reasoning-own-explanation" value={ownReason} onChange={(event) => setOwnReason(event.target.value.slice(0, 350))}
+            disabled={revealed} rows={2} placeholder="На чём основан выбор?"
+            className="mt-2 w-full resize-y rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-[13px] leading-5 text-white placeholder:text-white/35 outline-none focus:border-amber-200/50 disabled:opacity-70" />
+        </details>
         {revealed && hasSelection ? <div role="status" className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
           <div className="flex items-center gap-2 text-[13px] font-semibold">{points === 0 ? <TriangleAlert className="h-4 w-4 text-amber-200" /> : <Check className="h-4 w-4 text-emerald-200" />}{outputLabel(points)}</div>
-          {ownReason.trim() ? <p data-testid="reasoning-own-review" className="text-[13px] leading-5 text-white/65"><strong>Ход рассуждения:</strong> {ownReason.trim()}. Сравни свою причину с разбором ниже — текст не оценивается автоматически.</p> : null}
+          {ownReason.trim() ? <p data-testid="reasoning-own-review" className="text-[13px] leading-5 text-white/65"><strong>Своя версия:</strong> {ownReason.trim()}</p> : null}
           {multiple && Array.isArray(selected) ? (
-            <div className="space-y-2">
+            <details>
+              <summary className="cursor-pointer text-[13px] font-medium text-amber-100/85">Разобрать варианты</summary>
+              <div className="mt-2 space-y-2">
               {current.decision.options.map((option, index) => {
                 const checked = selected.includes(index);
                 if (!checked && !option.plausible) return null;
@@ -266,7 +289,8 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
                   <strong>{checked ? (option.plausible ? 'Возможная версия:' : 'Необоснованный вывод:') : 'Возможная версия не отмечена:'}</strong> {option.label}. {option.feedback}
                 </p>;
               })}
-            </div>
+              </div>
+            </details>
           ) : <>
             <p className="text-[13px] leading-5 text-white/75"><strong>Почему:</strong> {feedback?.feedback}</p>
             {points !== 2 ? <p className="text-[13px] leading-5 text-emerald-200/85"><strong>Более обоснованный ответ:</strong> {bestOption?.label}</p> : null}
@@ -279,6 +303,6 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
         </button>
 
       </div> : null}
-    </section>
+    </section>}
   </div>;
 }

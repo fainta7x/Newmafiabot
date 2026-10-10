@@ -89,33 +89,73 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(reasoningUnlocked(4, ['facts', 'motives', 'team'])).toBe(false);
   });
 
+  it('opens a chapter as its own view, resumes answered questions and returns to the picker', () => {
+    render(<MafiaReasoningCourse />);
+    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    expect(screen.queryByText(/Ответы сохраняются только на этом устройстве/)).toBeNull();
+
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Игровое мышление' })).toBeNull();
+    expect(screen.queryByTestId('reasoning-level-motives')).toBeNull();
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 1 из 10');
+
+    fireEvent.click(screen.getByTestId('reasoning-option-1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    expect(screen.getByTestId('reasoning-level-facts').textContent).toContain('Продолжить · 1/10');
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+    cleanup();
+    render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 10');
+  });
+
   it('works on all five first-chapter situations and saves the passed result', () => {
     const finished = vi.fn();
     render(<MafiaReasoningCourse onCourseComplete={finished} />);
-    expect(screen.getByText(/В банке 10 ситуаций/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Игровое мышление' })).toBeTruthy();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-level-motives')).toBeNull();
     complete(0, 2);
     expect(screen.getByTestId('reasoning-result').textContent).toContain('20 из 20');
-    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
     expect(finished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.queryByTestId('reasoning-result')).toBeNull();
+    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
     cleanup();
     render(<MafiaReasoningCourse />);
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(false);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByTestId('reasoning-result').textContent).toContain('20 из 20');
   });
 
   it('explains mistakes without unlocking and offers different scenarios when retried', () => {
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByText('Игрок №10 говорит уверенно')).toBeTruthy();
     complete(0, 0);
-    expect(screen.getByTestId('reasoning-review').textContent).toContain('Что стоит переосмыслить');
-    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('reasoning-review').textContent).toContain('Разобрать ошибки');
     expect(screen.getByTestId('reasoning-result').textContent).toContain('0 из 20');
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     fireEvent.click(screen.getByRole('button', { name: 'Другие ситуации' }));
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 1 из 10');
     expect(screen.getByText('Выставил — не значит проголосовал')).toBeTruthy();
     cleanup();
     render(<MafiaReasoningCourse />);
+    expect(screen.getByTestId('reasoning-level-facts')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByText('Выставил — не значит проголосовал')).toBeTruthy();
   });
 
@@ -124,7 +164,8 @@ describe('Mafia reasoning: case bank and plain language', () => {
       answers: { facts: [1, 0, 1] }, passed: [], best: {},
     }));
     render(<MafiaReasoningCourse />);
-    expect(screen.getByText(/В банке 10 ситуаций/)).toBeTruthy();
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 4 из 6');
   });
 
@@ -161,8 +202,9 @@ describe('Mafia reasoning: case bank and plain language', () => {
   });
 
   it('allows choosing several hypotheses and gives per-option feedback', () => {
-    // First batch: "votes" is its third case and starts at decision 5 of 10.
+    // First batch: "votes" is its third case and starts at decision 6 of 10.
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
     const firstFour = decisions(reasoningCasesForAttempt(REASONING_LEVELS[0], 0)).slice(0, 5);
     for (const question of firstFour) {
       const right = question.options.findIndex((option) => option.points === 2);
@@ -170,7 +212,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
       fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
     }
-    expect(screen.getByText(/Можно выбрать несколько ответов/)).toBeTruthy();
+    expect(screen.getByText(/Можно выбрать несколько вариантов/)).toBeTruthy();
     const question = REASONING_LEVELS[0].cases.find((item) => item.id === 'votes')!.steps[1];
     const selected = question.options.flatMap((option, i) => option.plausible ? [i] : []);
     for (const index of selected) fireEvent.click(screen.getByTestId('reasoning-option-' + index));
@@ -196,13 +238,57 @@ describe('Mafia reasoning: case bank and plain language', () => {
 
   it('invites free self-explanation without pretending to score free text', () => {
     render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    fireEvent.click(screen.getByText('Своя версия (необязательно)'));
     fireEvent.change(screen.getByTestId('reasoning-own-explanation'), { target: { value: 'Я вижу только речь №10, но не его роль' } });
     fireEvent.click(screen.getByTestId('reasoning-option-1'));
     fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
     expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не его роль');
-    expect(screen.getByTestId('reasoning-own-review').textContent).toContain('не оценивается автоматически');
+    expect(screen.queryByText(/на рейтинг Elo и награды/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Следующий вопрос' }));
     expect((screen.getByTestId('reasoning-own-explanation') as HTMLTextAreaElement).value).toBe('');
+  });
+
+
+  it('does not pretend a claimed Sheriff proves a color before the Sheriff identity is known', () => {
+    const caseItem = REASONING_LEVELS[0].cases.find((item) => item.id === 'sheriff-claim')!;
+    expect(caseItem.facts.join(' ')).toContain('№8 ещё не выступал');
+    expect(caseItem.facts.join(' ')).toContain('неизвестно, настоящий ли №1 шериф');
+    expect(caseItem.facts.join(' ')).not.toMatch(/раскрыл.*роль/);
+
+    const [observed, hypotheses] = caseItem.steps;
+    expect(observed.mode).toBeUndefined();
+    expect(observed.options.filter((option) => option.points === 2).map((option) => option.label))
+      .toEqual(['№1 дал чёрную проверку №8']);
+    expect(observed.options.some((option) => option.points === 0 && option.label.includes('уже достоверна'))).toBe(true);
+    expect(hypotheses.mode).toBe('multiple');
+    expect(hypotheses.options.map((option) => option.plausible)).toEqual([true, true, true, false]);
+    expect(hypotheses.options[0].label).toContain('настоящий шериф');
+    expect(hypotheses.options[1].label).toContain('чёрную проверку красному №8');
+    expect(hypotheses.options[2].label).toContain('чёрную проверку чёрному №8');
+    expect(hypotheses.options[2].feedback).toContain('окрасниться');
+    expect(hypotheses.options[3].label).toContain('даже если №1 лжешериф');
+    expect(hypotheses.options[3].feedback).toContain('№8 может быть красным или чёрным');
+  });
+
+  it('distinguishes an unconfirmed Sheriff claim from a confirmed real Sheriff check', () => {
+    const verified = REASONING_LEVELS.find((level) => level.id === 'reconstruct')!
+      .cases.find((item) => item.id === 'sheriff')!;
+    expect(verified.facts.join(' ')).toContain('настоящий шериф');
+    expect(verified.facts.join(' ')).toContain('№6 действительно чёрный');
+    const review = REASONING_LEVELS[0].cases.flatMap((item) => [item.title, ...item.facts]);
+    expect(review.join(' ')).not.toContain('свою роль не раскрыл');
+  });
+
+  it('uses okrasnenie only for black-player tactics instead of a generic trust shortcut', () => {
+    const lines = REASONING_LEVELS.flatMap((level) => level.cases.flatMap((item) =>
+      [item.title, ...item.facts, ...item.steps.flatMap((decision) =>
+        [decision.prompt, ...decision.options.flatMap((option) => [option.label, option.feedback])])])).join(' ');
+    expect(lines).toContain('окрасниться');
+    expect(lines).not.toContain('ради доверия');
+    expect(lines).not.toContain('получил доверие');
+    expect(lines).not.toContain('обвиняет мирного');
+    expect(lines).not.toContain('№8 свою роль не раскрыл');
   });
 
   it('does not unlock later chapters from invalid saved progress', () => {

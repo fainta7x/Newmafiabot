@@ -80,8 +80,11 @@ describe('public guide for novices', () => {
   it('replaces trivia with five stages of analysis and concrete reasoning feedback', () => {
     render(<PublicGuide initialTab="quiz" />);
     expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
-    expect(screen.getByText('Не угадывай цвета. Объясняй действия.')).toBeTruthy();
+    expect(screen.getByTestId('mafia-reasoning-course').querySelector('h2')?.textContent).toBe('Игровое мышление');
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '№10 — красный, потому что говорил спокойно' }));
     fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
     expect(screen.getByRole('status').textContent).toContain('Здесь есть ошибка в рассуждении');

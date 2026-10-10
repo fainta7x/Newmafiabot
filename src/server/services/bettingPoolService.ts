@@ -334,14 +334,15 @@ export const settleBetPool = async (db: DatabaseWrapper, gameId: number, winner:
   let pool = await tx.get<BettingPoolRow>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
   if (!pool) return null;
   if (pool.status === 'refunded') return poolPayload(pool);
-  if (pool.status === 'settled' && pool.settled_winner === winner) return poolPayload(pool);
-  if (pool.status === 'settled') pool = await reverseSettledPayouts(tx, pool);
-
   // Nobody bet against them: a pool with stakes on one side only has no losers to pay the winners (owner, 2026-10-10).
   // Every stake goes back, otherwise a lone bettor would lose a lost bet but only break even on a won one.
+  // This also corrects a pool that an earlier version already settled: the payout is reversed and the stakes returned.
   const redStake = Number(pool.red_pool || 0);
   const blackStake = Number(pool.black_pool || 0);
   if (redStake + blackStake > 0 && (redStake <= 0 || blackStake <= 0)) return refundBetPool(tx, gameId);
+
+  if (pool.status === 'settled' && pool.settled_winner === winner) return poolPayload(pool);
+  if (pool.status === 'settled') pool = await reverseSettledPayouts(tx, pool);
 
   const bets = await tx.all<any>("SELECT * FROM betting_bets WHERE pool_id = ? AND status != 'refunded' ORDER BY placed_at ASC, id ASC", [pool.id]);
   const winnerPool = winner === 'red' ? Number(pool.red_pool || 0) : Number(pool.black_pool || 0);

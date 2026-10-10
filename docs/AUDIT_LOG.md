@@ -473,3 +473,4 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Reported (player via owner):** a lone bettor lost 50 on a lost bet but got 0 net on a won bet; the bet window (90 seconds) was too short.
 - **Defect:** `settleBetPool` (`bettingPoolService.ts`) paid a winner pool with no opposing stakes at coefficient 1 (stake back only) while the lost side burned its stake.
 - **Fixed:** a pool with stakes on one side only is refunded in full whichever team wins; window is `BETTING_WINDOW_MS` = 8 minutes. Status: fixed.
+- **Follow-up (review):** already-settled one-sided pools were skipped by the same-winner early return; the one-sided check now runs first, so the startup reconcile also returns stakes burned by the old rule (payout reversed, stake refunded). Status: fixed.

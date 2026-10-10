@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, BookOpenCheck, ChevronRight, GraduationCap, Gavel, LibraryBig } from 'lucide-react';
+import { ArrowRight, BookOpen, BookOpenCheck, ChevronRight, GraduationCap, Gavel, LibraryBig, Brain } from 'lucide-react';
 
 /** Learning lives in Progress; the public guide is the one canonical content source. */
 const guideLink = (tab: string) => `/guide?from=progress&tab=${encodeURIComponent(tab)}`;

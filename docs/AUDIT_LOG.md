@@ -1,5 +1,18 @@
 # Audit log
 
+## 2026-10-11 · Architecture unification / reusable logic (owner-approved, phase 1)
+
+Scope: first focused read-only pass over `docs/ARCHITECTURE.md`, `docs/DESIGN_SYSTEM.md`, `docs/FEATURE_MAP.md`, `src/lib/eveningResponse.ts`, `src/lib/eveningDomain.ts`, and selected Player/CRM entrypoints. This is **not** a completed repository-wide audit. Keep deeper findings in this log before changing their owners. The programme and ordered queue live **only** in `docs/PROJECT_STATE.md`.
+
+- **[fixed in branch; merge/deploy unverified]** `PlayerHomeDashboard.tsx`, `PlayerEveningSummaries.tsx`, `PlayerReplayScreen.tsx`: the four Mafia role labels were independently implemented three times with deliberately different fallbacks (null / raw role / dash). Moved the common role vocabulary to `src/lib/playerGameRoleLabels.ts`, retained each caller's prior fallback, and added `src/tests/playerGameRoleLabels.test.ts`. No JSX, styles, server routes, DB or migration changes.
+- **[open, investigate before any rewrite]** `EveningActiveRosterView.tsx`: local `responseLabel()` maps the same canonical evening responses already exposed by `src/lib/eveningResponse.ts` but deliberately differs on declined and unanswered («Не буду» vs «Не иду», «Нет ответа» vs «Не ответил»). Confirm intended CRM wording and any consumers/tests before delegating labels to the shared owner. Do not silently change what users see.
+- **[audit candidate, no change]** `PlayerHomeDashboard.tsx` and `EveningsList.tsx`: independent Moscow date/display formatting. Audit all usages and format requirements before any shared helper; different contexts may rightly use different precision.
+- **[audit candidate, no change]** `PlayerEventsCalendar.tsx` and `PlayerHistoryStatsView.tsx`: independent `fetch` + response/error parsing. Inventory endpoints, caching and permission boundaries before considering common query/error handling. Do **not** introduce a global cache without invalidation design.
+- **[already centralized / do not rebuild]** `src/lib/eveningDomain.ts`, `src/lib/eveningResponse.ts`: canonical RSVP and attendance normalization. Existing services already own pricing/ledger/slots; proposed cleanups must reuse those owners rather than copy business rules.
+- **[high-risk boundary, no change]** `LiveGameEngine.tsx` + its split models and CRM/live-game CSS: investigate responsibilities and test seams only after low-risk stages; never casually extract seat markup or change state persistence/timer/vote rules.
+
+Acceptance for this phase: changed screens produce the same Russian labels for known roles and the same prior fallbacks for unknown values; no visual or data-layer modifications. Focused tests + TypeScript + required PR CI should gate merge; browser visual proof is needed for any later JSX/CSS change. Production DB/player identities must never be reset, bootstrapped from a checkpoint, or mutated as part of this programme.
+
 ## 2026-10-11 · «Ведение» / тестовая игра / обучение судьи (owner request: one clear scheme)
 
 Scope: every way to conduct a real game, a test game, or practise as a judge; who can open each. Method: read-only sweep of `src/components/player`, `src/components/crm`, `src/components/public`, `src/lib/guideCatalog.ts`, test-environment routes, docs. Scheme agreed with the owner 2026-10-11 («Обучение» = practice; the cabinet «Ведение» = real conducting; CRM = the organizer's side of the same games). Step 1 built (see below); the learning statistics are step 2.

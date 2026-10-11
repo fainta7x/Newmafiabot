@@ -49,6 +49,11 @@ describe('poker table chat', () => {
       expect(cleanPokerChatText(spam), spam).not.toMatch(/t\.me|example\.com|tg:|vk\.com|poker\.site|spammer/);
     }
     expect(cleanPokerChatText('ну т.е. всё ок, 3.5 бб')).toBe('ну т.е. всё ок, 3.5 бб');
+    // A hostile string must not make the filter slow.
+    const started = Date.now();
+    cleanPokerChatText('-.'.repeat(50_000));
+    cleanPokerChatText(`${'a-'.repeat(50_000)}!`);
+    expect(Date.now() - started).toBeLessThan(500);
     expect(cleanPokerChatText('а'.repeat(500))).toHaveLength(140);
     expect(cleanPokerChatText('   ')).toBe('');
   });

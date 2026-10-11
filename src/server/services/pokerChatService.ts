@@ -16,10 +16,15 @@ const RECENT = 40;
 export type PokerChatMessage = { id: number; player_id: string; nickname: string; kind: 'text' | 'emote'; body: string; age_ms: number };
 
 /** Plain text only: no links (a table is not a place to advertise), no control characters, one line. */
-const LINK_PATTERNS = /(?:https?|tg|ftp):\/\/\S+|\b(?:www\.|t\.me\/|telegram\.me\/|vk\.com\/|wa\.me\/)\S*|(?:^|[\s(])@[\w]{4,}|[\p{L}\d-]+(?:\.[\p{L}\d-]+)*\.(?:com|ru|net|org|me|io|ly|su|рф|info|biz|xyz|site|online|app|dev|gg|tv|cc|co|by|ua|kz|pro|club|shop|store|link)\b\S*/giu;
+// Links are found word by word with simple, non-nested patterns (a long hostile string cannot make them slow).
+const LINK_SCHEME = /^[("']?(?:https?|tg|ftp):\/\//i;
+const LINK_HOST = /^[("']?(?:www\.|t\.me\/|telegram\.me\/|vk\.com\/|wa\.me\/)/i;
+const LINK_HANDLE = /^[("']?@\w{4,}/;
+const LINK_DOMAIN = /\.(?:com|ru|net|org|me|io|ly|su|рф|info|biz|xyz|site|online|app|dev|gg|tv|cc|co|by|ua|kz|pro|club|shop|store|link)(?:[/?#:!,.)'"]|$)/iu;
+const isLinkWord = (word: string) => LINK_SCHEME.test(word) || LINK_HOST.test(word) || LINK_HANDLE.test(word) || LINK_DOMAIN.test(word);
 export const cleanPokerChatText = (value: unknown): string =>
-  [...String(value ?? '')].map((char) => (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 ? ' ' : char)).join('')
-    .replace(LINK_PATTERNS, (match) => (/^[\s(]/.test(match) ? `${match[0]}…` : '…')).replace(/\s+/g, ' ').trim().slice(0, POKER_CHAT_TEXT_MAX);
+  [...String(value ?? '').slice(0, 1000)].map((char) => (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 ? ' ' : char)).join('')
+    .split(/\s+/).filter(Boolean).map((word) => (isLinkWord(word) ? '…' : word)).join(' ').slice(0, POKER_CHAT_TEXT_MAX);
 
 export async function postPokerChat(
   db: DatabaseWrapper,

@@ -474,3 +474,17 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Defect:** `settleBetPool` (`bettingPoolService.ts`) paid a winner pool with no opposing stakes at coefficient 1 (stake back only) while the lost side burned its stake.
 - **Fixed:** a pool with stakes on one side only is refunded in full whichever team wins; window is `BETTING_WINDOW_MS` = 8 minutes. Status: fixed.
 - **Follow-up (review):** already-settled one-sided pools were skipped by the same-winner early return; the one-sided check now runs first, so the startup reconcile also returns stakes burned by the old rule (payout reversed, stake refunded). Status: fixed.
+
+### 2026-10-11 — «Школа игрового мышления»: аудит покрытия и план обучения
+
+- **Scope:** coverage of the five existing chapters of the reasoning school (`src/lib/mafiaReasoningCourse.ts` and the guide components) against the original goal of teaching analysis during a game; the method, levels and plan are in `docs/REASONING_CURRICULUM.md`. This is a methodology audit, not a code defect list; nothing in the live engine, scores or awards changes.
+- **Findings** (all in `docs/REASONING_CURRICULUM.md`, «Где существенные пробелы»; all status **proposed**, to be agreed with the owner before building):
+  1. Fact vs interpretation: no work across several days or with an incomplete protocol.
+  2. Red/black motives: no calibration of «how much did the version get stronger».
+  3. Gain and team price: no mechanical comparison of alternatives, the missed win and next-round threats. *Partly addressed by the vote tree (#794).*
+  4. Triples and counter-examples: no independent building of a triple without a ready answer list. *Partly addressed by the «Проверка мышления» self-check (#794).*
+  5. Sheriff / false sheriff: no information discipline (who learned a colour from where, compatibility of checks).
+  6. Reading behaviour and emotions: weak; no «lie detector by gestures» by design.
+  7. Fast decision and speech: almost absent (timing, the most useful question, a short argument). *Practised by «Речь и реакция» and «Следующий ход» (#792).*
+  8. Measuring the real skill: none; needs a diagnostic task with no options, a new control situation later and a review of a real game.
+- Mutable state (what is merged or deployed) is in `docs/PROJECT_STATE.md`, not here.

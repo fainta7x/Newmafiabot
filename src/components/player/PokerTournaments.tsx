@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
 import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
+import PokerTournamentParticipants, { type PokerTournamentParticipant } from './PokerTournamentParticipants.tsx';
 
 type Settings = {
   startAt: string; minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number;
@@ -11,7 +12,7 @@ type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; settings: Settings; players: number; spots_left: number | null;
   clock: { level: number; small: number; big: number; secondsToNextLevel: number | null } | null; rebuy_open: boolean;
-  late_reg_open?: boolean; schedule?: PokerScheduleRow[];
+  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; rebuys: number; place: number | null; busted?: boolean } | null;
   alive: number | null; waiting_rebuy: number | null; my_table_id: string | null;
   standings: Array<{ nickname: string; place: number }>;
@@ -169,6 +170,12 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
                 ) : null}
                 {item.my_table_id && onOpenTable ? <button type="button" onClick={() => onOpenTable(item.my_table_id!)} className="min-h-11 w-full rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black">К моему столу</button> : null}
               </div>
+            ) : null}
+            {(item.status === 'registration' || item.status === 'running') && item.participants?.length ? (
+              <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2" data-testid="poker-tournament-participants-toggle">
+                <summary className="min-h-11 cursor-pointer py-2.5 text-xs font-semibold text-white/70">{item.status === 'running' ? 'Участники' : 'Кто записался'} · {item.participants.length}</summary>
+                <div className="mt-1"><PokerTournamentParticipants participants={item.participants} /></div>
+              </details>
             ) : null}
             {(item.status === 'registration' || item.status === 'running') && item.schedule?.length ? (
               <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2" data-testid="poker-tournament-schedule-toggle">

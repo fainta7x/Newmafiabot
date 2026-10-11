@@ -51,6 +51,19 @@ describe('entering a running poker tournament over the API, and the table of lev
     expect(again.body.tournament.players).toBe(3);
   });
 
+  it('lists who is in the tournament with the state of each, newcomers included, and never a player who withdrew', async () => {
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Список', startAt, minPlayers: 4 });
+    await registerForPokerTournament(db, row.id, 'p2');
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p3');
+    await db.run("UPDATE poker_tournament_entries SET status = 'cancelled' WHERE tournament_id = ? AND player_id = 'p3'", [row.id]);
+    const view = await request(app).get(`/api/player/poker/tournaments/${row.id}`).set(as('p4'));
+    expect(view.body.tournament.participants.map((item: any) => item.nickname).sort()).toEqual(['Игрок 1', 'Игрок 2']);
+    expect(view.body.tournament.participants[0]).toEqual(expect.objectContaining({ id: expect.any(String), nickname: expect.any(String), status: 'registered', place: null, rebuys: 0, out: false }));
+    expect(view.body.tournament.players).toBe(2);
+  });
+
   it('refuses a newcomer once late registration has ended', async () => {
     const id = await startRunning({ lateRegUntilLevel: 1 });
     const late = await request(app).post(`/api/player/poker/tournaments/${id}/register`).set(as('p4')).send({});

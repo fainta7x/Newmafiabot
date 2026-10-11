@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
 import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
+import PokerTournamentParticipants, { type PokerTournamentParticipant } from './PokerTournamentParticipants.tsx';
 
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; players: number; spots_left: number | null; alive: number | null; my_table_id: string | null;
   settings: { minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number; seatsPerTable: number; rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; prizeTokens: number[]; lateRegUntilLevel?: number };
-  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; clock?: { level: number } | null;
+  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; clock?: { level: number } | null; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; place: number | null; busted?: boolean } | null;
   standings: Array<{ nickname: string; place: number }>;
 };
@@ -64,6 +65,11 @@ export default function PlayerPokerTournamentDetail({ tournamentId, onBack, onSa
           <div className="flex justify-between gap-3"><span className="text-white/45">Докупка</span><b className="text-right">{s.rebuyUntilLevel > 0 ? `до уровня ${s.rebuyUntilLevel}, ${num(s.rebuyCostTokens)} жетонов за ${num(s.rebuyChips)} фишек` : 'нет'}</b></div>
           <div className="flex justify-between gap-3"><span className="text-white/45">Поздняя запись</span><b className="text-right">{(s.lateRegUntilLevel ?? 0) > 0 ? `в идущий турнир, до конца ${s.lateRegUntilLevel}-го уровня` : 'нет'}</b></div>
           <div className="flex justify-between gap-3"><span className="text-white/45">Призы</span><b className="text-right">{prizes}</b></div>
+        </section>
+        <section className="mt-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5" data-testid="poker-tournament-participants-card">
+          <h2 className="mb-2 text-sm font-semibold">{item.status === 'running' || item.status === 'finished' ? 'Участники' : 'Кто записался'} · {item.participants?.length ?? item.players}</h2>
+          <PokerTournamentParticipants participants={item.participants || []} />
+          {item.status === 'registration' && s.minPlayers > item.players ? <p className="mt-2 text-xs text-white/45">Чтобы турнир начался, нужно ещё {s.minPlayers - item.players}</p> : null}
         </section>
         {item.schedule?.length ? <section className="mt-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5">
           <h2 className="mb-2 text-sm font-semibold">Уровни и время</h2>

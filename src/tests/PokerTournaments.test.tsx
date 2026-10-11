@@ -128,4 +128,19 @@ describe('PokerTournaments', () => {
     await screen.findByText('Турбо вечера');
     expect(screen.queryByTestId('poker-tournament-late-reg')).toBeNull();
   });
+  it('lists who has signed up, and shows a player who went out with his place', async () => {
+    mockFetch([tournament({ status: 'running', clock: { level: 3, small: 20, big: 40, secondsToNextLevel: 60 }, alive: 2, waiting_rebuy: 0, schedule,
+      participants: [
+        { id: 'a', nickname: 'Алиса', status: 'playing', place: null, rebuys: 1, out: false },
+        { id: 'b', nickname: 'Боб', status: 'eliminated', place: 3, rebuys: 0, out: true },
+        { id: 'c', nickname: 'Вера', status: 'playing', place: null, rebuys: 0, out: false },
+      ] })]);
+    render(<PokerTournaments />);
+    await screen.findByText('Турбо вечера');
+    const list = screen.getByTestId('poker-tournament-participants');
+    expect(list.textContent).toContain('Алиса');
+    expect(list.textContent).toContain('+1');
+    expect(list.textContent).toMatch(/Боб\s*3 м\./);
+    expect(screen.getByText(/Участники · 3/)).toBeTruthy();
+  });
 });

@@ -45,6 +45,12 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
       `SELECT COALESCE(p.nickname, 'Игрок') AS nickname, e.place FROM poker_tournament_entries e LEFT JOIN players p ON p.id = e.player_id
         WHERE e.tournament_id = ? AND e.place IS NOT NULL ORDER BY e.place ASC LIMIT 50`, [row.id])
     : [];
+  // Who is in: the players of the club see each other in every roster, so the nickname and the state are enough here.
+  const participants = (await db.all<{ id: string; nickname: string; status: string; place: number | null; rebuys: number; busted_at: string | null }>(
+    `SELECT p.id, COALESCE(p.nickname, 'Игрок') AS nickname, e.status, e.place, e.rebuys, e.busted_at
+       FROM poker_tournament_entries e JOIN players p ON p.id = e.player_id
+      WHERE e.tournament_id = ? AND e.status != 'cancelled' ORDER BY e.created_at ASC, p.nickname ASC LIMIT 200`, [row.id],
+  )).map((entry) => ({ id: String(entry.id), nickname: entry.nickname, status: entry.status, place: entry.place, rebuys: Number(entry.rebuys), out: entry.status === 'eliminated' }));
   const myTable = viewerId && row.status === 'running' ? pokerTournamentLobbies(row.id).find((lobby) => lobby.players.some((seat) => seat.id === viewerId)) || null : null;
   return {
     id: row.id,
@@ -65,6 +71,7 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
     alive,
     waiting_rebuy: waitingRebuy,
     standings,
+    participants,
     my_table_id: myTable?.id ?? null,
     my_entry: mine && mine.status !== 'cancelled' ? { status: mine.status, rebuys: Number(mine.rebuys), place: mine.place, busted: Boolean(mine.busted_at) } : null,
   };

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, Gift, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
 
 type Participant = {
   id: string;
@@ -40,7 +41,7 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
   return body as T;
 };
 
-const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+
 const expectedResponse = (participant: Participant) => ['going', 'late'].includes(getEveningResponse(participant));
 
 export const reconcileCloseoutParticipants = (current: CloseoutState, participants: Participant[]): CloseoutState => {

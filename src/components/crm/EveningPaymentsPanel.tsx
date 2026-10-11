@@ -4,6 +4,7 @@ import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, Undo2 } from
 import EveningListControls from './EveningListControls.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
+import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
 
 type PaymentParticipant = {
   id: string;
@@ -32,7 +33,7 @@ type PaymentPayload = {
   participants: PaymentParticipant[];
 };
 
-const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+
 
 export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' }: { eveningId: string; initialFilter?: 'all' | 'paid' | 'unpaid' }) {
   const [data, setData] = useState<PaymentPayload | null>(null);

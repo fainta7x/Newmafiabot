@@ -18,16 +18,16 @@ export default function PokerTournamentSchedule({ rows, current = null, started 
   const closes = (row: PokerScheduleRow | undefined, next: PokerScheduleRow | undefined) => (row && next?.startsAt ? clock(next.startsAt) : '');
   return (
     <div data-testid="poker-tournament-schedule" className="text-[11px] text-white/70">
-      <div className="grid grid-cols-[1.5rem_3.9rem_2.8rem_2.2rem_1fr] gap-x-1.5 border-b border-white/10 pb-1 text-[10px] uppercase tracking-[.08em] text-white/40">
+      <div className="grid grid-cols-[1.4rem_3.8rem_3.3rem_2.1rem_1fr] gap-x-1.5 border-b border-white/10 pb-1 text-[10px] uppercase tracking-[.08em] text-white/40">
         <span>Ур.</span><span>Блайнды</span><span>{started ? 'Время' : 'Старт'}</span><span>Стек ББ</span><span>Можно</span>
       </div>
       <ol>
         {rows.map((row) => (
           <li key={row.level} aria-current={current === row.level ? 'step' : undefined}
-            className={`grid grid-cols-[1.5rem_3.9rem_2.8rem_2.2rem_1fr] items-center gap-x-1.5 border-b border-white/[.05] py-1 ${current === row.level ? 'rounded bg-amber-300/10 text-amber-100' : ''}`}>
+            className={`grid grid-cols-[1.4rem_3.8rem_3.3rem_2.1rem_1fr] items-center gap-x-1.5 border-b border-white/[.05] py-1 ${current === row.level ? 'rounded bg-amber-300/10 text-amber-100' : ''}`}>
             <b>{row.level}</b>
             <span className="tabular-nums">{row.small}/{row.big}</span>
-            <span className="tabular-nums">{row.startsAt ? clock(row.startsAt) : `${row.startMinute} мин`}</span>
+            <span className="whitespace-nowrap tabular-nums">{row.startsAt ? clock(row.startsAt) : `${row.startMinute} мин`}</span>
             <span className="tabular-nums">{bb(row.startingStackBb)}</span>
             <span className="flex flex-wrap gap-1">
               {row.lateRegOpen ? <i className="rounded-full bg-emerald-400/15 px-1.5 text-[10px] not-italic text-emerald-200">вход</i> : null}

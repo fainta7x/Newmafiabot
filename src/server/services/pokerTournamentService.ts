@@ -95,6 +95,36 @@ export async function createPokerTournament(db: DatabaseWrapper, organizerId: st
   return getPokerTournamentRow(db, id);
 }
 
+/**
+ * The organizer edits a tournament that has not started yet (owner, 2026-10-11: «до старта турнира я могу всё корректировать»).
+ * Only the fields that arrive are changed. The announcement that already went out is not re-sent.
+ */
+export async function updatePokerTournament(db: DatabaseWrapper, id: string, input: Record<string, unknown>, nowMs = Date.now()) {
+  return db.transaction(async (tx) => {
+    const row = await getPokerTournamentRow(tx, id);
+    if (row.status !== 'registration') throw new PokerTournamentError(409, 'Изменить можно только турнир, который ещё не начался');
+    const title = input.title === undefined ? row.title : cleanText(input.title, 120);
+    if (!title) throw new PokerTournamentError(400, 'Назовите турнир');
+    const merged: Record<string, unknown> = { ...parseConfig(row), startAt: row.start_at };
+    for (const [key, value] of Object.entries(input)) {
+      if (key === 'title' || key === 'description' || key === 'announce') continue;
+      if (value !== undefined) merged[key] = value;
+    }
+    const parsed = normalizePokerTournamentConfig(merged, nowMs);
+    if (!parsed.ok) throw new PokerTournamentError(400, parsed.error);
+    const players = await registeredCount(tx, id);
+    if (parsed.config.maxPlayers !== null && parsed.config.maxPlayers < players) {
+      throw new PokerTournamentError(400, `Уже записалось ${players}: максимум не может быть меньше`);
+    }
+    const description = input.description === undefined ? row.description : cleanText(input.description, 1000);
+    await tx.run(
+      'UPDATE poker_tournaments SET title = ?, description = ?, start_at = ?, config_json = ?, updated_at = ? WHERE id = ?',
+      [title, description, parsed.config.startAt, JSON.stringify(parsed.config), new Date(nowMs).toISOString(), id],
+    );
+    return getPokerTournamentRow(tx, id);
+  });
+}
+
 export async function getPokerTournamentRow(db: DatabaseWrapper, id: string): Promise<TournamentRow> {
   await ensurePokerTournamentSchema(db);
   const row = await db.get<TournamentRow>('SELECT * FROM poker_tournaments WHERE id = ? LIMIT 1', [id]);

@@ -5,7 +5,7 @@ import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.t
 import { announcePokerTournament } from '../services/pokerTournamentAnnouncementService.ts';
 import {
   cancelPokerTournament, createPokerTournament, getPokerTournamentRow, listPokerTournaments, PokerTournamentError,
-  lateRegisterInPokerTournament, publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
+  lateRegisterInPokerTournament, publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament, updatePokerTournament,
 } from '../services/pokerTournamentService.ts';
 
 const router = Router();
@@ -82,6 +82,13 @@ router.post('/poker/tournaments', handle(async (req) => {
   // The announcement goes out in the background; if a channel fails the scheduler retries it.
   void announcePokerTournament(req.db, row.id).catch((error) => console.error('[POKER TOURNAMENT] announcement failed:', error instanceof Error ? error.message : String(error)));
   return { status: 201, body: { tournament: await publicPokerTournament(req.db, row, organizerId ? String(organizerId) : null) } };
+}));
+
+router.patch('/poker/tournaments/:id', handle(async (req) => {
+  if (!isTournamentOrganizer(req)) throw new PokerTournamentError(403, 'Изменить турнир может только организатор клуба.');
+  const organizerId = getPlayerSessionId(req);
+  const row = await updatePokerTournament(req.db, String(req.params.id), req.body || {});
+  return { body: { tournament: await publicPokerTournament(req.db, row, organizerId ? String(organizerId) : null) } };
 }));
 
 router.post('/poker/tournaments/:id/cancel', handle(async (req) => {

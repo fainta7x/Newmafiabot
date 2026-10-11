@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
 import { pokerTournamentAnnouncementText } from '../server/services/pokerTournamentAnnouncementService.ts';
 
@@ -100,5 +100,35 @@ describe('entering a running poker tournament over the API, and the table of lev
     const plain = pokerTournamentAnnouncementText(none as any);
     expect(plain).not.toContain('➕');
     expect(plain).not.toContain('🔁');
+  });
+
+  it('lets the organizer change a tournament before it starts, only that, and keeps what was not sent', async () => {
+    const organizer = `organizer_token=${generateOrganizerToken()}`;
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Было', startAt, minPlayers: 4, levelMinutes: 6 });
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+
+    const denied = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set(as('p1')).send({ title: 'Взлом' });
+    expect(denied.status).toBe(403);
+
+    const later = new Date(Date.now() + 4 * 24 * 60 * 60_000).toISOString();
+    const edited = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer)
+      .send({ title: 'Стало', startAt: later, levelMinutes: '8', rebuyUntilLevel: 5, lateRegUntilLevel: 5 });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(edited.body.tournament).toMatchObject({ title: 'Стало', start_at: later, players: 2 });
+    expect(edited.body.tournament.settings).toMatchObject({ levelMinutes: 8, rebuyUntilLevel: 5, lateRegUntilLevel: 5, minPlayers: 4, startingStack: 1000 });
+    expect(edited.body.tournament.schedule[2]).toMatchObject({ level: 3, startMinute: 16, rebuyOpen: true });
+    expect(edited.body.tournament.schedule[5]).toMatchObject({ level: 6, rebuyOpen: false });
+
+    const tooSmall = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ maxPlayers: 1 });
+    expect(tooSmall.status).toBe(400);
+    const belowSigned = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ minPlayers: 2, maxPlayers: '' });
+    expect(belowSigned.status, JSON.stringify(belowSigned.body)).toBe(200);
+    expect(belowSigned.body.tournament.settings.maxPlayers).toBeNull();
+
+    await db.run("UPDATE poker_tournaments SET status = 'running' WHERE id = ?", [row.id]);
+    const started = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ title: 'Поздно' });
+    expect(started.status).toBe(409);
   });
 });

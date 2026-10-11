@@ -143,4 +143,31 @@ describe('PokerTournaments', () => {
     expect(list.textContent).toMatch(/Боб\s*3 м\./);
     expect(screen.getByText(/Участники · 3/)).toBeTruthy();
   });
+
+  it('lets the organizer edit a tournament before the start, and the table of levels follows the numbers', async () => {
+    const calls: Array<{ url: string; method: string; body: any }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(String(init.body)) : null });
+      return { ok: true, json: async () => ({ tournaments: [tournament({ settings: { ...settings, lateRegUntilLevel: 0 } })], can_organize: true }) } as Response;
+    }));
+    render(<PokerTournaments />);
+    fireEvent.click(await screen.findByTestId('poker-tournament-edit'));
+    const form = await screen.findByTestId('poker-tournament-form');
+    const draft = screen.getByTestId('poker-tournament-draft-schedule');
+    expect(draft.textContent).toContain('всего 102 мин');
+    expect(draft.textContent).toContain('Войти в идущий турнир нельзя');
+    fireEvent.change(form.querySelector('input[name="level"]') as HTMLInputElement, { target: { value: '8' } });
+    fireEvent.change(form.querySelector('input[name="lateReg"]') as HTMLInputElement, { target: { value: '5' } });
+    fireEvent.change(form.querySelector('input[name="rebuyLevel"]') as HTMLInputElement, { target: { value: '7' } });
+    expect(draft.textContent).toContain('всего 136 мин');
+    expect(draft.textContent).toContain('до конца 5-го уровня');
+    expect(draft.textContent).toContain('до конца 7-го уровня');
+    expect(draft.textContent).toContain('меньше 10 ББ');
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PATCH')).toBe(true));
+    const patch = calls.find((call) => call.method === 'PATCH')!;
+    expect(patch.url).toMatch(/\/ptr_1$/);
+    expect(patch.body).toMatchObject({ title: 'Турбо вечера', levelMinutes: '8', lateRegUntilLevel: '5', rebuyUntilLevel: '7', startAt: '2026-10-20T18:00:00.000Z' });
+    expect(patch.body.announce).toBeUndefined();
+  });
 });

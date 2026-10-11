@@ -34,7 +34,6 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, initia
   const isOrganizer = canOpenAdmin || data.player.club_role === 'organizer';
   const judgeLevel = judging?.player.judge_level || data.player.judge_level || 'none';
   const canJudgeClubGame = judgeLevel !== 'none';
-  const canOpenTestGame = canJudgeClubGame || isOrganizer;
   const canManageMusic = isOrganizer || judgeLevel === 'host' || judgeLevel === 'judge';
 
   const openPane = (next: ConductPane) => {
@@ -73,11 +72,10 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, initia
 
         {pane === 'games' ? (
           <>
-            {canOpenTestGame ? (
+            {canJudgeClubGame ? (
               <JudgeGameLauncher
                 judge={{ id: judging?.player.id || data.player.id, nickname: judging?.player.nickname || data.player.nickname }}
-                evenings={canJudgeClubGame ? judging?.available_evenings || [] : []}
-                allowClubGame={canJudgeClubGame}
+                evenings={judging?.available_evenings || []}
                 onCreated={setLaunchedGame}
               />
             ) : null}

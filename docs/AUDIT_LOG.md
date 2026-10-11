@@ -2,14 +2,15 @@
 
 ## 2026-10-11 · «Ведение» / тестовая игра / обучение судьи (owner request: one clear scheme)
 
-Scope: every way to conduct a real game, a test game, or practise as a judge; who can open each. Method: read-only sweep of `src/components/player`, `src/components/crm`, `src/components/public`, `src/lib/guideCatalog.ts`, test-environment routes, docs. Nothing changed yet; the scheme below is a proposal for the owner.
+Scope: every way to conduct a real game, a test game, or practise as a judge; who can open each. Method: read-only sweep of `src/components/player`, `src/components/crm`, `src/components/public`, `src/lib/guideCatalog.ts`, test-environment routes, docs. Scheme agreed with the owner 2026-10-11 («Обучение» = practice; the cabinet «Ведение» = real conducting; CRM = the organizer's side of the same games). Step 1 built (see below); the learning statistics are step 2.
 
-- [open] One button «Ведение» (`PlayerQuickAccessBar.tsx`, shown when `judge_level !== 'none'`, `PlayerCabinetShell.tsx:72`) opens `PlayerConductCenter`, which mixes four things: a real club game (`JudgeGameLauncher` → `EveningLiveGameModal`), a test game (`JudgeTestGameModal`, sandbox in localStorage), the judge's assignments (`PlayerJudging`, club and tournament games) and music (`JudgeMusicPlaylist`).
+- [fixed, step 1] One button «Ведение» (`PlayerQuickAccessBar.tsx`, shown when `judge_level !== 'none'`, `PlayerCabinetShell.tsx:72`) opens `PlayerConductCenter`, which mixes four things: a real club game (`JudgeGameLauncher` → `EveningLiveGameModal`), a test game (`JudgeTestGameModal`, sandbox in localStorage), the judge's assignments (`PlayerJudging`, club and tournament games) and music (`JudgeMusicPlaylist`).
 - [open] The same engine is reachable from the CRM (`EveningGamesView` «Провести игру в движке», `TournamentDetailViewBase` «Вести игру (движок)») and from the player cabinet; nothing is wrong with that, but the entries are named differently.
-- [open] `JudgeTestGameModal` has two modes behind two doors: «Тестовая игра» (cabinet «Ведение», no hints, not saved) and «Учебная партия» (`/guide?tab=judge-conduct`, `JudgeConductTraining`, with the coach hints). The first is not reachable from «Обучение», the second only through a link to the public guide; the result of neither is recorded (no progress, exam or achievement).
-- [open] An organizer or club owner with `judge_level = none` does not see the «Ведение» button (can open it only by URL), although the screen lets them into the test game and music; a new trainee judge sees the launcher but not the music.
+- [fixed, step 1] `JudgeTestGameModal` has two modes behind two doors: «Тестовая игра» (cabinet «Ведение», no hints, not saved) and «Учебная партия» (`/guide?tab=judge-conduct`, `JudgeConductTraining`, with the coach hints). The first is not reachable from «Обучение», the second only through a link to the public guide; the result of neither is recorded (no progress, exam or achievement; recording is step 2, open).
+- Step 1 result: the guide page `/guide?tab=judge-conduct` (reached from «Обучение») offers both the guided training game and the free test game; the cabinet «Ведение» keeps the real club game, the judge's assignments and music, and links to «Обучение» for practice; the header «Ведение» button is shown to judges with a mark and to organizers.
+- [fixed, step 1] An organizer or club owner with `judge_level = none` does not see the «Ведение» button (can open it only by URL), although the screen lets them into the test game and music; a new trainee judge sees the launcher but not the music.
 - [open] The word «тест» means three different things: the test game, the CRM «[TEST] Тестовый режим» for developers, and the password-protected test copy of the app.
-- [open] `PlayerLearningBlock.tsx` promises «практика ведения клуба» but links to one public guide page.
+- [fixed, step 1] `PlayerLearningBlock.tsx` promises «практика ведения клуба» but links to one public guide page.
 
 ## 2026-10-10 · App-wide wording audit (owner request: no rule-book language, plain words)
 

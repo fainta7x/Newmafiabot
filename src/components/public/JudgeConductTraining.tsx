@@ -2,19 +2,22 @@ import { useState } from 'react';
 import { ArrowRight, BookOpenCheck, Gavel, ShieldCheck, Shuffle } from 'lucide-react';
 import JudgeTestGameModal from '../player/JudgeTestGameModal.tsx';
 
-/** Public judge practice. The live-game sandbox does not write to the club database. */
+/**
+ * The one place for judge practice (owner, 2026-10-11): the guided training game with hints, and the free test game
+ * without hints. Both run the live-game engine in a sandbox that writes nothing to the club database.
+ */
 export default function JudgeConductTraining() {
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState<'training' | 'free' | null>(null);
   const [lastResult, setLastResult] = useState<'completed' | 'exited' | null>(null);
 
   if (playing) {
     return (
       <JudgeTestGameModal
         judge={{ id: 'judge-training-visitor', nickname: 'Ученик' }}
-        training
+        training={playing === 'training'}
         onClose={(completed) => {
           setLastResult(completed ? 'completed' : 'exited');
-          setPlaying(false);
+          setPlaying(null);
         }}
       />
     );
@@ -32,9 +35,13 @@ export default function JudgeConductTraining() {
           Роль — судья. Десять виртуальных игроков будут произносить речи, выставлять кандидатов, голосовать и играть ночью.
           Сначала проведи рассадку и раздачу ролей по заданиям, затем записывай их действия в настоящем Live Game Engine.
         </p>
-        <button type="button" onClick={() => setPlaying(true)} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-bold text-black active:bg-amber-100" data-testid="judge-trainer-start">
+        <button type="button" onClick={() => setPlaying('training')} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-bold text-black active:bg-amber-100" data-testid="judge-trainer-start">
           Начать учебную партию <ArrowRight className="h-4 w-4" />
         </button>
+        <button type="button" onClick={() => setPlaying('free')} data-testid="judge-free-test-game" className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/[0.08] px-4 text-sm font-semibold text-amber-100">
+          Тестовая игра без подсказок
+        </button>
+        <p className="mt-2 text-center text-xs leading-5 text-white/40">Тестовая игра: тот же движок, ничего не сохраняется, можно пробовать любые действия.</p>
         {lastResult && <p className="mt-3 text-center text-xs text-emerald-200/80">{lastResult === 'completed' ? 'Учебная партия завершена. Можно попробовать ещё раз.' : 'Тренировка прервана. Можно начать заново.'}</p>}
       </div>
       <div className="grid gap-2">

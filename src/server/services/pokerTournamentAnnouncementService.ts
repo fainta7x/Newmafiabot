@@ -175,9 +175,11 @@ export async function remindPokerTournament(db: DatabaseWrapper, row: Row, nowMs
   if (untilStart > POKER_TOURNAMENT_REMINDER_MINUTES * 60_000 || untilStart <= 0) return false;
   const queue = deps.queueNotification || queuePersonalNotification;
   const players = await db.all<{ player_id: string }>("SELECT player_id FROM poker_tournament_entries WHERE tournament_id = ? AND status = 'registered'", [row.id]);
+  // The key of a tournament whose start was moved carries the revision, so players get the reminder with the new time.
+  const revision = (JSON.parse(row.config_json) as PokerTournamentConfig).startRevision ?? 0;
   for (const { player_id } of players) {
     await queue(db, {
-      notificationKey: `poker-tournament:reminder:${row.id}:${player_id}`, playerId: String(player_id), eventType: 'poker_tournament_reminder',
+      notificationKey: `poker-tournament:reminder:${row.id}:${player_id}${revision > 0 ? `:r${revision}` : ''}`, playerId: String(player_id), eventType: 'poker_tournament_reminder',
       entityId: row.id, text: pokerTournamentReminderText(row), actionPath: '/player',
     });
   }

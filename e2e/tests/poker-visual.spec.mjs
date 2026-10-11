@@ -142,7 +142,7 @@ test('the organizer form of a poker tournament keeps its live table of levels in
   await form.locator('input[name="level"]').fill('8');
   await form.locator('input[name="rebuyLevel"]').fill('7');
   const draft = page.getByTestId('poker-tournament-draft-schedule');
-  await expect(draft).toContainText('всего 136 мин');
+  await expect(draft).toContainText('займут 136 мин');
   await expect(draft).toContainText('до конца 7-го уровня');
   const box = await draft.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);

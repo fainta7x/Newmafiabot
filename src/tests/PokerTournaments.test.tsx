@@ -154,12 +154,12 @@ describe('PokerTournaments', () => {
     fireEvent.click(await screen.findByTestId('poker-tournament-edit'));
     const form = await screen.findByTestId('poker-tournament-form');
     const draft = screen.getByTestId('poker-tournament-draft-schedule');
-    expect(draft.textContent).toContain('всего 102 мин');
+    expect(draft.textContent).toContain('займут 102 мин');
     expect(draft.textContent).toContain('Войти в идущий турнир нельзя');
     fireEvent.change(form.querySelector('input[name="level"]') as HTMLInputElement, { target: { value: '8' } });
     fireEvent.change(form.querySelector('input[name="lateReg"]') as HTMLInputElement, { target: { value: '5' } });
     fireEvent.change(form.querySelector('input[name="rebuyLevel"]') as HTMLInputElement, { target: { value: '7' } });
-    expect(draft.textContent).toContain('всего 136 мин');
+    expect(draft.textContent).toContain('займут 136 мин');
     expect(draft.textContent).toContain('до конца 5-го уровня');
     expect(draft.textContent).toContain('до конца 7-го уровня');
     expect(draft.textContent).toContain('меньше 10 ББ');

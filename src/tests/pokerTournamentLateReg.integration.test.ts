@@ -3,8 +3,8 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
-import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
-import { pokerTournamentAnnouncementText } from '../server/services/pokerTournamentAnnouncementService.ts';
+import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments, updatePokerTournament } from '../server/services/pokerTournamentService.ts';
+import { pokerTournamentAnnouncementText, remindPokerTournament } from '../server/services/pokerTournamentAnnouncementService.ts';
 
 const stamp = '2026-10-10T10:00:00.000Z';
 
@@ -130,5 +130,36 @@ describe('entering a running poker tournament over the API, and the table of lev
     await db.run("UPDATE poker_tournaments SET status = 'running' WHERE id = ?", [row.id]);
     const started = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ title: 'Поздно' });
     expect(started.status).toBe(409);
+  });
+
+  it('keeps late registration closed for a tournament made before it existed when only the title is edited', async () => {
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Старый', startAt });
+    const config = JSON.parse(row.config_json);
+    delete config.lateRegUntilLevel;
+    await db.run('UPDATE poker_tournaments SET config_json = ? WHERE id = ?', [JSON.stringify(config), row.id]);
+    const edited = await updatePokerTournament(db, row.id, { title: 'Старый, новое название' });
+    expect(JSON.parse(edited.config_json).lateRegUntilLevel).toBe(0);
+  });
+
+  it('does not start or cancel a tournament whose start the organizer has just moved, and sends the reminder again for the new time', async () => {
+    const now = Date.now();
+    const row = await createPokerTournament(db, null, { title: 'Сдвиг', startAt: new Date(now + 60_000).toISOString(), minPlayers: 2 });
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+    const later = new Date(now + 3 * 60 * 60_000).toISOString();
+    const moved = await updatePokerTournament(db, row.id, { startAt: later }, now);
+    expect(JSON.parse(moved.config_json).startRevision).toBe(1);
+    // the scheduler looks a bit later than the old start: the tournament is not due any more
+    const result = await tickPokerTournaments(db, now + 2 * 60_000);
+    expect(result.started).toEqual([]);
+    expect(result.cancelled).toEqual([]);
+    expect((await db.get<any>('SELECT status FROM poker_tournaments WHERE id = ?', [row.id])).status).toBe('registration');
+
+    const keys: string[] = [];
+    const queue = async (_db: unknown, notification: { notificationKey: string }) => { keys.push(notification.notificationKey); return null as any; };
+    const remindAt = Date.parse(later) - 10 * 60_000;
+    await remindPokerTournament(db, moved as any, remindAt, { queueNotification: queue as any });
+    expect(keys).toEqual([`poker-tournament:reminder:${row.id}:p1:r1`, `poker-tournament:reminder:${row.id}:p2:r1`]);
   });
 });

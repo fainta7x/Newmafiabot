@@ -25,6 +25,8 @@ export type PokerTournamentConfig = {
   /** Prize pool (owner, 2026-10-11): the club's guarantee plus every re-buy, split by these percentages (they add up to 100). */
   guaranteeTokens?: number;
   prizeSharesPct?: number[];
+  /** How many times the organizer moved the start; makes the reminder go out again for the new time. */
+  startRevision?: number;
 };
 
 export const POKER_TOURNAMENT_MAX_SEATS = 8; // the table engine seats at most eight

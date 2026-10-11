@@ -65,6 +65,9 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
 
   const endOf = (level: number) => (plan.startMs !== null ? ` (до ${clock(plan.startMs + level * plan.levelMinutes * 60_000)} МСК)` : '');
   const thin = (level: number) => (level > 0 ? plan.rows[level - 1]?.startingStackBb ?? 99 : 99) < 10;
+  // A re-buy gives its own number of chips, which may differ from the starting stack.
+  const rebuyChips = number(draft.rebuyChips, DEFAULT_TURBO_SETTINGS.rebuyChips, 100, 1_000_000);
+  const rebuyBb = plan.rebuyUntilLevel > 0 ? Math.round((rebuyChips / TURBO_BLIND_LEVELS[plan.rebuyUntilLevel - 1].big) * 10) / 10 : 99;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -106,11 +109,11 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
       <div className="rounded-xl border border-amber-200/15 bg-amber-200/[.04] p-3" data-testid="poker-tournament-draft-schedule">
         <div className="mb-2 text-xs font-semibold text-amber-100/80">Как пройдёт турнир</div>
         <ul className="mb-2 space-y-1 text-[11px] leading-5 text-white/65">
-          <li>Блайнды растут по {levels} уровням, всего {plan.total} мин{plan.startMs !== null ? ` — последний уровень закончится в ${clock(plan.startMs + plan.total * 60_000)} МСК` : ''}.</li>
+          <li>Блайнды растут по {levels} уровням: последний ({TURBO_BLIND_LEVELS[levels - 1].small}/{TURBO_BLIND_LEVELS[levels - 1].big}) начнётся через {plan.total - plan.levelMinutes} мин{plan.startMs !== null ? ` (в ${clock(plan.startMs + (plan.total - plan.levelMinutes) * 60_000)} МСК)` : ''} и дальше не растёт. Уровни без паузы займут {plan.total} мин, а когда турнир закончится, зависит от игроков.</li>
           {plan.lateRegUntilLevel > 0 ? <li>Войти в идущий турнир можно до конца {plan.lateRegUntilLevel}-го уровня{endOf(plan.lateRegUntilLevel)}.</li> : <li>Войти в идущий турнир нельзя.</li>}
           {plan.rebuyUntilLevel > 0 ? <li>Докупиться можно до конца {plan.rebuyUntilLevel}-го уровня{endOf(plan.rebuyUntilLevel)}.</li> : <li>Докупки нет.</li>}
           {prizes.now ? <li data-testid="poker-tournament-draft-prizes">Призовой фонд: гарантия {draft.guarantee.trim() || '0'} жетонов плюс все докупки{plan.rebuyUntilLevel > 0 && prizes.rebuyCostTokens > 0 ? ` (каждая добавляет ${prizes.rebuyCostTokens})` : ''}. Сейчас по местам: {prizes.now.payouts.map((value, index) => `${index + 1} — ${value.toLocaleString('ru-RU')}`).join(', ')}.</li> : null}
-          {thin(plan.rebuyUntilLevel) ? <li className="text-amber-200">К концу докупки стек равен меньше 10 ББ ({bb(plan.rows[plan.rebuyUntilLevel - 1].startingStackBb)}): докупаться почти бессмысленно.</li> : null}
+          {rebuyBb < 10 ? <li className="text-amber-200">К концу докупки докупленные фишки равны меньше 10 ББ ({bb(rebuyBb)}): докупаться почти бессмысленно.</li> : null}
           {thin(plan.lateRegUntilLevel) ? <li className="text-amber-200">К концу поздней записи стек равен меньше 10 ББ ({bb(plan.rows[plan.lateRegUntilLevel - 1].startingStackBb)}): новичок войдёт почти без игры.</li> : null}
         </ul>
         <PokerTournamentSchedule rows={plan.rows} />

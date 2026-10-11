@@ -4,6 +4,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { ensureSlotsForEvening, loadEveningSlotPlan, replacePlayerSlotSelection, TABLE_MIN_PLAYERS, TABLE_MIN_READY_SLOTS } from '../services/eveningSlotPlanningService.ts';
 import { getNovicePlayerState } from '../services/noviceService.ts';
 import { canSeeCustomEvent } from './customEventRoutes.ts';
+import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 
 const router = Router();
 const requirePlayer = (req:any,res:any) => { const id=getPlayerSessionId(req); if(!id){res.status(401).json({error:'Player authentication required.'});return null;} return id; };
@@ -48,6 +49,18 @@ router.get('/calendar', async (req,res) => {
       const mine=await db.get('SELECT status,guest_count FROM custom_event_registrations WHERE event_id=? AND player_id=?',[item.id,playerId]);
       events.push({...item,event_type:'custom',format:'CUSTOM',badge:'Ивент',registration_status:mine?.status==='registered'?'registered':null,guest_count:mine?.status==='registered'?Number(mine.guest_count||0):0,remaining_places:Math.max(0,Number(item.participant_limit||0)-Number(item.participant_count||0))});
     }
+    // Poker tournaments (owner, 2026-10-10) sit in the calendar next to the mafia evenings and the club's own events.
+    try{
+      await ensurePokerTournamentSchema(db);
+      const pokerRows=await db.all("SELECT id,title,description,start_at,status,config_json FROM poker_tournaments WHERE status IN ('registration','running') AND start_at >= ? AND start_at < ? ORDER BY start_at",[bounds.start,bounds.end]);
+      for(const item of pokerRows){
+        const config=JSON.parse(item.config_json||'{}');
+        const count=await db.get("SELECT COUNT(*) AS count FROM poker_tournament_entries WHERE tournament_id=? AND status!='cancelled'",[item.id]);
+        const mine=await db.get("SELECT status FROM poker_tournament_entries WHERE tournament_id=? AND player_id=? LIMIT 1",[item.id,playerId]);
+        const joined=Number(count?.count||0), limit=config.maxPlayers?Number(config.maxPlayers):0;
+        events.push({id:item.id,title:item.title,starts_at:item.start_at,venue:null,format:'POKER',event_type:'poker',badge:'Покер',poker_status:item.status,participant_count:joined,participant_limit:limit,min_players:Number(config.minPlayers||0),registration_status:mine&&mine.status!=='cancelled'?'registered':null,remaining_places:limit?Math.max(0,limit-joined):null});
+      }
+    }catch(error){console.error('[CALENDAR] poker tournaments skipped:',error instanceof Error?error.message:String(error));}
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
     return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events,novice_state:await getNovicePlayerState(db,playerId)});
   }catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить календарь'});}

@@ -685,6 +685,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Покерные турниры теперь видны в календаре событий (метка «Покер», отдельный фильтр): можно открыть, посмотреть условия и записаться бесплатно прямо из календаря.
+
 - За покерным столом появился чат и эмоции: короткие сообщения и анимированные смайлы над местом игрока. Эмоции в основном задиристые («Страшно?», «Блефуешь!», «Цирк!»), есть и дружелюбные (привет, пока, GG). Чат можно выключить для себя.
 
 - В покерном турнире можно докупиться за свои жетоны, пока открыта докупка. Победитель получает приз жетонами, кубок в профиле и ачивки, второе и третье место — медали.
@@ -753,7 +755,7 @@ The owner approved all four defaults in `docs/ANALYTICS_REDESIGN_SPEC.md` §9 an
 Known limits of the first release: cancellations are counted from evenings where a declined answer kept its confirmation time (`confirmed_at` is no longer cleared on decline), so cancellations before that change read as 0 and the rate is understated until new evenings accumulate (a backfill from the old registration history was not done); the «пришли» step of the invitation funnel counts every invited person who came, also those who did not answer, so its share of «идут» can exceed 100 % (the help text says so); KPI growth arrows are not built.
 
 ### Waiting on the owner
-- Owner request 2026-10-10, in progress: poker MTT. Rules agreed with the owner are in BUSINESS_RULES «Poker MTT». Step 1 (settings, registration, auto start or cancel with a message) is deployed; step 2 (tournament tables, busts, places, balancing, finish) is deployed; step 3 (paid re-buy, prizes, cup and medals, achievements «Покерный чемпион» and «Король стола») is built and waits for a deploy and a phone check. Step 4 (table chat and emotes) is built. Next: linking a poker tournament to the calendar. The owner said (2026-10-10) to do all steps without asking again, and to stop only for disputed decisions. The calendar listing (custom events) is not linked yet.
+- Owner request 2026-10-10, in progress: poker MTT. Rules agreed with the owner are in BUSINESS_RULES «Poker MTT». Step 1 (settings, registration, auto start or cancel with a message) is deployed; step 2 (tournament tables, busts, places, balancing, finish) is deployed; step 3 (paid re-buy, prizes, cup and medals, achievements «Покерный чемпион» and «Король стола») is built and waits for a deploy and a phone check. Step 4 (table chat and emotes) is deployed; the calendar listing is built and waits for a deploy and a phone check. Open idea: announcing a poker tournament in the Telegram/VK club groups (not asked yet, propose to the owner). The owner said (2026-10-10) to do all steps without asking again, and to stop only for disputed decisions.
 - Owner idea 2026-10-10, built (needs a deploy and a phone check): a chat and emotes at the poker table, mostly teasing ones. Emote art is emoji with CSS animations (no ChatGPT assets needed); better art can replace the glyphs later.
 - Owner decision 2026-10-10: no channel digest/newsletter for players. Idea instead: an in-app «Что нового» notice built from the «Player-facing changes not yet announced» list. Not built; propose the screen to the owner before starting.
 - Owner idea 2026-10-10 (one-button «Попил» in the live game's zero round), approved by the owner's answers and built: a split of two, zero round, full table of ten; see BUSINESS_RULES «Live game: one-button «Попил»». Needs a deploy and a look at the voting panel on a phone.

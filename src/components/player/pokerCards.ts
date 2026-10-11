@@ -13,3 +13,6 @@ export const cardIdentity = (card: PokerCardFace) => `${card.rank}-${card.suit}`
 export const orderOwnCards = (cards: PokerCardFace[]): PokerCardFace[] => (
   [...cards].sort((a, b) => (RANK_VALUE[b.rank] || 0) - (RANK_VALUE[a.rank] || 0))
 );
+
+/** The «−» / «+» buttons next to the bet slider move the bet by half a big blind (owner, 2026-10-11). */
+export const pokerBetStep = (bigBlind: number): number => Math.max(1, Math.round((Number(bigBlind) || 0) / 2));

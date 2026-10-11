@@ -44,6 +44,11 @@ describe('poker table chat', () => {
   it('cleans a text to one plain line without links and keeps it short', () => {
     expect(cleanPokerChatText('  привет\n\n  всем\t ')).toBe('привет всем');
     expect(cleanPokerChatText('заходи https://example.com/x и www.spam.ru')).toBe('заходи … и …');
+    for (const spam of ['пиши t.me/spam', 'смотри example.com/path', 'tg://resolve?domain=x', 'в vk.com/club1', 'играй на poker.site сейчас', 'пиши @spammer сюда']) {
+      expect(cleanPokerChatText(spam), spam).toContain('…');
+      expect(cleanPokerChatText(spam), spam).not.toMatch(/t\.me|example\.com|tg:|vk\.com|poker\.site|spammer/);
+    }
+    expect(cleanPokerChatText('ну т.е. всё ок, 3.5 бб')).toBe('ну т.е. всё ок, 3.5 бб');
     expect(cleanPokerChatText('а'.repeat(500))).toHaveLength(140);
     expect(cleanPokerChatText('   ')).toBe('');
   });
@@ -56,6 +61,7 @@ describe('poker table chat', () => {
     await expect(send({ emote: 'no-such' }, 1_010_000)).rejects.toThrow('Такой эмоции нет');
     await expect(send({ text: '   ' }, 1_020_000)).rejects.toThrow('Напишите сообщение');
     const list = await listPokerChat(db, 'main', 1_000_000 + POKER_CHAT_MIN_GAP_MS + 500);
+    expect(await listPokerChat(db, 'main', 1_000_000 + 25 * 60 * 60 * 1000)).toEqual([]); // a day on, an idle table shows nothing old
     expect(list.map((message) => [message.kind, message.body])).toEqual([['text', 'всем привет'], ['emote', 'bluff']]);
     expect(list[1].age_ms).toBe(500);
   });

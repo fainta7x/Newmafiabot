@@ -102,7 +102,7 @@ export function PokerChatDock({ messages, viewerId, canPost, muted, onMutedChang
       </button>
       {open ? (
         <div className="fixed inset-0 z-[70] flex items-end bg-black/55 px-3 pt-10 backdrop-blur-sm" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }} onClick={() => setOpen(false)}>
-          <section data-testid="poker-chat-sheet" className="mx-auto flex max-h-[78dvh] w-full max-w-[430px] flex-col gap-2 rounded-3xl border border-white/10 bg-[#101312] p-3 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <section data-testid="poker-chat-sheet" className="mx-auto flex w-full max-w-[430px] flex-col gap-2 overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-[#101312] p-3 shadow-2xl" style={{ maxHeight: 'min(78dvh, calc(var(--tg-viewport-height, 100dvh) - 72px))' }} onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">Чат стола</h2>
               <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export function PokerChatDock({ messages, viewerId, canPost, muted, onMutedChang
               </div>
             </div>
             {muted ? <p className="rounded-xl bg-white/[.05] p-3 text-xs text-white/55">Чат выключен: сообщения и эмоции других игроков не показываются.</p> : (
-              <div ref={listRef} className="min-h-[96px] flex-1 space-y-1 overflow-y-auto rounded-2xl bg-black/30 p-2 text-sm">
+              <div ref={listRef} className="max-h-[28dvh] min-h-[72px] shrink-0 space-y-1 overflow-y-auto rounded-2xl bg-black/30 p-2 text-sm">
                 {messages.length === 0 ? <p className="p-2 text-center text-xs text-white/40">Пока тихо</p> : messages.map((message) => {
                   const emote = message.kind === 'emote' ? pokerEmoteById(message.body) : null;
                   return (
@@ -125,6 +125,10 @@ export function PokerChatDock({ messages, viewerId, canPost, muted, onMutedChang
             )}
             {canPost ? (
               <>
+                <form onSubmit={(event) => void submit(event)} className="sticky top-0 z-10 flex shrink-0 gap-2 bg-[#101312] py-1">
+                  <input value={text} onChange={(event) => setText(event.target.value)} maxLength={140} placeholder="Написать за стол…" aria-label="Сообщение за стол" className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-sm outline-none focus:border-amber-200/40" />
+                  <button type="submit" className="min-h-11 shrink-0 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] px-4 text-xs font-black text-black">Отправить</button>
+                </form>
                 <div className="grid grid-cols-3 gap-1.5" data-testid="poker-emote-board">
                   {POKER_EMOTES.map((emote) => (
                     <button key={emote.id} type="button" data-testid={`poker-emote-${emote.id}`} onClick={() => void onSend({ emote: emote.id })} className={`flex min-h-12 flex-col items-center justify-center rounded-xl border px-1 py-1 text-center leading-tight ${emote.tone === 'taunt' ? 'border-rose-300/20 bg-rose-300/[.06]' : 'border-emerald-300/20 bg-emerald-300/[.06]'}`}>
@@ -133,10 +137,6 @@ export function PokerChatDock({ messages, viewerId, canPost, muted, onMutedChang
                     </button>
                   ))}
                 </div>
-                <form onSubmit={(event) => void submit(event)} className="flex gap-2">
-                  <input value={text} onChange={(event) => setText(event.target.value)} maxLength={140} placeholder="Написать за стол…" aria-label="Сообщение за стол" className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-sm outline-none focus:border-amber-200/40" />
-                  <button type="submit" className="min-h-11 shrink-0 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] px-4 text-xs font-black text-black">Отправить</button>
-                </form>
               </>
             ) : <p className="text-center text-xs text-white/45">Писать могут только игроки за этим столом</p>}
           </section>

@@ -93,4 +93,16 @@ test('poker chat: an emote over the sender, the chat button above the actions, t
   expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(844);
   const sheetShot = await page.screenshot({ path: info.outputPath('poker-chat-sheet-390x844.png') });
   await info.attach('poker-chat-sheet-390x844.png', { body: sheetShot, contentType: 'image/png' });
+
+  // The on-screen keyboard leaves about half of the phone: the line to write and «Отправить» must stay on screen.
+  await page.setViewportSize({ width: 390, height: 440 });
+  await page.evaluate(() => document.documentElement.style.setProperty('--tg-viewport-height', '440px'));
+  await page.waitForTimeout(200);
+  const input = await page.getByLabel('Сообщение за стол').boundingBox();
+  const send = await page.getByRole('button', { name: 'Отправить' }).boundingBox();
+  expect(input.y).toBeGreaterThanOrEqual(0);
+  expect(input.y + input.height).toBeLessThanOrEqual(440);
+  expect(send.y + send.height).toBeLessThanOrEqual(440);
+  const keyboardShot = await page.screenshot({ path: info.outputPath('poker-chat-keyboard-390x440.png') });
+  await info.attach('poker-chat-keyboard-390x440.png', { body: keyboardShot, contentType: 'image/png' });
 });

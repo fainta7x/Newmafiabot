@@ -16,8 +16,10 @@ const RECENT = 40;
 export type PokerChatMessage = { id: number; player_id: string; nickname: string; kind: 'text' | 'emote'; body: string; age_ms: number };
 
 /** Plain text only: no links (a table is not a place to advertise), no control characters, one line. */
+const LINK_PATTERNS = /(?:https?|tg|ftp):\/\/\S+|\b(?:www\.|t\.me\/|telegram\.me\/|vk\.com\/|wa\.me\/)\S*|(?:^|[\s(])@[\w]{4,}|[\p{L}\d-]+(?:\.[\p{L}\d-]+)*\.(?:com|ru|net|org|me|io|ly|su|рф|info|biz|xyz|site|online|app|dev|gg|tv|cc|co|by|ua|kz|pro|club|shop|store|link)\b\S*/giu;
 export const cleanPokerChatText = (value: unknown): string =>
-  [...String(value ?? '')].map((char) => (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 ? ' ' : char)).join('').replace(/https?:\/\/\S+|www\.\S+/gi, '…').replace(/\s+/g, ' ').trim().slice(0, POKER_CHAT_TEXT_MAX);
+  [...String(value ?? '')].map((char) => (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 ? ' ' : char)).join('')
+    .replace(LINK_PATTERNS, (match) => (/^[\s(]/.test(match) ? `${match[0]}…` : '…')).replace(/\s+/g, ' ').trim().slice(0, POKER_CHAT_TEXT_MAX);
 
 export async function postPokerChat(
   db: DatabaseWrapper,
@@ -48,6 +50,6 @@ export async function postPokerChat(
 export async function listPokerChat(db: DatabaseWrapper, lobbyId: string, nowMs = Date.now()): Promise<PokerChatMessage[]> {
   await ensurePokerChatSchema(db);
   const rows = await db.all<{ id: number; player_id: string; nickname: string; kind: 'text' | 'emote'; body: string; created_at: number }>(
-    'SELECT id, player_id, nickname, kind, body, created_at FROM poker_table_chat WHERE lobby_id = ? ORDER BY id DESC LIMIT ?', [lobbyId, RECENT]);
+    'SELECT id, player_id, nickname, kind, body, created_at FROM poker_table_chat WHERE lobby_id = ? AND created_at >= ? ORDER BY id DESC LIMIT ?', [lobbyId, nowMs - KEEP_MS, RECENT]);
   return rows.reverse().map((row) => ({ id: Number(row.id), player_id: row.player_id, nickname: row.nickname, kind: row.kind, body: row.body, age_ms: Math.max(0, nowMs - Number(row.created_at)) }));
 }

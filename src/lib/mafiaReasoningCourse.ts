@@ -444,7 +444,7 @@ const scenarioDeck = (level: ReasoningLevel): ReasoningCase[] =>
     : level.cases;
 
 const normalizeAttempt = (value: number): number =>
-  Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000 ? value : 0;
 
 /** Sattolo shuffle: a full 10-seat cycle, so no generated seat retains its old number. */
 const seatMapFor = (caseId: string, attempt: number): number[] => {
@@ -496,7 +496,7 @@ export const reasoningCasesByIds = (level: ReasoningLevel, ids: string[]): Reaso
     if (!encoded) return level.cases.find((item) => item.id === id);
     const attempt = Number(encoded[2]);
     const base = level.cases.find((item) => item.id === encoded[1]);
-    if (!base || !Number.isSafeInteger(attempt) || attempt < 1) return undefined;
+    if (!base || !Number.isSafeInteger(attempt) || attempt < 1 || attempt > 1_000_000) return undefined;
     return varyCase(base, attempt);
   });
   return selected.every((item) => item !== undefined) && new Set(ids).size === ids.length

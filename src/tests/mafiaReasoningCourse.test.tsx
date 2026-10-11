@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import MafiaReasoningCourse, { reasoningScore, reasoningUnlocked } from '../components/public/guide/MafiaReasoningCourse.tsx';
 import {
-  REASONING_LEVELS, reasoningCasesForAttempt, reasoningMaxPoints, reasoningPassed, reasoningDecisionPoints, reasoningOptionOrder,
+  REASONING_LEVELS, reasoningCasesForAttempt, reasoningMaxPoints, reasoningPassed, reasoningDecisionPoints, reasoningOptionOrder, reasoningCasesByIds,
 } from '../lib/mafiaReasoningCourse.ts';
 
 beforeEach(() => window.localStorage.clear());
@@ -25,10 +25,10 @@ const complete = (levelIndex: number, point: 0 | 2) => {
 };
 
 describe('Mafia reasoning: case bank and plain language', () => {
-  it('contains 10 diverse first-chapter situations and keeps all other levels intact', () => {
+  it('has 42 reviewed situations across five chapters with consistent grading', () => {
     expect(REASONING_LEVELS).toHaveLength(5);
-    expect(REASONING_LEVELS[0].cases).toHaveLength(10);
-    expect(REASONING_LEVELS.slice(1).every((level) => level.cases.length === 3)).toBe(true);
+    expect(REASONING_LEVELS[0].cases).toHaveLength(14);
+    expect(REASONING_LEVELS.slice(1).every((level) => level.cases.length === 7)).toBe(true);
     const allCases = REASONING_LEVELS.flatMap((level) => level.cases);
     expect(new Set(allCases.map((item) => item.id)).size).toBe(allCases.length);
     for (const item of allCases) {
@@ -55,7 +55,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(reasoningUnlocked(1, [])).toBe(false);
   });
 
-  it('rotates different sets of five cases and covers the whole bank in two runs', () => {
+  it('rotates different sets of five cases and covers the first bank in three runs', () => {
     const level = REASONING_LEVELS[0];
     const first = reasoningCasesForAttempt(level, 0).map((item) => item.id);
     const second = reasoningCasesForAttempt(level, 1).map((item) => item.id);
@@ -63,6 +63,8 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(second).toHaveLength(5);
     expect(first).not.toEqual(second);
     expect(new Set([...first, ...second]).size).toBe(10);
+    const third = reasoningCasesForAttempt(level, 2).map((item) => item.id.split('@')[0]);
+    expect(new Set([...first, ...second.map((id) => id.split('@')[0]), ...third]).size).toBe(14);
     for (const index of [0, 1, 2, 3, 4, 5]) {
       const batch = reasoningCasesForAttempt(level, index);
       expect(batch).toHaveLength(5);
@@ -72,6 +74,62 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(reasoningMaxPoints(REASONING_LEVELS[1])).toBe(12);
     expect(reasoningPassed(17, level)).toBe(true);
     expect(reasoningPassed(16, level)).toBe(false);
+  });
+
+  it('generates varied chapters while preserving every session length and saved scenario', () => {
+    for (const level of REASONING_LEVELS) {
+      const sessionLength = level.id === 'facts' ? 5 : 3;
+      let previousRoots: string[] = [];
+      const seenRoots = new Set<string>();
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const cases = reasoningCasesForAttempt(level, attempt);
+        expect(cases).toHaveLength(sessionLength);
+        expect(decisions(cases)).toHaveLength(sessionLength * 2);
+        expect(reasoningMaxPoints(level, cases)).toBe(sessionLength * 4);
+        const roots = cases.map((item) => item.id.split('@')[0]);
+        expect(new Set(roots).size).toBe(sessionLength);
+        expect(roots.every((id) => !previousRoots.includes(id))).toBe(true);
+        roots.forEach((id) => seenRoots.add(id));
+        previousRoots = roots;
+        expect(reasoningCasesForAttempt(level, attempt)).toEqual(cases);
+        expect(reasoningCasesByIds(level, cases.map((item) => item.id))).toEqual(cases);
+        for (const item of cases) {
+          if (attempt) expect(item.id).toMatch(/@[1-9]\d*$/);
+          const text = [item.title, ...item.facts, ...item.steps.flatMap((step) =>
+            [step.prompt, ...step.options.flatMap((option) => [option.label, option.feedback])])].join(' ');
+          for (const match of text.matchAll(/№(\d+)/g)) {
+            expect(Number(match[1])).toBeGreaterThanOrEqual(1);
+            expect(Number(match[1])).toBeLessThanOrEqual(10);
+          }
+          for (const question of item.steps) {
+            const best = question.mode === 'multiple'
+              ? question.options.flatMap((option, i) => option.plausible ? [i] : [])
+              : question.options.findIndex((option) => option.points === 2);
+            expect(reasoningDecisionPoints(question, best)).toBe(2);
+          }
+        }
+      }
+      expect(seenRoots.size).toBe(level.cases.length);
+      expect(reasoningCasesForAttempt(level, 1)[0].facts)
+        .not.toEqual(reasoningCasesForAttempt(level, 0)[0].facts);
+    }
+  });
+
+  it('restores generated cases and previous-version unfinished attempts without changing numbers', () => {
+    const level = REASONING_LEVELS[2];
+    const generated = reasoningCasesForAttempt(level, 3);
+    const restored = reasoningCasesByIds(level, generated.map((item) => item.id));
+    expect(restored).toEqual(generated);
+    expect(reasoningCasesByIds(level, ['old-nonexistent@1'])).toEqual(reasoningCasesForAttempt(level, 0));
+    const old = REASONING_LEVELS[1];
+    const oldFirstThree = old.cases.slice(0, 3);
+    expect(reasoningCasesByIds(old, oldFirstThree.map((item) => item.id))).toEqual(oldFirstThree);
+    window.localStorage.setItem('mafia-reasoning-course-v1', JSON.stringify({
+      passed: ['facts'], answers: { motives: [0] },
+    }));
+    render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-motives'));
+    expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 6');
   });
 
   it('scores analysis over color-guessing and keeps each stage locked until passed', () => {

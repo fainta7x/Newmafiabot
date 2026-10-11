@@ -67,3 +67,30 @@ test('poker table remains scrollable in a short Telegram landscape viewport', as
   expect(geometry.bodyOverflowY).not.toBe('hidden');
   await expect(page.getByTestId('poker-table-frame')).toBeVisible();
 });
+
+test('poker chat: an emote over the sender, the chat button above the actions, the emote board on a phone', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/e2e/poker-harness.html?chat=emote');
+  await page.getByRole('button', { name: '+ Создать стол · 1 000 жетонов' }).click();
+
+  await expect(page.getByTestId('poker-emote')).toContainText('Страшно?');
+  await expect(page.getByTestId('poker-chat-bubble')).toHaveText('ну давай, давай');
+  const button = page.getByTestId('poker-chat-open');
+  await expect(button).toBeVisible();
+  const box = await button.boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  const seated = await page.screenshot({ path: info.outputPath('poker-chat-emote-390x844.png') });
+  await info.attach('poker-chat-emote-390x844.png', { body: seated, contentType: 'image/png' });
+
+  await button.click();
+  const sheet = page.getByTestId('poker-chat-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(page.getByTestId('poker-emote-board').getByRole('button')).toHaveCount(18);
+  const sheetBox = await sheet.boundingBox();
+  expect(sheetBox.x).toBeGreaterThanOrEqual(0);
+  expect(sheetBox.x + sheetBox.width).toBeLessThanOrEqual(390);
+  expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(844);
+  const sheetShot = await page.screenshot({ path: info.outputPath('poker-chat-sheet-390x844.png') });
+  await info.attach('poker-chat-sheet-390x844.png', { body: sheetShot, contentType: 'image/png' });
+});

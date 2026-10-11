@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight, RefreshCw, Search } from 'lucide-react';
+import LearningActivityCRM from './LearningActivityCRM.tsx';
 import { SPLIT_VOTE_LEVELS, type LearningPlayerRow, type SplitVoteLevelId } from '../../lib/learningProgress.ts';
 
 type Status = 'passed' | 'not_passed' | 'nothing';
@@ -29,7 +30,7 @@ export const LevelMarks = ({ row }: { row: LearningPlayerRow }) => (
 );
 
 /** Curator view of the split-vote trainer: who passed which exam and when. Read-only. */
-export function LearningProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void } = {}) {
+function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void } = {}) {
   const [rows, setRows] = useState<LearningPlayerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -126,6 +127,22 @@ export function LearningProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** «Обучение» in the CRM: the split-vote trainer exams, and the reasoning school with the judge's trainer. */
+export function LearningProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: string) => void } = {}) {
+  const [part, setPart] = useState<'split' | 'activity'>('split');
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1" role="tablist" aria-label="Раздел обучения">
+        {([['split', 'Тренажёры попила'], ['activity', 'Мышление и судейство']] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={part === id} data-testid={`crm-learning-part-${id}`} onClick={() => setPart(id)}
+            className={`min-h-11 rounded-xl px-2 text-[13px] font-semibold ${part === id ? 'bg-white text-black' : 'text-white/60'}`}>{label}</button>
+        ))}
+      </div>
+      {part === 'split' ? <SplitVoteProgressCRM onOpenPlayer={onOpenPlayer} /> : <LearningActivityCRM onOpenPlayer={onOpenPlayer} />}
     </div>
   );
 }

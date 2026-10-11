@@ -5,6 +5,7 @@ import MafiaReasoningDiagnostic from './MafiaReasoningDiagnostic.tsx';
 import {
   REASONING_LABS, VOTE_PLANS, labCasesForAttempt, type LabCase, type LabTopic,
 } from '../../../lib/mafiaReasoningLabs.ts';
+import { reportLearningActivity } from '../../../lib/learningActivityClient.ts';
 
 type LabProgress = {
   attempts: Record<string, number>;
@@ -104,6 +105,8 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
     if (!topic || selected === null || !revealed) return;
     const updated = [...answers, selected];
     const isFinished = updated.length === steps.length;
+    // One finished practice goes to the organizer's learning statistics (a practice has no pass mark: it counts as done).
+    if (isFinished) reportLearningActivity({ track: 'reasoning-labs', item: topic.id, score: scoreFor(steps, updated), maxScore: steps.length * 2, passed: true });
     setProgress((prev) => ({
       ...prev,
       answers: { ...prev.answers, [topic.id]: updated },

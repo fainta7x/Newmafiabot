@@ -6,6 +6,7 @@ import {
   reasoningDecisionPoints, reasoningOptionOrder,
   type ReasoningLevel, type ReasoningCase, type ReasoningAnswer,
 } from '../../../lib/mafiaReasoningCourse.ts';
+import { reportLearningActivity } from '../../../lib/learningActivityClient.ts';
 
 type CourseProgress = { answers: Record<string, ReasoningAnswer[]>; passed: string[]; best: Record<string, number>; caseIds: Record<string, string[]>; attempts: Record<string, number> };
 const STORAGE_KEY = 'mafia-reasoning-course-v1';
@@ -162,6 +163,8 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
     const nextScore = reasoningScore(level, nextAnswers, cases);
     const passed = isFinal && reasoningPassed(nextScore, level, cases);
     const newPassed = passed && !progress.passed.includes(level.id) ? [...progress.passed, level.id] : progress.passed;
+    // One finished try goes to the organizer's learning statistics.
+    if (isFinal) reportLearningActivity({ track: 'reasoning-course', item: level.id, score: nextScore, maxScore: reasoningMaxPoints(level, cases), passed });
     setProgress((prev) => ({
       ...prev,
       answers: { ...prev.answers, [level.id]: nextAnswers },

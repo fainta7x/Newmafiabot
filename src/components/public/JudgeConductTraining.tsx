@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, BookOpenCheck, Gavel, ShieldCheck, Shuffle } from 'lucide-react';
 import JudgeTestGameModal from '../player/JudgeTestGameModal.tsx';
+import { reportLearningActivity } from '../../lib/learningActivityClient.ts';
 
 /**
  * The one place for judge practice (owner, 2026-10-11): the guided training game with hints, and the free test game
@@ -16,6 +17,7 @@ export default function JudgeConductTraining() {
         judge={{ id: 'judge-training-visitor', nickname: 'Ученик' }}
         training={playing === 'training'}
         onClose={(completed) => {
+          if (playing) reportLearningActivity({ track: 'judge-training', item: playing === 'training' ? 'training' : 'free', passed: Boolean(completed) });
           setLastResult(completed ? 'completed' : 'exited');
           setPlaying(null);
         }}

@@ -29,7 +29,7 @@ const prizeText = (prizes: number[]) => prizes.some((amount) => amount > 0)
   : 'без денежных призов';
 
 /** «Покерные турниры»: registration for the club's poker MTTs and, for the organizer, creating one. */
-export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (tableId: string) => void } = {}) {
+export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: { onOpenTable?: (tableId: string) => void; onTokenBalanceChange?: (balance: number) => void } = {}) {
   const [items, setItems] = useState<Tournament[] | null>(null);
   const [canOrganize, setCanOrganize] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,7 +52,12 @@ export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (table
 
   const act = async (id: string, method: 'POST' | 'DELETE', path = 'register') => {
     setBusy(id); setError(null);
-    try { await call(`/api/player/poker/tournaments/${encodeURIComponent(id)}/${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined }); await load(); }
+    try {
+      const body = await call(`/api/player/poker/tournaments/${encodeURIComponent(id)}/${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+      // A re-buy spends the wallet: the cabinet's balance has to follow at once.
+      if (Number.isFinite(Number(body?.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
+      await load();
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось'); }
     finally { setBusy(null); }
   };

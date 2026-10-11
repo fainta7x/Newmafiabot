@@ -60,7 +60,8 @@ router.post('/poker/tournaments/:id/rebuy', handle(async (req) => {
     const row = await rebuyInPokerTournament(req.db, String(req.params.id), playerId);
     return publicPokerTournament(req.db, row, playerId);
   });
-  return { body: { tournament } };
+  const balance = await req.db.get('SELECT tokens FROM players WHERE id = ? LIMIT 1', [playerId]) as { tokens: number } | undefined;
+  return { body: { tournament, token_balance: Number(balance?.tokens || 0) } };
 }));
 
 router.post('/poker/tournaments', handle(async (req) => {

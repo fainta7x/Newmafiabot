@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 
@@ -18,13 +19,6 @@ type AllGame = {
   format: string;
   winner_team: 'red' | 'black' | null;
   judge_name: string | null;
-};
-
-const formatDate = (value: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
 };
 
 const winnerLabel = (winner: 'red' | 'black' | null) => {

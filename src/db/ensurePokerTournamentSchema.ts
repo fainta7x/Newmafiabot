@@ -36,4 +36,9 @@ export async function ensurePokerTournamentSchema(db: DatabaseWrapper): Promise<
     );
     CREATE INDEX IF NOT EXISTS idx_poker_tournament_entries_player ON poker_tournament_entries(player_id, status);
   `);
+  // A player who busted while the re-buy is still open waits for his decision: busted_at is set, the place is not.
+  const columns = await db.all<{ name: string }>("PRAGMA table_info('poker_tournament_entries')");
+  const has = (name: string) => columns.some((column) => column.name === name);
+  if (!has('busted_at')) await db.exec('ALTER TABLE poker_tournament_entries ADD COLUMN busted_at TEXT');
+  if (!has('busted_start_chips')) await db.exec('ALTER TABLE poker_tournament_entries ADD COLUMN busted_start_chips INTEGER NOT NULL DEFAULT 0');
 }

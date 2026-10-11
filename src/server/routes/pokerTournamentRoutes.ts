@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { getPlayerSessionId, isClubOwner } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
 import {
   cancelPokerTournament, createPokerTournament, getPokerTournamentRow, listPokerTournaments, PokerTournamentError,
   publicPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
@@ -30,13 +31,16 @@ router.get('/poker/tournaments', handle(async (req) => {
   await tickPokerTournaments(req.db);
   const playerId = getPlayerSessionId(req);
   const rows = await listPokerTournaments(req.db);
-  return { body: { tournaments: await Promise.all(rows.map((row) => publicPokerTournament(req.db, row, playerId ? String(playerId) : null))), can_organize: isTournamentOrganizer(req) } };
+  // Read inside the poker runtime: a running tournament also tells the viewer which table is his.
+  const tournaments = await withPersistedPokerRuntime(req.db, () => Promise.all(rows.map((row) => publicPokerTournament(req.db, row, playerId ? String(playerId) : null))));
+  return { body: { tournaments, can_organize: isTournamentOrganizer(req) } };
 }));
 
 router.get('/poker/tournaments/:id', handle(async (req) => {
   await tickPokerTournaments(req.db);
   const playerId = getPlayerSessionId(req);
-  return { body: { tournament: await publicPokerTournament(req.db, await getPokerTournamentRow(req.db, String(req.params.id)), playerId ? String(playerId) : null) } };
+  const row = await getPokerTournamentRow(req.db, String(req.params.id));
+  return { body: { tournament: await withPersistedPokerRuntime(req.db, () => publicPokerTournament(req.db, row, playerId ? String(playerId) : null)) } };
 }));
 
 router.post('/poker/tournaments/:id/register', handle(async (req) => {

@@ -72,6 +72,30 @@ const burnAndDraw = (state: PokerState, deck: PokerCard[], count: number) => {
   }
 };
 
+/**
+ * When the blinds alone put everybody all-in (a tournament's blinds can exceed the stacks) nobody is left to act: the
+ * board has to run out by itself, exactly as if the last all-in call had just been made.
+ */
+const bettingClosedAtDeal = (state: PokerState) => state.street === 'preflop' && state.board.length === 0 && state.players.filter((player) => !player.folded).every((player) => player.all_in);
+const runOutFromDeal = (state: PokerState) => {
+  const active = state.players.filter((player) => !player.folded);
+  state.players.forEach((item) => { item.acted = false; item.committed = 0; });
+  state.current_bet = 0;
+  state.last_raise_size = state.big_blind;
+  state.current_seat = null;
+  state.pending_current_seat = null;
+  state.turn_started_at = null;
+  if (state.animations_enabled) {
+    state.animation_phase = 'runout';
+    state.revealed_ids = active.map((item) => item.id);
+    state.animation_step = 0;
+    state.animation_next_at = Date.now() + POKER_RUNOUT_START_MS;
+    return;
+  }
+  while ((state.street as PokerStreet) !== 'river') advanceStreet(state, state.deck);
+  showdown(state);
+};
+
 export const createPokerHand = (input: { id: string; players: Array<{ id: string; nickname: string; seat: number; chips: number; reserve_seconds?: number; reserve_recovery_at?: number; is_bot?: boolean }>; dealer_seat?: number; small_blind?: number; big_blind?: number; animate?: boolean; /** A fixed deck (benchmarks deal the same cards twice with the seats swapped); shuffled when omitted. */ deck?: PokerCard[] }): PokerState => {
   if (input.players.length < 2 || input.players.length > 8) throw new Error('В покерной раздаче должно быть от 2 до 8 игроков.');
   const deck = input.deck ? input.deck.slice() : shuffleDeck();
@@ -102,6 +126,8 @@ export const createPokerHand = (input: { id: string; players: Array<{ id: string
   state.current_seat = input.animate ? null : nextSeat(players, bb.seat);
   state.turn_started_at = input.animate ? null : Date.now();
   state.deck_remaining = deck.length;
+  // Without a deal animation the board runs out at once; with it, once the cards are dealt (see advancePokerAnimation).
+  if (!input.animate && bettingClosedAtDeal(state)) runOutFromDeal(state);
   return state;
 };
 
@@ -313,6 +339,7 @@ export const advancePokerAnimation = (state: PokerState, now = Date.now()) => {
       state.pending_current_seat = null;
       state.animation_next_at = null;
       state.turn_started_at = now;
+      if (bettingClosedAtDeal(state)) runOutFromDeal(state);
     }
     return state;
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Plus, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening, type Player } from '../../lib/api.ts';
-import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { getEveningResponse, getEveningRosterResponseLabel } from '../../lib/eveningResponse.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
@@ -18,17 +18,10 @@ const isActiveEveningParticipant = (participant: EveningParticipant) => {
 };
 
 const inactiveLabel = (participant: EveningParticipant) => (
-  participant.attendance_status === 'no_show' ? 'Отмечен «не пришёл»' : getEveningResponse(participant) === 'declined' ? 'Ответил «Не буду»' : 'Ответил «Пока думаю»'
+  participant.attendance_status === 'no_show'
+    ? 'Отмечен «не пришёл»'
+    : `Ответил «${getEveningRosterResponseLabel(participant)}»`
 );
-
-const responseLabel = (participant: EveningParticipant) => {
-  const response = getEveningResponse(participant);
-  if (response === 'going') return 'Иду';
-  if (response === 'late') return 'Приду позже';
-  if (response === 'thinking') return 'Пока думаю';
-  if (response === 'declined') return 'Не буду';
-  return 'Нет ответа';
-};
 
 export default function EveningActiveRosterView({
   eveningId,
@@ -244,7 +237,7 @@ export default function EveningActiveRosterView({
               <strong className="block truncate text-[14px] text-text-primary">{participant.nickname}</strong>
               <span className="mt-1 flex flex-wrap gap-1 text-[12px] leading-4">
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>
-                <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Ответ: {responseLabel(participant)}</span>
+                <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Ответ: {getEveningRosterResponseLabel(participant)}</span>
                 <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {arrived ? 'на месте' : 'не отмечена'}</span>
               </span>
             </span>

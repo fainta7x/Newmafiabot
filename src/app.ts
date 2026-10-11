@@ -63,6 +63,7 @@ import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
 import playerSplitVoteProgressRoutes from './server/routes/playerSplitVoteProgressRoutes.ts';
 import learningProgressRoutes from './server/routes/learningProgressRoutes.ts';
 import playerLearningActivityRoutes from './server/routes/playerLearningActivityRoutes.ts';
+import anonymousTestamentRoutes from './server/routes/anonymousTestamentRoutes.ts';
 import playerReplayRoutes from './server/routes/playerReplayRoutes.ts';
 import playerSpeechRecordingRoutes from './server/routes/playerSpeechRecordingRoutes.ts';
 import playerEveningJourneyRoutes from './server/routes/playerEveningJourneyRoutes.ts';
@@ -292,6 +293,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerInsightsRoutes);
   app.use('/api/player', playerSplitVoteProgressRoutes);
   app.use('/api/player', playerLearningActivityRoutes);
+  // The public practice goes first: learningProgressRoutes answers everything under /api/learning for the organizer only.
+  app.use('/api/learning', anonymousTestamentRoutes);
   app.use('/api/learning', learningProgressRoutes);
   app.use('/api/player', playerReplayRoutes);
   app.use('/api/player/speech-recordings', playerSpeechRecordingRoutes);

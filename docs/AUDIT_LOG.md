@@ -510,3 +510,22 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **#795 — merged** (poker tournaments in the player calendar, own work).
 - **#712 (Dependabot, 16 minor bumps) — open:** its CI is from 2026-10-06 on an old base; a rebase was requested and it is merged only after a fresh green run.
 - Status: fixed except #712 (open, waiting for the rebase).
+
+### 2026-10-11 — «Школа игрового мышления»: аудит логики, механики и формулировок вопросов
+
+- **Scope:** all five topics of the course (`mafiaReasoningCourse.ts`, `mafiaReasoningExtraCases.ts`: 42 cases, 84 steps, 57 single and 27 multiple-choice), the five practices (`mafiaReasoningLabs.ts`), the vote tree (`mafiaReasoningDecisionTree.ts`), the self-check (`mafiaReasoningDiagnostic.ts`) and `docs/REASONING_CURRICULUM.md`, checked against `docs/BUSINESS_RULES.md` (voting model, parity win, night order, wording) and `docs/DESIGN_SYSTEM.md` (voice). The arithmetic of every `VOTE_PLANS` and `TREE_SCENARIOS` entry was recomputed by hand: all outcomes are correct.
+- **Logic errors (fixed in this change):**
+  1. `new-info`: the 2-point answer states a cause («изменил мнение из-за проверки») that the facts did not give, only a sequence («после этого»). The facts now say that №4 named the check as the reason.
+  2. Eight single-choice options scored 1 although they are wrong claims, one of them rewarding the very habit the school fights (`eyes`: keep «первое впечатление»). Also `votes` (a version offered as a record of what happened), `turn`, `new-info`, `save`, `two-options`, `sacrifice`, `counterexample`. All are now 0.
+  3. `recon-speech-vs-vote`: the feedback of the first wrong answer talked about a sheriff (copy-paste error) and the third option duplicated the second. Both fixed.
+  4. Four cases (`vote-history`, `favorite-team`, `recon-changed-vote`, diagnostic `protection-vs-inference`) said «после игры выяснилось» for one colour while the other roles stayed «неизвестны»; after a game every role is open. They now say that the game is over and only that colour is shown for the review.
+  5. `forecast`: «хотя мог безопасно проголосовать против красного» did not fit a version where №7 himself is red; the second candidate (a red player) is now named.
+  6. `trusted`: two of the three «plausible» plans were the same vote (saving №4 = voting №6); the third now is a different plan. `team-divide`: «допустить вывод напарника» was not an alternative (with two black candidates one of them is voted out anyway) and is reworded. `two-options`: «раскрыл №8» stated as a fact.
+  7. `motive-night`: the wrong option «Убирать только тех, кто называет чёрного №7 красным» is garbled (the opposite of the case).
+- **Wording (fixed):** «убрали / убрать / убрал» for a night kill and «вывод / вывести / выведут / на выводе» for being voted out contradict the approved wording («убит», «заголосован»); imperatives («Прочитай», «Выбери», «Отметь», «Выберите тему») on a public screen contradict the voice rules in `DESIGN_SYSTEM.md`.
+- **Design weaknesses (open, proposed to the owner, nothing built):**
+  1. Test-wiseness: 41% of wrong options contain a certainty word («точно», «всегда», «никогда», «обязан»…) against 2% of right ones; 25 of 27 multiple-choice steps are fully solved by ticking everything except the one option with such a word. A reader who ignores the facts and avoids certainty words passes 16–24% of sessions overall and 47–58% in «Читать действия» (random guessing: 0.5%); measured by simulation on the real bank.
+  2. Practice «Критический голос» (`voteCaseFromPlan`): of three answers in step 1 two are absurd («сразу заголосуют обоих», «роль станет доказанно красной»), so the count never has to be done.
+  3. The labs forbid a candidate voting for himself (`calculateVoteResult`), and every scripted plan has a black candidate voting for the other candidate; the broken-split rules (`BUSINESS_RULES`, «Сложный») treat a candidate's own hand as normal. Needs the owner's answer.
+  4. The course trains caution («ничего нельзя утверждать») far more than commitment (choose a lead, speak, vote under time); the second is only two lab cases.
+- Status: logic errors and wording fixed; design weaknesses open.

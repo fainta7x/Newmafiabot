@@ -54,10 +54,9 @@ export async function ensurePokerTournamentSchema(db: DatabaseWrapper): Promise<
   const has = (name: string) => columns.some((column) => column.name === name);
   if (!has('busted_at')) await db.exec('ALTER TABLE poker_tournament_entries ADD COLUMN busted_at TEXT');
   if (!has('busted_start_chips')) await db.exec('ALTER TABLE poker_tournament_entries ADD COLUMN busted_start_chips INTEGER NOT NULL DEFAULT 0');
-  // Announcement choices made by the organizer, when the announcement went out, and when the reminder did.
+  // Announcement choices made by the organizer, and when the announcement went out.
   const tournamentColumns = await db.all<{ name: string }>("PRAGMA table_info('poker_tournaments')");
   const hasTournament = (name: string) => tournamentColumns.some((column) => column.name === name);
   if (!hasTournament('announce_json')) await db.exec('ALTER TABLE poker_tournaments ADD COLUMN announce_json TEXT');
   if (!hasTournament('announced_at')) await db.exec('ALTER TABLE poker_tournaments ADD COLUMN announced_at TEXT');
-  if (!hasTournament('reminded_at')) await db.exec('ALTER TABLE poker_tournaments ADD COLUMN reminded_at TEXT');
 }

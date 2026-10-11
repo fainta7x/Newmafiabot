@@ -73,7 +73,7 @@ describe('poker tournament announcements', () => {
     expect((queue.mock.calls[0] as any)[1].actionPath).toBe(`/player/events?event=${row.id}`);
   });
 
-  it('reminds the registered players once, only in the last half hour', async () => {
+  it('reminds registered players in the last half hour, including those who register late, once each by key', async () => {
     const row = await make(undefined);
     await registerForPokerTournament(db, row.id, 'p1');
     const queue = vi.fn(async () => undefined);
@@ -81,10 +81,26 @@ describe('poker tournament announcements', () => {
     await runPokerTournamentAnnouncements(db, start - 3 * 60 * 60_000 + 60_000, { queueNotification: queue as any });
     expect(queue).not.toHaveBeenCalled();
     await runPokerTournamentAnnouncements(db, start - 20 * 60_000, { queueNotification: queue as any });
+    await registerForPokerTournament(db, row.id, 'p2');
     await runPokerTournamentAnnouncements(db, start - 10 * 60_000, { queueNotification: queue as any });
-    expect(queue).toHaveBeenCalledTimes(1);
-    expect((queue.mock.calls[0] as any)[1].playerId).toBe('p1');
+    const keys = new Set(queue.mock.calls.map((call: any) => call[1].notificationKey));
+    expect([...keys].sort()).toEqual([`poker-tournament:reminder:${row.id}:p1`, `poker-tournament:reminder:${row.id}:p2`]);
     expect((queue.mock.calls[0] as any)[1].text).toContain('начнётся');
+  });
+
+  it('skips players on pause, and retries a channel that is not configured yet', async () => {
+    await db.run("UPDATE players SET contact_status = 'paused' WHERE id = 'p2'");
+    const row = await make({ bot_dm: true, club_group: true });
+    await db.run("UPDATE telegram_destinations SET active = 0 WHERE id = 'club'");
+    const queue = vi.fn(async () => undefined);
+    const fetchImpl = okFetch();
+    await announcePokerTournament(db, row.id, { queueNotification: queue as any, fetchImpl: fetchImpl as any });
+    expect(queue.mock.calls.map((call: any) => call[1].playerId)).toEqual(['p1']);
+    expect((await db.get<any>('SELECT announced_at FROM poker_tournaments WHERE id = ?', [row.id])).announced_at).toBeNull();
+    await db.run("UPDATE telegram_destinations SET active = 1 WHERE id = 'club'");
+    await announcePokerTournament(db, row.id, { queueNotification: queue as any, fetchImpl: fetchImpl as any });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect((await db.get<any>('SELECT announced_at FROM poker_tournaments WHERE id = ?', [row.id])).announced_at).toBeTruthy();
   });
 
   it('builds a readable text', async () => {

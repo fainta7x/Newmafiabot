@@ -15,7 +15,7 @@ export type PokerTournamentAnnounce = { telegram_channel: boolean; club_group: b
 type Channel = keyof PokerTournamentAnnounce;
 type Row = {
   id: string; title: string; description: string; organizer_player_id: string | null; status: string; start_at: string;
-  config_json: string; announce_json: string | null; announced_at: string | null; reminded_at: string | null;
+  config_json: string; announce_json: string | null; announced_at: string | null;
 };
 type Dependencies = { fetchImpl?: typeof fetch; createVkPost?: typeof createVkWallPost; queueNotification?: typeof queuePersonalNotification };
 
@@ -109,7 +109,7 @@ async function postToVk(db: DatabaseWrapper, row: Row, deps: Dependencies): Prom
 }
 
 async function clubAudience(db: DatabaseWrapper): Promise<string[]> {
-  const rows = await db.all<{ id: string }>("SELECT id FROM players WHERE club_stage = 'CLUB_PLAYER' AND COALESCE(contact_status, '') <> 'blocked' AND COALESCE(from_other_city, 0) = 0");
+  const rows = await db.all<{ id: string }>("SELECT id FROM players WHERE club_stage = 'CLUB_PLAYER' AND COALESCE(contact_status, lifecycle_status, 'normal') NOT IN ('blocked', 'archived', 'inactive', 'paused') AND COALESCE(from_other_city, 0) = 0");
   return rows.map((row) => String(row.id));
 }
 
@@ -145,16 +145,19 @@ export async function announcePokerTournament(db: DatabaseWrapper, tournamentId:
   if (announce.club_group) results.club_group = await postToTelegram(db, row, 'club', 'club_group', fetchImpl);
   if (announce.vk) results.vk = await postToVk(db, row, deps);
   if (announce.bot_dm) results.bot_dm = await messagePlayers(db, row, deps);
-  // Done once no channel is waiting for a retry; an unconfigured channel is not retried.
-  if (!Object.values(results).includes('failed')) {
+  // Done once no channel is waiting for a retry; a channel that is not configured yet is retried too.
+  if (!Object.values(results).some((outcome) => outcome === 'failed' || outcome === 'not_configured')) {
     await db.run('UPDATE poker_tournaments SET announced_at = ? WHERE id = ? AND announced_at IS NULL', [new Date().toISOString(), row.id]);
   }
   return results;
 }
 
-/** Everyone registered gets one reminder shortly before the start. */
+/**
+ * Everyone registered gets one reminder shortly before the start. There is no tournament-wide "done" mark: the
+ * per-player notification key makes a repeat harmless, so a player who registers inside the window is reminded too.
+ */
 export async function remindPokerTournament(db: DatabaseWrapper, row: Row, nowMs = Date.now(), deps: Dependencies = {}) {
-  if (row.status !== 'registration' || row.reminded_at) return false;
+  if (row.status !== 'registration') return false;
   const untilStart = Date.parse(row.start_at) - nowMs;
   if (untilStart > POKER_TOURNAMENT_REMINDER_MINUTES * 60_000 || untilStart <= 0) return false;
   const queue = deps.queueNotification || queuePersonalNotification;
@@ -165,7 +168,6 @@ export async function remindPokerTournament(db: DatabaseWrapper, row: Row, nowMs
       entityId: row.id, text: pokerTournamentReminderText(row), actionPath: '/player',
     });
   }
-  await db.run('UPDATE poker_tournaments SET reminded_at = ? WHERE id = ? AND reminded_at IS NULL', [new Date(nowMs).toISOString(), row.id]);
   return true;
 }
 
@@ -175,7 +177,7 @@ const lastAnnounceAttempt = new Map<string, number>();
 /** Called by the tournament scheduler: retries announcements that did not get out (not more often than every five minutes) and sends due reminders. */
 export async function runPokerTournamentAnnouncements(db: DatabaseWrapper, nowMs = Date.now(), deps: Dependencies = {}) {
   await ensurePokerTournamentSchema(db);
-  const rows = await db.all<Row>("SELECT * FROM poker_tournaments WHERE status = 'registration' AND (announced_at IS NULL AND announce_json IS NOT NULL OR reminded_at IS NULL)");
+  const rows = await db.all<Row>("SELECT * FROM poker_tournaments WHERE status = 'registration'");
   for (const row of rows) {
     if (row.announce_json && !row.announced_at && nowMs - (lastAnnounceAttempt.get(row.id) ?? 0) >= ANNOUNCE_RETRY_MS) {
       lastAnnounceAttempt.set(row.id, nowMs);

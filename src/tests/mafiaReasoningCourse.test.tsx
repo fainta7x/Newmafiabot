@@ -357,7 +357,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
       .toEqual(['№1 дал чёрную проверку №8']);
     expect(observed.options.some((option) => option.points === 0 && option.label.includes('уже достоверна'))).toBe(true);
     expect(hypotheses.mode).toBe('multiple');
-    expect(hypotheses.options.map((option) => option.plausible)).toEqual([true, true, true, false]);
+    expect(hypotheses.options.map((option) => option.plausible)).toEqual([true, true, true, false, false]);
     expect(hypotheses.options[0].label).toContain('настоящий шериф');
     expect(hypotheses.options[1].label).toContain('чёрную проверку красному №8');
     expect(hypotheses.options[2].label).toContain('чёрную проверку чёрному №8');
@@ -391,5 +391,28 @@ describe('Mafia reasoning: case bank and plain language', () => {
     render(<MafiaReasoningCourse />);
     expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
     expect(screen.getByTestId('reasoning-level-teams').hasAttribute('disabled')).toBe(true);
+  });
+  it('does not let certainty words give the answer away (owner-approved rebalance, 2026-10-11)', () => {
+    const FIRM = /(точно|всегда|никогда|обязан|доказанно|наверняка|автоматически|окончательно|железн|гарантир|математически)/i;
+    let wrong = 0, wrongFirm = 0, right = 0, rightFirm = 0, got = 0, max = 0;
+    for (const level of REASONING_LEVELS) {
+      for (const item of level.cases) {
+        for (const decision of item.steps) {
+          const multiple = decision.mode === 'multiple';
+          for (const option of decision.options) {
+            const good = multiple ? option.plausible === true : option.points === 2;
+            if (good) { right += 1; if (FIRM.test(option.label)) rightFirm += 1; } else { wrong += 1; if (FIRM.test(option.label)) wrongFirm += 1; }
+          }
+          // The blind tactic «never choose an option with a certainty word»: its expected score on this step.
+          const open = decision.options.map((option, index) => ({ option, index })).filter(({ option }) => !FIRM.test(option.label));
+          max += 2;
+          if (multiple) got += reasoningDecisionPoints(decision, open.map(({ index }) => index));
+          else if (open.length) got += open.reduce((sum, { option }) => sum + option.points, 0) / open.length;
+        }
+      }
+    }
+    expect(wrongFirm / wrong).toBeLessThan(0.15);
+    expect(rightFirm / right).toBeGreaterThan(0.03);
+    expect(got / max).toBeLessThan(0.4);
   });
 });

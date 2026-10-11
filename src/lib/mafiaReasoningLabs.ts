@@ -73,6 +73,27 @@ const outcomeLine = (result: VoteResult): string => {
   return `Заголосован №${result.votedOut}. Паритет ещё не достигнут; партия продолжается`;
 };
 
+const statusFromCounts = (plan: VotePlan, counts: Record<number, number>): VoteResult['status'] => {
+  const [first, last] = plan.candidates;
+  if (counts[first] === counts[last]) return 'tie_needs_revote';
+  const votedOut = counts[first] > counts[last] ? first : last;
+  const blackAfter = plan.black.length - Number(plan.black.includes(votedOut));
+  const redAfter = plan.alive.length - plan.black.length - Number(!plan.black.includes(votedOut));
+  return blackAfter === 0 ? 'red_win_after_protocol' : blackAfter >= redAfter ? 'black_win_after_protocol' : 'continues_after_protocol';
+};
+
+/** «Счёт 3:2 — заголосован №4. …»: one answer line from a tally (also for the tallies a careless learner would get). */
+const tallyLine = (plan: VotePlan, counts: Record<number, number>): string => {
+  const [first, last] = plan.candidates;
+  const status = statusFromCounts(plan, counts);
+  const score = `Счёт ${counts[first]}:${counts[last]} (№${first} : №${last})`;
+  if (status === 'tie_needs_revote') return `${score} — ничья, потребуется переголосование`;
+  const votedOut = counts[first] > counts[last] ? first : last;
+  const after = status === 'black_win_after_protocol' ? 'после обязательных процедур победит мафия'
+    : status === 'red_win_after_protocol' ? 'после обязательных процедур победят красные' : 'партия продолжается';
+  return `${score} — заголосован №${votedOut}, ${after}`;
+};
+
 export const voteCaseFromPlan = (plan: VotePlan): LabCase => {
   const [first, last] = plan.candidates;
   const firstResult = calculateVoteResult(plan, first);
@@ -84,12 +105,8 @@ export const voteCaseFromPlan = (plan: VotePlan): LabCase => {
     `На голосование выставлены №${first}, затем №${last}. Остальные голоса по условию: ${otherVotes}.`,
     `№${plan.decidingPlayer} может поднять руку за №${first} либо дождаться №${last}. Голосование ещё не началось.`,
   ];
-  const lastSummary = outcomeLine(lastResult);
-  const alternatives = [
-    `В №${last}: ${lastSummary}`,
-    `В №${last}: сразу заголосуют обоих кандидатов`,
-    `В №${last}: роль №${plan.decidingPlayer} станет доказанно красной`,
-  ];
+  // The two typical slips: the learner's own hand is left out of the tally, or it is counted for the first candidate.
+  const withoutOwnHand: Record<number, number> = { [first]: lastResult.counts[first], [last]: lastResult.counts[last] - 1 };
   const bestInterpretation = lastResult.status === 'black_win_after_protocol'
     ? `Если №${plan.decidingPlayer} не проголосует в №${last}, чёрная команда упустит возможную немедленную победу. Но это не доказывает красный цвет игрока.`
     : lastResult.status === 'tie_needs_revote'
@@ -100,19 +117,19 @@ export const voteCaseFromPlan = (plan: VotePlan): LabCase => {
     title: `${plan.alive.length} игроков · выбор №${plan.decidingPlayer}`,
     steps: [
       question('Перед голосованием', facts,
-        `Что будет, если №${plan.decidingPlayer} оставит голос последнему кандидату №${last}?`, [
-          [alternatives[0], 2, `Голоса в №${first}: ${lastResult.counts[first]}, в №${last}: ${lastResult.counts[last]}. ${lastSummary}.`],
-          [alternatives[1], 0, 'Одно голосование между кандидатами не выводит обоих автоматически. Сначала нужно посчитать руки.'],
-          [alternatives[2], 0, 'Голос игрока не является подтверждением его роли или истинных намерений.'],
+        `Какой будет итог, если №${plan.decidingPlayer} оставит голос последнему кандидату №${last}?`, [
+          [tallyLine(plan, lastResult.counts), 2, `Руки: за №${first} — ${lastResult.counts[first]}, за №${last} — ${lastResult.counts[last]}. Все оставшиеся голоса, включая руку №${plan.decidingPlayer}, идут последнему кандидату.`],
+          [tallyLine(plan, withoutOwnHand), 0, `Здесь не учтена рука самого №${plan.decidingPlayer}: считать нужно голоса всех живых игроков.`],
+          [tallyLine(plan, firstResult.counts), 0, `Это счёт, если №${plan.decidingPlayer} поднимет руку за №${first}. Вопрос про ожидание последнего кандидата №${last}.`],
         ]),
       question('Сравни последствия',
         [`Если №${plan.decidingPlayer} поднимет руку за №${first}, итог: ${firstResult.counts[first]}:${firstResult.counts[last]}. ${outcomeLine(firstResult)}.`,
-          `Если дождётся №${last}, итог: ${lastResult.counts[first]}:${lastResult.counts[last]}. ${lastSummary}.`],
+          `Если дождётся №${last}, итог: ${lastResult.counts[first]}:${lastResult.counts[last]}. ${outcomeLine(lastResult)}.`],
         'Какой вывод о цене решения обоснован?', [
           [bestInterpretation, 2, 'Сравниваем только доступные при этих вводных два исхода. Реальная роль игрока сама по себе не следует из неиспользованной возможности.'],
-          [`Раз №${plan.decidingPlayer} мог выбрать, его цвет всегда можно точно определить по одному голосованию`, 0,
+          [`Раз у №${plan.decidingPlayer} был выбор, его цвет можно определить по этому голосованию`, 0,
             'Даже сильный контрфактический аргумент не даёт достоверной проверки роли.'],
-          [`Результаты одинаковы: голос №${plan.decidingPlayer} ни на что не влияет`, 0,
+          [`Результаты одинаковы: голос №${plan.decidingPlayer} не меняет итог голосования`, 0,
             'По подсчёту итогов видно, что варианты отличаются. Нельзя игнорировать голоса или возможную ничью.'],
         ]),
     ],

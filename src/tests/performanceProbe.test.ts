@@ -54,7 +54,7 @@ describe('the record of what made the server slow', () => {
 
   it('records a transaction that waits behind another one', async () => {
     const db = createDatabaseConnection(':memory:');
-    const holder = db.transaction(async () => { await new Promise((resolve) => setTimeout(resolve, SLOW_TRANSACTION_MS + 100)); });
+    const holder = db.transaction(async () => { await new Promise<void>((resolve) => { setTimeout(resolve, SLOW_TRANSACTION_MS + 100); }); });
     const waiter = db.transaction(async (tx) => { await tx.get('SELECT 1 AS one'); });
     await Promise.all([holder, waiter]);
     const { slow_transactions } = performanceSnapshot();

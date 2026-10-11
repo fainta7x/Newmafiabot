@@ -474,3 +474,10 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Defect:** `settleBetPool` (`bettingPoolService.ts`) paid a winner pool with no opposing stakes at coefficient 1 (stake back only) while the lost side burned its stake.
 - **Fixed:** a pool with stakes on one side only is refunded in full whichever team wins; window is `BETTING_WINDOW_MS` = 8 minutes. Status: fixed.
 - **Follow-up (review):** already-settled one-sided pools were skipped by the same-winner early return; the one-sided check now runs first, so the startup reconcile also returns stakes burned by the old rule (payout reversed, stake refunded). Status: fixed.
+
+### 2026-10-09 — Wallet «Ставки» tab: navigation by DOM click, and betting blocked by the economy request
+
+- **Scope:** the player wallet (`PlayerEconomyPanel.tsx`, `PlayerEconomy.tsx`), found while checking the betting flow.
+- **Finding 1 (fixed in #770):** `PlayerEconomyPanel.tsx` switched the tab by finding a hidden child button by its label and clicking it from a layout effect (`querySelectorAll('button')` + `click()`); it broke whenever a label changed and could fire twice. The panel now passes the chosen `view` to `PlayerEconomy`, which treats it as the scope.
+- **Finding 2 (fixed in #770):** the «Загрузка кошелька…» gate waited for `/api/player/economy` even on the bets tab, so a failing economy request hid betting. The bets scope no longer waits for it; `role_snapshot` is read with a default and the bets tab prefers the betting balance.
+- **Test:** `src/tests/walletBettingNavigation.test.tsx` (economy request fails, bets still shown). Status: fixed, needs a deploy and a phone check. Not covered: the standalone `PlayerEconomy` without the panel keeps its own scope.

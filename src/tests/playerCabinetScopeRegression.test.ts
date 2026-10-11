@@ -26,7 +26,7 @@ describe('player cabinet scope regressions', () => {
     expect(home).not.toContain('Управление клубом');
     expect(quick).toContain('data-testid="player-quick-conduct"');
     expect(quick).toContain('<span className="hidden sm:inline">Ведение</span>');
-    expect(shell).toContain("const canOpenConduct = player.judge_level !== 'none';");
+    expect(shell).toContain("const canOpenConduct = player.judge_level !== 'none' || canOpenAdmin || player.club_role === 'organizer';");
     expect(shell).toContain("onOpenConduct={() => open('conduct')}");
   });
 });

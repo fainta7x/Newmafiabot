@@ -3,7 +3,6 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { allowedTableSizes, tableRolesLabel } from '../../lib/tableComposition.ts';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
-import JudgeTestGameModal from './JudgeTestGameModal.tsx';
 
 export type JudgeStartParticipant = {
   id: string;
@@ -31,7 +30,6 @@ type Props = {
   judge: { id: string; nickname: string };
   evenings: JudgeStartEvening[];
   onCreated: (game: ClubGameRecord) => void;
-  allowClubGame?: boolean;
 };
 
 const formatWhen = (value: string) => {
@@ -52,10 +50,8 @@ const attendanceLabel = (participant: JudgeStartParticipant) => {
   return 'Не отмечен';
 };
 
-export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClubGame = true }: Props) {
+export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props) {
   const [open, setOpen] = useState(false);
-  const [testOpen, setTestOpen] = useState(false);
-  const [testFeedback, setTestFeedback] = useState<string | null>(null);
   const [eveningId, setEveningId] = useState(evenings[0]?.id || '');
   const [tableId, setTableId] = useState('');
   const [lineup, setLineup] = useState<string[]>([]);
@@ -107,7 +103,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
   };
 
   const create = async () => {
-    if (!allowClubGame || !evening || !tableSizes.includes(lineup.length) || creating) return;
+    if (!evening || !tableSizes.includes(lineup.length) || creating) return;
     setCreating(true);
     setError(null);
     try {
@@ -127,54 +123,28 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
     }
   };
 
-  if (testOpen) {
-    return (
-      <JudgeTestGameModal
-        judge={judge}
-        onClose={(completed) => {
-          setTestOpen(false);
-          if (completed) setTestFeedback('Тест завершён. Результат не сохранён и не попал в статистику.');
-        }}
-      />
-    );
-  }
-
-  if (!open || !allowClubGame) {
+  if (!open) {
     return (
       <section className="rounded-3xl border border-emerald-300/15 bg-gradient-to-b from-emerald-300/[0.07] to-white/[0.025] p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/45">{allowClubGame ? 'Самостоятельное ведение' : 'Тестовый режим'}</div>
-            <h3 className="mt-2 text-lg font-semibold text-white">{allowClubGame ? 'Начать новую игру' : 'Проверить движок игры'}</h3>
-            <p className="mt-1 text-sm leading-5 text-white/35">
-              {allowClubGame
-                ? 'Клубная игра привязывается к вечеру. Тестовая запускает тот же движок локально и ничего не записывает в клубную статистику.'
-                : 'Открывает тот же игровой движок, музыку и интерфейс, но ничего не сохраняет в базу и статистику.'}
-            </p>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/45">Самостоятельное ведение</div>
+            <h3 className="mt-2 text-lg font-semibold text-white">Начать новую игру</h3>
+            <p className="mt-1 text-sm leading-5 text-white/35">Клубная игра привязывается к вечеру и попадает в результаты клуба.</p>
           </div>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-300/[0.08] text-xl">▶</div>
         </div>
-        {testFeedback && <div className="mt-3 rounded-2xl bg-emerald-300/[0.07] px-3 py-2.5 text-xs leading-5 text-emerald-100/65">{testFeedback}</div>}
-        <div className={`mt-4 grid gap-2 ${allowClubGame ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          {allowClubGame && (
-            <button
-              type="button"
-              disabled={evenings.length === 0}
-              onClick={() => setOpen(true)}
-              className="min-h-12 rounded-2xl bg-white px-3 text-xs font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/25"
-            >
-              {evenings.length ? 'Клубная игра' : 'Нет вечера'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => { setTestFeedback(null); setTestOpen(true); }}
-            className="min-h-12 rounded-2xl border border-amber-200/20 bg-amber-200/[0.08] px-3 text-xs font-semibold text-amber-100"
-          >
-            Тестовая игра
-          </button>
-        </div>
-        {allowClubGame && evenings.length === 0 && <p className="mt-2 text-center text-xs leading-4 text-white/30">Для тестовой игры опубликованный вечер не нужен.</p>}
+        <button
+          type="button"
+          disabled={evenings.length === 0}
+          onClick={() => setOpen(true)}
+          className="mt-4 min-h-12 w-full rounded-2xl bg-white px-3 text-xs font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/25"
+        >
+          {evenings.length ? 'Клубная игра' : 'Нет вечера'}
+        </button>
+        <p className="mt-3 text-center text-xs leading-5 text-white/35">
+          Потренироваться без записи в клуб можно в <a href="/guide?from=conduct&tab=judge-conduct" data-testid="conduct-training-link" className="font-semibold text-amber-100/80 underline">«Обучении»</a>: учебная партия с подсказками и свободная тестовая игра.
+        </p>
       </section>
     );
   }

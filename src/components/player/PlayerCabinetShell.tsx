@@ -69,7 +69,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   };
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
-  const canOpenConduct = player.judge_level !== 'none';
+  // The button is for everybody who can conduct: a judge with a mark, and an organizer (the screen holds the music too).
+  const canOpenConduct = player.judge_level !== 'none' || canOpenAdmin || player.club_role === 'organizer';
 
   if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club')} onTokenBalanceChange={setTokenBalance} />;
 

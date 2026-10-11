@@ -211,9 +211,10 @@ export const PublicGuide: React.FC<{ initialTab?: GuideTab; onNavigate?: (path: 
   const depth = useRef(0);
   // The guide is still public. Only links explicitly opened from the cabinet
   // show its bottom navigation and an unambiguous route back.
-  const fromCabinet = typeof window !== 'undefined' && ['player', 'progress'].includes(new URLSearchParams(window.location.search).get('from') || '');
-  const cabinetReturnPath = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('from') === 'progress'
-    ? '/player/profile/learning' : '/player';
+  const fromCabinet = typeof window !== 'undefined' && ['player', 'progress', 'conduct'].includes(new URLSearchParams(window.location.search).get('from') || '');
+  const cabinetOrigin = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('from');
+  // Opened from «Прогресс → Обучение» it goes back there; from the judge's «Ведение» it goes back to that screen.
+  const cabinetReturnPath = cabinetOrigin === 'progress' ? '/player/profile/learning' : cabinetOrigin === 'conduct' ? '/player/conduct' : '/player';
   const navigateOut = useCallback((path: string, replace = false) => {
     if (onNavigate) onNavigate(path, replace);
     else if (replace) window.location.replace(path);

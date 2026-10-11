@@ -415,4 +415,19 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(rightFirm / right).toBeGreaterThan(0.03);
     expect(got / max).toBeLessThan(0.4);
   });
+
+  it('reports each finished try of a chapter to the learning statistics, passed or not', () => {
+    const calls: Array<{ url: string; body: any }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => { calls.push({ url: String(url), body: JSON.parse(String(init?.body)) }); return { ok: true } as Response; }));
+    render(<MafiaReasoningCourse />);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    complete(0, 0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('/api/player/learning-activity');
+    expect(calls[0].body).toEqual({ track: 'reasoning-course', item: 'facts', score: 0, maxScore: 20, passed: false });
+    fireEvent.click(screen.getByTestId('reasoning-back-to-chapters'));
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    fireEvent.click(screen.getByRole('button', { name: 'Другие ситуации' }));
+    vi.unstubAllGlobals();
+  });
 });

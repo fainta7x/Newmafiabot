@@ -1,5 +1,18 @@
 # Audit log
 
+## 2026-10-11 · Architecture unification phase 3 — game record presentation
+
+Scope: confirmed mounted consumer analysis of `PlayerGameDetail.tsx`, `PlayerHistoryStatsView.tsx` and `EveningGamesView.tsx`; distinguish display-only commonality from protocol/game-rule ownership. All observations read from current `main` after phase 2 (#814).
+
+- **[open; safe refactor proposed]** `PlayerGameDetail.tsx` duplicates all four Mafia role labels already centralized in `src/lib/playerGameRoleLabels.ts`, but has a distinct missing/unknown fallback `Роль не указана`. Reuse shared known-role dictionary and preserve this fallback exactly.
+- **[open; safe refactor proposed]** `EveningGamesView.tsx` also duplicates the same four known-role labels inline inside the organizer game-result seat list, with fallback `—`. It is not the live-game engine: only the text expression, with the same fallback, should change; do not touch seat geometry, role counts, protocol state or controls.
+- **[open; safe refactor proposed]** `PlayerGameDetail.tsx` and `PlayerHistoryStatsView.tsx` independently implement exactly the same `formatDate` formatter (Moscow timezone, day 2-digit, abbreviated month, full year, null → `Дата не указана`, invalid date → raw input). One small pure function can own this invariant; keep both existing component layouts unchanged.
+- **[verified distinction, no change]** `PlayerGameDetail.tsx` and `PlayerHistoryStatsView.tsx` show different null-result labels (`Результат не указан` vs `Результат`). Do not automatically unify `winnerLabel` or render the same empty-state language.
+- **[not a target]** `EveningParticipantsWorkboard.tsx` has duplicate `money`/plural helpers, but architecture docs mark it unmounted legacy; do not refactor for the sake of churn without tracing a live import. `PlayerEveningSummaries.tsx` has a local image-URL avatar with hide-on-error semantics; `ui/PlayerAvatar.tsx` is a player-ID loading/caching component, not a drop-in replacement.
+- **[higher-risk, audit only]** `EveningCloseoutPanel.tsx` and `EveningPaymentsPanel.tsx` call distinct endpoints with different write/optimistic refresh behaviour. Do not replace their fetch/write flows with one common hook without authorization and integration/race tests.
+
+Acceptance: no markup/CSS/server/API/database/ledger/schema/game state changes; exact output for four known roles, missing/unknown role fallbacks and null/invalid/valid dates; focused unit tests + CI and UI preview; separate merge/deploy verification.
+
 ## 2026-10-11 · Architecture unification / reusable logic (owner-approved, phase 1)
 
 Scope: first focused read-only pass over `docs/ARCHITECTURE.md`, `docs/DESIGN_SYSTEM.md`, `docs/FEATURE_MAP.md`, `src/lib/eveningResponse.ts`, `src/lib/eveningDomain.ts`, and selected Player/CRM entrypoints. This is **not** a completed repository-wide audit. Keep deeper findings in this log before changing their owners. The programme and ordered queue live **only** in `docs/PROJECT_STATE.md`.

@@ -30,6 +30,6 @@ describe('judge practice lives in «Обучение», real conducting in the c
     render(<JudgeGameLauncher judge={{ id: 'j1', nickname: 'Судья' }} evenings={[]} onCreated={() => undefined} />);
     expect(screen.queryByRole('button', { name: 'Тестовая игра' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Нет вечера' })).toBeTruthy();
-    expect(screen.getByTestId('conduct-training-link').getAttribute('href')).toBe('/guide?from=progress&tab=judge-conduct');
+    expect(screen.getByTestId('conduct-training-link').getAttribute('href')).toBe('/guide?from=conduct&tab=judge-conduct');
   });
 });

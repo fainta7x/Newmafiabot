@@ -118,7 +118,9 @@ export const appBackTarget = (pathname: string): string | null => {
   // Opened from «Прогресс → Обучение» it carries ?from=progress (kept on every guide screen) and returns there.
   if (parts[0] === 'guide') {
     const search = typeof window !== 'undefined' ? window.location.search : '';
-    return new URLSearchParams(search).get('from') === 'progress' ? '/player/profile/learning' : '/player/events';
+    const origin = new URLSearchParams(search).get('from');
+    // …and from the judge's «Ведение» it carries ?from=conduct and returns to that screen.
+    return origin === 'progress' ? '/player/profile/learning' : origin === 'conduct' ? '/player/conduct' : '/player/events';
   }
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;

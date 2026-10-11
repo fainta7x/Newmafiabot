@@ -408,11 +408,12 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
   const needsBoard = board.length >= 3 && opponentRanges.some((item) => typeof item !== 'number' && (item.boardMin || 0) > 0);
   // Keep the legacy argument for callers; exact candidate sampling has no retry budget.
   void rangeAttempts;
-  const combinations: Array<{ cards: PokerCard[]; percentile: number; key: number; strength: number }> = [];
+  // `first` and `second` are the places of the two cards in the deck: the flags of the cards taken in a run are read by place.
+  const combinations: Array<{ cards: PokerCard[]; percentile: number; key: number; strength: number; first: number; second: number }> = [];
   for (let first = 0; first < deck.length; first += 1) {
     for (let second = first + 1; second < deck.length; second += 1) {
       const cards = [deck[first], deck[second]];
-      combinations.push({ cards, percentile: handPercentile(cards), key: needsBoard ? rankKey(pokerHandRank([...cards, ...board])) : 0, strength: 0 });
+      combinations.push({ cards, percentile: handPercentile(cards), key: needsBoard ? rankKey(pokerHandRank([...cards, ...board])) : 0, strength: 0, first, second });
     }
   }
   if (needsBoard) {
@@ -437,14 +438,22 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
     return { eligible: combinations.filter((item) => miss(item) === 0), miss };
   });
   let score = 0;
+  const taken = new Uint8Array(deck.length);
+  const deckPlace = new Map(deck.map((card, place) => [card, place] as const));
   for (let run = 0; run < runs; run += 1) {
     const pool = deck.slice();
-    const draw = () => pool.splice(Math.floor(random() * pool.length), 1)[0];
+    const draw = () => {
+      const card = pool.splice(Math.floor(random() * pool.length), 1)[0];
+      taken[deckPlace.get(card)!] = 1;
+      return card;
+    };
     const hands: PokerCard[][] = [];
-    const available = new Set(pool);
+    taken.fill(0);
     for (const range of ranges) {
-      const legal = (item: typeof combinations[number]) => item.cards.every((card) => available.has(card));
-      let candidates = range.eligible.filter(legal);
+      const legal = (item: typeof combinations[number]) => taken[item.first] === 0 && taken[item.second] === 0;
+      const candidatesOf: typeof combinations = [];
+      for (const item of range.eligible) if (legal(item)) candidatesOf.push(item);
+      let candidates = candidatesOf;
       if (candidates.length === 0) {
         // Blockers can make the inferred range impossible. Use the closest legal support explicitly,
         // rather than a random out-of-range hand after an arbitrary retry count.
@@ -457,7 +466,7 @@ export const estimateEquity = (hole: PokerCard[], board: PokerCard[], opponentRa
         }
       }
       const pick = candidates[Math.floor(random() * candidates.length)].cards;
-      for (const card of pick) { available.delete(card); pool.splice(pool.indexOf(card), 1); }
+      for (const card of pick) { taken[deckPlace.get(card)!] = 1; pool.splice(pool.indexOf(card), 1); }
       hands.push(pick);
     }
     const fullBoard = board.slice();

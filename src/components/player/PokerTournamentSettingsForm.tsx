@@ -94,7 +94,7 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
       <div className="rounded-xl border border-white/10 bg-black/20 p-3">
         <div className="text-xs font-semibold text-white/70">Настройки турнира (пусто — турбо по умолчанию)</div>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="text-xs text-white/60">Минимум игроков<input name="min" type="number" min={2} placeholder="4" value={draft.min} onChange={set('min')} className={field} /></label>
+          <label className="text-xs text-white/60">Минимум игроков<input name="min" type="number" min={2} placeholder="2" value={draft.min} onChange={set('min')} className={field} /></label>
           <label className="text-xs text-white/60">Максимум (пусто — без лимита)<input name="max" type="number" min={2} value={draft.max} onChange={set('max')} className={field} /></label>
           <label className="text-xs text-white/60">Стартовый стек<input name="stack" type="number" min={100} placeholder="1000" value={draft.stack} onChange={set('stack')} className={field} /></label>
           <label className="text-xs text-white/60">Уровень, минут<input name="level" type="number" min={1} max={60} placeholder="6" value={draft.level} onChange={set('level')} className={field} /></label>

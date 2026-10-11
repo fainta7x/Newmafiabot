@@ -217,6 +217,22 @@ describe('poker tournament tables', () => {
     expect((await db.get<any>("SELECT prize_tokens FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = 'p3'", [id])).prize_tokens).toBe(1560);
   });
 
+  it('runs a tournament of just two players by default and splits the pool between first and second place', async () => {
+    const row = await createPokerTournament(db, null, { title: 'Быстрый', startAt: new Date(start).toISOString(), rebuyUntilLevel: 0, guaranteeTokens: 2000, prizeSharesPct: [65, 25, 10] }, now);
+    expect(JSON.parse(row.config_json).minPlayers).toBe(2);
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+    await tickPokerTournaments(db, start + 1000);
+    expect((await db.get<any>('SELECT status FROM poker_tournaments WHERE id = ?', [row.id])).status).toBe('running');
+    await bust(row.id, ['p1'], start + 30_000);
+    await tickPokerTournaments(db, start + 31_000);
+    await tickPokerTournaments(db, start + 60_000);
+    expect((await db.get<any>('SELECT status FROM poker_tournaments WHERE id = ?', [row.id])).status).toBe('finished');
+    // the pool of 2,000 goes to the two places by 65:25 scaled up to 100%
+    expect(await tokens('p2')).toBe(1000 + 1445);
+    expect(await tokens('p1')).toBe(1000 + 555);
+  });
+
   describe('a whole tournament played by the machinery itself', () => {
     afterEach(() => { vi.useRealTimers(); });
 

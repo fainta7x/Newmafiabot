@@ -12,7 +12,7 @@ describe('poker tournament settings', () => {
     const result = normalizePokerTournamentConfig({ startAt: start }, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.config).toMatchObject({ minPlayers: 4, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 6, rebuyCostTokens: 200, rebuyChips: 1000, lateRegUntilLevel: 6, prizeTokens: [] });
+    expect(result.config).toMatchObject({ minPlayers: 2, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 6, rebuyCostTokens: 200, rebuyChips: 1000, lateRegUntilLevel: 6, prizeTokens: [] });
     expect(result.config.levels[0]).toEqual({ small: 10, big: 20 });
   });
 

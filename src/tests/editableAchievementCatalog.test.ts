@@ -28,7 +28,7 @@ describe('editable achievement catalog', () => {
     await ensureAdminDataSchema(db);
 
     const seeded = await loadAchievementDefinitions(db, true);
-    expect(seeded).toHaveLength(62);
+    expect(seeded).toHaveLength(64);
     expect(seeded.find((item) => item.id === 'first_game')?.name).toBe('Первая игра');
 
     await db.run(

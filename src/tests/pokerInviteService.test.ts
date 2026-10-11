@@ -124,7 +124,7 @@ describe('poker invites and presence', () => {
     const outbox = await db.get<any>("SELECT chat_id,text,event_type,reply_markup_json FROM telegram_message_outbox WHERE player_id='bob' LIMIT 1");
     expect(outbox).toMatchObject({ chat_id: '1002', event_type: 'poker_invite' });
     expect(outbox.text).toContain('Алиса зовёт тебя сыграть в покер');
-    expect(outbox.text).toContain('вход 1 000');
+    expect(outbox.text).toContain('вход от 200');
     const markup = JSON.parse(String(outbox.reply_markup_json || '{}'));
     expect(markup.inline_keyboard?.[0]?.[0]?.web_app?.url).toContain('/player/poker/live-table');
 

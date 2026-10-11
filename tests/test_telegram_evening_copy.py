@@ -33,7 +33,7 @@ def test_group_post_lists_players_who_answered_but_have_no_games():
     assert "игра 1 — <b>4</b> игрока" in text
     assert "Записались на игры: 2" in text
     assert "Идут на весь вечер, игры не выбрали (1)</b>: Вика" in text
-    assert "Придут позже, игры не выбрали (1)</b>: Даня" in text
+    assert "Придут позже, время прибытия не уточнили (1)</b>: Даня" in text
     assert "Пока думают (1)</b>: Гоша" in text
     assert "Не смогут (1)</b>: Ева" in text
     assert text.count("Вика") == 1 and text.count("Даня") == 1
@@ -104,7 +104,7 @@ def test_club_post_is_the_owners_short_text():
     expected = (
         "Привет! В пятницу, 2 октября, играем в мафию — ждём тебя 🎭\n"
         "📍 Суп с Котом, 21:00 · 100 ₽ за игру, не больше 400 ₽ за вечер\n"
-        "Отметь кнопкой ниже, придёшь ли, и выбери игры"
+        "Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры."
     )
     post = thematic_event_text(evening, [], [
         {"player_id": "a", "nickname": "Аня", "response_status": "going", "selected_games": 0},
@@ -113,7 +113,7 @@ def test_club_post_is_the_owners_short_text():
     # The group post starts with the owner's text, keeps who is coming and ends with what to press.
     assert post.startswith(expected.rsplit("\n", 1)[0])
     assert "Аня" in post and "Пока думают (1)</b>: Боря" in post
-    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    assert post.endswith("Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры.")
     assert private_event_text(evening) == expected
     assert private_event_text(evening, reminder=True).startswith("🔔")
 
@@ -126,7 +126,7 @@ def test_novice_group_post_invites_to_play_and_keeps_who_is_coming():
     assert post.startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками — приходи 🎭\n"
                            "Никогда не играл — не страшно: в 18:30 объясним правила, потом сыграем вместе. Можно прийти одному.")
     assert "Пока думают (1)</b>: Лёша" in post
-    assert post.endswith("Отметь кнопкой ниже, придёшь ли, и выбери игры")
+    assert post.endswith("Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры.")
     assert private_event_text(evening).startswith("Привет! В пятницу, 2 октября, играем в мафию с новичками")
 
 
@@ -136,3 +136,25 @@ def test_novice_group_link_is_a_join_link():
     assert novice_telegram_group_url(None) == "https://t.me/+UBvwCzPMd4c2N2Iy"
     assert novice_telegram_group_url("https://t.me/c/3925510303/128") == "https://t.me/+UBvwCzPMd4c2N2Iy"
     assert novice_telegram_group_url("https://t.me/+other") == "https://t.me/+other"
+
+
+def test_recruitment_reminders_put_when_where_and_action_first():
+    from handlers.telegram_evening_copy import recruitment_private_text, recruitment_group_text
+
+    evening = {"venue": "Суп с Котом", "starts_at": "2026-10-16T18:00:00Z"}
+    slots = [{"slot_number": 2, "starts_at": "2026-10-16T19:00:00Z",
+              "needed_players": 3, "registered_players": 7, "target_players": 10}]
+    for render in (recruitment_private_text, recruitment_group_text):
+        message = render(evening, slots)
+        assert message.startswith("🔔 <b>Нужны игроки</b>") or message.startswith("🎭 <b>Нужны игроки</b>")
+        assert "📅 16 октября" in message
+        assert "📍 Суп с Котом, Пушкинский проезд, 4А" in message
+        assert "игра 2: нужно ещё 3 игрока (7/10)" in message
+        assert "👇" in message
+
+
+def test_full_evening_rsvp_is_explicit_and_partial_games_are_optional():
+    from handlers.telegram_evening_copy import private_event_text, recruitment_private_text
+    evening = {"format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"}
+    assert "запишем на все игры" in private_event_text(evening)
+    assert "укажи игру, с которой начнёшь" in recruitment_private_text(evening, [])

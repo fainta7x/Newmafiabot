@@ -422,6 +422,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   const slots = rows.map((row) => ({
     id: String(row.id),
     slot_number: Number(row.slot_number),
+    status: String(row.status || 'open'),
     starts_at: row.starts_at,
     ends_at: row.ends_at,
     price: personalNovicePrice == null ? Number(row.price_rub || SLOT_PRICE) : personalNovicePrice,

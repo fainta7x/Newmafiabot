@@ -53,7 +53,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
       <div className="flex flex-wrap gap-1.5 text-[12px]">
         {split.length ? <span className="rounded-lg bg-white/10 px-2 py-1 font-bold text-white">Попил: {split.join(' / ')}</span> : <span className="rounded-lg bg-white/10 px-2 py-1 text-white">Выбери, кого пилить</span>}
         {killed ? <span className="rounded-lg border border-rose-400/30 px-2 py-1 font-semibold text-rose-200">Убит: {killed}</span> : null}
-        {seat ? <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-200">Ты: {seat}</span> : null}
+        {seat ? <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-200">Я: {seat}</span> : null}
       </div>
       <svg viewBox="0 0 300 300" role="img" aria-label="Круглый стол. Стрелка у номера означает, за кого этот игрок проголосовал." className="mx-auto block w-full max-w-[294px]">
         <circle cx="150" cy="150" r="78" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" />
@@ -81,7 +81,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
                 strokeWidth={number === seat || isSplit ? 3 : nominated ? 2 : 1.5} strokeDasharray={nominated && !isSplit && number !== seat ? '4 3' : undefined} />
               <text x={x} y={target !== undefined ? y - 1 : y + 5} textAnchor="middle" fontSize="16" fontWeight="800" fill="#fff">{number}</text>
               {target !== undefined ? <text x={x} y={y + 13} textAnchor="middle" fontSize="10" fontWeight="800" fill={splitColor(target)}>{'→' + target}</text> : null}
-              {number === seat && !dead ? <text x={x} y={y - 27} textAnchor="middle" fontSize="10" fontWeight="800" fill="#6ee7b7">ТЫ</text> : null}
+              {number === seat && !dead ? <text x={x} y={y - 27} textAnchor="middle" fontSize="10" fontWeight="800" fill="#6ee7b7">Я</text> : null}
               {dead ? <line x1={x - 14} y1={y - 14} x2={x + 14} y2={y + 14} stroke="#fff" strokeWidth="2" /> : null}
               {claim ? <g><circle cx={x + 15} cy={y - 15} r="8" fill="#f59e0b" /><text x={x + 15} y={y - 11.5} textAnchor="middle" fontSize="10" fontWeight="700" fill="#000">Ш</text></g> : null}
               {check !== undefined ? <g><circle cx={x - 15} cy={y - 15} r="8" fill={check ? '#000' : '#e11d48'} stroke="#fff" strokeWidth="1" /><text x={x - 15} y={y - 11.5} textAnchor="middle" fontSize="9" fontWeight="700" fill="#fff">{check ? 'Ч' : 'К'}</text></g> : null}
@@ -90,7 +90,7 @@ export const SplitTableMap = ({ killed = null, candidates, split, seat = null, c
         })}
       </svg>
       <figcaption className="space-y-2 px-0.5 text-[12px] leading-5 text-white/70">
-        <p>Обводка — участник попила; <b className="text-emerald-200">ТЫ</b> — твоё место. Стрелка <b className="text-white">→</b> — куда ушёл голос.</p>
+        <p>Обводка — участник попила; <b className="text-emerald-200">Я</b> — моё место. Стрелка <b className="text-white">→</b> — куда ушёл голос.</p>
         {candidates.some((candidate) => !split.includes(candidate)) ? <p>Пунктир — выставлен, но не входит в попил.</p> : null}
         {claims.length ? <p><b className="text-amber-300">Ш</b> — шериф · <b>Ч</b>/<b className="text-rose-300">К</b> — чёрная/красная проверка</p> : null}
         {votes !== undefined ? <div data-testid="split-map-vote-legend" className="space-y-1 rounded-xl border border-white/10 bg-white/[.035] p-2.5">

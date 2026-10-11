@@ -22,7 +22,7 @@ const LEVEL_TITLES: Record<SplitThreeLevel, string> = {
   three_easy: 'Лёгкий уровень', three_medium: 'Средний уровень', three_break: 'Сложный уровень', three_choose: 'Кого пилить', three_hard: 'Экспертный уровень',
 };
 const LEVEL_DESCRIPTIONS: Record<SplitThreeLevel, string> = {
-  three_easy: 'Выставлены трое, пилим всех. Выбери, в кого голосуешь ты.',
+  three_easy: 'Выставлены трое, пилим всех. Нужно выбрать, в кого идёт голос.',
   three_medium: 'Выставлены 4–6, пилим троих из них. Распиши весь стол по кандидатам.',
   three_break: 'Кто-то из пилящихся не поставил руку. За 15 секунд распредели всех, кто ещё не голосовал.',
   three_choose: 'За столом два шерифа. По их проверкам выбери, кого пилить.',
@@ -199,12 +199,12 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
             <span>{session.mode === 'endless' ? `Задача ${position + 1}` : `Вопрос ${position + 1} из 5`}</span>
           </div>
           <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
-             <h2 className="text-lg font-black leading-6 text-white">{chooseLevel ? 'Выбери троих для попила' : breakLevel ? 'Спаси сломанный попил' : session.level === 'three_easy' ? 'В кого голосуешь ты?' : 'Распредели 9 голосов'}</h2>
+             <h2 className="text-lg font-black leading-6 text-white">{chooseLevel ? 'Выбрать троих для попила' : breakLevel ? 'Спаси сломанный попил' : session.level === 'three_easy' ? 'В кого идёт голос?' : 'Распределить 9 голосов'}</h2>
              <div className="flex flex-wrap gap-1.5 text-[12px]">
                {!breakLevel ? <span className="rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-rose-200">Убит: <strong data-testid="split-three-killed">{scenario.killed}</strong></span> : null}
                {!breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">В игре: 9</span> : null}
                {!chooseLevel && !breakLevel ? <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white">Попил: 3 / 3 / 3</span> : null}
-               {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span> : null}
+               {session.level === 'three_easy' ? <span data-testid="split-three-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Я: {scenario.seat}</span> : null}
              </div>
              {!breakLevel ? <p data-testid="split-three-nominees" className="text-[12px] leading-5 text-white/75">Выставлены: <strong className="text-white">{scenario.candidates.join(' → ')}</strong></p> : null}
              {!chooseLevel && !breakLevel ? <p data-testid="split-three-split" className="text-[12px] text-white/75">Пилим: <b className="text-white">{scenario.split.join(' / ')}</b></p> : null}
@@ -245,8 +245,8 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           </div> : null}
 
           {session.level === 'three_easy' && !checked ? <>
-            <h3 className="text-base font-semibold">В кого ты голосуешь?</h3>
-            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Твой голос">
+            <h3 className="text-base font-semibold">В кого идёт голос?</h3>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Голос">
               {scenario.candidates.map((candidate) => (
                 <button key={candidate} type="button" aria-pressed={choice === candidate} onClick={() => setChoice(candidate)}
                   className={`min-h-12 rounded-2xl border px-3 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'}`}>В {candidate}</button>
@@ -293,7 +293,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           {checked && chooseLevel && choiceRule && sheriffs ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
               <p className="font-bold text-white">{checked.right ? '✓ Верно' : 'Разбор ошибки'}</p>
-               {!checked.right ? <p className="text-amber-200">Ты выбрал {Array.isArray(checked.answer) ? checked.answer.join(', ') : 'другие номера'}. Обязательные номера: {choiceRule.required.join(', ')}{choiceRule.freeThird ? ' + третий вне этих проверок и шерифов' : ''}.</p> : null}
+               {!checked.right ? <p className="text-amber-200">Выбрано: {Array.isArray(checked.answer) ? checked.answer.join(', ') : 'другие номера'}. Обязательные номера: {choiceRule.required.join(', ')}{choiceRule.freeThird ? ' + третий вне этих проверок и шерифов' : ''}.</p> : null}
                <p><b className="text-white">Почему:</b> смотри, кого проверки считают чёрным в обеих версиях.</p>
                <p>{sheriffs.trusted.black && sheriffs.doubted.black
                 ? `Чёрные проверки у обоих шерифов — пилим обе чёрные проверки и шерифа, которому город верит меньше: ${choiceRule.required.join(', ')}.`
@@ -306,7 +306,7 @@ export const SplitThreeTraining = ({ initial }: { initial?: SplitThreeScenario[]
           {checked && expected && !broken ? (
             <div role="status" className="space-y-1 rounded-2xl border border-white/15 bg-black/25 p-4 text-sm leading-6 text-white/80">
               <p className="font-bold text-white">{checked.right ? '✓ Верно' : 'Разбор ошибки'}</p>
-               {!checked.right && !medium ? <p className="text-amber-200">Твой голос: в {checked.answer as number}. Правильно — в {correctSplitThreeVote(scenario)}.</p> : null}
+               {!checked.right && !medium ? <p className="text-amber-200">Голос: в {checked.answer as number}. Правильно — в {correctSplitThreeVote(scenario)}.</p> : null}
                {!checked.right && medium ? assignmentMistakes(expected, checked.answer as Record<number, number[]>, aliveSeats(scenario.killed))
                  .map((mistake) => <p key={mistake} className="text-amber-200">{mistake}</p>) : null}
                <p><b className="text-white">Почему:</b> {sheriffs ? 'Сначала учитываем опасные руки из двух версий шерифов, затем заполняем свободные тройки.' : 'Сами пилящиеся первыми голосуют в первого. Остальные шесть по порядку мест — тройками во второго и третьего.'}</p>

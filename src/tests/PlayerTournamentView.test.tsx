@@ -60,7 +60,7 @@ describe('player tournament view (owner, 2026-10-06)', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => (String(url).endsWith('/api/player/tournaments') ? json(list) : json(base))));
     render(<PlayerTournamentResults />);
     const items = await screen.findAllByTestId('player-tournament-item');
-    expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining('Идущий'), expect.stringContaining('вы играли')]);
+    expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining('Идущий'), expect.stringContaining('участие')]);
     fireEvent.click(items[0]);
     await waitFor(() => expect(screen.getByTestId('player-tournament-view')).toBeTruthy());
   });

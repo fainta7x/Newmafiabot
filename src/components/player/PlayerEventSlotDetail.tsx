@@ -5,6 +5,7 @@ import { normalizeEveningFormat, noviceScheduleLine } from '../../lib/eveningFor
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 import VenueAddress from '../public/VenueAddress.tsx';
+import PlayerEveningWorkspace from './PlayerEveningWorkspace.tsx';
 
 type EventItem = {
   id: string;
@@ -44,16 +45,20 @@ export default function PlayerEventSlotDetail({
   event,
   onBack,
   onSaved,
+  onOpenGame,
 }: {
   event: EventItem;
   onBack: () => void;
   onSaved: () => void;
+  onOpenGame?: (gameKey: string, eveningId: string) => void;
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [draft, setDraft] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  const [registrationLocked, setRegistrationLocked] = useState(false);
   const [saveError, setSaveError] = useState<{ message: string; needsFirstApplication: boolean } | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
 
@@ -76,6 +81,7 @@ export default function PlayerEventSlotDetail({
     setPlan(null);
     setDraft([]);
     setSaved(false);
+    setRegistrationLocked(false);
     setSaveError(null);
     void load();
     // The list above keeps its scroll position; open the evening from its title.
@@ -96,11 +102,13 @@ export default function PlayerEventSlotDetail({
   const changed = Boolean(plan && (draft.length !== plan.selection.slot_ids.length || draft.some((id) => !plan.selection.slot_ids.includes(id))));
 
   const toggleSlot = (slotId: string) => {
+    if (registrationLocked) return;
     setSaved(false);
     setDraft((current) => current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]);
   };
 
   const save = async () => {
+    if (registrationLocked) return;
     setBusy(true);
     setError('');
     setSaveError(null);
@@ -120,6 +128,7 @@ export default function PlayerEventSlotDetail({
       setPlan(body as Plan);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
       setSaved(true);
+      setWorkspaceRefreshKey(value => value + 1);
       onSaved();
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить');
@@ -155,6 +164,8 @@ export default function PlayerEventSlotDetail({
 
         {!plan && !error && <div className="mt-3 rounded-2xl bg-white/[0.035] px-3 py-6 text-center text-sm text-white/35">Загружаем игры вечера…</div>}
 
+        <PlayerEveningWorkspace eveningId={event.id} onOpenGame={onOpenGame} onCanChangeSelection={(allowed) => setRegistrationLocked(!allowed)} refreshKey={workspaceRefreshKey} />
+
         {plan && (
           <>
             <section className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-3">
@@ -162,7 +173,7 @@ export default function PlayerEventSlotDetail({
                 <div>
                   <div className="text-sm font-semibold">{plan.event.assembled ? 'Стол собран' : 'Стол собирается'}</div>
                   <div className="mt-1 text-[11px] text-white/30">
-                    {price > 0 ? `${price} ₽ за игру` : 'Для тебя бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
+                    {price > 0 ? `${price} ₽ за игру` : 'Бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
                   </div>
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[11px] text-white/25">игр</div></div>
@@ -170,8 +181,8 @@ export default function PlayerEventSlotDetail({
             </section>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-10 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
-              <button type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
+              <button disabled={registrationLocked} type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-10 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
+              <button disabled={registrationLocked} type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
             </div>
 
             <div className="mt-3 space-y-2">
@@ -179,7 +190,7 @@ export default function PlayerEventSlotDetail({
                 const selected = draft.includes(slot.id);
                 const ready = slot.registered_count >= 11;
                 return (
-                  <button key={slot.id} type="button" onClick={() => toggleSlot(slot.id)} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
+                  <button key={slot.id} disabled={registrationLocked} type="button" onClick={() => toggleSlot(slot.id)} className={`w-full rounded-2xl border p-3 text-left transition ${selected ? 'border-white/30 bg-white/[0.10]' : 'border-white/[0.07] bg-black/20'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</div>
@@ -199,7 +210,7 @@ export default function PlayerEventSlotDetail({
 
             <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
+                <div><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">Мой план</div><div className="mt-1 text-sm font-semibold">{countGames(draft.length)}</div></div>
                 <div className="text-right"><div className="text-[11px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
               </div>
               {maxEveningPrice > 0 && draft.length > 4 && (
@@ -212,8 +223,8 @@ export default function PlayerEventSlotDetail({
                   {saveError.needsFirstApplication ? <button type="button" onClick={onBack} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
                 </div>
               ) : null}
-              <button disabled={busy || !changed} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
-                {busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
+              <button disabled={busy || !changed || registrationLocked} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
+                {registrationLocked ? 'Запись закрыта после отметки явки' : busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
               </button>
             </section>
           </>

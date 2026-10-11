@@ -177,7 +177,7 @@ export default function CommerceAdminCRM() {
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Онлайн-оплата</div>
             <h3 className="mt-1 text-[16px] font-black text-text-primary">4 разных назначения</h3>
-            <p className="mt-1 text-[11px] leading-4 text-text-secondary">Вечер · жетоны · поддержка · сбор. Они хранятся раздельно и не подменяют существующий учёт оплат вечера.</p>
+            <p className="mt-1 text-[11px] leading-4 text-text-secondary">Вечер, жетоны, поддержка и сбор считаются отдельно и не меняют учёт оплат вечера.</p>
           </div>
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${overview?.online_payment.available ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{overview?.online_payment.available ? 'СБП работает' : 'Провайдер не подключён'}</span>
         </div>
@@ -192,7 +192,7 @@ export default function CommerceAdminCRM() {
           <button type="button" onClick={() => openTokens()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[10px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
         </div>
         <div className="mt-3 space-y-2">
-          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Пакетов пока нет. Никакой курс автоматически не придуман.</div>}
+          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Пакетов пока нет. Добавь первый и задай цену.</div>}
         </div>
       </section>
 
@@ -211,7 +211,7 @@ export default function CommerceAdminCRM() {
       </section>
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-4 w-4" /></span><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-text-primary">VK</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">Серверный адаптер публикации готов. Сам тип публикаций включим после выбора сценария.</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${vk?.configured ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{vk?.configured ? `group ${vk.group_id}` : 'не подключён'}</span></div>
+        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-4 w-4" /></span><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-text-primary">VK</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">Публикации пока не работают: включим их, когда решим, как они будут устроены.</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${vk?.configured ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{vk?.configured ? `group ${vk.group_id}` : 'не подключён'}</span></div>
         {!vk?.configured && vk?.missing?.length ? <div className="mt-3 rounded-[12px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Для подключения потребуются: {vk.missing.join(', ')}.</div> : null}
       </section>
 

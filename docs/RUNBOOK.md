@@ -377,7 +377,7 @@ After deployment:
 1. confirm the deployed SHA;
 2. start a disposable/test club game with a canonical judge and ten seats;
 3. confirm the judge leaves role dealing immediately, without waiting for notifications;
-4. confirm exactly one 90-second pool appears and a repeated start does not change its ID or deadline;
+4. confirm exactly one eight-minute pool appears and a repeated start does not change its ID or deadline;
 5. confirm one eligible spectator can place an idempotent token bet while seated players and the judge are rejected;
 6. confirm Telegram/VK notification diagnostics are queued/sent without duplicate delivery;
 7. close/settle or refund the test pool and verify ledger balances once.

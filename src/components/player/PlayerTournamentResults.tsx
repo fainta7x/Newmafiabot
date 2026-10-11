@@ -28,7 +28,7 @@ const GROUPS: Array<{ title: string; match: (phase: Phase) => boolean }> = [
 ];
 
 const mineLabel = (item: TournamentItem) => (
-  item.participated ? 'вы играли' : item.my_registration === 'confirmed' ? 'вы записаны' : item.my_registration === 'reserve' ? 'вы в резерве' : ''
+  item.participated ? 'участие' : item.my_registration === 'confirmed' ? 'запись есть' : item.my_registration === 'reserve' ? 'в резерве' : ''
 );
 
 /**
@@ -61,7 +61,7 @@ export default function PlayerTournamentResults() {
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
           <div className="mb-3 px-1">
             <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/40">Турниры</div>
-            <p className="mt-1 text-[13px] leading-5 text-white/50">Состав, игры, таблица и номинации любого турнира — играете вы в нём или нет.</p>
+            <p className="mt-1 text-[13px] leading-5 text-white/50">Состав, игры, таблица и номинации любого турнира — даже если участия нет.</p>
           </div>
           {error ? <div role="alert" className="rounded-2xl bg-white/[0.03] p-4 text-sm text-red-300">{error}</div>
             : items === null ? <div role="status" className="rounded-2xl bg-white/[0.03] p-4 text-sm text-white/45">Загружаем турниры…</div>

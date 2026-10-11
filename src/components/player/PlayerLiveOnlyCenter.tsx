@@ -9,13 +9,13 @@ export default function PlayerLiveOnlyCenter({ compact = false }: { compact?: bo
 
     const refresh = async () => {
       try {
-        const response = await fetch('/api/player/evening-journey', {
+        const response = await fetch('/api/player/evening-live-status', {
           credentials: 'include',
           cache: 'no-store',
         });
         if (!response.ok) return;
         const body = await response.json().catch(() => ({}));
-        if (!cancelled) setIsLive(body?.journey?.phase === 'live');
+        if (!cancelled) setIsLive(body?.live === true);
       } catch {
         // The floating control is optional; keep the cabinet clean on fetch errors.
       }

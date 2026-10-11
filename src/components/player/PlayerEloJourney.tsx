@@ -115,7 +115,7 @@ export default function PlayerEloJourney({
       <div className={`${embedded ? 'profile-elo-content' : ''} mx-auto w-full max-w-[430px] space-y-3`}>
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">
           {onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}
-          <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">История Elo</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая партия раскладывается на командный результат, силу состава и личные игровые баллы.</p></div>
+          <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">История Elo</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая игра даёт очки за результат команды, силу состава и твою личную игру.</p></div>
         </div>}
 
         <section className="rounded-[28px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.07] to-white/[0.025] p-4">

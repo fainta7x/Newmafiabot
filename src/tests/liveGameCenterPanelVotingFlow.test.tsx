@@ -155,6 +155,25 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });
 
+  it('offers a one-button zero-round split and passes the two chosen nominees', () => {
+    const quickSplit = vi.fn();
+    const currentRound: VotingRound = {
+      round_number: 1, is_revote: false, nominated_seats: [3, 5, 8], vote_counts: {}, eligible_voters: 10, day_number: 0,
+      outcome: 'pending', eliminated_seats: [], table_leave_votes: null,
+    };
+    const props = { ...baseProps(), phase: 'day_voting' as const, nextSpeaker: null, nominations: [3, 5, 8], votingRounds: [currentRound], activeVotingRoundIndex: 0, votingStage: 'collecting' as const };
+    const { rerender } = render(<CenterPanel {...props} />);
+    expect(screen.queryByTestId('live-quick-split')).toBeNull();
+
+    rerender(<CenterPanel {...props} quickSplitAvailable handleQuickSplit={quickSplit} />);
+    fireEvent.click(screen.getByTestId('live-quick-split'));
+    fireEvent.click(screen.getByRole('button', { name: '#3' }));
+    expect(quickSplit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '#8' }));
+    expect(quickSplit).toHaveBeenCalledWith([3, 8]);
+    expect(screen.getByTestId('live-quick-split')).toBeTruthy();
+  });
+
   it('shows the explicit voter count rather than the aggregate remainder preview', () => {
     const currentRound: VotingRound = {
       round_number: 1,

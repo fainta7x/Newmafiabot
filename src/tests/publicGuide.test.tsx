@@ -14,7 +14,7 @@ describe('public guide for novices', () => {
     expect(guideTabFromSearch('?tab=roles')).toBe('roles');
     expect(guideTabFromSearch('?tab=rules')).toBe('rules');
     expect(guideTabFromSearch('?tab=glossary')).toBe('glossary');
-    expect(guideTabFromSearch('?tab=quiz')).toBe('quiz');
+    expect(guideTabFromSearch('?tab=quiz')).toBe('quiz'); // stable old deep link opens the new course
     expect(guideTabFromSearch('?tab=lessons')).toBe('lessons');
     expect(guideTabFromSearch('?tab=split')).toBe('split');
     expect(guideTabFromSearch('?tab=trainers')).toBe('trainers');
@@ -77,16 +77,18 @@ describe('public guide for novices', () => {
     expect(screen.getByText(/Такого слова пока нет/)).toBeTruthy();
   });
 
-  it('lets a novice check the approved basics without a login or rewards', () => {
+  it('replaces trivia with five stages of analysis and concrete reasoning feedback', () => {
     render(<PublicGuide initialTab="quiz" />);
-    for (const answer of ['Не меньше 8', 'Один Дон и одна мафия', 'Следующая речь длится 30 секунд', 'Нет']) {
-      fireEvent.click(screen.getByRole('button', { name: answer }));
-      fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
-      expect(screen.getByRole('status').textContent).toContain('Верно');
-      fireEvent.click(screen.getByRole('button', { name: /Следующий вопрос|Посмотреть результат/ }));
-    }
-    expect(screen.getByText('Готово: 4 из 4')).toBeTruthy();
-    expect(screen.getByText(/не влияет на доступ к играм, Elo или награды/)).toBeTruthy();
+    expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
+    expect(screen.getByTestId('mafia-reasoning-course').querySelector('h2')?.textContent).toBe('Игровое мышление');
+    expect(screen.queryByTestId('reasoning-task')).toBeNull();
+    expect(screen.getByTestId('reasoning-level-motives').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByTestId('reasoning-level-facts'));
+    expect(screen.getByTestId('reasoning-practice')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '№10 — красный, потому что говорил спокойно' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать ответ' }));
+    expect(screen.getByRole('status').textContent).toContain('Здесь есть ошибка в рассуждении');
+    expect(screen.getByRole('status').textContent).toContain('Более обоснованный ответ:');
   });
 
   it('offers a linked learning route and remembers what was read', () => {
@@ -101,14 +103,14 @@ describe('public guide for novices', () => {
     expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Голосование');
     fireEvent.click(screen.getByRole('button', { name: /Следующий урок/ }));
     expect(screen.getByTestId('guide-lesson-content').textContent).toContain('Как не получить замечание');
-    fireEvent.click(screen.getByRole('button', { name: /Проверить себя/ }));
-    expect(screen.getByTestId('guide-quiz')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Игровое мышление/ }));
+    expect(screen.getByTestId('mafia-reasoning-course')).toBeTruthy();
     cleanup();
 
     // The home screen shows the progress and offers the next step.
     render(<PublicGuide />);
     expect(screen.getByText('Пройдено 4 из 5')).toBeTruthy();
-    expect(screen.getByTestId('guide-continue').textContent).toContain('Проверить себя');
+    expect(screen.getByTestId('guide-continue').textContent).toContain('Тренировать мышление');
   });
 
   it('keeps the catalog consistent so new lessons, articles and trainers slot in', () => {

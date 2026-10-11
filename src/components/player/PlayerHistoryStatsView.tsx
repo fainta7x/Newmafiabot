@@ -123,7 +123,7 @@ export default function PlayerGamesArchive({
         ) : (
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
             <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Все игры клуба</h2>
-            <p className="mt-1 text-[12px] leading-4 text-white/35">Твои игры с ролями, Elo и фильтрами — в профиле, во вкладке «Игры».</p>
+            <p className="mt-1 text-[12px] leading-4 text-white/35">Игры с ролями, Elo и фильтрами — в профиле, во вкладке «Игры».</p>
             <div className="mt-3">
               {allGamesError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGamesError}</p>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>

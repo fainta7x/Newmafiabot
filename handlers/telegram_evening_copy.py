@@ -346,7 +346,7 @@ def _response_lines(participants: list[dict], *, names: bool = True) -> list[str
     budget = _RESPONSE_NAME_BUDGET
     for status, title in (
         ("going", "✅ Идут на весь вечер, игры не выбрали"),
-        ("late", "⏳ Придут позже, игры не выбрали"),
+        ("late", "⏳ Придут позже, время прибытия не уточнили"),
         ("thinking", "🤔 Пока думают"),
         ("declined", "❌ Не смогут"),
     ):
@@ -373,7 +373,7 @@ def _is_club_evening(evening: dict) -> bool:
     return str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper() in {"CASUAL", "STANDARD"}
 
 
-_CLUB_ACTION = "Отметь кнопкой ниже, придёшь ли, и выбери игры"
+_CLUB_ACTION = "Нажми «✅ Буду» — запишем на все игры. Только на часть вечера? Выбери конкретные игры."
 
 
 def club_short_text(evening: dict, slots: list[dict] | None = None, *, action: bool = True) -> str:
@@ -441,9 +441,9 @@ def private_event_text(evening: dict, *, reminder: bool = False) -> str:
         return novice_short_text(evening)
     heading = "🔔 <b>Напоминание об игровом вечере</b>" if reminder else "🎭 <b>Игровой вечер 2LA Noire</b>"
     action = (
-        "Ты ещё не выбрал игры. Открой вечер и отметь те игры, на которые придёшь."
+        "Если идёшь на весь вечер, нажми «✅ Буду». Только на часть — выбери конкретные игры."
         if reminder
-        else "Открой вечер и отметь конкретные игры, на которые придёшь."
+        else "Нажми «✅ Буду» для записи на весь вечер или выбери конкретные игры."
     )
     return (
         f"{heading}\n\n"
@@ -487,9 +487,9 @@ def recruitment_private_text(evening: dict, underfilled_slots: list[dict]) -> st
         when = "на ближайшем вечере"
     shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
-        "Привет! 👋\n\n"
-        f"На играх {when} пока есть недобор:\n{shortages}\n\n"
-        "Если можешь присоединиться — выбери подходящие игры кнопкой ниже 👇"
+        "🔔 <b>Нужны игроки</b>\n\n"
+        f"📅 {when}\n📍 {venue_html(evening.get('venue'))}\n\n{shortages}\n\n"
+        "На весь вечер — «✅ Буду». Если придёшь позже, укажи игру, с которой начнёшь 👇"
     )
 
 
@@ -504,9 +504,9 @@ def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
         when = "на ближайшем вечере"
     shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
-        "Ребята, всем привет! 👋\n\n"
-        f"На играх {when} пока не везде собран полный состав:\n{shortages}\n\n"
-        "Если можете присоединиться к этим играм — записывайтесь, пожалуйста 🙌"
+        "🎭 <b>Нужны игроки</b>\n\n"
+        f"📅 {when}\n📍 {venue_html(evening.get('venue'))}\n\n{shortages}\n\n"
+        "На весь вечер — «✅ Буду». На отдельные игры — выбери их в приложении 👇"
     )
 
 
@@ -529,7 +529,7 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
             head = [novice_short_text(evening, slot_rows, action=False)]
         else:
             head = [f"{label} · <b>2LA Noire</b>", event_base_text(evening, slot_rows)]
-        action = _CLUB_ACTION if club or novice else "Ответь кнопками ниже, а игры выбери в приложении — так мы быстрее соберём столы."
+        action = _CLUB_ACTION if club or novice else "Нажми «✅ Буду» для записи на весь вечер. На часть вечера — выбери конкретные игры."
         sections = [
             *head,
             "\n".join(_slot_load_lines(slot_rows, timezone_name)),

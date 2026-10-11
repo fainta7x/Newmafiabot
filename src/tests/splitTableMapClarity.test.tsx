@@ -8,7 +8,7 @@ describe('readable split table visual', () => {
     render(<SplitTableMap candidates={[3, 1, 8, 5]} split={[1, 5]} seat={7} />);
     const figure = screen.getByTestId('split-table-map');
     expect(within(figure).getByText('Попил: 1 / 5')).toBeTruthy();
-    expect(within(figure).getByText('Ты: 7')).toBeTruthy();
+    expect(within(figure).getByText('Я: 7')).toBeTruthy();
     expect(within(figure).queryByTestId('split-map-vote-legend')).toBeNull();
     expect(within(figure).getByLabelText('Выставлены по порядку').textContent).toContain('3→1→8→5');
   });

@@ -89,6 +89,16 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname.endsWith('/invitation-context')) return unavailableProfile
     ? json({ can_invite: false, reason: 'recipient_blocked', recipient_state: 'unavailable', evenings: [] })
     : json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });
+  if (url.pathname === '/api/player/team-connections') {
+    const mate = (id: string, nickname: string, games: number, wins: number) => ({ player_id: id, nickname, avatar_url: '', games, wins, win_rate: Math.round((wins / games) * 100) });
+    return json({
+      my_team: { red: [mate('a', 'Александра с длинным никнеймом', 7, 5), mate('b', 'Богданчик', 4, 2)], black: [mate('c', 'Чагин', 5, 3)] },
+      role_pairs: [{ my_role: 'don', games: 5, partners: [{ ...mate('c', 'Чагин', 4, 3), partner_role: 'mafia' }] }],
+      opponents: { hard: [mate('d', 'Вера', 5, 1)], easy: [mate('e', 'Игорь', 4, 4)] },
+      stages: { counts: { acquaintance: 6, teammates: 3, tandem: 1 }, closest: [{ player_id: 'f', nickname: 'Глеб', avatar_url: '', stage: 'acquaintance', shared_games: 3, same_team_games: 2, games_to_next: 1 }] },
+      never_played: [{ player_id: 'g', nickname: 'Дарья', avatar_url: '', recent_games: 3 }],
+    });
+  }
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
   if (url.pathname === '/api/player/profile-completeness') return json({ completeness: { percentage: 88, complete: false, missing_fields: ['phone'], important_missing_fields: [], next_missing_field: 'phone', fields: { phone: { label: 'Телефон', weight: 12, complete: false, state: 'missing' } }, updated_at: null, checked_at: null } });

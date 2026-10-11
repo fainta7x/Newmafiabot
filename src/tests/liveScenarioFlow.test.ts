@@ -78,8 +78,8 @@ describe('stage 3.2 live game scenario', () => {
   it('allows first-killed best move only for a red role on Night 1', () => {
     expect(canRegisterFirstKilled(1, 'Мирный', true)).toBe(true);
     expect(canRegisterFirstKilled(1, 'Шериф', true)).toBe(true);
-    expect(canRegisterFirstKilled(1, 'Мафия', true)).toBe(false);
-    expect(canRegisterFirstKilled(1, 'Дон', true)).toBe(false);
+    expect(canRegisterFirstKilled(1, 'Мафия', true)).toBe(true); // a black self-shot goes through ЛХ too (owner, 2026-10-10)
+    expect(canRegisterFirstKilled(1, 'Дон', true)).toBe(true);
     expect(canRegisterFirstKilled(2, 'Мирный', true)).toBe(false);
   });
 

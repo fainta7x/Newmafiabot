@@ -84,6 +84,14 @@ Do not use:
 - decorative gradients on generic buttons/inputs;
 - arbitrary per-screen shadows.
 
+## Wording and voice (owner, 2026-10-10)
+
+Player and public screens speak in plain words and avoid addressing the reader directly, so the «ты» / «вы» question never comes up:
+- Labels about the player's own data are in the first person, like the answer buttons: «Мои игры», «Моя команда», «Мой стол», statuses «Иду», «Приду позже», «Пока думаю», «Не иду». Never past-tense forms that carry gender («ты записан»).
+- Explanations are impersonal: «Записаться можно на странице вечера», «Нажатие на место убирает игрока», «Нужно выбрать роль» — not «Нажмите…» / «Выбери…».
+- No rule-book or developer language on screens («минимум две совместные игры», «выборка», «серверный адаптер», «через журнал жетонов»). A threshold may be stated once, in plain words, only where it changes what the player sees.
+- «вы» is not used on player/public screens. Staff screens (organizer CRM, OBS setup pages) are written for the operator and are not covered by this rule.
+
 ## Organizer CRM contract
 
 Organizer CRM uses the same product language, but on mobile it must behave like a work tool rather than a dashboard catalogue.

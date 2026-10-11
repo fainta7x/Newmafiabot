@@ -75,6 +75,22 @@ describe('evening RSVP nudges', () => {
     expect((await byPlayer())['p-thinking']).toEqual(['thinking_followup', 'thinking_followup']);
   });
 
+  it('late arrival reminder includes first chosen game and is not duplicated', async () => {
+    const { db, byPlayer } = await setup(20);
+    const { loadEveningSlotPlan, replacePlayerSlotSelection } = await import('../server/services/eveningSlotPlanningService.ts');
+    const plan = await loadEveningSlotPlan(db, 'e1');
+    expect(plan.slots.length).toBeGreaterThanOrEqual(3);
+    await replacePlayerSlotSelection(db, 'e1', 'p-late', plan.slots.slice(2).map((slot) => slot.id), { notifyOrganizer: false });
+    await db.run("UPDATE evening_participants SET response_status='late', registration_status='late' WHERE id='ep-late'");
+    await queueEveningRsvpNudges(db);
+    await queueEveningRsvpNudges(db);
+    expect((await byPlayer())['p-late']).toEqual(['evening_reminder']);
+    const notification = await db.get<any>(
+      "SELECT text FROM telegram_message_outbox WHERE player_id = 'p-late' AND event_type = 'evening_reminder' LIMIT 1",
+    );
+    expect(notification?.text).toContain('с игры №3');
+  });
+
   it('picks 10:00 Moscow on game day for «утром», or 3 h before when the morning is gone', () => {
     const start = '2026-10-02T16:00:00.000Z'; // 19:00 MSK
     expect(rsvpFollowupAt(start, 'morning', Date.parse('2026-10-01T12:00:00Z'))).toBe('2026-10-02T07:00:00.000Z');

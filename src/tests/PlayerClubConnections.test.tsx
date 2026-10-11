@@ -17,13 +17,12 @@ it('makes club pairs primary, switches the list and opens canonical profiles', a
   expect(within(club).getByRole('button', { name: 'Вера' })).toBeTruthy();
   expect(within(club).queryByRole('button', { name: 'Анна' })).toBeNull();
 });
-it('labels single-game samples and shows factual last-event encounters', async () => {
-  const person = { player_id: 'b', nickname: 'Борис', games: 1, wins: 1, win_rate: 100, avatar_url: '' };
-  setup({ rivals: [], teammates: [], club_duos: { red: [], black: [] }, club_first_games: { red: [{ ...duo, games: 1, wins: 1, win_rate: 100 }], black: [] }, recent_event: { title: 'Последний вечер', date: '2026-10-07T18:00:00Z', teammates: [person], rivals: [person] } });
+it('labels single-game pairs as too early to judge and keeps personal lists out of the club view', async () => {
+  setup({ teammates: [], club_duos: { red: [], black: [] }, club_first_games: { red: [{ ...duo, games: 1, wins: 1, win_rate: 100 }], black: [] }, rivals: [{ player_id: 'r', nickname: 'Личный соперник', games: 3, wins: 1, win_rate: 33, avatar_url: '' }] });
   const club = await screen.findByTestId('club-duos');
-  expect(within(club).getByText(/Рано делать выводы/).closest('details')?.open).toBe(true);
-  expect(screen.getByTestId('club-recent').textContent).toContain('Последний вечер');
-  expect(within(screen.getByTestId('club-recent')).getAllByText(/победа твоей команды/)).toHaveLength(2);
+  expect(within(club).getByText(/рано судить/).closest('details')?.open).toBe(true);
+  expect(screen.queryByText('Личный соперник')).toBeNull();
+  expect(screen.queryByTestId('club-recent')).toBeNull();
 });
 
 it('shows six distinct club stories and switches accessible tabs without losing profile actions', async () => {
@@ -31,15 +30,15 @@ it('shows six distinct club stories and switches accessible tabs without losing 
   const stories = await screen.findByTestId('club-stories');
   expect(stories.parentElement?.firstElementChild).toBe(stories);
   expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
-  expect(within(stories).getByText('Дон + мафия')).toBeTruthy();
-  expect(within(stories).getByText('Шериф + мирный')).toBeTruthy();
-  fireEvent.click(within(stories).getByRole('button', { name: 'Две стороны' }));
-  expect(within(stories).getByText('Ровные противостояния')).toBeTruthy();
-  expect(within(stories).getByText('Вместе за оба цвета')).toBeTruthy();
+  expect(within(stories).getByText('Дон и мафия')).toBeTruthy();
+  expect(within(stories).getByText('Шериф и мирный')).toBeTruthy();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Соперники' }));
+  expect(within(stories).getByText('Равные соперники')).toBeTruthy();
+  expect(within(stories).getByText('Играют вместе и за красных, и за чёрных')).toBeTruthy();
   expect(within(stories).queryByText('Чёрные тройки')).toBeNull();
-  fireEvent.click(within(stories).getByRole('button', { name: 'Круг игры' }));
-  expect(within(stories).getByText('Разные составы')).toBeTruthy();
+  fireEvent.click(within(stories).getByRole('button', { name: 'Знакомства' }));
+  expect(within(stories).getByText('Кто знает всех')).toBeTruthy();
   fireEvent.click(within(stories).getByRole('button', { name: 'Богданчик' }));
   expect(open).toHaveBeenCalledWith('p2');
-  expect(within(stories).getByText(/Порог игр — условие показа/)).toBeTruthy();
+  expect(within(stories).getByText(/Что здесь считается/)).toBeTruthy();
 });

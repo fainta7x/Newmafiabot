@@ -142,7 +142,8 @@ async def _send_normal_start(
         if event_kb:
             await message.answer(
                 "🎯 <b>Запись на игровой вечер</b>\n\n"
-                "Открой вечер и отметь конкретные игры, на которые придёшь. "
+                "Открой вечер: «✅ Буду» запишет на все игры. "
+                "Если придёшь позже — укажи стартовую игру; если только на часть вечера — выбери игры отдельно. "
                 "Сумма к оплате посчитается автоматически.",
                 parse_mode="HTML",
                 reply_markup=event_kb,
@@ -187,6 +188,33 @@ async def _send_normal_start(
     )
     from handlers.bot_home import send_home
     await send_home(message)
+
+
+@router.message(Command("link"), F.chat.type == "private")
+async def send_direct_link(message: Message):
+    player_url = bot_menu.browser_player_url()
+    if not player_url:
+        await message.answer("⚠️ Адрес приложения пока не настроен в боте. Сообщи организатору.")
+        return
+    user_id = message.from_user.id if getattr(message, "from_user", None) else None
+    is_admin = user_id in config.ADMIN_IDS
+    text = (
+        "🌐 <b>Прямая ссылка на приложение</b>\n\n"
+        f"<code>{player_url}</code>\n\n"
+        "Откроется в любом браузере. В браузере вход через ВКонтакте; вход через Telegram работает только "
+        "из приложения внутри Telegram (кнопка «🎭 Открыть 2LA Noire»)."
+    )
+    if is_admin:
+        text += (
+            "\n\n🛠 <b>Кабинет организатора</b> (вход по паролю организатора):\n"
+            f"<code>{bot_menu.direct_app_url()}</code>"
+        )
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=bot_menu.browser_inline_keyboard(is_admin=is_admin),
+        disable_web_page_preview=True,
+    )
 
 
 @router.message(Command("app"), F.chat.type == "private")
@@ -295,11 +323,17 @@ async def start_with_registration(message: Message, command: CommandObject, stat
 
     await state.set_state(RegistrationForm.waiting_for_nickname)
     await state.update_data(pending_start_arg=args)
+    from handlers.telegram_evening_copy import club_links
+    organizer_url = club_links().get("organizer_telegram")
+    organizer_markup = (InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✉️ У меня уже есть профиль — написать организатору", url=organizer_url)],
+    ]) if organizer_url else None)
     await message.answer(
         "🎭 Добро пожаловать в 2LA Noire!\n\n"
         "Чтобы зарегистрироваться, пришли одним сообщением свой игровой ник. "
         "Он будет отображаться в приложении, записях, играх, рейтингах и турнирах.\n\n"
-        "Если ты уже играл в клубе и профиль точно есть в базе, не создавай второй — напиши организатору для привязки существующего профиля."
+        "Если у тебя уже есть профиль в клубе, не создавай второй — организатор поможет привязать его к Telegram.",
+        reply_markup=organizer_markup,
     )
 
 

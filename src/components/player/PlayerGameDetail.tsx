@@ -1,6 +1,7 @@
 import React from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
+import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
@@ -102,11 +103,8 @@ export type PlayerGameDetailData = {
 const roleLabel = (role: PlayerGameDetailData['players'][number]['role']) =>
   getPlayerGameRoleLabel(role) ?? 'Роль не указана';
 
-const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) => {
-  if (winner === 'red') return '🔴 Победа красных';
-  if (winner === 'black') return '⚫ Победа чёрных';
-  return 'Результат не указан';
-};
+const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) =>
+  getPlayerGameWinnerLabel(winner) ?? 'Результат не указан';
 
 const endReasonLabel = (reason: string) => {
   if (!reason || reason === 'normal') return 'Обычное завершение';

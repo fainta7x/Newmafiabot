@@ -4,6 +4,7 @@ import {
   availableVotes, evaluateVotes, exploreVotes, outcomeName, outcomeSummary,
   pendingVoters, treeScenarioForAttempt, type Seat,
 } from '../../../lib/mafiaReasoningDecisionTree.ts';
+import { reportLearningActivity } from '../../../lib/learningActivityClient.ts';
 
 type SavedTree = { attempt: number; choices: Record<number, Seat> };
 const storageItem = 'mafia-reasoning-tree-v1';
@@ -44,6 +45,8 @@ export default function MafiaReasoningDecisionTree({ onBack }: { onBack: () => v
   const choose = (voter: number, vote: number) => {
     if (next !== voter || !availableVotes(scenario, voter).includes(vote)) return;
     setState((prev) => ({ ...prev, choices: { ...prev.choices, [voter]: vote } }));
+    // The last hand placed finishes one try of the exercise (it has no pass mark: it counts as done).
+    if (pending.every((other) => other === voter || state.choices[other] !== undefined)) reportLearningActivity({ track: 'reasoning-extra', item: 'tree', passed: true });
     setRevealed(false);
   };
   const undo = () => {

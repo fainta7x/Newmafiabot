@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PublicGuide, guideTabFromSearch } from '../components/public/PublicGuide.tsx';
 import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, TABLE_RULES, searchGlossary } from '../lib/clubGuide.ts';
 import { GUIDE_ENTRIES, GUIDE_LESSONS, GUIDE_SHELVES, pluralRu } from '../lib/guideCatalog.ts';
@@ -56,10 +56,12 @@ describe('public guide for novices', () => {
     fireEvent.click(screen.getAllByTestId('guide-role')[1]);
     expect(screen.getByTestId('guide-role-card').textContent).toContain(ROLES[1].task);
     fireEvent.click(screen.getByTestId('guide-back'));
+    // Going back is a history step; jsdom 30.1 settles it asynchronously, like a browser: wait for the shelf to be back.
+    await waitFor(() => expect(screen.queryAllByTestId('guide-role')).toHaveLength(0));
 
     fireEvent.click(await screen.findByTestId('guide-tab-rules'));
     // A novice sees plain words first; the club terms are one tap away. Topics open on tap.
-    expect(screen.getByText('Как тут наказывают')).toBeTruthy();
+    expect(await screen.findByText('Как тут наказывают')).toBeTruthy();
     expect(screen.queryByText(/ППК/)).toBeNull();
     fireEvent.click(screen.getByTestId('guide-rules-detailed'));
     for (const topic of screen.getAllByTestId('guide-rule')) {
@@ -69,9 +71,10 @@ describe('public guide for novices', () => {
     }
     expect(screen.getAllByText(/ППК/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId('guide-back'));
+    await waitFor(() => expect(screen.queryAllByTestId('guide-rule')).toHaveLength(0));
 
     fireEvent.click(await screen.findByTestId('guide-tab-glossary'));
-    fireEvent.change(screen.getByTestId('guide-search'), { target: { value: 'техфол' } });
+    fireEvent.change(await screen.findByTestId('guide-search'), { target: { value: 'техфол' } });
     expect(screen.getAllByTestId('guide-term').map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Техфол')]));
     fireEvent.change(screen.getByTestId('guide-search'), { target: { value: 'абракадабра' } });
     expect(screen.getByText(/Такого слова пока нет/)).toBeTruthy();

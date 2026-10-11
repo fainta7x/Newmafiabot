@@ -57,7 +57,7 @@ describe('Advanced reasoning labs: pure vote rules and playable learning flow', 
   });
 
   it('uses only reviewed facts and gives each step a unique best, defended answer', () => {
-    expect(REASONING_LABS.map((topic) => topic.id)).toEqual(['vote', 'hypotheses', 'timeline', 'pressure', 'action']);
+    expect(REASONING_LABS.map((topic) => topic.id)).toEqual(['vote', 'hypotheses', 'timeline', 'pressure', 'action', 'decide']);
     for (const topic of REASONING_LABS) {
       expect(topic.cases.length).toBeGreaterThanOrEqual(2);
       expect(new Set(topic.cases.map((item) => item.id)).size).toBe(topic.cases.length);
@@ -90,7 +90,7 @@ describe('Advanced reasoning labs: pure vote rules and playable learning flow', 
     fireEvent.click(screen.getByTestId('reasoning-open-labs'));
     expect(screen.queryByTestId('reasoning-level-facts')).toBeNull();
     expect(screen.getByTestId('reasoning-labs-topics')).toBeTruthy();
-    expect(screen.getAllByTestId(/reasoning-lab-topic-/)).toHaveLength(5);
+    expect(screen.getAllByTestId(/reasoning-lab-topic-/)).toHaveLength(6);
     fireEvent.click(screen.getByTestId('reasoning-lab-topic-vote'));
     expect(screen.queryByTestId('reasoning-labs-topics')).toBeNull();
     expect(screen.getByTestId('reasoning-labs-task')).toBeTruthy();
@@ -158,5 +158,23 @@ describe('Advanced reasoning labs: pure vote rules and playable learning flow', 
       expect(options.filter((option) => option.points === 2).map((option) => option.label.split(' (')[0]))
         .toEqual([`Счёт ${counts[first]}:${counts[last]}`]);
     });
+  });
+  it('«Решить и высказаться»: six cases where committing on a stated basis beats staying passive, which beats a reckless move', () => {
+    const topic = REASONING_LABS.find((item) => item.id === 'decide')!;
+    expect(topic.title).toBe('Решить и высказаться');
+    expect(topic.cases).toHaveLength(6);
+    for (const item of topic.cases) {
+      expect(item.steps).toHaveLength(2);
+      for (const step of item.steps) {
+        // exactly one committed answer, one cautious-but-weaker, one reckless or mechanically wrong
+        expect(step.options.map((option) => option.points).sort()).toEqual([0, 1, 2]);
+      }
+    }
+    // The mechanics the cases rely on: four hands of six already decide the vote even if both others go to the last candidate.
+    const hands = topic.cases.find((item) => item.id === 'decide-hands')!;
+    expect(hands.steps[1].options.find((option) => option.points === 2)!.label).toContain('4:2');
+    expect(hands.steps[1].facts.join(' ')).toContain('четыре руки из шести');
+    // Abstaining is not possible: the unspent hand goes to the last candidate.
+    expect(hands.steps[0].options.find((option) => option.points === 0)!.why).toContain('уходит последнему кандидату');
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AsyncState from '../ui/AsyncState.tsx';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 
 type ReplayEvent = {
   id: string;
@@ -38,7 +39,7 @@ type SpeechClip = {
 
 type SpeechView = 'chronological' | 'rounds';
 
-const roleLabel = (role: string | null) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : '—';
+const roleLabel = (role: string | null) => getPlayerGameRoleLabel(role) ?? '—';
 const roleIcon = (role: string | null) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : role === 'don' ? '🎩' : '🎭';
 const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'finish' ? '🏁' : '•';
 const durationLabel = (seconds: number) => {

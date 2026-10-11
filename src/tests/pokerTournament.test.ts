@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  normalizePokerTournamentConfig, planPokerTournamentTables, pokerTournamentClock, pokerTournamentRebuyOpen, TURBO_BLIND_LEVELS,
+  normalizePokerTournamentConfig, planPokerTournamentTables, pokerTournamentClock, pokerTournamentLateRegOpen, pokerTournamentRebuyOpen,
+  pokerTournamentSchedule, TURBO_BLIND_LEVELS,
 } from '../shared/pokerTournament.ts';
 
 const NOW = Date.parse('2026-10-20T16:00:00Z');
@@ -11,7 +12,7 @@ describe('poker tournament settings', () => {
     const result = normalizePokerTournamentConfig({ startAt: start }, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.config).toMatchObject({ minPlayers: 4, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 4, prizeTokens: [] });
+    expect(result.config).toMatchObject({ minPlayers: 4, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 6, rebuyCostTokens: 1000, rebuyChips: 1000, lateRegUntilLevel: 6, prizeTokens: [] });
     expect(result.config.levels[0]).toEqual({ small: 10, big: 20 });
   });
 
@@ -19,6 +20,7 @@ describe('poker tournament settings', () => {
     const ok = normalizePokerTournamentConfig({ start_at: start, min_players: 5, max_players: 20, level_minutes: 8, seats_per_table: 8, prize_tokens: [3000, 1500, 500] }, NOW);
     expect(ok.ok && ok.config).toMatchObject({ minPlayers: 5, maxPlayers: 20, levelMinutes: 8, seatsPerTable: 8, prizeTokens: [3000, 1500, 500] });
     for (const bad of [
+      { startAt: start, lateRegUntilLevel: -1 }, { startAt: start, lateRegUntilLevel: TURBO_BLIND_LEVELS.length + 1 },
       { startAt: 'soon' }, { startAt: '2026-10-20T10:00:00Z' }, { startAt: start, seatsPerTable: 9 }, { startAt: start, minPlayers: 1 },
       { startAt: start, minPlayers: 6, maxPlayers: 4 }, { startAt: start, prizeTokens: [-5] }, { startAt: start, prizeTokens: ['x'] }, { startAt: start, levelMinutes: 0 },
     ]) expect(normalizePokerTournamentConfig(bad, NOW).ok, JSON.stringify(bad)).toBe(false);
@@ -54,6 +56,33 @@ describe('poker tournament clock', () => {
     expect(after.level).toBe(last);
     expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: last }, during)).toBe(true);
     expect(pokerTournamentRebuyOpen({ rebuyUntilLevel: last }, after)).toBe(false);
+  });
+});
+
+describe('late registration and the table of levels', () => {
+  const config = { levels: TURBO_BLIND_LEVELS, levelMinutes: 6 };
+  const startedAt = Date.parse(start);
+
+  it('lets a newcomer in until the chosen level ends, never in a tournament saved without the setting', () => {
+    const late = { lateRegUntilLevel: 6 };
+    expect(pokerTournamentLateRegOpen(late, { elapsedLevel: 6 })).toBe(true);
+    expect(pokerTournamentLateRegOpen(late, { elapsedLevel: 7 })).toBe(false);
+    expect(pokerTournamentLateRegOpen({ lateRegUntilLevel: 0 }, { elapsedLevel: 1 })).toBe(false);
+    expect(pokerTournamentLateRegOpen({}, { elapsedLevel: 1 })).toBe(false);
+    const clock = (minutes: number) => pokerTournamentClock(config, startedAt, startedAt + minutes * 60_000);
+    expect(pokerTournamentLateRegOpen(late, clock(35))).toBe(true);   // the 6th level lasts until minute 36
+    expect(pokerTournamentLateRegOpen(late, clock(36))).toBe(false);
+  });
+
+  it('lists every level with its start, the stack in big blinds and what is still possible', () => {
+    const rows = pokerTournamentSchedule({ ...config, startingStack: 1000, rebuyUntilLevel: 6, lateRegUntilLevel: 4 }, startedAt);
+    expect(rows).toHaveLength(TURBO_BLIND_LEVELS.length);
+    expect(rows[0]).toMatchObject({ level: 1, small: 10, big: 20, startMinute: 0, startingStackBb: 50, lateRegOpen: true, rebuyOpen: true });
+    expect(rows[0].startsAt).toBe('2026-10-20T18:00:00.000Z');
+    expect(rows[5]).toMatchObject({ level: 6, big: 100, startMinute: 30, startingStackBb: 10, lateRegOpen: false, rebuyOpen: true });
+    expect(rows[5].startsAt).toBe('2026-10-20T18:30:00.000Z');
+    expect(rows[6]).toMatchObject({ level: 7, rebuyOpen: false, lateRegOpen: false });
+    expect(pokerTournamentSchedule({ ...config, startingStack: 1000, rebuyUntilLevel: 0 }, null)[0]).toMatchObject({ startsAt: null, lateRegOpen: false, rebuyOpen: false });
   });
 });
 

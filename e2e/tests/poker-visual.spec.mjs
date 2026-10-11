@@ -106,3 +106,29 @@ test('poker chat: an emote over the sender, the chat button above the actions, t
   const keyboardShot = await page.screenshot({ path: info.outputPath('poker-chat-keyboard-390x440.png') });
   await info.attach('poker-chat-keyboard-390x440.png', { body: keyboardShot, contentType: 'image/png' });
 });
+
+test('poker tournament card: the table of levels and the late entry fit a phone', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/e2e/poker-harness.html?tournaments=1');
+  const entry = page.getByTestId('poker-tournament-late-reg');
+  await expect(entry).toBeVisible();
+  const entryBox = await entry.boundingBox();
+  expect(entryBox.x).toBeGreaterThanOrEqual(0);
+  expect(entryBox.x + entryBox.width).toBeLessThanOrEqual(390);
+  expect(entryBox.height).toBeGreaterThanOrEqual(44);
+
+  await page.getByText('Уровни и время').click();
+  const table = page.getByTestId('poker-tournament-schedule');
+  await expect(table).toBeVisible();
+  await expect(table).toContainText('10/20');
+  await expect(table).toContainText('Поздняя запись закрывается после 6-го уровня');
+  const box = await table.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  // No row overflows sideways: every cell stays inside the table's width.
+  const overflow = await table.evaluate((element) => [...element.querySelectorAll('li')].filter((row) => row.scrollWidth > row.clientWidth + 1).length);
+  expect(overflow).toBe(0);
+  await table.scrollIntoViewIfNeeded();
+  const shot = await page.screenshot({ path: info.outputPath('poker-tournament-schedule-390x844.png') });
+  await info.attach('poker-tournament-schedule-390x844.png', { body: shot, contentType: 'image/png' });
+});

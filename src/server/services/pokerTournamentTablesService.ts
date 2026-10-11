@@ -43,6 +43,12 @@ const syncSeatsFromFinishedHand = (lobby: PokerLobby) => {
   }
 };
 
+/** What every table of the tournament carries: the clock and the re-buy terms. */
+const lobbyTournamentFields = (config: PokerTournamentConfig, startedAtMs: number) => ({
+  started_at_ms: startedAtMs, level_minutes: config.levelMinutes, levels: config.levels, rebuy_until_level: config.rebuyUntilLevel,
+  rebuy_cost_tokens: config.rebuyCostTokens, rebuy_chips: config.rebuyChips,
+});
+
 const seatTables = async (db: DatabaseWrapper, row: RunningRow, config: PokerTournamentConfig, startedAtMs: number) => {
   const players = shuffled(await entriesOf(db, row.id, 'e.busted_at IS NULL'));
   if (!players.length) return;
@@ -55,9 +61,31 @@ const seatTables = async (db: DatabaseWrapper, row: RunningRow, config: PokerTou
       tournamentId: row.id,
       tableNo: index + 1,
       title: sizes.length > 1 ? `Турнир «${row.title}» · стол ${index + 1}` : `Турнир «${row.title}»`,
-      tournament: { started_at_ms: startedAtMs, level_minutes: config.levelMinutes, levels: config.levels, rebuy_until_level: config.rebuyUntilLevel, rebuy_cost_tokens: config.rebuyCostTokens, rebuy_chips: config.rebuyChips },
+      tournament: lobbyTournamentFields(config, startedAtMs),
       players: group.map((player) => ({ id: player.player_id, nickname: player.nickname, chips: config.startingStack })),
     });
+  });
+};
+
+/**
+ * A player who enters the running tournament late sits down at the emptiest table with a free seat, or at a new table
+ * when all are full; he plays from the next hand. Before the first seating pass nothing is done here: that pass seats
+ * everybody who is playing, the late entrant included. Must run inside the persisted poker runtime.
+ */
+export const seatLateEntrant = (row: RunningRow, config: PokerTournamentConfig, player: { id: string; nickname: string }) => {
+  const lobbies = pokerTournamentLobbies(row.id);
+  if (!lobbies.length || !row.started_at) return null;
+  const capacity = Math.min(POKER_TOURNAMENT_MAX_SEATS, config.seatsPerTable);
+  const seatless = { id: player.id, nickname: player.nickname, chips: config.startingStack };
+  const target = lobbies.filter((lobby) => lobby.players.length < capacity).sort((a, b) => a.players.length - b.players.length)[0];
+  if (target) {
+    target.players.push({ ...seatless, seat: freePokerSeat(target) });
+    return target;
+  }
+  const tableNo = lobbies.reduce((max, lobby) => Math.max(max, lobby.tournament?.table_no ?? 0), 0) + 1;
+  return createPokerTournamentLobby({
+    tournamentId: row.id, tableNo, title: `Турнир «${row.title}» · стол ${tableNo}`,
+    tournament: lobbyTournamentFields(config, Date.parse(row.started_at)), players: [seatless],
   });
 };
 

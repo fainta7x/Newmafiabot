@@ -2,13 +2,14 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 import {
-  normalizePokerTournamentConfig, pokerTournamentClock, pokerTournamentRebuyOpen, type PokerTournamentConfig,
+  normalizePokerTournamentConfig, pokerTournamentClock, pokerTournamentLateRegOpen, pokerTournamentRebuyOpen, pokerTournamentSchedule,
+  type PokerTournamentConfig,
 } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { withPersistedPokerRuntime } from './pokerPersistenceService.ts';
 import { pokerTournamentLobbies, rebuyPoker } from './pokerLobbyService.ts';
 import { mutateTokenBalance, TokenInsufficientFundsError } from './tokenLedgerService.ts';
-import { processRunningPokerTournaments } from './pokerTournamentTablesService.ts';
+import { processRunningPokerTournaments, seatLateEntrant } from './pokerTournamentTablesService.ts';
 import { parsePokerTournamentAnnounce, runPokerTournamentAnnouncements } from './pokerTournamentAnnouncementService.ts';
 
 export class PokerTournamentError extends Error {
@@ -54,11 +55,13 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
     start_at: row.start_at,
     started_at: row.started_at,
     finished_at: row.finished_at,
-    settings: config,
+    settings: { ...config, lateRegUntilLevel: config.lateRegUntilLevel ?? 0 },
     players,
     spots_left: config.maxPlayers === null ? null : Math.max(0, config.maxPlayers - players),
     clock,
     rebuy_open: Boolean(clock && pokerTournamentRebuyOpen(config, clock)),
+    late_reg_open: Boolean(clock && pokerTournamentLateRegOpen(config, clock)),
+    schedule: pokerTournamentSchedule({ ...config, lateRegUntilLevel: config.lateRegUntilLevel ?? 0 }, Date.parse(row.started_at || row.start_at)),
     alive,
     waiting_rebuy: waitingRebuy,
     standings,
@@ -121,6 +124,33 @@ export async function registerForPokerTournament(db: DatabaseWrapper, tournament
     }
     return row;
   });
+}
+
+/**
+ * Entering a tournament that has already started, until the level chosen by the organizer ends. The player gets the same
+ * starting stack as everyone, enters free of charge like everybody else and is seated at once. Must run inside the persisted
+ * poker runtime (the seat lives in it); the entry and the seat are saved together.
+ */
+export async function lateRegisterInPokerTournament(db: DatabaseWrapper, tournamentId: string, playerId: string, nowMs = Date.now()) {
+  const row = await getPokerTournamentRow(db, tournamentId);
+  if (row.status !== 'running' || !row.started_at) throw new PokerTournamentError(409, 'Запись на этот турнир закрыта');
+  const config = parseConfig(row);
+  const clock = pokerTournamentClock(config, Date.parse(row.started_at), nowMs);
+  if (!pokerTournamentLateRegOpen(config, clock)) throw new PokerTournamentError(409, 'Поздняя запись в этот турнир закончилась');
+  const existing = await db.get<{ status: string }>('SELECT status FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [tournamentId, playerId]);
+  if (existing && existing.status === 'playing') return row; // idempotent
+  if (existing && existing.status !== 'cancelled') throw new PokerTournamentError(409, 'Игрок уже вышел из этого турнира');
+  if (config.maxPlayers !== null && await registeredCount(db, tournamentId) >= config.maxPlayers) throw new PokerTournamentError(409, 'Все места на турнир заняты');
+  const player = await db.get<{ nickname: string | null }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [playerId]);
+  if (!player) throw new PokerTournamentError(404, 'Игрок не найден');
+  const now = new Date(nowMs).toISOString();
+  if (existing) {
+    await db.run("UPDATE poker_tournament_entries SET status = 'playing', busted_at = NULL, busted_start_chips = 0, updated_at = ? WHERE tournament_id = ? AND player_id = ?", [now, tournamentId, playerId]);
+  } else {
+    await db.run("INSERT INTO poker_tournament_entries (tournament_id, player_id, status, created_at, updated_at) VALUES (?, ?, 'playing', ?, ?)", [tournamentId, playerId, now, now]);
+  }
+  seatLateEntrant(row, config, { id: playerId, nickname: String(player.nickname || 'Игрок') });
+  return row;
 }
 
 export async function unregisterFromPokerTournament(db: DatabaseWrapper, tournamentId: string, playerId: string) {

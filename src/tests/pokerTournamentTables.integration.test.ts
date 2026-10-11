@@ -3,7 +3,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { pokerTournamentLobbies, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 import { withPersistedPokerRuntime } from '../server/services/pokerPersistenceService.ts';
-import { createPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
+import { createPokerTournament, lateRegisterInPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
 import { settlePokerTournamentRewards } from '../server/services/pokerTournamentRewardsService.ts';
 
 const stamp = '2026-10-10T10:00:00.000Z';
@@ -224,5 +224,73 @@ describe('poker tournament tables', () => {
       const places = (await db.all<any>('SELECT place FROM poker_tournament_entries WHERE tournament_id = ? ORDER BY place', [id])).map((row) => row.place);
       expect(places).toEqual([1, 2, 3]);
     }, 60_000);
+  });
+});
+
+describe('entering a running poker tournament late', () => {
+  let db: DatabaseWrapper;
+  beforeEach(async () => {
+    db = createDatabaseConnection(':memory:');
+    await createApp(db);
+    for (let index = 1; index <= 12; index += 1) {
+      await db.run(`INSERT INTO players (id,nickname,contact_status,lifecycle_status,judge_level,elo,tokens,created_at,updated_at) VALUES (?,?,'normal','normal','none',1000,1000,?,?)`, [`p${index}`, `Игрок ${index}`, stamp, stamp]);
+    }
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  const begin = async (players: number, extra: Record<string, unknown> = {}) => {
+    const row = await createPokerTournament(db, null, { title: 'Турбо', startAt: new Date(start).toISOString(), minPlayers: 2, ...extra }, now);
+    for (let index = 1; index <= players; index += 1) await registerForPokerTournament(db, row.id, `p${index}`);
+    await tickPokerTournaments(db, start + 1000);
+    return row.id;
+  };
+  const late = (id: string, playerId: string, at: number) => withPersistedPokerRuntime(db, () => lateRegisterInPokerTournament(db, id, playerId, at));
+  const seats = (id: string) => withPersistedPokerRuntime(db, () => pokerTournamentLobbies(id).map((lobby) => ({ id: lobby.id, players: lobby.players.map((seat) => ({ id: seat.id, chips: seat.chips })) })));
+
+  it('seats a newcomer with the starting stack at the emptiest table until the chosen level ends', async () => {
+    const id = await begin(5, { seatsPerTable: 6, lateRegUntilLevel: 3, startingStack: 1500 });
+    const result = await late(id, 'p6', start + 2 * LEVEL_MS + 1000);
+    expect(result.id).toBe(id);
+    const tables = await seats(id);
+    expect(tables).toHaveLength(1);
+    expect(tables[0].players.find((seat) => seat.id === 'p6')).toEqual({ id: 'p6', chips: 1500 });
+    expect(await db.get("SELECT status, busted_at FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = 'p6'", [id])).toEqual({ status: 'playing', busted_at: null });
+    // asking again changes nothing
+    await late(id, 'p6', start + 2 * LEVEL_MS + 2000);
+    expect((await seats(id))[0].players.filter((seat) => seat.id === 'p6')).toHaveLength(1);
+  });
+
+  it('opens a new table when every table is full, and keeps the newcomer out of the tournament once the level has ended', async () => {
+    const id = await begin(6, { seatsPerTable: 6, lateRegUntilLevel: 2 });
+    await late(id, 'p7', start + 1000);
+    const tables = await seats(id);
+    expect(tables).toHaveLength(2);
+    expect(tables.map((table) => table.players.length).sort()).toEqual([1, 6]);
+    await expect(late(id, 'p8', start + 2 * LEVEL_MS + 1000)).rejects.toThrow('Поздняя запись в этот турнир закончилась');
+    expect(await db.get("SELECT 1 AS found FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = 'p8'", [id])).toBeNull();
+  });
+
+  it('is closed when the organizer set no late registration, respects the maximum and lets nobody back in who has gone out', async () => {
+    const closed = await begin(4, { lateRegUntilLevel: 0 });
+    await expect(late(closed, 'p9', start + 1000)).rejects.toThrow('Поздняя запись');
+
+    const full = await begin(3, { maxPlayers: 3, lateRegUntilLevel: 6 });
+    await expect(late(full, 'p10', start + 1000)).rejects.toThrow('Все места на турнир заняты');
+
+    const open = await begin(4, { lateRegUntilLevel: 6, rebuyUntilLevel: 0 });
+    await db.run("UPDATE poker_tournament_entries SET status = 'eliminated', place = 4 WHERE tournament_id = ? AND player_id = 'p1'", [open]);
+    await expect(late(open, 'p1', start + 1000)).rejects.toThrow('уже вышел');
+  });
+
+  it('puts the entry before the first seating pass without creating a table of its own', async () => {
+    const row = await createPokerTournament(db, null, { title: 'Турбо', startAt: new Date(start).toISOString(), minPlayers: 2, lateRegUntilLevel: 6 }, now);
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+    await db.run("UPDATE poker_tournaments SET status = 'running', started_at = ? WHERE id = ?", [new Date(start).toISOString(), row.id]);
+    await db.run("UPDATE poker_tournament_entries SET status = 'playing' WHERE tournament_id = ?", [row.id]);
+    await late(row.id, 'p3', start + 1000);
+    expect(await seats(row.id)).toEqual([]);
+    await tickPokerTournaments(db, start + 2000);
+    expect((await seats(row.id))[0].players.map((seat) => seat.id).sort()).toEqual(['p1', 'p2', 'p3']);
   });
 });

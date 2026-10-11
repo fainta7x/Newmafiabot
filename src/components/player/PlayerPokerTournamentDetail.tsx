@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
+import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
 
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; players: number; spots_left: number | null; alive: number | null; my_table_id: string | null;
-  settings: { minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number; seatsPerTable: number; rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; prizeTokens: number[] };
+  settings: { minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number; seatsPerTable: number; rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; prizeTokens: number[]; lateRegUntilLevel?: number };
+  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; clock?: { level: number } | null;
   my_entry: { status: string; place: number | null; busted?: boolean } | null;
   standings: Array<{ nickname: string; place: number }>;
 };
@@ -60,8 +62,13 @@ export default function PlayerPokerTournamentDetail({ tournamentId, onBack, onSa
           <div className="flex justify-between gap-3"><span className="text-white/45">Уровень блайндов</span><b>{s.levelMinutes} мин</b></div>
           <div className="flex justify-between gap-3"><span className="text-white/45">Мест за столом</span><b>до {s.seatsPerTable}</b></div>
           <div className="flex justify-between gap-3"><span className="text-white/45">Докупка</span><b className="text-right">{s.rebuyUntilLevel > 0 ? `до уровня ${s.rebuyUntilLevel}, ${num(s.rebuyCostTokens)} жетонов за ${num(s.rebuyChips)} фишек` : 'нет'}</b></div>
+          <div className="flex justify-between gap-3"><span className="text-white/45">Поздняя запись</span><b className="text-right">{(s.lateRegUntilLevel ?? 0) > 0 ? `в идущий турнир, до конца ${s.lateRegUntilLevel}-го уровня` : 'нет'}</b></div>
           <div className="flex justify-between gap-3"><span className="text-white/45">Призы</span><b className="text-right">{prizes}</b></div>
         </section>
+        {item.schedule?.length ? <section className="mt-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5">
+          <h2 className="mb-2 text-sm font-semibold">Уровни и время</h2>
+          <PokerTournamentSchedule rows={item.schedule} current={item.clock?.level ?? null} started={item.status === 'running'} />
+        </section> : null}
         {item.status === 'cancelled' ? <p className="mt-3 rounded-xl bg-white/[0.05] px-3 py-2 text-sm text-white/60">Турнир отменён{item.cancel_reason ? `: ${item.cancel_reason}` : ''}</p> : null}
         {error ? <p className="mt-3 rounded-xl bg-rose-300/[0.08] px-3 py-2 text-sm text-rose-100">{error}</p> : null}
         {item.status === 'registration' ? <>
@@ -72,6 +79,7 @@ export default function PlayerPokerTournamentDetail({ tournamentId, onBack, onSa
         </> : null}
         {item.status === 'running' ? <div className="mt-3 space-y-2">
           <p className="text-sm text-white/65">Идёт игра, в турнире {item.alive ?? item.players}.{item.my_entry?.place ? ` Я выбыл: ${item.my_entry.place} место.` : ''}</p>
+          {item.late_reg_open && !registered ? <button type="button" data-testid="poker-tournament-late-reg" disabled={busy} onClick={() => void act()} className="min-h-12 w-full rounded-2xl bg-white text-sm font-black text-black disabled:opacity-50">Войти в турнир бесплатно (запись до конца {s.lateRegUntilLevel}-го уровня)</button> : null}
           {onOpenPoker && (item.my_table_id || registered) ? <button type="button" onClick={() => onOpenPoker(item.my_table_id)} className="min-h-12 w-full rounded-2xl bg-white text-sm font-black text-black">Открыть покер</button> : null}
         </div> : null}
         {item.status === 'finished' && item.standings.length ? <ol className="mt-3 space-y-1 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5 text-sm">{item.standings.slice(0, 10).map((entry) => <li key={entry.place}><b className="text-amber-100">{entry.place}.</b> {entry.nickname}</li>)}</ol> : null}

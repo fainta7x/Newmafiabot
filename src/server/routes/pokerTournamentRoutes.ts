@@ -5,7 +5,7 @@ import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.t
 import { announcePokerTournament } from '../services/pokerTournamentAnnouncementService.ts';
 import {
   cancelPokerTournament, createPokerTournament, getPokerTournamentRow, listPokerTournaments, PokerTournamentError,
-  publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
+  lateRegisterInPokerTournament, publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
 } from '../services/pokerTournamentService.ts';
 
 const router = Router();
@@ -45,8 +45,18 @@ router.get('/poker/tournaments/:id', handle(async (req) => {
 }));
 
 router.post('/poker/tournaments/:id/register', handle(async (req) => {
-  const row = await registerForPokerTournament(req.db, String(req.params.id), viewer(req));
-  return { body: { tournament: await publicPokerTournament(req.db, row, viewer(req)) } };
+  const playerId = viewer(req);
+  const current = await getPokerTournamentRow(req.db, String(req.params.id));
+  if (current.status === 'running') {
+    // Entering a running tournament: the entry and the seat at a table are one step inside the poker runtime.
+    const tournament = await withPersistedPokerRuntime(req.db, async () => {
+      const row = await lateRegisterInPokerTournament(req.db, String(req.params.id), playerId);
+      return publicPokerTournament(req.db, row, playerId);
+    });
+    return { body: { tournament } };
+  }
+  const row = await registerForPokerTournament(req.db, String(req.params.id), playerId);
+  return { body: { tournament: await publicPokerTournament(req.db, row, playerId) } };
 }));
 
 router.delete('/poker/tournaments/:id/register', handle(async (req) => {

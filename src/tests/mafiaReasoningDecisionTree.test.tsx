@@ -112,6 +112,10 @@ describe('Sports Mafia decision tree and unguided reasoning check', () => {
     fireEvent.click(screen.getByTestId('reasoning-tree-vote-4'));
     expect(screen.queryByTestId('reasoning-tree-result')).toBeNull();
     expect(treeSent).toEqual([{ track: 'reasoning-extra', item: 'tree', passed: true }]);
+    // taking the last hand back and choosing it again is the same try, not a second one
+    fireEvent.click(screen.getByTestId('reasoning-tree-undo'));
+    fireEvent.click(screen.getByTestId('reasoning-tree-vote-4'));
+    expect(treeSent).toHaveLength(1);
     fireEvent.click(screen.getByTestId('reasoning-tree-reveal'));
     expect(screen.getByTestId('reasoning-tree-result').textContent).toContain('Победа мафии');
     expect(screen.getByTestId('reasoning-tree-result').textContent).toContain('8 допустимых');

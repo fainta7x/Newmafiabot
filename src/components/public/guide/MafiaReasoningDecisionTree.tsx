@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, RotateCcw, Undo2 } from 'lucide-react';
 import {
   availableVotes, evaluateVotes, exploreVotes, outcomeName, outcomeSummary,
@@ -26,6 +26,8 @@ const initial = (): SavedTree => {
 export default function MafiaReasoningDecisionTree({ onBack }: { onBack: () => void }) {
   const [state, setState] = useState<SavedTree>(initial);
   const [revealed, setRevealed] = useState(false);
+  // A try is reported once: taking the last hand back and choosing it again is the same try.
+  const reportedAttempt = useRef<number | null>(null);
   const scenario = treeScenarioForAttempt(state.attempt);
   const [first, last] = scenario.nominated;
   const pending = pendingVoters(scenario);
@@ -46,7 +48,10 @@ export default function MafiaReasoningDecisionTree({ onBack }: { onBack: () => v
     if (next !== voter || !availableVotes(scenario, voter).includes(vote)) return;
     setState((prev) => ({ ...prev, choices: { ...prev.choices, [voter]: vote } }));
     // The last hand placed finishes one try of the exercise (it has no pass mark: it counts as done).
-    if (pending.every((other) => other === voter || state.choices[other] !== undefined)) reportLearningActivity({ track: 'reasoning-extra', item: 'tree', passed: true });
+    if (pending.every((other) => other === voter || state.choices[other] !== undefined) && reportedAttempt.current !== state.attempt) {
+      reportedAttempt.current = state.attempt;
+      reportLearningActivity({ track: 'reasoning-extra', item: 'tree', passed: true });
+    }
     setRevealed(false);
   };
   const undo = () => {

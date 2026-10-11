@@ -160,7 +160,7 @@ describe('Mafia reasoning: case bank and plain language', () => {
   it('varies archetypes and both single/multiple answers across each chapter', () => {
     for (const level of REASONING_LEVELS) {
       const sample = Array.from({ length: 4 }, (_, i) => reasoningCasesForAttempt(level, i)).flat();
-      expect(new Set(sample.map((item) => item.id.split('@')[0]).size).toBeGreaterThanOrEqual(6);
+      expect(new Set(sample.map((item) => item.id.split('@')[0])).size.toBeGreaterThanOrEqual(6);
       const questions = decisions(sample);
       expect(questions.some((item) => item.mode === 'multiple')).toBe(true);
       expect(questions.some((item) => item.mode !== 'multiple')).toBe(true);

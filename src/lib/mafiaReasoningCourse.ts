@@ -7,6 +7,8 @@
  * 0 — логическая ошибка. Ни один эпизод не утверждает, что красные не ошибаются,
  * а мафия всегда действует оптимально.
  */
+import { EXTRA_REASONING_CASES } from './mafiaReasoningExtraCases.ts';
+
 export type ReasoningOption = { label: string; points: 0 | 1 | 2; feedback: string; plausible?: boolean };
 export type ReasoningDecision = { prompt: string; options: ReasoningOption[]; mode?: 'multiple' };
 export type ReasoningCase = { id: string; title: string; facts: string[]; steps: [ReasoningDecision, ReasoningDecision] };
@@ -209,6 +211,7 @@ export const REASONING_LEVELS: ReasoningLevel[] = [
           ]),
         ],
       },
+      ...EXTRA_REASONING_CASES.facts,
     ],
   },
   {
@@ -261,6 +264,7 @@ export const REASONING_LEVELS: ReasoningLevel[] = [
           ]),
         ],
       },
+      ...EXTRA_REASONING_CASES.motives,
     ],
   },
   {
@@ -312,6 +316,7 @@ export const REASONING_LEVELS: ReasoningLevel[] = [
           ]),
         ],
       },
+      ...EXTRA_REASONING_CASES.team,
     ],
   },
   {
@@ -364,6 +369,7 @@ export const REASONING_LEVELS: ReasoningLevel[] = [
           ]),
         ],
       },
+      ...EXTRA_REASONING_CASES.reconstruct,
     ],
   },
   {
@@ -416,31 +422,83 @@ export const REASONING_LEVELS: ReasoningLevel[] = [
           ]),
         ],
       },
+      ...EXTRA_REASONING_CASES.teams,
     ],
   },
 ];
 
-/** Five different cases per practice run, so a repeat is not the same quiz. */
-const FACT_CASE_SETS = [
-  ['eyes', 'reply', 'votes', 'sheriff-claim', 'new-info'],
-  ['nomination', 'silence', 'turn', 'night-clue', 'favorite-team'],
-  ['eyes', 'silence', 'votes', 'night-clue', 'new-info'],
-  ['nomination', 'reply', 'turn', 'sheriff-claim', 'favorite-team'],
-] as const;
+/**
+ * First-ever runs keep their established cases and lengths for stable onboarding.
+ * New attempts walk an expanded authored deck: five cases in Facts, three elsewhere.
+ * The deck wraps without repeating an archetype in consecutive attempts.
+ * Player numbers are generated deterministically and stored in each case ID, so
+ * reloading midway cannot silently swap the underlying story or answer indices.
+ */
+const FIRST_FACT_IDS = ['eyes', 'reply', 'votes', 'sheriff-claim', 'new-info'] as const;
+const sessionSize = (level: ReasoningLevel) => level.id === 'facts' ? 5 : 3;
 
-export const reasoningCasesForAttempt = (level: ReasoningLevel, attempt: number): ReasoningCase[] => {
-  if (level.id !== 'facts') return level.cases;
-  const wanted = FACT_CASE_SETS[Math.abs(Math.trunc(attempt)) % FACT_CASE_SETS.length];
-  return wanted.map((id) => {
-    const item = level.cases.find((candidate) => candidate.id === id);
-    if (!item) throw new Error(`Reasoning case missing: ${id}`);
-    return item;
-  });
+const scenarioDeck = (level: ReasoningLevel): ReasoningCase[] =>
+  level.id === 'facts'
+    ? [...FIRST_FACT_IDS.map((id) => level.cases.find((item) => item.id === id)!),
+      ...level.cases.filter((item) => !FIRST_FACT_IDS.includes(item.id as typeof FIRST_FACT_IDS[number]))]
+    : level.cases;
+
+const normalizeAttempt = (value: number): number =>
+  Number.isSafeInteger(value) && value >= 0 ? value : 0;
+
+/** Sattolo shuffle: a full 10-seat cycle, so no generated seat retains its old number. */
+const seatMapFor = (caseId: string, attempt: number): number[] => {
+  let seed = 2166136261;
+  for (const char of `${caseId}:${attempt}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0;
+  const seats = Array.from({ length: 10 }, (_, i) => i + 1);
+  for (let i = seats.length - 1; i > 0; i--) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const j = seed % i;
+    [seats[i], seats[j]] = [seats[j], seats[i]];
+  }
+  return seats;
+};
+
+const generatedCaseId = (baseId: string, attempt: number) => `${baseId}@${attempt}`;
+
+const varyCase = (base: ReasoningCase, attempt: number): ReasoningCase => {
+  if (attempt === 0) return base;
+  const seats = seatMapFor(base.id, attempt);
+  const remap = (value: string) => value.replace(/№(10|[1-9])(?!\d)/g, (_, raw: string) => `№${seats[Number(raw) - 1]}`);
+  return {
+    id: generatedCaseId(base.id, attempt),
+    title: remap(base.title),
+    facts: base.facts.map(remap),
+    steps: base.steps.map((decision) => ({
+      ...decision,
+      prompt: remap(decision.prompt),
+      options: decision.options.map((option) => ({
+        ...option,
+        label: remap(option.label),
+        feedback: remap(option.feedback),
+      })),
+    })) as [ReasoningDecision, ReasoningDecision],
+  };
+};
+
+export const reasoningCasesForAttempt = (level: ReasoningLevel, rawAttempt: number): ReasoningCase[] => {
+  const attempt = normalizeAttempt(rawAttempt);
+  const deck = scenarioDeck(level);
+  const length = sessionSize(level);
+  return Array.from({ length }, (_, index) =>
+    varyCase(deck[(attempt * length + index) % deck.length], attempt));
 };
 
 export const reasoningCasesByIds = (level: ReasoningLevel, ids: string[]): ReasoningCase[] => {
   if (!ids.length) return reasoningCasesForAttempt(level, 0);
-  const selected = ids.map((id) => level.cases.find((item) => item.id === id));
+  const selected = ids.map((id) => {
+    const encoded = /^([a-z][a-z\d-]*)@([1-9]\d*)$/.exec(id);
+    if (!encoded) return level.cases.find((item) => item.id === id);
+    const attempt = Number(encoded[2]);
+    const base = level.cases.find((item) => item.id === encoded[1]);
+    if (!base || !Number.isSafeInteger(attempt) || attempt < 1) return undefined;
+    return varyCase(base, attempt);
+  });
   return selected.every((item) => item !== undefined) && new Set(ids).size === ids.length
     ? selected as ReasoningCase[] : reasoningCasesForAttempt(level, 0);
 };

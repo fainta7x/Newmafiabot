@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { recordSlowTransaction, SLOW_TRANSACTION_MS } from '../lib/performanceProbe.ts';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
@@ -112,14 +113,27 @@ export function createDatabaseConnection(dbPathOrMemory?: string, options: { iso
       const turn = transactionQueue;
       let finish = () => {};
       transactionQueue = new Promise<void>((resolve) => { finish = resolve; });
+      // Where this transaction was opened, for the slow-transaction record (the stack text is only built if it is read).
+      const origin: { stack?: string } = {};
+      Error.captureStackTrace?.(origin);
+      const queuedAt = performance.now();
       await turn;
+      const startedAt = performance.now();
       try {
         return await transactionsOpen.run([...(transactionsOpen.getStore() || []), sqlite], async () => {
           sqlite.exec('BEGIN TRANSACTION');
           try { const result = await cb(wrapper); sqlite.exec('COMMIT'); return result; }
           catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
         });
-      } finally { finish(); }
+      } finally {
+        finish();
+        const heldMs = performance.now() - startedAt;
+        const waitedMs = startedAt - queuedAt;
+        if (heldMs >= SLOW_TRANSACTION_MS || waitedMs >= SLOW_TRANSACTION_MS) {
+          const frame = String(origin.stack || '').split('\n').slice(1).find((line) => /src\/(server|lib)\//.test(line) && !/db\/index/.test(line)) || '';
+          recordSlowTransaction(waitedMs, heldMs, frame.trim().replace(/^at\s+/, '').replace(/^.*?(src\/)/, '$1').slice(0, 140));
+        }
+      }
     },
   };
   initializeDatabase(wrapper, options);

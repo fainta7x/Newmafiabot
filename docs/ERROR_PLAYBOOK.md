@@ -237,6 +237,10 @@ Separate config, OAuth/callback, persisted state, live API permissions and reque
 
 Check server persistence/readback and browser/local fallback separately. Start with `playerSpeechRecordingRoutes.ts`.
 
+## The server freezes for seconds / poker lags / «the database loads slowly»
+
+The database is one synchronous SQLite connection: any heavy synchronous work (parsing every game protocol, replaying the Elo history, a bot's Monte Carlo) stops every request at once, and every transaction waits in one queue. Right after a freeze open `GET /api/health/performance`: `event_loop.worst_stall_ms` says whether the process itself was blocked, `slow_requests` and `running_now` say which routes, `slow_transactions` says which code held the queue (`origin`) or waited. The same stalls of a second or more are logged as `[PERF]`. Then trace the named route: first check that its cache is not keyed by a counter that unrelated writes (poker, wallet, chat) move; the finished-game snapshots use trigger counters for that reason (`analyticsInputsVersion.ts`). History: `docs/AUDIT_LOG.md` 2026-10-06 and 2026-10-11.
+
 ## Token balance / wallet is wrong
 
 Trace ledger entries before editing displayed balance.

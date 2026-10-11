@@ -157,13 +157,13 @@ router.get('/payments', async (req, res) => {
           {
             id: 'evening',
             title: 'Участие в вечере',
-            description: 'Оплата конкретного игрового вечера по фактической сумме к оплате.',
+            description: 'Оплата вечера на ту сумму, которая к оплате.',
             configured: current.some((item) => item.outstanding > 0),
           },
           {
             id: 'token_topup',
             title: 'Пополнить жетоны',
-            description: 'Покупка фиксированного пакета внутренней валюты без обратного вывода в деньги.',
+            description: 'Пакет жетонов. Жетоны нельзя вывести обратно в деньги.',
             configured: tokenPackages.length > 0,
           },
           {

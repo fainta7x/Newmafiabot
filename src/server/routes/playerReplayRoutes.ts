@@ -149,7 +149,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
     if (ppk != null) analysis.push(`Ключевым событием стал ППК игрока ${nameOf(ppk)} — по правилам он завершает игру победой противоположной команды.`);
     if (firstKilled != null) analysis.push(`Первым ночью убит ${nameOf(firstKilled)}; его лучший ход и протокол отмечены в протоколе игры.`);
     if (bestMoves.length) analysis.push(`Лучший ход зафиксирован у ${bestMoves.map((player: any) => String(player.display_name || player.nickname || 'игрока')).join(', ')}.`);
-    if (!analysis.length) analysis.push('Протокол завершён; дополнительных автоматически выделяемых переломных событий не найдено.');
+    if (!analysis.length) analysis.push('Переломных моментов в этой игре не нашли.');
 
     return res.json({
       game_key: gameKey,
@@ -171,7 +171,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
       events,
       analysis,
       meta: {
-        source: 'События восстановлены из сохранённого завершённого клубного протокола. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',
+        source: 'События взяты из протокола игры. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',
       },
     });
   } catch (error: any) {

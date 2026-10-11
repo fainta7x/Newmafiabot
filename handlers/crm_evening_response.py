@@ -229,7 +229,7 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
         await callback.answer()
         if callback.message:
             await callback.message.answer(
-                "⏳ <b>С какой игры тебя ждать?</b>\\nЗапишем на неё и все следующие.",
+                "⏳ <b>С какой игры тебя ждать?</b>\nЗапишем на неё и все следующие.",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
             )

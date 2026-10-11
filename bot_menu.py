@@ -84,6 +84,39 @@ def cabinet_inline_keyboard(text: str = CABINET_BUTTON_TEXT) -> InlineKeyboardMa
     )
 
 
+BROWSER_BUTTON_TEXT = "🌐 Открыть в браузере"
+BROWSER_CRM_BUTTON_TEXT = "🛠 Кабинет организатора (браузер)"
+
+
+def direct_app_url() -> str | None:
+    """The app's site root. In a plain browser the root opens the organizer sign-in (password), not the player cabinet."""
+    base = cabinet_app_url()
+    if not base:
+        return None
+    return base[:-len("/player")] if base.endswith("/player") else base
+
+
+def browser_player_url() -> str | None:
+    """Player cabinet by its plain address. Telegram sign-in works only inside the Mini App; a browser signs in with VK."""
+    root = direct_app_url()
+    return f"{root}/player" if root else None
+
+
+def browser_button() -> InlineKeyboardButton | None:
+    url = browser_player_url()
+    return InlineKeyboardButton(text=BROWSER_BUTTON_TEXT, url=url) if url else None
+
+
+def browser_crm_button() -> InlineKeyboardButton | None:
+    url = direct_app_url()
+    return InlineKeyboardButton(text=BROWSER_CRM_BUTTON_TEXT, url=url) if url else None
+
+
+def browser_inline_keyboard(*, is_admin: bool = False) -> InlineKeyboardMarkup | None:
+    rows = [[button] for button in (browser_button(), browser_crm_button() if is_admin else None) if button]
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
 def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / изменить игры") -> InlineKeyboardMarkup | None:
     return app_inline_keyboard(event_app_path(evening_id), text)
 

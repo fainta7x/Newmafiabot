@@ -289,7 +289,7 @@ export default function PlayerEventsCalendar({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
       setNoviceState(body.state || noviceState);
-      setApplicationMessage(entryRoute === 'NOVICE' ? 'Готово! Теперь выберите новичковый вечер и ответьте «Иду».'
+      setApplicationMessage(entryRoute === 'NOVICE' ? 'Готово! Теперь можно выбрать новичковый вечер и ответить «Иду».'
         : body.created ? '' : 'Такая заявка уже находится на рассмотрении.');
     } catch (submitError: any) {
       setApplicationMessage(submitError?.message || 'Не удалось отправить заявку');
@@ -335,7 +335,7 @@ export default function PlayerEventsCalendar({
             <>
               <h2 className="mt-1 text-[18px] font-semibold">Заявка отправлена</h2>
               <p className="mt-1 text-[13px] leading-5 text-white/55">{pendingApplication.entry_route === 'NOVICE'
-                ? 'Для новичка подтверждение организатора больше не требуется. Продолжите — запись откроется сразу.'
+                ? 'Для новичка подтверждение организатора больше не требуется: запись откроется сразу.'
                 : pendingApplication.entry_route === 'OTHER_CITY'
                   ? 'Гость из другого города ждёт подтверждения организатора. После этого запись на вечера откроется.'
                   : 'Опытный игрок ждёт подтверждения организатора. После этого самостоятельная запись откроется.'}</p>
@@ -351,8 +351,8 @@ export default function PlayerEventsCalendar({
             </>
           ) : (
             <>
-              <h2 className="mt-1 text-[18px] font-semibold">Выберите подходящий путь</h2>
-              <p className="mt-1 text-[13px] leading-5 text-white/55">Если вы новичок, сразу откроется запись на вечера новичков. Если уже умеете играть, организатор сначала подтвердит ваш уровень.</p>
+              <h2 className="mt-1 text-[18px] font-semibold">Подходящий путь</h2>
+              <p className="mt-1 text-[13px] leading-5 text-white/55">Новичкам запись на вечера новичков открывается сразу. Тем, кто уже умеет играть, организатор сначала подтверждает уровень.</p>
               <div className="mt-3 grid gap-2">
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Запись откроется сразу · первые 2 посещения бесплатно</span></button>
                 <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>

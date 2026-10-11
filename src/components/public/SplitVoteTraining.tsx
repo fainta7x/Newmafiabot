@@ -175,19 +175,19 @@ export const SplitVoteTraining: React.FC = () => {
             <p className="mt-1 text-sm text-white/60">Решай сколько хочешь: здесь встречаются попилы с игроком 1 и без него.</p>
             <button type="button" disabled={!unlocked('all')} onClick={() => start({ difficulty: 'all', mode: 'endless' })} className="mt-3 min-h-12 w-full rounded-2xl border border-white/15 px-3 text-sm font-semibold disabled:opacity-40">Начать тренировку</button>
           </section>
-          <p className="px-1 text-xs leading-5 text-white/55">{progressState === 'guest' ? 'Чтобы сдавать экзамены и сохранять прогресс, войди в кабинет игрока.' : progressState === 'error' ? 'Не удалось загрузить прогресс. Обнови страницу и попробуй снова.' : progressState === 'loading' ? 'Загружаем твой прогресс…' : 'Следующий уровень откроется после пяти правильных ответов на экзамене. Прогресс хранится в твоём аккаунте.'}</p>
+          <p className="px-1 text-xs leading-5 text-white/55">{progressState === 'guest' ? 'Чтобы сдавать экзамены и сохранять прогресс, войди в кабинет игрока.' : progressState === 'error' ? 'Не удалось загрузить прогресс. Страницу можно обновить и попробовать снова.' : progressState === 'loading' ? 'Загружаем прогресс…' : 'Следующий уровень откроется после пяти правильных ответов на экзамене. Прогресс хранится в аккаунте.'}</p>
           <a href="/player" className="block min-h-11 rounded-2xl px-3 py-3 text-center text-sm text-white/65">Вернуться в кабинет игрока</a>
         </div>
       ) : (
         <section className="space-y-3 rounded-3xl border border-white/10 bg-white/[.045] p-4" data-testid="split-vote-question">
           <div className="flex items-center justify-between gap-2 text-xs text-white/50"><span>{label} · {session.mode === 'exam' ? 'экзамен' : session.mode === 'practice' ? 'практика' : 'без конца'}</span><span>{session.mode === 'endless' ? `Задача ${attempts + (checked ? 0 : 1)}` : `Вопрос ${Math.min(attempts + (checked ? 0 : 1), 5)} из 5`}</span></div>
           <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[.06] p-3">
-             <h2 className="text-lg font-black leading-6 text-white">{interactive ? 'Распредели все 10 голосов' : 'В кого голосуешь ты?'}</h2>
+             <h2 className="text-lg font-black leading-6 text-white">{interactive ? 'Распределить все 10 голосов' : 'В кого идёт голос?'}</h2>
              <div className="flex flex-wrap gap-1.5 text-[12px]">
                <span data-testid="split-vote-nominees" className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white/85">Выставлены: <b className="text-white">{scenario.candidates.join(' → ')}</b></span>
                <span className="rounded-lg bg-black/25 px-2.5 py-1.5 text-white/85">Попил: <b className="text-white">{scenario.pair[0]} / {scenario.pair[1]}</b></span>
                <p className="sr-only">Попил между {scenario.pair[0]} и {scenario.pair[1]}</p>
-               <span data-testid="split-vote-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Ты: {scenario.seat}</span>
+               <span data-testid="split-vote-seat" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 font-bold text-emerald-200">Я: {scenario.seat}</span>
              </div>
              <p className="text-[12px] leading-5 text-white/60">{interactive ? 'Выбирай руки для каждого кандидата по порядку. Последний заберёт оставшиеся.' : 'Найди своё место на схеме и выбери кандидата.'}</p>
            </div>
@@ -222,8 +222,8 @@ export const SplitVoteTraining: React.FC = () => {
                 setNomineeIndex(index);
               }} className="min-h-11 w-full rounded-2xl text-sm text-white/70">Исправить последний шаг</button>
             </div>
-          ) : !interactive ? <><h3 className="text-sm font-semibold text-white/85">Твой голос</h3>
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Твой голос">
+          ) : !interactive ? <><h3 className="text-sm font-semibold text-white/85">Голос</h3>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Голос">
             {scenario.candidates.map((candidate) => (
               <button key={candidate} type="button" disabled={checked} aria-pressed={choice === candidate} onClick={() => setChoice(candidate)}
                 className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold ${choice === candidate ? 'border-white bg-white/15 text-white' : 'border-white/15 text-white/70'} disabled:opacity-80`}>В {candidate}</button>
@@ -236,7 +236,7 @@ export const SplitVoteTraining: React.FC = () => {
           {checked && groups ? (
              <div role="status" data-testid="split-vote-explanation" className="space-y-2.5 rounded-2xl border border-white/15 bg-black/25 p-3.5 text-sm leading-6 text-white/85">
                <h3 className="text-base font-black text-white">{interactive ? (isCorrectSplitVoteAssignment(scenario, assignments) ? '✓ Всё верно' : 'Разбор ошибки') : choice === answer ? '✓ Верно' : 'Разбор ошибки'}</h3>
-               {!interactive && choice !== answer ? <p>Ты выбрал {choice}, правильно — <b className="text-emerald-300">{answer}</b>.</p> : null}
+               {!interactive && choice !== answer ? <p>Выбрано {choice}, правильно — <b className="text-emerald-300">{answer}</b>.</p> : null}
                {interactive && !isCorrectSplitVoteAssignment(scenario, assignments) ? (
                  <div className="space-y-1 rounded-xl border border-amber-300/20 bg-amber-300/[.07] p-2.5">
                    {assignmentMistakes(splitVoteAssignments(scenario), assignments, Array.from({ length: 10 }, (_, index) => index + 1)).map((mistake) => <p key={mistake}>{mistake}</p>)}

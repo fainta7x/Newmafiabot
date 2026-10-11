@@ -157,7 +157,7 @@ export default function JudgeMusicPlaylist() {
       {playerSlots.some((item) => item.entry) && (
         <div className="mt-4 rounded-2xl border border-sky-200/[0.08] bg-sky-300/[0.04] p-3">
           <div className="text-xs font-semibold text-sky-100/75">Мои треки игрока</div>
-          <p className="mt-1 text-[11px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и вечера, где вы ведёте.</p>
+          <p className="mt-1 text-[11px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и для вечера, который ведётся с этого профиля.</p>
           <div className="mt-2 space-y-1.5">
             {playerSlots.map((item) => item.entry ? (
               <div key={item.slot} className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2">

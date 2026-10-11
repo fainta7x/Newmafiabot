@@ -1,5 +1,6 @@
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
+import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';
 
 const ROLE_ORDER = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -181,6 +182,7 @@ export const canonicalizeClubGameSave = (
     result.ci_points = normalizeCi(result.ci_points, eligible, ciCeiling);
   }
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
-  const protocol = { ...incomingProtocol, events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null };
+  const blackIds = blackParticipantIds(playerResults);
+  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
   return { protocol, playerResults };
 };

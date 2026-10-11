@@ -87,9 +87,15 @@ if (params.get('waiting')) Object.assign(lobby, { title: 'Общий стол', 
 globalThis.fetch = async (input, init) => {
   const url = String(input);
   if (url.endsWith('/history')) return new Response(JSON.stringify({ history }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  // ?chat=emote shows a fresh emote over a bot's seat (and a text over another), as the chat feed would.
+  const chat = params.get('chat') ? [
+    { id: 1, player_id: 'bot-bluff', nickname: 'Бот Блеф', kind: 'emote', body: params.get('chat') === 'emote' ? 'scared' : params.get('chat'), age_ms: 200 },
+    { id: 2, player_id: 'bot-lucky', nickname: 'Бот Лаки', kind: 'text', body: 'ну давай, давай', age_ms: 400 },
+  ] : [];
+  if (url.endsWith('/chat')) return new Response(JSON.stringify({ chat }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   const body = url.endsWith('/api/player/poker/lobbies') && (!init?.method || init.method === 'GET')
     ? { lobbies: [] }
-    : { lobby };
+    : { lobby, chat };
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 

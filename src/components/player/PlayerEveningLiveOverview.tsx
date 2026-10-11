@@ -27,8 +27,8 @@ type Journey = {
 };
 
 const stateLabel: Record<string, string> = {
-  playing: 'Ты за столом', waiting: 'Ты на вечере, ждёшь игру',
-  expected: 'Ты записан на вечер', watching: 'Ты пока не записан',
+  playing: 'За столом', waiting: 'На вечере, ожидание игры',
+  expected: 'Запись на вечер есть', watching: 'Записи на вечер пока нет',
 };
 const winner = (team: Game['winner_team']) => team === 'red' ? 'Победа красных' : team === 'black' ? 'Победа чёрных' : 'Ожидаем результат';
 
@@ -79,7 +79,7 @@ export default function PlayerEveningLiveOverview({ onOpenGame, onOpenEvening }:
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             {game.players.map((player) => <div key={player.seat_number} className={`truncate rounded-lg px-2 py-1.5 text-[11px] ${game.self_seat != null && game.self_seat === player.seat_number ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/[0.05] text-white/55'}`}>#{player.seat_number} {player.nickname}</div>)}
           </div>
-          <p className="mt-2 text-[11px] text-white/35">Роли и закрытые проверки откроются только после завершения партии.</p>
+          <p className="mt-2 text-[11px] text-white/35">Роли и проверки откроются после игры.</p>
         </div>)}
         <div className="mt-3 flex items-center justify-between gap-2">
           <div className="text-xs text-white/40">{journey.score?.completed || 0} завершённых игр · {journey.present_count || 0} участников</div>

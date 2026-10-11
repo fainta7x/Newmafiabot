@@ -513,6 +513,12 @@ body.live-broadcast-document #root {
 .live-broadcast-player-status { color: #ff8da0; }
 .live-broadcast-player-status span { overflow: hidden; text-overflow: ellipsis; }
 
+/* Leaving the table reads at a glance by colour: killed red, voted out amber, removed violet (owner, 2026-10-10). */
+.live-broadcast-player-status.is-voted { color: #ffc24d; }
+.live-broadcast-player-status.is-removed,
+.live-broadcast-player-status.is-ppk { color: #c4a1ff; }
+.live-broadcast-player-status.is-out { color: rgba(255, 255, 255, .6); }
+
 .live-broadcast-player-footer {
   position: absolute;
   left: calc(11 * var(--u));
@@ -905,6 +911,10 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-out-ribbon.is-voted span { font-size: calc(9.5 * var(--u)); letter-spacing: .03em; }
+.live-broadcast-out-ribbon.is-voted span { border-color: rgba(255, 194, 77, .7); color: #ffc24d; }
+.live-broadcast-out-ribbon.is-removed span,
+.live-broadcast-out-ribbon.is-ppk span { border-color: rgba(196, 161, 255, .7); color: #c4a1ff; }
+.live-broadcast-out-ribbon.is-out span { border-color: rgba(255, 255, 255, .35); color: rgba(255, 255, 255, .75); }
 
 .live-broadcast-out-ribbon { z-index: 1; }
 .live-broadcast-portrait .live-broadcast-seat-number,

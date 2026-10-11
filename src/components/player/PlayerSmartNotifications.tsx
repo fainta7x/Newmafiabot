@@ -63,7 +63,7 @@ const compactDate = (value: string | null | undefined) => {
 };
 
 const responseText = (value: string) => value === 'going'
-  ? 'Ты идёшь'
+  ? 'Иду'
   : value === 'late'
     ? 'Придёшь позже'
     : value === 'thinking'
@@ -174,7 +174,7 @@ export default function PlayerSmartNotifications({
     : journey.phase === 'live'
       ? `${journey.current_game ? `Игра ${journey.current_game.local_number}` : 'Между играми'} · счёт ${journey.score.red}:${journey.score.black}`
       : journey.phase === 'recap'
-        ? `Итог ${journey.recap.score} · у тебя ${journey.recap.player.wins}/${journey.recap.player.games}`
+        ? `Итог ${journey.recap.score} · результат ${journey.recap.player.wins}/${journey.recap.player.games}`
         : '';
 
   if (loading && !data) return <button ref={triggerRef} type="button" aria-hidden="true" tabIndex={-1} className="hidden" />;
@@ -188,7 +188,7 @@ export default function PlayerSmartNotifications({
 
     {open && <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setOpen(false)}>
       <section role="dialog" aria-modal="true" aria-label="Уведомления" onClick={(event) => event.stopPropagation()} className="max-h-[82dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#111217] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:rounded-[28px]">
-        <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Для тебя</div><h2 className="mt-1 text-xl font-semibold">Уведомления</h2><p className="mt-1 text-xs text-white/35">Что происходит в клубе и с вашими играми.</p></div><button type="button" onClick={() => setOpen(false)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/55">×</button></div>
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Личное</div><h2 className="mt-1 text-xl font-semibold">Уведомления</h2><p className="mt-1 text-xs text-white/35">Что происходит в клубе и с играми.</p></div><button type="button" onClick={() => setOpen(false)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/55">×</button></div>
 
         {journey.phase !== 'idle' && (
           <button type="button" onClick={openJourney} className={`mt-4 flex w-full items-center gap-3 rounded-[22px] border p-3 text-left ${journey.phase === 'live' ? 'border-rose-400/20 bg-rose-400/[0.06]' : 'border-amber-200/15 bg-amber-200/[0.04]'}`}>

@@ -19,6 +19,7 @@ export interface AchievementStats {
   organizedEvenings: number;
   /** 1 when the player passed the expert exam of the split-vote trainer. */
   splitVoteExpert: number;
+  pokerTournamentWins: number;
   puCount: number;
   perfectGames: number;
   roleWins: { sheriff: number; mafia: number; don: number };
@@ -88,7 +89,7 @@ const storyEvidence = (achievement: AchievementDefinition, stats: AchievementSta
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'organizer', 'special', 'learning']);
-const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game', 'split_expert', 'story']);
+const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'organized', 'role', 'pu', 'perfect_game', 'split_expert', 'poker_wins', 'story']);
 const VALID_RARITIES = new Set<AchievementRarity>(['common', 'rare', 'epic', 'legendary']);
 
 const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.get(
@@ -146,6 +147,7 @@ export const getAchievementMetricValue = (achievement: AchievementDefinition, st
     case 'pu': return stats.puCount;
     case 'perfect_game': return stats.perfectGames;
     case 'split_expert': return stats.splitVoteExpert;
+    case 'poker_wins': return stats.pokerTournamentWins;
     case 'role': return achievement.role ? stats.roleWins[achievement.role] : 0;
   }
 };
@@ -172,6 +174,7 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     judgedGames: 0,
     organizedEvenings: 0,
     splitVoteExpert: 0,
+    pokerTournamentWins: 0,
     puCount: 0,
     perfectGames: 0,
     roleWins: { sheriff: 0, mafia: 0, don: 0 },
@@ -287,6 +290,14 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
   if (splitProgress) {
     const expert = await db.get("SELECT 1 AS passed FROM player_split_vote_progress WHERE player_id = ? AND level = 'expert' LIMIT 1", [playerId]);
     stats.splitVoteExpert = expert ? 1 : 0;
+  }
+
+  const pokerTable = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'poker_tournament_entries' LIMIT 1");
+  if (pokerTable) {
+    const wins = await db.get(
+      `SELECT COUNT(*) AS count FROM poker_tournament_entries e JOIN poker_tournaments t ON t.id = e.tournament_id
+        WHERE e.player_id = ? AND e.place = 1 AND t.status = 'finished'`, [playerId]);
+    stats.pokerTournamentWins = Number(wins?.count || 0);
   }
 
   if (await achievementDefinitionsTableExists(db) && await db.get("SELECT 1 FROM achievement_definitions WHERE metric='story' AND active=1 LIMIT 1")) {

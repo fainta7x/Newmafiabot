@@ -1,5 +1,51 @@
 # Audit log
 
+## 2026-10-10 · App-wide wording audit (owner request: no rule-book language, plain words)
+
+Scope: ~420 long Russian sentences across `src/components` (player 108, public 63, CRM 227, live game 16) plus player-facing server texts (`playerInsightsRoutes`, `playerPulseRoutes`, `playerStoriesRoutes`, `playerReplayRoutes`, `playerPaymentRoutes`). Read the player and public sets in full, the CRM set by keyword.
+
+- [fixed] 28 rule-book / developer-speak phrases rewritten in plain words: game-number footnotes, payments («Интерфейс и назначения платежей уже разделены…»), Elo journey, achievement paths, progression, replay disclaimer, invite suggestions, award suggestion, privacy note, betting hints, live-center and evening hidden-roles lines (unified «Роли и проверки откроются после игры.»), judging mode note, onboarding, public join, server insights («п.п.», «Выраженная ролевая разница»), pulse/stories/replay/payment captions, and CRM texts («Серверный адаптер публикации готов», «Никакой курс автоматически не придуман», «через журнал жетонов», «канонические статистические критерии»).
+- [fixed 2026-10-10, owner: «avoid ты/вы where possible»] Mixed address form (onboarding, events calendar, judge screens, guides, VK sign-in errors used «вы»; profile, live center, trainers used «ты», some with gender-bound past tense like «ты записан»). ~180 phrases in `src/components/player` and `public` rewritten impersonal / first-person (statuses now mirror the answer buttons: «Иду», «Приду позже», «Пока думаю», «Не иду»). Rule recorded in `docs/DESIGN_SYSTEM.md` («Wording and voice»). Not touched: organizer CRM and OBS setup pages (operator-facing), the Telegram bot texts (still «ты» in places) — sweep next if wanted.
+- [open] The rest of the CRM texts are operational notes written for the organizer; not rewritten in bulk. Point at any screen that reads badly and it will be rewritten.
+- [open] Business-rule footnotes inside the mafia trainers/guides (`SplitThreeTraining`, `SplitVoteTraining`) are lessons, not UI boilerplate; left as is.
+
+## 2026-10-10 · Player «Связи»: duplicated blocks and rule-book wording (owner request)
+
+- [fixed, step 1] The same personal data was shown in 3–4 places (Community → Связи rivals/teammates/recent, profile → Связи list, insights panel opponents, invite suggestions). Community is now club-wide only; personal lists live in the profile.
+- [fixed] Misleading title «С кем хорошо играется вместе» (it was the most-played-with list, not a quality ranking) — removed with the block; profile list is titled «С кем ты играешь».
+- [fixed] Rule-book phrases in club stories, best pairs, profile list, insights panel and invitations («Минимум две совместные игры», «События: N», «В порядке имён выше», «Только факты завершённых игр… без скрытого рейтинга», «Нужно ≥3 очных игр», «Показывается только при достаточной выборке…») rewritten or removed.
+- [fixed after review] Opponent rankings («Сложные/Удобные соперники») and the social graph in `PlayerInsightsPanel` removed so the profile list is the single owner; club-story entries keep the distinct event count required by BUSINESS_RULES (plain wording «вечеров и турниров: N»); invitation delivery wording stays channel-neutral. Step 2 brings nemesis/comfortable back inside the personal list.
+- [open, pre-existing] `e2e/tests/club-pilot.spec.mjs` fails on `main` before this change as well (stale selectors, not part of the CI preview set); its connections assertions were updated for the new structure but could not be verified.
+
+## 2026-10-10 · Review of «Факт или фантазия» task clarity
+
+Scope: first-chapter content, mobile coaching interface, repeated practice and saved attempts. Owner reports too few similar tasks, unclear prompts/explanations and unnatural player references. No changes to Live Game, split-vote or judge trainers.
+
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: the first chapter had 3 near-duplicate cases; now 10 distinct situations, with 5 per attempt and alternating case selections on repeat.
+- [fixed in unmerged PR, CI pending] `src/lib/mafiaReasoningCourse.ts`: vague assertions, mind-reading and shorthand nicknames made some explanations hard to follow; revised the first chapter and player references throughout all five chapters.
+- [fixed in unmerged PR, CI pending] `src/components/public/guide/MafiaReasoningCourse.tsx`: two questions per case looked repetitive; context now explicitly identifies the situation and step, with clearer explanations, dynamic scoring and migration of existing local attempts.
+- [verification pending] Focused bank/rotation/legacy-storage/UI tests, TypeScript/lint/build, PR mobile preview. Main must stay unchanged until the owner completes hands-on review and explicitly authorizes merge.
+
+
+## 2026-10-10 · Owner-reported: protocol editor cannot be finished; deleted games take evening numbers
+
+- [fixed] `EveningGameProtocolModal.tsx`: every save wrote the server's echo (a fresh object) back into state, which re-triggered the autosave effect — an endless «сохранение… / есть изменения» loop; the pending 1-second timer also held a stale closure of the draft, so «Завершить игру» was overwritten by a draft save and the game fell back to «Не завершена». Now: autosave compares against the last server-confirmed snapshot (echo never re-saves), saves are serialized and only the newest may update the screen, the pending autosave is cancelled by complete/reopen, and the reasons completion is blocked (roles, winner) are shown on screen instead of `alert()`. Regression tests: `EveningGameProtocolModalAutosave.test.tsx` (failed before: 6 saves for one edit; final status draft).
+- [fixed, owner rule 2026-10-10] Evening game numbers counted deleted/archived games in the CRM list, the Telegram result blank (`clubResultData.loadGameBlank`) and personal results (`loadEveningPlayerResults`), while the player app did not — a deleted test game made the real first game «№2». All now number kept games only; the archive list shows «Удалённая игра». `global_game_number` is unchanged (separate counter, may have gaps). Rule recorded in BUSINESS_RULES.
+- [open, info] Results already posted to Telegram with the old numbering are not edited.
+
+## 2026-10-10 · Audit of everything merged after #725 (last Claude PR) up to #769
+
+Scope: 39 commits, ~11k lines. Automated: `tsc --noEmit` clean, `npm run lint` clean, full Vitest 2168 passed (3 failures only because this container exports a real `ORGANIZER_PASSWORD`; green with it unset), Python bot tests 63 passed. Read in detail: Robokassa test payments, Telegram late-arrival RSVP (#768), evening reschedule notices (#757), player evening workspace (#765/#766), poker buy-ins/invites (#737, pokerInviteService), judge scoping (#739), VK profile claim fallback (#752), perf caches (#767), club relationships privacy. Not covered: live-game mobile geometry hotfix (#769), judge-trainer content, trophy cabinet visuals — need browser/phone checks.
+
+- [fixed] `handlers/crm_evening_response.py`: late-arrival prompt "С какой игры тебя ждать?" contained a literal `\\n` (backslash-n shown to players in Telegram). Now a real line break.
+- [fixed] `EveningActiveRosterView.tsx`: add-to-evening picker hid every player who already had any participant row, but the roster hides «Не буду» / «Пока думаю» / «не пришёл» rows, so such a player (e.g. a walk-in who had answered no) could not be added anywhere. They now stay in the picker and are returned to the roster.
+- [fixed] `pokerInviteService.ts`: invite text hardcodes «вход 1 000 🪙» although buy-ins are now variable (from 10 BB, #737).
+- [fixed] `pokerInviteService.queuePokerInvite`: cooldown check and insert are not atomic; two simultaneous invites can both pass (worst case one extra message).
+- [open, info] `/api/bot/.../respond` now returns 400 `starting_slot_required` for «late» without a game; any old client that sends plain «late» (old Telegram buttons are handled by the new callback) would be rejected.
+- [checked, no defect] poker create/join charge-before-seat ordering: token debit and table snapshot are one transaction (`withPersistedPokerRuntime` rolls both back); regression test added (`pokerBuyInExploit.integration.test.ts`).
+- [checked 2026-10-10, no defect] Browser pass on current `main` (local Chromium via the preview build, 360/390 px and desktop): all 69 preview specs (live-game compact geometry after #769, trophy cabinet, Telegram viewport matrix, cabinet, split-vote trainers) and the 6 judge-trainer specs (mobile layout, finalization, desktop) pass; screenshots of the 360 px table, trophy cabinet and judge-trainer table/death protocol inspected. Observation only: at 360x700 the bottom «События» bar of the training table sits at the screen edge, partly under the floating clipboard button; not reproduced as a functional break.
+- [checked, no defect] Robokassa test checkout/ResultURL: signed, amount checked, test-DB only, idempotent, success/fail redirects confirm nothing.
+
 ## 2026-10-09 · Broken three-way split prompt wording
 
 - [fixed in PR] `SplitThreeBreakTask.tsx` displayed a long and mechanical broken-split condition, including votes already cast and a separate sentence about the breaker. The owner requested direct wording: «Попил сломан! 8 не поставил руку в 1. Что делаем дальше?»; both numbers come from the existing scenario. Details about prior hands remain in the voting step, without changing vote distribution or the 15-second deadline.
@@ -415,3 +461,16 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Fixed in this workstream:** `TournamentCupAsset.tsx` draws different sculpted cup families with deterministic tournament-based engraving. `trophyCabinetModel.ts` exposes real `tournament_id` or a recognized automatic club-evening `source_key`; no event route is invented from a free-form name.
 - **Fixed in this workstream:** `TrophyCabinet.tsx` offers «Открыть турнир и итоги» using the existing `PlayerTournamentView`, returning to the selected exhibit; automatic evening trophies link to their canonical evening route. Awards without a verifiable relation show no button.
 - **Acceptance:** 390px fixture shows different Bogdan edition silhouettes, click through verified tourney results and Back to the same cabinet; Jest/Vitest validates distinct IDs, honest links, unowned trophies and safe unknown sources. Do not mutate production database or award assignments. Exact-head CI + visual check before merging.
+
+### 2026-10-10 — Mafia shooting himself on night 1 had no ЛХ step
+
+- **Reported (owner):** when the mafia killed one of its own on the first night, the game skipped the best-move (ЛХ) step, which revealed the victim as black.
+- **Defect:** `canRegisterFirstKilled` (`src/lib/liveVoting.ts`) accepted red roles only, so the engine did not register a black first killed; both save paths (`validateFirstKilled` in `tournamentProtocolRoutes.ts`, club canonicalization) also rejected it.
+- **Fixed:** any first-night victim now goes through ЛХ and may skip it. Black best moves are dropped at save (`blackBestMoves.ts`) so no score, Elo or token calculation pays them; Ci stays red-only. Status: fixed.
+
+### 2026-10-10 — Betting with a single bettor, and a short bet window
+
+- **Reported (player via owner):** a lone bettor lost 50 on a lost bet but got 0 net on a won bet; the bet window (90 seconds) was too short.
+- **Defect:** `settleBetPool` (`bettingPoolService.ts`) paid a winner pool with no opposing stakes at coefficient 1 (stake back only) while the lost side burned its stake.
+- **Fixed:** a pool with stakes on one side only is refunded in full whichever team wins; window is `BETTING_WINDOW_MS` = 8 minutes. Status: fixed.
+- **Follow-up (review):** already-settled one-sided pools were skipped by the same-winner early return; the one-sided check now runs first, so the startup reconcile also returns stakes burned by the old rule (payout reversed, stake refunded). Status: fixed.

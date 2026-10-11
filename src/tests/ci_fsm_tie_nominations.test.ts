@@ -348,7 +348,7 @@ describe('Theme 2: Готовность к завершению турнира',
     expect(saveRes.status).toBe(200);
   });
 
-  it('17. First killed mafia role triggers validation error', async () => {
+  it('17. A mafia first killed (self-shot) is accepted, and his ЛХ is dropped so it scores nothing', async () => {
     await request(app)
       .post(`/api/tournaments/${tournamentId}/generate-seating`)
       .set('Cookie', organizerCookie);
@@ -394,16 +394,20 @@ describe('Theme 2: Готовность к завершению турнира',
         protocol: {
           winner_team: 'red',
           first_killed_participant_id: seats[7].participant_id,
+          best_moves: [{ participant_id: seats[7].participant_id, source: 'first_killed', seat_numbers: [8, 9, 10] }],
           shots: [{ night_number: 1, target_seat: 8, result: 'killed' }],
         },
         player_results,
       });
 
-    expect(saveRes.status).toBe(400);
-    expect(saveRes.body.error).toContain('мирный житель или Шериф');
+    expect(saveRes.status, JSON.stringify(saveRes.body)).toBe(200);
+    const saved = await db.get<any>('SELECT first_killed_participant_id FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
+    expect(saved.first_killed_participant_id).toBe(seats[7].participant_id);
+    const stored = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game.id]);
+    expect(stored).toHaveLength(0);
   });
 
-  it('18. complete protocol endpoint blocks with same first-killed validation', async () => {
+  it('18. completing with a mafia first killed is no longer blocked by the first-killed check', async () => {
     await request(app)
       .post(`/api/tournaments/${tournamentId}/generate-seating`)
       .set('Cookie', organizerCookie);
@@ -454,7 +458,7 @@ describe('Theme 2: Готовность к завершению турнира',
         player_results,
       });
 
-    expect(completeRes.status).toBe(400);
+    expect(JSON.stringify(completeRes.body)).not.toContain('Первоубиенн');
   });
 
   it('19. active/draft games count toward complete_readiness errors', async () => {

@@ -33,7 +33,7 @@ describe('Live Game night target model', () => {
     expect(toggleNightShotTarget(4, 7)).toBe(7);
   });
 
-  it('preserves first-killed best-move eligibility', () => {
+  it('gives the first-night victim the best-move step whatever his role (owner, 2026-10-10)', () => {
     const citizen = createPlayer(3, 'Мирный');
     const sheriff = createPlayer(4, 'Шериф');
     const mafia = createPlayer(5, 'Мафия');
@@ -41,7 +41,7 @@ describe('Live Game night target model', () => {
     expect(canNightTargetGiveFirstKilledBestMove(null, null, 1)).toBe(false);
     expect(canNightTargetGiveFirstKilledBestMove(citizen, null, 1)).toBe(true);
     expect(canNightTargetGiveFirstKilledBestMove(sheriff, null, 1)).toBe(true);
-    expect(canNightTargetGiveFirstKilledBestMove(mafia, null, 1)).toBe(false);
+    expect(canNightTargetGiveFirstKilledBestMove(mafia, null, 1)).toBe(true);
     expect(canNightTargetGiveFirstKilledBestMove(citizen, null, 2)).toBe(false);
     expect(canNightTargetGiveFirstKilledBestMove(citizen, 8, 1)).toBe(false);
     expect(canNightTargetGiveFirstKilledBestMove(citizen, 3, 1)).toBe(true);

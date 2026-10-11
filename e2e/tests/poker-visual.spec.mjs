@@ -9,7 +9,7 @@ test('poker 2.5D seats use readable integrated typography on a phone', async ({ 
   await expect(page.getByText('Бот Лаки', { exact: true })).toBeVisible();
   await expect(page.getByText('Бот Блеф', { exact: true })).toBeVisible();
   await expect(page.locator('.poker-seat-stack').filter({ hasText: '1 080' })).toBeVisible();
-  await expect(page.locator('.poker-hero-name')).toHaveText('Вы');
+  await expect(page.locator('.poker-hero-name')).toHaveText('Я');
   await expect(page.locator('.poker-hand-label')).toContainText('Старшая карта: валет');
 
   const geometry = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
@@ -66,4 +66,43 @@ test('poker table remains scrollable in a short Telegram landscape viewport', as
   expect(geometry.documentHeight).toBeGreaterThan(geometry.viewportHeight);
   expect(geometry.bodyOverflowY).not.toBe('hidden');
   await expect(page.getByTestId('poker-table-frame')).toBeVisible();
+});
+
+test('poker chat: an emote over the sender, the chat button above the actions, the emote board on a phone', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/e2e/poker-harness.html?chat=emote');
+  await page.getByRole('button', { name: '+ Создать стол · 1 000 жетонов' }).click();
+
+  await expect(page.getByTestId('poker-emote')).toContainText('Страшно?');
+  await expect(page.getByTestId('poker-chat-bubble')).toHaveText('ну давай, давай');
+  const button = page.getByTestId('poker-chat-open');
+  await expect(button).toBeVisible();
+  const box = await button.boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  const seated = await page.screenshot({ path: info.outputPath('poker-chat-emote-390x844.png') });
+  await info.attach('poker-chat-emote-390x844.png', { body: seated, contentType: 'image/png' });
+
+  await button.click();
+  const sheet = page.getByTestId('poker-chat-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(page.getByTestId('poker-emote-board').getByRole('button')).toHaveCount(18);
+  const sheetBox = await sheet.boundingBox();
+  expect(sheetBox.x).toBeGreaterThanOrEqual(0);
+  expect(sheetBox.x + sheetBox.width).toBeLessThanOrEqual(390);
+  expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(844);
+  const sheetShot = await page.screenshot({ path: info.outputPath('poker-chat-sheet-390x844.png') });
+  await info.attach('poker-chat-sheet-390x844.png', { body: sheetShot, contentType: 'image/png' });
+
+  // The on-screen keyboard leaves about half of the phone: the line to write and «Отправить» must stay on screen.
+  await page.setViewportSize({ width: 390, height: 440 });
+  await page.evaluate(() => document.documentElement.style.setProperty('--tg-viewport-height', '440px'));
+  await page.waitForTimeout(200);
+  const input = await page.getByLabel('Сообщение за стол').boundingBox();
+  const send = await page.getByRole('button', { name: 'Отправить' }).boundingBox();
+  expect(input.y).toBeGreaterThanOrEqual(0);
+  expect(input.y + input.height).toBeLessThanOrEqual(440);
+  expect(send.y + send.height).toBeLessThanOrEqual(440);
+  const keyboardShot = await page.screenshot({ path: info.outputPath('poker-chat-keyboard-390x440.png') });
+  await info.attach('poker-chat-keyboard-390x440.png', { body: keyboardShot, contentType: 'image/png' });
 });

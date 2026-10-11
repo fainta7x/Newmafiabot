@@ -193,6 +193,9 @@ def more_view() -> tuple[str, InlineKeyboardMarkup]:
         InlineKeyboardButton(text="💬 Группы", callback_data="home:groups"),
         InlineKeyboardButton(text="❓ Вопросы", callback_data="home:faq"),
     ])
+    browser = bot_menu.browser_button()
+    if browser:
+        rows.append([browser])
     if contact:
         rows.append([InlineKeyboardButton(text="✉️ Написать организатору", url=contact)])
     rows.append(_back())

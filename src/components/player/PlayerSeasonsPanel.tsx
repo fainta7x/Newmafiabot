@@ -154,7 +154,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
             <div className="mt-1 text-xl font-black">{data.season.label}</div>
             <div className="mt-1 text-[11px] text-white/30">{countGames(data.season.games)} · {countPlayers(data.season.players)}</div>
           </div>
-          {viewerRank && <div className="rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-black">#{viewerRank.place}</div><div className="text-[11px] text-white/25">ваше место</div></div>}
+          {viewerRank && <div className="rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-black">#{viewerRank.place}</div><div className="text-[11px] text-white/25">моё место</div></div>}
         </div>
         {data.season.viewer && (
           <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
+import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 
@@ -21,11 +22,8 @@ type AllGame = {
   judge_name: string | null;
 };
 
-const winnerLabel = (winner: 'red' | 'black' | null) => {
-  if (winner === 'red') return '🔴 Победа красных';
-  if (winner === 'black') return '⚫ Победа чёрных';
-  return 'Результат';
-};
+const winnerLabel = (winner: 'red' | 'black' | null) =>
+  getPlayerGameWinnerLabel(winner) ?? 'Результат';
 
 export default function PlayerGamesArchive({
   data,

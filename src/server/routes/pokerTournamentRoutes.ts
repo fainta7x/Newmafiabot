@@ -4,7 +4,7 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAcces
 import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
 import {
   cancelPokerTournament, createPokerTournament, getPokerTournamentRow, listPokerTournaments, PokerTournamentError,
-  publicPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
+  publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
 } from '../services/pokerTournamentService.ts';
 
 const router = Router();
@@ -51,6 +51,16 @@ router.post('/poker/tournaments/:id/register', handle(async (req) => {
 router.delete('/poker/tournaments/:id/register', handle(async (req) => {
   const row = await unregisterFromPokerTournament(req.db, String(req.params.id), viewer(req));
   return { body: { tournament: await publicPokerTournament(req.db, row, viewer(req)) } };
+}));
+
+router.post('/poker/tournaments/:id/rebuy', handle(async (req) => {
+  const playerId = viewer(req);
+  // The token debit, the new stack at the table and the entry are one transaction with the poker snapshot.
+  const tournament = await withPersistedPokerRuntime(req.db, async () => {
+    const row = await rebuyInPokerTournament(req.db, String(req.params.id), playerId);
+    return publicPokerTournament(req.db, row, playerId);
+  });
+  return { body: { tournament } };
 }));
 
 router.post('/poker/tournaments', handle(async (req) => {

@@ -3,7 +3,8 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { pokerTournamentLobbies, tickPokerLobby } from '../server/services/pokerLobbyService.ts';
 import { withPersistedPokerRuntime } from '../server/services/pokerPersistenceService.ts';
-import { createPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
+import { createPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
+import { settlePokerTournamentRewards } from '../server/services/pokerTournamentRewardsService.ts';
 
 const stamp = '2026-10-10T10:00:00.000Z';
 const now = Date.parse('2026-10-20T10:00:00Z');
@@ -144,6 +145,61 @@ describe('poker tournament tables', () => {
     await tickPokerTournaments(db, start + 31_000);
     const moved = await withPersistedPokerRuntime(db, () => pokerTournamentLobbies(id).flatMap((lobby) => lobby.players).find((seat) => seat.id === away));
     expect(moved?.sitting_out).toBe(true);
+  });
+
+  const tokens = async (playerId: string) => Number((await db.get<any>('SELECT tokens FROM players WHERE id = ?', [playerId]))?.tokens);
+  const rebuy = (id: string, playerId: string, at: number) => withPersistedPokerRuntime(db, () => rebuyInPokerTournament(db, id, playerId, at));
+
+  it('lets a busted player buy back in for his own tokens while the re-buy is open, once per bust', async () => {
+    const id = await begin(4, { seatsPerTable: 8, rebuyUntilLevel: 2, rebuyCostTokens: 100, rebuyChips: 1200 });
+    await expect(rebuy(id, 'p1', start + 3000)).rejects.toThrow('фишки закончились');
+    await bust(id, ['p1'], start + 5000);
+    await tickPokerTournaments(db, start + 6000);
+    expect((await entry(id, 'p1')).busted_at).not.toBeNull();
+
+    await rebuy(id, 'p1', start + 7000);
+    expect(await tokens('p1')).toBe(900);
+    expect(await entry(id, 'p1')).toMatchObject({ status: 'playing', busted_at: null });
+    expect((await db.get<any>('SELECT rebuys FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [id, 'p1'])).rebuys).toBe(1);
+    expect((await lobbies(id))[0].chips[(await lobbies(id))[0].players.indexOf('p1')]).toBe(1200);
+    await expect(rebuy(id, 'p1', start + 8000)).rejects.toThrow('фишки закончились');
+    expect(await tokens('p1')).toBe(900);
+  });
+
+  it('refuses a re-buy without the tokens or after the re-buy closed, and takes nothing', async () => {
+    const id = await begin(4, { seatsPerTable: 8, rebuyUntilLevel: 1, rebuyCostTokens: 100 });
+    await db.run("UPDATE players SET tokens = 50 WHERE id = 'p2'");
+    await bust(id, ['p1', 'p2'], start + 5000);
+    await tickPokerTournaments(db, start + 6000);
+    await expect(rebuy(id, 'p2', start + 7000)).rejects.toThrow('нужно 100');
+    expect(await tokens('p2')).toBe(50);
+    await expect(rebuy(id, 'p1', start + 1000 + LEVEL_MS + 5000)).rejects.toThrow('Время докупки закончилось');
+    expect(await tokens('p1')).toBe(1000);
+  });
+
+  it('pays the prizes by place, gives the winner a cup and the next two medals, and the winner the achievements', async () => {
+    const id = await begin(3, { seatsPerTable: 8, rebuyUntilLevel: 0, prizeTokens: [500, 200] });
+    await bust(id, ['p1'], start + 5000);
+    await tickPokerTournaments(db, start + 6000);
+    await bust(id, ['p2'], start + 30_000);
+    await tickPokerTournaments(db, start + 31_000);
+    await tickPokerTournaments(db, start + 60_000);
+    expect((await db.get<any>('SELECT status FROM poker_tournaments WHERE id = ?', [id])).status).toBe('finished');
+
+    expect(await tokens('p3')).toBe(1500);
+    expect(await tokens('p2')).toBe(1200);
+    expect(await tokens('p1')).toBe(1000);
+    const awards = await db.all<any>("SELECT player_id, kind, place_result, tournament_id FROM player_verified_awards WHERE source = ? ORDER BY place_result", [`poker_tournament:${id}`]);
+    expect(awards.map((award) => [award.player_id, award.kind, award.place_result])).toEqual([['p3', 'trophy', '1 место'], ['p2', 'medal', '2 место'], ['p1', 'medal', '3 место']]);
+    expect(awards.every((award) => award.tournament_id === null)).toBe(true);
+    const achievements = await db.all<any>("SELECT achievement_id FROM player_achievements WHERE player_id = 'p3'");
+    expect(achievements.map((item) => item.achievement_id)).toContain('poker_champion');
+
+    // Settling again must pay and award nothing twice.
+    const config = JSON.parse((await db.get<any>('SELECT config_json FROM poker_tournaments WHERE id = ?', [id])).config_json);
+    await settlePokerTournamentRewards(db, { id, title: 'Турбо' }, config, new Date(start + 90_000).toISOString());
+    expect(await tokens('p3')).toBe(1500);
+    expect(await db.all("SELECT id FROM player_verified_awards WHERE source = ?", [`poker_tournament:${id}`])).toHaveLength(3);
   });
 
   describe('a whole tournament played by the machinery itself', () => {

@@ -47,6 +47,18 @@ describe('PokerTournaments', () => {
     expect(open).toHaveBeenCalledWith('ptt_ptr_1_2');
   });
 
+  it('offers a busted player the re-buy while it is open, with its price, and says when it is closed', async () => {
+    const calls = mockFetch([
+      tournament({ id: 'a', status: 'running', rebuy_open: true, alive: 5, my_entry: { status: 'playing', rebuys: 0, place: null, busted: true } }),
+      tournament({ id: 'b', title: 'Другой', status: 'running', rebuy_open: false, alive: 5, my_entry: { status: 'playing', rebuys: 0, place: null, busted: true } }),
+    ]);
+    render(<PokerTournaments />);
+    const button = await screen.findByRole('button', { name: /докупить за 500 жетонов/i });
+    expect(screen.getByText(/докупка закрыта/i)).toBeTruthy();
+    fireEvent.click(button);
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/a/rebuy'))).toBe(true));
+  });
+
   it('tells a player who is out his place, and lists the places of a finished tournament', async () => {
     mockFetch([
       tournament({ id: 'a', status: 'running', alive: 3, my_entry: { status: 'eliminated', rebuys: 0, place: 5 } }),

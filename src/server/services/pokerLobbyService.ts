@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { chooseStrongBotAction, createOpponentMemory, observePokerHand, withOpponentMemory, type OpponentMemory } from './pokerBot.ts';
-import { pokerTournamentClock, type PokerBlindLevel } from '../../shared/pokerTournament.ts';
+import { pokerTournamentClock, pokerTournamentRebuyOpen, type PokerBlindLevel } from '../../shared/pokerTournament.ts';
 import { type PokerCard, advancePokerAnimation, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, POKER_DEAL_CARD_MS, POKER_DEAL_SETTLE_MS, pokerHandLabel, pokerTurnRemaining, refreshPokerReserve, type PokerState } from './pokerEngine.ts';
 
 export type PokerHistoryEntry = {
@@ -14,6 +14,8 @@ export type PokerMoneyMode = 'club_tokens' | 'training' | 'tournament';
 /** What a tournament table needs to know about its tournament (owner, 2026-10-10): the clock for the blinds, who is out. */
 export type PokerLobbyTournament = {
   id: string; table_no: number; started_at_ms: number; level_minutes: number; levels: PokerBlindLevel[]; rebuy_until_level: number;
+  /** The re-buy offer, shown at the table (tables seated before it was added simply have none). */
+  rebuy_cost_tokens?: number; rebuy_chips?: number;
   /** Players still in the tournament (refreshed by the tournament service), for the table's header. */
   alive?: number;
   /** The last hand whose busts were settled, so a hand is settled once. */
@@ -213,8 +215,9 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   const { history: _history, ...lobby } = fullLobby;
   const tournamentClock = lobby.tournament ? pokerTournamentClock({ levels: lobby.tournament.levels, levelMinutes: lobby.tournament.level_minutes }, lobby.tournament.started_at_ms, Date.now()) : null;
   const viewerOut = viewerId ? lobby.tournament?.out?.find((entry) => entry.id === viewerId) || null : null;
+  const tournamentRebuy = lobby.tournament && tournamentClock && lobby.tournament.rebuy_chips ? { open: pokerTournamentRebuyOpen({ rebuyUntilLevel: lobby.tournament.rebuy_until_level }, tournamentClock), cost_tokens: lobby.tournament.rebuy_cost_tokens ?? 0, chips: lobby.tournament.rebuy_chips, until_level: lobby.tournament.rebuy_until_level } : null;
   // The viewer's id lets the waiting table seat them at the bottom like during play.
-  if (!lobby.hand) return { ...lobby, hand: null, tournament_clock: tournamentClock, viewer_out: viewerOut, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
+  if (!lobby.hand) return { ...lobby, hand: null, tournament_clock: tournamentClock, tournament_rebuy: tournamentRebuy, viewer_out: viewerOut, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
   const now = Date.now();
   advancePokerAnimation(lobby.hand, now);
   for (const player of lobby.hand.players) refreshPokerReserve(player, now, player.seat !== lobby.hand.current_seat, lobby.hand.max_reserve_seconds);
@@ -246,7 +249,7 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   const viewerSeated = viewerAtTable;
   const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
   const hand = { ...lobby.hand, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, deal_elapsed_ms: Math.round(dealElapsed), deal_card_ms: POKER_DEAL_CARD_MS, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
-  return { ...lobby, hand, tournament_clock: tournamentClock, viewer_out: viewerOut };
+  return { ...lobby, hand, tournament_clock: tournamentClock, tournament_rebuy: tournamentRebuy, viewer_out: viewerOut };
 };
 
 export const MAIN_POKER_LOBBY_ID = 'main';

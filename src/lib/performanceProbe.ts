@@ -12,22 +12,31 @@ const KEEP = 40;
 const slowRequests: SlowRequest[] = [];
 const slowTransactions: SlowTransaction[] = [];
 const loopWindows: LoopWindow[] = [];
-const inFlight = new Map<number, { route: string; startedAt: number }>();
+type RouteLabel = string | (() => string);
+const inFlight = new Map<number, { label: RouteLabel; startedAt: number }>();
+const resolveLabel = (label: RouteLabel): string => { try { return typeof label === 'function' ? label() : label; } catch { return '(unknown)'; } };
 let nextId = 1;
 
 export const SLOW_REQUEST_MS = 1500;
+let slowRequestMs = SLOW_REQUEST_MS;
+/** Tests only: a request is recorded as slow from this many milliseconds. */
+export const setSlowRequestThresholdForTesting = (ms: number = SLOW_REQUEST_MS) => { slowRequestMs = ms; };
 export const SLOW_TRANSACTION_MS = 800;
 
 const push = <T>(list: T[], item: T) => { list.push(item); if (list.length > KEEP) list.shift(); };
 const recent = <T extends { at: string }>(list: T[], now: number) => list.filter((item) => now - Date.parse(item.at) <= WINDOW_MS);
 
-/** Ids, numbers and hashes in a path become `:id`, so the route is useful and carries no personal data. */
+/**
+ * Only for a mount prefix or a route TEMPLATE (`/claim/:token`), never for a real request URL: a secret in a path
+ * (a claim, confirmation or broadcast token) cannot be recognised by its shape. Ids that slip into a prefix are still masked.
+ */
 export const routeLabel = (method: string, path: string): string =>
   `${method} ${path.split('?')[0].replace(/\b[0-9a-f]{8}-[0-9a-f-]{20,}\b/gi, ':id').replace(/\b(?:ptr|pt|tr|ev)_[\w-]+/g, ':id').replace(/\/\d+(?=\/|$)/g, '/:id')}`;
 
-export const requestStarted = (route: string, now = Date.now()): number => {
+/** `label` may be a function: the route template is only known after the router matched, so it is read late. */
+export const requestStarted = (label: RouteLabel, now = Date.now()): number => {
   const id = nextId++;
-  inFlight.set(id, { route, startedAt: now });
+  inFlight.set(id, { label, startedAt: now });
   return id;
 };
 
@@ -36,7 +45,7 @@ export const requestFinished = (id: number, status: number, now = Date.now()) =>
   inFlight.delete(id);
   if (!started) return;
   const ms = now - started.startedAt;
-  if (ms >= SLOW_REQUEST_MS) push(slowRequests, { at: new Date(now).toISOString(), route: started.route, status, ms });
+  if (ms >= slowRequestMs) push(slowRequests, { at: new Date(now).toISOString(), route: resolveLabel(started.label), status, ms });
 };
 
 export const recordSlowTransaction = (waitedMs: number, heldMs: number, origin: string, now = Date.now()) => {
@@ -50,7 +59,7 @@ export const recordLoopWindow = (window: Omit<LoopWindow, 'at'>, now = Date.now(
 
 /** The longest requests that are running right now: what the server is busy with while it feels stuck. */
 export const requestsInFlight = (now = Date.now()) =>
-  [...inFlight.values()].map((item) => ({ route: item.route, running_ms: now - item.startedAt })).sort((a, b) => b.running_ms - a.running_ms).slice(0, 8);
+  [...inFlight.values()].map((item) => ({ route: resolveLabel(item.label), running_ms: now - item.startedAt })).sort((a, b) => b.running_ms - a.running_ms).slice(0, 8);
 
 export const performanceSnapshot = (now = Date.now()) => {
   const loop = recent(loopWindows, now);
@@ -69,5 +78,5 @@ export const performanceSnapshot = (now = Date.now()) => {
 };
 
 export const resetPerformanceProbeForTesting = () => {
-  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; inFlight.clear();
+  slowRequests.length = 0; slowTransactions.length = 0; loopWindows.length = 0; inFlight.clear(); slowRequestMs = SLOW_REQUEST_MS;
 };

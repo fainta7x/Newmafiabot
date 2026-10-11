@@ -4,9 +4,9 @@ import request from 'supertest';
 import { createDatabaseConnection } from '../db/index.ts';
 import {
   SLOW_REQUEST_MS, SLOW_TRANSACTION_MS, performanceSnapshot, recordLoopWindow, recordSlowTransaction,
-  requestFinished, requestStarted, resetPerformanceProbeForTesting, routeLabel,
+  requestFinished, requestStarted, resetPerformanceProbeForTesting, routeLabel, setSlowRequestThresholdForTesting,
 } from '../lib/performanceProbe.ts';
-import { performanceMiddleware } from '../server/services/performanceWatchdog.ts';
+import { performanceMiddleware, requestRouteLabel } from '../server/services/performanceWatchdog.ts';
 import { createRuntimeHealthRoutes } from '../server/routes/runtimeHealthRoutes.ts';
 
 afterEach(() => resetPerformanceProbeForTesting());
@@ -50,6 +50,37 @@ describe('the record of what made the server slow', () => {
     expect(running.headers['cache-control']).toBe('no-store');
     expect(Object.keys(running.body)).toEqual(expect.arrayContaining(['event_loop', 'slow_requests', 'slow_transactions', 'running_now']));
     expect(JSON.stringify(running.body)).not.toMatch(/cookie|token|nickname/i);
+  });
+
+  it('never records a secret from a URL: only the matched route template, and no path at all when no route matched', async () => {
+    setSlowRequestThresholdForTesting(0);
+    const router = express.Router();
+    router.get('/player/claim/:token', (_req, res) => { res.json({ ok: true }); });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    router.get('/public/broadcast/:token', async (_req, res) => { await gate; res.json({ ok: true }); });
+    const app = express();
+    app.use(performanceMiddleware);
+    app.use('/api/integrations/vk', router);
+    app.use('/api/health', createRuntimeHealthRoutes());
+
+    await request(app).get('/api/integrations/vk/player/claim/SECRETCLAIMTOKEN123?code=SECRETQUERY');
+    await request(app).get('/api/not-a-route/SECRETUNMATCHED456');
+    // A request that is still running (the case during a freeze) is named by its template as well.
+    const pending = request(app).get('/api/integrations/vk/public/broadcast/SECRETBROADCAST789').then((res) => res);
+    await new Promise<void>((resolve) => { setTimeout(resolve, 50); });
+    const during = await request(app).get('/api/health/performance');
+    release();
+    await pending;
+    const after = await request(app).get('/api/health/performance');
+
+    const everything = JSON.stringify([during.body, after.body]);
+    expect(everything).not.toMatch(/SECRET/);
+    expect(everything).toContain('GET /api/integrations/vk/player/claim/:token');
+    expect(everything).toContain('GET /api/integrations/vk/public/broadcast/:token');
+    expect(everything).toContain('GET (no route)');
+    expect(during.body.running_now.map((item: { route: string }) => item.route)).toContain('GET /api/integrations/vk/public/broadcast/:token');
+    expect(requestRouteLabel({ method: 'GET', baseUrl: '/x', route: undefined } as any)).toBe('GET (no route)');
   });
 
   it('records a transaction that waits behind another one', async () => {

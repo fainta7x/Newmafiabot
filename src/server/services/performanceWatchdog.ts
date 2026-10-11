@@ -25,9 +25,27 @@ export function startPerformanceWatchdog() {
   timer.unref?.();
 }
 
-/** Measures every request; a slow one is kept (route without ids, status, time) for GET /api/health/performance. */
+/**
+ * The name of a request for the record: the route TEMPLATE the router matched (`POST /api/player/poker/lobbies/:id/action`),
+ * never the real URL, because a path can carry a secret token (claim, confirmation or broadcast links). A request that no
+ * route matched is recorded without its path.
+ */
+export const requestRouteLabel = (req: Pick<Request, 'method' | 'baseUrl' | 'route'>): string => {
+  const template = (req.route as { path?: unknown } | undefined)?.path;
+  if (typeof template !== 'string') return `${req.method} (no route)`;
+  return routeLabel(req.method, `${req.baseUrl || ''}${template}`);
+};
+
+/** Measures every request; a slow one is kept (route template, status, time) for GET /api/health/performance. */
 export function performanceMiddleware(req: Request, res: Response, next: NextFunction) {
-  const id = requestStarted(routeLabel(req.method, req.originalUrl || req.url || ''));
+  // The template is only known after routing and can be reset when a router is left, so the last known one is kept.
+  let known = `${req.method} (no route)`;
+  const label = () => {
+    const current = requestRouteLabel(req);
+    if (!current.endsWith('(no route)')) known = current;
+    return known;
+  };
+  const id = requestStarted(label);
   let done = false;
   const finish = () => { if (done) return; done = true; requestFinished(id, res.statusCode); };
   res.on('finish', finish);

@@ -332,7 +332,7 @@ Only after these checks may a release be called **runtime verified**.
 
 ### Freezes and slowness
 
-When the owner reports a freeze («лагает 5–10 секунд»), read `GET /api/health/performance` first, before changing anything and ideally within five minutes of the freeze (it keeps five minutes): the longest event-loop stall, the slowest requests (route without ids), the slowest database transactions with the code location that opened them, and what is running right now. A stall of a second or more is also written to the application log as `[PERF]`. Do not guess a cause from the symptom alone; name the route or the transaction first (`docs/ERROR_PLAYBOOK.md`).
+When the owner reports a freeze («лагает 5–10 секунд»), read `GET /api/health/performance` first, before changing anything and ideally within five minutes of the freeze (it keeps five minutes): the longest event-loop stall, the slowest requests (the route template, never the real URL), the slowest database transactions with the code location that opened them, and what is running right now. A stall of a second or more is also written to the application log as `[PERF]`. Do not guess a cause from the symptom alone; name the route or the transaction first (`docs/ERROR_PLAYBOOK.md`).
 
 ### Amvera probes
 

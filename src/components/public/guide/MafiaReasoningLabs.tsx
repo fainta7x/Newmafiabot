@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronLeft, RotateCcw, ShieldQuestion, AlertCircle, GitBranch, ClipboardCheck } from 'lucide-react';
 import MafiaReasoningDecisionTree from './MafiaReasoningDecisionTree.tsx';
 import MafiaReasoningDiagnostic from './MafiaReasoningDiagnostic.tsx';
+import AnonymousTestamentPractice from './AnonymousTestamentPractice.tsx';
 import {
   REASONING_LABS, VOTE_PLANS, labCasesForAttempt, type LabCase, type LabTopic,
 } from '../../../lib/mafiaReasoningLabs.ts';
@@ -60,7 +61,7 @@ const answerOrder = (length: number, index: number, attempt: number) =>
  */
 export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
   const [progress, setProgress] = useState<LabProgress>(readProgress);
-  const [extra, setExtra] = useState<'tree' | 'diagnostic' | null>(null);
+  const [extra, setExtra] = useState<'tree' | 'diagnostic' | 'testament' | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -129,6 +130,7 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
 
   if (extra === 'tree') return <MafiaReasoningDecisionTree onBack={() => setExtra(null)} />;
   if (extra === 'diagnostic') return <MafiaReasoningDiagnostic onBack={() => setExtra(null)} />;
+  if (extra === 'testament') return <AnonymousTestamentPractice onBack={() => setExtra(null)} />;
 
   return <div ref={top} data-testid="mafia-reasoning-labs" className="space-y-4">
     <header className="flex items-center gap-3">
@@ -167,6 +169,12 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100"><GitBranch className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1"><strong className="block text-[14px]">Дерево голосов</strong>
             <span className="block text-[12px] text-white/55">Что возможно, а что уже не изменить</span></span><ArrowRight className="h-4 w-4 text-white/50" />
+        </button>
+        <button type="button" data-testid="reasoning-lab-open-testament" onClick={() => setExtra('testament')}
+          className="flex min-h-[75px] w-full items-center gap-3 rounded-2xl border border-amber-200/25 bg-amber-200/[.04] p-3 text-left">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100"><ClipboardCheck className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-[14px]">Сила завещания</strong>
+            <span className="block text-[12px] text-white/55">Аргументы, ЛХ, протоколы — без имён</span></span><ArrowRight className="h-4 w-4 text-white/50" />
         </button>
         <button type="button" data-testid="reasoning-lab-open-diagnostic" onClick={() => setExtra('diagnostic')}
           className="flex min-h-[75px] w-full items-center gap-3 rounded-2xl border border-amber-200/25 bg-amber-200/[.04] p-3 text-left">

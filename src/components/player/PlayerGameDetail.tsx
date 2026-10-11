@@ -1,5 +1,7 @@
 import React from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 export type PlayerGameEloChange = {
@@ -97,20 +99,8 @@ export type PlayerGameDetailData = {
   }>;
 };
 
-const formatDate = (value: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
-};
-
-const roleLabel = (role: PlayerGameDetailData['players'][number]['role']) => {
-  if (role === 'citizen') return 'Мирный';
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Роль не указана';
-};
+const roleLabel = (role: PlayerGameDetailData['players'][number]['role']) =>
+  getPlayerGameRoleLabel(role) ?? 'Роль не указана';
 
 const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) => {
   if (winner === 'red') return '🔴 Победа красных';

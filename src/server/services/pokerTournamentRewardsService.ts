@@ -1,11 +1,11 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import type { PokerTournamentConfig } from '../../shared/pokerTournament.ts';
+import { pokerTournamentPrizes, type PokerTournamentConfig } from '../../shared/pokerTournament.ts';
 import { evaluateAchievementsForPlayers } from './playerAchievementsService.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 
 /**
- * What a finished poker tournament gives (owner, 2026-10-10): the token prize the organizer set for each place, a cup in
+ * What a finished poker tournament gives (owner, 2026-10-10): the token prize of each place (the club's guarantee plus every re-buy, split by percentages, or the fixed prizes of an older tournament), a cup in
  * the profile for the winner, medals for second and third, and the achievements for winning. Every part is idempotent
  * (ledger key, award source key), so repeating the settlement never pays or awards twice.
  */
@@ -21,11 +21,13 @@ export async function settlePokerTournamentRewards(
       WHERE e.tournament_id = ? AND e.place IS NOT NULL ORDER BY e.place ASC`,
     [tournament.id],
   );
+  const rebuys = Number((await db.get<{ n: number | null }>('SELECT SUM(rebuys) AS n FROM poker_tournament_entries WHERE tournament_id = ?', [tournament.id]))?.n || 0);
+  const prizes = pokerTournamentPrizes(config, rebuys, placed.length);
   const date = finishedAtIso.slice(0, 10);
   const year = Number(date.slice(0, 4));
 
   for (const entry of placed) {
-    const prize = Math.max(0, Math.trunc(config.prizeTokens[entry.place - 1] || 0));
+    const prize = Math.max(0, Math.trunc(prizes.payouts[entry.place - 1] || 0));
     if (prize > 0) {
       await mutateTokenBalance(db, {
         playerId: entry.player_id,

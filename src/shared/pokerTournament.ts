@@ -20,8 +20,13 @@ export type PokerTournamentConfig = {
   rebuyCostTokens: number;
   rebuyChips: number;
   seatsPerTable: number;
-  /** Club tokens paid for places 1, 2, 3… */
+  /** Club tokens paid for places 1, 2, 3… (the old fixed prizes; empty when the prize pool is used) */
   prizeTokens: number[];
+  /** Prize pool (owner, 2026-10-11): the club's guarantee plus every re-buy, split by these percentages (they add up to 100). */
+  guaranteeTokens?: number;
+  prizeSharesPct?: number[];
+  /** How many times the organizer moved the start; makes the reminder go out again for the new time. */
+  startRevision?: number;
 };
 
 export const POKER_TOURNAMENT_MAX_SEATS = 8; // the table engine seats at most eight
@@ -39,7 +44,7 @@ export const DEFAULT_TURBO_SETTINGS = {
   startingStack: 1000,
   levelMinutes: 6,
   rebuyUntilLevel: 6,
-  rebuyCostTokens: 1000,
+  rebuyCostTokens: 200,
   rebuyChips: 1000,
   lateRegUntilLevel: 6,
   seatsPerTable: 6,
@@ -91,7 +96,22 @@ export function normalizePokerTournamentConfig(input: Record<string, unknown>, n
     maxPlayers = value;
   }
 
-  const rawPrizes = input.prizeTokens ?? input.prize_tokens ?? [];
+  const guaranteeRaw = input.guaranteeTokens ?? input.guarantee_tokens;
+  const sharesRaw = input.prizeSharesPct ?? input.prize_shares_pct;
+  let guaranteeTokens: number | undefined;
+  let prizeSharesPct: number[] | undefined;
+  if (Array.isArray(sharesRaw) && sharesRaw.length > 0) {
+    if (sharesRaw.length > 10) return { ok: false, error: 'Доли призового фонда: до 10 призовых мест' };
+    const shares = sharesRaw.map((entry) => whole(entry));
+    if (shares.some((entry) => entry === null || entry < 0 || entry > 100)) return { ok: false, error: 'Доли призового фонда — целые проценты' };
+    if ((shares as number[]).reduce((sum, entry) => sum + entry, 0) !== 100) return { ok: false, error: 'Доли призового фонда должны давать в сумме 100%' };
+    const guarantee = guaranteeRaw === undefined || guaranteeRaw === null || guaranteeRaw === '' ? 0 : whole(guaranteeRaw);
+    if (guarantee === null || guarantee < 0 || guarantee > 10_000_000) return { ok: false, error: 'Гарантия клуба — целая сумма жетонов от 0 до 10 000 000' };
+    guaranteeTokens = guarantee;
+    prizeSharesPct = shares as number[];
+  }
+
+  const rawPrizes = prizeSharesPct ? [] : input.prizeTokens ?? input.prize_tokens ?? [];
   if (!Array.isArray(rawPrizes) || rawPrizes.length > 10) return { ok: false, error: 'Призы: до 10 призовых мест' };
   const prizeTokens = rawPrizes.map((entry) => whole(entry));
   if (prizeTokens.some((entry) => entry === null || entry < 0 || entry > 10_000_000)) return { ok: false, error: 'Призы — целые неотрицательные суммы жетонов' };
@@ -111,6 +131,7 @@ export function normalizePokerTournamentConfig(input: Record<string, unknown>, n
       rebuyChips: (rebuyChips as { value: number }).value,
       seatsPerTable: (seatsPerTable as { value: number }).value,
       prizeTokens: prizeTokens as number[],
+      ...(prizeSharesPct ? { guaranteeTokens, prizeSharesPct } : {}),
     },
   };
 }
@@ -197,4 +218,43 @@ export function planPokerTournamentTables(players: number, seatsPerTable: number
   const base = Math.floor(players / tables);
   const extra = players % tables;
   return Array.from({ length: tables }, (_, index) => base + (index < extra ? 1 : 0));
+}
+
+export type PokerTournamentPrizes = {
+  mode: 'pool' | 'fixed';
+  /** The club's guarantee (0 in the fixed mode). */
+  guarantee: number;
+  /** What re-buys have added so far. */
+  rebuyTokens: number;
+  total: number;
+  /** Tokens for places 1, 2, 3… */
+  payouts: number[];
+  sharesPct: number[];
+};
+
+/**
+ * What the places pay. In the pool mode the pool is the guarantee plus all re-buy money, split by the percentages; when
+ * fewer people played than there are prize places the percentages of the places that exist are scaled up to 100%,
+ * every payout is rounded down and the few tokens left go to first place, so exactly the pool is paid out.
+ */
+export function pokerTournamentPrizes(
+  config: Pick<PokerTournamentConfig, 'prizeTokens' | 'guaranteeTokens' | 'prizeSharesPct' | 'rebuyCostTokens'>,
+  rebuysTotal: number,
+  entrants: number,
+): PokerTournamentPrizes {
+  const shares = config.prizeSharesPct;
+  if (!shares || shares.length === 0) {
+    const payouts = config.prizeTokens.map((value) => Math.max(0, Math.trunc(value)));
+    return { mode: 'fixed', guarantee: 0, rebuyTokens: 0, total: payouts.reduce((sum, value) => sum + value, 0), payouts, sharesPct: [] };
+  }
+  const guarantee = Math.max(0, Math.trunc(config.guaranteeTokens || 0));
+  const rebuyTokens = Math.max(0, Math.trunc(rebuysTotal)) * Math.max(0, Math.trunc(config.rebuyCostTokens || 0));
+  const total = guarantee + rebuyTokens;
+  const paid = Math.max(0, Math.min(shares.length, Math.trunc(entrants)));
+  const used = shares.slice(0, paid);
+  const usedSum = used.reduce((sum, value) => sum + value, 0);
+  if (!used.length || usedSum <= 0) return { mode: 'pool', guarantee, rebuyTokens, total, payouts: [], sharesPct: [...shares] };
+  const payouts = used.map((value) => Math.floor((total * value) / usedSum));
+  payouts[0] += total - payouts.reduce((sum, value) => sum + value, 0);
+  return { mode: 'pool', guarantee, rebuyTokens, total, payouts, sharesPct: [...shares] };
 }

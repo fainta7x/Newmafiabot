@@ -1,6 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
-import type { PokerTournamentConfig } from '../../shared/pokerTournament.ts';
+import { pokerTournamentPrizes, type PokerTournamentConfig } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { createVkWallPost, getVkIntegrationStatus } from './vkPublishingService.ts';
 
@@ -38,7 +38,11 @@ export function pokerTournamentAnnouncementText(row: Pick<Row, 'id' | 'title' | 
   const e = html ? escapeHtml : (value: unknown) => String(value ?? '');
   const config = JSON.parse(row.config_json) as PokerTournamentConfig;
   const lines = [`🃏 ${e(row.title)}`, '', `Старт: ${when(row.start_at)} (МСК)`, 'Участие бесплатное, фишки выдаёт клуб'];
-  if (config.prizeTokens.length) lines.push(`🏆 Призы жетонами: ${config.prizeTokens.map((value, index) => `${index + 1} место — ${value}`).join(', ')}`);
+  const prizes = pokerTournamentPrizes(config, 0, config.prizeSharesPct?.length ?? 0);
+  const money = (value: number) => value.toLocaleString('ru-RU');
+  if (prizes.mode === 'pool' && prizes.total > 0) {
+    lines.push(`🏆 Призовой фонд: гарантия клуба ${money(prizes.guarantee)} жетонов${config.rebuyUntilLevel > 0 && config.rebuyCostTokens > 0 ? ' и все докупки' : ''}. Сейчас по местам: ${prizes.payouts.map((value, index) => `${index + 1} — ${money(value)}`).join(', ')}`);
+  } else if (prizes.mode === 'fixed' && prizes.payouts.length) lines.push(`🏆 Призы жетонами: ${prizes.payouts.map((value, index) => `${index + 1} место — ${value}`).join(', ')}`);
   lines.push(config.maxPlayers ? `👥 От ${config.minPlayers} до ${config.maxPlayers} игроков` : `👥 От ${config.minPlayers} игроков`);
   // The blind clock, shortly: when the levels change and until when a newcomer may still enter or buy back in.
   const startMs = Date.parse(row.start_at);
@@ -171,9 +175,11 @@ export async function remindPokerTournament(db: DatabaseWrapper, row: Row, nowMs
   if (untilStart > POKER_TOURNAMENT_REMINDER_MINUTES * 60_000 || untilStart <= 0) return false;
   const queue = deps.queueNotification || queuePersonalNotification;
   const players = await db.all<{ player_id: string }>("SELECT player_id FROM poker_tournament_entries WHERE tournament_id = ? AND status = 'registered'", [row.id]);
+  // The key of a tournament whose start was moved carries the revision, so players get the reminder with the new time.
+  const revision = (JSON.parse(row.config_json) as PokerTournamentConfig).startRevision ?? 0;
   for (const { player_id } of players) {
     await queue(db, {
-      notificationKey: `poker-tournament:reminder:${row.id}:${player_id}`, playerId: String(player_id), eventType: 'poker_tournament_reminder',
+      notificationKey: `poker-tournament:reminder:${row.id}:${player_id}${revision > 0 ? `:r${revision}` : ''}`, playerId: String(player_id), eventType: 'poker_tournament_reminder',
       entityId: row.id, text: pokerTournamentReminderText(row), actionPath: '/player',
     });
   }

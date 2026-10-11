@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
-import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
-import { pokerTournamentAnnouncementText } from '../server/services/pokerTournamentAnnouncementService.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
+import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments, updatePokerTournament } from '../server/services/pokerTournamentService.ts';
+import { pokerTournamentAnnouncementText, remindPokerTournament } from '../server/services/pokerTournamentAnnouncementService.ts';
 
 const stamp = '2026-10-10T10:00:00.000Z';
 
@@ -94,11 +94,72 @@ describe('entering a running poker tournament over the API, and the table of lev
     const text = pokerTournamentAnnouncementText(row as any);
     expect(text).toContain('⏱ Уровень 6 мин., блайнды с 10/20, стек 1');
     expect(text).toContain('➕ Войти в идущий турнир можно до конца 6-го уровня (до 21:36 МСК)');
-    expect(text).toContain('🔁 Докупка до конца 6-го уровня (до 21:36 МСК): 1');
-    expect(text).toContain('000 жетонов за 1');
+    expect(text).toContain('🔁 Докупка до конца 6-го уровня (до 21:36 МСК): 200 жетонов за 1');
+    expect(text).toContain('000 фишек');
     const none = await createPokerTournament(db, null, { title: 'Без позднего входа', startAt, minPlayers: 4, lateRegUntilLevel: 0, rebuyUntilLevel: 0 }, Date.parse('2026-10-20T10:00:00Z'));
     const plain = pokerTournamentAnnouncementText(none as any);
     expect(plain).not.toContain('➕');
     expect(plain).not.toContain('🔁');
+  });
+
+  it('lets the organizer change a tournament before it starts, only that, and keeps what was not sent', async () => {
+    const organizer = `organizer_token=${generateOrganizerToken()}`;
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Было', startAt, minPlayers: 4, levelMinutes: 6 });
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+
+    const denied = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set(as('p1')).send({ title: 'Взлом' });
+    expect(denied.status).toBe(403);
+
+    const later = new Date(Date.now() + 4 * 24 * 60 * 60_000).toISOString();
+    const edited = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer)
+      .send({ title: 'Стало', startAt: later, levelMinutes: '8', rebuyUntilLevel: 5, lateRegUntilLevel: 5 });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(edited.body.tournament).toMatchObject({ title: 'Стало', start_at: later, players: 2 });
+    expect(edited.body.tournament.settings).toMatchObject({ levelMinutes: 8, rebuyUntilLevel: 5, lateRegUntilLevel: 5, minPlayers: 4, startingStack: 1000 });
+    expect(edited.body.tournament.schedule[2]).toMatchObject({ level: 3, startMinute: 16, rebuyOpen: true });
+    expect(edited.body.tournament.schedule[5]).toMatchObject({ level: 6, rebuyOpen: false });
+
+    const tooSmall = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ maxPlayers: 1 });
+    expect(tooSmall.status).toBe(400);
+    const belowSigned = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ minPlayers: 2, maxPlayers: '' });
+    expect(belowSigned.status, JSON.stringify(belowSigned.body)).toBe(200);
+    expect(belowSigned.body.tournament.settings.maxPlayers).toBeNull();
+
+    await db.run("UPDATE poker_tournaments SET status = 'running' WHERE id = ?", [row.id]);
+    const started = await request(app).patch(`/api/player/poker/tournaments/${row.id}`).set('Cookie', organizer).send({ title: 'Поздно' });
+    expect(started.status).toBe(409);
+  });
+
+  it('keeps late registration closed for a tournament made before it existed when only the title is edited', async () => {
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Старый', startAt });
+    const config = JSON.parse(row.config_json);
+    delete config.lateRegUntilLevel;
+    await db.run('UPDATE poker_tournaments SET config_json = ? WHERE id = ?', [JSON.stringify(config), row.id]);
+    const edited = await updatePokerTournament(db, row.id, { title: 'Старый, новое название' });
+    expect(JSON.parse(edited.config_json).lateRegUntilLevel).toBe(0);
+  });
+
+  it('does not start or cancel a tournament whose start the organizer has just moved, and sends the reminder again for the new time', async () => {
+    const now = Date.now();
+    const row = await createPokerTournament(db, null, { title: 'Сдвиг', startAt: new Date(now + 60_000).toISOString(), minPlayers: 2 });
+    await registerForPokerTournament(db, row.id, 'p1');
+    await registerForPokerTournament(db, row.id, 'p2');
+    const later = new Date(now + 3 * 60 * 60_000).toISOString();
+    const moved = await updatePokerTournament(db, row.id, { startAt: later }, now);
+    expect(JSON.parse(moved.config_json).startRevision).toBe(1);
+    // the scheduler looks a bit later than the old start: the tournament is not due any more
+    const result = await tickPokerTournaments(db, now + 2 * 60_000);
+    expect(result.started).toEqual([]);
+    expect(result.cancelled).toEqual([]);
+    expect((await db.get<any>('SELECT status FROM poker_tournaments WHERE id = ?', [row.id])).status).toBe('registration');
+
+    const keys: string[] = [];
+    const queue = async (_db: unknown, notification: { notificationKey: string }) => { keys.push(notification.notificationKey); return null as any; };
+    const remindAt = Date.parse(later) - 10 * 60_000;
+    await remindPokerTournament(db, moved as any, remindAt, { queueNotification: queue as any });
+    expect(keys).toEqual([`poker-tournament:reminder:${row.id}:p1:r1`, `poker-tournament:reminder:${row.id}:p2:r1`]);
   });
 });

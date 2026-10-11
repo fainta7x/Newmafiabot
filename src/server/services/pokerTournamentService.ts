@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 import {
   normalizePokerTournamentConfig, pokerTournamentClock, pokerTournamentLateRegOpen, pokerTournamentRebuyOpen, pokerTournamentSchedule,
+  pokerTournamentPrizes,
   type PokerTournamentConfig,
 } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -52,6 +53,9 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
        FROM poker_tournament_entries e JOIN players p ON p.id = e.player_id
       WHERE e.tournament_id = ? AND e.status != 'cancelled' ORDER BY e.created_at ASC, p.nickname ASC`, [row.id],
   )).map((entry) => ({ id: String(entry.id), nickname: entry.nickname, status: entry.status, place: entry.place, rebuys: Number(entry.rebuys), out: entry.status === 'eliminated' }));
+  // The pool grows with every re-buy; before the start it is shown for the full table of prize places.
+  const rebuysTotal = Number((await db.get<{ n: number | null }>('SELECT SUM(rebuys) AS n FROM poker_tournament_entries WHERE tournament_id = ?', [row.id]))?.n || 0);
+  const prizes = pokerTournamentPrizes(config, rebuysTotal, Math.max(players, config.prizeSharesPct?.length ?? 0));
   const myTable = viewerId && row.status === 'running' ? pokerTournamentLobbies(row.id).find((lobby) => lobby.players.some((seat) => seat.id === viewerId)) || null : null;
   return {
     id: row.id,
@@ -63,6 +67,7 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
     started_at: row.started_at,
     finished_at: row.finished_at,
     settings: { ...config, lateRegUntilLevel: config.lateRegUntilLevel ?? 0 },
+    prizes,
     players,
     spots_left: config.maxPlayers === null ? null : Math.max(0, config.maxPlayers - players),
     clock,
@@ -93,6 +98,42 @@ export async function createPokerTournament(db: DatabaseWrapper, organizerId: st
     [id, title, cleanText(input.description, 1000), organizerId, parsed.config.startAt, JSON.stringify(parsed.config), announce ? JSON.stringify(announce) : null, now, now],
   );
   return getPokerTournamentRow(db, id);
+}
+
+/**
+ * The organizer edits a tournament that has not started yet (owner, 2026-10-11: «до старта турнира я могу всё корректировать»).
+ * Only the fields that arrive are changed. The announcement that already went out is not re-sent.
+ */
+export async function updatePokerTournament(db: DatabaseWrapper, id: string, input: Record<string, unknown>, nowMs = Date.now()) {
+  return db.transaction(async (tx) => {
+    const row = await getPokerTournamentRow(tx, id);
+    if (row.status !== 'registration') throw new PokerTournamentError(409, 'Изменить можно только турнир, который ещё не начался');
+    const title = input.title === undefined ? row.title : cleanText(input.title, 120);
+    if (!title) throw new PokerTournamentError(400, 'Назовите турнир');
+    const old = parseConfig(row);
+    // A tournament made before late registration existed keeps it closed unless the organizer sets it.
+    const merged: Record<string, unknown> = { ...old, lateRegUntilLevel: old.lateRegUntilLevel ?? 0, startAt: row.start_at };
+    for (const [key, value] of Object.entries(input)) {
+      if (key === 'title' || key === 'description' || key === 'announce') continue;
+      if (value !== undefined) merged[key] = value;
+    }
+    const parsed = normalizePokerTournamentConfig(merged, nowMs);
+    if (!parsed.ok) throw new PokerTournamentError(400, parsed.error);
+    const players = await registeredCount(tx, id);
+    if (parsed.config.maxPlayers !== null && parsed.config.maxPlayers < players) {
+      throw new PokerTournamentError(400, `Уже записалось ${players}: максимум не может быть меньше`);
+    }
+    const description = input.description === undefined ? row.description : cleanText(input.description, 1000);
+    // A moved start is a new reminder: the reminder's key carries the revision, so the old time is not the one players keep.
+    const startRevision = (old.startRevision ?? 0) + (parsed.config.startAt === row.start_at ? 0 : 1);
+    if (startRevision > 0) parsed.config.startRevision = startRevision;
+    const changed = await tx.run(
+      "UPDATE poker_tournaments SET title = ?, description = ?, start_at = ?, config_json = ?, updated_at = ? WHERE id = ? AND status = 'registration'",
+      [title, description, parsed.config.startAt, JSON.stringify(parsed.config), new Date(nowMs).toISOString(), id],
+    );
+    if (!changed.changes) throw new PokerTournamentError(409, 'Изменить можно только турнир, который ещё не начался');
+    return getPokerTournamentRow(tx, id);
+  });
 }
 
 export async function getPokerTournamentRow(db: DatabaseWrapper, id: string): Promise<TournamentRow> {
@@ -171,12 +212,13 @@ export async function unregisterFromPokerTournament(db: DatabaseWrapper, tournam
   return row;
 }
 
-export async function cancelPokerTournament(db: DatabaseWrapper, tournamentId: string, reason: string, notify = true, nowMs = Date.now()) {
+export async function cancelPokerTournament(db: DatabaseWrapper, tournamentId: string, reason: string, notify = true, nowMs = Date.now(), onlyIfDue = false) {
   const row = await getPokerTournamentRow(db, tournamentId);
   if (row.status === 'finished' || row.status === 'cancelled') return row;
   if (row.status === 'running') throw new PokerTournamentError(409, 'Идущий турнир отменить нельзя');
   const now = new Date(nowMs).toISOString();
-  const changed = await db.run("UPDATE poker_tournaments SET status = 'cancelled', cancel_reason = ?, updated_at = ? WHERE id = ? AND status = 'registration'", [reason, now, tournamentId]);
+  // The scheduler passes onlyIfDue: an edit that moved the start a moment ago must not be overwritten by a cancel.
+  const changed = await db.run(`UPDATE poker_tournaments SET status = 'cancelled', cancel_reason = ?, updated_at = ? WHERE id = ? AND status = 'registration'${onlyIfDue ? ' AND start_at <= ?' : ''}`, onlyIfDue ? [reason, now, tournamentId, now] : [reason, now, tournamentId]);
   if (!changed.changes) return getPokerTournamentRow(db, tournamentId);
   const cancelled = { ...row, status: 'cancelled' as const, cancel_reason: reason, updated_at: now };
   if (notify) await deliverPokerTournamentNotices(db, cancelled);
@@ -221,18 +263,21 @@ export async function tickPokerTournaments(db: DatabaseWrapper, nowMs = Date.now
   await ensurePokerTournamentSchema(db);
   const due = await db.all<TournamentRow>("SELECT * FROM poker_tournaments WHERE status = 'registration' AND start_at <= ?", [new Date(nowMs).toISOString()]);
   const result = { started: [] as string[], cancelled: [] as string[] };
-  for (const row of due) {
+  for (const stale of due) {
+    // Read again: the organizer may have just edited the tournament (a later start, other settings).
+    const row = await getPokerTournamentRow(db, stale.id);
+    if (row.status !== 'registration' || Date.parse(row.start_at) > nowMs) continue;
     const config = parseConfig(row);
     const players = await registeredCount(db, row.id);
     if (players < config.minPlayers) {
-      const after = await cancelPokerTournament(db, row.id, `записалось ${players} из ${config.minPlayers} нужных игроков`, true, nowMs);
+      const after = await cancelPokerTournament(db, row.id, `записалось ${players} из ${config.minPlayers} нужных игроков`, true, nowMs, true);
       if (after.status === 'cancelled') result.cancelled.push(row.id);
       continue;
     }
     const now = new Date(nowMs).toISOString();
     // The status and the entries change together, and a start is reported only when this very call made it.
     const started = await db.transaction(async (tx) => {
-      const changed = await tx.run("UPDATE poker_tournaments SET status = 'running', started_at = ?, updated_at = ? WHERE id = ? AND status = 'registration'", [now, now, row.id]);
+      const changed = await tx.run("UPDATE poker_tournaments SET status = 'running', started_at = ?, updated_at = ? WHERE id = ? AND status = 'registration' AND start_at <= ?", [now, now, row.id, now]);
       if (!changed.changes) return false;
       await tx.run("UPDATE poker_tournament_entries SET status = 'playing', updated_at = ? WHERE tournament_id = ? AND status = 'registered'", [now, row.id]);
       return true;

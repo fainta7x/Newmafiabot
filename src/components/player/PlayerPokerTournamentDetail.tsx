@@ -6,6 +6,7 @@ import PokerTournamentParticipants, { type PokerTournamentParticipant } from './
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; players: number; spots_left: number | null; alive: number | null; my_table_id: string | null;
+  prizes?: { mode: 'pool' | 'fixed'; guarantee: number; rebuyTokens: number; total: number; payouts: number[]; sharesPct: number[] };
   settings: { minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number; seatsPerTable: number; rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; prizeTokens: number[]; lateRegUntilLevel?: number };
   late_reg_open?: boolean; schedule?: PokerScheduleRow[]; clock?: { level: number } | null; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; place: number | null; busted?: boolean } | null;
@@ -44,7 +45,10 @@ export default function PlayerPokerTournamentDetail({ tournamentId, onBack, onSa
   };
 
   const s = item?.settings;
-  const prizes = s?.prizeTokens.some((amount) => amount > 0) ? s!.prizeTokens.map((amount, index) => `${index + 1} место — ${num(amount)} жетонов`).join(' · ') : 'без жетонов, только кубок и ачивки победителю';
+  const payouts = item?.prizes?.payouts ?? s?.prizeTokens ?? [];
+  const places = payouts.some((amount) => amount > 0) ? payouts.map((amount, index) => `${index + 1} место — ${num(amount)} жетонов`).join(' · ') : 'без жетонов, только кубок и ачивки победителю';
+  const pool = item?.prizes?.mode === 'pool' && item.prizes.total > 0 ? item.prizes : null;
+  const prizes = pool ? `фонд ${num(pool.total)} (гарантия клуба ${num(pool.guarantee)}${pool.rebuyTokens > 0 ? ` + докупки ${num(pool.rebuyTokens)}` : ' + все докупки'}): ${places}` : places;
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white"><div className="mx-auto max-w-[430px]">

@@ -143,4 +143,46 @@ describe('PokerTournaments', () => {
     expect(list.textContent).toMatch(/Боб\s*3 м\./);
     expect(screen.getByText(/Участники · 3/)).toBeTruthy();
   });
+
+  it('lets the organizer edit a tournament before the start, and the table of levels follows the numbers', async () => {
+    const calls: Array<{ url: string; method: string; body: any }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(String(init.body)) : null });
+      return { ok: true, json: async () => ({ tournaments: [tournament({ settings: { ...settings, lateRegUntilLevel: 0 } })], can_organize: true }) } as Response;
+    }));
+    render(<PokerTournaments />);
+    fireEvent.click(await screen.findByTestId('poker-tournament-edit'));
+    const form = await screen.findByTestId('poker-tournament-form');
+    const draft = screen.getByTestId('poker-tournament-draft-schedule');
+    expect(draft.textContent).toContain('займут 102 мин');
+    expect(draft.textContent).toContain('Войти в идущий турнир нельзя');
+    fireEvent.change(form.querySelector('input[name="level"]') as HTMLInputElement, { target: { value: '8' } });
+    fireEvent.change(form.querySelector('input[name="lateReg"]') as HTMLInputElement, { target: { value: '5' } });
+    fireEvent.change(form.querySelector('input[name="rebuyLevel"]') as HTMLInputElement, { target: { value: '7' } });
+    expect(draft.textContent).toContain('займут 136 мин');
+    expect(draft.textContent).toContain('до конца 5-го уровня');
+    expect(draft.textContent).toContain('до конца 7-го уровня');
+    expect(draft.textContent).toContain('меньше 10 ББ');
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PATCH')).toBe(true));
+    const patch = calls.find((call) => call.method === 'PATCH')!;
+    expect(patch.url).toMatch(/\/ptr_1$/);
+    expect(patch.body).toMatchObject({ title: 'Турбо вечера', levelMinutes: '8', lateRegUntilLevel: '5', rebuyUntilLevel: '7', startAt: '2026-10-20T18:00:00.000Z' });
+    expect(patch.body.announce).toBeUndefined();
+    expect(patch.body).toMatchObject({ guaranteeTokens: '4500', prizeSharesPct: [65, 25, 10] });
+  });
+
+  it('shows the prize pool with its guarantee and re-buys, and the form refuses shares that do not add up to 100', async () => {
+    mockFetch([tournament({ prizes: { mode: 'pool', guarantee: 2000, rebuyTokens: 400, total: 2400, payouts: [1560, 600, 240], sharesPct: [65, 25, 10] } })], true);
+    render(<PokerTournaments />);
+    await screen.findByText(/призовой фонд 2\s?400 \(гарантия 2\s?000 \+ докупки 400\)/);
+    fireEvent.click(screen.getByRole('button', { name: '+ Турнир' }));
+    const form = screen.getByTestId('poker-tournament-form');
+    expect(screen.getByTestId('poker-tournament-draft-prizes').textContent).toContain('1 — 1\u00a0300, 2 — 500, 3 — 200');
+    fireEvent.change(form.querySelector('input[name="shares"]') as HTMLInputElement, { target: { value: '60 30' } });
+    expect(screen.getByRole('alert').textContent).toContain('Доли дают 90%');
+    expect((screen.getByRole('button', { name: 'Создать турнир' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(form.querySelector('input[name="shares"]') as HTMLInputElement, { target: { value: '60 30 10' } });
+    expect(screen.getByTestId('poker-tournament-draft-prizes').textContent).toContain('1 — 1\u00a0200, 2 — 600, 3 — 200');
+  });
 });

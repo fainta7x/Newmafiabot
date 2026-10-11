@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
 import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
+import PokerTournamentSettingsForm, { NEW_TOURNAMENT_DRAFT, toLocalInput, type PokerTournamentDraft } from './PokerTournamentSettingsForm.tsx';
 import PokerTournamentParticipants, { type PokerTournamentParticipant } from './PokerTournamentParticipants.tsx';
 
 type Settings = {
@@ -8,11 +9,12 @@ type Settings = {
   rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; seatsPerTable: number; prizeTokens: number[];
   lateRegUntilLevel?: number;
 };
+type Prizes = { mode: 'pool' | 'fixed'; guarantee: number; rebuyTokens: number; total: number; payouts: number[]; sharesPct: number[] };
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; settings: Settings; players: number; spots_left: number | null;
   clock: { level: number; small: number; big: number; secondsToNextLevel: number | null } | null; rebuy_open: boolean;
-  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
+  prizes?: Prizes; late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; rebuys: number; place: number | null; busted?: boolean } | null;
   alive: number | null; waiting_rebuy: number | null; my_table_id: string | null;
   standings: Array<{ nickname: string; place: number }>;
@@ -28,6 +30,9 @@ async function call(url: string, init?: RequestInit) {
   return body;
 }
 
+const prizeLine = (prizes: Prizes | undefined, fixed: number[]) => prizes?.mode === 'pool'
+  ? `призовой фонд ${prizes.total.toLocaleString('ru-RU')} (гарантия ${prizes.guarantee.toLocaleString('ru-RU')}${prizes.rebuyTokens > 0 ? ` + докупки ${prizes.rebuyTokens.toLocaleString('ru-RU')}` : ' + все докупки'}): ${prizeText(prizes.payouts)}`
+  : `призы: ${prizeText(prizes?.payouts ?? fixed)}`;
 const prizeText = (prizes: number[]) => prizes.some((amount) => amount > 0)
   ? prizes.map((amount, index) => `${index + 1} место — ${amount.toLocaleString('ru-RU')}`).join(' · ')
   : 'без денежных призов';
@@ -39,6 +44,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,30 +72,34 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
     finally { setBusy(null); }
   };
 
-  const create = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const text = (name: string) => String(data.get(name) ?? '').trim();
-    const checked = (name: string) => data.get(name) !== null;
-    const startLocal = text('start');
+  const save = async (payload: Record<string, unknown>, form: HTMLFormElement, editId: string | null) => {
     setError(null);
-    if (!startLocal) return setError('Укажите дату и время начала');
-    const prizes = text('prizes').split(/[\s,;]+/).filter(Boolean).map(Number);
-    const payload: Record<string, unknown> = {
-      title: text('title'), startAt: new Date(startLocal).toISOString(), minPlayers: text('min') || undefined,
-      maxPlayers: text('max') || undefined, startingStack: text('stack') || undefined, levelMinutes: text('level') || undefined,
-      rebuyUntilLevel: text('rebuyLevel') || undefined, rebuyCostTokens: text('rebuyCost') || undefined, lateRegUntilLevel: text('lateReg') || undefined,
-      rebuyChips: text('rebuyChips') || undefined, seatsPerTable: text('seats') || undefined, prizeTokens: prizes,
-      announce: { club_group: checked('announceGroup'), telegram_channel: checked('announceChannel'), vk: checked('announceVk'), bot_dm: checked('announceDm') },
-    };
-    setBusy('new');
-    try { await call('/api/player/poker/tournaments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); setCreating(false); await load(); }
+    if (!payload.startAt) return setError('Укажите дату и время начала');
+    const body: Record<string, unknown> = { ...payload };
+    if (!editId) {
+      const data = new FormData(form);
+      const checked = (name: string) => data.get(name) !== null;
+      body.announce = { club_group: checked('announceGroup'), telegram_channel: checked('announceChannel'), vk: checked('announceVk'), bot_dm: checked('announceDm') };
+    }
+    setBusy(editId || 'new');
+    try {
+      await call(editId ? `/api/player/poker/tournaments/${encodeURIComponent(editId)}` : '/api/player/poker/tournaments', { method: editId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      setCreating(false); setEditing(null); await load();
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось'); }
     finally { setBusy(null); }
   };
 
+  const draftOf = (item: Tournament): PokerTournamentDraft => {
+    const s = item.settings;
+    return {
+      title: item.title, start: toLocalInput(item.start_at), min: String(s.minPlayers), max: s.maxPlayers ? String(s.maxPlayers) : '', stack: String(s.startingStack),
+      level: String(s.levelMinutes), seats: String(s.seatsPerTable), rebuyLevel: String(s.rebuyUntilLevel), rebuyCost: String(s.rebuyCostTokens),
+      rebuyChips: String(s.rebuyChips), lateReg: String(s.lateRegUntilLevel ?? 0), guarantee: String(item.prizes?.mode === 'pool' ? item.prizes.guarantee : s.prizeTokens.reduce((sum, value) => sum + value, 0)), shares: (item.prizes?.mode === 'pool' ? item.prizes.sharesPct : [65, 25, 10]).join(' '),
+    };
+  };
+
   if (items === null || (!items.length && !canOrganize)) return null;
-  const field = 'mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm outline-none focus:border-amber-200/40';
 
   return (
     <section data-testid="poker-tournaments" className="space-y-3 rounded-3xl border border-amber-200/15 bg-amber-200/[.05] p-4">
@@ -102,10 +112,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
       </div>
 
       {creating ? (
-        <form onSubmit={(event) => void create(event)} className="space-y-3 rounded-2xl border border-white/10 bg-black/30 p-3" data-testid="poker-tournament-form">
-          <label className="block text-xs text-white/60">Название<input name="title" required maxLength={120} defaultValue="Покерный турбо-турнир" className={field} /></label>
-          <label className="block text-xs text-white/60">Начало<input name="start" type="datetime-local" required className={field} /></label>
-          <label className="block text-xs text-white/60">Призы жетонами по местам (через пробел: 1 место, 2 место…)<input name="prizes" inputMode="numeric" placeholder="3000 1500 500" className={field} /></label>
+        <PokerTournamentSettingsForm initial={NEW_TOURNAMENT_DRAFT} submitLabel="Создать турнир" busy={busy === 'new'} onSubmit={(payload, form) => void save(payload, form, null)}>
           <fieldset className="space-y-1 rounded-xl border border-white/10 bg-black/20 p-3" data-testid="poker-tournament-announce">
             <legend className="px-1 text-xs font-semibold text-white/70">Объявить о турнире</legend>
             <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceGroup" type="checkbox" defaultChecked className="size-5" />В группе клуба в Telegram</label>
@@ -113,22 +120,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
             <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceVk" type="checkbox" defaultChecked className="size-5" />В сообществе во ВКонтакте</label>
             <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceDm" type="checkbox" className="size-5" />Личным сообщением каждому игроку клуба</label>
           </fieldset>
-          <details className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <summary className="min-h-11 cursor-pointer py-2.5 text-xs font-semibold text-white/70">Настройки турнира (турбо по умолчанию)</summary>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-xs text-white/60">Минимум игроков<input name="min" type="number" min={2} placeholder="4" className={field} /></label>
-              <label className="text-xs text-white/60">Максимум (пусто — без лимита)<input name="max" type="number" min={2} className={field} /></label>
-              <label className="text-xs text-white/60">Стартовый стек<input name="stack" type="number" min={100} placeholder="1000" className={field} /></label>
-              <label className="text-xs text-white/60">Уровень, минут<input name="level" type="number" min={1} max={60} placeholder="6" className={field} /></label>
-              <label className="text-xs text-white/60">Мест за столом<input name="seats" type="number" min={2} max={8} placeholder="6" className={field} /></label>
-              <label className="text-xs text-white/60">Докупка до уровня<input name="rebuyLevel" type="number" min={0} placeholder="6" className={field} /></label>
-              <label className="text-xs text-white/60">Цена докупки, жетоны<input name="rebuyCost" type="number" min={0} placeholder="1000" className={field} /></label>
-              <label className="col-span-2 text-xs text-white/60">Поздняя запись в идущий турнир до уровня (0 — нет)<input name="lateReg" type="number" min={0} placeholder="6" className={field} /></label>
-              <label className="text-xs text-white/60">Фишек за докупку<input name="rebuyChips" type="number" min={100} placeholder="1000" className={field} /></label>
-            </div>
-          </details>
-          <button type="submit" disabled={busy === 'new'} className="min-h-12 w-full rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] disabled:opacity-60">Создать турнир</button>
-        </form>
+        </PokerTournamentSettingsForm>
       ) : null}
 
       {error ? <p role="alert" className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p> : null}
@@ -136,6 +128,12 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
       {items.length === 0 ? <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-center text-xs text-white/40">Турниров пока нет</p> : items.map((item) => {
         const mine = item.my_entry && item.my_entry.status !== 'cancelled';
         const s = item.settings;
+        if (editing === item.id) return (
+          <div key={item.id} data-testid={`poker-tournament-edit-${item.id}`} className="space-y-2">
+            <p className="text-[11px] text-white/45">Изменить можно до старта. Объявление, которое уже вышло, не меняется.</p>
+            <PokerTournamentSettingsForm initial={draftOf(item)} submitLabel="Сохранить" busy={busy === item.id} onSubmit={(payload, form) => void save(payload, form, item.id)} onCancel={() => setEditing(null)} />
+          </div>
+        );
         return (
           <article key={item.id} data-testid={`poker-tournament-${item.id}`} className="rounded-2xl border border-white/10 bg-black/30 p-3">
             <div className="flex items-start justify-between gap-2">
@@ -150,7 +148,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
               {' · '}стек {s.startingStack.toLocaleString('ru-RU')} · уровень {s.levelMinutes} мин · за столом до {s.seatsPerTable}
               {' · '}{s.rebuyUntilLevel > 0 ? `докупка до уровня ${s.rebuyUntilLevel} за ${s.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'без докупки'}
               {(s.lateRegUntilLevel ?? 0) > 0 ? ` · поздняя запись до уровня ${s.lateRegUntilLevel}` : ''}
-              {' · '}призы: {prizeText(s.prizeTokens)}
+              {' · '}{prizeLine(item.prizes, s.prizeTokens)}
             </p>
             {item.status === 'running' && item.clock ? <p className="mt-1 text-[11px] text-amber-100/80">Блайнды {item.clock.small}/{item.clock.big}, уровень {item.clock.level}</p> : null}
             {item.status === 'cancelled' && item.cancel_reason ? <p className="mt-1 text-[11px] text-white/45">Отменён: {item.cancel_reason}</p> : null}
@@ -197,6 +195,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
                   </>
                 ) : item.spots_left === 0 ? <span className="flex min-h-11 flex-1 items-center justify-center rounded-xl bg-white/[.06] text-xs text-white/45">Мест нет</span>
                   : <button type="button" disabled={busy === item.id} onClick={() => void act(item.id, 'POST')} className="min-h-11 flex-1 rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black disabled:opacity-60">Записаться бесплатно</button>}
+                {canOrganize ? <button type="button" data-testid="poker-tournament-edit" onClick={() => { setEditing(item.id); setCreating(false); }} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs text-white/70">Изменить</button> : null}
                 {canOrganize ? <button type="button" disabled={busy === item.id} onClick={() => void act(item.id, 'POST', 'cancel')} className="min-h-11 rounded-xl border border-red-300/20 px-3 text-xs text-red-200">Отменить</button> : null}
               </div>
             ) : null}

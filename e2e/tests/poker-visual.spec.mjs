@@ -132,3 +132,24 @@ test('poker tournament card: the table of levels and the late entry fit a phone'
   const shot = await page.screenshot({ path: info.outputPath('poker-tournament-schedule-390x844.png') });
   await info.attach('poker-tournament-schedule-390x844.png', { body: shot, contentType: 'image/png' });
 });
+
+test('the organizer form of a poker tournament keeps its live table of levels inside the phone screen', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/e2e/poker-harness.html?tournaments=1');
+  await page.getByRole('button', { name: '+ Турнир' }).click();
+  const form = page.getByTestId('poker-tournament-form');
+  await expect(form).toBeVisible();
+  await form.locator('input[name="level"]').fill('8');
+  await form.locator('input[name="rebuyLevel"]').fill('7');
+  const draft = page.getByTestId('poker-tournament-draft-schedule');
+  await expect(draft).toContainText('займут 136 мин');
+  await expect(draft).toContainText('до конца 7-го уровня');
+  const box = await draft.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  const overflow = await draft.evaluate((element) => [...element.querySelectorAll('li')].filter((row) => row.scrollWidth > row.clientWidth + 1).length);
+  expect(overflow).toBe(0);
+  await draft.scrollIntoViewIfNeeded();
+  const shot = await page.screenshot({ path: info.outputPath('poker-tournament-form-390x844.png') });
+  await info.attach('poker-tournament-form-390x844.png', { body: shot, contentType: 'image/png' });
+});

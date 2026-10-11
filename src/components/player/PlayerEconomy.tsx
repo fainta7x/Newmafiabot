@@ -171,8 +171,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (balance: number) => void }) {
-  const [scope, setScope] = useState<EconomyScope>('shop');
+export default function PlayerEconomy({ onBalanceChange, view }: { onBalanceChange?: (balance: number) => void; view?: EconomyScope }) {
+  const [localScope, setLocalScope] = useState<EconomyScope>('shop');
+  const scope = view ?? localScope;
+  const setScope = (next: EconomyScope) => { if (!view) setLocalScope(next); };
   const [data, setData] = useState<EconomyData | null>(null);
   const [betting, setBetting] = useState<BettingData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -289,12 +291,12 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
     }
   };
 
-  if (!data && !error) {
+  if (!data && !error && scope !== 'bets') {
     return <Section title="Жетоны и магазин"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка кошелька…</p></Section>;
   }
 
-  const redPlayers = activePool?.role_snapshot.filter((player) => player.team === 'red') || [];
-  const blackPlayers = activePool?.role_snapshot.filter((player) => player.team === 'black') || [];
+  const redPlayers = (activePool?.role_snapshot || []).filter((player) => player.team === 'red');
+  const blackPlayers = (activePool?.role_snapshot || []).filter((player) => player.team === 'black');
   const currentMyCoefficient = activePool?.my_bet
     ? activePool.my_bet.team === 'red' ? activePool.red_coefficient : activePool.black_coefficient
     : null;
@@ -305,7 +307,7 @@ export default function PlayerEconomy({ onBalanceChange }: { onBalanceChange?: (
         <div className="text-xs uppercase tracking-[0.18em] text-white/35">Кошелёк</div>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div>
-            <div className="text-3xl font-semibold text-white">{formatTokens(data?.balance || betting?.balance || 0)} <TokenIcon /></div>
+            <div className="text-3xl font-semibold text-white">{formatTokens(scope === 'bets' ? (betting?.balance ?? data?.balance ?? 0) : (data?.balance ?? betting?.balance ?? 0))} <TokenIcon /></div>
             <div className="mt-1 text-sm text-white/40">жетонов на балансе</div>
           </div>
           <div className="rounded-2xl bg-black/20 px-3 py-2 text-right">

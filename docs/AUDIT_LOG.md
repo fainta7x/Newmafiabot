@@ -501,3 +501,12 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
   7. Fast decision and speech: almost absent (timing, the most useful question, a short argument). *Practised by «Речь и реакция» and «Следующий ход» (#792).*
   8. Measuring the real skill: *self-check without choices added in #794*, but it is not a validated exam; still needs delayed unseen control situations and review of real games.
 - Mutable state (what is merged or deployed) is in `docs/PROJECT_STATE.md`, not here.
+
+### 2026-10-11 — Open pull request sweep (stuck work of the previous assistant)
+
+- **Scope:** every open pull request at the time (#795, #791, #770, #764, #762, #755, #712, #660), checked against current `main` before finishing or closing.
+- **#764 — closed:** superseded by #765/#766 already on `main`. **#660 — closed:** the score it added was already on `main`; its remaining labels relied on a `startsWith` heuristic. Both left a comment with the reason.
+- **#791, #770, #762, #755 — finished and merged:** each lacked the `AUDIT_LOG` entry or the deployment-evidence caveat the review asked for, and #770, #755 conflicted with newer `main` in the docs (resolved by keeping both sides, no history rewrite). #770 also fixes the wallet «Ставки» tab (navigation by hidden-button click; wallet gate waiting for the economy request).
+- **#795 — merged** (poker tournaments in the player calendar, own work).
+- **#712 (Dependabot, 16 minor bumps) — open:** its CI is from 2026-10-06 on an old base; a rebase was requested and it is merged only after a fresh green run.
+- Status: fixed except #712 (open, waiting for the rebase).

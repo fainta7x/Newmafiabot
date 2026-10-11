@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { getPlayerSessionId, isClubOwner } from '../auth.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
+import { announcePokerTournament } from '../services/pokerTournamentAnnouncementService.ts';
 import {
   cancelPokerTournament, createPokerTournament, getPokerTournamentRow, listPokerTournaments, PokerTournamentError,
   publicPokerTournament, rebuyInPokerTournament, registerForPokerTournament, tickPokerTournaments, unregisterFromPokerTournament,
@@ -68,6 +69,8 @@ router.post('/poker/tournaments', handle(async (req) => {
   if (!isTournamentOrganizer(req)) throw new PokerTournamentError(403, 'Турнир может создать только организатор клуба.');
   const organizerId = getPlayerSessionId(req);
   const row = await createPokerTournament(req.db, organizerId ? String(organizerId) : null, req.body || {});
+  // The announcement goes out in the background; if a channel fails the scheduler retries it.
+  void announcePokerTournament(req.db, row.id).catch((error) => console.error('[POKER TOURNAMENT] announcement failed:', error instanceof Error ? error.message : String(error)));
   return { status: 201, body: { tournament: await publicPokerTournament(req.db, row, organizerId ? String(organizerId) : null) } };
 }));
 

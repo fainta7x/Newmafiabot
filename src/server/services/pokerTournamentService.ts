@@ -9,6 +9,7 @@ import { withPersistedPokerRuntime } from './pokerPersistenceService.ts';
 import { pokerTournamentLobbies, rebuyPoker } from './pokerLobbyService.ts';
 import { mutateTokenBalance, TokenInsufficientFundsError } from './tokenLedgerService.ts';
 import { processRunningPokerTournaments } from './pokerTournamentTablesService.ts';
+import { parsePokerTournamentAnnounce, runPokerTournamentAnnouncements } from './pokerTournamentAnnouncementService.ts';
 
 export class PokerTournamentError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -72,12 +73,13 @@ export async function createPokerTournament(db: DatabaseWrapper, organizerId: st
   if (!title) throw new PokerTournamentError(400, 'Назовите турнир');
   const parsed = normalizePokerTournamentConfig(input, nowMs);
   if (!parsed.ok) throw new PokerTournamentError(400, parsed.error);
+  const announce = parsePokerTournamentAnnounce(input.announce);
   const now = new Date(nowMs).toISOString();
   const id = `ptr_${crypto.randomUUID()}`;
   await db.run(
-    `INSERT INTO poker_tournaments (id, title, description, organizer_player_id, status, start_at, config_json, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'registration', ?, ?, ?, ?)`,
-    [id, title, cleanText(input.description, 1000), organizerId, parsed.config.startAt, JSON.stringify(parsed.config), now, now],
+    `INSERT INTO poker_tournaments (id, title, description, organizer_player_id, status, start_at, config_json, announce_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'registration', ?, ?, ?, ?, ?)`,
+    [id, title, cleanText(input.description, 1000), organizerId, parsed.config.startAt, JSON.stringify(parsed.config), announce ? JSON.stringify(announce) : null, now, now],
   );
   return getPokerTournamentRow(db, id);
 }
@@ -202,6 +204,8 @@ export async function tickPokerTournaments(db: DatabaseWrapper, nowMs = Date.now
   // Running tournaments: tables, hands' busts, places, balancing and the finish all live in the poker runtime.
   const running = await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM poker_tournaments WHERE status = 'running'");
   if (Number(running?.n || 0) > 0) await withPersistedPokerRuntime(db, () => processRunningPokerTournaments(db, nowMs));
+  // Announcements in the club's groups and the reminder before the start.
+  await runPokerTournamentAnnouncements(db, nowMs).catch((error) => console.error('[POKER TOURNAMENT] announcements failed:', error instanceof Error ? error.message : String(error)));
   // Messages that did not get out the first time (a crash, a failing channel) are retried here.
   const unannounced = await db.all<TournamentRow>("SELECT * FROM poker_tournaments WHERE status IN ('cancelled','running') AND notified_at IS NULL AND updated_at >= ?", [new Date(nowMs - 2 * 24 * 60 * 60_000).toISOString()]);
   for (const row of unannounced) await deliverPokerTournamentNotices(db, row);

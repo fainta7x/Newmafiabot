@@ -19,6 +19,13 @@ export const EVENING_RESPONSE_LABELS: Record<EveningResponseStatus, string> = {
   unanswered: 'Не ответил',
 };
 
+/** CRM roster copy deliberately differs for only two statuses. */
+export const EVENING_ROSTER_RESPONSE_LABELS: Record<EveningResponseStatus, string> = {
+  ...EVENING_RESPONSE_LABELS,
+  declined: 'Не буду',
+  unanswered: 'Нет ответа',
+};
+
 export const EVENING_ATTENDANCE_LABELS: Record<EveningAttendanceFact, string> = {
   pending: 'Явка не отмечена',
   attended_on_time: 'Пришёл вовремя',
@@ -60,6 +67,10 @@ export const getEveningResponseLabel = (
     : getEveningResponse(participantOrStatus);
   return EVENING_RESPONSE_LABELS[status];
 };
+
+/** Roster-specific copy over the same canonical RSVP interpretation. */
+export const getEveningRosterResponseLabel = (participant: any): string =>
+  EVENING_ROSTER_RESPONSE_LABELS[getEveningResponse(participant)];
 
 /**
  * The current UI has four attendance states. Full-fidelity persisted attendance

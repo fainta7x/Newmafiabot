@@ -13,7 +13,7 @@ type EventItem = {
   starts_at: string;
   venue?: string | null;
   format?: string;
-  event_type: 'evening' | 'tournament' | 'custom';
+  event_type: 'evening' | 'tournament' | 'custom' | 'poker';
   participant_count?: number;
 };
 

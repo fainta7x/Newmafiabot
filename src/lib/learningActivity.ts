@@ -9,6 +9,7 @@ import { REASONING_LABS } from './mafiaReasoningLabs.ts';
 export const LEARNING_TRACKS = [
   { id: 'reasoning-course', label: 'Школа мышления · ступени', items: REASONING_LEVELS.map((level) => ({ id: level.id, label: level.title })) },
   { id: 'reasoning-labs', label: 'Школа мышления · практики', items: REASONING_LABS.map((topic) => ({ id: topic.id as string, label: topic.title })) },
+  { id: 'reasoning-extra', label: 'Школа мышления · разборы', items: [{ id: 'tree', label: 'Просчёт вариантов' }, { id: 'diagnostic', label: 'Проверка мышления' }] },
   { id: 'judge-training', label: 'Тренажёр судьи', items: [{ id: 'training', label: 'Учебная партия' }, { id: 'free', label: 'Тестовая игра' }] },
 ] as const;
 export type LearningTrackId = typeof LEARNING_TRACKS[number]['id'];

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import MafiaReasoningCourse from '../components/public/guide/MafiaReasoningCourse.tsx';
 import {
@@ -9,7 +9,7 @@ import {
 import { CHECK_CRITERIA, DIAGNOSTIC_CASES, diagnosticForAttempt } from '../lib/mafiaReasoningDiagnostic.ts';
 
 beforeEach(() => window.localStorage.clear());
-afterEach(() => cleanup());
+afterEach(() => { vi.unstubAllGlobals(); cleanup(); });
 const enter = (button: 'tree' | 'diagnostic') => {
   fireEvent.click(screen.getByTestId('reasoning-open-labs'));
   fireEvent.click(screen.getByTestId('reasoning-lab-open-' + button));
@@ -89,6 +89,8 @@ describe('Sports Mafia decision tree and unguided reasoning check', () => {
   });
 
   it('opens an interactive decision tree without leaking answers before choices, supports undo and preserves state', () => {
+    const treeSent: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => { treeSent.push(JSON.parse(String(init?.body))); return { ok: true } as Response; }));
     render(<MafiaReasoningCourse />);
     enter('tree');
     expect(screen.getByTestId('reasoning-tree')).toBeTruthy();
@@ -109,6 +111,11 @@ describe('Sports Mafia decision tree and unguided reasoning check', () => {
     expect(screen.getByText(/Рука 3 из 3/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('reasoning-tree-vote-4'));
     expect(screen.queryByTestId('reasoning-tree-result')).toBeNull();
+    expect(treeSent).toEqual([{ track: 'reasoning-extra', item: 'tree', passed: true }]);
+    // taking the last hand back and choosing it again is the same try, not a second one
+    fireEvent.click(screen.getByTestId('reasoning-tree-undo'));
+    fireEvent.click(screen.getByTestId('reasoning-tree-vote-4'));
+    expect(treeSent).toHaveLength(1);
     fireEvent.click(screen.getByTestId('reasoning-tree-reveal'));
     expect(screen.getByTestId('reasoning-tree-result').textContent).toContain('Победа мафии');
     expect(screen.getByTestId('reasoning-tree-result').textContent).toContain('8 допустимых');
@@ -146,6 +153,8 @@ describe('Sports Mafia decision tree and unguided reasoning check', () => {
   });
 
   it('completes three independent scenarios and reports only learner-checked criteria', () => {
+    const sent: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => { sent.push(JSON.parse(String(init?.body))); return { ok: true } as Response; }));
     render(<MafiaReasoningCourse />);
     enter('diagnostic');
     for (let index = 0; index < 3; index++) {
@@ -156,6 +165,7 @@ describe('Sports Mafia decision tree and unguided reasoning check', () => {
       fireEvent.click(screen.getByTestId('reasoning-diagnostic-next'));
     }
     const result = screen.getByTestId('reasoning-diagnostic-result');
+    expect(sent).toEqual([{ track: 'reasoning-extra', item: 'diagnostic', score: 3, maxScore: 9, passed: true }]);
     expect(result.textContent).toContain('3 из 9');
     expect(result.textContent).toContain('самостоятельная оценка');
     fireEvent.click(screen.getByRole('button', { name: 'Другие ситуации' }));

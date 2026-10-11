@@ -3,6 +3,7 @@ import { ArrowRight, ChevronLeft, RotateCcw, ClipboardCheck } from 'lucide-react
 import {
   CHECK_CRITERIA, diagnosticForAttempt,
 } from '../../../lib/mafiaReasoningDiagnostic.ts';
+import { reportLearningActivity } from '../../../lib/learningActivityClient.ts';
 
 type Reflection = {
   observed: string;
@@ -79,6 +80,8 @@ export default function MafiaReasoningDiagnostic({ onBack }: { onBack: () => voi
   };
   const next = () => {
     if (!checked || !current?.submitted) return;
+    // The last situation checked finishes one self-check (no pass mark: it counts as done, with the matched criteria as the score).
+    if (progress.index + 1 === batch.length) reportLearningActivity({ track: 'reasoning-extra', item: 'diagnostic', score: positive, maxScore: batch.length * CHECK_CRITERIA.length, passed: true });
     setProgress((prev) => ({ ...prev, index: Math.min(batch.length, prev.index + 1) }));
   };
   const restart = () => setProgress((prev) => ({ attempt: prev.attempt + 1, index: 0, entries: {} }));

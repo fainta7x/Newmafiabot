@@ -85,7 +85,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       {section === 'home' ? (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       ) : isPlayerEveningSection(section) ? (
-        <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} />
+        <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
         <PlayerCommunityHub data={currentData} section={section as CommunitySection} onOpen={(next) => open(next)} onOpenPoker={() => open('poker')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
       ) : section === 'wallet' ? (

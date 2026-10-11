@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
+import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
+import PokerTournamentParticipants, { type PokerTournamentParticipant } from './PokerTournamentParticipants.tsx';
 
 type Settings = {
   startAt: string; minPlayers: number; maxPlayers: number | null; startingStack: number; levelMinutes: number;
   rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; seatsPerTable: number; prizeTokens: number[];
+  lateRegUntilLevel?: number;
 };
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; settings: Settings; players: number; spots_left: number | null;
   clock: { level: number; small: number; big: number; secondsToNextLevel: number | null } | null; rebuy_open: boolean;
+  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; rebuys: number; place: number | null; busted?: boolean } | null;
   alive: number | null; waiting_rebuy: number | null; my_table_id: string | null;
   standings: Array<{ nickname: string; place: number }>;
@@ -74,7 +78,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
     const payload: Record<string, unknown> = {
       title: text('title'), startAt: new Date(startLocal).toISOString(), minPlayers: text('min') || undefined,
       maxPlayers: text('max') || undefined, startingStack: text('stack') || undefined, levelMinutes: text('level') || undefined,
-      rebuyUntilLevel: text('rebuyLevel') || undefined, rebuyCostTokens: text('rebuyCost') || undefined,
+      rebuyUntilLevel: text('rebuyLevel') || undefined, rebuyCostTokens: text('rebuyCost') || undefined, lateRegUntilLevel: text('lateReg') || undefined,
       rebuyChips: text('rebuyChips') || undefined, seatsPerTable: text('seats') || undefined, prizeTokens: prizes,
       announce: { club_group: checked('announceGroup'), telegram_channel: checked('announceChannel'), vk: checked('announceVk'), bot_dm: checked('announceDm') },
     };
@@ -117,8 +121,9 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
               <label className="text-xs text-white/60">Стартовый стек<input name="stack" type="number" min={100} placeholder="1000" className={field} /></label>
               <label className="text-xs text-white/60">Уровень, минут<input name="level" type="number" min={1} max={60} placeholder="6" className={field} /></label>
               <label className="text-xs text-white/60">Мест за столом<input name="seats" type="number" min={2} max={8} placeholder="6" className={field} /></label>
-              <label className="text-xs text-white/60">Докупка до уровня<input name="rebuyLevel" type="number" min={0} placeholder="4" className={field} /></label>
-              <label className="text-xs text-white/60">Цена докупки, жетоны<input name="rebuyCost" type="number" min={0} placeholder="500" className={field} /></label>
+              <label className="text-xs text-white/60">Докупка до уровня<input name="rebuyLevel" type="number" min={0} placeholder="6" className={field} /></label>
+              <label className="text-xs text-white/60">Цена докупки, жетоны<input name="rebuyCost" type="number" min={0} placeholder="1000" className={field} /></label>
+              <label className="col-span-2 text-xs text-white/60">Поздняя запись в идущий турнир до уровня (0 — нет)<input name="lateReg" type="number" min={0} placeholder="6" className={field} /></label>
               <label className="text-xs text-white/60">Фишек за докупку<input name="rebuyChips" type="number" min={100} placeholder="1000" className={field} /></label>
             </div>
           </details>
@@ -144,6 +149,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
               {countPlayers(item.players)}{s.maxPlayers ? ` из ${s.maxPlayers}` : ''}{item.status === 'registration' ? `, нужно не меньше ${s.minPlayers}` : ''}
               {' · '}стек {s.startingStack.toLocaleString('ru-RU')} · уровень {s.levelMinutes} мин · за столом до {s.seatsPerTable}
               {' · '}{s.rebuyUntilLevel > 0 ? `докупка до уровня ${s.rebuyUntilLevel} за ${s.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'без докупки'}
+              {(s.lateRegUntilLevel ?? 0) > 0 ? ` · поздняя запись до уровня ${s.lateRegUntilLevel}` : ''}
               {' · '}призы: {prizeText(s.prizeTokens)}
             </p>
             {item.status === 'running' && item.clock ? <p className="mt-1 text-[11px] text-amber-100/80">Блайнды {item.clock.small}/{item.clock.big}, уровень {item.clock.level}</p> : null}
@@ -157,8 +163,25 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
                     {item.settings.rebuyCostTokens > 0 ? `Фишки закончились: докупить за ${item.settings.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'Фишки закончились: докупить бесплатно'}
                   </button>
                 ) : item.my_entry?.busted ? <p className="text-white/50">Фишки закончились, докупка закрыта: место появится после окончания докупки</p> : null}
+                {item.late_reg_open && !mine ? (
+                  <button type="button" data-testid="poker-tournament-late-reg" disabled={busy === item.id} onClick={() => void act(item.id, 'POST')} className="min-h-11 w-full rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black disabled:opacity-60">
+                    Войти в турнир бесплатно (запись до конца {s.lateRegUntilLevel}-го уровня)
+                  </button>
+                ) : null}
                 {item.my_table_id && onOpenTable ? <button type="button" onClick={() => onOpenTable(item.my_table_id!)} className="min-h-11 w-full rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black">К моему столу</button> : null}
               </div>
+            ) : null}
+            {(item.status === 'registration' || item.status === 'running') && item.participants?.length ? (
+              <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2" data-testid="poker-tournament-participants-toggle">
+                <summary className="min-h-11 cursor-pointer py-2.5 text-xs font-semibold text-white/70">{item.status === 'running' ? 'Участники' : 'Кто записался'} · {item.participants.length}</summary>
+                <div className="mt-1"><PokerTournamentParticipants participants={item.participants} /></div>
+              </details>
+            ) : null}
+            {(item.status === 'registration' || item.status === 'running') && item.schedule?.length ? (
+              <details className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2" data-testid="poker-tournament-schedule-toggle">
+                <summary className="min-h-11 cursor-pointer py-2.5 text-xs font-semibold text-white/70">Уровни и время</summary>
+                <div className="mt-1"><PokerTournamentSchedule rows={item.schedule} current={item.clock?.level ?? null} started={item.status === 'running'} /></div>
+              </details>
             ) : null}
             {item.status === 'finished' && item.standings.length ? (
               <ol className="mt-2 space-y-0.5 text-[11px] text-white/70">

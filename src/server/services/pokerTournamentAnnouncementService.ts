@@ -31,6 +31,7 @@ export function parsePokerTournamentAnnounce(raw: unknown): PokerTournamentAnnou
 const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const appBase = () => String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
 export const pokerTournamentActionPath = (id: string) => `/player/events?event=${encodeURIComponent(id)}`;
+const time = (ms: number) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 const when = (iso: string) => new Date(iso).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 export function pokerTournamentAnnouncementText(row: Pick<Row, 'id' | 'title' | 'description' | 'start_at' | 'config_json'>, html = false) {
@@ -39,6 +40,14 @@ export function pokerTournamentAnnouncementText(row: Pick<Row, 'id' | 'title' | 
   const lines = [`🃏 ${e(row.title)}`, '', `Старт: ${when(row.start_at)} (МСК)`, 'Участие бесплатное, фишки выдаёт клуб'];
   if (config.prizeTokens.length) lines.push(`🏆 Призы жетонами: ${config.prizeTokens.map((value, index) => `${index + 1} место — ${value}`).join(', ')}`);
   lines.push(config.maxPlayers ? `👥 От ${config.minPlayers} до ${config.maxPlayers} игроков` : `👥 От ${config.minPlayers} игроков`);
+  // The blind clock, shortly: when the levels change and until when a newcomer may still enter or buy back in.
+  const startMs = Date.parse(row.start_at);
+  const first = config.levels[0];
+  const levelEnd = (level: number) => time(startMs + level * config.levelMinutes * 60_000);
+  lines.push(`⏱ Уровень ${config.levelMinutes} мин., блайнды с ${first.small}/${first.big}, стек ${config.startingStack.toLocaleString('ru-RU')} фишек`);
+  const late = config.lateRegUntilLevel ?? 0;
+  if (late > 0) lines.push(`➕ Войти в идущий турнир можно до конца ${late}-го уровня (до ${levelEnd(late)} МСК)`);
+  if (config.rebuyUntilLevel > 0) lines.push(`🔁 Докупка до конца ${config.rebuyUntilLevel}-го уровня (до ${levelEnd(config.rebuyUntilLevel)} МСК): ${config.rebuyCostTokens > 0 ? `${config.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'бесплатно'} за ${config.rebuyChips.toLocaleString('ru-RU')} фишек`);
   if (row.description) lines.push('', e(row.description));
   const link = appBase() ? `${appBase()}${pokerTournamentActionPath(row.id)}` : '';
   if (link) lines.push('', `Записаться: ${link}`);

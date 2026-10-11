@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import PlayerPoker from '../src/components/player/PlayerPoker.tsx';
 import '../src/index.css';
+import { DEFAULT_TURBO_SETTINGS, TURBO_BLIND_LEVELS, pokerTournamentSchedule } from '../src/shared/pokerTournament.ts';
 
 // ?players=6&board=3 shows a fuller table for visual checks; the default stays the CI scene.
 const params = new URLSearchParams(location.search);
@@ -84,8 +85,19 @@ const history = [{
 // ?waiting=1: the permanent «Общий стол» with one player, before the first deal.
 if (params.get('waiting')) Object.assign(lobby, { title: 'Общий стол', permanent: true, ownerId: '', status: 'waiting', players: players.slice(0, 1), hand: null, viewer_id: 'viewer' });
 
+// ?tournaments=1: the poker section lists a tournament that has just started, with its table of levels.
+const tournamentSettings = { ...DEFAULT_TURBO_SETTINGS, startAt: '2026-10-20T18:00:00Z', levels: TURBO_BLIND_LEVELS, prizeTokens: [3000, 1500, 500] };
+const tournamentStart = Date.parse('2026-10-20T18:00:00Z');
+const visualTournament = {
+  id: 'ptr_visual', title: 'Вечерний турбо-турнир', description: '', status: 'running', cancel_reason: null, start_at: '2026-10-20T18:00:00Z',
+  settings: tournamentSettings, players: 8, spots_left: null, clock: { level: 2, small: 15, big: 30, secondsToNextLevel: 200 }, rebuy_open: true,
+  late_reg_open: true, alive: 7, waiting_rebuy: 1, my_entry: null, my_table_id: null, standings: [],
+  schedule: pokerTournamentSchedule(tournamentSettings, tournamentStart),
+};
+
 globalThis.fetch = async (input, init) => {
   const url = String(input);
+  if (params.get('tournaments') && url.endsWith('/api/player/poker/tournaments')) return new Response(JSON.stringify({ tournaments: [visualTournament], can_organize: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   if (url.endsWith('/history')) return new Response(JSON.stringify({ history }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   // ?chat=emote shows a fresh emote over a bot's seat (and a text over another), as the chat feed would.
   const chat = params.get('chat') ? [

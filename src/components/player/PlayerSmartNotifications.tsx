@@ -180,7 +180,7 @@ export default function PlayerSmartNotifications({
   if (loading && !data) return <button ref={triggerRef} type="button" aria-hidden="true" tabIndex={-1} className="hidden" />;
 
   return <>
-    <button ref={triggerRef} type="button" onClick={openInbox} aria-label="Уведомления" className="fixed right-3 top-3 z-[55] grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-[#1b1c21]/95 text-base text-white/70 shadow-xl backdrop-blur">
+    <button ref={triggerRef} type="button" onClick={openInbox} aria-label="Уведомления" className="fixed right-3 top-[6px] z-[55] grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-[#17181d] text-base text-white/72">
       🔔
       {journey.phase !== 'idle' && <span className={`absolute -bottom-0.5 -left-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#1b1c21] ${journey.phase === 'live' ? 'bg-rose-400' : 'bg-amber-200'}`} />}
       {Boolean(data?.unread) && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-black text-white">{Math.min(9, data?.unread || 0)}{(data?.unread || 0) > 9 ? '+' : ''}</span>}

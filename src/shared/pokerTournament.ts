@@ -15,6 +15,8 @@ export type PokerTournamentConfig = {
   levels: PokerBlindLevel[];
   /** A busted player may buy back in until this level ends (0 = no re-buy). */
   rebuyUntilLevel: number;
+  /** A new player may still enter the running tournament until this level ends (0 or missing = registration closes at the start). */
+  lateRegUntilLevel?: number;
   rebuyCostTokens: number;
   rebuyChips: number;
   seatsPerTable: number;
@@ -36,9 +38,10 @@ export const DEFAULT_TURBO_SETTINGS = {
   maxPlayers: null as number | null,
   startingStack: 1000,
   levelMinutes: 6,
-  rebuyUntilLevel: 4,
-  rebuyCostTokens: 500,
+  rebuyUntilLevel: 6,
+  rebuyCostTokens: 1000,
   rebuyChips: 1000,
+  lateRegUntilLevel: 6,
   seatsPerTable: 6,
   prizeTokens: [] as number[],
 };
@@ -72,10 +75,11 @@ export function normalizePokerTournamentConfig(input: Record<string, unknown>, n
   const startingStack = int('startingStack', 'starting_stack', 'Стартовый стек', 100, 1_000_000);
   const levelMinutes = int('levelMinutes', 'level_minutes', 'Длина уровня (минут)', 1, 60);
   const rebuyUntilLevel = int('rebuyUntilLevel', 'rebuy_until_level', 'Докупка до уровня', 0, TURBO_BLIND_LEVELS.length);
+  const lateRegUntilLevel = int('lateRegUntilLevel', 'late_reg_until_level', 'Поздняя запись до уровня', 0, TURBO_BLIND_LEVELS.length);
   const rebuyCostTokens = int('rebuyCostTokens', 'rebuy_cost_tokens', 'Цена докупки (жетоны)', 0, 1_000_000);
   const rebuyChips = int('rebuyChips', 'rebuy_chips', 'Фишки за докупку', 100, 1_000_000);
   const seatsPerTable = int('seatsPerTable', 'seats_per_table', 'Мест за столом', 2, POKER_TOURNAMENT_MAX_SEATS);
-  for (const part of [minPlayers, startingStack, levelMinutes, rebuyUntilLevel, rebuyCostTokens, rebuyChips, seatsPerTable]) {
+  for (const part of [minPlayers, startingStack, levelMinutes, rebuyUntilLevel, lateRegUntilLevel, rebuyCostTokens, rebuyChips, seatsPerTable]) {
     if ('error' in part && part.error) return { ok: false, error: part.error };
   }
 
@@ -102,6 +106,7 @@ export function normalizePokerTournamentConfig(input: Record<string, unknown>, n
       levelMinutes: (levelMinutes as { value: number }).value,
       levels: TURBO_BLIND_LEVELS.map((level) => ({ ...level })),
       rebuyUntilLevel: (rebuyUntilLevel as { value: number }).value,
+      lateRegUntilLevel: (lateRegUntilLevel as { value: number }).value,
       rebuyCostTokens: (rebuyCostTokens as { value: number }).value,
       rebuyChips: (rebuyChips as { value: number }).value,
       seatsPerTable: (seatsPerTable as { value: number }).value,
@@ -141,6 +146,45 @@ export function pokerTournamentClock(config: Pick<PokerTournamentConfig, 'levels
 /** A busted player may re-buy until the chosen level ends. It counts elapsed levels, so even a cutoff at the last blind level expires. */
 export const pokerTournamentRebuyOpen = (config: Pick<PokerTournamentConfig, 'rebuyUntilLevel'>, clock: Pick<PokerTournamentClock, 'elapsedLevel'>): boolean =>
   config.rebuyUntilLevel > 0 && clock.elapsedLevel <= config.rebuyUntilLevel;
+
+/** A new player may still enter a running tournament until the chosen level ends. Tournaments saved before this setting existed never allow it. */
+export const pokerTournamentLateRegOpen = (config: Pick<PokerTournamentConfig, 'lateRegUntilLevel'>, clock: Pick<PokerTournamentClock, 'elapsedLevel'>): boolean =>
+  (config.lateRegUntilLevel ?? 0) > 0 && clock.elapsedLevel <= (config.lateRegUntilLevel ?? 0);
+
+export type PokerTournamentScheduleRow = {
+  level: number;
+  small: number;
+  big: number;
+  /** Minutes from the start of the tournament to the start of this level. */
+  startMinute: number;
+  /** The same moment as a clock time (ISO), when the tournament start is known. */
+  startsAt: string | null;
+  /** The stack the tournament starts with, in big blinds at this level. */
+  startingStackBb: number;
+  lateRegOpen: boolean;
+  rebuyOpen: boolean;
+};
+
+/**
+ * The table of levels: when each one starts and what is still possible then (owner, 2026-10-11: «табличка, чтобы было
+ * понимание, насколько времени пройдёт»). The times are exact for the blind clock; how long the tournament lasts
+ * depends on the players and is not promised here.
+ */
+export function pokerTournamentSchedule(
+  config: Pick<PokerTournamentConfig, 'levels' | 'levelMinutes' | 'startingStack' | 'rebuyUntilLevel' | 'lateRegUntilLevel'>,
+  startAtMs: number | null = null,
+): PokerTournamentScheduleRow[] {
+  return config.levels.map((blinds, index) => ({
+    level: index + 1,
+    small: blinds.small,
+    big: blinds.big,
+    startMinute: index * config.levelMinutes,
+    startsAt: startAtMs !== null && Number.isFinite(startAtMs) ? new Date(startAtMs + index * config.levelMinutes * 60_000).toISOString() : null,
+    startingStackBb: Math.round((config.startingStack / blinds.big) * 10) / 10,
+    lateRegOpen: (config.lateRegUntilLevel ?? 0) > 0 && index + 1 <= (config.lateRegUntilLevel ?? 0),
+    rebuyOpen: config.rebuyUntilLevel > 0 && index + 1 <= config.rebuyUntilLevel,
+  }));
+}
 
 /**
  * Table sizes for `players` people at tables of at most `seatsPerTable`: as few tables as possible, filled evenly

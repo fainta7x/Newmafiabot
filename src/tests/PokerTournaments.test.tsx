@@ -89,4 +89,58 @@ describe('PokerTournaments', () => {
     fireEvent.click(screen.getByRole('button', { name: '+ Турнир' }));
     expect(screen.getByTestId('poker-tournament-form')).toBeTruthy();
   });
+  const schedule = [
+    { level: 1, small: 10, big: 20, startMinute: 0, startsAt: '2026-10-20T18:00:00.000Z', startingStackBb: 50, lateRegOpen: true, rebuyOpen: true },
+    { level: 2, small: 15, big: 30, startMinute: 6, startsAt: '2026-10-20T18:06:00.000Z', startingStackBb: 33.3, lateRegOpen: true, rebuyOpen: false },
+    { level: 3, small: 20, big: 40, startMinute: 12, startsAt: '2026-10-20T18:12:00.000Z', startingStackBb: 25, lateRegOpen: false, rebuyOpen: false },
+  ];
+
+  it('shows the table of levels with the time of each one and what is still possible', async () => {
+    mockFetch([tournament({ schedule, settings: { ...settings, lateRegUntilLevel: 2 } })]);
+    render(<PokerTournaments />);
+    await screen.findByText('Турбо вечера');
+    const table = screen.getByTestId('poker-tournament-schedule');
+    expect(table.textContent).toContain('10/20');
+    expect(table.textContent).toContain('21:06');           // 18:06 UTC is 21:06 in Moscow
+    expect(table.textContent).toContain('33,3');
+    expect(table.textContent).toMatch(/Поздняя запись закрывается после 2-го уровня \(в 21:12\)/);
+    expect(table.textContent).toMatch(/Докупка закрывается после 1-го уровня \(в 21:06\)/);
+    expect(table.textContent).not.toMatch(/\b(ты|вы)\b/i);
+    expect(screen.getByText(/поздняя запись до уровня 2/)).toBeTruthy();
+  });
+
+  it('offers a newcomer to enter a running tournament while late registration is open, and not a player who is already in', async () => {
+    const running = (extra: Record<string, unknown>) => tournament({ status: 'running', clock: { level: 2, small: 15, big: 30, secondsToNextLevel: 100 }, alive: 4, waiting_rebuy: 0, schedule, settings: { ...settings, lateRegUntilLevel: 2 }, ...extra });
+    const calls = mockFetch([running({ late_reg_open: true })]);
+    render(<PokerTournaments />);
+    const button = await screen.findByTestId('poker-tournament-late-reg');
+    expect(button.textContent).toContain('до конца 2-го уровня');
+    fireEvent.click(button);
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/ptr_1/register'))).toBe(true));
+    cleanup();
+    mockFetch([running({ late_reg_open: true, my_entry: { status: 'playing', rebuys: 0, place: null } })]);
+    render(<PokerTournaments />);
+    await screen.findByText('Турбо вечера');
+    expect(screen.queryByTestId('poker-tournament-late-reg')).toBeNull();
+    cleanup();
+    mockFetch([running({ late_reg_open: false })]);
+    render(<PokerTournaments />);
+    await screen.findByText('Турбо вечера');
+    expect(screen.queryByTestId('poker-tournament-late-reg')).toBeNull();
+  });
+  it('lists who has signed up, and shows a player who went out with his place', async () => {
+    mockFetch([tournament({ status: 'running', clock: { level: 3, small: 20, big: 40, secondsToNextLevel: 60 }, alive: 2, waiting_rebuy: 0, schedule,
+      participants: [
+        { id: 'a', nickname: 'Алиса', status: 'playing', place: null, rebuys: 1, out: false },
+        { id: 'b', nickname: 'Боб', status: 'eliminated', place: 3, rebuys: 0, out: true },
+        { id: 'c', nickname: 'Вера', status: 'playing', place: null, rebuys: 0, out: false },
+      ] })]);
+    render(<PokerTournaments />);
+    await screen.findByText('Турбо вечера');
+    const list = screen.getByTestId('poker-tournament-participants');
+    expect(list.textContent).toContain('Алиса');
+    expect(list.textContent).toContain('+1');
+    expect(list.textContent).toMatch(/Боб\s*3 м\./);
+    expect(screen.getByText(/Участники · 3/)).toBeTruthy();
+  });
 });

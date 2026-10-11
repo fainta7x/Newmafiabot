@@ -29,7 +29,7 @@ const prizeText = (prizes: number[]) => prizes.some((amount) => amount > 0)
   : 'без денежных призов';
 
 /** «Покерные турниры»: registration for the club's poker MTTs and, for the organizer, creating one. */
-export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (tableId: string) => void } = {}) {
+export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: { onOpenTable?: (tableId: string) => void; onTokenBalanceChange?: (balance: number) => void } = {}) {
   const [items, setItems] = useState<Tournament[] | null>(null);
   const [canOrganize, setCanOrganize] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,7 +52,12 @@ export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (table
 
   const act = async (id: string, method: 'POST' | 'DELETE', path = 'register') => {
     setBusy(id); setError(null);
-    try { await call(`/api/player/poker/tournaments/${encodeURIComponent(id)}/${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined }); await load(); }
+    try {
+      const body = await call(`/api/player/poker/tournaments/${encodeURIComponent(id)}/${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+      // A re-buy spends the wallet: the cabinet's balance has to follow at once.
+      if (Number.isFinite(Number(body?.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
+      await load();
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось'); }
     finally { setBusy(null); }
   };
@@ -138,6 +143,11 @@ export default function PokerTournaments({ onOpenTable }: { onOpenTable?: (table
               <div className="mt-2 space-y-2 text-[11px] text-white/70">
                 <p>В игре {item.alive ?? item.players}{item.waiting_rebuy ? `, ждут докупки: ${item.waiting_rebuy}` : ''}</p>
                 {item.my_entry?.place ? <p className="font-bold text-rose-200">Я выбыл: {item.my_entry.place} место</p> : null}
+                {item.my_entry?.busted && item.rebuy_open ? (
+                  <button type="button" disabled={busy === item.id} onClick={() => void act(item.id, 'POST', 'rebuy')} className="min-h-11 w-full rounded-xl border border-amber-200/30 bg-amber-200/10 text-xs font-black text-amber-100">
+                    {item.settings.rebuyCostTokens > 0 ? `Фишки закончились: докупить за ${item.settings.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'Фишки закончились: докупить бесплатно'}
+                  </button>
+                ) : item.my_entry?.busted ? <p className="text-white/50">Фишки закончились, докупка закрыта: место появится после окончания докупки</p> : null}
                 {item.my_table_id && onOpenTable ? <button type="button" onClick={() => onOpenTable(item.my_table_id!)} className="min-h-11 w-full rounded-xl bg-[linear-gradient(#dfbd6a,#ad7931)] text-xs font-black text-black">К моему столу</button> : null}
               </div>
             ) : null}

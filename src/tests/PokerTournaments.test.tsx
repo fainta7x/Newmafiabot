@@ -47,6 +47,29 @@ describe('PokerTournaments', () => {
     expect(open).toHaveBeenCalledWith('ptt_ptr_1_2');
   });
 
+  it('offers a busted player the re-buy while it is open, with its price, and says when it is closed', async () => {
+    const calls = mockFetch([
+      tournament({ id: 'a', status: 'running', rebuy_open: true, alive: 5, my_entry: { status: 'playing', rebuys: 0, place: null, busted: true } }),
+      tournament({ id: 'b', title: 'Другой', status: 'running', rebuy_open: false, alive: 5, my_entry: { status: 'playing', rebuys: 0, place: null, busted: true } }),
+    ]);
+    render(<PokerTournaments />);
+    const button = await screen.findByRole('button', { name: /докупить за 500 жетонов/i });
+    expect(screen.getByText(/докупка закрыта/i)).toBeTruthy();
+    fireEvent.click(button);
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/a/rebuy'))).toBe(true));
+  });
+
+  it('passes the new wallet balance up after a re-buy from the card', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => ({
+      ok: true,
+      json: async () => (init?.method === 'POST' ? { tournament: {}, token_balance: 900 } : { tournaments: [tournament({ status: 'running', rebuy_open: true, alive: 4, my_entry: { status: 'playing', rebuys: 0, place: null, busted: true } })], can_organize: false }),
+    } as Response)));
+    const onBalance = vi.fn();
+    render(<PokerTournaments onTokenBalanceChange={onBalance} />);
+    fireEvent.click(await screen.findByRole('button', { name: /докупить за 500 жетонов/i }));
+    await waitFor(() => expect(onBalance).toHaveBeenCalledWith(900));
+  });
+
   it('tells a player who is out his place, and lists the places of a finished tournament', async () => {
     mockFetch([
       tournament({ id: 'a', status: 'running', alive: 3, my_entry: { status: 'eliminated', rebuys: 0, place: 5 } }),

@@ -54,7 +54,7 @@ const makeDb = () => {
 };
 
 const baseStats = (patch: Partial<AchievementStats> = {}): AchievementStats => ({
-  completedGames: 0, wins: 0, elo: 1000, judgedGames: 0, organizedEvenings: 0, splitVoteExpert: 0, puCount: 0, perfectGames: 0,
+  completedGames: 0, wins: 0, elo: 1000, judgedGames: 0, organizedEvenings: 0, splitVoteExpert: 0, pokerTournamentWins: 0, puCount: 0, perfectGames: 0,
   roleWins: { sheriff: 0, mafia: 0, don: 0 }, ...patch,
 });
 const byId = (id: string) => ACHIEVEMENTS.find((item) => item.id === id)!;
@@ -76,7 +76,7 @@ const addCompletedClubGame = async (db: any, playerId: string, options: { role?:
 
 describe('legacy achievement catalog', () => {
   it('keeps the legacy 40 achievements in display order plus the 5 organizer milestones and the trainer one', () => {
-    expect(ACHIEVEMENTS).toHaveLength(62);
+    expect(ACHIEVEMENTS).toHaveLength(64);
     expect(ACHIEVEMENT_CATEGORIES.map((item) => item.id)).toEqual(['games','wins','rating','roles','judge','organizer','special','learning']);
     expect(ACHIEVEMENT_ORDER.slice(0,46)).toEqual([
       'first_game','ten_games','twenty_games','thirty_games','fifty_games','seventy_games','hundred_games','one_fifty_games','two_hundred_games',

@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import {
   planPokerTournamentTables, pokerTournamentClock, pokerTournamentRebuyOpen, POKER_TOURNAMENT_MAX_SEATS, type PokerTournamentConfig,
 } from '../../shared/pokerTournament.ts';
+import { settlePokerTournamentRewards } from './pokerTournamentRewardsService.ts';
 import {
   createPokerTournamentLobby, freePokerSeat, pokerTournamentLobbies, removePokerTournamentLobby, tickPokerLobby, type PokerLobby,
 } from './pokerLobbyService.ts';
@@ -54,7 +55,7 @@ const seatTables = async (db: DatabaseWrapper, row: RunningRow, config: PokerTou
       tournamentId: row.id,
       tableNo: index + 1,
       title: sizes.length > 1 ? `Турнир «${row.title}» · стол ${index + 1}` : `Турнир «${row.title}»`,
-      tournament: { started_at_ms: startedAtMs, level_minutes: config.levelMinutes, levels: config.levels, rebuy_until_level: config.rebuyUntilLevel },
+      tournament: { started_at_ms: startedAtMs, level_minutes: config.levelMinutes, levels: config.levels, rebuy_until_level: config.rebuyUntilLevel, rebuy_cost_tokens: config.rebuyCostTokens, rebuy_chips: config.rebuyChips },
       players: group.map((player) => ({ id: player.player_id, nickname: player.nickname, chips: config.startingStack })),
     });
   });
@@ -185,7 +186,9 @@ export async function processRunningPokerTournament(db: DatabaseWrapper, row: Ru
   if (alive <= 1 && waiting === 0 && !resultStillShown) {
     const nowIso = new Date(nowMs).toISOString();
     await db.run("UPDATE poker_tournament_entries SET place = 1, updated_at = ? WHERE tournament_id = ? AND status = 'playing' AND busted_at IS NULL", [nowIso, row.id]);
-    await db.run("UPDATE poker_tournaments SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ? AND status = 'running'", [nowIso, nowIso, row.id]);
+    const closed = await db.run("UPDATE poker_tournaments SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ? AND status = 'running'", [nowIso, nowIso, row.id]);
+    // The prizes, the cup and the achievements are settled once, by the call that really ended the tournament.
+    if (closed.changes) await settlePokerTournamentRewards(db, { id: row.id, title: row.title }, config, nowIso);
     for (const lobby of pokerTournamentLobbies(row.id)) removePokerTournamentLobby(lobby.id);
     return { finished: true };
   }

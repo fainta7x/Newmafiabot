@@ -6,7 +6,8 @@ import {
 } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { withPersistedPokerRuntime } from './pokerPersistenceService.ts';
-import { pokerTournamentLobbies } from './pokerLobbyService.ts';
+import { pokerTournamentLobbies, rebuyPoker } from './pokerLobbyService.ts';
+import { mutateTokenBalance, TokenInsufficientFundsError } from './tokenLedgerService.ts';
 import { processRunningPokerTournaments } from './pokerTournamentTablesService.ts';
 
 export class PokerTournamentError extends Error {
@@ -224,4 +225,47 @@ export function startPokerTournamentWorker(db: DatabaseWrapper) {
   setTimeout(run, 5_000).unref?.();
   tournamentTimer = setInterval(run, TOURNAMENT_SCAN_INTERVAL_MS);
   tournamentTimer.unref?.();
+}
+
+/**
+ * A busted player buys back in with his own club tokens while the re-buy is open (owner, 2026-10-10). Must run inside the
+ * persisted poker runtime: the token debit, the new stack at the table and the entry change are one transaction.
+ */
+export async function rebuyInPokerTournament(db: DatabaseWrapper, tournamentId: string, playerId: string, nowMs = Date.now()) {
+  const row = await getPokerTournamentRow(db, tournamentId);
+  if (row.status !== 'running' || !row.started_at) throw new PokerTournamentError(409, 'Докупка возможна только в идущем турнире');
+  const config = parseConfig(row);
+  const clock = pokerTournamentClock(config, Date.parse(row.started_at), nowMs);
+  if (!pokerTournamentRebuyOpen(config, clock)) throw new PokerTournamentError(409, 'Время докупки закончилось');
+  const entry = await db.get<{ status: string; rebuys: number; busted_at: string | null }>('SELECT status, rebuys, busted_at FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = ?', [tournamentId, playerId]);
+  if (!entry || entry.status !== 'playing') throw new PokerTournamentError(409, 'Докупить может только игрок, который сейчас в турнире');
+  if (!entry.busted_at) throw new PokerTournamentError(409, 'Докупка нужна, когда фишки закончились');
+  const lobby = pokerTournamentLobbies(tournamentId).find((table) => table.players.some((seat) => seat.id === playerId));
+  if (!lobby) throw new PokerTournamentError(409, 'Стол игрока не найден');
+  if (config.rebuyCostTokens > 0) {
+    try {
+      await mutateTokenBalance(db, {
+        playerId,
+        delta: -config.rebuyCostTokens,
+        reasonType: 'poker_tournament_rebuy',
+        description: `Покерный турнир «${row.title}»: докупка`,
+        sourceType: 'poker_tournament',
+        sourceId: tournamentId,
+        idempotencyKey: `poker-tournament-rebuy:${tournamentId}:${playerId}:${Number(entry.rebuys) + 1}`,
+        debitPolicy: 'prevent_negative',
+        actorType: 'player',
+        actorId: playerId,
+        metadata: { tournament_id: tournamentId, cost: config.rebuyCostTokens, chips: config.rebuyChips },
+      });
+    } catch (error) {
+      if (error instanceof TokenInsufficientFundsError) throw new PokerTournamentError(409, `Для докупки нужно ${config.rebuyCostTokens.toLocaleString('ru-RU')} жетонов на балансе`);
+      throw error;
+    }
+  }
+  try { rebuyPoker(lobby, playerId, config.rebuyChips); }
+  catch (error) { throw new PokerTournamentError(409, error instanceof Error ? error.message : 'Не получилось докупить'); }
+  const seat = lobby.players.find((item) => item.id === playerId);
+  if (seat) seat.sitting_out = false;
+  await db.run('UPDATE poker_tournament_entries SET busted_at = NULL, busted_start_chips = 0, rebuys = rebuys + 1, updated_at = ? WHERE tournament_id = ? AND player_id = ?', [new Date(nowMs).toISOString(), tournamentId, playerId]);
+  return getPokerTournamentRow(db, tournamentId);
 }

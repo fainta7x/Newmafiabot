@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, Check, LockKeyhole, RotateCcw, TriangleAlert, CheckSquare2, Square } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Check, LockKeyhole, RotateCcw, TriangleAlert, CheckSquare2, Square, BrainCircuit } from 'lucide-react';
+import MafiaReasoningLabs from './MafiaReasoningLabs.tsx';
 import {
   REASONING_LEVELS, reasoningMaxPoints, reasoningPassed, reasoningCasesForAttempt, reasoningCasesByIds,
   reasoningDecisionPoints, reasoningOptionOrder,
@@ -106,7 +107,7 @@ const ResultDetails = ({ cases, answers }: { cases: ReasoningCase[]; answers: Re
 export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseComplete?: () => void }) {
   const [progress, setProgress] = useState<CourseProgress>(readProgress);
   const [levelIndex, setLevelIndex] = useState(0);
-  const [view, setView] = useState<'chapters' | 'practice'>('chapters');
+  const [view, setView] = useState<'chapters' | 'practice' | 'labs'>('chapters');
   const courseTop = useRef<HTMLDivElement>(null);
   const initialView = useRef(true);
   const [selected, setSelected] = useState<ReasoningAnswer | null>(null);
@@ -206,7 +207,17 @@ export default function MafiaReasoningCourse({ onCourseComplete }: { onCourseCom
           </button>;
         })}
       </section>
-    </> : <section className="space-y-4" aria-label={`Глава ${levelIndex + 1}`} data-testid="reasoning-practice">
+      <button type="button" data-testid="reasoning-open-labs" onClick={() => setView('labs')}
+        className="flex min-h-[78px] w-full items-center gap-3 rounded-2xl border border-amber-200/25 bg-amber-200/[.055] p-3 text-left">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100">
+          <BrainCircuit className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1"><strong className="block text-[14px]">Разборы партий</strong>
+          <span className="block text-[12px] leading-4 text-white/55">Голоса, версии, вскрытия и решения</span>
+        </span>
+        <ArrowRight className="h-4 w-4 shrink-0 text-white/50" />
+      </button>
+    </> : view === 'labs' ? <MafiaReasoningLabs onBack={() => setView('chapters')} /> : <section className="space-y-4" aria-label={`Глава ${levelIndex + 1}`} data-testid="reasoning-practice">
       <header className="flex items-start gap-3">
         <button type="button" data-testid="reasoning-back-to-chapters" onClick={() => {
           setView('chapters');

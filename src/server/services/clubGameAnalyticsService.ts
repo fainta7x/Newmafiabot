@@ -1,4 +1,4 @@
-import { sqliteReadVersion } from './sqliteReadVersion.ts';
+import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 export type AnalyticsTeam = 'red' | 'black';
 
 export type AnalyticsPlayerResult = {
@@ -62,13 +62,14 @@ const validDate = (value: unknown): { iso: string; ms: number } | null => {
 };
 
 // Many independent player screens request the same finished-game history at
-// once. Keep the parsed projection until SQLite reports a write; every save,
-// protocol correction or cross-process commit invalidates it automatically.
+// once. Keep the parsed projection until one of its real inputs changes (a trigger counter, see
+// analyticsInputsVersion.ts: a poker save or a token change must not drop it); every save, protocol correction
+// or cross-process commit of a game invalidates it automatically.
 // Always hand callers their own outer array so sort/reverse cannot mutate cache.
 const snapshotCache = new WeakMap<object, { version: string; promise: Promise<CompletedGameSnapshot[]> }>();
 
 export function loadCompletedGameSnapshots(db: any): Promise<CompletedGameSnapshot[]> {
-  const version = sqliteReadVersion(db);
+  const version = analyticsInputsVersion(db, 'club_snapshots', CLUB_SNAPSHOT_INPUTS);
   const cached = snapshotCache.get(db as object);
   if (version !== null && cached?.version === version) return cached.promise.then((rows) => rows.slice());
   const promise = loadCompletedGameSnapshotsUncached(db);

@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { checkRuntimeReadiness, type RuntimeReadiness } from '../services/runtimeReadinessService.ts';
 import type { RuntimeFetch } from '../services/telegramRuntimeHealthService.ts';
 import { getBuildInfo } from '../services/buildInfoService.ts';
+import { performanceSnapshot } from '../../lib/performanceProbe.ts';
 
 export const createRuntimeHealthRoutes = (fetcher?: RuntimeFetch, cacheTtlMs = 30_000) => {
   const router = Router();
@@ -35,6 +36,13 @@ export const createRuntimeHealthRoutes = (fetcher?: RuntimeFetch, cacheTtlMs = 3
         build: getBuildInfo(),
       });
     }
+  });
+
+  // What made the server slow in the last minutes: event-loop stalls, slow requests, slow database transactions.
+  // Aggregates only: route names have ids removed and nothing about people is kept.
+  router.get('/performance', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ checked_at: new Date().toISOString(), ...performanceSnapshot() });
   });
 
   return router;

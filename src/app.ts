@@ -114,6 +114,7 @@ import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
 import customEventRoutes from './server/routes/customEventRoutes.ts';
 import { noviceOrganizerRoutes, novicePlayerRoutes } from './server/routes/noviceRoutes.ts';
+import { performanceMiddleware, startPerformanceWatchdog } from './server/services/performanceWatchdog.ts';
 import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
 import vkPlayerStartRouter from './server/services/vkPlayerStartRouter.ts';
@@ -150,6 +151,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
     next(err);
   });
   app.use(cookieParser());
+  app.use(performanceMiddleware);
+  startPerformanceWatchdog();
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

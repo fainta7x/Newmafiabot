@@ -65,9 +65,13 @@ const reconstruct = (raw: RawSource): TestamentExercise[] => {
   if (!Array.isArray(events)) return [];
   const result: TestamentExercise[] = [];
   const offset = hash(gameKey) % 10;
+  // The chronology is append-only: a corrected best move leaves the old event too. Only the last one of each speaker counts.
+  const lastBestMove = new Map<number, number>();
+  events.forEach((event, index) => { if (event.kind === 'best_move' && knownSeat(event.seat)) lastBestMove.set(event.seat, index); });
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
     if (!knownSeat(e.seat) || !['best_move','death_protocol'].includes(e.kind)) continue;
+    if (e.kind === 'best_move' && lastBestMove.get(e.seat) !== i) continue;
     const kind = e.kind;
     const picks = kind === 'best_move'
       ? parseSeats(e.value)
@@ -87,7 +91,11 @@ const reconstruct = (raw: RawSource): TestamentExercise[] => {
       if (action.kind === 'nomination' && knownSeat(action.seat) && knownSeat(action.by)) nominations.set(action.seat, action.by);
       if (action.kind === 'nomination_removed' && knownSeat(action.seat)) nominations.delete(action.seat);
     }
-    const sourceLabel = kind === 'best_move' ? 'ЛХ первого убитого' : 'Цветовой протокол убитого';
+    // Whose best move it is follows from how the speaker went out: the first killed, or voted out on the zero circle.
+    const before = events.slice(0, i).reverse();
+    const bestMoveSource = before.some((item) => item.kind === 'first_killed' && item.seat === e.seat) ? 'ЛХ первого убитого'
+      : before.some((item) => item.kind === 'zero_round_voted' && item.seat === e.seat) ? 'ЛХ заголосованного в нулевом круге' : 'ЛХ выбывшего игрока';
+    const sourceLabel = kind === 'best_move' ? bestMoveSource : 'Цветовой протокол убитого';
     const facts = [sourceLabel + ': назван ' + label(chosen, offset) + ' чёрным.'];
     const nominated = [...nominations.entries()].find(([, author]) => author === chosen);
     const voted = votes.get(chosen);

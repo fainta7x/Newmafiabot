@@ -54,6 +54,30 @@ describe('automatically constructed, anonymous educational wills', () => {
     expect(generateAnonymousTestamentExercises([],0)[0].id).not.toBe(empty[0].id);
   });
 });
+describe('what a generated will says about its source', () => {
+  const will = (events: unknown[]) => generateAnonymousTestamentExercises([{ gameKey: 'club:one', events: sanitizeLiveGameEvents(events) }]).slice(4);
+  it('names the source of a best move by how the speaker went out, not always «first killed»', () => {
+    const first = will([{ kind: 'first_killed', round: 1, phase: 'night', seat: 9 }, { kind: 'best_move', round: 1, phase: 'night', seat: 9, value: '2,5,7' }]);
+    expect(first[0].facts[0]).toContain('ЛХ первого убитого');
+    const zero = will([{ kind: 'zero_round_voted', round: 1, phase: 'day_voting', seat: 9 }, { kind: 'best_move', round: 1, phase: 'day_voting', seat: 9, value: '2,5,7' }]);
+    expect(zero[0].facts[0]).toContain('заголосованного в нулевом круге');
+    expect(zero[0].facts[0]).not.toContain('первого убитого');
+    const unknown = will([{ kind: 'best_move', round: 1, phase: 'night', seat: 9, value: '2,5,7' }]);
+    expect(unknown[0].facts[0]).toContain('ЛХ выбывшего игрока');
+  });
+  it('uses only the last best move of a speaker: a corrected one is not a training case', () => {
+    const list = will([
+      { kind: 'best_move', round: 1, phase: 'night', seat: 9, value: '2,5,7' },
+      { kind: 'best_move', round: 1, phase: 'night', seat: 9, value: '1,3,4' },
+    ]);
+    expect(list).toHaveLength(1);
+    const text = JSON.stringify(list);
+    // the old choice (seat 2, 5, 7) never appears as the named seat, only the corrected first pick (seat 1) does
+    expect(list[0].facts[0]).toMatch(/назван №\d+ чёрным/);
+    const fromOld = generateAnonymousTestamentExercises([{ gameKey: 'club:one', events: sanitizeLiveGameEvents([{ kind: 'best_move', round: 1, phase: 'night', seat: 9, value: '2,5,7' }]) }]).slice(4);
+    expect(text).not.toBe(JSON.stringify(fromOld));
+  });
+});
 beforeEach(() => { window.localStorage.clear(); vi.restoreAllMocks(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('mobile practice', () => {

@@ -66,6 +66,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const text = (name: string) => String(data.get(name) ?? '').trim();
+    const checked = (name: string) => data.get(name) !== null;
     const startLocal = text('start');
     setError(null);
     if (!startLocal) return setError('Укажите дату и время начала');
@@ -75,6 +76,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
       maxPlayers: text('max') || undefined, startingStack: text('stack') || undefined, levelMinutes: text('level') || undefined,
       rebuyUntilLevel: text('rebuyLevel') || undefined, rebuyCostTokens: text('rebuyCost') || undefined,
       rebuyChips: text('rebuyChips') || undefined, seatsPerTable: text('seats') || undefined, prizeTokens: prizes,
+      announce: { club_group: checked('announceGroup'), telegram_channel: checked('announceChannel'), vk: checked('announceVk'), bot_dm: checked('announceDm') },
     };
     setBusy('new');
     try { await call('/api/player/poker/tournaments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); setCreating(false); await load(); }
@@ -100,6 +102,13 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
           <label className="block text-xs text-white/60">Название<input name="title" required maxLength={120} defaultValue="Покерный турбо-турнир" className={field} /></label>
           <label className="block text-xs text-white/60">Начало<input name="start" type="datetime-local" required className={field} /></label>
           <label className="block text-xs text-white/60">Призы жетонами по местам (через пробел: 1 место, 2 место…)<input name="prizes" inputMode="numeric" placeholder="3000 1500 500" className={field} /></label>
+          <fieldset className="space-y-1 rounded-xl border border-white/10 bg-black/20 p-3" data-testid="poker-tournament-announce">
+            <legend className="px-1 text-xs font-semibold text-white/70">Объявить о турнире</legend>
+            <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceGroup" type="checkbox" defaultChecked className="size-5" />В группе клуба в Telegram</label>
+            <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceChannel" type="checkbox" className="size-5" />В открытом канале в Telegram</label>
+            <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceVk" type="checkbox" defaultChecked className="size-5" />В сообществе во ВКонтакте</label>
+            <label className="flex min-h-11 items-center gap-3 text-sm text-white/80"><input name="announceDm" type="checkbox" className="size-5" />Личным сообщением каждому игроку клуба</label>
+          </fieldset>
           <details className="rounded-xl border border-white/10 bg-black/20 p-3">
             <summary className="min-h-11 cursor-pointer py-2.5 text-xs font-semibold text-white/70">Настройки турнира (турбо по умолчанию)</summary>
             <div className="mt-2 grid grid-cols-2 gap-2">

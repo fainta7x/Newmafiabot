@@ -146,4 +146,17 @@ describe('Advanced reasoning labs: pure vote rules and playable learning flow', 
     expect(screen.getByTestId('reasoning-labs-task').textContent).toContain('Вопрос 1 из 4');
     expect(JSON.parse(window.localStorage.getItem('mafia-reasoning-labs-v1') || '{}').attempts.vote).toBe(1);
   });
+  it('makes the learner count the hands: every answer of the first step is a real tally, only one is right', () => {
+    const topic = REASONING_LABS.find((item) => item.id === 'vote')!;
+    topic.cases.forEach((labCase, index) => {
+      const plan = VOTE_PLANS[index];
+      const [first, last] = plan.candidates;
+      const counts = calculateVoteResult(plan, last).counts;
+      const options = labCase.steps[0].options;
+      expect(options.every((option) => /^Счёт \d+:\d+/.test(option.label))).toBe(true);
+      expect(new Set(options.map((option) => option.label)).size).toBe(3);
+      expect(options.filter((option) => option.points === 2).map((option) => option.label.split(' (')[0]))
+        .toEqual([`Счёт ${counts[first]}:${counts[last]}`]);
+    });
+  });
 });

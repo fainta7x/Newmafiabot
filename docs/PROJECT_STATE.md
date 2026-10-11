@@ -760,7 +760,42 @@ The owner approved all four defaults in `docs/ANALYTICS_REDESIGN_SPEC.md` §9 an
 
 Known limits of the first release: cancellations are counted from evenings where a declined answer kept its confirmation time (`confirmed_at` is no longer cleared on decline), so cancellations before that change read as 0 and the rate is understated until new evenings accumulate (a backfill from the old registration history was not done); the «пришли» step of the invitation funnel counts every invited person who came, also those who did not answer, so its share of «идут» can exceed 100 % (the help text says so); KPI growth arrows are not built.
 
+### Shop / VIP / compendium discussion — owner request 2026-10-08
+
+**Current stop (owner, 21:00 Moscow):** brainstorming is closed for now. The assistant repeated ideas already rejected or already retained. Stop proposing variants of the same ideas; do not restart research or implement anything without the owner's next instruction. This section is the current decision snapshot; superseded proposals are preserved in Git history.
+
+**Retained for later design, not implementation approval:**
+- Player-specific styling of the actual Live Game seat/card and broadcast, including distinctive animations/glow. Profile-only decoration is insufficient; preserve readability and gameplay. Poker table visual themes are also retained as a possible cosmetic feature.
+- Music sets/playlists and priority in music selection. Exact priority rules remain undecided; current random selection uses this game's table participants including the judge, with different people for deal/night.
+- Role preferences for ordinary non-tournament games: choosing a preferred role and excluding an unwanted role belong to the same already identified direction. **Owner correction at 21:00:** exclusion was already retained; do not present it again as a newly discovered feature. Exact mechanism is still to agree, not a committed post-reveal reroll. The token shop already lists a role purchase; listing/purchase does not prove automated fulfilment.
+- An evening wish: if the buyer draws mafia/don, a selected player is a black teammate. The selected player must not also need VIP. The owner's red-teammate variant is unresolved because confirmation could reveal another player's hidden role.
+- Protect the purchased-role experience after first-night elimination: retain later reactivation/compensation. Exact role coverage, repeat limit and consumption/refund terms remain undecided. Do not change survival, game result, Elo or ordinary evening dues.
+- Fantasy based on known club players is retained as future ordinary/free application functionality, outside the paid VIP/compendium proposition. Scoring, participation and own-game incentives remain design questions.
+
+**Rejected; do not revive as active candidates:**
+- Personal video clips/highlights as a paid service: the owner already has an open broadcast from which clips can be made; this does not provide the proposed new value.
+- Exchanges/trading of coupons or privileges: the owner rejects the value; there is no requested exchange system. Do not propose or build a marketplace/transfer function.
+- Token appreciation tips, table-wide gifts/boosts and levelling/progression bonuses.
+- Paid teaching, coaching and game review; more cosmetic variants presented as separate new value; private groups/mini-leagues for this club of roughly 30 people; paid roadmap influence.
+- Forced all-role rotation, opposite-team purchases, coordinated three-buyer black trios, paid adjacency and role surprise.
+
+**Deferred / insufficient for the desired value:** furniture/room builder is too complex and distant. Merchandise, venue perks and extra adventures were already contemplated but did not solve the purchase-value question. Player-initiated thematic evenings should be encouraged freely, not sold. Do not add weekly chests, loot rolls or tasks without desirable underlying rewards.
+
+**Design constraints checked in the project:**
+- Sporting Mafia at a physical table: actual cards are shuffled/dealt; `PhysicalRoleDeal.tsx` records roles by seat. Do not assume software-generated assignment or automatic rerolls.
+- Preserve role counts, hidden information, speech/voting/foul rules and judge authority. No paid survival, extra checks, immunity, speaking time or fabricated awards.
+- CASUAL games currently also affect Elo; non-tournament does not automatically mean unrated. Modified-deal treatment requires a separate explicit decision.
+- The canonical token wallet/shop and spectator-only betting already exist; seated players and the judge cannot bet on their own game. Tokens have no cash withdrawal.
+- Role/pair conflicts, consent, private fulfilment by the judge and consumption/refunds remain unresolved. Balance is not claimed as proved.
+
+**Research evidence retained:** GGPoker Bubble Protection inspired role-purchase compensation; Dota Fantasy inspired the separate free feature. WoW/Blizzard mechanics were examined but clips, coupon exchange and progression did not fit the owner; Hearthstone pregame optionality only reinforces the already retained role-preference direction. Sources: https://ggpoker.com/poker-promotions/bubble-protection/ ; https://store.steampowered.com/news/posts/?appids=570&enddate=1677547283 ; https://hearthstone.blizzard.com/en-us/news/24159389 ; https://overwatch.blizzard.com/en-gb/news/patch-notes/live/2017/07/ ; https://worldofwarcraft.blizzard.com/en-us/news/1981090/new-player-tips-time-is-money-friend
+
+No final VIP/compendium bundle, subscription rules or price is selected. Earlier 299 RUB/month and 599 RUB/season figures were illustrative, not approved prices. No VIP, compendium, role-perk fulfilment or new gameplay rules implemented in this discussion.
+
+**Robokassa continuation (2026-10-09):** owner reports completed NPD registration, a created store and submitted activation request. Screenshot at 11:29 Moscow confirms non-secret MerchantLogin `2LANoire`; live hash currently MD5, test hash unselected, password values masked, and Result/Success/Fail URLs all point to the application origin with GET. Password contents are unknown and must not enter chat/Git. Owner setup step: select SHA256 for both hash blocks, configure distinct test Password1/Password2 in the lower test block, choose POST for Result and GET for browser returns, save. Actual callback/return endpoints are still to implement/deploy, so origin-only URLs are placeholders, not working payment confirmation. Store activation and Robocheki SMZ authorization remain unverified. Pure test adapter merged in PR #754; wallet checkout, authenticated callback settlement and receipt evidence remain to implement. Future server env: `ROBOKASSA_MERCHANT_LOGIN=2LANoire`, matching SHA256 plus separately stored test passwords. No configured provider test or live payment verified.
+
 ### Waiting on the owner
+- Owner discussion 2026-10-08, brainstorming closed for now: the shop / VIP / seasonal compendium ideas, the retained and rejected ones and the open design questions (role exclusion mechanism, protection of a purchased role, music priority, free Fantasy) are in the section «Shop / VIP / compendium discussion» above. Nothing is decided or priced; propose a concrete bundle to the owner before building.
 - Owner request 2026-10-10, in progress: poker MTT. Rules agreed with the owner are in BUSINESS_RULES «Poker MTT». Step 1 (settings, registration, auto start or cancel with a message) is deployed; step 2 (tournament tables, busts, places, balancing, finish) is deployed; step 3 (paid re-buy, prizes, cup and medals, achievements «Покерный чемпион» and «Король стола») is built and waits for a deploy and a phone check. Step 4 (table chat and emotes) is deployed; the calendar listing is built and waits for a deploy and a phone check. Open idea: announcing a poker tournament in the Telegram/VK club groups (not asked yet, propose to the owner). The owner said (2026-10-10) to do all steps without asking again, and to stop only for disputed decisions.
 - Owner idea 2026-10-10, built (needs a deploy and a phone check): a chat and emotes at the poker table, mostly teasing ones. Emote art is emoji with CSS animations (no ChatGPT assets needed); better art can replace the glyphs later.
 - Owner decision 2026-10-10: no channel digest/newsletter for players. Idea instead: an in-app «Что нового» notice built from the «Player-facing changes not yet announced» list. Not built; propose the screen to the owner before starting.

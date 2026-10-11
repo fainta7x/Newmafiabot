@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import TrophyCabinet from '../components/player/TrophyCabinet.tsx';
-import { cabinetItems, isFirstPlace, type CabinetVerifiedAward } from '../lib/trophyCabinetModel.ts';
+import { cabinetItems, isFirstPlace, trophyDesignForTournament, eveningIdFromAward, type CabinetVerifiedAward } from '../lib/trophyCabinetModel.ts';
+
+vi.mock('../components/player/PlayerTournamentView.tsx',()=>({
+  default:({tournamentId,onBack}:{tournamentId:string;onBack:()=>void})=><div data-testid="mock-tournament-view">Турнир {tournamentId}<button onClick={onBack}>Вернуться к награде</button></div>
+}));
 
 afterEach(cleanup);
 
@@ -27,6 +31,47 @@ describe('trophy cabinet based on existing verified profile data', () => {
     expect(items.filter(x=>x.category==='medals')).toHaveLength(1);
     expect(items.filter(x=>x.category==='nominations')).toHaveLength(1);
     expect(items.some(x=>x.id==='award:pending')).toBe(false);
+  });
+
+
+  it('assigns two numbered Bogdan tournaments distinct sculpted families and reproducible serials', () => {
+    const first = trophyDesignForTournament('bogdan-a', 'Турнир Богдана 1.08');
+    const second = trophyDesignForTournament('bogdan-b', 'Турнир Богдана 2.09');
+    expect(first).not.toBe(second);
+    expect(first?.split(':')[0]).not.toBe(second?.split(':')[0]);
+    expect(trophyDesignForTournament('bogdan-a', 'Турнир Богдана 1.08')).toBe(first);
+    const awards = cabinetItems(bogdanAwards, []);
+    expect(awards.filter(x=>x.tournamentWinner).map(x=>x.trophyDesignKey).every(Boolean)).toBe(true);
+  });
+
+  it('links evening trophies only if the official source key encodes the actual evening id', () => {
+    expect(eveningIdFromAward('club-evening-wins:night-123:player-abc')).toBe('night-123');
+    expect(eveningIdFromAward('club-evening-mvp:night-456:player-abc')).toBe('night-456');
+    expect(eveningIdFromAward('club-year-award:wins:2025')).toBeNull();
+    expect(eveningIdFromAward('')).toBeNull();
+  });
+
+  it('opens the real tournament view with the verified tournament id and returns to the same cabinet', () => {
+    render(<TrophyCabinet awards={bogdanAwards} earnedAchievements={[]} />);
+    fireEvent.click(screen.getAllByRole('button',{name:'Открыть награду: 1 место'})[0]);
+    const button=screen.getByTestId('cabinet-open-tournament');
+    fireEvent.click(button);
+    expect(screen.getByTestId('cabinet-tournament-overlay')).toBeDefined();
+    expect(screen.getByTestId('mock-tournament-view').textContent).toContain('bogdan-b');
+    fireEvent.click(screen.getByRole('button',{name:'Вернуться к награде'}));
+    expect(screen.queryByTestId('cabinet-tournament-overlay')).toBeNull();
+    expect(screen.getByTestId('cabinet-details')).toBeDefined();
+  });
+
+  it('offers a verified evening link and omits destinations for unlinked awards', () => {
+    const trophy={id:'e1',kind:'trophy',title:'Игрок вечера',source_key:'club-evening-wins:evening-17:p77',verification_status:'verified'};
+    const {rerender}=render(<TrophyCabinet awards={[trophy]} earnedAchievements={[]} />);
+    fireEvent.click(screen.getByRole('button',{name:'Открыть награду: Игрок вечера'}));
+    expect(screen.getByTestId('cabinet-open-evening').getAttribute('href')).toBe('/player/events/evening-17');
+    rerender(<TrophyCabinet awards={[{id:'a1',kind:'trophy',title:'Памятный кубок',verification_status:'verified'}]} earnedAchievements={[]} />);
+    fireEvent.click(screen.getByTestId('cabinet-exhibit'));
+    expect(screen.queryByTestId('cabinet-open-evening')).toBeNull();
+    expect(screen.queryByTestId('cabinet-open-tournament')).toBeNull();
   });
 
   it('a different player has no phantom Bogdan cup without an award', () => {

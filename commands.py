@@ -8,6 +8,7 @@ async def setup_bot_commands(bot):
         BotCommand(command="events", description="Ближайшие вечера и запись"),
         BotCommand(command="faq", description="Частые вопросы"),
         BotCommand(command="app", description="Открыть приложение клуба"),
+        BotCommand(command="link", description="Прямая ссылка для браузера"),
         BotCommand(command="cabinet", description="Личный кабинет"),
         BotCommand(command="crm", description="Кабинет организатора"),
     ]

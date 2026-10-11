@@ -90,10 +90,10 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
               Играют: {data.registration.confirmed_count} из {data.registration.capacity}{data.registration.reserve_count ? ` · резерв: ${data.registration.reserve_count}` : ''}
             </p>
             <p className="mt-1 text-[13px] text-white/55">
-              {data.registration.participated ? 'Вы играете в этом турнире.'
-                : data.registration.mine?.status === 'confirmed' ? 'Вы записаны, место подтверждено.'
-                : data.registration.mine?.status === 'reserve' ? 'Вы в резерве.'
-                : data.registration.open ? 'Вы ещё не ответили.' : 'Вы не участвуете в этом турнире, но можете следить за ним.'}
+              {data.registration.participated ? 'Играю в этом турнире.'
+                : data.registration.mine?.status === 'confirmed' ? 'Запись есть, место подтверждено.'
+                : data.registration.mine?.status === 'reserve' ? 'В резерве.'
+                : data.registration.open ? 'Ответа пока нет.' : 'Участия в турнире нет, но следить за ним можно.'}
             </p>
             {data.registration.open ? <button type="button" onClick={() => setRegistering(true)} data-testid="player-tournament-register" className="mt-3 min-h-11 w-full rounded-xl bg-violet-500 px-3 text-[14px] font-bold text-white">Моя регистрация и оплата</button> : null}
           </section>
@@ -113,7 +113,7 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                     <li key={`${item.number}-${item.nickname}`} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 ${item.is_me ? 'bg-violet-400/15' : 'bg-white/[0.03]'}`}>
                       <span className="w-6 text-[13px] font-bold text-white/40">{item.number}</span>
                       <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{item.nickname}</span>
-                      {item.is_me ? <span className="text-[12px] font-bold text-violet-200">это вы</span> : null}
+                      {item.is_me ? <span className="text-[12px] font-bold text-violet-200">это я</span> : null}
                     </li>
                   ))}
                 </ol>

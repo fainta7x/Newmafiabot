@@ -212,7 +212,7 @@ export const BettingAdminCRM: React.FC = () => {
 
       <div className="rounded-[15px] border border-border-soft bg-surface-1 p-3 text-[11px] leading-5 text-text-muted">
         <div className="mb-1 flex items-center gap-2 font-bold text-text-secondary"><Coins className="h-4 w-4" /> Как работает ручная коррекция</div>
-        При смене победителя уже выданные выплаты сначала отменяются через журнал жетонов, после чего банк рассчитывается заново. «Вернуть все ставки» возвращает игрокам их исходные суммы и закрывает банк окончательно.
+        Если сменить победителя, уже выданные выплаты отменяются, а банк считается заново. «Вернуть все ставки» отдаёт игрокам их суммы и закрывает банк насовсем.
       </div>
     </div>
   );

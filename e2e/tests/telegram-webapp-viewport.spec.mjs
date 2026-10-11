@@ -171,6 +171,10 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await expect(page.getByTestId('award-suggestion-action')).toBeVisible();
   await page.getByRole('button', { name: 'Связи', exact: true }).click();
   await expect(page.getByTestId('smart-friend-invite-suggestions')).toBeVisible();
+  await expect(page.getByTestId('my-team')).toBeVisible();
+  await expect(page.getByTestId('never-played')).toBeVisible();
+  const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+  expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
   await page.screenshot({ path: info.outputPath('telegram-profile-owner-connections.png'), fullPage: true });
 });
 

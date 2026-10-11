@@ -41,7 +41,7 @@ const chatUrlFor = (row: Row) => {
   return userId ? `tg://user?id=${encodeURIComponent(userId)}` : null;
 };
 
-export default function EveningPersonalInvites({ eveningId }: { eveningId: string }) {
+export default function EveningPersonalInvites({ eveningId, onChanged }: { eveningId: string; onChanged?: () => void }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<Filter>('unanswered');
   const [showAnswered, setShowAnswered] = useState(false);
@@ -121,6 +121,8 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
         await api.updateParticipant(created.id, { response_status: status } as any);
       }
       await load(true);
+      // Keep the primary «Ответы и игры» dashboard in sync with quick-answer edits.
+      onChanged?.();
     } catch (err: any) {
       setError(err?.message || 'Не удалось сохранить решение игрока');
     } finally {
@@ -169,8 +171,8 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
     <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-black text-text-primary">Личные приглашения</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Сначала те, кто ещё не ответил. Готовые ответы спрятаны и не мешают работе.</p>
+          <h3 className="text-[15px] font-black text-text-primary">Контакты и быстрые ответы</h3>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Напиши игроку в Telegram или уточни его ответ. Сначала те, кто ещё не ответил.</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading || Boolean(savingId)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

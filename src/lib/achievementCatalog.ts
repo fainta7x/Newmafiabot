@@ -1,7 +1,7 @@
 import { ACHIEVEMENT_STORIES } from './achievementStories';
 export type AchievementCategoryId = 'games' | 'wins' | 'rating' | 'roles' | 'judge' | 'organizer' | 'special' | 'learning';
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game' | 'split_expert' | 'story';
+export type AchievementMetric = 'games' | 'wins' | 'rating' | 'judged' | 'organized' | 'role' | 'pu' | 'perfect_game' | 'split_expert' | 'poker_wins' | 'story';
 
 export interface AchievementCategoryDefinition {
   id: AchievementCategoryId;
@@ -90,6 +90,9 @@ const raw: Array<Omit<AchievementDefinition, 'order'>> = [
   { id: 'perfect_game', name: 'Идеальная игра', description: 'Закончить игру без фолов и техфолов', icon: '💎', category: 'special', metric: 'perfect_game', threshold: 1, rarity: 'epic' },
   // User-approved 2026-09-26: one achievement for the split-vote trainer, for passing the expert exam.
   { id: 'split_vote_expert', name: 'Нулевой пациент', description: 'Сдать экзамен эксперта в тренажёре попила нулевого круга', icon: '🧪', category: 'learning', metric: 'split_expert', threshold: 1, rarity: 'epic' },
+  // Owner, 2026-10-10: poker tournaments give achievements and a cup.
+  { id: 'poker_champion', name: 'Покерный чемпион', description: 'Выиграть покерный турнир', icon: '🃏', category: 'special', metric: 'poker_wins', threshold: 1, rarity: 'epic' },
+  { id: 'poker_king', name: 'Король стола', description: 'Выиграть три покерных турнира', icon: '♠️', category: 'special', metric: 'poker_wins', threshold: 3, rarity: 'legendary' },
 ];
 
 export const ACHIEVEMENTS: AchievementDefinition[] = [...raw, ...ACHIEVEMENT_STORIES].map((item, index) => ({ ...item, order: index + 1 }));

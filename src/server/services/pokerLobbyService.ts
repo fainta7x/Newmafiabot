@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { chooseStrongBotAction, createOpponentMemory, observePokerHand, withOpponentMemory, type OpponentMemory } from './pokerBot.ts';
+import { pokerTournamentClock, pokerTournamentRebuyOpen, type PokerBlindLevel } from '../../shared/pokerTournament.ts';
 import { type PokerCard, advancePokerAnimation, applyPokerAction, createPokerHand, foldOutOfTurn, minRaiseTotal, POKER_DEAL_CARD_MS, POKER_DEAL_SETTLE_MS, pokerHandLabel, pokerTurnRemaining, refreshPokerReserve, type PokerState } from './pokerEngine.ts';
 
 export type PokerHistoryEntry = {
@@ -9,14 +10,30 @@ export type PokerHistoryEntry = {
   players: Array<{ id: string; nickname: string; seat: number; cards: PokerCard[]; revealed: boolean; net: number; label: string | null }>;
   actions: Array<{ street: string; player_id: string; player_name: string; type: string; amount: number }>;
 };
-export type PokerMoneyMode = 'club_tokens' | 'training';
+export type PokerMoneyMode = 'club_tokens' | 'training' | 'tournament';
+/** What a tournament table needs to know about its tournament (owner, 2026-10-10): the clock for the blinds, who is out. */
+export type PokerLobbyTournament = {
+  id: string; table_no: number; started_at_ms: number; level_minutes: number; levels: PokerBlindLevel[]; rebuy_until_level: number;
+  /** The re-buy offer, shown at the table (tables seated before it was added simply have none). */
+  rebuy_cost_tokens?: number; rebuy_chips?: number;
+  /** Players still in the tournament (refreshed by the tournament service), for the table's header. */
+  alive?: number;
+  /** The last hand whose busts were settled, so a hand is settled once. */
+  last_settled_hand?: string | null;
+  /** Who ran out of chips in a hand that was replaced by the next deal before the tournament service saw it (with the stack they started it with). */
+  bust_notes?: Array<{ id: string; nickname: string; start_chips: number }>;
+  /** People who left the tournament at this table, best place first. */
+  out?: Array<{ id: string; nickname: string; place: number }>;
+};
 export type PokerLobby = { id: string; title: string; ownerId: string; status: 'waiting' | 'playing' | 'finished'; players: Array<{ id: string; nickname: string; seat: number; chips: number; is_bot?: boolean; sitting_out?: boolean }>; hand: PokerState | null; createdAt: string;
   /** Real club-token table or a bot/training table whose stack never changes the wallet. */
   money_mode?: PokerMoneyMode;
   /** The last finished hands, newest first, so a player can see how a hand went. */
   history?: PokerHistoryEntry[];
   /** The always-open «Общий стол» (owner, 2026-10-02): never closes, deals by itself from two players. */
-  permanent?: boolean };
+  permanent?: boolean;
+  /** Set on a tournament table: it deals by itself with the blinds of the tournament clock and nobody leaves it by hand. */
+  tournament?: PokerLobbyTournament };
 export type PokerRuntimeSnapshot = { version: 1; lobbies: PokerLobby[]; bankrolls: Record<string, number> };
 /** A finished hand in the compact form kept in the database: what the bots need to learn the players' habits. */
 export type StoredPokerHand = {
@@ -115,6 +132,13 @@ export const POKER_BUY_IN_TOKENS = POKER_DEFAULT_BUY_IN_TOKENS;
 /** Compatibility alias for engine/tests that still call the stack a chip count. */
 export const POKER_REBUY_CHIPS = POKER_DEFAULT_BUY_IN_TOKENS;
 export const pokerMoneyMode = (lobby: PokerLobby): PokerMoneyMode => lobby.money_mode || 'training';
+/** The blinds of a tournament table follow the tournament clock; a cash table keeps 10/20. */
+export const pokerLobbyBlinds = (lobby: PokerLobby, now = Date.now()): { small_blind?: number; big_blind?: number } => {
+  const t = lobby.tournament;
+  if (!t) return {};
+  const clock = pokerTournamentClock({ levels: t.levels, levelMinutes: t.level_minutes }, t.started_at_ms, now);
+  return { small_blind: clock.small, big_blind: clock.big };
+};
 
 /** Saves a finished hand once: for the history and for the bots to learn the players' habits. */
 const recordFinishedHand = (lobby: PokerLobby) => {
@@ -189,8 +213,11 @@ export const rebuyPoker = (lobby: PokerLobby, playerId: string, chips = POKER_RE
 const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   // The history holds every player's cards: it is served only through publicPokerHistory.
   const { history: _history, ...lobby } = fullLobby;
+  const tournamentClock = lobby.tournament ? pokerTournamentClock({ levels: lobby.tournament.levels, levelMinutes: lobby.tournament.level_minutes }, lobby.tournament.started_at_ms, Date.now()) : null;
+  const viewerOut = viewerId ? lobby.tournament?.out?.find((entry) => entry.id === viewerId) || null : null;
+  const tournamentRebuy = lobby.tournament && tournamentClock && lobby.tournament.rebuy_chips ? { open: pokerTournamentRebuyOpen({ rebuyUntilLevel: lobby.tournament.rebuy_until_level }, tournamentClock), cost_tokens: lobby.tournament.rebuy_cost_tokens ?? 0, chips: lobby.tournament.rebuy_chips, until_level: lobby.tournament.rebuy_until_level } : null;
   // The viewer's id lets the waiting table seat them at the bottom like during play.
-  if (!lobby.hand) return { ...lobby, hand: null, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
+  if (!lobby.hand) return { ...lobby, hand: null, tournament_clock: tournamentClock, tournament_rebuy: tournamentRebuy, viewer_out: viewerOut, viewer_id: viewerId && lobby.players.some((player) => player.id === viewerId) ? viewerId : null };
   const now = Date.now();
   advancePokerAnimation(lobby.hand, now);
   for (const player of lobby.hand.players) refreshPokerReserve(player, now, player.seat !== lobby.hand.current_seat, lobby.hand.max_reserve_seconds);
@@ -222,7 +249,7 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   const viewerSeated = viewerAtTable;
   const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
   const hand = { ...lobby.hand, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, deal_elapsed_ms: Math.round(dealElapsed), deal_card_ms: POKER_DEAL_CARD_MS, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
-  return { ...lobby, hand };
+  return { ...lobby, hand, tournament_clock: tournamentClock, tournament_rebuy: tournamentRebuy, viewer_out: viewerOut };
 };
 
 export const MAIN_POKER_LOBBY_ID = 'main';
@@ -250,7 +277,7 @@ export const listPokerLobbies = (viewerId?: string) => {
       if (lobby.status === 'finished') return false;
       const viewerSeated = Boolean(viewerId) && lobby.players.some((player) => player.id === viewerId);
       // Training is a private bot session: it must never appear as a free human-vs-human alternative to the token tables.
-      if (pokerMoneyMode(lobby) === 'training') return viewerSeated;
+      if (pokerMoneyMode(lobby) === 'training' || lobby.tournament) return viewerSeated;
       return lobby.players.length < 8 || lobby.permanent || viewerSeated;
     })
     .map((lobby) => ({
@@ -277,6 +304,8 @@ export const touchPokerSeat = (lobby: PokerLobby, playerId: string, now = Date.n
 };
 export type PokerSeatExit = { lobbyId: string; playerId: string; amount: number; moneyMode: PokerMoneyMode };
 export const removeIdlePokerSeats = (lobby: PokerLobby, now = Date.now()): PokerSeatExit[] => {
+  // Nobody is taken off a tournament table: an absent player is folded each hand and blinded out.
+  if (lobby.tournament) return [];
   const seen = runtime().seen;
   if (!seen) return [];
   const exits: PokerSeatExit[] = [];
@@ -322,6 +351,7 @@ const freeSeat = (lobby: PokerLobby) => [1, 2, 3, 4, 5, 6, 7, 8].find((seat) => 
 export const joinPokerLobby = (lobby: PokerLobby, player: { id: string; nickname: string }, buyInTokens = POKER_DEFAULT_BUY_IN_TOKENS) => {
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.some((item) => item.id === player.id)) { touchPokerSeat(lobby, player.id); return lobby; }
+  if (lobby.tournament) throw new Error('За турнирный стол сажает сам турнир.');
   if (pokerMoneyMode(lobby) === 'training') {
     throw new Error('Тренировка приватная: за этим столом играют только вы и боты.');
   }
@@ -390,6 +420,7 @@ export const removeBustedPokerBots = (lobby: PokerLobby) => {
 };
 
 export const addPokerBot = (lobby: PokerLobby) => {
+  if (lobby.tournament) throw new Error('В турнире ботов нет.');
   if (lobby.status === 'finished') throw new Error('Игра за этим столом закончилась.');
   if (lobby.players.length >= 8) throw new Error('За столом максимум 8 игроков.');
   const name = BOT_NAMES.find((candidate) => !lobby.players.some((item) => item.nickname === candidate)) || `Бот ${lobby.players.length}`;
@@ -417,6 +448,7 @@ export const convertPokerLobbyToTraining = (lobby: PokerLobby) => {
 };
 
 export const startPokerLobby = (lobby: PokerLobby, actorId: string, animate = false) => {
+  if (lobby.tournament) throw new Error('Турнирные столы запускаются сами.');
   if (lobby.ownerId !== actorId) throw new Error('Запустить игру может создатель лобби.');
   const ready = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out);
   if (ready.length < 2) throw new Error('Нужно минимум 2 игрока.');
@@ -428,13 +460,22 @@ export const nextPokerHand = (lobby: PokerLobby) => {
   if (!hand || lobby.status === 'finished') throw new Error('Игра не идёт.');
   if (hand.street !== 'finished') throw new Error('Текущая раздача ещё не закончилась.');
   recordFinishedHand(lobby);
+  // The tournament service reads busts from the finished hand; if the next deal replaces it first, keep what it would have read.
+  if (lobby.tournament) {
+    const notes = lobby.tournament.bust_notes || [];
+    for (const handPlayer of hand.players) {
+      if (handPlayer.chips <= 0 && !notes.some((note) => note.id === handPlayer.id)) notes.push({ id: handPlayer.id, nickname: handPlayer.nickname, start_chips: Math.max(0, Math.trunc(handPlayer.start_chips ?? 0)) });
+    }
+    lobby.tournament.bust_notes = notes;
+  }
   for (const player of lobby.players) {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     if (handPlayer) player.chips = handPlayer.chips;
   }
   removeBustedPokerBots(lobby);
   // Players who are away keep their seat and chips but are not dealt in, like «sit out» in poker rooms.
-  const seated = lobby.players.filter((player) => player.chips > 0 && !player.sitting_out).sort((a, b) => a.seat - b.seat).map((player) => {
+  // At a tournament table a person who is away is still dealt in (and folded) so that he pays the blinds.
+  const seated = lobby.players.filter((player) => player.chips > 0 && (lobby.tournament || !player.sitting_out)).sort((a, b) => a.seat - b.seat).map((player) => {
     const handPlayer = hand.players.find((item) => item.id === player.id);
     return { ...player, reserve_seconds: handPlayer?.reserve_seconds, reserve_recovery_at: handPlayer?.reserve_recovery_at };
   });
@@ -447,12 +488,13 @@ export const nextPokerHand = (lobby: PokerLobby) => {
   }
   lobby.status = 'playing';
   const dealer = seated.find((player) => player.seat > hand.dealer_seat) || seated[0];
-  lobby.hand = createPokerHand({ id: randomUUID(), players: seated, dealer_seat: dealer.seat, animate: hand.animations_enabled });
+  lobby.hand = createPokerHand({ id: randomUUID(), players: seated, dealer_seat: dealer.seat, animate: hand.animations_enabled, ...pokerLobbyBlinds(lobby) });
   return lobby;
 };
 /** «Отойти» / «Вернуться за стол»: an away player keeps the seat but is not dealt in until they come back. */
 /** Only the club owner may take a person off a table (owner, 2026-10-05); live-table leftovers return through the route token settlement. */
 export const kickPokerPlayer = (lobby: PokerLobby, playerId: string) => {
+  if (lobby.tournament) throw new Error('Из турнира игрока убирает организатор через сам турнир.');
   const seat = lobby.players.find((player) => player.id === playerId);
   if (!seat) throw new Error('Этого игрока уже нет за столом.');
   if (seat.is_bot) throw new Error('Ботов убирают отдельной кнопкой.');
@@ -469,8 +511,17 @@ export const setPokerSitOut = (lobby: PokerLobby, playerId: string, away: boolea
   return lobby;
 };
 export const publicPokerLobby = (lobby: PokerLobby, viewerId?: string) => publicState(lobby, viewerId);
+/** A tournament table deals by itself as soon as two players with chips sit at it. */
+const autoDealTournamentLobby = (lobby: PokerLobby) => {
+  if (!lobby.tournament || lobby.hand) return;
+  const ready = lobby.players.filter((player) => player.chips > 0).sort((a, b) => a.seat - b.seat);
+  if (ready.length < 2) { lobby.status = 'waiting'; return; }
+  lobby.hand = createPokerHand({ id: randomUUID(), players: ready, animate: true, ...pokerLobbyBlinds(lobby) });
+  lobby.status = 'playing';
+};
 export const tickPokerLobby = (lobby: PokerLobby) => {
   if (lobby.permanent && !lobby.hand) autoDealMainLobby(lobby);
+  if (lobby.tournament && !lobby.hand) autoDealTournamentLobby(lobby);
   if (!lobby.hand || lobby.status === 'finished') return;
   const now = Date.now();
   advancePokerAnimation(lobby.hand, now);
@@ -509,3 +560,23 @@ export const tickPokerLobby = (lobby: PokerLobby) => {
   const toCall = Math.max(0, lobby.hand.current_bet - player.committed);
   try { applyPokerAction(lobby.hand, { type: toCall ? 'fold' : 'check' }); } catch { /* retry on next poll */ }
 };
+
+/** Tournament tables (owner, 2026-10-10): created, found and closed by the tournament service. */
+export const pokerTournamentLobbies = (tournamentId: string): PokerLobby[] =>
+  [...lobbyStore().values()].filter((lobby) => lobby.tournament?.id === tournamentId).sort((a, b) => (a.tournament?.table_no || 0) - (b.tournament?.table_no || 0));
+export const createPokerTournamentLobby = (input: {
+  tournamentId: string; tableNo: number; title: string; tournament: Omit<PokerLobbyTournament, 'id' | 'table_no'>;
+  players: Array<{ id: string; nickname: string; chips: number }>;
+}): PokerLobby => {
+  const lobby: PokerLobby = {
+    id: `ptt_${input.tournamentId}_${input.tableNo}`, title: input.title, ownerId: '', status: 'waiting',
+    players: input.players.map((player, index) => ({ id: player.id, nickname: player.nickname, seat: index + 1, chips: player.chips })),
+    hand: null, createdAt: new Date().toISOString(), money_mode: 'tournament',
+    tournament: { ...input.tournament, id: input.tournamentId, table_no: input.tableNo, out: [] },
+  };
+  lobbyStore().set(lobby.id, lobby);
+  return lobby;
+};
+export const removePokerTournamentLobby = (lobbyId: string) => { lobbyStore().delete(lobbyId); };
+/** The lowest free seat of a tournament table (for players moved in by a table break or balancing). */
+export const freePokerSeat = freeSeat;

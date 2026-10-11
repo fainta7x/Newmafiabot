@@ -9,6 +9,8 @@ import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymen
 import { isRegularFeeFreeByStaffRule, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
+import { enqueueTelegramEveningSync } from '../services/telegramSyncOutboxService.ts';
+import { kickVkLiveEveningSync } from '../services/vkLiveEveningSyncWorker.ts';
 
 const router = Router();
 
@@ -181,7 +183,7 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     await ensureClubOperationsSchema(db);
     const eveningId = String(req.params.id);
-    const evening = await db.get<any>('SELECT id, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+    const evening = await db.get<any>('SELECT id, format, status FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
     // «Судья вечера» (owner decision 2026-09-30): set or change at any time before a game; null clears it.
@@ -196,12 +198,17 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
           throw error;
         }
       }
+      const oldJudge = await db.get<{ judge_player_id: string | null }>('SELECT judge_player_id FROM evening_staff_assignments WHERE evening_id = ?', [eveningId]);
       const stamp = new Date().toISOString();
       await db.run(`
         INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, judge_player_id, assigned_at, updated_at)
         VALUES (?, NULL, ?, ?, ?)
         ON CONFLICT(evening_id) DO UPDATE SET judge_player_id = excluded.judge_player_id, updated_at = excluded.updated_at
       `, [eveningId, judgeId, stamp, stamp]);
+      if (evening.status === 'published' && String(oldJudge?.judge_player_id || '') !== String(judgeId || '')) {
+        await enqueueTelegramEveningSync(db, eveningId).catch((error) => console.warn('[EVENING STAFF] Telegram sync failed:', error));
+        kickVkLiveEveningSync(db);
+      }
       if (req.body?.organizer_player_id === undefined) return res.json(await loadStaff(db, eveningId));
     }
 

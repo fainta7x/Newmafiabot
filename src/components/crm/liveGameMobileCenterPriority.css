@@ -1,13 +1,13 @@
 /* Mobile-only Live Game layout: the judge working surface gets priority over seat-card geometry. */
 @media (max-width: 767px) {
   /* Match and outrank the canonical mobile table selector from liveGameJudge.css.
-     A four-row board keeps the judge HUD separate from the interactive seat targets. */
+     Use the approved trainer's three-row 4x3 board. The center HUD spans only columns 2–3. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-template-rows: 84px 320px 84px 84px !important;
-    height: 572px !important;
-    min-height: 572px !important;
-    max-height: 572px !important;
+    grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+    height: var(--live-board-height, min(610px, calc(100dvh - 60px))) !important;
+    min-height: 0 !important;
+    max-height: var(--live-board-height, min(610px, calc(100dvh - 60px))) !important;
   }
 
   /* Place the actual interactive seat cards by their stable seat id, not DOM position.
@@ -16,41 +16,47 @@
   html body .evening-live-engine-shell .live-seat-card[data-seat="10"] { grid-column: 2 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="1"]  { grid-column: 3 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .live-seat-card[data-seat="2"]  { grid-column: 4 !important; grid-row: 1 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="8"]  { grid-column: 1 !important; grid-row: 3 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="3"]  { grid-column: 4 !important; grid-row: 3 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="7"]  { grid-column: 1 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="6"]  { grid-column: 2 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="5"]  { grid-column: 3 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .live-seat-card[data-seat="4"]  { grid-column: 4 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="8"]  { grid-column: 1 !important; grid-row: 2 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="3"]  { grid-column: 4 !important; grid-row: 2 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="7"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="6"]  { grid-column: 2 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="5"]  { grid-column: 3 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .live-seat-card[data-seat="4"]  { grid-column: 4 !important; grid-row: 3 !important; }
 
   html body .evening-live-engine-shell [data-testid="live-judge-hud"] {
-    grid-column: 1 / -1 !important;
+    grid-column: 2 / span 2 !important;
     grid-row: 2 !important;
-    min-height: 320px !important;
-    height: 320px !important;
-    max-height: 320px !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: none !important;
     overflow: hidden !important;
   }
 
-  /* The CRM avatar/name overlay mirrors the same four-row geometry. */
+  /* The CRM avatar/name overlay mirrors the same three-row geometry. */
   html body .evening-live-engine-shell .evening-live-identity-layer {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-template-rows: 84px 320px 84px 84px !important;
-    height: 572px !important;
-    min-height: 572px !important;
-    max-height: 572px !important;
+    grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+    height: var(--live-board-height, min(610px, calc(100dvh - 60px))) !important;
+    min-height: 0 !important;
+    max-height: var(--live-board-height, min(610px, calc(100dvh - 60px))) !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity[data-seat="9"]  { grid-column: 1 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="10"] { grid-column: 2 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="1"]  { grid-column: 3 !important; grid-row: 1 !important; }
   html body .evening-live-engine-shell .evening-live-identity[data-seat="2"]  { grid-column: 4 !important; grid-row: 1 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="8"]  { grid-column: 1 !important; grid-row: 3 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="3"]  { grid-column: 4 !important; grid-row: 3 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="7"]  { grid-column: 1 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="6"]  { grid-column: 2 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="5"]  { grid-column: 3 !important; grid-row: 4 !important; }
-  html body .evening-live-engine-shell .evening-live-identity[data-seat="4"]  { grid-column: 4 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="8"]  { grid-column: 1 !important; grid-row: 2 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="3"]  { grid-column: 4 !important; grid-row: 2 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="7"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="6"]  { grid-column: 2 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="5"]  { grid-column: 3 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="4"]  { grid-column: 4 !important; grid-row: 3 !important; }
+
+  /* The trainer keeps the dense judge HUD scrollable instead of drawing over seats. */
+  html body .evening-live-engine-shell .live-judge-hud__body {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
 
   /* Essential voting labels stay readable even on 360px phones. */
   html body .evening-live-engine-shell .live-judge-hud__context,
@@ -66,9 +72,9 @@
   }
 
   html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll {
-    height: 100% !important;
+    min-height: 0 !important;
     max-height: 100% !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
   }
 
   html body .evening-live-engine-shell .live-judge-vote-actions {

@@ -10,7 +10,7 @@ beforeEach(() => {
   fetchMock.mockReset().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(data), { status: 200 })));
   vi.stubGlobal('fetch', fetchMock);
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState({}, '', '/'); });
 
 it('keeps the complete standalone payment screen by default', async () => {
   render(<PlayerPayments />);
@@ -38,4 +38,43 @@ it('shows only payment history in the wallet history tab', async () => {
   expect(screen.queryByText('Предстоящий вечер')).toBeNull();
   expect(screen.queryByText('По игровым вечерам')).toBeNull();
   expect(screen.queryByRole('button', { name: /Использовать бесплатный вечер/ })).toBeNull();
+});
+
+it('shows test checkout only when enabled and sends a provider POST without a client amount', async () => {
+  const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(function (this: HTMLFormElement) {
+    expect(this.action).toBe('https://auth.robokassa.ru/Merchant/Index.aspx');
+    expect(this.method).toBe('post');
+    expect(new FormData(this).get('IsTest')).toBe('1');
+  });
+  fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(JSON.stringify(url.includes('/checkout/')
+    ? { method: 'POST', action: 'https://auth.robokassa.ru/Merchant/Index.aspx', fields: { IsTest: '1', OutSum: '400.00', InvId: '123', SignatureValue: 'fixture-signature' } }
+    : { ...data, robokassa_test_available: true }), { status: 200 })));
+  render(<PlayerPayments view="current" />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Тест оплаты · 400 ₽' }));
+  await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+  expect(fetchMock).toHaveBeenCalledWith('/api/payments/robokassa/test/checkout/p1', { method: 'POST', credentials: 'include' });
+  expect(document.querySelector('form')).toBeNull();
+});
+
+it('does not offer test checkout in an ordinary wallet', async () => {
+  render(<PlayerPayments view="current" />);
+  await screen.findByText('Предстоящий вечер');
+  expect(screen.queryByRole('button', { name: /Тест оплаты/ })).toBeNull();
+});
+
+it('checks server confirmation after a return instead of trusting a success redirect', async () => {
+  window.history.replaceState({}, '', '/player/wallet?robokassa_test_return=success&robokassa_test_invoice=123');
+  fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(JSON.stringify(url.includes('/invoices/')
+    ? { id: '123', status: 'pending', test: true } : data), { status: 200 })));
+  render(<PlayerPayments view="current" />);
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/payments/robokassa/test/invoices/123', { credentials: 'include' }));
+  expect(screen.queryByText(/Robokassa подтвердила тестовую оплату/)).toBeNull();
+});
+
+it('shows confirmation only from the invoice status and explains that the debt is unchanged', async () => {
+  window.history.replaceState({}, '', '/player/wallet?robokassa_test_return=fail&robokassa_test_invoice=123');
+  fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(JSON.stringify(url.includes('/invoices/')
+    ? { id: '123', status: 'confirmed', test: true } : data), { status: 200 })));
+  render(<PlayerPayments view="current" />);
+  expect(await screen.findByText('Robokassa подтвердила тестовую оплату. Деньги не списаны, долг не изменён.')).toBeTruthy();
 });

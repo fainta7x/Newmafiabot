@@ -5,6 +5,8 @@ import type { EveningSection } from './EveningWorkspace.tsx';
 import GatheredPostSheet from './GatheredPostSheet.tsx';
 import TodayPostSheet from './TodayPostSheet.tsx';
 import CancelEveningSheet from './CancelEveningSheet.tsx';
+import EveningStartTimeEditor from './EveningStartTimeEditor.tsx';
+import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 
 type StepStatus = 'done' | 'todo' | 'attention' | 'info';
 type Step = {
@@ -17,7 +19,7 @@ type Step = {
   task_id?: string;
 };
 type Stage = { id: string; title: string; hint: string; state: 'done' | 'attention' | 'current' | 'upcoming'; steps: Step[] };
-type RoutePayload = { evening: { id: string; status: string }; current_stage: string; open_stage?: string; stages: Stage[] };
+type RoutePayload = { evening: { id: string; status: string; starts_at: string; ends_at?: string | null; settled_at?: string | null }; current_stage: string; open_stage?: string; stages: Stage[] };
 
 const ACTION_LABELS: Record<NonNullable<Step['action']>, string> = {
   publish: 'Опубликовать',
@@ -46,6 +48,7 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
 }) {
   const [route, setRoute] = useState<RoutePayload | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [expandedTool, setExpandedTool] = useState<'timing' | 'posts' | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [gatheredOpen, setGatheredOpen] = useState(false);
@@ -64,7 +67,8 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
     }
   }, [eveningId]);
 
-  useEffect(() => { setOpen(null); void load(); }, [load, refreshKey]);
+  useEffect(() => { setOpen(null); setExpandedTool(null); }, [eveningId]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === 'visible') void load(); };
     window.addEventListener('focus', refresh);
@@ -127,7 +131,8 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
             {expanded ? (
               <div className="space-y-1.5 border-t border-border-soft p-2">
                 {stage.steps.map((step) => {
-                  const clickable = Boolean(step.target) && !step.action && !step.task_id;
+                  const inlineTool = step.id === 'timing' || step.id === 'posts';
+                  const clickable = Boolean(step.target) && !step.action && !step.task_id && !inlineTool;
                   const body = (
                     <>
                       <StepIcon status={step.status} />
@@ -137,6 +142,39 @@ export default function EveningRouteView({ eveningId, refreshKey = 0, onOpenSect
                       </span>
                     </>
                   );
+                  if (inlineTool) {
+                    const toolOpen = expandedTool === step.id;
+                    const canMove = route.evening.status === 'draft' || route.evening.status === 'published';
+                    return (
+                      <div key={step.id} className="overflow-hidden rounded-[12px] bg-surface-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTool(toolOpen ? null : step.id as 'timing' | 'posts')}
+                          aria-expanded={toolOpen}
+                          aria-label={step.title}
+                          className="flex min-h-[52px] w-full items-center gap-2.5 px-2.5 py-2 text-left active:bg-surface-hover"
+                        >
+                          {body}
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-text-muted transition-transform ${toolOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {toolOpen ? <div className="border-t border-border-soft bg-surface-1 p-3">
+                          {step.id === 'timing' ? (canMove
+                            ? <EveningStartTimeEditor
+                                key={route.evening.starts_at}
+                                eveningId={eveningId}
+                                startsAt={route.evening.starts_at}
+                                onMoved={() => { onChanged?.(); void load(); }}
+                              />
+                            : <p className="text-[12px] leading-5 text-text-secondary">Изменение даты и времени доступно только до начала вечера.</p>
+                          ) : <EveningAnnouncementSettings
+                            eveningId={eveningId}
+                            status={route.evening.status}
+                            readonly={['completed', 'cancelled'].includes(route.evening.status) || Boolean(route.evening.settled_at)}
+                          />}
+                        </div> : null}
+                      </div>
+                    );
+                  }
                   if (clickable) {
                     return (
                       <button key={step.id} type="button" onClick={() => onOpenSection(step.target as EveningSection)} className="flex min-h-[52px] w-full items-center gap-2.5 rounded-[12px] bg-surface-2 px-2.5 py-2 text-left active:bg-surface-hover">

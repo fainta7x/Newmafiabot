@@ -87,6 +87,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   case '/api/rating': return json({ players: NAMES.map((nickname,index) => ({ player_id: nickname === 'Чагин' ? data.player.id : `p-${index}`, nickname, elo: 1600-index*20, place: index+1 })) });
   case '/api/player/judging': return json({ player: { judge_level: 'judge', judge_level_label: 'Судья' }, club_games: [], tournament_games: [] });
   case '/api/player/evening-journey': return json({ journey: new URLSearchParams(location.search).get('scenario') === 'live' ? liveJourney : { phase: 'idle' } });
+  case '/api/player/evening-live-status': return json({ live: new URLSearchParams(location.search).get('scenario') === 'live' });
   case '/api/player/notifications': return json({ items: [], unread_count: 0 });
   case '/api/player/games/all': return json({ games: [1,2,3].map(number => ({ id: `club:g${number}`, source: 'club', title: 'Клубный вечер', date: new Date(Date.now()-86400000).toISOString(), game_number: number, format: 'CASUAL', winner_team: number===2 ? 'black' : 'red', judge_name: 'Кавасаки' })) });
   case '/api/player/games/elo': return json({ games: [] });

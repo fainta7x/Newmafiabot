@@ -43,7 +43,9 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
     const db = req.db;
     const evening = await db.get(
       `SELECT id, title, starts_at, ends_at, timezone, venue, format, status,
-              capacity, default_price, notes, settled_at, updated_at
+              capacity, default_price, notes, settled_at, updated_at,
+              (SELECT p.nickname FROM evening_staff_assignments s JOIN players p ON p.id = s.judge_player_id
+                WHERE s.evening_id = game_evenings.id LIMIT 1) AS judge_nickname
          FROM game_evenings WHERE id = ?`,
       [req.params.eveningId],
     );

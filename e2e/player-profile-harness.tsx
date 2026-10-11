@@ -22,12 +22,26 @@ const summaryFor = (id: string) => ({
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
 });
 const showcase = {
-  awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
+  awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, tournament_id: null as string | null, source_key: null as string | null, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   pinned_awards: [{ id: 'award-1', kind: 'trophy', title: 'Лучший игрок вечера', tournament_name: '2LA Noire', award_date: iso(30), award_year: 2026, place_result: '1 место', team_name: null, description: null, photo_url: null, pinned_position: 1 }],
   earned_achievements: [], timeline: [{ id: 'award-1', type: 'award', date: iso(30), icon: '🏆', title: 'Лучший игрок вечера', description: 'Подтверждено организатором' }],
   achievement_preferences: {path_id:'citizen',pins:[] as string[]},
   achievements: { earned: 3, total: ACHIEVEMENTS.length, percentage: 5, categories:[{id:'all',achievements:ACHIEVEMENTS.map(a=>({...a,rarity_name:'Редкая',story:STORY_IDS.has(a.id),earned:['case_closed','two_shadows','first_game'].includes(a.id),earned_at:['case_closed','two_shadows','first_game'].includes(a.id)?iso(2):null,progress:{current:a.id==='four_faces'?2:a.id==='own_company'?1:0,target:a.id==='four_faces'?4:a.id==='own_company'?3:1},steps:a.id==='four_faces'?['citizen','mafia']:undefined,evidence:a.id==='case_closed'?{gameId:'club:g4',date:iso(2),detail:'Выставил и проголосовал за чёрного №2, который заголосован.'}:null}))}] }, stats: { verified_awards: 1, achievements_earned: 2, achievements_total: 12, completed_games: 48, manual_milestones: 0 },
 };
+// Browser-only artwork fixture. These are examples for review, not real player/tournament records.
+if (params.get('trophies') === '2') {
+  showcase.awards.splice(0, showcase.awards.length,
+    { id: 'demo-bogdan-1', kind: 'placement', title: '1 место', tournament_id: 'demo-bogdan-1', source_key: null,
+      tournament_name: 'Турнир Богдана 1.08', award_date: iso(65), award_year: 2026, place_result: '1 место',
+      team_name: null, description: 'Тестовый кубок для проверки графики', photo_url: null, pinned_position: 1 },
+    { id: 'demo-bogdan-2', kind: 'placement', title: '1 место', tournament_id: 'demo-bogdan-2', source_key: null,
+      tournament_name: 'Турнир Богдана 2.09', award_date: iso(10), award_year: 2026, place_result: '1 место',
+      team_name: null, description: 'Тестовый кубок для проверки графики', photo_url: null, pinned_position: 2 },
+  );
+  showcase.pinned_awards = showcase.awards.slice();
+  showcase.stats.verified_awards = 2;
+}
+
 const connection = { player_id: externalProfile ? 'preview-player' : 'friend-1', nickname: externalProfile ? 'Чагин' : 'Дэнди', avatar_url: '', relationship: 'Часто за одним столом', shared_games: 18, same_team_games: 9, opponent_games: 9, same_team_wins: 6, same_team_win_rate: 66.7, last_played_at: iso(2), last_shared_game_date: iso(2) };
 const startsAt = (days: number) => new Date(now.getTime() + days * 86400000).toISOString();
 const invitationEvening = { id: 'evening-1', title: 'Пятничный вечер', starts_at: startsAt(3), venue: 'Суп с котом', format: 'CASUAL', state: 'eligible' };
@@ -54,6 +68,16 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
       events: [{ id: 'club:g4', source: 'club', date: iso(2), title: 'Пятничный вечер', game_number: 4, team: 'red', won: true, elo_before: 1527, elo_after: 1542, elo_delta: 15, expected_percent: 50, base_team_delta: 10, carry_modifier: 1, carry_effect: 0, team_delta: 10, personal_game_points: 1, personal_delta: 5, explanation: { headline: 'Победа красных', details: [], formula: '10 + 5' } }],
     });
   }
+  if (url.pathname.startsWith('/api/player/tournaments/demo-bogdan-')) {
+    const id = url.pathname.split('/').pop();
+    return json({
+      tournament: { id, title: id === 'demo-bogdan-1' ? 'Турнир Богдана 1.08' : 'Турнир Богдана 2.09',
+        date: iso(10), venue: 'Клуб', stage: null, phase: 'finished', judge: null, organizer: null,
+        entry_fee_rub: 0, prize_fund_rub: 0, games_planned: 0, games_completed: 0 },
+      registration: { capacity: 10, confirmed_count: 10, reserve_count: 0, open: false, mine: null, participated: false },
+      roster: [], games: [], table_hidden: false, provisional: false, standings: [], nominations: [],
+    });
+  }
   if (url.pathname === '/api/player/achievement-preferences') return json(showcase.achievement_preferences);
   if (url.pathname.endsWith('/summary')) return json(summaryFor(targetPlayerId));
   if (url.pathname.endsWith('/birthday')) return json({ day: 14, month: 8, year: null });
@@ -65,6 +89,16 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname.endsWith('/invitation-context')) return unavailableProfile
     ? json({ can_invite: false, reason: 'recipient_blocked', recipient_state: 'unavailable', evenings: [] })
     : json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });
+  if (url.pathname === '/api/player/team-connections') {
+    const mate = (id: string, nickname: string, games: number, wins: number) => ({ player_id: id, nickname, avatar_url: '', games, wins, win_rate: Math.round((wins / games) * 100) });
+    return json({
+      my_team: { red: [mate('a', 'Александра с длинным никнеймом', 7, 5), mate('b', 'Богданчик', 4, 2)], black: [mate('c', 'Чагин', 5, 3)] },
+      role_pairs: [{ my_role: 'don', games: 5, partners: [{ ...mate('c', 'Чагин', 4, 3), partner_role: 'mafia' }] }],
+      opponents: { hard: [mate('d', 'Вера', 5, 1)], easy: [mate('e', 'Игорь', 4, 4)] },
+      stages: { counts: { acquaintance: 6, teammates: 3, tandem: 1 }, closest: [{ player_id: 'f', nickname: 'Глеб', avatar_url: '', stage: 'acquaintance', shared_games: 3, same_team_games: 2, games_to_next: 1 }] },
+      never_played: [{ player_id: 'g', nickname: 'Дарья', avatar_url: '', recent_games: 3 }],
+    });
+  }
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
   if (url.pathname === '/api/player/profile-completeness') return json({ completeness: { percentage: 88, complete: false, missing_fields: ['phone'], important_missing_fields: [], next_missing_field: 'phone', fields: { phone: { label: 'Телефон', weight: 12, complete: false, state: 'missing' } }, updated_at: null, checked_at: null } });

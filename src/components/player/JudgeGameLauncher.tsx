@@ -186,7 +186,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Судейская</div>
             <h2 className="mt-1 text-xl font-semibold">Новая клубная игра</h2>
-            <p className="mt-1 text-xs leading-5 text-white/35">Вы ведёте игру от своего профиля · {judge.nickname}</p>
+            <p className="mt-1 text-xs leading-5 text-white/35">Игра ведётся от своего профиля · {judge.nickname}</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="h-10 w-10 rounded-xl border border-white/10 bg-white/[0.05] text-white/50">✕</button>
         </div>
@@ -230,7 +230,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
               return <button key={index} type="button" disabled={!participant} onClick={() => participant && toggle(participant.id)} className={`min-h-16 min-w-0 rounded-xl border p-1.5 text-center ${participant ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.07] bg-black/20'}`}><div className="text-[11px] text-white/30">#{index + 1}</div><div className="mt-2 truncate text-[11px] font-semibold text-white/70">{participant?.nickname || '—'}</div></button>;
             })}
           </div>
-          <p className="mt-3 text-[11px] leading-4 text-white/30">Порядок выбора — места 1–10. Нажмите на место, чтобы убрать игрока.</p>
+          <p className="mt-3 text-[11px] leading-4 text-white/30">Порядок выбора — места 1–10. Нажатие на место убирает игрока.</p>
           {smallTablesAllowed && tableSizes.includes(lineup.length) ? <p data-testid="judge-table-roles" className="mt-2 text-[12px] font-semibold leading-4 text-white/60">Стол на {lineup.length}: {tableRolesLabel(lineup.length)}.</p> : null}
         </section>
 
@@ -257,7 +257,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated, allowClu
         </div>
 
         <button type="button" disabled={!tableSizes.includes(lineup.length) || creating} onClick={() => void create()} className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black disabled:bg-white/[0.07] disabled:text-white/25">
-          {creating ? 'Создаём игру…' : tableSizes.includes(lineup.length) ? 'Создать игру и открыть ведение' : `Выберите ещё ${minTable - lineup.length}`}
+          {creating ? 'Создаём игру…' : tableSizes.includes(lineup.length) ? 'Создать игру и открыть ведение' : `Нужно выбрать ещё ${minTable - lineup.length}`}
         </button>
       </div>
     </div>

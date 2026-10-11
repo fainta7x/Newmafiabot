@@ -260,7 +260,7 @@ export default function BroadcastLobbyScreen({ token, view }: { token: string; v
       <SceneFrame lobby={null} view={view}>
         <EmptyState
           title="Ссылка трансляции устарела"
-          text="Обновите секретную ссылку в панели OBS и трансляции."
+          text="Секретную ссылку нужно обновить в панели OBS и трансляции."
         />
       </SceneFrame>
     );

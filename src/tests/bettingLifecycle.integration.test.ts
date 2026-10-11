@@ -114,7 +114,7 @@ describe('server-side club betting lifecycle', () => {
     expect(response.body.error).toBe('Игра не найдена');
   });
 
-  it('opens exactly one 90-second pool from CRM and preserves it on repeated start', async () => {
+  it('opens exactly one eight-minute pool from CRM and preserves it on repeated start', async () => {
     const first = await request(app)
       .post(`/api/games/${gameId}/start`)
       .set('Cookie', organizerCookie)
@@ -122,7 +122,7 @@ describe('server-side club betting lifecycle', () => {
     expect(first.status).toBe(201);
     expect(first.body).toMatchObject({ created: true, degraded: false, betting_status: 'ready' });
     expect(first.body.notification).toMatchObject({ eligible: 0, sent: 0 });
-    expect(new Date(first.body.pool.closes_at).getTime() - new Date(first.body.pool.opens_at).getTime()).toBe(90_000);
+    expect(new Date(first.body.pool.closes_at).getTime() - new Date(first.body.pool.opens_at).getTime()).toBe(8 * 60_000);
 
     const repeated = await request(app)
       .post(`/api/games/${gameId}/start`)
@@ -228,5 +228,34 @@ describe('server-side club betting lifecycle', () => {
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens)).toBe(redAfter);
     await refundBetPool(db, secondGameId);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens)).toBe(redAfter);
+  });
+
+  it('corrects a one-sided pool that an older version already settled', async () => {
+    const balanceOf = async () => Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens);
+    await request(app).post(`/api/games/${gameId}/start`).set('Cookie', organizerCookie).send({ roles }).expect(201);
+    const before = await balanceOf();
+    await placePoolBet(db, { gameId, playerId: 'spectator-red', team: 'red', amount: 50, requestId: 'old-lone' });
+    // Old behaviour: the lone bet was lost, the pool was settled for the other team with the stake burned.
+    await db.run("UPDATE betting_pools SET status='settled', settled_winner='black', settlement_seq=1, settled_at=? WHERE game_id=?", [new Date().toISOString(), gameId]);
+    await db.run("UPDATE betting_bets SET status='lost', payout_amount=0, settled_at=? WHERE game_id=?", [new Date().toISOString(), gameId]);
+    expect(await balanceOf()).toBe(before - 50);
+    const fixed = await settleBetPool(db, gameId, 'black');
+    expect(fixed?.status).toBe('refunded');
+    expect(await balanceOf()).toBe(before);
+  });
+
+  it('returns every stake when nobody bet against it, whichever way the game ends', async () => {
+    const balanceOf = async () => Number((await db.get<any>("SELECT tokens FROM players WHERE id='spectator-red'"))?.tokens);
+    for (const [game, winner] of [[gameId, 'red'], [secondGameId, 'black']] as const) {
+      await request(app).post(`/api/games/${game}/start`).set('Cookie', organizerCookie).send({ roles }).expect(201);
+      const before = await balanceOf();
+      await placePoolBet(db, { gameId: game, playerId: 'spectator-red', team: 'red', amount: 50, requestId: `lone-${game}` });
+      expect(await balanceOf()).toBe(before - 50);
+      const settled = await settleBetPool(db, game, winner);
+      expect(settled?.status).toBe('refunded');
+      expect(await balanceOf()).toBe(before);
+      await settleBetPool(db, game, winner);
+      expect(await balanceOf()).toBe(before);
+    }
   });
 });

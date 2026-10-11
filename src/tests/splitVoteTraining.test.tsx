@@ -133,7 +133,7 @@ describe('zero-round split-vote training', () => {
     const previousSeat = screen.getByTestId('split-vote-seat').textContent;
     fireEvent.click(choices[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Проверить ответ' }));
-    expect(screen.getByRole('status').textContent).toContain('по 5 голосов');
+    expect(screen.getByRole('status').textContent).toContain('ровно 5 голосов');
     fireEvent.click(screen.getByRole('button', { name: 'Следующая задача' }));
     expect(screen.getByRole('button', { name: 'Проверить ответ' })).toHaveProperty('disabled', true);
     expect(screen.getByTestId('split-vote-seat').textContent).not.toBe(previousSeat);

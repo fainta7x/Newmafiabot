@@ -31,6 +31,8 @@ import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
 import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { ensurePokerRuntimeSchema } from './db/ensurePokerRuntimeSchema.ts';
 import { ensurePokerInviteSchema } from './db/ensurePokerInviteSchema.ts';
+import { ensurePokerTournamentSchema } from './db/ensurePokerTournamentSchema.ts';
+import { ensurePokerChatSchema } from './db/ensurePokerChatSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
@@ -42,6 +44,7 @@ import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
 import pokerRoutes from './server/routes/pokerRoutes.ts';
+import pokerTournamentRoutes from './server/routes/pokerTournamentRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerLiveRoutes from './server/routes/playerLiveRoutes.ts';
 import playerPulseRoutes from './server/routes/playerPulseRoutes.ts';
@@ -54,6 +57,7 @@ import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.t
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
+import { createRobokassaTestRoutes } from './server/routes/robokassaTestRoutes.ts';
 import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
 import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
 import playerSplitVoteProgressRoutes from './server/routes/playerSplitVoteProgressRoutes.ts';
@@ -121,6 +125,7 @@ import vkDirectIntegrationRouter from './server/services/vkDirectIntegrationRout
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { startPersonalTelegramNotificationWorker } from './server/services/personalTelegramNotificationService.ts';
+import { startPokerTournamentWorker } from './server/services/pokerTournamentService.ts';
 import { startTelegramMessageOutboxWorker } from './server/services/telegramMessageOutboxService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
@@ -149,6 +154,12 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
   const db = customDb || (await getDb());
+  // ResultURL is public and cookie-independent, but always writes to the isolated test DB.
+  app.use('/api/payments/robokassa', createRobokassaTestRoutes(async () => {
+    const testDb = await getIsolatedTestDb();
+    if (testDb.dbPath === db.dbPath) throw new Error('Payment test database must be isolated');
+    return testDb;
+  }));
   logStartupMutationRegistry();
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
@@ -183,6 +194,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureObsRemoteSchema(db);
   await ensurePokerRuntimeSchema(db);
   await ensurePokerInviteSchema(db);
+  await ensurePokerTournamentSchema(db);
+  await ensurePokerChatSchema(db);
   await ensurePlayerProfileMergeSchema(db);
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {
@@ -203,6 +216,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     startTelegramMessageOutboxWorker(db);
     startPersonalTelegramNotificationWorker(db);
     startVkMessageOutboxWorker(db);
+    startPokerTournamentWorker(db);
   }
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   if (!isTest && db.dbPath !== ':memory:') {
@@ -257,6 +271,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerJudgeMusicRoutes);
   app.use('/api/player', musicLibraryRoutes);
   app.use('/api/player', pokerRoutes);
+  app.use('/api/player', pokerTournamentRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/player', playerLiveRoutes);
   app.use('/api/player', playerPulseRoutes);

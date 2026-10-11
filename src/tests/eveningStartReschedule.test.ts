@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../server/services/vkLiveEveningSyncWorker.ts', () => ({ kickVkLiveEveningSync: vi.fn() }));
+vi.mock('../server/services/eveningRescheduleService.ts', () => ({ notifyEveningRescheduled: vi.fn(async () => ({})) }));
 
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureTelegramPublishingSchema } from '../db/ensureTelegramPublishingSchema.ts';
 import { loadEveningSlotPlan, updateEveningSlotSettings } from '../server/services/eveningSlotPlanningService.ts';
 import { kickVkLiveEveningSync } from '../server/services/vkLiveEveningSyncWorker.ts';
+import { notifyEveningRescheduled } from '../server/services/eveningRescheduleService.ts';
 
 let db: DatabaseWrapper | null = null;
 
@@ -13,6 +15,7 @@ afterEach(() => {
   try { db?.sqlite.close(); } catch {}
   db = null;
   vi.mocked(kickVkLiveEveningSync).mockClear();
+  vi.mocked(notifyEveningRescheduled).mockClear();
 });
 
 const createEvening = async (status: string) => {
@@ -44,6 +47,17 @@ describe('«Перенести начало»', () => {
     const outbox = await db!.get<any>("SELECT entity_id FROM telegram_sync_outbox WHERE sync_key = 'evening:ev-move'");
     expect(outbox?.entity_id).toBe('ev-move');
     expect(kickVkLiveEveningSync).toHaveBeenCalledTimes(1);
+    expect(notifyEveningRescheduled).toHaveBeenCalledTimes(1);
+    expect(notifyEveningRescheduled).toHaveBeenCalledWith(db, 'ev-move', '2026-10-02T20:00:00+03:00', '2026-10-02T21:00:00+03:00');
+  });
+
+  it('does not announce an unchanged start', async () => {
+    const plan = await createEvening('published');
+    await updateEveningSlotSettings(db!, 'ev-move', {
+      planned_slots: plan.event.slot_count, slot_duration_minutes: plan.event.slot_duration_minutes,
+      price_per_game: plan.event.price_per_game, starts_at: plan.event.starts_at,
+    });
+    expect(notifyEveningRescheduled).not.toHaveBeenCalled();
   });
 
   it('keeps the start of an evening that is already running', async () => {

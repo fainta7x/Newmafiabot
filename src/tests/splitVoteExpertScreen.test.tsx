@@ -21,7 +21,7 @@ describe('expert split-vote screen', () => {
     pick(7);
     fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
     // Everyone else goes to the last nominee, №3, and the result is checked at once.
-    expect(screen.getByRole('status').textContent).toContain('Попил спасён!');
+    expect(screen.getByRole('status').textContent).toContain('Попил спасён');
   });
 
   it('fails the task when 15 seconds run out', () => {

@@ -5,24 +5,24 @@ type VkPlayerAccessProps = {
 };
 
 const VK_ERROR_MESSAGES: Record<string, string> = {
-  vk_callback_invalid: 'VK ID вернул неполный ответ. Начните вход через VK ещё раз.',
-  vk_state_expired: 'Сессия входа через VK устарела или уже использована. Начните вход заново.',
-  vk_state_browser_mismatch: 'Вход через VK вернулся в другой браузер. Откройте ссылку и завершите вход в одном окне.',
-  vk_state_mismatch: 'Вход через VK не удался. Начните вход заново.',
-  vk_user_missing: 'VK ID не смог подтвердить аккаунт. Попробуйте войти через VK ещё раз.',
+  vk_callback_invalid: 'VK ID вернул неполный ответ. Вход через VK нужно начать ещё раз.',
+  vk_state_expired: 'Сессия входа через VK устарела или уже использована. Вход нужно начать заново.',
+  vk_state_browser_mismatch: 'Вход через VK вернулся в другой браузер. Ссылку нужно открыть и завершить вход в одном окне.',
+  vk_state_mismatch: 'Вход через VK не удался. Вход нужно начать заново.',
+  vk_user_missing: 'VK ID не смог подтвердить аккаунт. Можно попробовать войти через VK ещё раз.',
   vk_identity_conflict: 'Этот VK уже связан с другим игровым профилем. Обратитесь к организатору.',
-  vk_provider_exchange_failed: 'VK ID не завершил авторизацию. Проверьте вход в VK и попробуйте ещё раз.',
-  vk_auth_callback_failed: 'Не удалось завершить вход через VK. Попробуйте ещё раз чуть позже.',
-  vk_runtime_origin_missing: 'Вход через VK временно не настроен на сервере. Сообщите организатору.',
-  vk_runtime_app_id_invalid: 'VK ID временно недоступен из-за настройки приложения. Сообщите организатору.',
-  vk_runtime_https_required: 'Вход через VK сейчас не работает. Сообщите организатору.',
-  vk_auth_start_rate_limited: 'Слишком много попыток входа через VK. Повторите немного позже.',
+  vk_provider_exchange_failed: 'VK ID не завершил авторизацию. Нужно проверить вход в VK и попробовать ещё раз.',
+  vk_auth_callback_failed: 'Не удалось завершить вход через VK. Можно попробовать ещё раз чуть позже.',
+  vk_runtime_origin_missing: 'Вход через VK временно не настроен на сервере. Об этом нужно сообщить организатору.',
+  vk_runtime_app_id_invalid: 'VK ID временно недоступен из-за настройки приложения. Об этом нужно сообщить организатору.',
+  vk_runtime_https_required: 'Вход через VK сейчас не работает. Об этом нужно сообщить организатору.',
+  vk_auth_start_rate_limited: 'Слишком много попыток входа через VK. Можно повторить немного позже.',
 };
 
 const safeVkErrorMessage = (value: string | null) => {
   const code = String(value || '').trim();
   if (!code) return null;
-  return VK_ERROR_MESSAGES[code] || 'Не удалось завершить вход через VK. Попробуйте ещё раз или сообщите организатору.';
+  return VK_ERROR_MESSAGES[code] || 'Не удалось завершить вход через VK. Можно попробовать ещё раз или сообщить организатору.';
 };
 
 const currentPlayerDestination = () => {
@@ -73,7 +73,7 @@ export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps)
         {busy ? 'Открываем VK ID…' : 'Продолжить через VK'}
       </button>
       <p className="mt-3 text-xs leading-5 text-white/40">
-        Сначала VK ID подтвердит ваш аккаунт. Если профиль уже связан — кабинет откроется сразу. Если нет, после подтверждения вы сможете найти старый профиль или создать новый ник.
+        Сначала VK ID подтвердит аккаунт. Если профиль уже связан — кабинет откроется сразу. Если нет, после подтверждения можно будет найти старый профиль или создать новый ник.
       </p>
       {(error || callbackError) && (
         <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">

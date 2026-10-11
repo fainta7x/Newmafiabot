@@ -35,7 +35,7 @@ describe('VK join page', () => {
     expect(posts).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: /Записаться · 1 игр/ }));
     await waitFor(() => expect(posts).toEqual([{ slot_ids: ['s1'] }]));
-    expect(await screen.findByText(/Готово, ты записан!/)).toBeTruthy();
+    expect(await screen.findByText(/Готово, запись есть!/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Игра 2/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));

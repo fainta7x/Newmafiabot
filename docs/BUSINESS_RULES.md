@@ -88,7 +88,7 @@ The first-killed best-move timer is recovery-safe: its absolute deadline is part
 
 When a night kill creates mandatory end-of-night actions, the game must complete them in protocol order rather than auto-finishing as soon as the winning team becomes mathematically known:
 
-1. first-killed best move / ЛХ when applicable;
+1. first-killed best move / ЛХ when applicable. Whoever the mafia kills on the first night — a red player or a mafia/Don shooting himself — goes through this step, otherwise a skipped step would give the role away. A black player's ЛХ is worth nothing: it is dropped when the protocol is saved, it gives no points and no Ci, and the judge may simply skip it (owner, 2026-10-10);
 2. killed player’s **60-second** last speech;
 3. killed-player protocol with the approved **20-second total**;
 4. only then either open the next day or explicitly finish the game if a winner has been determined.
@@ -183,7 +183,8 @@ The conducted-game interface is a judge protocol surface, not a generic game UI.
 ## Live Game betting resilience
 
 - A valid conducted game must never be blocked by betting-pool creation, betting notifications or loss of network connectivity.
-- Betting opens one idempotent 90-second pool from the canonical game/seat/role snapshot. Repeating the start request must not reset the deadline or existing bets.
+- Betting opens one idempotent pool from the canonical game/seat/role snapshot, open for **eight minutes** after the game starts (owner, 2026-10-10: about two minutes of agreement, sheriff call and seating, then the first speeches up to roughly the sixth). Repeating the start request must not reset the deadline or existing bets.
+- A pool with stakes on one side only has nobody to pay the winners: when the game ends, **every stake is returned** whichever team wins (owner, 2026-10-10; before, a lone bettor lost a lost bet but only broke even on a won one).
 - Seated players and the canonical judge cannot bet on their own game.
 - `LIVE_BETTING_ENABLED=false` is an emergency kill switch for betting only; canonical game validation and Live Game progression remain active.
 - A betting or notification failure must be recorded as an explicit degraded state. It must not be represented as a healthy betting pool.
@@ -207,6 +208,8 @@ Wording for how a player leaves the game (user-approved 2026-09-24): texts for p
 - Night order: the mafia shoots, then the Don checks, then the Sheriff. Each checker takes the mask off only in their own turn, shows a number and gets the judge's answer (Don: Sheriff or not; Sheriff: red or black).
 - The Sheriff may reveal («вскрытие») at any allowed moment: in their speech or by gesture, even at the cost of a foul. If the Sheriff is not killed quickly, the Don usually either kills the Sheriff as soon as possible or claims to be the Sheriff and convinces the town that the real Sheriff is mafia.
 - «Попил»: on the first day, while all 10 (or 8) are at the table, the town often splits the votes evenly between two players and then leaves both, so nobody is voted out on day one. It applies to tables of 10 or 8; nine votes cannot split evenly between two players. Mafia wins at parity, so a blind first-day vote almost always removes a red; keeping everyone gives the town an extra day and one mistake to spare.
+
+- **Live game: one-button «Попил»** (owner, 2026-10-10). In the zero-round voting of a full table of ten, the judge presses «Попил» and names the two split players; the program raises the hands by the same scheme as the trainers (`splitVoteGroups`: five for each, other nominees none) and the judge finishes the voting as usual. What matters is the fact of the split, not which hands the room actually raised. Only a split of two, only the zero round, only a full table; any other voting is recorded by hand. The two-sheriffs and three-way splits are not part of it.
 
 Training patterns for **ten players in the zero round** (user examples 2026-09-25): a question lists all nominees, the chosen two for the split, and the learner's seat; the answer is which **nominated player receives the learner's vote**. Other nominees get no votes in these exercises. Exactly five voters vote for each split candidate.
 
@@ -275,6 +278,7 @@ The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game,
 
 - The secret OBS overlay may show all assigned roles and alive/out status; the ordinary public `/live` page must remain role-safe.
 - The current game number must be visible. When available, show both the game’s global club number and its order within the current evening.
+- **Game order within an evening (owner, 2026-10-10).** The evening number counts only games that were actually kept, in creation order. A game that is deleted (archived) — e.g. a test game made to try the screen — never takes a number: if the first game is deleted, the next one is «Игра 1». This holds wherever the game is shown as part of its evening (CRM evening list, Telegram result blank, personal evening results, the player's evening pages and live view). Player history, profile and single-game screens, which list games across evenings, keep showing the club-wide number (`global_game_number`) as the game's identifier; that is a separate running counter and may have gaps.
 - Nominations must preserve their actual order of выставление. A nomination remains distinct from a vote.
 - While the judge is collecting/correcting ballots, the overlay may show the candidate set but must not show partial counts or individual choices.
 - Only after the judge fixes the round result may the overlay show totals and the exact voter-to-candidate mapping.
@@ -427,6 +431,8 @@ Closing a club evening should be **fast, flexible and fact-based**, not a rigid 
 - The UI should optimize for a short flow: **attendance → walk-ins → payment/debt → games → close**.
 
 ## Announcements
+
+**Evening host and rescheduling (owner-approved 2026-10-09):** Club/novice/rating announcements name the specifically assigned «Судья вечера» as «Ведущий вечера»; this is a staffing fact, not an ordinary player/role grant. After a published evening's date/time changes before it starts, tell players who answered «Иду», «Приду позже» or «Думаю» via their chosen personal notification channel, and issue a separate correction in the evening's main Telegram destination and VK public wall. Keep existing posts synchronized; do not duplicate the original announcement. An unchanged start sends nothing. Cancelling remains pre-start-only even though its control is grouped with closing tasks.
 
 The intended flow is:
 
@@ -785,6 +791,31 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 - Only the club owner can take a person off a table by hand; everybody else cannot.
 - Dealing runs at 0.8 of the old time; a bot waits 0.45 s to fold or check, 0.7 s to call and 0.95 s to raise; a player's own cards fade after he folds.
 - The table list says «Мест нет» only when eight people sit and there is no bot to replace; the table where you sit offers «Вернуться».
+
+## Poker MTT (owner, 2026-10-10)
+
+A poker multi-table tournament is its own event with its own record; it is not a cash table. Decided with the owner; settings, registration, start, the tables, eliminations and places, the paid re-buy, the prizes, the cup, medals and achievements are built; the calendar listing and the table chat with emotes follow.
+
+- **Entry is free** for everybody and gives a starting stack for nothing. Tournament chips are **nominal**: they exist only inside the tournament and are never cashed out into club tokens. Club tokens move only for re-buys (paid from the player's own tokens) and for prizes.
+- **Players:** no hard cap (the owner expects roughly 4 to 20, more is allowed). The organizer sets the minimum (default 4) and an optional maximum; with no maximum registration stays open until the start.
+- **Start:** automatic at the set time when at least the minimum registered. With fewer the tournament is **cancelled** and everyone registered gets a personal message. A tournament that is running cannot be cancelled.
+- **Format «турбо»:** the first level is the cash-game 10/20, each level raises the blinds by roughly half (10/20, 15/30, 20/40, 30/60, 40/80, 50/100, 75/150, 100/200 …); default level length 6 minutes, default stack 1,000 chips. Every one of these is a setting of the tournament (level length, stack, seats per table, re-buy, prizes).
+- **Re-buy:** a player who busted may buy back in with his own tokens (default 500 tokens for 1,000 chips) until the end of the chosen level (default level 4); after that nobody returns and busting is final.
+- **Tables:** as few tables as possible, filled evenly (10 players at 6 seats: 5 + 5; 20: four tables of 5; 4: one table). The seat count per table is a setting, 2 to 8 (the table engine seats eight at most). Tables merge as players bust until a final table remains.
+- **Prizes:** the organizer sets a token payout for each of the first places (a winner only, or first, second and third and so on). Besides tokens the winners get achievements and a cup in the profile.
+- **At the tables:** the tables are ordinary poker tables with the blinds of the tournament clock; hands are dealt by themselves, nobody leaves a tournament table (closing the screen only sets «away»; an away player is still dealt in, folded and blinded out, and nobody is removed for being idle). Nobody can be seated or kicked by hand, there are no bots.
+- **Bust-outs and places:** a player out of chips is out for good unless the re-buy is open. While it is open he stays seated and waits; when the chosen level ends, everyone still waiting is out, the later bust-out placed higher. After that the first to go out takes place N (N = players still alive), several out in one hand are ordered by the stack they started it with (bigger stack higher). The last player standing is first; the winner is declared a few seconds after the last hand's result.
+- **Tables are balanced between hands only:** when the players fit at fewer tables the smallest table is closed and its players move to the emptiest of the others; tables are kept within one seat of each other. A moved player is dealt in from the next hand.
+- **Re-buy (built):** a busted player presses «Докупить» (at the table or in the tournament card): the price in club tokens is debited from his own balance (default 500 tokens for 1,000 chips), he gets the chips and plays on from the next hand, and he can do it again after each bust until the chosen level ends. Not enough tokens, or the window closed: nothing is taken.
+- **Prizes, cup, achievements (built):** when the last player is left, the token prize the organizer set for each place is credited to the wallet (paid once). The winner gets a cup («Победитель покерного турнира») in the profile's trophy cabinet and the achievements «Покерный чемпион» (one win) and «Король стола» (three wins); second and third place get medals. The awards carry no mafia-tournament link.
+- Not built yet: the calendar listing of a poker tournament.
+
+## Poker table chat and emotes (owner, 2026-10-10)
+
+- Every human poker table (the permanent «Общий стол», open tables on club tokens, tournament tables) has a chat; the training table with bots has none. Only people seated at the table write; anybody who looks at the table (an eliminated tournament player, for instance) can read.
+- A message is a short plain text (up to 140 characters, one line, links are replaced by «…») or one of the **emotes**: an emoji with its own short animation drawn over the sender's seat, with a phrase under it. A few emotes are friendly (hello, bye, GG, good luck); most are teasing and provocative on purpose (the owner asked for «задиристые»). The phrases do not address a person as «ты»/«вы».
+- One message per person every 1.5 seconds; the table keeps the last 100 messages and anything older than a day is swept. Each viewer can switch the chat off for himself («Выключить чат»): then nobody's messages and emotes are shown to him.
+- The emote list is in `src/shared/pokerEmotes.ts`; adding one is a code change (an emoji, a phrase, one of the animation names).
 
 ## Club connections (owner approved, 2026-10-07)
 The club panel leads with pairs for red and black separately. Preserve the existing best-pair score (win percentage + twice the joint-game count capped at ten games), minimum two games; show up to five. «Самые сыгранные» orders by joint games, then team wins. Single-game pairs appear separately as «Первые совместные игры», never as proven strong pairs. All counts use completed canonical club/tournament snapshots. Personal rival wins mean the viewer’s team won, not a personal defeat of the other player. Recent meetings aggregate only games the viewer played in his latest completed event; source and event id together identify an event. A person may appear on both sides after changing teams between games. No changes to Elo, awards or game rules.

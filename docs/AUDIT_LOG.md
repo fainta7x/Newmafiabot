@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-11 · Poker bots «thinking» time (server stalls, owner report)
+
+- [fixed] `pokerHandRank` ranked every five of seven cards (21 combinations, arrays and sorts) and was about half of a bot's decision time; the equity estimate also filtered the whole range with a Set lookup on every simulated run. Now one pass over the cards (`handRank` in `pokerEngine.ts`, proven equal to the old `slowPokerHandRank` on 120,000 random hands) and a flat flag array in `estimateEquity`; the estimate is identical for the same random numbers (150 seeded scenarios compared with the old code) and about 3 times faster (68 → 17–23 ms per call here).
+- [open] Not proven to be the only cause of the multi-second stalls on the server; if they come back, `/api/health/performance` after the stall tells where the time went (`docs/RUNBOOK.md`). The bots still think on the main thread; moving them to a worker thread stays an option.
+
 ## 2026-10-11 · «Ведение» / тестовая игра / обучение судьи (owner request: one clear scheme)
 
 Scope: every way to conduct a real game, a test game, or practise as a judge; who can open each. Method: read-only sweep of `src/components/player`, `src/components/crm`, `src/components/public`, `src/lib/guideCatalog.ts`, test-environment routes, docs. Scheme agreed with the owner 2026-10-11 («Обучение» = practice; the cabinet «Ведение» = real conducting; CRM = the organizer's side of the same games). Step 1 built (see below); the learning statistics are step 2.

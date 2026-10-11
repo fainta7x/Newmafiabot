@@ -163,7 +163,81 @@ const bestHand = (cards: PokerCard[]): { rank: number[]; cards: PokerCard[] } =>
   for (let a = 0; a < cards.length - 4; a += 1) for (let b = a + 1; b < cards.length - 3; b += 1) for (let c = b + 1; c < cards.length - 2; c += 1) for (let d = c + 1; d < cards.length - 1; d += 1) for (let e = d + 1; e < cards.length; e += 1) combinations.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
   return combinations.map((combo) => ({ rank: handRankFive(combo), cards: combo })).sort((a, b) => compareRanks(b.rank, a.rank))[0] || { rank: [], cards: [] };
 };
-const handRank = (cards: PokerCard[]): number[] => bestHand(cards).rank;
+/** The reference ranking: every five of the cards is ranked and the best is kept. Slow, so only tests and the winning-cards display use it. */
+export const slowPokerHandRank = (cards: PokerCard[]): number[] => bestHand(cards).rank;
+
+/**
+ * Rank of the best five of five to seven cards in one pass (no combinations, no sorting of arrays); it returns exactly
+ * what `slowPokerHandRank` returns. The bots rank thousands of hands per decision, and the 21 combinations of seven
+ * cards were most of the time a bot spent thinking (owner, 2026-10-11: the server stalled while bots thought).
+ */
+const handRank = (cards: PokerCard[]): number[] => {
+  if (cards.length < 5 || cards.length > 7) return slowPokerHandRank(cards);
+  const count = new Array<number>(15).fill(0);
+  const suitCount = [0, 0, 0, 0];
+  const suitIndex = (suit: string) => (suit === 'spades' ? 0 : suit === 'hearts' ? 1 : suit === 'diamonds' ? 2 : suit === 'clubs' ? 3 : -1);
+  const suits: number[] = [];
+  const values: number[] = [];
+  for (const card of cards) {
+    const value = rankValue(card.rank);
+    values.push(value);
+    count[value] += 1;
+    const suit = suitIndex(card.suit);
+    suits.push(suit);
+    if (suit < 0) return slowPokerHandRank(cards);
+    suitCount[suit] += 1;
+  }
+  // The highest straight made of the given value counts (a wheel A-2-3-4-5 has the five on top).
+  const straightHigh = (has: (value: number) => boolean) => {
+    for (let high = 14; high >= 5; high -= 1) {
+      let run = true;
+      for (let step = 0; step < 5 && run; step += 1) {
+        const value = high - step === 1 ? 14 : high - step;
+        if (!has(value)) run = false;
+      }
+      if (run) return high;
+    }
+    return 0;
+  };
+  const flushSuit = suitCount.findIndex((total) => total >= 5);
+  if (flushSuit >= 0) {
+    const suited = new Array<boolean>(15).fill(false);
+    const suitedValues: number[] = [];
+    cards.forEach((_card, index) => { if (suits[index] === flushSuit) { suited[values[index]] = true; suitedValues.push(values[index]); } });
+    const high = straightHigh((value) => suited[value]);
+    if (high) return [high === 14 ? 9 : 8, high];
+  }
+  const quads: number[] = []; const trips: number[] = []; const pairs: number[] = [];
+  for (let value = 14; value >= 2; value -= 1) {
+    if (count[value] === 4) quads.push(value);
+    else if (count[value] === 3) trips.push(value);
+    else if (count[value] === 2) pairs.push(value);
+  }
+  const kickers = (skip: number[], take: number) => {
+    const found: number[] = [];
+    for (let value = 14; value >= 2 && found.length < take; value -= 1) {
+      let left = count[value] - (skip.includes(value) ? (skip.filter((item) => item === value).length) : 0);
+      while (left > 0 && found.length < take) { found.push(value); left -= 1; }
+    }
+    return found;
+  };
+  if (quads.length) return [7, quads[0], kickers([quads[0], quads[0], quads[0], quads[0]], 1)[0]];
+  if (trips.length && (trips.length > 1 || pairs.length)) {
+    const pair = trips.length > 1 ? Math.max(trips[1], pairs[0] ?? 0) : pairs[0];
+    return [6, trips[0], pair];
+  }
+  if (flushSuit >= 0) {
+    const top: number[] = [];
+    cards.forEach((_card, index) => { if (suits[index] === flushSuit) top.push(values[index]); });
+    return [5, ...top.sort((a, b) => b - a).slice(0, 5)];
+  }
+  const high = straightHigh((value) => count[value] > 0);
+  if (high) return [4, high];
+  if (trips.length) return [3, trips[0], ...kickers([trips[0], trips[0], trips[0]], 2)];
+  if (pairs.length >= 2) return [2, pairs[0], pairs[1], kickers([pairs[0], pairs[0], pairs[1], pairs[1]], 1)[0] || 0];
+  if (pairs.length === 1) return [1, pairs[0], ...kickers([pairs[0], pairs[0]], 3)];
+  return [0, ...kickers([], 5)];
+};
 /** Rank of the best five of up to seven cards; the bots use it for equity. */
 export const pokerHandRank = handRank;
 

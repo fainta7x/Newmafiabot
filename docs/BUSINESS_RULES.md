@@ -137,7 +137,7 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 ### Mandatory voting
 
 - Voting is mandatory when the rules require a vote.
-- A player who does not vote has their vote assigned to the **last candidate**.
+- A player who does not vote has their vote assigned to the **last candidate**. Confirmed by the owner 2026-10-11: nobody can abstain; a hand that is not raised for any candidate goes to the last candidate put up.
 
 ### Judge correction / vote reassignment
 
@@ -797,7 +797,7 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 A poker multi-table tournament is its own event with its own record; it is not a cash table. Decided with the owner; settings, registration, start, the tables, eliminations and places, the paid re-buy, the prizes, the cup, medals and achievements are built; the calendar listing and the table chat with emotes follow.
 
 - **Entry is free** for everybody and gives a starting stack for nothing. Tournament chips are **nominal**: they exist only inside the tournament and are never cashed out into club tokens. Club tokens move only for re-buys (paid from the player's own tokens) and for prizes.
-- **Players:** no hard cap (the owner expects roughly 4 to 20, more is allowed). The organizer sets the minimum (default 4) and an optional maximum; with no maximum registration stays open until the start.
+- **Players:** no hard cap (the owner expects roughly 4 to 20, more is allowed). The organizer sets the minimum (default 2 since 2026-10-11: the owner wants a quick tournament to run even with two or three players; with two players the prize pool is split between first and second place) and an optional maximum; with no maximum registration stays open until the start.
 - **Start:** automatic at the set time when at least the minimum registered. With fewer the tournament is **cancelled** and everyone registered gets a personal message. A tournament that is running cannot be cancelled.
 - **Format «турбо»:** the first level is the cash-game 10/20, each level raises the blinds by roughly half (10/20, 15/30, 20/40, 30/60, 40/80, 50/100, 75/150, 100/200 …); default level length 6 minutes, default stack 1,000 chips. Every one of these is a setting of the tournament (level length, stack, seats per table, re-buy, prizes).
 - **Re-buy:** a player who busted may buy back in with his own tokens (default 200 tokens for 1,000 chips since 2026-10-11, before 500; the price goes into the prize pool) until the end of the chosen level (default level 6, before 4); after that nobody returns and busting is final.

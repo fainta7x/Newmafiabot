@@ -30,7 +30,7 @@ export type PokerTournamentConfig = {
 };
 
 export const POKER_TOURNAMENT_MAX_SEATS = 8; // the table engine seats at most eight
-export const POKER_TOURNAMENT_DEFAULT_MIN_PLAYERS = 4;
+export const POKER_TOURNAMENT_DEFAULT_MIN_PLAYERS = 2;
 
 /** Turbo schedule: the first level is the cash-game 10/20, every level raises the blinds by roughly half. */
 export const TURBO_BLIND_LEVELS: PokerBlindLevel[] = [

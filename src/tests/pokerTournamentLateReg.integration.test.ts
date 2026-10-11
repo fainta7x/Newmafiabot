@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generatePlayerSessionToken } from '../server/auth.ts';
-import { createPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
+import { createPokerTournament, publicPokerTournament, registerForPokerTournament, tickPokerTournaments } from '../server/services/pokerTournamentService.ts';
 import { pokerTournamentAnnouncementText } from '../server/services/pokerTournamentAnnouncementService.ts';
 
 const stamp = '2026-10-10T10:00:00.000Z';
@@ -62,6 +62,21 @@ describe('entering a running poker tournament over the API, and the table of lev
     expect(view.body.tournament.participants.map((item: any) => item.nickname).sort()).toEqual(['Игрок 1', 'Игрок 2']);
     expect(view.body.tournament.participants[0]).toEqual(expect.objectContaining({ id: expect.any(String), nickname: expect.any(String), status: 'registered', place: null, rebuys: 0, out: false }));
     expect(view.body.tournament.players).toBe(2);
+  });
+
+  it('hides the roster from a visitor without a session and returns every entrant beyond 200', async () => {
+    const startAt = new Date(Date.now() + 3 * 24 * 60 * 60_000).toISOString();
+    const row = await createPokerTournament(db, null, { title: 'Много', startAt, minPlayers: 4 });
+    for (let index = 0; index < 205; index += 1) {
+      await db.run("INSERT INTO players (id,nickname,contact_status,lifecycle_status,judge_level,elo,tokens,created_at,updated_at) VALUES (?,?,'normal','normal','none',1000,1000,?,?)", [`bulk${index}`, `Массовка ${index}`, new Date().toISOString(), new Date().toISOString()]);
+      await db.run("INSERT INTO poker_tournament_entries (tournament_id, player_id, status, rebuys, created_at, updated_at) VALUES (?, ?, 'registered', 0, ?, ?)", [row.id, `bulk${index}`, new Date().toISOString(), new Date().toISOString()]);
+    }
+    const signedIn = await request(app).get(`/api/player/poker/tournaments/${row.id}`).set(as('p4'));
+    expect(signedIn.body.tournament.participants).toHaveLength(205);
+    const anonymous = await request(app).get(`/api/player/poker/tournaments/${row.id}`);
+    expect(anonymous.body.tournament?.participants ?? []).toEqual([]);
+    const direct = await publicPokerTournament(db, row as any, null);
+    expect(direct.participants).toEqual([]);
   });
 
   it('refuses a newcomer once late registration has ended', async () => {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronLeft, RotateCcw, ShieldQuestion, AlertCircle } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, RotateCcw, ShieldQuestion, AlertCircle, GitBranch, ClipboardCheck } from 'lucide-react';
+import MafiaReasoningDecisionTree from './MafiaReasoningDecisionTree.tsx';
+import MafiaReasoningDiagnostic from './MafiaReasoningDiagnostic.tsx';
 import {
   REASONING_LABS, VOTE_PLANS, labCasesForAttempt, type LabCase, type LabTopic,
 } from '../../../lib/mafiaReasoningLabs.ts';
@@ -58,6 +60,7 @@ const answerOrder = (length: number, index: number, attempt: number) =>
  */
 export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
   const [progress, setProgress] = useState<LabProgress>(readProgress);
+  const [extra, setExtra] = useState<'tree' | 'diagnostic' | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -124,6 +127,9 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
     moveTop();
   };
 
+  if (extra === 'tree') return <MafiaReasoningDecisionTree onBack={() => setExtra(null)} />;
+  if (extra === 'diagnostic') return <MafiaReasoningDiagnostic onBack={() => setExtra(null)} />;
+
   return <div ref={top} data-testid="mafia-reasoning-labs" className="space-y-4">
     <header className="flex items-center gap-3">
       <button type="button" onClick={topic ? backToTopics : onBack}
@@ -154,6 +160,21 @@ export default function MafiaReasoningLabs({ onBack }: { onBack: () => void }) {
           <ArrowRight className="h-4 w-4 shrink-0 text-white/45" />
         </button>;
       })}
+      <div className="space-y-2 pt-2">
+        <p className="px-1 text-[12px] font-semibold text-white/65">Следующий уровень</p>
+        <button type="button" data-testid="reasoning-lab-open-tree" onClick={() => setExtra('tree')}
+          className="flex min-h-[75px] w-full items-center gap-3 rounded-2xl border border-amber-200/25 bg-amber-200/[.04] p-3 text-left">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100"><GitBranch className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-[14px]">Дерево голосов</strong>
+            <span className="block text-[12px] text-white/55">Что возможно, а что уже не изменить</span></span><ArrowRight className="h-4 w-4 text-white/50" />
+        </button>
+        <button type="button" data-testid="reasoning-lab-open-diagnostic" onClick={() => setExtra('diagnostic')}
+          className="flex min-h-[75px] w-full items-center gap-3 rounded-2xl border border-amber-200/25 bg-amber-200/[.04] p-3 text-left">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/10 text-amber-100"><ClipboardCheck className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-[14px]">Проверка мышления</strong>
+            <span className="block text-[12px] text-white/55">Три ситуации без вариантов ответа</span></span><ArrowRight className="h-4 w-4 text-white/50" />
+        </button>
+      </div>
     </div> : finished ? <section data-testid="reasoning-labs-result" className="space-y-3">
       <div className="rounded-2xl border border-white/10 bg-white/[.05] p-4">
         <p className="text-xl font-semibold">{totalScore} из {steps.length * 2}</p>

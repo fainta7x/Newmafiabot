@@ -12,6 +12,7 @@ import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.t
 import { mutateTokenBalance, TokenInsufficientFundsError } from '../services/tokenLedgerService.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 import { processRunningPokerTournaments } from '../services/pokerTournamentTablesService.ts';
+import { listPokerChat, PokerChatError, postPokerChat } from '../services/pokerChatService.ts';
 import { loadPokerInviteCandidates, PokerInviteError, queuePokerInvite } from '../services/pokerInviteService.ts';
 
 const router = Router();
@@ -192,7 +193,7 @@ router.get('/poker/lobbies/:id', route(async (req) => {
     throw new PokerRouteError(404, 'Тренировочная сессия приватная.');
   }
   tickPokerLobby(table);
-  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)), chat: await listPokerChat(req.db, table.id) } };
 }));
 router.post('/poker/lobbies/:id/join', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);
@@ -295,6 +296,14 @@ router.post('/poker/lobbies/:id/action', route(async (req) => {
   if (table.hand.players.find((item) => item.seat === table.hand?.current_seat)?.id !== player.id) throw new PokerRouteError(409, 'Сейчас ход другого игрока.');
   try { applyPokerAction(table.hand, req.body || {}); } catch (error) { conflict(error, 'Действие недоступно.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
+}));
+router.post('/poker/lobbies/:id/chat', route(async (req) => {
+  const player = await actor(req); const table = lobby(req.params.id);
+  if (!table.players.some((item) => item.id === player.id)) throw new PokerRouteError(403, 'Писать в чат могут игроки за этим столом.');
+  if (pokerMoneyMode(table) === 'training') throw new PokerRouteError(409, 'В тренировке чата нет.');
+  try { await postPokerChat(req.db, { lobbyId: table.id, playerId: player.id, nickname: player.nickname, text: req.body?.text, emote: req.body?.emote }); }
+  catch (error) { if (error instanceof PokerChatError) throw new PokerRouteError(error.status, error.message); throw error; }
+  return { body: { chat: await listPokerChat(req.db, table.id) } };
 }));
 router.get('/poker/lobbies/:id/history', route(async (req) => {
   const player = await actor(req); const table = lobby(req.params.id);

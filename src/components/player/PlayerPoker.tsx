@@ -3,6 +3,7 @@ import { TELEGRAM_VIEWPORT_CHANGE_EVENT } from '../../lib/telegramWebAppViewport
 import { cardIdentity, orderOwnCards } from './pokerCards.ts';
 import PokerInvitePanel from './PokerInvitePanel.tsx';
 import PokerTournaments from './PokerTournaments.tsx';
+import { PokerChatBubbles, PokerChatDock, readPokerChatMuted, usePokerChat, writePokerChatMuted } from './PokerChat.tsx';
 
 type Card = { rank: string; suit: string };
 
@@ -412,6 +413,10 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
   };
   // Answers can arrive out of order on a slow connection: an older one must never replace a newer one (the table flipped
   // back to an earlier state, then forward again — owner, 2026-10-05). Each request gets a number when it is sent.
+  const chatFeed = usePokerChat();
+  const [chatMuted, setChatMuted] = useState(readPokerChatMuted);
+  const changeChatMuted = (value: boolean) => { setChatMuted(value); writePokerChatMuted(value); };
+  const chatTableId = useRef<string | null>(null);
   const requestSeq = useRef(0);
   const appliedSeq = useRef(0);
   const applyLobby = async (url: string, init?: RequestInit, stillWanted: () => boolean = () => true) => {
@@ -420,6 +425,9 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
     if (seq > appliedSeq.current && stillWanted()) {
       appliedSeq.current = seq;
       setCurrent(body.lobby);
+      // Each table has its own chat: starting a new table starts a new feed.
+      if (body.lobby?.id !== chatTableId.current) { chatTableId.current = body.lobby?.id ?? null; chatFeed.reset(); }
+      if (Array.isArray(body.chat)) chatFeed.ingest(body.chat);
       if (Number.isFinite(Number(body.token_balance))) onTokenBalanceChange?.(Number(body.token_balance));
     }
   };
@@ -622,6 +630,17 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
       setOpenHand(body.history?.[0]?.id || null);
     } catch (e: any) { setError(e.message); }
   };
+  const sendChat = async (payload: { text?: string; emote?: string }) => {
+    try {
+      const response = await fetch(`/api/player/poker/lobbies/${encodeURIComponent(current.id)}/chat`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не получилось отправить');
+      if (Array.isArray(body.chat)) chatFeed.ingest(body.chat);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось отправить'); }
+  };
+  const chatDock = current && current.money_mode !== 'training'
+    ? <PokerChatDock messages={chatFeed.messages} viewerId={viewerId || current.viewer_id || null} canPost={Boolean(current.players?.some((player: Player) => player.id === (viewerId || current.viewer_id)))} muted={chatMuted} onMutedChange={changeChatMuted} onSend={sendChat} />
+    : null;
   /** Buying back into a tournament goes through the tournament (the cost is in club tokens, the chips are nominal). */
   const tournamentRebuy = async () => {
     try {
@@ -656,6 +675,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
             <div className="poker-street-banner-static">Ждём второго игрока</div>
             <div className="mt-2 text-[12px] text-white/70">Раздача начнётся сама, как только за столом будут двое</div>
           </div>
+          {current.money_mode !== 'training' ? <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={waitingPlayers} layout={waitingLayout} muted={chatMuted} /> : null}
           {waitingPlayers.slice(0, 8).map((player: Player, index: number) => {
             const spot = waitingLayout[index];
             const edge = spot.x < 20 ? 'left' : spot.x > 80 ? 'right' : 'centre';
@@ -674,6 +694,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
         {isClubTokenTable(current) ? <button type="button" onClick={() => setInviteOpen(true)} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106]">Позвать игроков</button> : canAddBot ? <button type="button" onClick={() => void lobbyAction(current.id, 'bot')} className="min-h-12 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106]">+ Добавить бота</button> : null}
         <button type="button" onClick={() => void leaveTable()} className="min-h-11 rounded-2xl border border-white/10 bg-black/20 text-sm text-white/60">Встать из-за стола</button>
       </div></div>
+      {chatDock}
     </main>);
   }
 
@@ -695,6 +716,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/35 bg-black/70 py-1 pl-1 pr-3 shadow-[0_6px_16px_rgba(0,0,0,.6)]"><img src="/assets/poker/chips/chip-1000-v2.webp" alt="" className="h-7 w-7 object-contain" /><span className="text-[11px] uppercase tracking-[.14em] text-amber-100/65">Банк</span><span className="text-base font-black tabular-nums text-amber-100">{formatPokerAmount(Number(hand.pot) > 0 ? hand.pot : finished ? hand.last_pot_awarded || 0 : 0, stackDisplay, bigBlind)}</span></span>
           </div>
+          {current.money_mode !== 'training' ? <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={orderedPlayers} layout={layout} muted={chatMuted} /> : null}
           {hand.street !== 'preflop' && !finished && !streetSweep ? <div key={`street-${hand.id}-${hand.street}`} className="poker-street-banner pointer-events-none absolute left-1/2 z-[7]" style={{ top: `${BOARD_Y}%` }}>{streetName(hand.street)}</div> : null}
           {(() => { const said = actionSentence(hand, stackDisplay, tickerEntry); return said && !finished ? <div key={said.key} className={`poker-action-ticker absolute left-1/2 z-[6] is-${said.type}`} style={{ top: `calc(${BOARD_Y}% + 46px)` }}>{said.text}</div> : null; })()}
           <div className="absolute left-1/2 z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1" style={{ top: `${BOARD_Y}%` }}>{shownBoard.map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 88}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - shownBoard.length }).map((_, index) => <span key={`empty-${index}`} className="poker-card-slot" />)}</div>
@@ -800,6 +822,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
         <div className="mb-2 flex items-center gap-2"><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount - bigBlind))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">−</button><input type="range" aria-label="Размер ставки" disabled={!actions?.can_bet} min={actions?.min_bet_total || 0} max={actions?.max_bet_total || 0} step={Math.max(1, Math.round(bigBlind / 2))} value={betAmount} onChange={(event) => setBetAmount(clampBet(Number(event.target.value)))} className="h-9 min-w-0 flex-1 accent-amber-300 disabled:opacity-30" /><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount + bigBlind))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">+</button></div>
         <div className="grid grid-cols-3 gap-2"><button type="button" disabled={!actions?.can_fold} onClick={() => void pokerAction('fold')} className="min-h-12 rounded-2xl bg-[#d91e4d] text-sm font-bold disabled:opacity-30">Пас</button>{actions?.to_call > 0 ? <button type="button" disabled={!actions?.can_call} onClick={() => void pokerAction('call')} className="min-h-12 rounded-2xl bg-[#0f9b6d] text-sm font-bold leading-tight disabled:opacity-30">Колл<br />{formatPokerAmount(actions.call_amount ?? actions.to_call, stackDisplay, bigBlind)}</button> : <button type="button" disabled={!actions?.can_check} onClick={() => void pokerAction('check')} className="min-h-12 rounded-2xl bg-white/15 text-sm font-bold disabled:opacity-30">Чек</button>}<button type="button" disabled={!actions?.can_bet} onClick={() => void pokerAction(betAmount >= Number(actions?.max_bet_total || Infinity) ? 'all_in' : 'bet', betAmount)} className="min-h-12 rounded-2xl bg-[#d5a54b] text-sm font-bold leading-tight text-black disabled:opacity-30">{betAmount >= Number(actions?.max_bet_total || Infinity) ? 'Олл-ин' : hand.current_bet > 0 ? 'Рейз до' : 'Бет'}<br />{formatPokerAmount(betAmount, stackDisplay, bigBlind)}</button></div></>}
       </>}</div></div>
+      {chatDock}
     </main>
     );
   }

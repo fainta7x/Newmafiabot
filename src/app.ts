@@ -32,6 +32,7 @@ import { ensureObsRemoteSchema } from './db/ensureObsRemoteSchema.ts';
 import { ensurePokerRuntimeSchema } from './db/ensurePokerRuntimeSchema.ts';
 import { ensurePokerInviteSchema } from './db/ensurePokerInviteSchema.ts';
 import { ensurePokerTournamentSchema } from './db/ensurePokerTournamentSchema.ts';
+import { ensurePokerChatSchema } from './db/ensurePokerChatSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { applyBogdanaTournamentStaff, applyUnifiedTournamentFlowMigration } from './db/applyUnifiedTournamentFlowMigration.ts';
 import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
@@ -194,6 +195,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensurePokerRuntimeSchema(db);
   await ensurePokerInviteSchema(db);
   await ensurePokerTournamentSchema(db);
+  await ensurePokerChatSchema(db);
   await ensurePlayerProfileMergeSchema(db);
   // One-time ×5 Elo scale switch; in-memory test databases keep the ratings their tests insert.
   if (db.dbPath !== ':memory:') {

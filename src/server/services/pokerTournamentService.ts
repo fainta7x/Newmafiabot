@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePokerTournamentSchema } from '../../db/ensurePokerTournamentSchema.ts';
 import {
   normalizePokerTournamentConfig, pokerTournamentClock, pokerTournamentLateRegOpen, pokerTournamentRebuyOpen, pokerTournamentSchedule,
+  pokerTournamentPrizes,
   type PokerTournamentConfig,
 } from '../../shared/pokerTournament.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -52,6 +53,9 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
        FROM poker_tournament_entries e JOIN players p ON p.id = e.player_id
       WHERE e.tournament_id = ? AND e.status != 'cancelled' ORDER BY e.created_at ASC, p.nickname ASC`, [row.id],
   )).map((entry) => ({ id: String(entry.id), nickname: entry.nickname, status: entry.status, place: entry.place, rebuys: Number(entry.rebuys), out: entry.status === 'eliminated' }));
+  // The pool grows with every re-buy; before the start it is shown for the full table of prize places.
+  const rebuysTotal = Number((await db.get<{ n: number | null }>('SELECT SUM(rebuys) AS n FROM poker_tournament_entries WHERE tournament_id = ?', [row.id]))?.n || 0);
+  const prizes = pokerTournamentPrizes(config, rebuysTotal, Math.max(players, config.prizeSharesPct?.length ?? 0));
   const myTable = viewerId && row.status === 'running' ? pokerTournamentLobbies(row.id).find((lobby) => lobby.players.some((seat) => seat.id === viewerId)) || null : null;
   return {
     id: row.id,
@@ -63,6 +67,7 @@ export async function publicPokerTournament(db: DatabaseWrapper, row: Tournament
     started_at: row.started_at,
     finished_at: row.finished_at,
     settings: { ...config, lateRegUntilLevel: config.lateRegUntilLevel ?? 0 },
+    prizes,
     players,
     spots_left: config.maxPlayers === null ? null : Math.max(0, config.maxPlayers - players),
     clock,

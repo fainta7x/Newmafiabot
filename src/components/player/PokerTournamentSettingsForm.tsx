@@ -1,15 +1,15 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { DEFAULT_TURBO_SETTINGS, TURBO_BLIND_LEVELS, pokerTournamentSchedule } from '../../shared/pokerTournament.ts';
+import { DEFAULT_TURBO_SETTINGS, TURBO_BLIND_LEVELS, pokerTournamentPrizes, pokerTournamentSchedule } from '../../shared/pokerTournament.ts';
 import PokerTournamentSchedule from './PokerTournamentSchedule.tsx';
 
 export type PokerTournamentDraft = {
   title: string; start: string; min: string; max: string; stack: string; level: string; seats: string;
-  rebuyLevel: string; rebuyCost: string; rebuyChips: string; lateReg: string; prizes: string;
+  rebuyLevel: string; rebuyCost: string; rebuyChips: string; lateReg: string; guarantee: string; shares: string;
 };
 
 export const NEW_TOURNAMENT_DRAFT: PokerTournamentDraft = {
   title: 'Покерный турбо-турнир', start: '', min: '', max: '', stack: '', level: '', seats: '',
-  rebuyLevel: '', rebuyCost: '', rebuyChips: '', lateReg: '', prizes: '',
+  rebuyLevel: '', rebuyCost: '', rebuyChips: '', lateReg: '', guarantee: '2000', shares: '65 25 10',
 };
 
 /** `datetime-local` wants the phone's local time without a zone. */
@@ -52,6 +52,17 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
     return { rows, levelMinutes, rebuyUntilLevel, lateRegUntilLevel, startMs, total: levels * levelMinutes };
   }, [draft.level, draft.stack, draft.rebuyLevel, draft.lateReg, draft.start, levels]);
 
+  const shares = useMemo(() => {
+    const values = draft.shares.split(/[\s,;]+/).filter(Boolean).map(Number);
+    const sum = values.reduce((total, value) => total + value, 0);
+    return { values, sum, valid: values.length > 0 && values.length <= 10 && values.every((value) => Number.isInteger(value) && value >= 0) && sum === 100 };
+  }, [draft.shares]);
+  const prizes = useMemo(() => {
+    const guaranteeTokens = number(draft.guarantee, 0, 0, 10_000_000);
+    const rebuyCostTokens = number(draft.rebuyCost, DEFAULT_TURBO_SETTINGS.rebuyCostTokens, 0, 1_000_000);
+    return { rebuyCostTokens, now: shares.valid ? pokerTournamentPrizes({ prizeTokens: [], guaranteeTokens, prizeSharesPct: shares.values, rebuyCostTokens }, 0, shares.values.length) : null };
+  }, [draft.guarantee, draft.rebuyCost, shares]);
+
   const endOf = (level: number) => (plan.startMs !== null ? ` (до ${clock(plan.startMs + level * plan.levelMinutes * 60_000)} МСК)` : '');
   const thin = (level: number) => (level > 0 ? plan.rows[level - 1]?.startingStackBb ?? 99 : 99) < 10;
 
@@ -63,7 +74,7 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
       title: draft.title.trim(), startAt: new Date(draft.start).toISOString(), minPlayers: text(draft.min), maxPlayers: draft.max.trim(),
       startingStack: text(draft.stack), levelMinutes: text(draft.level), rebuyUntilLevel: text(draft.rebuyLevel), rebuyCostTokens: text(draft.rebuyCost),
       lateRegUntilLevel: text(draft.lateReg), rebuyChips: text(draft.rebuyChips), seatsPerTable: text(draft.seats),
-      prizeTokens: draft.prizes.split(/[\s,;]+/).filter(Boolean).map(Number),
+      guaranteeTokens: draft.guarantee.trim() || '0', prizeSharesPct: shares.values,
     }, event.currentTarget);
   };
 
@@ -71,7 +82,11 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
     <form onSubmit={submit} className="space-y-3 rounded-2xl border border-white/10 bg-black/30 p-3" data-testid="poker-tournament-form">
       <label className="block text-xs text-white/60">Название<input name="title" required maxLength={120} value={draft.title} onChange={set('title')} className={field} /></label>
       <label className="block text-xs text-white/60">Начало<input name="start" type="datetime-local" required value={draft.start} onChange={set('start')} className={field} /></label>
-      <label className="block text-xs text-white/60">Призы жетонами по местам (через пробел: 1 место, 2 место…)<input name="prizes" inputMode="numeric" placeholder="3000 1500 500" value={draft.prizes} onChange={set('prizes')} className={field} /></label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-white/60">Гарантия клуба, жетоны<input name="guarantee" type="number" min={0} value={draft.guarantee} onChange={set('guarantee')} className={field} /></label>
+        <label className="text-xs text-white/60">Доли фонда по местам, % (в сумме 100)<input name="shares" inputMode="numeric" value={draft.shares} onChange={set('shares')} className={field} /></label>
+      </div>
+      {!shares.valid ? <p role="alert" className="text-[11px] text-amber-200">Доли дают {Number.isFinite(shares.sum) ? shares.sum : 0}%, нужно ровно 100%. Например: 65 25 10.</p> : null}
       {children}
       <div className="rounded-xl border border-white/10 bg-black/20 p-3">
         <div className="text-xs font-semibold text-white/70">Настройки турнира (пусто — турбо по умолчанию)</div>
@@ -82,7 +97,7 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
           <label className="text-xs text-white/60">Уровень, минут<input name="level" type="number" min={1} max={60} placeholder="6" value={draft.level} onChange={set('level')} className={field} /></label>
           <label className="text-xs text-white/60">Мест за столом<input name="seats" type="number" min={2} max={8} placeholder="6" value={draft.seats} onChange={set('seats')} className={field} /></label>
           <label className="text-xs text-white/60">Докупка до уровня<input name="rebuyLevel" type="number" min={0} max={levels} placeholder="6" value={draft.rebuyLevel} onChange={set('rebuyLevel')} className={field} /></label>
-          <label className="text-xs text-white/60">Цена докупки, жетоны<input name="rebuyCost" type="number" min={0} placeholder="1000" value={draft.rebuyCost} onChange={set('rebuyCost')} className={field} /></label>
+          <label className="text-xs text-white/60">Цена докупки, жетоны<input name="rebuyCost" type="number" min={0} placeholder="200" value={draft.rebuyCost} onChange={set('rebuyCost')} className={field} /></label>
           <label className="text-xs text-white/60">Фишек за докупку<input name="rebuyChips" type="number" min={100} placeholder="1000" value={draft.rebuyChips} onChange={set('rebuyChips')} className={field} /></label>
           <label className="col-span-2 text-xs text-white/60">Поздняя запись в идущий турнир до уровня (0 — нет)<input name="lateReg" type="number" min={0} max={levels} placeholder="6" value={draft.lateReg} onChange={set('lateReg')} className={field} /></label>
         </div>
@@ -94,6 +109,7 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
           <li>Блайнды растут по {levels} уровням, всего {plan.total} мин{plan.startMs !== null ? ` — последний уровень закончится в ${clock(plan.startMs + plan.total * 60_000)} МСК` : ''}.</li>
           {plan.lateRegUntilLevel > 0 ? <li>Войти в идущий турнир можно до конца {plan.lateRegUntilLevel}-го уровня{endOf(plan.lateRegUntilLevel)}.</li> : <li>Войти в идущий турнир нельзя.</li>}
           {plan.rebuyUntilLevel > 0 ? <li>Докупиться можно до конца {plan.rebuyUntilLevel}-го уровня{endOf(plan.rebuyUntilLevel)}.</li> : <li>Докупки нет.</li>}
+          {prizes.now ? <li data-testid="poker-tournament-draft-prizes">Призовой фонд: гарантия {draft.guarantee.trim() || '0'} жетонов плюс все докупки{plan.rebuyUntilLevel > 0 && prizes.rebuyCostTokens > 0 ? ` (каждая добавляет ${prizes.rebuyCostTokens})` : ''}. Сейчас по местам: {prizes.now.payouts.map((value, index) => `${index + 1} — ${value.toLocaleString('ru-RU')}`).join(', ')}.</li> : null}
           {thin(plan.rebuyUntilLevel) ? <li className="text-amber-200">К концу докупки стек равен меньше 10 ББ ({bb(plan.rows[plan.rebuyUntilLevel - 1].startingStackBb)}): докупаться почти бессмысленно.</li> : null}
           {thin(plan.lateRegUntilLevel) ? <li className="text-amber-200">К концу поздней записи стек равен меньше 10 ББ ({bb(plan.rows[plan.lateRegUntilLevel - 1].startingStackBb)}): новичок войдёт почти без игры.</li> : null}
         </ul>
@@ -101,7 +117,7 @@ export default function PokerTournamentSettingsForm({ initial, submitLabel, busy
       </div>
 
       <div className="flex gap-2">
-        <button type="submit" disabled={busy} className="min-h-12 flex-1 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] disabled:opacity-60">{submitLabel}</button>
+        <button type="submit" disabled={busy || !shares.valid} className="min-h-12 flex-1 rounded-2xl bg-[linear-gradient(#e3c477,#b98637)] text-sm font-black text-[#1a1106] disabled:opacity-60">{submitLabel}</button>
         {onCancel ? <button type="button" onClick={onCancel} className="min-h-12 rounded-2xl border border-white/10 px-4 text-sm text-white/60">Отмена</button> : null}
       </div>
     </form>

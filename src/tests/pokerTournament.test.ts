@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizePokerTournamentConfig, planPokerTournamentTables, pokerTournamentClock, pokerTournamentLateRegOpen, pokerTournamentRebuyOpen,
-  pokerTournamentSchedule, TURBO_BLIND_LEVELS,
+  pokerTournamentPrizes, pokerTournamentSchedule, TURBO_BLIND_LEVELS,
 } from '../shared/pokerTournament.ts';
 
 const NOW = Date.parse('2026-10-20T16:00:00Z');
@@ -12,7 +12,7 @@ describe('poker tournament settings', () => {
     const result = normalizePokerTournamentConfig({ startAt: start }, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.config).toMatchObject({ minPlayers: 4, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 6, rebuyCostTokens: 1000, rebuyChips: 1000, lateRegUntilLevel: 6, prizeTokens: [] });
+    expect(result.config).toMatchObject({ minPlayers: 4, maxPlayers: null, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 6, rebuyCostTokens: 200, rebuyChips: 1000, lateRegUntilLevel: 6, prizeTokens: [] });
     expect(result.config.levels[0]).toEqual({ small: 10, big: 20 });
   });
 
@@ -24,6 +24,34 @@ describe('poker tournament settings', () => {
       { startAt: 'soon' }, { startAt: '2026-10-20T10:00:00Z' }, { startAt: start, seatsPerTable: 9 }, { startAt: start, minPlayers: 1 },
       { startAt: start, minPlayers: 6, maxPlayers: 4 }, { startAt: start, prizeTokens: [-5] }, { startAt: start, prizeTokens: ['x'] }, { startAt: start, levelMinutes: 0 },
     ]) expect(normalizePokerTournamentConfig(bad, NOW).ok, JSON.stringify(bad)).toBe(false);
+  });
+});
+
+describe('poker tournament prize pool', () => {
+  it('takes the guarantee and the percentages, and refuses shares that do not add up to 100', () => {
+    const ok = normalizePokerTournamentConfig({ startAt: start, guaranteeTokens: 2000, prizeSharesPct: [65, 25, 10], prizeTokens: [999] }, NOW);
+    expect(ok.ok && ok.config).toMatchObject({ guaranteeTokens: 2000, prizeSharesPct: [65, 25, 10], prizeTokens: [] });
+    for (const bad of [
+      { prizeSharesPct: [60, 30] }, { prizeSharesPct: [110, -10] }, { prizeSharesPct: [50, 50, 'x'] }, { prizeSharesPct: [65, 25, 10], guaranteeTokens: -1 },
+      { prizeSharesPct: Array.from({ length: 11 }, () => 10) },
+    ]) expect(normalizePokerTournamentConfig({ startAt: start, ...bad }, NOW).ok, JSON.stringify(bad)).toBe(false);
+  });
+
+  it('pays the guarantee plus all re-buys by the shares, scales the shares up when fewer people played, and pays out exactly the pool', () => {
+    const config = { prizeTokens: [], guaranteeTokens: 2000, prizeSharesPct: [65, 25, 10], rebuyCostTokens: 200 };
+    expect(pokerTournamentPrizes(config, 0, 8)).toMatchObject({ mode: 'pool', guarantee: 2000, rebuyTokens: 0, total: 2000, payouts: [1300, 500, 200] });
+    expect(pokerTournamentPrizes(config, 5, 8)).toMatchObject({ rebuyTokens: 1000, total: 3000, payouts: [1950, 750, 300] });
+    expect(pokerTournamentPrizes(config, 0, 2)).toMatchObject({ total: 2000, payouts: [1445, 555] });
+    expect(pokerTournamentPrizes(config, 0, 1).payouts).toEqual([2000]);
+    expect(pokerTournamentPrizes(config, 0, 0).payouts).toEqual([]);
+    // a pool that does not divide evenly: the remainder goes to first place
+    const odd = pokerTournamentPrizes({ ...config, guaranteeTokens: 1001 }, 0, 3);
+    expect(odd.payouts.reduce((sum, value) => sum + value, 0)).toBe(1001);
+    expect(odd.payouts).toEqual([651, 250, 100]);
+  });
+
+  it('keeps the fixed prizes of a tournament made before the pool existed', () => {
+    expect(pokerTournamentPrizes({ prizeTokens: [3000, 1500], rebuyCostTokens: 200 }, 4, 5)).toMatchObject({ mode: 'fixed', total: 4500, payouts: [3000, 1500] });
   });
 });
 

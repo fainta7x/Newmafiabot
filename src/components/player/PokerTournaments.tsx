@@ -9,11 +9,12 @@ type Settings = {
   rebuyUntilLevel: number; rebuyCostTokens: number; rebuyChips: number; seatsPerTable: number; prizeTokens: number[];
   lateRegUntilLevel?: number;
 };
+type Prizes = { mode: 'pool' | 'fixed'; guarantee: number; rebuyTokens: number; total: number; payouts: number[]; sharesPct: number[] };
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
   start_at: string; settings: Settings; players: number; spots_left: number | null;
   clock: { level: number; small: number; big: number; secondsToNextLevel: number | null } | null; rebuy_open: boolean;
-  late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
+  prizes?: Prizes; late_reg_open?: boolean; schedule?: PokerScheduleRow[]; participants?: PokerTournamentParticipant[];
   my_entry: { status: string; rebuys: number; place: number | null; busted?: boolean } | null;
   alive: number | null; waiting_rebuy: number | null; my_table_id: string | null;
   standings: Array<{ nickname: string; place: number }>;
@@ -29,6 +30,9 @@ async function call(url: string, init?: RequestInit) {
   return body;
 }
 
+const prizeLine = (prizes: Prizes | undefined, fixed: number[]) => prizes?.mode === 'pool'
+  ? `призовой фонд ${prizes.total.toLocaleString('ru-RU')} (гарантия ${prizes.guarantee.toLocaleString('ru-RU')}${prizes.rebuyTokens > 0 ? ` + докупки ${prizes.rebuyTokens.toLocaleString('ru-RU')}` : ' + все докупки'}): ${prizeText(prizes.payouts)}`
+  : `призы: ${prizeText(prizes?.payouts ?? fixed)}`;
 const prizeText = (prizes: number[]) => prizes.some((amount) => amount > 0)
   ? prizes.map((amount, index) => `${index + 1} место — ${amount.toLocaleString('ru-RU')}`).join(' · ')
   : 'без денежных призов';
@@ -91,7 +95,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
     return {
       title: item.title, start: toLocalInput(item.start_at), min: String(s.minPlayers), max: s.maxPlayers ? String(s.maxPlayers) : '', stack: String(s.startingStack),
       level: String(s.levelMinutes), seats: String(s.seatsPerTable), rebuyLevel: String(s.rebuyUntilLevel), rebuyCost: String(s.rebuyCostTokens),
-      rebuyChips: String(s.rebuyChips), lateReg: String(s.lateRegUntilLevel ?? 0), prizes: s.prizeTokens.join(' '),
+      rebuyChips: String(s.rebuyChips), lateReg: String(s.lateRegUntilLevel ?? 0), guarantee: String(item.prizes?.mode === 'pool' ? item.prizes.guarantee : s.prizeTokens.reduce((sum, value) => sum + value, 0)), shares: (item.prizes?.mode === 'pool' ? item.prizes.sharesPct : [65, 25, 10]).join(' '),
     };
   };
 
@@ -144,7 +148,7 @@ export default function PokerTournaments({ onOpenTable, onTokenBalanceChange }: 
               {' · '}стек {s.startingStack.toLocaleString('ru-RU')} · уровень {s.levelMinutes} мин · за столом до {s.seatsPerTable}
               {' · '}{s.rebuyUntilLevel > 0 ? `докупка до уровня ${s.rebuyUntilLevel} за ${s.rebuyCostTokens.toLocaleString('ru-RU')} жетонов` : 'без докупки'}
               {(s.lateRegUntilLevel ?? 0) > 0 ? ` · поздняя запись до уровня ${s.lateRegUntilLevel}` : ''}
-              {' · '}призы: {prizeText(s.prizeTokens)}
+              {' · '}{prizeLine(item.prizes, s.prizeTokens)}
             </p>
             {item.status === 'running' && item.clock ? <p className="mt-1 text-[11px] text-amber-100/80">Блайнды {item.clock.small}/{item.clock.big}, уровень {item.clock.level}</p> : null}
             {item.status === 'cancelled' && item.cancel_reason ? <p className="mt-1 text-[11px] text-white/45">Отменён: {item.cancel_reason}</p> : null}

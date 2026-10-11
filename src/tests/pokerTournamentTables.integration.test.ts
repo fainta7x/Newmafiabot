@@ -202,6 +202,21 @@ describe('poker tournament tables', () => {
     expect(await db.all("SELECT id FROM player_verified_awards WHERE source = ?", [`poker_tournament:${id}`])).toHaveLength(3);
   });
 
+  it('pays a prize pool made of the guarantee and every re-buy by the shares', async () => {
+    const id = await begin(3, { seatsPerTable: 8, rebuyUntilLevel: 0, rebuyCostTokens: 200, guaranteeTokens: 2000, prizeSharesPct: [65, 25, 10] });
+    await db.run("UPDATE poker_tournament_entries SET rebuys = 2 WHERE tournament_id = ? AND player_id = 'p1'", [id]);
+    await bust(id, ['p1'], start + 5000);
+    await tickPokerTournaments(db, start + 6000);
+    await bust(id, ['p2'], start + 30_000);
+    await tickPokerTournaments(db, start + 31_000);
+    await tickPokerTournaments(db, start + 60_000);
+    // pool = 2000 + 2 re-buys x 200 = 2400: 65% / 25% / 10%
+    expect(await tokens('p3')).toBe(1000 + 1560);
+    expect(await tokens('p2')).toBe(1000 + 600);
+    expect(await tokens('p1')).toBe(1000 + 240);
+    expect((await db.get<any>("SELECT prize_tokens FROM poker_tournament_entries WHERE tournament_id = ? AND player_id = 'p3'", [id])).prize_tokens).toBe(1560);
+  });
+
   describe('a whole tournament played by the machinery itself', () => {
     afterEach(() => { vi.useRealTimers(); });
 

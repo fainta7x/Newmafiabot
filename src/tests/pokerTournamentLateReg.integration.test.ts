@@ -94,8 +94,8 @@ describe('entering a running poker tournament over the API, and the table of lev
     const text = pokerTournamentAnnouncementText(row as any);
     expect(text).toContain('⏱ Уровень 6 мин., блайнды с 10/20, стек 1');
     expect(text).toContain('➕ Войти в идущий турнир можно до конца 6-го уровня (до 21:36 МСК)');
-    expect(text).toContain('🔁 Докупка до конца 6-го уровня (до 21:36 МСК): 1');
-    expect(text).toContain('000 жетонов за 1');
+    expect(text).toContain('🔁 Докупка до конца 6-го уровня (до 21:36 МСК): 200 жетонов за 1');
+    expect(text).toContain('000 фишек');
     const none = await createPokerTournament(db, null, { title: 'Без позднего входа', startAt, minPlayers: 4, lateRegUntilLevel: 0, rebuyUntilLevel: 0 }, Date.parse('2026-10-20T10:00:00Z'));
     const plain = pokerTournamentAnnouncementText(none as any);
     expect(plain).not.toContain('➕');

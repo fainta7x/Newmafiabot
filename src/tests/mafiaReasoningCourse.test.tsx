@@ -132,6 +132,43 @@ describe('Mafia reasoning: case bank and plain language', () => {
     expect(screen.getByTestId('reasoning-task').textContent).toContain('Вопрос 2 из 6');
   });
 
+  it('resumes a generated non-first chapter with the exact same seats and answers after reload', () => {
+    const level = REASONING_LEVELS[1];
+    const generated = reasoningCasesForAttempt(level, 7);
+    const ids = generated.map((item) => item.id);
+    window.localStorage.setItem('mafia-reasoning-course-v1', JSON.stringify({
+      passed: ['facts'],
+      attempts: { motives: 7 },
+      caseIds: { motives: ids },
+      answers: { motives: [1] },
+    }));
+    const open = () => {
+      render(<MafiaReasoningCourse />);
+      fireEvent.click(screen.getByTestId('reasoning-level-motives'));
+      const view = screen.getByTestId('reasoning-task').textContent || '';
+      expect(view).toContain('Вопрос 2 из 6');
+      expect(view).toContain(generated[0].facts[0]);
+      return view;
+    };
+    const before = open();
+    cleanup();
+    const after = open();
+    expect(after).toBe(before);
+    expect(JSON.parse(window.localStorage.getItem('mafia-reasoning-course-v1') || '{}').caseIds.motives).toEqual(ids);
+  });
+
+  it('varies archetypes and both single/multiple answers across each chapter', () => {
+    for (const level of REASONING_LEVELS) {
+      const sample = Array.from({ length: 4 }, (_, i) => reasoningCasesForAttempt(level, i)).flat();
+      expect(new Set(sample.map((item) => item.id.split('@')[0]).size).toBeGreaterThanOrEqual(6);
+      const questions = decisions(sample);
+      expect(questions.some((item) => item.mode === 'multiple')).toBe(true);
+      expect(questions.some((item) => item.mode !== 'multiple')).toBe(true);
+      expect(new Set(questions.flatMap((item) => item.options.map((option) => option.label))).size)
+        .toBeGreaterThan(questions.length);
+    }
+  });
+
   it('scores analysis over color-guessing and keeps each stage locked until passed', () => {
     const level = REASONING_LEVELS[0];
     const questions = decisions(reasoningCasesForAttempt(level, 0));

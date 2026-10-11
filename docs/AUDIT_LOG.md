@@ -481,3 +481,17 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Finding 1 (fixed in #770):** `PlayerEconomyPanel.tsx` switched the tab by finding a hidden child button by its label and clicking it from a layout effect (`querySelectorAll('button')` + `click()`); it broke whenever a label changed and could fire twice. The panel now passes the chosen `view` to `PlayerEconomy`, which treats it as the scope.
 - **Finding 2 (fixed in #770):** the «Загрузка кошелька…» gate waited for `/api/player/economy` even on the bets tab, so a failing economy request hid betting. The bets scope no longer waits for it; `role_snapshot` is read with a default and the bets tab prefers the betting balance.
 - **Test:** `src/tests/walletBettingNavigation.test.tsx` (economy request fails, bets still shown). Status: fixed, needs a deploy and a phone check. Not covered: the standalone `PlayerEconomy` without the panel keeps its own scope.
+
+### 2026-10-11 — «Школа игрового мышления»: аудит покрытия и план обучения
+
+- **Scope:** coverage of the five existing chapters of the reasoning school (`src/lib/mafiaReasoningCourse.ts` and the guide components) against the original goal of teaching analysis during a game; the method, levels and plan are in `docs/REASONING_CURRICULUM.md`. This is a methodology audit, not a code defect list; nothing in the live engine, scores or awards changes.
+- **Findings** (original gaps identified in `docs/REASONING_CURRICULUM.md`, «Где существенные пробелы»; the owner has since approved and the first two implementations were merged in #792 and #794; remaining items require separate scoping and player validation):
+  1. Fact vs interpretation: no work across several days or with an incomplete protocol.
+  2. Red/black motives: no calibration of «how much did the version get stronger».
+  3. Gain and team price: no mechanical comparison of alternatives, the missed win and next-round threats. *Partly addressed by the vote tree (#794).*
+  4. Triples and counter-examples: no independent building of a triple without a ready answer list. *Partly addressed by the «Проверка мышления» self-check (#794).*
+  5. Sheriff / false sheriff: originally missing information discipline (who learned a colour from where, compatibility of checks). *Scenario practice added in #792; more variety and validation remain.*
+  6. Reading behaviour and emotions: weak; no «lie detector by gestures» by design.
+  7. Fast decision and speech: almost absent (timing, the most useful question, a short argument). *Practised by «Речь и реакция» and «Следующий ход» (#792).*
+  8. Measuring the real skill: *self-check without choices added in #794*, but it is not a validated exam; still needs delayed unseen control situations and review of real games.
+- Mutable state (what is merged or deployed) is in `docs/PROJECT_STATE.md`, not here.

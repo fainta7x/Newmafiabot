@@ -155,3 +155,33 @@ describe('PlayerEventsCalendar', () => {
     expect(screen.getByText('DETAIL:Пятничная игра')).toBeTruthy();
   });
 });
+
+describe('PlayerEventsCalendar with a poker tournament', () => {
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+  const poker = { id: 'ptr_1', title: 'Турбо вечера', starts_at: new Date(Date.now() + 3600000).toISOString(), format: 'POKER', event_type: 'poker', poker_status: 'registration', participant_count: 3, participant_limit: 0, registration_status: null };
+  const tournament = {
+    id: 'ptr_1', title: 'Турбо вечера', description: 'Для своих', status: 'registration', cancel_reason: null, start_at: poker.starts_at, players: 3, spots_left: null, alive: null, my_table_id: null,
+    settings: { minPlayers: 4, maxPlayers: null, startingStack: 1000, levelMinutes: 6, seatsPerTable: 6, rebuyUntilLevel: 4, rebuyCostTokens: 500, rebuyChips: 1000, prizeTokens: [3000, 1000] },
+    my_entry: null, standings: [],
+  };
+
+  it('shows it as a «Покер» event with its player count and opens a page where registration is free', async () => {
+    const calls: string[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method || 'GET'} ${url}`);
+      if (url.includes('/api/player/calendar')) return { ok: true, json: async () => ({ events: [poker] }) } as Response;
+      return { ok: true, json: async () => ({ tournament }) } as Response;
+    });
+    render(<PlayerEventsCalendar />);
+    const rows = await screen.findAllByRole('button', { name: /Турбо вечера/ });
+    expect(screen.getAllByText('Покер').length).toBeGreaterThan(0);
+    fireEvent.click(rows[0]);
+    expect(await screen.findByText('Покерный турнир')).toBeTruthy();
+    expect(screen.getByText(/бесплатно, стек 1\s?000 фишек/)).toBeTruthy();
+    expect(screen.getByText(/3 000 жетонов|3\s?000 жетонов/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Записаться бесплатно' }));
+    await waitFor(() => expect(calls.some((call) => call.startsWith('POST') && call.endsWith('/ptr_1/register'))).toBe(true));
+  });
+});

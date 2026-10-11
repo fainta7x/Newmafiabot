@@ -24,11 +24,14 @@ export default function PlayerEveningsHub({
   section,
   target = null,
   onOpen,
+  onOpenPoker,
 }: {
   data: PlayerMeResponse;
   section: PlayerEveningsSection;
   target?: string | null;
   onOpen: (section: PlayerEveningsSection, target?: string | null) => void;
+  /** A poker tournament in the calendar leads to the poker section. */
+  onOpenPoker?: (tableId?: string | null) => void;
 }) {
   const openProtocol = (gameKey: string, returnSection: 'events' | 'recaps', eveningId: string) => {
     // Preserve the exact evening as the return destination for browser and Telegram Back.
@@ -50,7 +53,7 @@ export default function PlayerEveningsHub({
       {section === 'events' && !target ? <PlayerEveningLiveOverview onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
 
       {section === 'events' ? (
-        <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} />
+        <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenPoker={onOpenPoker} />
       ) : section === 'recaps' ? (
         <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'recaps', eveningId)} embedded />
       ) : (

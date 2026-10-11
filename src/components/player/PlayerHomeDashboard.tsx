@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { getPlayerGameRoleLabel as roleLabel } from '../../lib/playerGameRoleLabels.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import CuratorTasksCard from './CuratorTasksCard.tsx';
 
@@ -41,14 +42,6 @@ const formatGameDate = (value: string | null | undefined) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' }).format(date);
-};
-
-const roleLabel = (role: string | null | undefined) => {
-  if (role === 'citizen') return 'Мирный';
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return null;
 };
 
 const streakLabel = (games: PlayerMeResponse['games']['all']) => {

@@ -74,7 +74,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       {message && <p role="status" className="text-xs text-white/70">{message}</p>}
     </div>}
     {snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
-      <p className="text-xs text-amber-100/80">{statPeriod} · не сумма за всю карьеру</p>
+      <p className="text-xs text-amber-100/80">{statPeriod} · {snap.gameFilter || 'Режим игр неизвестен'} · {snap.tournamentFilter || 'Турниры не уточнены'}</p>
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo</div></div>
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.totalGames)}</strong><div className="text-xs text-white/55">Игры</div></div>

@@ -1,5 +1,3 @@
-import { parseGoMafiaPlayerReference } from './gomafiaExternalProfile.ts';
-
 export interface GoMafiaTournamentReference {
   tournamentId: string;
   sourceUrl: string;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
+  Gamepad2, Link2, MessageCircle, Plus, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
@@ -72,6 +72,8 @@ type CommandCenterResponse = {
 interface Props {
   overview: CrmOverview | null;
   onOpenEvening: (id: string) => void;
+  /** Existing CRM roster add-player/guest picker; never a new registration path. */
+  onOpenEveningAdd?: (id: string) => void;
   onOpenEveningSection: (id: string, section: EveningSection) => void;
   onOpenPlayer: (id: string) => void;
   onNavigateTab: (tab: 'tasks' | 'analytics') => void;
@@ -106,6 +108,7 @@ const communicationLabel = (status: string) => {
 export default function OrganizerCommandCenter({
   overview,
   onOpenEvening,
+  onOpenEveningAdd,
   onOpenEveningSection,
   onOpenPlayer,
   onCreateEvening,
@@ -374,6 +377,8 @@ export default function OrganizerCommandCenter({
           <div className="mt-1 text-[12px] leading-4 text-text-secondary">{item.detail}</div>
         </button>)}
       </section> : paymentsFresh ? <section data-testid="crm-today-clear" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section> : null}
+
+      {onOpenEveningAdd ? <button type="button" onClick={() => onOpenEveningAdd(snapshot.evening.id)} className="flex min-h-11 w-full items-center justify-between gap-2 rounded-[12px] border border-border-soft bg-surface-1 px-3 py-2 text-left text-[13px] font-semibold text-text-secondary active:bg-surface-hover"><span className="inline-flex items-center gap-2"><Plus className="h-4 w-4 shrink-0" />Добавить игрока в состав</span><ArrowRight className="h-4 w-4 shrink-0 text-text-muted" /></button> : null}
 
       {(deliveryProblems.length > 0 || attendanceAttention > 0) ? <section className="rounded-[18px] border border-warning/20 bg-surface-1 p-3">
         <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><AlertTriangle className="h-4 w-4" /> Требует уточнения</div>

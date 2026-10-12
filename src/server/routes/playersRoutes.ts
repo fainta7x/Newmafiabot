@@ -17,7 +17,7 @@ import { createPlayerClaimLink, ensurePlayerClaimLinkSchema } from '../services/
 import { ensurePlayerOnboardingSchema } from '../../db/ensurePlayerOnboardingSchema.ts';
 import { linkPlayerVkByProfileLink, loadPlayerVkIdentity } from '../services/vkProfileLinkService.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
-import { calculateEngagementStage } from '../../lib/playerUtils.ts';
+import { calculateEngagementStage, deriveContactStatus } from '../../lib/playerUtils.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
@@ -123,7 +123,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       : []);
 
     const mapped = players.map((p: any) => {
-      const cStatus = p.contact_status || (p.lifecycle_status === 'blocked' ? 'blocked' : p.lifecycle_status === 'paused' ? 'paused' : 'normal');
+      const cStatus = deriveContactStatus(p);
       const eStage = calculateEngagementStage(p.attendance_count || 0, p.last_visit);
 
       let days_since_last_visit: number | null = null;
@@ -477,7 +477,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       daysSinceLastVisit = Math.floor((Date.now() - lastMs) / (1000 * 60 * 60 * 24));
     }
 
-    const contact_status = player.contact_status || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
+    const contact_status = deriveContactStatus(player);
     const engagement_stage = calculateEngagementStage(attendanceCount, lastVisit);
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
@@ -583,7 +583,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
 
-    const contactStatus = player.contact_status || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
+    const contactStatus = deriveContactStatus(player);
     if (player.is_blocked === 1 || player.is_blocked === true || contactStatus === 'blocked' || contactStatus === 'paused') {
       return res.status(400).json({ error: 'Заблокированного или поставленного на паузу игрока нельзя пригласить' });
     }

@@ -18,6 +18,8 @@ describe('GoMafia publicly visible stats adapter', () => {
   it('parses the observed labels and numbers without ever inventing games', () => {
     const stats = parsePublicGoMafiaStats(page(tokens), ref, '2026-10-12T10:00:00Z');
     expect(stats.year).toBe(2026);
+    expect(stats.gameFilter).toBe('Все игры');
+    expect(stats.tournamentFilter).toBe('Турниры ФСМ');
     expect(stats.totalGames).toBe(102);
     expect(stats.overallElo).toBe(2562.17);
     expect(stats.tableElo).toBe(1730.25);

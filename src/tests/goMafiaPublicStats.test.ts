@@ -6,7 +6,7 @@ const ref = parseGoMafiaPlayerReference('https://gomafia.pro/stats/1')!;
 const page = (tokens: string[]) => '<!DOCTYPE html><html><body>' +
   tokens.map(token => '<div>' + token + '</div>').join('') + '</body></html>';
 const tokens = [
-  'Основная статистика',
+  'Chagin', '2026', 'Все игры', 'Турниры ФСМ', 'Основная статистика',
   '63 (62%)', 'Игры за мирного', '9 (9%)', 'Игр за дона',
   '23 (23%)', 'Игры за мафию', '7 (7%)', 'Игр за шерифа',
   '2562.17', 'Общий ELO', '0.9', 'Средний балл',
@@ -17,6 +17,7 @@ const tokens = [
 describe('GoMafia publicly visible stats adapter', () => {
   it('parses the observed labels and numbers without ever inventing games', () => {
     const stats = parsePublicGoMafiaStats(page(tokens), ref, '2026-10-12T10:00:00Z');
+    expect(stats.year).toBe(2026);
     expect(stats.totalGames).toBe(102);
     expect(stats.overallElo).toBe(2562.17);
     expect(stats.tableElo).toBe(1730.25);

@@ -33,6 +33,20 @@ export async function ensureGoMafiaSchema(db: DatabaseWrapper): Promise<void> {
       source_url TEXT NOT NULL,
       linked_local_game_key TEXT
     );
+    CREATE TABLE IF NOT EXISTS gomafia_tournament_appearances (
+      player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      tournament_id TEXT NOT NULL,
+      tournament_name TEXT NOT NULL,
+      date_range TEXT,
+      place INTEGER NOT NULL,
+      total_score REAL NOT NULL,
+      external_nickname TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      confirmed_at TEXT NOT NULL,
+      PRIMARY KEY(player_id, tournament_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gomafia_tournament_appearances_player
+      ON gomafia_tournament_appearances(player_id, confirmed_at DESC);
     CREATE INDEX IF NOT EXISTS idx_gomafia_external_games_player
       ON gomafia_external_games(external_player_id, played_at);
   `);

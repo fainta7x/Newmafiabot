@@ -123,6 +123,20 @@ export function auditEveningRsvpDrift(db: Database.Database) {
   };
 }
 
+/**
+ * The only file-opening path for this diagnostic. Fail closed if the database
+ * is missing, and never expose writable connections to callers.
+ */
+export function inspectEveningRsvpFile(databasePath: string) {
+  const db = new Database(path.resolve(databasePath), { readonly: true, fileMustExist: true });
+  try {
+    db.pragma('query_only = ON');
+    return auditEveningRsvpDrift(db);
+  } finally {
+    db.close();
+  }
+}
+
 const isDirectInvocation = Boolean(process.argv[1])
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
@@ -132,16 +146,11 @@ if (isDirectInvocation) {
     console.error('Usage: npx tsx src/scripts/auditEveningRsvpDrift.ts --db /absolute/path/to/database.sqlite');
     process.exitCode = 2;
   } else {
-    let db: Database.Database | null = null;
     try {
-      db = new Database(path.resolve(args[1]), { readonly: true, fileMustExist: true });
-      db.pragma('query_only = ON');
-      console.log(JSON.stringify(auditEveningRsvpDrift(db), null, 2));
+      console.log(JSON.stringify(inspectEveningRsvpFile(args[1]), null, 2));
     } catch (error) {
       console.error('Не удалось прочитать агрегированные статусы RSVP:', error instanceof Error ? error.message : String(error));
       process.exitCode = 1;
-    } finally {
-      db?.close();
     }
   }
 }

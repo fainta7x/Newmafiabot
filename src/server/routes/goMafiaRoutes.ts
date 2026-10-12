@@ -20,6 +20,10 @@ const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player
   if (!ref) return { error: 'Укажи ссылку GoMafia вида https://gomafia.pro/stats/123 или ID игрока.', status: 400 };
   if (!await profileExists(db, playerId)) return { error: 'Игрок не найден', status: 404 };
   await ensureGoMafiaSchema(db);
+  const existing = await load(db, playerId);
+  if (actor === 'player' && existing?.status === 'verified' && existing.external_player_id !== ref.externalPlayerId) {
+    return { error: 'Подтверждённую привязку может изменить только организатор.', status: 403 };
+  }
   const claimed = await db.get(
     'SELECT player_id FROM gomafia_player_links WHERE external_player_id=?', [ref.externalPlayerId],
   );
@@ -38,8 +42,8 @@ const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player
       verified_at=excluded.verified_at,
       updated_at=excluded.updated_at`, [
     playerId, ref.externalPlayerId, ref.profileUrl,
-    actor === 'organizer' ? 'verified' : 'pending', actor, now,
-    actor === 'organizer' ? now : null, now,
+    actor === 'organizer' || existing?.status === 'verified' ? 'verified' : 'pending', actor, now,
+    actor === 'organizer' || existing?.status === 'verified' ? (existing?.verified_at || now) : null, now,
   ]);
   return { value: await load(db, playerId), status: 200 };
 };

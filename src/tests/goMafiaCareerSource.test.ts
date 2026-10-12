@@ -17,7 +17,8 @@ describe('source-backed public GoMafia career', () => {
     const games = tournaments.flatMap(t => t.games);
     expect(games).toHaveLength(164); expect(new Set(games.map(g => g.externalGameId)).size).toBe(164);
     expect(games[0]).toMatchObject({ externalGameId: '1202:2769:1', role: 'citizen', result: 'loss', date: null, score: null, eloDelta: -2 });
-    expect(tournaments.find(t => t.tournamentId === '30')?.eloDelta).toBe(-32);
+    expect(tournaments.find(t => t.tournamentId === '30')).toMatchObject({eloDelta:-32,eloAfter:968});
+    expect(tournaments.find(t => t.tournamentId === '721')?.eloAfter).toBeNull();
   });
   it('uses exact user IDs in finalist and non-finalist standings, and never replaces points with GG or Elo', () => {
     const all = [...parseGoMafiaHistory(history1, ref).tournaments, ...parseGoMafiaHistory(history2, ref).tournaments];

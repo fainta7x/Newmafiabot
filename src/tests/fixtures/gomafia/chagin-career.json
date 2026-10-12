@@ -249,7 +249,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1685
       },
       {
         "tournamentId": "2765",
@@ -475,7 +476,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1646
       },
       {
         "tournamentId": "2357",
@@ -631,7 +633,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1574
       },
       {
         "tournamentId": "1846",
@@ -801,7 +804,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1579
       },
       {
         "tournamentId": "1520",
@@ -957,7 +961,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1327
       },
       {
         "tournamentId": "721",
@@ -1141,7 +1146,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "646",
@@ -1437,7 +1443,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "616",
@@ -1621,7 +1628,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "566",
@@ -1805,7 +1813,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "507",
@@ -1989,7 +1998,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "394",
@@ -2215,7 +2225,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 1193
       },
       {
         "tournamentId": "414",
@@ -2371,7 +2382,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": null
       },
       {
         "tournamentId": "30",
@@ -2527,7 +2539,8 @@
           }
         ],
         "scoreRetrievedAt": "2026-10-12T13:28:25.571Z",
-        "scoreStatus": "available"
+        "scoreStatus": "available",
+        "eloAfter": 968
       }
     ],
     "yearlyStats": [

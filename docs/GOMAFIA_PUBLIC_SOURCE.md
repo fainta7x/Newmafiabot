@@ -12,7 +12,7 @@ Verified 2026-10-12 using an unauthenticated Cloud Browser and the production so
 
 ## Observed Chagin career
 
-13 appearances, 164 player games, 83 wins (51%), Elo 1685.02. Published years: 2026 — 30 games; 2025 — 21; 2024 — 10; 2023 — 93; 2022 — 10. CHEATERS CUP 2026: tournament 2765, place 27, score 11.3. REStart 2025: tournament 1846, place 31, score 7.1. TULA MAFIA OPEN 2022: tournament 30, place 48, score 2.2. The site's chart Elo deltas can differ from history (2022); preserve the history value, do not average/reconcile it into a guess.
+13 appearances, 164 player games, 83 wins (51%), Elo 1685.02. Published years: 2026 — 30 games; 2025 — 21; 2024 — 10; 2023 — 93; 2022 — 10. CHEATERS CUP 2026: tournament 2765, place 27, score 11.3. REStart 2025: tournament 1846, place 31, score 7.1. TULA MAFIA OPEN 2022: tournament 30, place 48, score 2.2. The public `chart.elo` points include exact tournament IDs and published after-tournament Elo values; show only these ID-linked points. The profile user Elo remains the **current** Elo for every year filter. The site's chart Elo deltas can differ from history (2022); preserve the history value, do not average/reconcile it into a guess.
 
 Sanitized JSON fixtures in `src/tests/fixtures/gomafia` contain only public career fields, with unrelated profile/contact/session data removed. The complete career fixture is a captured source-adapter output, not synthetic records. Mocked tests validate contract handling; the separate live smoke is necessary evidence of source compatibility.
 

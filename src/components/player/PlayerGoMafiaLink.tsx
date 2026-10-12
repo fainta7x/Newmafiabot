@@ -43,6 +43,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   }, [playerId, link?.external_player_id, link?.status]);
   const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
   const snap = year === 'all' ? career?.snapshot : career?.yearly_stats?.find((s: any) => String(s.year) === year);
+  const years = [...new Set<number>([...(career?.yearly_stats ?? []).map((s: any) => Number(s.year)), ...(career?.tournaments ?? []).map((t: any) => Number(t.dateStart?.slice(0,4)))])].filter(Number.isFinite).sort((a,b)=>b-a);
   const tournaments = (career?.tournaments ?? []).filter((t: any) => year === 'all' || t.dateStart?.startsWith(year));
   const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : snap?.tournamentFilter === 'Все турниры' ? 'За всё время' : 'Период источника не определён';
   const save = async () => {
@@ -83,16 +84,16 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       </button>
       {message && <p role="status" className="text-xs text-white/70">{message}</p>}
     </div>}
-    {career?.yearly_stats?.length > 0 && <label className="mt-4 block text-xs text-white/70">Период спортивной карьеры
+    {years.length > 0 && <label className="mt-4 block text-xs text-white/70">Период спортивной карьеры
       <select aria-label="Год спортивной карьеры" value={year} onChange={e => setYear(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-neutral-900 px-3 text-sm text-white">
         <option value="all">За всё время</option>
-        {career.yearly_stats.map((s: any) => <option key={s.year} value={String(s.year)}>{s.year}</option>)}
+        {years.map(value => <option key={value} value={String(value)}>{value}</option>)}
       </select>
     </label>}
     {snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
       <p className="text-xs text-amber-100/80">{statPeriod} · {snap.gameFilter || 'Режим игр неизвестен'} · {snap.tournamentFilter || 'Турниры не уточнены'}</p>
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo</div></div>
+        <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo сейчас</div></div>
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.totalGames)}</strong><div className="text-xs text-white/55">Игры</div></div>
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{snap.overallWinRatePercent == null ? '—' : String(snap.overallWinRatePercent) + '%'}</strong><div className="text-xs text-white/55">Винрейт</div></div>
       </div>
@@ -102,6 +103,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       </div>
       <p className="text-xs text-white/45">Данные GoMafia · Обновлено {new Date(snap.retrievedAt).toLocaleDateString('ru-RU')}</p>
     </div>}
+    {year !== 'all' && !snap && <p className="mt-2 text-xs text-white/50">Статистика за {year} год пока недоступна. Турнирная история показана по опубликованным датам.</p>}
     {career?.syncing && <p role="status" className="mt-3 text-xs text-white/60">Автоматически обновляем спортивную карьеру…</p>}
     {tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-4 space-y-3">
       <strong className="block text-sm">Турнирные выступления · {tournaments.length}</strong>
@@ -112,7 +114,8 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
           <span>{({ registered: 'Регистрация', upcoming: 'Предстоящий турнир', completed: 'Турнир завершён', results_published: 'Результат опубликован', unknown: 'Статус не подтверждён' } as Record<string,string>)[item.status]}</span>
           {item.place != null && <span>Место: {item.place}</span>}
           <span>{item.totalScore == null ? 'Баллы недоступны' : stat(item.totalScore) + ' баллов'}</span>
-          {item.eloDelta != null && <span>Elo: {item.eloDelta > 0 ? '+' : ''}{stat(item.eloDelta)}</span>}
+          {item.eloDelta != null && <span>Δ Elo: {item.eloDelta > 0 ? '+' : ''}{stat(item.eloDelta)}</span>}
+          {item.eloAfter != null && <span>Elo после турнира: {stat(item.eloAfter)}</span>}
         </div>
         {item.scoreStatus === 'refresh_failed' && item.totalScore != null && <p className="mt-1 text-[11px] text-white/45">Баллы из сохранённого результата · {item.scoreRetrievedAt ? new Date(item.scoreRetrievedAt).toLocaleDateString('ru-RU') : 'дата обновления неизвестна'}</p>}
         {item.games?.length > 0 && <details className="mt-3 text-xs">

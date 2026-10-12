@@ -36,6 +36,11 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
   if (String(data?.user?.id) !== ref.externalPlayerId) throw new Error('GoMafia history identity mismatch');
   const total = number(data.historyTotal);
   if (!Number.isInteger(total) || total! < 0 || total! > 2000 || !Array.isArray(data.history)) throw new Error('GoMafia history incomplete or exceeds safe limit');
+  const eloPoints = new Map<string, number>();
+  for (const point of Array.isArray(data.chart?.elo) ? data.chart.elo : []) {
+    const tid = id(point.id), value = number(point.y);
+    if (tid && value !== null) eloPoints.set(tid, value);
+  }
   const tournaments = data.history.map((row: any): CareerAppearance => {
     const tid = id(row.id), start = date(row.date_start), end = date(row.date_end);
     if (!tid || !start || !end || typeof row.title !== 'string' || !Array.isArray(row.games)) throw new Error('Malformed GoMafia appearance');
@@ -55,7 +60,7 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
     if (new Set(games.map((g: FederationGame) => g.externalGameId)).size !== games.length) throw new Error('Duplicate GoMafia game number');
     return { tournamentId: tid, tournamentName: row.title.slice(0, 180), dateStart: start, dateEnd: end,
       location: [row.country_translate, row.city_translate].filter(v => typeof v === 'string').join(', ') || null,
-      place: place && Number.isInteger(place) && place > 0 ? place : null, totalScore: null, scoreRetrievedAt: null, scoreStatus: 'not_checked', eloDelta: number(row.elo),
+      place: place && Number.isInteger(place) && place > 0 ? place : null, totalScore: null, scoreRetrievedAt: null, scoreStatus: 'not_checked', eloDelta: number(row.elo), eloAfter: eloPoints.get(tid) ?? null,
       status: place && place > 0 ? 'results_published' : 'unknown', sourceUrl, games };
   });
   return { total: total!, tournaments };

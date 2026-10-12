@@ -7,6 +7,26 @@ Scope: owner report — on the evening of 9 October the organizer played 4 games
 - **[open, to verify after the deploy]** The previously accrued debt of the 9 October evening is corrected only when the evening is recalculated (opening its payments or closing): an ordinary ledger adjustment, history not rewritten. Other organizers charged since 2026-10-06 change the same way.
 - **[open, not investigated]** Why the manual «Подарить вечер» of the owner did not remove the accrual (possibly the gift was set on a closed evening after the debt entry); not reproduced because production data is not available here.
 
+## 2026-10-12 · Player entity P4 — contact-status compatibility read (scoped)
+
+**Scope audited before any code change:** `src/lib/playerUtils.ts:getCanInviteStatus`, `src/server/routes/playersRoutes.ts` list/detail/invite guard, `src/server/services/eveningAnnouncementTrackingService.ts` outreach selector, `playerTokensRoutes.ts` player-create writer, and `playerInvitationEligibilityService.ts` SQL identity/eligibility reads.
+
+- **[fixed in P4 branch; CI/merge pending]** Four client/CRM read-and-guard points independently resolved status as `contact_status || (lifecycle_status === 'blocked' ? 'blocked' : lifecycle_status === 'paused' ? 'paused' : 'normal')`: `playerUtils.ts` and three `playersRoutes.ts` uses. Introduced pure `deriveContactStatus` in `src/lib/playerUtils.ts`; `getCanInviteStatus` and exactly three CRM call sites now use it, retaining old truthy `contact_status` priority and unknown-string behavior.
+- **[open, same expression but sensitive use]** `eveningAnnouncementTrackingService.ts` has an identical expression wrapped in `String()`, but controls personal delivery. Keep this untouched this slice; no notification delivery changes under a cosmetic entity refactor.
+- **[do not change]** `playerTokensRoutes.ts` writes new-player `contact_status` during creation. `playerInvitationEligibilityService.ts` SQL `COALESCE(contact_status,lifecycle_status,'normal')` is *not* equivalent for arbitrary legacy lifecycle values and affects invitation eligibility. These require separate proof.
+- **[safety]** Preserve `getCanInviteStatus` `do_not_invite_until` handling, stop-attending semantics, blocked/paused invitation protection and the calculated engagement stage. No API schema, field names, SQL, payment, player IDs, notifications, UI rendering or live-game behaviour changes.
+- **[tests added, CI pending]** `src/tests/playerContactStatusReadContract.test.ts` preserves original-vs-helper output across a 72-case matrix (eight contact values × nine legacy values), plus unchanged paused/blocked and date-limited invite decisions. This is *read interpretation only*, not a second persistence model.
+
+## 2026-10-12 · Participant P3 — opt-in aggregate-only RSVP drift inspector
+
+**[coded in branch `audit/evening-rsvp-readonly-aggregate`, CI/merge/deploy not yet verified]** Adds `src/scripts/auditEveningRsvpDrift.ts`, not mounted by the app. Requires an explicitly supplied local/host-side DB file path; opens SQLite via `better-sqlite3` with `readonly: true`, `fileMustExist: true`, and `query_only = ON`. It does **not** use application DB connection, schema ensures, bootstrap, checkpoint restore, migrations, API or cron.
+
+- Reads only aggregate groups of stored RSVP, legacy registration, arrival, attendance and evening lifecycle. It never SELECTs, serializes or prints participant/player IDs, names, phone numbers or event identifiers. Returns only count buckets (current positive, bot count, organizer agenda count, canonical expected, pending shortfall count, analytics registration and mismatched cases), split into open/completed/other evening scopes.
+- `src/tests/eveningRsvpAuditAggregate.test.ts` asserts the numeric count matrix, no identifiers in output, no changes to on-disk file bytes after an explicit read-only inspection and a failure on a missing file.
+- **[NOT done]** No operational execution against the Amvera production database and therefore **no claim** that the synthetic conflicts exist live. Running the script requires separate authorized file access/CLI tooling, which is not available from this repository-only connector. A real production read (if permitted) should be performed by an authorized operator using the runbook, only counts reported, and no player records copied.
+- **[next, high-risk]** Decide intended semantics for organizer outreach vs current RSVP only after the real count census and approval; analyze automatic shortfall/cancellation, financial pricing, Telegram/VK notifications, and legacy migrations individually. Do not “fix” them by replacing unrelated SQL predicates with one global `isActive` filter.
+- **[coordination]** Claude's independent #818–823 code, docs and audit work remains untouched.
+
 ## 2026-10-12 · Participant P3 — opt-in aggregate-only RSVP drift inspector
 
 **[coded in branch `audit/evening-rsvp-readonly-aggregate`, CI/merge/deploy not yet verified]** Adds `src/scripts/auditEveningRsvpDrift.ts`, not mounted by the app. Requires an explicitly supplied local/host-side DB file path; opens SQLite via `better-sqlite3` with `readonly: true`, `fileMustExist: true`, and `query_only = ON`. It does **not** use application DB connection, schema ensures, bootstrap, checkpoint restore, migrations, API or cron.

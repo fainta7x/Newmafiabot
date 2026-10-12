@@ -39,12 +39,20 @@ interface Prepared {
   roleOf: (seat: number | null | undefined) => StatRole | null;
 }
 
+// Games are never mutated after loading; the analysis of one game is reused by every player's statistics.
+const preparedCache = new WeakMap<StatGame, Prepared>();
+const prepareOne = (game: StatGame): Prepared => {
+  let value = preparedCache.get(game);
+  if (!value) {
+    const roles = new Map(game.seats.map((item) => [item.seat, item.role]));
+    value = { game, circles: buildGameAnalysis(game.events).circles, roleOf: (seat) => (seat ? roles.get(seat) ?? null : null) };
+    preparedCache.set(game, value);
+  }
+  return value;
+};
 const prepare = (games: StatGame[]): Prepared[] => games
   .filter((game) => Array.isArray(game.events) && game.events.length > 0)
-  .map((game) => {
-    const roles = new Map(game.seats.map((item) => [item.seat, item.role]));
-    return { game, circles: buildGameAnalysis(game.events).circles, roleOf: (seat) => (seat ? roles.get(seat) ?? null : null) };
-  });
+  .map(prepareOne);
 
 /** A day of the game = an engine round in which somebody was voted on. */
 const votingDays = (circles: AnalysisCircle[]) => circles.filter((circle) => circle.votings.length > 0);

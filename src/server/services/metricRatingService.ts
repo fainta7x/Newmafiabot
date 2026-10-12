@@ -6,6 +6,9 @@ import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsV
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadRatingSeasons } from './clubSeasonService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
+import { loadStatGames } from './gameStatisticsService.ts';
+import { buildPlayerGameStatistics, type PlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 /**
  * Club rankings by one figure of the player statistics (owner request 2026-10-12): «who collected the most» wins, games,
@@ -15,14 +18,17 @@ import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 
 export const TOP_SIZE = 30;
 
-type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Elo';
+type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Elo';
 export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
   | 'citizen_wins' | 'sheriff_wins' | 'mafia_wins' | 'don_wins'
-  | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain';
+  | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
+  | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black';
 
-interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo'; minGames?: number; hint: string }
+/** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
+interface Sample { minimum: number; words: [string, string, string] }
+interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo' | 'decimal'; minGames?: number; sample?: Sample; hint: string }
 
 export const METRICS: MetricDef[] = [
   { key: 'wins', label: 'Победы', group: 'Победы', unit: 'count', hint: 'Больше всех побед' },
@@ -40,6 +46,11 @@ export const METRICS: MetricDef[] = [
   { key: 'best_moves', label: 'Лучший ход', group: 'Ход игры', unit: 'count', hint: 'Сколько раз делал лучший ход' },
   { key: 'first_killed', label: 'Первым убит', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
   { key: 'zero_round', label: 'Нулевой круг', group: 'Ход игры', unit: 'count', hint: 'Сколько раз выставлен на нулевом круге' },
+  { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { minimum: 10, words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
+  { key: 'nominations_accuracy', label: 'Меткость выставлений', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['выставление', 'выставления', 'выставлений'] }, hint: 'Какая доля выставленных красным оказалась чёрной' },
+  { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
+  { key: 'don_checks', label: 'Проверки дона', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок дона нашла шерифа' },
+  { key: 'best_move_black', label: 'Лучший ход: чёрных в среднем', group: 'Меткость', unit: 'decimal', sample: { minimum: 3, words: ['ход', 'хода', 'ходов'] }, hint: 'Сколько чёрных в среднем в лучшем ходу (из 3)' },
   { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo', unit: 'elo', hint: 'Сколько Elo набрал или потерял за период' },
 ];
 const METRIC_BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
@@ -130,6 +141,27 @@ async function loadHighlights(db: DatabaseWrapper): Promise<Highlights> {
   return promise;
 }
 
+// The move chronology of every finished game is parsed once per input change (at most a minute): the analysis of each game
+// is memoised on the game object, so many rankings and profiles reuse it.
+const statGameCache = new WeakMap<object, { version: string | null; at: number; promise: Promise<StatGame[]> }>();
+async function loadStatGamesCached(db: DatabaseWrapper): Promise<StatGame[]> {
+  const version = analyticsInputsVersion(db, 'club_snapshots', CLUB_SNAPSHOT_INPUTS);
+  const cached = statGameCache.get(db as object);
+  if (cached && cached.version === version && Date.now() - cached.at < HIGHLIGHT_TTL_MS) return cached.promise;
+  const promise = loadStatGames(db).catch(() => [] as StatGame[]);
+  statGameCache.set(db as object, { version, at: Date.now(), promise });
+  return promise;
+}
+
+/** The value of a chronology figure and the size of the sample behind it; null when there is nothing to divide by. */
+const accuracyOf = (stats: PlayerGameStatistics, key: MetricKey): { value: number; sample: number } | null => {
+  const share = key === 'votes_accuracy' ? stats.votesAsRed : key === 'nominations_accuracy' ? stats.nominationsAsRed
+    : key === 'sheriff_checks' ? stats.sheriffChecks : key === 'don_checks' ? stats.donChecks : null;
+  if (share) return share.percent === null ? null : { value: share.percent, sample: share.total };
+  if (key === 'best_move_black') return stats.bestMove.averageBlack === null ? null : { value: stats.bestMove.averageBlack, sample: stats.bestMove.count };
+  return null;
+};
+
 const visibleStats = (raw: unknown) => {
   const parsed = parseJson(raw) || {};
   return parsed.game_statistics !== false;
@@ -165,6 +197,7 @@ const metricValue = (agg: Agg, key: MetricKey): number | null => {
 const sampleGames = (agg: Agg, key: MetricKey) => key === 'red_win_rate' ? agg.redGames : key === 'black_win_rate' ? agg.blackGames : agg.games;
 
 const valueText = (value: number, unit: MetricDef['unit']) => {
+  if (unit === 'decimal') return value.toFixed(1).replace('.', ',');
   if (unit === 'percent') return `${Math.round(value)}%`;
   if (unit === 'elo') {
     const rounded = Math.round(value);
@@ -234,16 +267,29 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     }
   }
 
+  // Chronology figures are computed only when asked for.
+  const accuracy = new Map<string, { value: number; sample: number }>();
+  if (metric.sample) {
+    const scopedStat = (await loadStatGamesCached(db)).filter((game) => scopedIds.has(game.id));
+    for (const id of aggs.keys()) {
+      const found = accuracyOf(buildPlayerGameStatistics(scopedStat, id), metric.key);
+      if (found) accuracy.set(id, found);
+    }
+  }
+
   const viewerIsPlayer = viewerId !== 'organizer';
   const rows = playerRows.flatMap((player: any) => {
     const id = String(player.id);
     const agg = aggs.get(id);
     if (!agg) return [];
     if (!visibleStats(player.profile_visibility_json) && id !== viewerId) return [];
-    const value = metricValue(agg, metric.key);
+    const found = metric.sample ? accuracy.get(id) : null;
+    const value = metric.sample ? (found ? found.value : null) : metricValue(agg, metric.key);
     if (value === null) return [];
+    if (metric.sample && (found?.sample ?? 0) < metric.sample.minimum) return [];
     if (metric.minGames && sampleGames(agg, metric.key) < metric.minGames) return [];
-    return [{ id, nickname: String(player.nickname || 'Игрок'), value, games: sampleGames(agg, metric.key), agg, avatar: avatarUrl(id, player.has_db_avatar, player.avatar_suppressed) }];
+    const sample = metric.sample ? found!.sample : sampleGames(agg, metric.key);
+    return [{ id, nickname: String(player.nickname || 'Игрок'), value, games: sample, agg, avatar: avatarUrl(id, player.has_db_avatar, player.avatar_suppressed) }];
   });
   rows.sort((a, b) => b.value - a.value
     || winRatePercent(b.agg.wins, b.agg.games) - winRatePercent(a.agg.wins, a.agg.games)
@@ -257,13 +303,14 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   for (let i = 0; i < ranked.length; i++) if (ranked[i].rank === 0) ranked[i].rank = ranked[i - 1].rank;
   const toRow = (row: (typeof ranked)[number]) => ({
     rank: row.rank, player_id: row.id, nickname: row.nickname, avatar_url: row.avatar,
-    value: row.value, value_text: valueText(row.value, metric.unit), games: row.games, is_me: viewerIsPlayer && row.id === viewerId,
+    value: row.value, value_text: valueText(row.value, metric.unit), games: row.games,
+    sample_text: metric.sample ? `${row.games} ${russianPlural(row.games, ...metric.sample.words)}` : null, is_me: viewerIsPlayer && row.id === viewerId,
   });
   const top = ranked.slice(0, TOP_SIZE).map(toRow);
   const mine = viewerIsPlayer ? ranked.find((row) => row.id === viewerId) : undefined;
 
   return {
-    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: metric.minGames ?? null },
+    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: metric.minGames ?? null, min_sample: metric.sample ? { minimum: metric.sample.minimum, word: metric.sample.words[2] } : null },
     metrics: METRICS.map((item) => ({ key: item.key, label: item.label, group: item.group })),
     filters: {
       period: season ? season.key : 'all',

@@ -109,4 +109,31 @@ describe('rankings by one figure of the statistics', () => {
     // Outside that game's season there is no Elo change for these players.
     expect((await get('?metric=elo_gain&period=period:spring')).rows.some((row: any) => row.nickname.startsWith('Игрок e'))).toBe(false);
   });
+
+  it('ranks accuracy figures from the move chronology, behind a minimum sample', async () => {
+    // One game with a chronology: seat 1 (Анна, citizen) nominates the black seat 2 three times and the red seat 3 twice.
+    const date = '2026-09-24T18:00:00.000Z';
+    await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES ('evA','Журнал','${date}','completed','RATING','${date}','${date}')`);
+    const targets = [2, 2, 2, 3, 3];
+    const events = [
+      { seq: 1, at: date, round: 1, phase: 'setup', kind: 'game_start' },
+      ...targets.map((target, i) => ({ seq: i + 2, at: date, round: i + 2, phase: 'day_voting', kind: 'nomination', seat: target, by: 1 })),
+    ];
+    const payload = {
+      kind: 'club_evening_protocol',
+      player_results: [{ role: 'citizen', seat_number: 1, player_id: 'p1', participant_id: 'a1', display_name: 'p1' }, { role: 'mafia', seat_number: 2, player_id: 'p2', participant_id: 'a2', display_name: 'p2' }, { role: 'sheriff', seat_number: 3, player_id: 'p3', participant_id: 'a3', display_name: 'p3' }],
+      protocol: { status: 'completed', winner_team: 'red', completed_at: date, events },
+    };
+    await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES (70,'evA',70,?,'red','Red',?,'[]',?)`, [date, JSON.stringify(payload), date]);
+
+    const nominations = await get('?metric=nominations_accuracy');
+    expect(nominations.metric).toMatchObject({ key: 'nominations_accuracy', unit: 'percent', group: 'Меткость', min_sample: { minimum: 5, word: 'выставлений' } });
+    expect(nominations.rows).toHaveLength(1);
+    expect(nominations.rows[0]).toMatchObject({ nickname: 'Анна', value: 60, value_text: '60%', games: 5, sample_text: '5 выставлений' });
+    // Not enough votes / checks anywhere: an empty ranking instead of a meaningless one.
+    expect((await get('?metric=votes_accuracy')).rows).toEqual([]);
+    expect((await get('?metric=sheriff_checks')).rows).toEqual([]);
+    // The scope still applies: that game is not in the spring season.
+    expect((await get('?metric=nominations_accuracy&period=period:spring')).rows).toEqual([]);
+  });
 });

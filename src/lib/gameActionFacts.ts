@@ -19,8 +19,18 @@ export interface ActionVoting {
 }
 export interface ActionCheck { kind: 'sheriff' | 'don'; target: number; seq: number; alive: Set<number> | null }
 
+type GameActionFacts = ReturnType<typeof computeGameActionFacts>;
+// A game object is never mutated after it is loaded, and a ranking asks for the facts of the same game once per player:
+// keep them per game object so a finished game is analysed once.
+const factsCache = new WeakMap<StatGame, GameActionFacts>();
+export function gameActionFacts(game: StatGame): GameActionFacts {
+  let facts = factsCache.get(game);
+  if (!facts) { facts = computeGameActionFacts(game); factsCache.set(game, facts); }
+  return facts;
+}
+
 /** Conservative evidence: final ballots once per day; zero day and every raise/leave chain are excluded. */
-export function gameActionFacts(game: StatGame) {
+function computeGameActionFacts(game: StatGame) {
   const events = [...game.events].sort((a, b) => a.seq - b.seq);
   const uniqueSeats = new Set(game.seats.map(s => s.seat));
   const full = events[0]?.kind === 'game_start' && ['setup', 'zero_night'].includes(events[0].phase)

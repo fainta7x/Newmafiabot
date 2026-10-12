@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { countGames } from '../../lib/russianPlural';
 
-type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; is_me: boolean };
+type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; is_me: boolean };
 type Rating = {
-  metric: { key: string; label: string; group: string; unit: string; hint: string; min_games: number | null };
+  metric: { key: string; label: string; group: string; unit: string; hint: string; min_games: number | null; min_sample?: { minimum: number; word: string } | null };
   metrics: Array<{ key: string; label: string; group: string }>;
   filters: { period: string; format: string; period_label: string; format_label: string; seasons: Array<{ key: string; label: string }>; formats: Array<{ key: string; label: string }> };
   games_in_scope: number;
@@ -19,7 +19,7 @@ function PlayerLine({ row }: { row: Row }) {
   return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'bg-black/20'}`}>
     <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs font-semibold ${chip(row.rank)}`}>{row.rank}</div>
     {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-xs text-white/45">{row.nickname.slice(0, 1).toUpperCase()}</div>}
-    <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.nickname}{row.is_me ? <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-100/60">вы</span> : null}</div><div className="text-[11px] text-white/35">{countGames(row.games)}</div></div>
+    <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.nickname}{row.is_me ? <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-100/60">вы</span> : null}</div><div className="text-[11px] text-white/35">{row.sample_text || countGames(row.games)}</div></div>
     <div className="shrink-0 text-right text-base font-semibold tabular-nums">{row.value_text}</div>
   </button>;
 }
@@ -67,7 +67,7 @@ export default function PlayerMetricRatings() {
     <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
       {data ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
         <div className="text-sm font-semibold">{data.metric.label}</div>
-        <p className="mt-0.5 text-[11px] leading-4 text-white/40">{data.metric.hint}{data.metric.min_games ? ` · в списке только те, у кого от ${data.metric.min_games} игр` : ''}. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-white/40">{data.metric.hint}{data.metric.min_games ? ` · в списке только те, у кого от ${data.metric.min_games} игр` : ''}{data.metric.min_sample ? ` · в списке только те, у кого от ${data.metric.min_sample.minimum} ${data.metric.min_sample.word}` : ''}. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
       </div> : null}
       {error ? <div role="alert" className="rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4 text-sm text-rose-100/75">{error}</div>
         : !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
@@ -75,7 +75,7 @@ export default function PlayerMetricRatings() {
           {data.rows.map((row) => <PlayerLine key={row.player_id} row={row} />)}
           {data.me ? <><div className="px-2 pt-1 text-center text-[11px] text-white/30">· · ·</div><PlayerLine row={data.me} /></> : null}
         </div>
-        : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">{data.metric.min_games ? `Пока ни у кого нет ${data.metric.min_games} игр в этом выборе.` : 'В этом выборе пока нет игр.'}</div>}
+        : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">{data.metric.min_games ? `Пока ни у кого нет ${data.metric.min_games} игр в этом выборе.` : data.metric.min_sample ? `Пока ни у кого нет ${data.metric.min_sample.minimum} ${data.metric.min_sample.word} в этом выборе.` : 'В этом выборе пока нет игр.'}</div>}
     </section>
   </div></main>;
 }

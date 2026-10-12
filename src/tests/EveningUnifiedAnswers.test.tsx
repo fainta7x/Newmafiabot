@@ -63,6 +63,14 @@ describe('one organizer response and delivery worklist', () => {
     expect(screen.queryByTestId('evening-answer-row-p-going')).toBeNull();
   });
 
+  it('explains who is in the list and why the announcement is not sent yet', async () => {
+    setup();
+    render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+    const explainer = await screen.findByTestId('audience-explainer');
+    expect(explainer.textContent).toContain('не только записавшиеся');
+    expect(explainer.textContent).toContain('у 1: личная рассылка до них ещё не дошла');
+  });
+
   it('saves response edits from inside the one worklist using the existing participant API', async () => {
     const { update } = setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);

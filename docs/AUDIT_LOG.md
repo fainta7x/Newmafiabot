@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-12 · Owner question: why «Анонс ещё не отправлен» and why so many people in the Answers list (FIXED: wording)
+
+Owner report (CRM «Ответы», player «Богданчик», «Нет ответа», «Анонс ещё не отправлен»). Traced: `EveningGameRegistrationDashboard.tsx:deliveryLabel` shows it for an eligible player with no `first_sent_at` and a delivery status other than `failed`. The list is `eveningAnnouncementTrackingService.ts:audience` = every player with a Telegram ID who is `contact_status=normal`, not paused (`do_not_invite_until`), allowed by game level and by evening format (other-city guests only for rating/tournament), plus anyone already tracked or registered — not only people who signed up. The first personal DM goes out only from the bot after the announcement is published/active (`botAnnouncementRoutes.ts:requireOpenEvening`), so before that everybody correctly reads «ещё не отправлен». **The exact reason for one player on the live evening needs production data and was NOT inspected.** Fix (status: fixed, wording only): a one-paragraph explainer under the counters says who is in the list and why the announcement is not sent. Open question for the owner: does the evening's personal mailing actually need to run now?
+
 ## 2026-10-12 · UX pass 2D — ONE organizer answers worklist, and honest Today navigation
 
 **Owner-reported actual symptom:** on «Сегодня → Ответы» the app opens the evening/route instead of its answers. Separate per-player lists existed on mounted `EveningParticipantsView`: `EveningGameRegistrationDashboard` (quick replies / game slots) and `EveningPersonalInvites` (same players, Telegram contact); delivery failures live in the `announcement-overview` response, surfaced elsewhere. Owner asked for *one* understandable player list with all existing information and operations.

@@ -326,6 +326,12 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           <h2 className="text-[16px] font-bold text-text-primary">Ответы игроков</h2>
           <p className="mt-1 text-[12px] leading-5 text-text-secondary">Ответ, доставка анонса, личный контакт и игры — в одном списке.</p>
           <p className="mt-1 text-[11px] text-text-muted">В рассылке: {audienceCount} · доставлено: {sentCount} · ошибок доставки: {failedCount}</p>
+          {!loading && !deliveryWarning ? <p data-testid="audience-explainer" className="mt-1 text-[11px] leading-4 text-text-muted">
+            В списке все игроки клуба с привязанным Telegram, не на паузе и подходящие по уровню и формату этого вечера — не только записавшиеся.
+            {notSentCount > 0 ? (sentCount === 0 && failedCount === 0
+              ? ' «Анонс ещё не отправлен» у всех: бот пишет игрокам лично после публикации анонса, по этому вечеру рассылка ещё не запускалась.'
+              : ` «Анонс ещё не отправлен» у ${notSentCount}: личная рассылка до них ещё не дошла.`) : ''}
+          </p> : null}
         </div>
         <button type="button" disabled={loading} onClick={() => void load()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

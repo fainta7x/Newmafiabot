@@ -1,6 +1,6 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, MessageCircle, RefreshCw, Search } from 'lucide-react';
+import { MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
@@ -352,9 +352,6 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           const editing = editingPlayerId === row.playerId;
           const responseOpen = editingResponseId === row.playerId;
           const chatUrl = chatUrlFor(row);
-          const slotText = row.slots.length
-            ? row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')
-            : STATE_LABELS[row.state];
           return <div key={row.playerId} data-testid={`evening-answer-row-${row.playerId}`} className="rounded-[13px] bg-surface-2 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">

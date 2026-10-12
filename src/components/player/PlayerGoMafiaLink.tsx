@@ -6,7 +6,7 @@ type Linked = {
   status: 'pending' | 'verified';
   updated_at: string;
 };
-export default function PlayerGoMafiaLink({ playerId, isSelf }: { playerId: string; isSelf: boolean }) {
+export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false }: { playerId: string; isSelf: boolean; organizer?: boolean }) {
   const [link, setLink] = useState<Linked | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,7 +24,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf }: { playerId: stri
     setBusy(true);
     setMessage('');
     try {
-      const response = await fetch('/api/player/gomafia/me', {
+      const response = await fetch(organizer ? `/api/player/gomafia/organizer/${encodeURIComponent(playerId)}` : '/api/player/gomafia/me', {
         method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile: input.trim() }),
       });
@@ -32,7 +32,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf }: { playerId: stri
       if (!response.ok) throw new Error(body.error || 'Не удалось привязать GoMafia');
       setLink(body.link);
       setInput('');
-      setMessage('Ссылка сохранена. Организатор сможет подтвердить привязку.');
+      setMessage(organizer ? 'Привязка подтверждена организатором.' : 'Ссылка сохранена. Организатор сможет подтвердить привязку.');
     } catch (error: any) {
       setMessage(String(error?.message || 'Ошибка сохранения'));
     } finally {
@@ -47,8 +47,8 @@ export default function PlayerGoMafiaLink({ playerId, isSelf }: { playerId: stri
           : 'Профиль пока не привязан'}</p></div>
       {link && <a className="text-xs text-amber-200 underline" href={link.profile_url} target="_blank" rel="noopener noreferrer">Открыть ↗</a>}
     </div>
-    {isSelf && <div className="mt-3 space-y-2">
-      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">Ссылка на свой профиль GoMafia или его ID</label>
+    {(isSelf || organizer) && <div className="mt-3 space-y-2">
+      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'Ссылка GoMafia этого игрока или ID' : 'Ссылка на свой профиль GoMafia или его ID'}</label>
       <input id="gomafia-player-url" value={input} onChange={e => setInput(e.target.value)}
         placeholder="https://gomafia.pro/stats/123"
         className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[.07] px-3 text-sm text-white" />

@@ -7,7 +7,8 @@ function fakeDb(rows: Array<{ external_player_id: string; profile_url: string }>
   const run = vi.fn(async (_sql: string, _params: unknown[]) => ({ changes: 1, lastID: null }));
   const exec = vi.fn(async (_sql: string) => {});
   const all = vi.fn(async (_sql: string, _params: unknown[]) => rows);
-  return { db: { run, exec, all } as unknown as DatabaseWrapper, run, exec, all };
+  const get = vi.fn(async () => null);
+  return { db: { run, exec, all, get } as unknown as DatabaseWrapper, run, exec, all };
 }
 
 describe('bounded federation background synchronization', () => {
@@ -23,7 +24,7 @@ describe('bounded federation background synchronization', () => {
     expect(result).toEqual({ attempted: 1, updated: 1, failed: 0 });
     expect(fetchSnapshot).toHaveBeenCalledTimes(1);
     expect(all.mock.calls[0][1][1]).toBe('verified');
-    expect(all.mock.calls[0][1][0]).toBe('default-period');
+    expect(all.mock.calls[0][1][0]).toBe('career-v1');
     expect(run.mock.calls.map(args => args[0])).toEqual([
       expect.stringContaining('gomafia_refresh_attempts'),
       expect.stringContaining('gomafia_player_snapshots'),

@@ -38,7 +38,7 @@ from handlers.crm_telegram_publishing import (
 )
 from handlers.crm_tournament_publishing import sync_tournament_telegram
 from organizer_notifications import organizer_notification_task
-from github_pr_notifications import github_pr_notification_task
+from github_pr_notifications import github_pr_notification_task, router as github_pr_router
 from runtime_alerts import runtime_alert_task
 
 
@@ -228,6 +228,7 @@ def setup_handlers():
         admin_crm.router,
         admin_judges.router,
         telegram_admin_tools.router,
+        github_pr_router,
         admin.router,
         registration.router,
         bot_home.router,

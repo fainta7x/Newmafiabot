@@ -59,6 +59,10 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     setTab(requested);
   },[initialTab]);
   const [summary,setSummary]=useState<any>(null);
+  // One scope for the overview statistics: a rating season or all time, and an evening format (owner, 2026-10-12).
+  const [statPeriod,setStatPeriod]=useState('all');
+  const [statFormat,setStatFormat]=useState('all');
+  const statRequest=useRef(0);
   const [birthday,setBirthday]=useState<any>(null);
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
@@ -82,6 +86,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     const generation=++playerRequestGeneration.current;
     const controller=new AbortController();
     setSummary(null);
+    setStatPeriod('all');
+    setStatFormat('all');
     setBirthday(null);
     setData(null);
     setError('');
@@ -108,6 +114,23 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     });
     return ()=>controller.abort();
   },[playerId]);
+  useEffect(()=>{
+    const current=summary?.filters;
+    if(!current||(current.period===statPeriod&&current.format===statFormat)) return;
+    const generation=++statRequest.current;
+    const query=new URLSearchParams();
+    if(statPeriod!=='all') query.set('period',statPeriod);
+    if(statFormat!=='all') query.set('format',statFormat);
+    json(`/api/player/profiles/${encodeURIComponent(playerId)}/summary${query.toString()?`?${query}`:''}`).then((next)=>{
+      if(generation!==statRequest.current) return;
+      // Only the numbers that depend on the scope are replaced; the rest of the page stays put.
+      setSummary((previous:any)=>previous?{...previous,stats:next.stats,season:next.season,game_stats:next.game_stats,night_shots:next.night_shots,filters:next.filters,recent_games:next.recent_games}:previous);
+    }).catch(()=>{
+      if(generation!==statRequest.current) return;
+      setStatPeriod(current.period);
+      setStatFormat(current.format);
+    });
+  },[statPeriod,statFormat,summary?.filters?.period,summary?.filters?.format,playerId]);
 
   useEffect(()=>{
     if(period!=='season') return;
@@ -205,9 +228,16 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
            <ChevronRight className="h-4 w-4 shrink-0 text-white/50"/>
          </button>}
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
-        :<section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Победы',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['В сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] text-white/50">{l}</div></div>)}</section>}
-        {/* The four numbers above answer «how am I doing»; the rest is one tap away (owner, 2026-10-06: less scrolling). */}
-        {!statsHidden&&<details data-testid="profile-more-stats" className="group rounded-2xl border border-white/10 bg-white/[.02]"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold">Подробная статистика<span className="text-white/35 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 px-3 pb-3"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats}/></div></details>}
+        :<>
+          {summary?.filters&&(summary.filters.seasons.length>0||summary.filters.formats.length>1||statPeriod!=='all'||statFormat!=='all')?<section data-testid="profile-stats-scope" aria-label="Что считать в статистике" className="grid grid-cols-2 gap-2">
+            <label className="text-[11px] text-white/45">Период<select aria-label="Период статистики" value={statPeriod} onChange={e=>setStatPeriod(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{summary.filters.seasons.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+            <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера" value={statFormat} onChange={e=>setStatFormat(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{summary.filters.formats.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+          </section>:null}
+          <section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Винрейт',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['Место в сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] leading-3 text-white/50">{l}</div></div>)}</section>
+          {summary?.filters?<p data-testid="profile-stats-scope-note" className="-mt-2 text-[11px] leading-4 text-white/40">Считаем: {summary.filters.period_label} · {summary.filters.format_label} · клубные и турнирные игры, {stats.wins??0} побед из {stats.games??0}. Elo — текущий рейтинг, он не зависит от выбора. Место в сезоне — по числу побед в текущем сезоне.</p>:null}
+        </>}
+        {/* The four numbers above answer «how am I doing»; the detailed block below is open by default (owner, 2026-10-12, reversing the 2026-10-06 «less scrolling» collapse) and can still be folded. */}
+        {!statsHidden&&<details open data-testid="profile-more-stats" className="group rounded-2xl border border-white/10 bg-white/[.02]"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold">Подробная статистика<span className="text-white/35 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 px-3 pb-3"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats} nightShots={summary?.night_shots}/></div></details>}
         <PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="pinned"/>
         <StaffWorkStats stats={summary?.staff} testId="profile-staff-stats" />
         {(summary?.recent_games||[]).length>0&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">Последние игры</h2><div className="mt-3 space-y-2">{summary.recent_games.slice(0,3).map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const Row:any=link?'a':'div';return <Row key={g.id||g.game_id} {...(link||{})} className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="min-w-0">{[g.title||'Игра',roleLabel(g.role),g.won===true?'победа':g.won===false?'поражение':null].filter(Boolean).join(' · ')}</span><span className="shrink-0 text-white/50">{fmt(g.played_at||g.date)}{link?' ›':''}</span></Row>})}</div></section>}

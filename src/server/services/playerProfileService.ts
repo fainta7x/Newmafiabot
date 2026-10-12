@@ -1,5 +1,6 @@
 import { loadPlayerTournamentAwards } from './tournamentAwardsService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
+import { normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
 
 export type PlayerGameSource = 'club' | 'tournament';
 export type PlayerGameTeam = 'red' | 'black' | null;
@@ -9,6 +10,8 @@ export interface PlayerGameHistoryItem {
   source: PlayerGameSource;
   evening_id: string | null;
   tournament_id: string | null;
+  /** Format of the evening the game was played on; every tournament game is «TOURNAMENT». */
+  evening_format: EveningFormat;
   title: string;
   date: string | null;
   game_number: number;
@@ -131,7 +134,7 @@ export const buildPlayerProfileStats = (games: PlayerGameHistoryItem[]): PlayerG
 export const loadPlayerGameProfile = async (db: any, playerId: string) => {
   const clubRows = await db.all(`
     SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.judge_name, g.protocol_text,
-           g.evening_id, e.title AS evening_title, e.starts_at AS evening_date,
+           g.evening_id, e.title AS evening_title, e.starts_at AS evening_date, e.format AS evening_format,
            et.name AS table_name
       FROM games g
  LEFT JOIN game_evenings e ON e.id = g.evening_id
@@ -163,6 +166,7 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
       source: 'club',
       evening_id: row.evening_id ? String(row.evening_id) : null,
       tournament_id: null,
+      evening_format: normalizeEveningFormat(row.evening_format),
       title: row.evening_title || 'Клубный вечер',
       date: row.evening_date || row.game_date || null,
       game_number: numberOrZero(row.global_game_number),
@@ -227,6 +231,7 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
       source: 'tournament' as const,
       evening_id: null,
       tournament_id: String(row.tournament_id),
+      evening_format: 'TOURNAMENT' as const,
       title: row.tournament_title || 'Турнир',
       date: row.completed_at || row.tournament_date || null,
       game_number: numberOrZero(row.game_number),

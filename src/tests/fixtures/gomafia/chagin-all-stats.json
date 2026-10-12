@@ -1,0 +1,108 @@
+{
+  "stats": {
+    "primary": {
+      "mafia": 31,
+      "red": 98,
+      "don": 16,
+      "sheriff": 19,
+      "total_games": 164
+    },
+    "win_rate": {
+      "mafia": {
+        "win": {
+          "value": 17,
+          "percent": 55
+        },
+        "total": {
+          "value": 31
+        }
+      },
+      "red": {
+        "win": {
+          "value": 48,
+          "percent": 49
+        },
+        "total": {
+          "value": 98
+        }
+      },
+      "don": {
+        "win": {
+          "value": 11,
+          "percent": 69
+        },
+        "total": {
+          "value": 16
+        }
+      },
+      "sheriff": {
+        "win": {
+          "value": 7,
+          "percent": 37
+        },
+        "total": {
+          "value": 19
+        }
+      },
+      "total_games": 164,
+      "total_wins": {
+        "value": 83,
+        "percent": 51
+      }
+    },
+    "win_strike": {
+      "mafia": {
+        "max": 3
+      },
+      "red": {
+        "max": 6
+      },
+      "don": {
+        "max": 7
+      },
+      "sheriff": {
+        "max": 2
+      }
+    },
+    "games_stats": {
+      "average_points": 0.63,
+      "prize_places": 0
+    },
+    "advanced_points": {
+      "red": {
+        "points": 6.9,
+        "per_game": 0.07
+      },
+      "black": {
+        "points": 4.4,
+        "per_game": 0.14
+      },
+      "sheriff": {
+        "points": 2.4,
+        "per_game": 0.13
+      },
+      "don": {
+        "points": 2.6,
+        "per_game": 0.16
+      },
+      "points_10_games": 0.99
+    },
+    "other": {
+      "first_kills": 11,
+      "self_kills": 0,
+      "sheriff_open": {
+        "total": 21,
+        "total_win": 8,
+        "sheriff_win": 7,
+        "sheriff_loose": 12,
+        "black_win": 1,
+        "black_loose": 1
+      }
+    }
+  },
+  "average_elo": 770.6,
+  "user": {
+    "id": "1202",
+    "elo": "1685.02"
+  }
+}

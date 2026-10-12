@@ -11,6 +11,7 @@ export interface GoMafiaPlayerReference {
 }
 
 export interface GoMafiaPublicSnapshot {
+  career?: import('./gomafiaCareer.ts').GoMafiaCareer;
   source: 'gomafia';
   externalPlayerId: string;
   profileUrl: string;
@@ -104,7 +105,7 @@ export function createGoMafiaPublicSnapshot(
     totalGames: count(values.totalGames),
     overallElo: metric(values.overallElo),
     tableElo: metric(values.tableElo),
-    averageScore: metric(values.averageScore),
+    averageScore: typeof values.averageScore === 'number' && Number.isFinite(values.averageScore) ? values.averageScore : null,
     overallWinRatePercent: percent(values.overallWinRatePercent),
     roleGames: {
       citizen: count(values.roleGames?.citizen),

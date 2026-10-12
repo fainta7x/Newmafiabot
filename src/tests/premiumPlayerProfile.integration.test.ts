@@ -70,4 +70,45 @@ describe('premium player profile API', () => {
     expect(elo.body.current_elo).toBe(1100);
     expect(elo.body.legacy_missing_snapshots).toBe(true);
   });
+
+  it('counts the statistics block over one chosen season and evening format', async () => {
+    const period = (id: string, title: string, from: string, to: string) => db.run(
+      `INSERT INTO rating_periods (id,title,type,starts_at,ends_at,status,auto_include,created_at,updated_at) VALUES (?,?,'RATING',?,?,'completed',1,?,?)`,
+      [id, title, from, to, from, from]);
+    await period('spring', 'Весна 2026', '2026-03-01T00:00:00.000Z', '2026-05-31T23:59:59.000Z');
+    await period('autumn', 'Осень 2026', '2026-09-01T00:00:00.000Z', '2026-11-30T23:59:59.000Z');
+    const addGame = async (n: number, format: string, date: string, role: string) => {
+      await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES (?,?,?,'completed',?,?,?)`, [`ev${n}`, `Вечер ${n}`, date, format, date, date]);
+      const payload = { kind: 'club_evening_protocol', player_results: [{ role, seat_number: 1, player_id: 'p1', participant_id: `s${n}` }],
+        protocol: { status: 'completed', winner_team: 'red', completed_at: date, events: [] } };
+      await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES (?,?,?,?,'red','Red',?,'[]',?)`,
+        [n, `ev${n}`, n, date, JSON.stringify(payload), date]);
+    };
+    await addGame(1, 'RATING', '2026-09-10T18:00:00.000Z', 'citizen'); // autumn, win
+    await addGame(2, 'CASUAL', '2026-09-17T18:00:00.000Z', 'mafia');   // autumn, loss
+    await addGame(3, 'RATING', '2026-05-12T18:00:00.000Z', 'citizen'); // spring, win
+    const get = async (query = '') => (await request(app).get(`/api/player/profiles/p1/summary${query}`).set('Cookie', p1Cookie)).body;
+
+    const all = await get();
+    expect(all.stats).toMatchObject({ games: 3, wins: 2 });
+    expect(all.filters).toMatchObject({ period: 'all', format: 'all', period_label: 'Всё время', format_label: 'Все форматы' });
+    expect(all.filters.seasons.map((item: any) => [item.label, item.games])).toEqual([['Осень 2026', 2], ['Весна 2026', 1]]);
+    expect(all.filters.formats.map((item: any) => [item.key, item.games])).toEqual([['CASUAL', 1], ['RATING', 2]]);
+
+    const autumn = await get('?period=period:autumn');
+    expect(autumn.stats).toMatchObject({ games: 2, wins: 1, current_streak: 0, best_streak: 1 });
+    expect(autumn.filters.period_label).toBe('Осень 2026');
+    expect(autumn.filters.formats.map((item: any) => [item.key, item.games])).toEqual([['CASUAL', 1], ['RATING', 1]]);
+
+    const rating = await get('?format=RATING');
+    expect(rating.stats).toMatchObject({ games: 2, wins: 2 });
+    expect(rating.filters.format_label).toBe('Рейтинговый');
+
+    const both = await get('?period=period:autumn&format=CASUAL');
+    expect(both.stats).toMatchObject({ games: 1, wins: 0, red: { games: 0 }, black: { games: 1 } });
+    expect(both.recent_games).toHaveLength(1);
+
+    // Unknown values fall back to the whole history instead of failing.
+    expect((await get('?period=nope&format=nope')).stats.games).toBe(3);
+  });
 });

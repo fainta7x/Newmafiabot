@@ -74,6 +74,40 @@ const withClubOrder = (handler: (input: RequestInfo | URL, init?: RequestInit) =
       : handler(input, init)));
 
 describe('OrganizerCommandCenter action destinations', () => {
+  it('uses the mounted CRM section callback from Today instead of a URL-only popstate shim', async () => {
+    const body = responseBody({ currentDue: 0 });
+    (body.snapshot.attention.communication as Array<any>).push({
+      player_id: 'unanswered-1', nickname: 'Нет ответа', status: 'unanswered',
+      reminder_count: 0, last_error: null,
+    });
+    const onOpenEveningSection = vi.fn();
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(body)));
+    render(<CRMOverview
+      overview={null}
+      onOpenEvening={vi.fn()}
+      onOpenEveningSection={onOpenEveningSection}
+      onOpenPlayer={vi.fn()}
+      onNavigateTab={vi.fn()}
+      onCreateEvening={vi.fn()}
+    />);
+    fireEvent.click(await screen.findByRole('button', { name: /Нет ответа.*приглашённых/ }));
+    expect(onOpenEveningSection).toHaveBeenCalledWith('current', 'participants');
+    expect(onOpenEveningSection).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes delivery problems to the same Answers worklist rather than the route overview', async () => {
+    const body = responseBody({ currentDue: 0 });
+    (body.snapshot.attention.communication as Array<any>).push({
+      player_id: 'failed-1', nickname: 'Игрок', status: 'failed',
+      reminder_count: 0, last_error: 'blocked',
+    });
+    const openSection = vi.fn();
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(body)));
+    render(<OrganizerCommandCenter {...props} onOpenEveningSection={openSection} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Игрок: Ошибка доставки/ }));
+    expect(openSection).toHaveBeenCalledWith('current', 'participants');
+  });
+
   it('opens the actual evening «Ответы» screen for invited players who have not replied', async () => {
     const body = responseBody({ currentDue: 0 });
     (body.snapshot.attention.communication as Array<any>).push({

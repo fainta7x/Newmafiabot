@@ -204,4 +204,38 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByText('За красных')).toBeDefined();
     expect(screen.getByText(/По 21 игре с журналом ходов/)).toBeDefined();
   });
+
+  it('recounts the key numbers for the chosen season and format and says what is counted', async () => {
+    const filters = (period: string, format: string, periodLabel: string, formatLabel: string) => ({
+      period, format, period_label: periodLabel, format_label: formatLabel,
+      seasons: [{ key: 'period:autumn', label: 'Осень 2026', games: 5 }],
+      formats: [{ key: 'RATING', label: 'Рейтинговый', games: 4 }, { key: 'CASUAL', label: 'Клубный', games: 8 }],
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/birthday')) return response({});
+      if (url.includes('/summary')) {
+        const scoped = url.includes('period=period%3Aautumn') && url.includes('format=RATING');
+        return response({
+          ...summary('self', 'Игрок'),
+          stats: scoped ? { games: 3, wins: 2, win_rate: 67 } : { games: 12, wins: 7, win_rate: 58 },
+          filters: scoped ? filters('period:autumn', 'RATING', 'Осень 2026', 'Рейтинговый') : filters('all', 'all', 'Всё время', 'Все форматы'),
+        });
+      }
+      return response({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" />);
+    await screen.findByText('Игрок');
+    expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('Всё время · Все форматы');
+    expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('7 побед из 12');
+
+    fireEvent.change(screen.getByLabelText('Период статистики'), { target: { value: 'period:autumn' } });
+    fireEvent.change(screen.getByLabelText('Формат вечера'), { target: { value: 'RATING' } });
+    await waitFor(() => expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('Осень 2026 · Рейтинговый'));
+    expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('2 побед из 3');
+    expect(screen.getByTestId('profile-key-stats').textContent).toContain('67%');
+    expect(screen.getByTestId('profile-key-stats').textContent).toContain('Место в сезоне');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('period=period%3Aautumn&format=RATING'))).toBe(true);
+  });
 });

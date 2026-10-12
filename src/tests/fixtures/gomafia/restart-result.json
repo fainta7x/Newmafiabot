@@ -1,0 +1,15 @@
+{
+  "tournament": {
+    "id": "1846",
+    "status": "completed",
+    "is_hidden_result": "0"
+  },
+  "tournamentResultWithFinal": [],
+  "tournamentResultWithoutFinal": [
+    {
+      "user_id": "1202",
+      "place": "31",
+      "sum": "7.10"
+    }
+  ]
+}

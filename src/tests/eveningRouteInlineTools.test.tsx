@@ -49,11 +49,10 @@ describe('evening route inline controls', () => {
     expect(screen.getByTestId('route-inline-announcement')).not.toBeNull();
   });
 
-  it('keeps personal contacts collapsed under Answers, not as a duplicate default list', () => {
+  it('shows one unified worklist under Answers, without a separate personal-contacts list', () => {
     render(<EveningParticipantsView eveningId="ev" onBack={vi.fn()} />);
     expect(screen.getByTestId('evening-main-answers')).not.toBeNull();
     expect(screen.queryByTestId('evening-personal-contacts')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Написать игрокам лично/ }));
-    expect(screen.getByTestId('evening-personal-contacts')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Написать игрокам лично/ })).toBeNull();
   });
 });

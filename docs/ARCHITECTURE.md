@@ -379,3 +379,6 @@ For a normal task:
 6. this architecture map when ownership/topology is unclear.
 
 Old open PRs and old roadmaps are not architecture truth. Compare them with current code before using them as work instructions.
+
+### GoMafia external sports career
+`goMafiaCareerSource.ts` owns the unauthenticated, bounded public source adapter; `gomafiaCareer.ts` owns shared payload types. `goMafiaFederationSync.ts` is the sole background/on-demand refresh writer to the existing federation snapshot table (`career-v1`). `goMafiaRoutes.ts` reads verified source data with profile visibility controls; `PlayerGoMafiaLink.tsx` renders yearly summaries and the separate sports chronology. No federation result writes club game/rating/financial tables. See `GOMAFIA_PUBLIC_SOURCE.md` for source evidence and limitations.

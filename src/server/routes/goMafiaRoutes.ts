@@ -2,10 +2,9 @@ import { Router } from 'express';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
-import { fetchPublicGoMafiaStats } from '../services/goMafiaPublicStatsService.ts';
-import { normalizeFederationGame } from '../../lib/gomafiaExternalGames.ts';
-import { loadPublicGoMafiaTournament } from '../services/goMafiaTournamentService.ts';
-import { normalizeStoredTournamentAppearance } from '../../lib/goMafiaTournaments.ts';
+import { queueGoMafiaProfileRefresh, isGoMafiaProfileRefreshing } from '../services/goMafiaFederationSync.ts';
+
+import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 
 const router = Router();
 
@@ -48,7 +47,9 @@ const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player
     actor === 'organizer' || existing?.status === 'verified' ? 'verified' : 'pending', actor, now,
     actor === 'organizer' || existing?.status === 'verified' ? (existing?.verified_at || now) : null, now,
   ]);
-  return { value: await load(db, playerId), status: 200 };
+  const value = await load(db, playerId);
+  if (value?.status === 'verified') queueGoMafiaProfileRefresh(db, value.external_player_id);
+  return { value, status: 200 };
 };
 
 // Public profile link metadata requires an authenticated player/organizer session,
@@ -61,47 +62,6 @@ router.get('/gomafia/players/:playerId', async (req, res) => {
   } catch { return res.status(500).json({ error: 'Не удалось загрузить привязку GoMafia' }); }
 });
 
-// Organizer previews public standings; no database changes and no nickname autolinking.
-router.post('/gomafia/organizer/tournaments/preview', requireOrganizerAuth, async (req, res) => {
-  try {
-    const tournament = await loadPublicGoMafiaTournament(req.body?.url);
-    return res.json(tournament);
-  } catch (error: any) {
-    return res.status(422).json({ error: String(error?.message || 'Не удалось прочитать турнир') });
-  }
-});
-
-// Explicitly confirmed association of a published standings row to this one player.
-// A tournament placement is not an individual game and does not modify club rankings.
-router.post('/gomafia/organizer/:playerId/tournaments', requireOrganizerAuth, async (req, res) => {
-  const playerId = String(req.params.playerId);
-  try {
-    if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
-    const link = await load(req.db, playerId);
-    if (!link || link.status !== 'verified') return res.status(409).json({ error: 'Сначала подтверди профиль GoMafia игрока' });
-    const { url, place, nickname } = req.body || {};
-    if (!Number.isInteger(place) || typeof nickname !== 'string' || !nickname.trim())
-      return res.status(400).json({ error: 'Выбери точную строку из опубликованной таблицы турнира' });
-    const tournament = await loadPublicGoMafiaTournament(url);
-    const matching = tournament.standings.filter(x => x.place === place && x.nickname === nickname);
-    if (matching.length !== 1) return res.status(409).json({ error: 'Строка отсутствует в актуальных результатах турнира' });
-    const entry = matching[0];
-    await req.db.run(`INSERT INTO gomafia_tournament_appearances
-      (player_id, tournament_id, tournament_name, date_range, place, total_score, external_nickname, source_url, confirmed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(player_id, tournament_id) DO UPDATE SET
-      tournament_name=excluded.tournament_name, date_range=excluded.date_range,
-      place=excluded.place, total_score=excluded.total_score,
-      external_nickname=excluded.external_nickname, source_url=excluded.source_url,
-      confirmed_at=excluded.confirmed_at`,
-      [playerId, tournament.tournamentId, tournament.tournamentName, tournament.dateRange,
-        entry.place, entry.totalScore, entry.nickname, tournament.sourceUrl, new Date().toISOString()]);
-    return res.json({ ok: true, tournamentId: tournament.tournamentId });
-  } catch (error: any) {
-    return res.status(422).json({ error: String(error?.message || 'Не удалось привязать турнир') });
-  }
-});
-
 // Read-only, cached external career: never alters club games, Elo or awards.
 router.get('/gomafia/players/:playerId/career', async (req, res) => {
   const viewerId = getPlayerSessionId(req);
@@ -109,66 +69,31 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
   try {
     const playerId = String(req.params.playerId);
     if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
+    await ensurePlayerProfileVisibilitySchema(req.db);
+    const visibility = await req.db.get<{ profile_visibility_json: string }>('SELECT profile_visibility_json FROM players WHERE id=?', [playerId]);
+    if (viewerId !== playerId && (req as AuthenticatedRequest).userRole !== 'ORGANIZER' && !parsePlayerProfileVisibility(visibility?.profile_visibility_json).game_statistics)
+      return res.status(403).json({ error: 'Игровая статистика скрыта игроком' });
     const link = await load(req.db, playerId);
     if (!link) return res.json({ status: 'unlinked', snapshot: null });
     if (link.status !== 'verified' && viewerId !== playerId && (req as AuthenticatedRequest).userRole !== 'ORGANIZER')
       return res.json({ status: 'pending', snapshot: null });
-    const cached = await req.db.get<{ snapshot_json: string; retrieved_at: string }>(
+    const cached = link.status === 'verified' ? await req.db.get<{ snapshot_json: string; retrieved_at: string }>(
       'SELECT snapshot_json, retrieved_at FROM gomafia_player_snapshots WHERE external_player_id=? AND scope=?',
-      [link.external_player_id, 'default-period'],
-    );
-    let snapshot = cached ? JSON.parse(cached.snapshot_json) : null;
-    let lastError: string | null = null;
-    const age = cached ? Date.now() - Date.parse(cached.retrieved_at) : Number.POSITIVE_INFINITY;
-    // Cache for 24 hours. Back off failed/simultaneous page requests for six hours.
-    const previousAttempt = await req.db.get<{ last_attempt_at: string }>(
-      'SELECT last_attempt_at FROM gomafia_refresh_attempts WHERE external_player_id=?',
-      [link.external_player_id],
-    );
-    const retryAllowed = !previousAttempt ||
-      Date.now() - Date.parse(previousAttempt.last_attempt_at) >= 6 * 60 * 60 * 1000;
-    if (link.status === 'verified' && retryAllowed && (!snapshot || age > 24 * 60 * 60 * 1000)) {
-      await req.db.run(
-        'INSERT INTO gomafia_refresh_attempts (external_player_id, last_attempt_at, last_error) ' +
-        'VALUES (?, ?, NULL) ON CONFLICT(external_player_id) DO UPDATE SET ' +
-        'last_attempt_at=excluded.last_attempt_at, last_error=NULL',
-        [link.external_player_id, new Date().toISOString()],
-      );
-      try {
-        const ref = parseGoMafiaPlayerReference(link.profile_url);
-        if (!ref) throw new Error('Некорректная ссылка GoMafia');
-        snapshot = await fetchPublicGoMafiaStats(ref);
-        await req.db.run(`INSERT INTO gomafia_player_snapshots
-          (external_player_id, scope, snapshot_json, retrieved_at, source_url) VALUES (?, 'default-period', ?, ?, ?)
-          ON CONFLICT(external_player_id, scope) DO UPDATE SET
-          snapshot_json=excluded.snapshot_json, retrieved_at=excluded.retrieved_at, source_url=excluded.source_url`,
-          [link.external_player_id, JSON.stringify(snapshot), snapshot.retrievedAt, link.profile_url]);
-      } catch {
-        lastError = 'Сейчас не удалось обновить GoMafia. Показываем последние доступные данные.';
-        await req.db.run(
-          'UPDATE gomafia_refresh_attempts SET last_error=? WHERE external_player_id=?',
-          ['Не удалось обновить публичную статистику', link.external_player_id],
-        );
-      }
-    } else if (!snapshot && link.status === 'verified' && !retryAllowed) {
-      lastError = 'GoMafia временно недоступна. Повторим попытку автоматически позже.';
-    }
-    // Only attributed federation records from a verified import/authorized export.
-    // Existing club games are NEVER queried, merged or rewritten here.
-    const sourceRows = link.status === 'verified'
-      ? await req.db.all(`SELECT external_game_id, external_player_id, game_payload_json, source_url
-          FROM gomafia_external_games WHERE external_player_id=?
-          ORDER BY played_at DESC, external_game_id DESC LIMIT 100`, [link.external_player_id])
-      : [];
-    const games = sourceRows.map(normalizeFederationGame).filter(Boolean);
-    const appearanceRows = link.status === 'verified'
-      ? await req.db.all(`SELECT * FROM gomafia_tournament_appearances
-          WHERE player_id=? ORDER BY confirmed_at DESC LIMIT 100`, [playerId]) : [];
-    const tournaments = appearanceRows.map(normalizeStoredTournamentAppearance).filter(Boolean);
-    return res.json({ status: link.status, snapshot, error: lastError,
-      source: 'gomafia', profile_url: link.profile_url, external_games: games,
-      tournaments,
-      history_status: games.length ? 'available' : 'not_imported' });
+      [link.external_player_id, 'career-v1'],
+    ) : null;
+    const snapshot = cached ? JSON.parse(cached.snapshot_json) : null;
+    if (link.status === 'verified') queueGoMafiaProfileRefresh(req.db, link.external_player_id);
+    const attempt = await req.db.get<{ last_error: string | null }>(
+      'SELECT last_error FROM gomafia_refresh_attempts WHERE external_player_id=?', [link.external_player_id]);
+    const career = snapshot?.career;
+    return res.json({ status: link.status, snapshot,
+      error: attempt?.last_error ? 'Не удалось обновить GoMafia. Повторим автоматически; сохранённые данные доступны.' : null,
+      syncing: isGoMafiaProfileRefreshing(req.db, link.external_player_id),
+      source: 'gomafia', profile_url: link.profile_url,
+      external_games: career?.tournaments?.flatMap((t: any) => t.games) ?? [],
+      tournaments: career?.tournaments ?? [], yearly_stats: career?.yearlyStats ?? [],
+      limitations: career?.limitations ?? [], registrations_status: career?.registrationsStatus ?? 'unavailable',
+      history_status: career ? 'available' : 'not_imported' });
   } catch {
     return res.status(500).json({ error: 'Не удалось загрузить спортивную карьеру' });
   }

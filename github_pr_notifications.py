@@ -205,3 +205,30 @@ async def overview():
             lines.append("🟢 " + _link(int(item["number"])) + " " + _short(item.get("title"), 48) + " · " + author(item))
     lines.append("\n<i>🟡 в работе · 🔵 ждёт слияния · 🔴 тесты упали. Слияние ≠ деплой.</i>")
     return "\n".join(lines)[:3800]
+
+
+@router.message(Command("prs"))
+async def prs_command(message: Message):
+    allowed = set(config.ADMIN_IDS) | set(config.ORGANIZER_NOTIFICATION_IDS)
+    if not message.from_user or message.from_user.id not in allowed:
+        return
+    try:
+        text = await overview()
+    except Exception:
+        logger.exception("PR overview unavailable")
+        await message.answer("Не удалось получить список PR с GitHub. Попробуйте через минуту.")
+        return
+    await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
+
+
+async def github_pr_notification_task(bot):
+    recipients = list(dict.fromkeys(config.ORGANIZER_NOTIFICATION_IDS))
+    if not recipients:
+        logger.info("PR monitor disabled: no organizer notification recipients configured")
+        return
+    while True:
+        try:
+            await tick(bot, recipients)
+        except Exception:
+            logger.exception("PR monitor unavailable; retrying")
+        await asyncio.sleep(POLL_SECONDS)

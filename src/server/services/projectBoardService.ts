@@ -3,7 +3,7 @@ import path from 'node:path';
 import { parseProjectState, type BoardCard } from '../../lib/projectBoard.ts';
 
 const REPO = 'fainta7x/Newmafiabot';
-const STATE_FILE = path.resolve(process.cwd(), 'docs', 'PROJECT_STATE.md');
+const STATE_FILE = path.resolve(process.cwd(), 'docs', 'PROJECT_BOARD_RU.md');
 const CHECKS = ['Release gate', 'Secret scan', 'Analyze (javascript-typescript)', 'Analyze (python)'];
 const CACHE_MS = 60_000;
 
@@ -13,7 +13,7 @@ let boardCache: { mtime: number; cards: BoardCard[] } | null = null;
 export async function loadProjectBoard() {
   const info = await stat(STATE_FILE);
   if (!boardCache || boardCache.mtime !== info.mtimeMs) boardCache = { mtime: info.mtimeMs, cards: parseProjectState(await readFile(STATE_FILE, 'utf8')) };
-  return { cards: boardCache.cards, updated_at: new Date(info.mtimeMs).toISOString(), source: 'docs/PROJECT_STATE.md' };
+  return { cards: boardCache.cards, updated_at: new Date(info.mtimeMs).toISOString(), source: 'docs/PROJECT_BOARD_RU.md' };
 }
 
 export type PrColour = 'merged' | 'working' | 'ready' | 'failed' | 'closed';

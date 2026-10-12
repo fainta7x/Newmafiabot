@@ -7,8 +7,8 @@ test('broadcast shows reveals and announced checks on the player cards at 1920x1
   await expect(page.locator('.live-broadcast-player')).toHaveCount(10);
   await expect(page.locator('.live-broadcast-reveal-banner')).toHaveCount(2);
   const don = page.locator('.live-broadcast-player', { has: page.locator('.live-broadcast-seat-number', { hasText: /^10$/ }) });
-  await expect(don.locator('.live-broadcast-fact.is-reveal')).toContainText('красн.');
-  await expect(don.locator('.live-broadcast-reveal-banner')).toBeVisible();
+  await expect(don.locator('.live-broadcast-reveal-banner')).toContainText('Вскрылся с:');
+  await expect(don.locator('.live-broadcast-reveal-banner')).toContainText('9кр');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('broadcast-reveals-1920.png') });
 });

@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
-import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generatePlayerSessionToken } from '../server/auth.ts';
@@ -16,7 +15,7 @@ beforeEach(async()=>{
  vi.mocked(queueGoMafiaProfileRefresh).mockClear();db=createDatabaseConnection(':memory:');
  await ensureGoMafiaSchema(db);await ensurePlayerProfileVisibilitySchema(db);
  for (const id of ['one','two']) await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES (?,?,?,?)',[id,id,'2026-10-12','2026-10-12']);
- app=express();app.use(express.json(),cookieParser());app.use((req:any,_res:any,next:any)=>{req.db=db;if(req.headers['x-test-organizer']==='yes')req.userRole='ORGANIZER';next();});app.use('/api/player',router);
+ app=express();app.use(express.json(),(req:any,_res:any,next:any)=>{req.cookies=Object.fromEntries(String(req.headers.cookie||'').split(';').map((part)=>part.trim()).filter(Boolean).map((part)=>{const i=part.indexOf('=');return [part.slice(0,i),decodeURIComponent(part.slice(i+1))];}));next();});app.use((req:any,_res:any,next:any)=>{req.db=db;if(req.headers['x-test-organizer']==='yes')req.userRole='ORGANIZER';next();});app.use('/api/player',router);
 });
 afterEach(()=>db.sqlite.close());
 describe('verified-ID sports career API',()=>{

@@ -126,6 +126,9 @@ Historical notes; for current deployment evidence use **Live deployment** above 
 - **Elo (owner, 2026-10-01):** the formula logic stays (confirmed against the owner's cases), no calibration; the owner wanted bigger numbers, so the whole scale is ×5 (same behaviour). On the first start after deploy a one-time migration (`0042_elo_scale_x5_v1`) stretches manual start Elo and rebuilds every rating. Idea for later: a seasonal Elo trim for everybody (for example cut 20% of the distance from 1000), to discuss when needed. Note: rating achievements start at Elo 1400 (`achievementCatalog.ts`) and become reachable on the new scale.
 - **Owner decision 2026-10-07:** poker must be available without first farming club activity: add 1,000 starter tokens once to every canonical player (and to newly registered players), and let live token tables choose a buy-in from 10 BB / 200 tokens upward instead of forcing 1,000 / 50 BB.
 
+## Owner idea (2026-10-12, not started, waiting for the owner's choice): voice chat at the poker table
+Question from the owner: can players talk by microphone at the poker table? Options put to the owner: (A) a button that opens the club's Telegram group voice chat (no infrastructure); (B) real in-table voice over WebRTC — needs a mic permission check inside the Telegram Mini App on the owner's phones first, signalling through the existing server, STUN and, for mobile networks, a TURN relay (an extra service or a paid hosted one); (C) push-to-talk short voice clips. Recommendation: first a small feasibility probe (does the microphone work in the Mini App on iOS and Android), then choose. Nothing is built.
+
 ## Source-of-truth model
 
 - Code/current SHA: latest remote `main`.

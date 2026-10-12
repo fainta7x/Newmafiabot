@@ -120,8 +120,20 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
     let snapshot = cached ? JSON.parse(cached.snapshot_json) : null;
     let lastError: string | null = null;
     const age = cached ? Date.now() - Date.parse(cached.retrieved_at) : Number.POSITIVE_INFINITY;
-    // Cache for 24 hours, with no mass/bulk crawl; externally sourced info can lag.
-    if (link.status === 'verified' && (!snapshot || age > 24 * 60 * 60 * 1000)) {
+    // Cache for 24 hours. Back off failed/simultaneous page requests for six hours.
+    const previousAttempt = await req.db.get<{ last_attempt_at: string }>(
+      'SELECT last_attempt_at FROM gomafia_refresh_attempts WHERE external_player_id=?',
+      [link.external_player_id],
+    );
+    const retryAllowed = !previousAttempt ||
+      Date.now() - Date.parse(previousAttempt.last_attempt_at) >= 6 * 60 * 60 * 1000;
+    if (link.status === 'verified' && retryAllowed && (!snapshot || age > 24 * 60 * 60 * 1000)) {
+      await req.db.run(
+        'INSERT INTO gomafia_refresh_attempts (external_player_id, last_attempt_at, last_error) ' +
+        'VALUES (?, ?, NULL) ON CONFLICT(external_player_id) DO UPDATE SET ' +
+        'last_attempt_at=excluded.last_attempt_at, last_error=NULL',
+        [link.external_player_id, new Date().toISOString()],
+      );
       try {
         const ref = parseGoMafiaPlayerReference(link.profile_url);
         if (!ref) throw new Error('Некорректная ссылка GoMafia');
@@ -133,7 +145,13 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
           [link.external_player_id, JSON.stringify(snapshot), snapshot.retrievedAt, link.profile_url]);
       } catch {
         lastError = 'Сейчас не удалось обновить GoMafia. Показываем последние доступные данные.';
+        await req.db.run(
+          'UPDATE gomafia_refresh_attempts SET last_error=? WHERE external_player_id=?',
+          ['Не удалось обновить публичную статистику', link.external_player_id],
+        );
       }
+    } else if (!snapshot && link.status === 'verified' && !retryAllowed) {
+      lastError = 'GoMafia временно недоступна. Повторим попытку автоматически позже.';
     }
     // Only attributed federation records from a verified import/authorized export.
     // Existing club games are NEVER queried, merged or rewritten here.

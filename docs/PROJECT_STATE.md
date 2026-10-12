@@ -875,6 +875,8 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
+- **Poker sounds (owner reminder, 2026-10-12: «совсем забыли про это»).** Sounds for the cards (deal, flip), the turn («ход»), the timer (running out) and the chips (bet, pot to the winner). Idea, NOT built: the poker screens (`PlayerPoker.tsx`, `PokerChat.tsx`) have no sound code at all today. Waits for the owner's «да»; to agree with the owner: where the sound files come from (own recordings or a licensed pack), an on/off switch (like the chat mute), and the volume.
+
 - **Player cabinet: audit and redesign of the screens again (owner plan, 2026-10-12: «очень много текстовых блоков без графики и вырвиглазным расположением и логикой»).** Idea, NOT started; waits for the owner's «да» to begin. Proposed first step: a read-only audit of every player-cabinet screen at 390 px (text-heavy blocks without graphics, order and logic of the blocks, duplicated information), recorded in `docs/AUDIT_LOG.md` with screenshots, then the owner picks the order of the redesign. Question for the owner: which screens bother most.
 
 - **CRM «Проект» screen (owner request 2026-10-12; read-only, the PR tab is live data, «красиво» is the only requirement).** Built in a PR (merge/deploy/phone check pending): «Ещё → Проект» with tabs «Ждём вас» / «Дорожная карта» (by direction) / «PR». Known limits of the first version: the file is mostly English prose so the cards are too; the direction is a keyword guess; many old «waiting» entries are stale and should be cleaned up. Possible next steps, not built: a «Записать идею» button, explicit direction tags in the file.

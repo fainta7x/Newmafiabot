@@ -16,6 +16,13 @@ describe('poker sound transitions from the authoritative table snapshot', () => 
     expect(pokerSoundCues(current, state(hand(), 'table2'))).toEqual([]);
   });
 
+  it('plays the very first hand after waiting but not on a fresh page with an already running hand', () => {
+    const waiting = state(null);
+    const firstDeal = state(hand());
+    expect(pokerSoundCues(waiting, firstDeal)).toEqual(['deal']);
+    expect(pokerSoundCues(null, firstDeal)).toEqual([]);
+  });
+
   it('plays the card deal once when a new hand appears', () => {
     expect(pokerSoundCues(state(hand()), state(hand({ id: 'h2' })))).toEqual(['deal']);
   });

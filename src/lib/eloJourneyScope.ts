@@ -22,7 +22,7 @@ export const filterEloJourneyEvents = <T extends EloJourneyScopedEvent>(
   if (!scope.format || scope.format === 'all') return true;
   const format = event.source === 'tournament'
     ? 'TOURNAMENT'
-    : normalizeEveningFormat(clubFormats.get(event.id.slice('club:'.length)));
+    : normalizeEveningFormat(clubFormats.get(event.id));
   return format === scope.format;
 });
 

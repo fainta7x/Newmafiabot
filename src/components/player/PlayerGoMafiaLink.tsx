@@ -34,6 +34,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   }, [playerId, link?.external_player_id, link?.status, careerVersion]);
   const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
   const snap = career?.snapshot;
+  const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : 'Период источника не определён';
   const save = async () => {
     setBusy(true);
     setMessage('');
@@ -73,6 +74,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       {message && <p role="status" className="text-xs text-white/70">{message}</p>}
     </div>}
     {snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
+      <p className="text-xs text-amber-100/80">{statPeriod} · не сумма за всю карьеру</p>
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo</div></div>
         <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.totalGames)}</strong><div className="text-xs text-white/55">Игры</div></div>

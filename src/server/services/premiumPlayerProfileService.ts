@@ -213,6 +213,31 @@ const profileNightShots = async (db: DatabaseWrapper, games: StatGame[], playerI
   };
 };
 
+/** The player's reveal figures; for a Don also whom he most often names black / red and in which bundles (with nicknames). */
+const profileReveals = async (db: DatabaseWrapper, games: StatGame[], playerId: string) => {
+  const own = buildRevealStats(games).get(playerId);
+  if (!own) return null;
+  const { donTargets, donBundles, ...numbers } = own;
+  const blackTop = Object.entries(donTargets).filter(([, value]) => value.black > 0).sort((a, b) => b[1].black - a[1].black).slice(0, 5);
+  const redTop = Object.entries(donTargets).filter(([, value]) => value.red > 0).sort((a, b) => b[1].red - a[1].red).slice(0, 5);
+  const bundleTop = Object.entries(donBundles).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const ids = [...new Set([...blackTop.map(([id]) => id), ...redTop.map(([id]) => id), ...bundleTop.flatMap(([key]) => key.split('|'))])];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const rows = await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+    for (const row of rows) names.set(String(row.id), String(row.nickname || 'Игрок'));
+  }
+  const name = (id: string) => names.get(id) || 'Игрок';
+  return {
+    ...numbers,
+    don: {
+      named_black: blackTop.map(([id, value]) => ({ player_id: id, nickname: name(id), count: value.black })),
+      named_red: redTop.map(([id, value]) => ({ player_id: id, nickname: name(id), count: value.red })),
+      bundles: bundleTop.map(([key, count]) => ({ nicknames: key.split('|').map(name), count })),
+    },
+  };
+};
+
 export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false, filter: ProfileStatFilter = {}) {
   const player = await loadIdentity(db, playerId);
   const visibility = publicVisibility(player.profile_visibility_json);
@@ -300,7 +325,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     game_stats: statsVisible ? buildPlayerGameStatistics(scopedStatGames, playerId) : null,
     night_shots: statsVisible ? await profileNightShots(db, scopedStatGames, playerId) : null,
     circle_exits: statsVisible ? buildCircleExits(scopedStatGames).get(playerId) ?? null : null,
-    reveals: statsVisible ? buildRevealStats(scopedStatGames).get(playerId) ?? null : null,
+    reveals: statsVisible ? await profileReveals(db, scopedStatGames, playerId) : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,
     })) : [],

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { getPlayerSessionId } from '../auth.ts';
-import { revealsForGamePage } from '../../lib/revealStats.ts';
+import { revealsForGamePage, revealVersions } from '../../lib/revealStats.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/playerEloHistoryService.ts';
 
@@ -357,6 +357,7 @@ router.get('/games/:gameKey', async (req, res) => {
           zero_round_voted: participantInfo(zeroRoundVotedId || null, participantDirectory),
           ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
           reveals: revealsForGamePage(sanitizeLiveGameEvents(protocol.events)),
+          reveal_versions: revealVersions(revealsForGamePage(sanitizeLiveGameEvents(protocol.events))),
         },
         players,
       });
@@ -491,6 +492,7 @@ router.get('/games/:gameKey', async (req, res) => {
         zero_round_voted: participantInfo(String(game.zero_round_voted_participant_id || '') || null, participantDirectory),
         ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
         reveals: revealsForGamePage(sanitizeLiveGameEvents(safeJsonParse<any>(game.events_json, []))),
+        reveal_versions: revealVersions(revealsForGamePage(sanitizeLiveGameEvents(safeJsonParse<any>(game.events_json, [])))),
       },
       players,
     });

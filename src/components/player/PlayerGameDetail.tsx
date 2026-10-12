@@ -59,6 +59,8 @@ export type PlayerGameDetailData = {
     ppk_culprit: ProtocolPerson;
     /** «Вскрытие»: who claimed to be the Sheriff and the checks he announced (the judge's record). */
     reveals?: Array<{ seat: number; round: number; checks: Array<{ target: number; color: 'red' | 'black' }> }>;
+    /** When two or more players revealed: each claimant's version of the table (he is the Sheriff; blacks = announced blacks + the rivals). */
+    reveal_versions?: Array<{ claimant: number; blacks: number[]; reds: number[] }>;
   };
   players: Array<{
     player_id: string | null;
@@ -416,6 +418,24 @@ export default function PlayerGameDetail({
                   );
                 })}
               </ul>
+              {detail.protocol.reveal_versions?.length ? (
+                <div data-testid="game-reveal-versions" className="mt-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100/55">Две версии стола</div>
+                  <div className="mt-1 text-[11px] leading-4 text-white/40">Если шериф он, то чёрные те, кого он назвал, и тот, кто вскрылся против него. Верна ровно одна версия.</div>
+                  <ul className="mt-2 space-y-2">
+                    {detail.protocol.reveal_versions.map((version) => {
+                      const claimant = seatPlayer(version.claimant);
+                      const real = claimant?.role === 'sheriff';
+                      return (
+                        <li key={version.claimant} className={`rounded-xl px-3 py-2 text-[12px] ${real ? 'bg-emerald-400/10' : 'bg-black/20'}`}>
+                          <div className="flex items-center justify-between gap-2"><b className="min-w-0 truncate text-white/80">Шериф — {seatLabel(version.claimant)}</b>{claimant ? <span className={`shrink-0 text-[11px] ${real ? 'text-emerald-200/80' : 'text-amber-200/80'}`}>{real ? 'верная версия' : 'ложная версия'}</span> : null}</div>
+                          <div className="mt-1 text-white/55">Чёрные: {version.blacks.length ? version.blacks.map((seat) => `#${seat}`).join(', ') : '—'}{version.reds.length ? ` · красные: ${version.reds.map((seat) => `#${seat}`).join(', ')}` : ''}</div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
             </Section>
           ) : null}
 

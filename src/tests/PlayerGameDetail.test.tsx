@@ -47,6 +47,18 @@ describe('reveals on the game page', () => {
     expect(within(box).getAllByText('неправда')).toHaveLength(2);
   });
 
+  it('shows the two competing versions of the table and which one was true', () => {
+    view({ detail: { ...detail, protocol: { ...detail.protocol,
+      reveals: [{ seat: 3, round: 2, checks: [{ target: 2, color: 'black' }] }, { seat: 5, round: 2, checks: [{ target: 1, color: 'black' }] }],
+      reveal_versions: [{ claimant: 3, blacks: [2, 5], reds: [] }, { claimant: 5, blacks: [1, 3], reds: [] }] } } });
+    const versions = screen.getByTestId('game-reveal-versions');
+    expect(versions.textContent).toContain('Две версии стола');
+    expect(versions.textContent).toContain('Шериф — #3 Дина');
+    expect(versions.textContent).toContain('Чёрные: #2, #5');
+    expect(within(versions).getAllByText('верная версия')).toHaveLength(1); // seat 3 is the real Sheriff
+    expect(within(versions).getAllByText('ложная версия')).toHaveLength(1);
+  });
+
   it('shows no block when nobody revealed', () => {
     view();
     expect(screen.queryByTestId('game-reveals')).toBeNull();

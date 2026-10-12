@@ -271,7 +271,7 @@ export default function OrganizerCommandCenter({
     });
     if (paymentsFresh && snapshot.stats.unpaid_count > 0) rows.push({
       id: 'unpaid', label: 'Не оплачено · этот вечер', value: String(snapshot.stats.unpaid_count), detail: `${snapshot.evening.title} · ${formatPaymentDate(snapshot.evening.starts_at)} · ${formatMoney(snapshot.stats.unpaid_amount)}`, tone: 'text-warning', icon: <CircleDollarSign className="h-4 w-4" />,
-      action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
+      action: () => onOpenEveningSection(snapshot.evening.id, 'payments'),
     });
     if (unfinishedGames > 0) rows.push({
       id: 'unfinished', label: 'Игры', value: String(unfinishedGames), detail: 'ещё не завершено', tone: 'text-warning', icon: <Gamepad2 className="h-4 w-4" />,
@@ -393,7 +393,7 @@ export default function OrganizerCommandCenter({
     </div>
 
     {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
-      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
+      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEveningSection(data.wrapup!.evening.id, 'payments')} aria-label="Открыть оплаты прошлого вечера" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
       <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
     </section> : null}
   </div>;

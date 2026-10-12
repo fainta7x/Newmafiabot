@@ -11,7 +11,7 @@ import { loadEveningShortfall } from './eveningShortfallService.ts';
  */
 export type ClubOrderCategory = 'evenings' | 'statuses' | 'profiles' | 'money';
 export type ClubOrderAction =
-  | { type: 'evening'; evening_id: string; section: 'overview' | 'participants' | 'games' | 'management' | 'closeout' }
+  | { type: 'evening'; evening_id: string; section: 'overview' | 'participants' | 'games' | 'management' | 'payments' | 'closeout' }
   | { type: 'player'; player_id: string }
   | { type: 'create_evening' }
   | { type: 'cancel_evening'; evening_id: string };
@@ -319,7 +319,7 @@ async function moneyItems(db: DatabaseWrapper, now: number): Promise<ClubOrderIt
     items.push({
       id: `debts:${eveningId}`, category: 'money', title: 'Долги за вечер',
       detail: `${eveningName(rows[0])} — ${players(rows.length)} ${rows.length % 10 === 1 && rows.length % 100 !== 11 ? 'должен' : 'должны'} ${money(total)}`,
-      action: { type: 'evening', evening_id: eveningId, section: 'management' }, action_label: 'К оплатам',
+      action: { type: 'evening', evening_id: eveningId, section: 'payments' }, action_label: 'К оплатам',
       people: rows.slice(0, PEOPLE_LIMIT).map((row: any) => person(row, money(Number(row.debt || 0)))), people_total: rows.length,
     });
   }

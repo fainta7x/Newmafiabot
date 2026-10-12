@@ -54,7 +54,10 @@ describe('«Порядок в клубе»', () => {
     await evening('next', at(24 * 3), 'published');
     await player('a', 'Аня');
     await attend('paid', 'a', 300, 100);
-    expect((await loadClubOrder(db, NOW)).items.map((item) => item.id)).toEqual(['debts:paid']);
+    const debtItems = (await loadClubOrder(db, NOW)).items;
+    expect(debtItems.map((item) => item.id)).toEqual(['debts:paid']);
+    // «К оплатам» opens that evening's payments, not its roster.
+    expect(debtItems[0].action).toEqual({ type: 'evening', evening_id: 'paid', section: 'payments' });
     await db.run("UPDATE evening_participants SET amount_paid = 300, payment_status = 'paid'");
     expect((await loadClubOrder(db, NOW)).items).toEqual([]);
   });

@@ -238,6 +238,20 @@ async function profileItems(db: DatabaseWrapper, tables: Set<string>, now: numbe
     });
   }
 
+  // A GoMafia link a player asked for waits for an organizer to confirm it (owner, 2026-10-12: «ничего не пришло, где смотреть»).
+  if (tables.has('gomafia_player_links')) {
+    const requests = await db.all<any>(`
+      SELECT p.id, p.nickname, l.profile_url FROM gomafia_player_links l JOIN players p ON p.id = l.player_id
+       WHERE l.status = 'pending' AND ${MEMBER_SQL}
+       ORDER BY l.updated_at DESC`);
+    if (requests.length) items.push({
+      id: 'gomafia-requests', category: 'profiles', title: 'Запрос на привязку GoMafia',
+      detail: `${players(requests.length)} просят подтвердить свой профиль GoMafia — после подтверждения подтянется спортивная карьера`,
+      action: { type: 'player', player_id: String(requests[0].id) }, action_label: 'Подтвердить',
+      people: requests.slice(0, PEOPLE_LIMIT).map((row: any) => person(row, String(row.profile_url || ''))), people_total: requests.length,
+    });
+  }
+
   const vkSql = tables.has('player_external_identities')
     ? "NOT EXISTS (SELECT 1 FROM player_external_identities x WHERE x.player_id = p.id AND x.platform = 'vk')"
     : '1';

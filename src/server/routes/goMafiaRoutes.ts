@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
+import { enqueueOrganizerNotification } from '../services/organizerNotificationService.ts';
 import { queueGoMafiaProfileRefresh, isGoMafiaProfileRefreshing } from '../services/goMafiaFederationSync.ts';
 
 import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
@@ -105,12 +106,30 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
   }
 });
 
+/** A request that waits for an organizer must reach him: Telegram now, and «Порядок в клубе» in the CRM lists it until it is confirmed. */
+const notifyOrganizersAboutRequest = async (db: any, playerId: string, link: { external_player_id: string; profile_url: string }) => {
+  try {
+    const player = await db.get('SELECT nickname FROM players WHERE id=?', [playerId]);
+    await enqueueOrganizerNotification(db, {
+      messageKey: `gomafia-link:${playerId}:${link.external_player_id}`,
+      eventType: 'gomafia_link_request',
+      entityId: playerId,
+      text: `🔗 Запрос на привязку GoMafia\n${String(player?.nickname || 'Игрок')} → ${link.profile_url}\nПодтвердите в CRM: «Дела» → «Порядок в клубе» (или карточка игрока → GoMafia).`,
+    });
+  } catch {
+    // The request itself is saved and stays visible in the CRM; a failed notice must not fail the player's action.
+  }
+};
+
 router.put('/gomafia/me', async (req, res) => {
   const playerId = getPlayerSessionId(req);
   if (!playerId) return res.status(401).json({ error: 'Требуется вход игрока' });
   try {
-    const result = await bind(req.db, playerId, req.body?.profile, 'player');
+    // An organizer who links his own profile needs nobody else to confirm it (owner, 2026-10-12).
+    const actor = (req as AuthenticatedRequest).userRole === 'ORGANIZER' ? 'organizer' : 'player';
+    const result = await bind(req.db, playerId, req.body?.profile, actor);
     if (result.error) return res.status(result.status).json({ error: result.error });
+    if (result.value?.status === 'pending') await notifyOrganizersAboutRequest(req.db, playerId, result.value);
     return res.json({ link: result.value });
   } catch (error: any) {
     if (String(error?.message || '').includes('UNIQUE constraint')) return res.status(409).json({ error: 'Этот профиль уже привязан' });

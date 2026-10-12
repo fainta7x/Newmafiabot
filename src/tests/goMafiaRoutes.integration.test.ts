@@ -44,4 +44,22 @@ describe('verified-ID sports career API',()=>{
   const pending=await request(app).get('/api/player/gomafia/players/one/career').set('Cookie',cookie('one'));
   expect(pending.body.snapshot).toBeNull();expect(pending.body.tournaments).toEqual([]);
  });
+ it('confirms an organizer’s own link at once, and a player’s request reaches the organizers and the CRM to-do list',async()=>{
+  process.env.ORGANIZER_NOTIFICATION_IDS='900';
+  try {
+   const own=await request(app).put('/api/player/gomafia/me').set('Cookie',cookie('two')).set('x-test-organizer','yes').send({profile:'77'});
+   expect(own.body.link.status).toBe('verified');
+   expect(queueGoMafiaProfileRefresh).toHaveBeenCalledWith(db,'77');
+   expect(await db.get("SELECT name FROM sqlite_master WHERE name='telegram_message_outbox'")).toBeFalsy(); // nothing was queued for an organizer's own link
+   const asked=await request(app).put('/api/player/gomafia/me').set('Cookie',cookie('one')).send({profile:'1202'});
+   expect(asked.body.link.status).toBe('pending');
+   const notices=await db.all<any>('SELECT chat_id,text,event_type FROM telegram_message_outbox');
+   expect(notices).toHaveLength(1);
+   expect(notices[0]).toMatchObject({chat_id:'900',event_type:'gomafia_link_request'});
+   expect(notices[0].text).toContain('Запрос на привязку GoMafia');
+   // Asking again does not send a second message for the same request.
+   await request(app).put('/api/player/gomafia/me').set('Cookie',cookie('one')).send({profile:'1202'});
+   expect(await db.all('SELECT 1 FROM telegram_message_outbox')).toHaveLength(1);
+  } finally { delete process.env.ORGANIZER_NOTIFICATION_IDS; }
+ });
 });

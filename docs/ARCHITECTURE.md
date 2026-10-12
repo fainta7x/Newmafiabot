@@ -382,3 +382,7 @@ Old open PRs and old roadmaps are not architecture truth. Compare them with curr
 
 ### GoMafia external sports career
 `goMafiaCareerSource.ts` owns the unauthenticated, bounded public source adapter; `gomafiaCareer.ts` owns shared payload types. `goMafiaFederationSync.ts` is the sole background/on-demand refresh writer to the existing federation snapshot table (`career-v1`). `goMafiaRoutes.ts` reads verified source data with profile visibility controls; `PlayerGoMafiaLink.tsx` renders yearly summaries and the separate sports chronology. No federation result writes club game/rating/financial tables. See `GOMAFIA_PUBLIC_SOURCE.md` for source evidence and limitations.
+
+## Rule: a request that waits for an organizer (owner, 2026-10-12)
+
+Any flow where a player asks for something an organizer must confirm (a GoMafia link, a level, a registration answer…) needs three things, built together: (1) a Telegram notice through `enqueueOrganizerNotification` (idempotent `messageKey`, a failed notice must not fail the player's action); (2) an item in «Порядок в клубе» (`clubOrderService.ts`) that stays until the request is resolved; (3) no extra step when the person asking is already an organizer (his own request is confirmed at once). The first user of the rule is the GoMafia link (`goMafiaRoutes.ts`, `PUT /gomafia/me`).

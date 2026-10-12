@@ -31,7 +31,10 @@ describe('curator learning screen', () => {
     fireEvent.click(screen.getByText('Любой уровень'));
     fireEvent.change(screen.getByTestId('crm-learning-search'), { target: { value: 'бор' } });
     const [row] = screen.getAllByTestId('crm-learning-row');
-    fireEvent.click(row);
+    fireEvent.click(row.querySelector('button')!);
+    expect(opened).toEqual([]);
+    expect(screen.getByTestId('crm-learning-detail').textContent).toContain('сдан');
+    fireEvent.click(screen.getByText('Открыть карточку игрока'));
     expect(opened).toEqual(['p2']);
   });
 });

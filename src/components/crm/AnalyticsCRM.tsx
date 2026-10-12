@@ -68,13 +68,13 @@ export function AnalyticsCRM() {
         <section className={analyticsCard}><AnalyticsHeading title="Кто давно не был" caption="На сегодня · группы не пересекаются" help="inactive" />
           <div className="mt-3 grid grid-cols-3 gap-2">{[['30–59 дней',data.inactive30],['60–89 дней',data.inactive60],['90+ дней',data.inactive90]].map(([label,value])=><div key={String(label)} className={analyticsInset}><strong className="block text-2xl font-semibold">{value}</strong><span className="text-xs text-text-secondary">{label}</span></div>)}</div>
         </section>
-        <section className={analyticsCard}><AnalyticsHeading title="Откуда новые игроки" caption="Первый визит за период · только участники клуба" help="sources" />
+        <section className={analyticsCard}><AnalyticsHeading title="Как новички узнали о клубе" caption="Те, кто впервые пришёл за период" help="sources" />
           {Object.keys(data.sourceBreakdown).length===0?<p className="mt-3 text-xs text-text-secondary">В этом периоде первых визитов пока нет.</p>:<div className="mt-3 space-y-2">{Object.entries(data.sourceBreakdown).map(([label,count])=><div key={label} className={'flex items-center justify-between gap-3 '+analyticsInset}><span className="min-w-0 break-words text-sm">{label}</span><strong className="shrink-0">{String(count)}</strong></div>)}</div>}
         </section>
-        <details className={analyticsCard}><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Подробнее о базе и записях</summary>
-          <AnalyticsHeading title="Участники клуба" caption="На сегодня · посещения за всё время" help="members" />
+        <details className={analyticsCard}><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Ещё цифры: состав клуба, допуски, отмены</summary>
+          <AnalyticsHeading title="Сколько человек в клубе" caption="На сегодня · по числу посещений за всё время" help="members" />
           <p className="my-3 text-sm">Всего: {data.totalPlayers}. Ещё не были: {data.neverPlayed}; один вечер: {data.playedOnce}; 2–3: {data.playedTwoOrThree}; 4+: {data.playedFourPlus}.</p>
-          <AnalyticsHeading title="Уровни и допуски" caption="На сегодня · не зависят от выбранного периода" help="levels" />
+          <AnalyticsHeading title="Новички и допуски" caption="На сегодня · не зависит от выбранного периода" help="levels" />
           <p className="my-3 text-sm">Новички: {data.noviceLevel}. Допущены в клуб: {data.clubApproved}; к турнирам: {data.tournamentApproved}.</p>
           <AnalyticsHeading title="Записи, отмены и неявки" caption="Завершённые вечера периода · фактические записи" help="registrations" />
           <p className="mt-3 text-sm">Записей: {data.totalRegistrations}. Отмены: {data.totalCancelled} · {formatShare(data.totalCancelled,data.registrationBase)}. Неявки: {data.totalNoShow} · {formatShare(data.totalNoShow,data.totalRegistrations)}.</p>

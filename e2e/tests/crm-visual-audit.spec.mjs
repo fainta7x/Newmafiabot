@@ -31,9 +31,9 @@ for (const width of [360, 390]) {
     await page.screenshot({ path: info.outputPath(`crm-player-card-${width}.png`), fullPage: true });
 
     await capture('crm-more', 'crm-more');
-    await expect(page.getByTestId('crm-more-telegram')).toHaveCount(0);
-    await page.getByRole('button', { name: /Администрирование и настройки/ }).click();
     await expect(page.getByTestId('crm-more-telegram')).toBeVisible();
+    await page.getByRole('button', { name: /Администрирование и настройки/ }).click();
+    await expect(page.getByTestId('crm-more-data')).toBeVisible();
     await page.screenshot({ path: info.outputPath(`crm-more-admin-${width}.png`), fullPage: true });
 
     await capture('crm-closeout', 'crm-closeout');

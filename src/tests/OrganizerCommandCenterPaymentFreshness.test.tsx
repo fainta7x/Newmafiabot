@@ -86,7 +86,8 @@ describe('OrganizerCommandCenter action destinations', () => {
     const unanswered = await screen.findByRole('button', { name: /Нет ответа/ });
     expect(unanswered.textContent).toContain('приглашённых ещё не ответили');
     fireEvent.click(unanswered);
-    expect(openSection).toHaveBeenCalledExactlyOnceWith('current', 'participants');
+    expect(openSection).toHaveBeenCalledTimes(1);
+    expect(openSection).toHaveBeenCalledWith('current', 'participants');
     expect(openSection).not.toHaveBeenCalledWith('current', 'overview');
   });
 });

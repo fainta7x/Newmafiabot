@@ -946,3 +946,8 @@ Route visual organization refinement requested after deployment of #757: **date/
 ### Split trainer presentation and feedback — owner 2026-10-09
 
 User reports unreadable/overloaded table visuals, lengthy wordy tasks, and insufficient why-this-is-wrong feedback. Focused improvement: clearer nomination chips, explicit seats/legible vote destination labels, short task facts and rules-based answers/mistakes in both split trainers including timed expert/broken splits. Do not change scoring, generated votes, exams, achievements, time limits or player progress. Pending focused/mobile/CI verification and Amvera release separately.
+
+### GitHub PR statuses via existing club bot — owner request 2026-10-12
+
+The owner prefers PR notifications in their existing Telegram conversation with the club bot, **without GitHub Actions secrets or any manual token exchange**. The notifier has been moved to the live Python bot task `github_pr_notifications.py`, using existing `ORGANIZER_NOTIFICATION_IDS` and public GitHub metadata. It reports PR pending/failed/passed/merged transitions and brief previous-merge history. It is deployed **only when the feature PR is merged and Amvera is rebuilt**; notifications are not yet verified in the live bot. See `docs/RUNBOOK.md`.
+

@@ -7,7 +7,7 @@ import type { StatGame } from './gameStatistics';
  *
  * A night is counted only when the engine really reached the shooting step of a night (the zero night has none) and
  * either somebody was killed in that round or the night was closed with the results step. Restored players are not victims.
- * Pure and read-only; the per-game result is kept per game object.
+ * Pure and read-only.
  */
 
 export type NightResult = 'killed' | 'no_shot' | 'survived';
@@ -16,11 +16,7 @@ export interface Night { round: number; result: NightResult; /** Seat of the vic
 const KILL_REASONS = new Set(['killed', 'night_kill']);
 const isBlack = (role: string | null | undefined) => role === 'mafia' || role === 'don';
 
-const nightsCache = new WeakMap<StatGame, Night[]>();
-
 export function gameNights(game: StatGame): Night[] {
-  const cached = nightsCache.get(game);
-  if (cached) return cached;
   const events = [...game.events].sort((a, b) => a.seq - b.seq);
   const shooting = new Set<number>();
   const morning = new Set<number>();
@@ -46,7 +42,6 @@ export function gameNights(game: StatGame): Night[] {
     if (!morning.has(round)) continue; // the night was never closed: nothing to say about it
     nights.push({ round, result: shotAt.get(round) ? 'survived' : 'no_shot', victim: null });
   }
-  nightsCache.set(game, nights);
   return nights;
 }
 

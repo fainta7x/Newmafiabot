@@ -7,7 +7,7 @@ import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGa
 import { loadRatingSeasons } from './clubSeasonService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
-import { buildPlayerGameStatistics, type PlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
+import { buildPlayerGameStatistics, createStatMemo, type PlayerGameStatistics, type StatGame, type StatMemo } from '../../lib/gameStatistics.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
 
@@ -149,12 +149,13 @@ async function loadHighlights(db: DatabaseWrapper): Promise<Highlights> {
 
 // The move chronology of every finished game is parsed once per input change (at most a minute): the analysis of each game
 // is memoised on the game object, so many rankings and profiles reuse it.
-const statGameCache = new WeakMap<object, { version: string | null; at: number; promise: Promise<StatGame[]> }>();
-async function loadStatGamesCached(db: DatabaseWrapper): Promise<StatGame[]> {
+const statGameCache = new WeakMap<object, { version: string | null; at: number; promise: Promise<{ games: StatGame[]; memo: StatMemo }> }>();
+async function loadStatGamesCached(db: DatabaseWrapper): Promise<{ games: StatGame[]; memo: StatMemo }> {
   const version = analyticsInputsVersion(db, 'club_snapshots', CLUB_SNAPSHOT_INPUTS);
   const cached = statGameCache.get(db as object);
   if (cached && cached.version === version && Date.now() - cached.at < HIGHLIGHT_TTL_MS) return cached.promise;
-  const promise = loadStatGames(db).catch(() => [] as StatGame[]);
+  // These game objects are never mutated, so the analysis of each one can be reused by every player and every request.
+  const promise = loadStatGames(db).catch(() => [] as StatGame[]).then((games) => ({ games, memo: createStatMemo() }));
   statGameCache.set(db as object, { version, at: Date.now(), promise });
   return promise;
 }
@@ -276,7 +277,8 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   // Chronology figures are computed only when asked for.
   const accuracy = new Map<string, { value: number; sample: number }>();
   const nightMetrics = new Set<MetricKey>(['black_misses', 'black_miss_rate', 'times_shot', 'night_pairs']);
-  const scopedStat = metric.sample || metric.key === 'night_pairs' ? (await loadStatGamesCached(db)).filter((game) => scopedIds.has(game.id)) : [];
+  const statSource = metric.sample || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
+  const scopedStat = statSource.games.filter((game) => scopedIds.has(game.id));
   const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
   if (metric.sample && night) {
     for (const [id, stats] of night.players) {
@@ -286,7 +288,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     }
   } else if (metric.sample) {
     for (const id of aggs.keys()) {
-      const found = accuracyOf(buildPlayerGameStatistics(scopedStat, id), metric.key);
+      const found = accuracyOf(buildPlayerGameStatistics(scopedStat, id, statSource.memo), metric.key);
       if (found) accuracy.set(id, found);
     }
   }

@@ -20,12 +20,13 @@ export interface ActionVoting {
 export interface ActionCheck { kind: 'sheriff' | 'don'; target: number; seq: number; alive: Set<number> | null }
 
 type GameActionFacts = ReturnType<typeof computeGameActionFacts>;
-// A game object is never mutated after it is loaded, and a ranking asks for the facts of the same game once per player:
-// keep them per game object so a finished game is analysed once.
-const factsCache = new WeakMap<StatGame, GameActionFacts>();
-export function gameActionFacts(game: StatGame): GameActionFacts {
-  let facts = factsCache.get(game);
-  if (!facts) { facts = computeGameActionFacts(game); factsCache.set(game, facts); }
+/** An explicit cache a caller may hold for games it knows are never mutated (a ranking asks for the same game once per player). */
+export type ActionFactsMemo = Map<StatGame, GameActionFacts>;
+export function gameActionFacts(game: StatGame, memo?: ActionFactsMemo): GameActionFacts {
+  const cached = memo?.get(game);
+  if (cached) return cached;
+  const facts = computeGameActionFacts(game);
+  memo?.set(game, facts);
   return facts;
 }
 
@@ -96,7 +97,7 @@ export interface PlayerActionMetrics {
 }
 export const emptyActionMetrics = (): PlayerActionMetrics => ({ votes: { red: emptyTargets(), black: emptyTargets() },
   criticalVotes: { red: emptyTargets(), black: emptyTargets() }, checks: { sheriff: emptyTargets(), don: emptyTargets() }, excludedVotingDays: 0, unknownCriticalDays: 0 });
-export function playerActionMetrics(games: StatGame[], playerId: string): PlayerActionMetrics {
+export function playerActionMetrics(games: StatGame[], playerId: string, memo?: ActionFactsMemo): PlayerActionMetrics {
   const metrics = emptyActionMetrics();
   const seen = new Set<string>();
   for (const game of games) {
@@ -104,7 +105,7 @@ export function playerActionMetrics(games: StatGame[], playerId: string): Player
     seen.add(game.id);
     const mine = game.seats.find(s => s.playerId === playerId);
     if (!mine?.role) continue;
-    const facts = gameActionFacts(game);
+    const facts = gameActionFacts(game, memo);
     const team = redRole(mine.role) ? 'red' : 'black';
     metrics.excludedVotingDays += facts.excluded;
     for (const voting of facts.votings) {

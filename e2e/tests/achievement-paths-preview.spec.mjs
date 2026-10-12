@@ -3,7 +3,9 @@ for (const width of [360,390,1440]) {
   test(`achievement paths and action counters at ${width}px`, async ({page},testInfo) => {
     await page.setViewportSize({width,height:900});
     await page.goto('/e2e/player-profile.html');
-    await page.getByTestId('profile-more-stats').locator(':scope > summary').click();
+    // «Подробная статистика» is open by default (owner, 2026-10-12): open it only when it is folded.
+    const detailed = page.getByTestId('profile-more-stats');
+    if (!(await detailed.evaluate((element) => element.open))) await detailed.locator(':scope > summary').click();
     await page.getByTestId('game-action-metrics').locator('summary').click();
     await expect(page.getByText('Проверки доном',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

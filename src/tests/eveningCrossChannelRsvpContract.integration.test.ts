@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
-import { generateOrganizerToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 
 const opened: DatabaseWrapper[] = [];
 const savedEnv = {
@@ -143,4 +143,44 @@ describe('canonical participant mutation across Telegram and organizer CRM', () 
     expect((await bookedSlots()).length).toBeGreaterThan(0);
     expect(await alerts()).toEqual(['evening_signed_up', 'evening_signed_up']);
   });
+  it('keeps the same participant identity when the Player Cabinet edits exact games after Telegram and CRM', async () => {
+    const { app, db, bot, participant, bookedSlots } = await setup();
+    await db.run("UPDATE players SET game_level='club', club_stage='CLUB_PLAYER' WHERE id='cross-player'");
+    const first = await bot().send({ telegram_user_id: '750001', response_status: 'going' });
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    const original = await participant();
+    const cookie = `player_token=${generatePlayerSessionToken('cross-player')}`;
+
+    const plan = await request(app).get('/api/player/evenings/cross-evening/slots').set('Cookie', cookie);
+    expect(plan.status, JSON.stringify(plan.body)).toBe(200);
+    const slotIds = plan.body.slots.map((slot: any) => String(slot.id));
+    expect(slotIds.length).toBeGreaterThanOrEqual(3);
+
+    const changedByPlayer = await request(app).put('/api/player/evenings/cross-evening/slots')
+      .set('Cookie', cookie).send({ slot_ids: slotIds.slice(0, 2) });
+    expect(changedByPlayer.status, JSON.stringify(changedByPlayer.body)).toBe(200);
+    expect(await bookedSlots()).toEqual(slotIds.slice(0, 2));
+    expect(await participant()).toMatchObject({
+      id: original.id, response_status: 'going', registration_status: 'going',
+    });
+
+    const correctedByOrganizer = await request(app).patch(`/api/evening-participants/${original.id}`)
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`)
+      .send({ response_status: 'declined' });
+    expect(correctedByOrganizer.status, JSON.stringify(correctedByOrganizer.body)).toBe(200);
+    expect(await bookedSlots()).toEqual([]);
+
+    const rejoinedByPlayer = await request(app).put('/api/player/evenings/cross-evening/slots')
+      .set('Cookie', cookie).send({ slot_ids: [slotIds[0]] });
+    expect(rejoinedByPlayer.status, JSON.stringify(rejoinedByPlayer.body)).toBe(200);
+    expect(await participant()).toMatchObject({
+      id: original.id, response_status: 'going', registration_status: 'going',
+    });
+    expect(await bookedSlots()).toEqual([slotIds[0]]);
+    const rows = await db.all<any>(
+      "SELECT id FROM evening_participants WHERE evening_id='cross-evening' AND player_id='cross-player'",
+    );
+    expect(rows).toHaveLength(1);
+  });
+
 });

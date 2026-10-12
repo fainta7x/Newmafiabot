@@ -871,3 +871,7 @@ Scope: the owner dictates what he dislikes while clicking through the organizer 
 4. «Дела» block is huge and left, «На этой неделе» (`WeekEventsPanel.tsx`) is tiny and right/below — the sizes do not match the importance.
 5. «Долги с прошлого вечера» (`previous-evening-debts`) is at the very bottom; owner: debts are the top priority and should be first, then the evening and what is open for it (no answer, unpaid), then the rest.
 6. Overlap/duplication between «Дела», «Долги за вечер» and other lists — unclear which one is the main to-do list.
+
+### CRM «События» → «Вечера» (desktop; `EveningsList.tsx`, `WeekEventsPanel.tsx`, `OrganizerCRM.tsx`)
+7. «На этой неделе» (`WeekEventsPanel`) is a small card in the top-left; with a single evening it looks like a cropped fragment. Owner: with one evening it must not be a tiny window. (He does not want a settings window right there — drilling into the evening and choosing tournaments inside is fine.)
+8. Tabs «Свои события», «Будущее», «История»: no complaints for now.

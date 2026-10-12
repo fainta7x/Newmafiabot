@@ -1,4 +1,5 @@
 import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
+import { completedClubGameDate, isCompletedClubGamePayload } from './completedClubGame.ts';
 export type AnalyticsTeam = 'red' | 'black';
 
 export type AnalyticsPlayerResult = {
@@ -111,10 +112,12 @@ async function loadCompletedGameSnapshotsUncached(db: any): Promise<CompletedGam
 
   for (const row of clubRows) {
     const payload = safeJsonParse(row.protocol_text);
-    if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
+    if (!isCompletedClubGamePayload(payload)) continue;
     const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
     const eventDate = validDate(row.evening_date || row.game_date || row.created_at);
-    const playedDate = validDate(row.created_at || row.game_date || row.evening_date) || eventDate;
+    // A game can be saved before it ends. Season placements must follow the completed-at date,
+    // matching detailed statistics, not the creation date of its draft record.
+    const playedDate = validDate(completedClubGameDate(payload, row)) || eventDate;
     const eventId = String(row.evening_id || '').trim();
     if (!winner || !eventDate || !playedDate || !eventId) continue;
 

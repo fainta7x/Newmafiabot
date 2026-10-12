@@ -91,16 +91,16 @@ export default function ProjectBoardCRM() {
     className={`min-h-11 flex-1 rounded-xl px-2 text-[12px] font-semibold ${tab === key ? 'bg-white text-black' : 'bg-white/[0.07] text-white/70'}`}>{label}{count ? ` · ${count}` : ''}</button>;
 
   return <div data-testid="project-board" className="space-y-3">
-    <div className="flex gap-1.5">{tabButton('waiting', 'Ждём вас', waiting.length)}{tabButton('roadmap', 'Дорожная карта')}{tabButton('prs', 'PR', open.length)}</div>
+    <div className="flex gap-1.5">{tabButton('waiting', 'Нужен ответ', waiting.length)}{tabButton('roadmap', 'Дорожная карта')}{tabButton('prs', 'PR', open.length)}</div>
     <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-white/35">
-      <span>Источник: docs/PROJECT_STATE.md{updatedAt ? ` · файл обновлён ${dateLabel(updatedAt)}` : ''}</span>
+      <span>Сводка: docs/PROJECT_BOARD_RU.md{updatedAt ? ` · файл обновлён ${dateLabel(updatedAt)}` : ''}</span>
       <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-white/55"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
     </div>
     {error ? <div className="rounded-2xl border border-rose-300/20 bg-rose-300/10 p-4 text-sm text-rose-100">{error}</div> : null}
 
     {tab === 'waiting' ? <section aria-label="Ждём вас" className="space-y-2">
       {cards === null && !error ? <div className="rounded-2xl bg-white/[0.04] p-4 text-sm text-white/45">Загружаем…</div> : null}
-      {cards && waiting.length === 0 ? <div className="rounded-2xl bg-white/[0.04] p-4 text-sm text-white/45">Сейчас от вас ничего не ждём.</div> : null}
+      {cards && waiting.length === 0 ? <div className="rounded-2xl bg-white/[0.04] p-4 text-sm text-white/45">Пока нет вопросов, требующих вашего ответа.</div> : null}
       {waiting.map((card) => <Card key={card.id} card={card} />)}
     </section> : null}
 

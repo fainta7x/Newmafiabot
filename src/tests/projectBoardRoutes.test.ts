@@ -12,12 +12,12 @@ describe('project board API (read-only CRM screen)', () => {
   afterEach(() => { vi.unstubAllGlobals(); try { db.sqlite.close(); } catch {} });
   const organizer = () => `organizer_token=${generateOrganizerToken()}`;
 
-  it('is for the organizer only and returns cards from docs/PROJECT_STATE.md', async () => {
+  it('is for the organizer only and returns cards from docs/PROJECT_BOARD_RU.md', async () => {
     expect((await request(app).get('/api/project-board')).status).toBe(401);
     const response = await request(app).get('/api/project-board').set('Cookie', organizer());
     expect(response.status).toBe(200);
-    expect(response.body.source).toBe('docs/PROJECT_STATE.md');
-    expect(response.body.cards.filter((card: any) => card.status === 'waiting').length).toBeGreaterThan(3);
+    expect(response.body.source).toBe('docs/PROJECT_BOARD_RU.md');
+    expect(response.body.cards.filter((card: any) => card.status === 'waiting').length).toBe(3);
   });
 
   it('lists pull requests with the club colours and whose they are, and says so when GitHub is down', async () => {

@@ -9,6 +9,12 @@ import github_pr_notifications as mod
 
 
 class PrNotificationTests(unittest.TestCase):
+    def test_module_keeps_what_main_imports(self):
+        # main.py imports these two names; a truncated module once stopped the whole bot from starting.
+        self.assertTrue(callable(mod.github_pr_notification_task))
+        self.assertTrue(hasattr(mod, "router"))
+        self.assertTrue(callable(mod.prs_command))
+
     def test_merge_not_reported_as_deployed(self):
         pr = {"number": 15, "title": "Answers & <players>", "body": "- Joined all response panels",
               "merged_at": "2026-10-12T12:00:00Z", "state": "closed"}

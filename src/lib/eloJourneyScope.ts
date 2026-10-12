@@ -20,9 +20,9 @@ export const filterEloJourneyEvents = <T extends EloJourneyScopedEvent>(
     if (!Number.isFinite(date) || date < scope.start || date >= scope.end) return false;
   }
   if (!scope.format || scope.format === 'all') return true;
-  const format = event.source === 'tournament'
-    ? 'TOURNAMENT'
-    : normalizeEveningFormat(clubFormats.get(event.id));
+  const storedFormat = event.source === 'club' ? clubFormats.get(event.id) : null;
+  if (event.source === 'club' && !storedFormat) return false;
+  const format = event.source === 'tournament' ? 'TOURNAMENT' : normalizeEveningFormat(storedFormat);
   return format === scope.format;
 });
 

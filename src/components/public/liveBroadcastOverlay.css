@@ -849,7 +849,16 @@ body.live-broadcast-document #root {
 .live-broadcast-fact.is-red > b { color: #ff8a9b; }
 .live-broadcast-fact.is-black > b { color: #fff; }
 .live-broadcast-fact.is-sheriff > b { color: var(--role-sheriff); }
-.live-broadcast-fact.is-reveal > b { color: var(--gold); }
+.live-broadcast-fact.is-reveal > b { color: var(--gold); white-space: nowrap; }
+
+/* The reveal row is stacked (label above, checks below) so a narrow player card never wraps it mid-phrase. */
+.live-broadcast-fact.is-reveal {
+  grid-template-columns: 1fr;
+  row-gap: calc(3 * var(--u));
+  margin-top: calc(2 * var(--u));
+}
+
+.live-broadcast-fact.is-reveal .live-broadcast-fact-values { gap: calc(6 * var(--u)); }
 
 /* «Вскрытие»: the player who claims to be the Sheriff, and the checks he announced. */
 .live-broadcast-reveal-banner {
@@ -869,15 +878,16 @@ body.live-broadcast-document #root {
 .live-broadcast-announced {
   display: inline-flex;
   align-items: center;
+  flex: none;
+  white-space: nowrap;
   gap: calc(3 * var(--u));
 }
 
 .live-broadcast-announced > i {
   font-style: normal;
-  font-size: calc(9 * var(--u));
+  font-size: calc(12 * var(--u));
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .02em;
 }
 
 .live-broadcast-announced.is-red > i { color: #ff8a9b; }

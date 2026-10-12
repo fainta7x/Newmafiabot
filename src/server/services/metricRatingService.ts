@@ -225,8 +225,8 @@ const valueText = (value: number, unit: MetricDef['unit']) => {
 
 export interface MetricRatingQuery { metric?: string; period?: string; format?: string }
 
-export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery) {
-  const metric = METRIC_BY_KEY.get(query.metric as MetricKey) || METRICS[0];
+/** The games of the chosen season and evening format (oldest first) with everything the club tables need around them. */
+async function loadScope(db: DatabaseWrapper, query: { period?: string; format?: string }) {
   const seasons = await loadRatingSeasons(db);
   const season = seasons.find((item) => item.key === query.period) || null;
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(query.format)) ? query.format as EveningFormat : 'all';
@@ -254,6 +254,13 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const scoped = (formatKey === 'all' ? periodSnapshots : periodSnapshots.filter((snapshot) => formatOf(snapshot) === formatKey))
     .sort((a, b) => a.dateMs - b.dateMs || a.game_number - b.game_number || a.id.localeCompare(b.id));
   const scopedIds = new Set(scoped.map((snapshot) => snapshot.id));
+
+  return { seasons, season, formatKey, scoped, scopedIds, highlights, timeline, playerRows };
+}
+
+export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery) {
+  const metric = METRIC_BY_KEY.get(query.metric as MetricKey) || METRICS[0];
+  const { seasons, season, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
 
   const aggs = new Map<string, Agg>();
   const aggOf = (id: string) => { let value = aggs.get(id); if (!value) { value = emptyAgg(); aggs.set(id, value); } return value; };

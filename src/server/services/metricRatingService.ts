@@ -10,6 +10,8 @@ import { loadStatGames } from './gameStatisticsService.ts';
 import { buildPlayerGameStatistics, createStatMemo, type PlayerGameStatistics, type StatGame, type StatMemo } from '../../lib/gameStatistics.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
+import { buildRevealStats } from '../../lib/revealStats.ts';
+import { buildCircleExits } from '../../lib/circleExits.ts';
 
 /**
  * Club rankings by one figure of the player statistics (owner request 2026-10-12): «who collected the most» wins, games,
@@ -19,14 +21,15 @@ import { buildNightShotStats } from '../../lib/nightShots.ts';
 
 export const TOP_SIZE = 30;
 
-type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Elo';
+type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Вскрытия' | 'Elo';
 export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
   | 'citizen_wins' | 'sheriff_wins' | 'mafia_wins' | 'don_wins'
   | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
   | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black'
-  | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs';
+  | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs'
+  | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers';
 
 /** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
 interface Sample { minimum: number; words: [string, string, string] }
@@ -57,6 +60,11 @@ export const METRICS: MetricDef[] = [
   { key: 'black_miss_rate', label: 'Доля промахов, когда в чёрной команде', group: 'Отстрелы', unit: 'percent', sample: { minimum: 10, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Какая доля ночей прошла без жертвы, когда игрок был в чёрной команде' },
   { key: 'times_shot', label: 'Чаще всех убивают ночью', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока убили ночью, пока он играл за красных' },
   { key: 'night_pairs', label: 'Пары: убит, когда в чёрных', group: 'Отстрелы', unit: 'count', hint: 'Игрок убит ночью, когда в чёрной команде был этот игрок (от 3 общих игр и 2 убийств)' },
+  { key: 'critical_exits', label: 'Заголосован на критике', group: 'Ход игры', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока заголосовали на критическом круге (красных больше чёрных не более чем на 2)' },
+  { key: 'sheriff_reveals', label: 'Вскрылся шерифом', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько раз настоящий шериф открыто назвал себя шерифом' },
+  { key: 'sheriff_found_black', label: 'Нашёл чёрных, вскрывшись', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько чёрных (дон и мафия) шериф назвал в объявленных проверках' },
+  { key: 'black_reveals', label: 'Вскрылся за чёрных', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз мафия или дон открыто назвал себя шерифом' },
+  { key: 'black_covers', label: 'Накрыл своего чёрного', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз чёрный объявил красной проверку на своего напарника' },
   { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo', unit: 'elo', hint: 'Сколько Elo набрал или потерял за период' },
 ];
 const METRIC_BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
@@ -277,10 +285,24 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   // Chronology figures are computed only when asked for.
   const accuracy = new Map<string, { value: number; sample: number }>();
   const nightMetrics = new Set<MetricKey>(['black_misses', 'black_miss_rate', 'times_shot', 'night_pairs']);
+  const revealMetrics = new Set<MetricKey>(['sheriff_reveals', 'sheriff_found_black', 'black_reveals', 'black_covers']);
   const statSource = metric.sample || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
   const scopedStat = statSource.games.filter((game) => scopedIds.has(game.id));
   const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
-  if (metric.sample && night) {
+  if (metric.key === 'critical_exits') {
+    for (const [id, stats] of buildCircleExits(scopedStat, statSource.memo.facts)) if (stats.games) accuracy.set(id, { value: stats.critical, sample: stats.games });
+  }
+  const reveal = revealMetrics.has(metric.key) ? buildRevealStats(scopedStat, statSource.memo.facts) : null;
+  if (metric.sample && reveal) {
+    for (const [id, stats] of reveal) {
+      if (metric.key === 'sheriff_reveals' && stats.sheriffGames) accuracy.set(id, { value: stats.sheriffReveals, sample: stats.sheriffGames });
+      if (metric.key === 'sheriff_found_black' && stats.sheriffGames) accuracy.set(id, { value: stats.sheriffCheckedDon + stats.sheriffCheckedMafia, sample: stats.sheriffGames });
+      if (metric.key === 'black_reveals' && stats.blackGames) accuracy.set(id, { value: stats.blackReveals, sample: stats.blackGames });
+      if (metric.key === 'black_covers' && stats.blackGames) accuracy.set(id, { value: stats.blackCovers, sample: stats.blackGames });
+    }
+  } else if (metric.key === 'critical_exits') {
+    // filled above
+  } else if (metric.sample && night) {
     for (const [id, stats] of night.players) {
       if (metric.key === 'black_misses' && stats.blackNights) accuracy.set(id, { value: stats.blackMisses, sample: stats.blackNights });
       if (metric.key === 'black_miss_rate' && stats.blackNights) accuracy.set(id, { value: winRatePercent(stats.blackMisses, stats.blackNights), sample: stats.blackNights });

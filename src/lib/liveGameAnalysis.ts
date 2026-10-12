@@ -34,6 +34,8 @@ export type AnalysisCircle = {
   zeroRoundVoted: number | null;
   ppk: number[];
   deathProtocols: Array<{ seat: number; value: string }>;
+  /** «Вскрытие»: players who claimed to be the Sheriff in this circle and the checks they announced (red / black). */
+  reveals: Array<{ seat: number; checks: Array<{ target: number; color: 'red' | 'black' }> }>;
 };
 export type GameAnalysis = {
   circles: AnalysisCircle[];
@@ -46,7 +48,7 @@ export type GameAnalysis = {
 
 const emptyCircle = (round: number): AnalysisCircle => ({
   round, nominations: [], votings: [], shot: null, donCheck: null, sheriffCheck: null, exits: [], fouls: [],
-  bestMove: null, bestMoves: [], firstKilled: null, zeroRoundVoted: null, ppk: [], deathProtocols: [],
+  bestMove: null, bestMoves: [], firstKilled: null, zeroRoundVoted: null, ppk: [], deathProtocols: [], reveals: [],
 });
 
 export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
@@ -135,6 +137,16 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
       case 'zero_round_voted': circle.zeroRoundVoted = seat; break;
       case 'ppk': if (seat) circle.ppk.push(seat); break;
       case 'death_protocol': if (seat) circle.deathProtocols.push({ seat, value: String(event.value || '') }); break;
+      case 'reveal': if (seat && !circle.reveals.some((item) => item.seat === seat)) circle.reveals.push({ seat, checks: [] }); break;
+      case 'reveal_removed': circle.reveals = circle.reveals.filter((item) => item.seat !== seat); break;
+      case 'announced_check': {
+        if (!seat || !target || (event.value !== 'red' && event.value !== 'black')) break;
+        let reveal = circle.reveals.find((item) => item.seat === seat);
+        if (!reveal) { reveal = { seat, checks: [] }; circle.reveals.push(reveal); }
+        reveal.checks = [...reveal.checks.filter((item) => item.target !== target), { target, color: event.value }];
+        break;
+      }
+      case 'announced_check_removed': { const reveal = circle.reveals.find((item) => item.seat === seat); if (reveal) reveal.checks = reveal.checks.filter((item) => item.target !== target); break; }
       case 'game_end': winner = event.value === 'red' ? 'red' : event.value === 'black' ? 'black' : winner; break;
       default: break;
     }
@@ -153,7 +165,7 @@ export const buildGameAnalysis = (events: LiveGameEvent[]): GameAnalysis => {
   const ordered = [...circles.values()].sort((a, b) => a.round - b.round);
   const firstKilled = ordered.find((circle) => circle.firstKilled)?.firstKilled ?? null;
   return {
-    circles: ordered.filter((circle) => circle.nominations.length || circle.votings.length || circle.shot || circle.donCheck || circle.sheriffCheck || circle.exits.length || circle.bestMove || circle.ppk.length || circle.fouls.length || circle.deathProtocols.length),
+    circles: ordered.filter((circle) => circle.nominations.length || circle.reveals.length || circle.votings.length || circle.shot || circle.donCheck || circle.sheriffCheck || circle.exits.length || circle.bestMove || circle.ppk.length || circle.fouls.length || circle.deathProtocols.length),
     winner,
     eventsCount: events.length,
     votesCast,

@@ -31,6 +31,9 @@ export function parsePublicGoMafiaStats(page: string, reference: GoMafiaPlayerRe
   // The default 2026 view is not an all-time career total.
   const selectedYear = [...tokens.slice(0, Math.max(section, 0))].reverse()
     .find(value => /^20\d{2}$/.test(value));
+  const headerFilters = tokens.slice(Math.max(0, section - 15), section);
+  const gameFilter = headerFilters.find(value => value === 'Все игры') ?? null;
+  const tournamentFilter = headerFilters.find(value => value === 'Турниры ФСМ') ?? null;
   if (section < 0) throw new Error('GoMafia did not return a recognized public statistics section');
   const end = tokens.indexOf('Дополнительные баллы', section);
   const values = tokens.slice(section + 1, end > section ? end : section + 90);
@@ -64,6 +67,8 @@ export function parsePublicGoMafiaStats(page: string, reference: GoMafiaPlayerRe
   if (totalGames === null || overallElo === null) throw new Error('GoMafia public statistics are incomplete or layout changed');
   return createGoMafiaPublicSnapshot(reference, {
     year: selectedYear ? Number(selectedYear) : null,
+    gameFilter,
+    tournamentFilter,
     totalGames,
     overallElo,
     tableElo: findBefore(['ELO столов']),

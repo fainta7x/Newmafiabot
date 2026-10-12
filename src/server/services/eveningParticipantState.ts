@@ -19,6 +19,15 @@ export class EveningParticipantStateError extends Error {
   }
 }
 
+/**
+ * A player's own RSVP is immutable after the organizer has marked factual
+ * attendance. Organizer corrections still go through a separate authorized
+ * route and are not subject to this player-facing guard.
+ */
+export const isParticipantResponseLockedAfterAttendance = (
+  participant: { attendance_status?: unknown } | null | undefined,
+): boolean => Boolean(participant) && String(participant?.attendance_status || 'pending') !== 'pending';
+
 export const parseResponseStatus = (value: unknown): EveningResponseStatus => {
   if (!EVENING_RESPONSE_STATUSES.includes(value as EveningResponseStatus)) {
     throw new EveningParticipantStateError('Некорректный ответ игрока');

@@ -4,17 +4,14 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 
 /**
- * Owner decision 2026-10-06: only the club owner plays without a fee; the assigned organizer pays like everybody else and the
- * owner gifts the evening by hand («Подарить вечер»). Evenings that started before this moment keep the earlier rule (the assigned
- * organizer was exempt), so closed evenings are never charged retroactively.
+ * Who plays a regular (CASUAL) evening without a fee: the club owner always, and the organizer assigned to that evening
+ * (owner decision 2026-10-12: the organizer who runs the evening is never charged, also when he plays; the 2026-10-06 rule that
+ * charged the assigned organizer is withdrawn). Everybody else, the judge included, pays for the games played, and a player who
+ * should not pay is given a gifted evening by hand.
  */
-export const ORGANIZER_PAYS_FROM_MS = Date.parse('2026-10-06T00:00:00+03:00');
-
-/** Who plays a regular (CASUAL) evening without a fee: the club owner always; the assigned organizer only on evenings before the change. */
-export const isRegularFeeFreeByStaffRule = (startsAt: unknown, playerId: string, assignedOrganizerId: string | null): boolean => {
+export const isRegularFeeFreeByStaffRule = (_startsAt: unknown, playerId: string, assignedOrganizerId: string | null): boolean => {
   if (playerId === PRIMARY_ORGANIZER_PLAYER_ID) return true;
-  const startedMs = Date.parse(String(startsAt || ''));
-  return Number.isFinite(startedMs) && startedMs < ORGANIZER_PAYS_FROM_MS && assignedOrganizerId !== null && assignedOrganizerId === playerId;
+  return assignedOrganizerId !== null && assignedOrganizerId === playerId;
 };
 
 export const REGULAR_GAME_PRICE = 100;

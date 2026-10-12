@@ -2,16 +2,14 @@ import { createGoMafiaPublicSnapshot, type GoMafiaPublicSnapshot, type GoMafiaPl
 
 /** Parse only visibly published stats; missing or changed markup fails closed. */
 export function parsePublicGoMafiaStats(page: string, reference: GoMafiaPlayerReference, now: string): GoMafiaPublicSnapshot {
+  // Reject executable markup rather than trying to sanitize arbitrary HTML with regex.
+  // We only consume text tokens and never render the provider's HTML.
+  if (/<script|<style|<iframe|<object|<svg/i.test(page)) {
+    throw new Error('Untrusted active markup in GoMafia response');
+  }
   const decoded = page
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, '\n')
-    .replace(/&nbsp;|&#160;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#(\d+);/g, (_all, code: string) => String.fromCodePoint(Number(code)));
+    .replace(/<[^>]*>/g, '\n')
+    .replace(/&nbsp;|&#160;/gi, ' ');
   const tokens = decoded.split(/\n/).map(s => s.replace(/[\u00a0\u202f]/g, ' ').trim()).filter(Boolean);
   const section = tokens.indexOf('Основная статистика');
   if (section < 0) throw new Error('GoMafia did not return a recognized public statistics section');

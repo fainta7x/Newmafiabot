@@ -29,6 +29,7 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 ### RSVP ↔ game-slot synchronization
 
 - Canonical participant response compatibility: `src/lib/eveningResponse.ts` plus participant/server routes.
+- Read-only participant projections (CRM organizer working list vs closeout attendance decisions): `src/lib/eveningParticipantView.ts`, used in `EveningActiveRosterView.tsx` and `EveningCloseoutPanel.tsx`. This is not the server update owner or the game-seat/payment rule.
 - Exact game-slot plan API: `src/server/routes/eveningSlotRoutes.ts` and player event UI callers.
 - Telegram RSVP integration: `src/server/routes/botTelegramRoutes.ts` / related bot announcement handlers and Python bot bridge.
 - Current behavior: `going` selects all slots; `late`/`thinking` do not invent exact slots; `declined` clears slots; manual exact selection persists through the canonical PUT/save path.

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
+import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 
@@ -20,18 +22,8 @@ type AllGame = {
   judge_name: string | null;
 };
 
-const formatDate = (value: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' }).format(date);
-};
-
-const winnerLabel = (winner: 'red' | 'black' | null) => {
-  if (winner === 'red') return '🔴 Победа красных';
-  if (winner === 'black') return '⚫ Победа чёрных';
-  return 'Результат';
-};
+const winnerLabel = (winner: 'red' | 'black' | null) =>
+  getPlayerGameWinnerLabel(winner) ?? 'Результат';
 
 export default function PlayerGamesArchive({
   data,

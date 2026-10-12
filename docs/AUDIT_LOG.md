@@ -808,3 +808,10 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - FIXED `goMafiaRoutes.ts`: manual nickname-row import and duplicate request refresh path; replace with shared verified-ID automatic sync.
 - FIXED `PlayerGoMafiaLink.tsx`: stale career state on player changes and no yearly timeline; acceptance at 360/390px.
 - FIXED upstream #855 `achievement-paths-preview.spec.mjs`: unconditional click folded an already-open statistics panel; latest main checks actual open state. Reverify focused preview.
+
+### 2026-10-12 — Реплей игры не загружается (сообщение владельца)
+
+- **Scope:** `GET /api/player/games/:gameKey/replay` (`playerReplayRoutes.ts`) and `PlayerReplayScreen.tsx`; entry points «Replay игры ›» (`PlayerHistoryStatsView`), `PlayerLiveCenter`.
+- **Observable failure:** owner: «ни один реплей игры не могу загрузить нормально». Exact on-screen text and which account opened it are not yet known.
+- **Candidate causes (from code, not yet confirmed):** (1) 403 «доступен только её участникам и ведущему» for a viewer who did not sit at the table or judge (no admin/owner exception); (2) 409 «доступен после завершения игры» when the saved protocol is not `kind=club_evening_protocol` with `protocol.status=completed`; (3) 401 for a non-player session; (4) timeline is built only from `protocol.rounds` shapes, so a live-engine game with only `events` yields a nearly empty replay.
+- Status: open — waiting for the exact message shown on screen.

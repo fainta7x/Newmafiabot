@@ -21,6 +21,8 @@ export type LiveEventSnapshot = {
   donCheckResult?: boolean | null;
   sheriffCheckSlot?: number | null;
   sheriffCheckResult?: string | null;
+  /** Players who openly claimed to be the Sheriff and the checks they announced (judge's record, see `liveReveals.ts`). */
+  reveals?: Array<{ seat?: number; checks?: Array<{ target?: number; color?: string }> }>;
   protocolMarkers?: {
     firstKilledSlot?: number | null;
     zeroRoundVotedSlot?: number | null;
@@ -130,6 +132,24 @@ export const deriveLiveGameEvents = (
   if (sheriff !== null && sheriff !== seatOrNull(previous.sheriffCheckSlot)) {
     push({ kind: 'sheriff_check', target: sheriff, value: current.sheriffCheckResult ?? null });
   }
+
+  // «Вскрытие»: who claimed to be the Sheriff and which checks they announced (red / black). Old snapshots have none.
+  const revealsOf = (snapshot: LiveEventSnapshot) => new Map((snapshot.reveals || []).flatMap((item) => {
+    const seat = seatOrNull(item.seat);
+    return seat === null ? [] : [[seat, new Map((item.checks || []).flatMap((check) => {
+      const target = seatOrNull(check.target);
+      return target === null || (check.color !== 'red' && check.color !== 'black') ? [] : [[target, check.color] as [number, string]];
+    }))] as [number, Map<number, string>]];
+  }));
+  const beforeReveals = revealsOf(previous);
+  const nowReveals = revealsOf(current);
+  for (const [seat, checks] of nowReveals) {
+    const before = beforeReveals.get(seat);
+    if (!before) push({ kind: 'reveal', seat });
+    for (const [target, color] of checks) if (before?.get(target) !== color) push({ kind: 'announced_check', seat, target, value: color });
+    if (before) for (const target of before.keys()) if (!checks.has(target)) push({ kind: 'announced_check_removed', seat, target });
+  }
+  for (const [seat] of beforeReveals) if (!nowReveals.has(seat)) push({ kind: 'reveal_removed', seat });
 
   const markers = current.protocolMarkers;
   const previousMarkers = previous.protocolMarkers;

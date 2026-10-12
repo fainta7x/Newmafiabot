@@ -34,6 +34,8 @@ import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
 import LiveGameJudgeToolbar from "./LiveGameEngine/LiveGameJudgeToolbar.js";
+import RevealPanel from "./LiveGameEngine/RevealPanel.tsx";
+import { addReveal, removeAnnouncedCheck, removeReveal, setAnnouncedCheck, type LiveReveal, type RevealColor } from "../lib/liveReveals.ts";
 import LiveGamePlayerList from "./LiveGameEngine/LiveGamePlayerList.js";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
@@ -120,6 +122,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [pendingWinner, setPendingWinner] = useState<'Красные' | 'Чёрные' | null>(null);
 
   const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
+  // «Вскрытие»: who claimed to be the Sheriff and which checks they announced (the judge's hand record).
+  const [reveals, setReveals] = useState<LiveReveal[]>([]);
+  const [revealPanelOpen, setRevealPanelOpen] = useState(false);
   const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
   const [activeBestMoveSlot, setActiveBestMoveSlot] = useState<number | null>(null);
   const [pendingBestMoveSeats, setPendingBestMoveSeats] = useState<number[]>([]);
@@ -199,6 +204,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       nightSubPhase,
       postNightStage,
       protocolMarkers,
+      reveals,
       activeBestMoveSource,
       activeBestMoveSlot,
       pendingBestMoveSeats,
@@ -250,6 +256,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNightSubPhase(restored.nightSubPhase);
     setPostNightStage(restored.postNightStage);
     setProtocolMarkers(restored.protocolMarkers);
+    setReveals(restored.reveals ?? []);
     setActiveBestMoveSource(restored.activeBestMoveSource);
     setActiveBestMoveSlot(restored.activeBestMoveSlot);
     setPendingBestMoveSeats(restored.pendingBestMoveSeats);
@@ -381,13 +388,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
     writeLiveSession(data);
   }, [
-    activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers,
+    activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers, reveals,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, speechExtendedSlot, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
     zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,
   ]);
+
+  // Judge record of reveals; every change is one Undo step like the other judge actions.
+  const handleAddReveal = (seat: number) => { saveSnapshot(); setReveals((previous) => addReveal(previous, seat, tableSize)); };
+  const handleRemoveReveal = (seat: number) => { saveSnapshot(); setReveals((previous) => removeReveal(previous, seat)); };
+  const handleSetAnnouncedCheck = (seat: number, target: number, color: RevealColor) => { saveSnapshot(); setReveals((previous) => setAnnouncedCheck(previous, seat, target, color, tableSize)); };
+  const handleRemoveAnnouncedCheck = (seat: number, target: number) => { saveSnapshot(); setReveals((previous) => removeAnnouncedCheck(previous, seat, target)); };
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
@@ -1729,7 +1742,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             viewMode={viewMode}
             onToggleView={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
             requiresTableSeatVoting={requiresTableSeatVoting}
+            revealCount={reveals.length}
+            onOpenReveals={() => setRevealPanelOpen(true)}
           />
+
+          {revealPanelOpen ? (
+            <RevealPanel
+              players={activePlayers}
+              reveals={reveals}
+              rolesVisible={rolesAreVisible}
+              onAddReveal={handleAddReveal}
+              onRemoveReveal={handleRemoveReveal}
+              onSetCheck={handleSetAnnouncedCheck}
+              onRemoveCheck={handleRemoveAnnouncedCheck}
+              onClose={() => setRevealPanelOpen(false)}
+            />
+          ) : null}
 
           {effectiveViewMode === 'table' ? renderTable() : (
             <div className="space-y-3">

@@ -158,6 +158,23 @@ describe('live broadcast audience state', () => {
     expect(state.bestMove).toEqual({ bySeat: 2, seats: [8, 9, 10] });
   });
 
+  it('publishes who revealed as the Sheriff and the checks announced, and nothing when nobody did', () => {
+    expect(buildLiveBroadcastState(snapshot(), metadata)!.reveals).toBeUndefined();
+    const state = buildLiveBroadcastState({
+      ...snapshot(),
+      reveals: [
+        { seat: 10, checks: [{ target: 9, color: 'red' }, { target: 3, color: 'black' }] },
+        { seat: 7, checks: [] },
+        { seat: 11, checks: [] },                                     // outside the table
+        { seat: 10, checks: [{ target: 2, color: 'red' }] },          // a second record of the same seat is dropped
+      ],
+    }, metadata)!;
+    expect(state.reveals).toEqual([
+      { seat: 10, checks: [{ target: 9, color: 'red' }, { target: 3, color: 'black' }] },
+      { seat: 7, checks: [] },
+    ]);
+  });
+
   it('builds «Ход игры» from the engine log and adds the current night live', () => {
     const nightLogs = [
       { round: 1, log: 'Д1: в нулевом круге выставлена только одна кандидатура #3; голосование не проводится, наступает ночь.' },

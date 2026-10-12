@@ -63,4 +63,20 @@ describe('one federation writer on a real isolated SQLite database',()=>{
     const saved=JSON.parse((await db.get('SELECT snapshot_json FROM gomafia_player_snapshots'))!.snapshot_json);
     expect(saved.career.tournaments[0].totalScore).toBe(7.8);expect(saved.career.yearlyStats[0].retrievedAt).toBe(first);
   });
+  it('bounds concurrent background/read refreshes to four profiles per database',async()=>{
+    await setup();
+    const ids=['1202','43','44','45','46'];
+    for(const external of ids.slice(1)) {
+      await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES (?,?,?,?)',[external,external,first,first]);
+      await db.run(`INSERT INTO gomafia_player_links(player_id,external_player_id,profile_url,status,linked_by,linked_at,updated_at) VALUES (?,?,?,'verified','organizer',?,?)`,[external,external,`https://gomafia.pro/stats/${external}`,first,first]);
+    }
+    let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});
+    const fetchSnapshot=vi.fn(async (reference: typeof ref)=>{
+      await held;return parseGoMafiaStructuredStats({...stats,user:{...stats.user,id:reference.externalPlayerId}},reference,'all',first);
+    });
+    const jobs=ids.map(externalPlayerId=>refreshVerifiedGoMafiaProfiles(db,{externalPlayerId,now:new Date(first),fetchSnapshot}));
+    await vi.waitFor(()=>expect(fetchSnapshot).toHaveBeenCalledTimes(4));release();await Promise.all(jobs);
+    expect(fetchSnapshot).toHaveBeenCalledTimes(4);
+  });
+
 });

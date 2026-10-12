@@ -36,7 +36,7 @@ export async function refreshVerifiedGoMafiaProfiles(
   let updated = 0;
   let failed = 0;
   for (const row of rows) {
-    if (activeProfiles(db).has(row.external_player_id)) continue;
+    if (activeProfiles(db).has(row.external_player_id) || activeProfiles(db).size >= 4) continue;
     activeProfiles(db).add(row.external_player_id);
     const ref = parseGoMafiaPlayerReference(row.profile_url);
     if (!ref || ref.externalPlayerId !== row.external_player_id) {

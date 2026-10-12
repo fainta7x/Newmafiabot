@@ -16,7 +16,7 @@ class PrNotificationTests(unittest.TestCase):
         text = mod.message(pr, label, [], [])
         self.assertEqual(status, "merged")
         self.assertIn("&lt;players&gt;", text)
-        self.assertIn("Amvera", text)
+        self.assertIn("деплой", text)
 
     def test_failed_check_blocks_ready(self):
         pr = {"number": 15, "title": "Answers", "state": "open", "merged_at": None}
@@ -135,8 +135,9 @@ class PrNotificationIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(mod, "github", side_effect=fake_github):
             text = await mod.overview()
-        self.assertLess(text.index("Ещё не слито"), text.index("Уже слито"))
-        self.assertIn("🔵 Проверки пройдены — ещё не слито · 💬 GPT", text)
+        self.assertLess(text.index("PR клуба"), text.index("Недавно слито"))
+        self.assertIn("🔵 <a href=", text)
+        self.assertIn("· 💬 GPT", text)
         self.assertIn("🟢 <a href=", text)
         self.assertIn("· 🤖 Claude", text)
 
@@ -149,9 +150,9 @@ class PrNotificationIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(mod, "github", side_effect=fake_github):
             text = await mod.overview()
         self.assertIn("#11", text)
-        self.assertIn("🟡 В проверке", text)
-        self.assertIn("Amvera", text)
-        self.assertIn("🟢 слито", text)  # the legend explains the colours
+        self.assertIn("🟡 <a href=", text)
+        self.assertIn("деплой", text)
+        self.assertIn("в работе", text)  # the legend explains the colours
         self.assertIn("💬 GPT", text)  # no claude/ branch and no footer
 
 

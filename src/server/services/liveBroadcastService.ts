@@ -242,6 +242,23 @@ export const normalizeLiveBroadcastState = (
         .slice(0, 10) as NonNullable<LiveBroadcastState['protocols']>
     : [];
 
+  const reveals: NonNullable<LiveBroadcastState['reveals']> = Array.isArray(source.reveals)
+    ? source.reveals
+        .map((item: any) => {
+          const seat = toSeat(item?.seat);
+          if (!seat || !seats.has(seat)) return null;
+          const checks: Array<{ target: number; color: 'red' | 'black' }> = [];
+          for (const check of Array.isArray(item.checks) ? item.checks : []) {
+            const target = toSeat(check?.target);
+            if (!target || target === seat || !seats.has(target) || checks.some((existing) => existing.target === target)) continue;
+            if (check.color === 'red' || check.color === 'black') checks.push({ target, color: check.color });
+          }
+          return { seat, checks };
+        })
+        .filter((item: any, index: number, all: any[]) => item && all.findIndex((other) => other?.seat === item.seat) === index)
+        .slice(0, 10) as NonNullable<LiveBroadcastState['reveals']>
+    : [];
+
   const timerSeconds = source.timerSeconds == null ? null : Math.max(0, finiteInteger(source.timerSeconds));
   const timerMaxSeconds = source.timerMaxSeconds == null ? null : Math.max(0, finiteInteger(source.timerMaxSeconds));
 
@@ -268,6 +285,7 @@ export const normalizeLiveBroadcastState = (
     timeline,
     dayVotes,
     protocols,
+    ...(reveals.length ? { reveals } : {}),
     eveningScore: game.eveningScore || null,
     updatedAt: receivedAt.toISOString(),
   };

@@ -77,7 +77,10 @@ const play = (cue: PokerSoundCue) => {
   } catch { /* sound may be unsupported; poker must work regardless */ }
 };
 
-export default function PokerSoundToggle({ tableId, hand }: { tableId: string; hand: any }) {
+/** Kept on the parent Poker screen: a waiting table and the first dealt hand share
+ * the same transition memory, despite rendering different table layouts.
+ */
+export function usePokerSoundEffects(tableId: string | null, hand: any) {
   const [enabled, setEnabled] = useState(() => {
     try { return window.localStorage.getItem(SOUND_KEY) === 'on'; } catch { return false; }
   });
@@ -89,6 +92,15 @@ export default function PokerSoundToggle({ tableId, hand }: { tableId: string; h
     if (enabled && document.visibilityState === 'visible') cues.forEach(play);
   }, [tableId, hand, enabled]);
 
+  useEffect(() => {
+    const onVisibility = () => {
+      // Never play a hand or a timer that elapsed while the Telegram mini app was backgrounded.
+      if (document.visibilityState === 'hidden') previous.current = null;
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   const toggle = () => {
     const next = !enabled;
     setEnabled(next);
@@ -98,10 +110,13 @@ export default function PokerSoundToggle({ tableId, hand }: { tableId: string; h
       if (ctx) void ctx.resume().then(() => play('turn')).catch(() => {});
     }
   };
+  return { enabled, toggle };
+}
 
+export default function PokerSoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return <button type="button" data-testid="poker-sound-toggle" aria-label={enabled ? 'Выключить звуки покера' : 'Включить звуки покера'}
     title={enabled ? 'Звуки покера включены' : 'Звуки покера выключены'} aria-pressed={enabled}
-    onClick={toggle} className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${enabled ? 'border-amber-200/35 bg-amber-200/10 text-amber-100' : 'border-white/10 bg-white/[.06] text-white/45'}`}>
+    onClick={onToggle} className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${enabled ? 'border-amber-200/35 bg-amber-200/10 text-amber-100' : 'border-white/10 bg-white/[.06] text-white/45'}`}>
     {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
   </button>;
 }

@@ -37,9 +37,10 @@ describe('evening payments: two blocks and a direct route (owner, 2026-10-12)', 
       row('c', 'Вера', { payment_status: 'paid', amount_paid: 350 }),
     ]))));
     render(<EveningPaymentsPanel eveningId="e1" />);
-    expect((await screen.findByTestId('evening-payments-group-unpaid')).textContent).toMatch(/200/);
-    expect(screen.getByTestId('evening-payments-group-unpaid').textContent).not.toMatch(/300/);
-    expect(screen.getByTestId('evening-payments-group-paid').textContent).toMatch(/350/);
+    const unpaidHeader = (await screen.findByText(/Не оплатили · 1/)).parentElement!;
+    expect(unpaidHeader.textContent).toMatch(/200/);
+    expect(unpaidHeader.textContent).not.toMatch(/300/);
+    expect(screen.getByText(/Оплатили · 1/).parentElement!.textContent).toMatch(/350/);
   });
 
   it('keeps one flat list for a chip filter and for a search', async () => {

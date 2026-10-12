@@ -1,0 +1,1388 @@
+{
+  "history": [
+    {
+      "id": "2769",
+      "title": "BLACK EARTH NINJA TURTLES: The story of April and Casey 2026",
+      "date_start": "2026-06-20",
+      "date_end": "2026-06-21",
+      "country_translate": "Россия",
+      "city_translate": "Липецк",
+      "place": "32",
+      "type": "team",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 39,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -2
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -9
+        },
+        {
+          "game_num": "3",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "9",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -3
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -4
+        },
+        {
+          "game_num": "5",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 10
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 7
+        },
+        {
+          "game_num": "7",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 22
+        },
+        {
+          "game_num": "8",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 12
+        },
+        {
+          "game_num": "9",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -8
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -8
+        },
+        {
+          "game_num": "11",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -3
+        },
+        {
+          "game_num": "12",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -6
+        },
+        {
+          "game_num": "13",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 22
+        },
+        {
+          "game_num": "14",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 23
+        },
+        {
+          "game_num": "15",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -14
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "2765",
+      "title": "CHEATERS CUP 2026",
+      "date_start": "2026-02-28",
+      "date_end": "2026-03-01",
+      "country_translate": "Россия",
+      "city_translate": "Воронеж",
+      "place": "27",
+      "type": "team",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 72,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -8
+        },
+        {
+          "game_num": "2",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -2
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -8
+        },
+        {
+          "game_num": "4",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 13
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -30
+        },
+        {
+          "game_num": "6",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 6
+        },
+        {
+          "game_num": "7",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 34
+        },
+        {
+          "game_num": "8",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 6
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -12
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 29
+        },
+        {
+          "game_num": "11",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 27
+        },
+        {
+          "game_num": "12",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -14
+        },
+        {
+          "game_num": "13",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "1",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -6
+        },
+        {
+          "game_num": "14",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 8
+        },
+        {
+          "game_num": "15",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 29
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "2357",
+      "title": "Кубок России | Отбор | Черноземье | 2LA Noire | 1 серия",
+      "date_start": "2025-07-27",
+      "date_end": "2025-07-27",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "9",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": -5,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 4
+        },
+        {
+          "game_num": "2",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 1
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 3
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 4
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 1
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 7
+        },
+        {
+          "game_num": "7",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 7
+        },
+        {
+          "game_num": "9",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "4",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -16
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -16
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "1846",
+      "title": "REStart 2025",
+      "date_start": "2025-02-15",
+      "date_end": "2025-02-16",
+      "country_translate": "Россия",
+      "city_translate": "Москва",
+      "place": "31",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 252,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -2
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 48
+        },
+        {
+          "game_num": "3",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -1
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 39
+        },
+        {
+          "game_num": "5",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "4",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -2
+        },
+        {
+          "game_num": "6",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "1",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -9
+        },
+        {
+          "game_num": "7",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 45
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 28
+        },
+        {
+          "game_num": "10",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 86
+        },
+        {
+          "game_num": "11",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 20
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "1520",
+      "title": "Кубок России | Отбор | Черноземье | 2LA Noire",
+      "date_start": "2024-08-10",
+      "date_end": "2024-08-10",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "4",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 134,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 35
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -8
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -17
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 34
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": -16
+        },
+        {
+          "game_num": "6",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 65
+        },
+        {
+          "game_num": "7",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "1",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 40
+        },
+        {
+          "game_num": "8",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "4",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -19
+        },
+        {
+          "game_num": "9",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 34
+        },
+        {
+          "game_num": "10",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": -14
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "721",
+      "title": "Тула 2la Noire Cup",
+      "date_start": "2023-09-16",
+      "date_end": "2023-09-16",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "2",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 0,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "4",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "7",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "7",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "9",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "11",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "12",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "646",
+      "title": "2la Noire HD Cup Тула",
+      "date_start": "2023-08-12",
+      "date_end": "2023-08-13",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "5",
+      "type": "team",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 0,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "3",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "7",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "1",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "7",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "10",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "11",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "12",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "13",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "14",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "15",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "9",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "16",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "17",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "18",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "19",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "20",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "616",
+      "title": "Тула 2la Noire Cup",
+      "date_start": "2023-07-22",
+      "date_end": "2023-07-22",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "1",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 0,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "5",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "1",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "7",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "9",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "10",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "11",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "12",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        }
+      ],
+      "nominations": {
+        "best_red_id": 1,
+        "best_sheriff_id": 1,
+        "mvp_id": 1
+      }
+    },
+    {
+      "id": "566",
+      "title": "Тула 2la noire Cup",
+      "date_start": "2023-06-03",
+      "date_end": "2023-06-03",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "3",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 0,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "2",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "3",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "4",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "5",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "7",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "sheriff",
+          "role_translate": "Шериф",
+          "place": "3",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "8",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "11",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "2",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "12",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        }
+      ],
+      "nominations": []
+    },
+    {
+      "id": "507",
+      "title": "Тула 2la noire Cup",
+      "date_start": "2023-04-01",
+      "date_end": "2023-04-01",
+      "country_translate": "Россия",
+      "city_translate": "Тула",
+      "place": "1",
+      "type": "individual",
+      "prize": 0,
+      "gg": "0.00",
+      "elo": 0,
+      "games": [
+        {
+          "game_num": "1",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "5",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "2",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "4",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "3",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "1",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "4",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "2",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "5",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "6",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "3",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "7",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "10",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "8",
+          "role": "mafia",
+          "role_translate": "Мафия",
+          "place": "8",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "9",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "7",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "10",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        },
+        {
+          "game_num": "11",
+          "role": "don",
+          "role_translate": "Дон",
+          "place": "6",
+          "win": "mafia",
+          "win_translate": "Мафия",
+          "elo": 0
+        },
+        {
+          "game_num": "12",
+          "role": "red",
+          "role_translate": "Мирный",
+          "place": "9",
+          "win": "city",
+          "win_translate": "Мирные",
+          "elo": 0
+        }
+      ],
+      "nominations": {
+        "best_don_id": 1
+      }
+    }
+  ],
+  "historyTotal": "13",
+  "urlParams": {
+    "period": 2026,
+    "gameType": "all",
+    "tournamentType": "fsm",
+    "limit": 10,
+    "page": 1
+  },
+  "user": {
+    "id": "1202"
+  },
+  "chart": {
+    "elo": [
+      {
+        "id": 30,
+        "title": "TULA MAFIA OPEN 2022",
+        "x": "2022-04-30",
+        "y": 968
+      },
+      {
+        "id": 394,
+        "title": "Командный чемпионат России 2023",
+        "x": "2023-03-25",
+        "y": 1193
+      },
+      {
+        "id": 1520,
+        "title": "Кубок России | Отбор | Черноземье | 2LA Noire",
+        "x": "2024-08-10",
+        "y": 1327
+      },
+      {
+        "id": 1846,
+        "title": "REStart 2025",
+        "x": "2025-02-15",
+        "y": 1579
+      },
+      {
+        "id": 2357,
+        "title": "Кубок России | Отбор | Черноземье | 2LA Noire | 1 серия",
+        "x": "2025-07-27",
+        "y": 1574
+      },
+      {
+        "id": 2765,
+        "title": "CHEATERS CUP 2026",
+        "x": "2026-02-28",
+        "y": 1646
+      },
+      {
+        "id": 2769,
+        "title": "BLACK EARTH NINJA TURTLES: The story of April and Casey 2026",
+        "x": "2026-06-20",
+        "y": 1685
+      }
+    ]
+  }
+}

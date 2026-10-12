@@ -15,6 +15,7 @@ const pages = [
   'e2e/split-vote.html',
   'e2e/player-cabinet.html',
   'e2e/player-profile.html',
+  'e2e/gomafia-career.html',
   'e2e/crm-overview.html',
   'e2e/crm-login.html',
   'e2e/organizer-crm.html',

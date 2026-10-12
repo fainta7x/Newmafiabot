@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import playerSelfCoreRoutes from './playerSelfCoreRoutes.ts';
+import goMafiaRoutes from './goMafiaRoutes.ts';
 import playerEventCalendarRoutes from './playerEventCalendarRoutes.ts';
 import playerEveningSlotRoutes from './playerEveningSlotRoutes.ts';
 import playerProfileIntegrityRoutes from './playerProfileIntegrityRoutes.ts';
@@ -9,6 +10,7 @@ import playerNotificationPreferenceRoutes from './playerNotificationPreferenceRo
 
 const router = Router();
 router.use(playerSelfCoreRoutes);
+router.use(goMafiaRoutes);
 router.use(playerEventCalendarRoutes);
 router.use(playerEveningSlotRoutes);
 router.use(playerProfileIntegrityRoutes);

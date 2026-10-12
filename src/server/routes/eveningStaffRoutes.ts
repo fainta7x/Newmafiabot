@@ -6,7 +6,8 @@ import { canHostEveningFormat } from '../../lib/hostFormats.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
-import { isRegularFeeFreeByStaffRule, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
+import { isRegularFeeFreeByStaffRule, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
+import { EXTENSION_MAX_AMOUNT, EXTENSION_MAX_GAMES } from '../services/eveningExtensionService.ts';
 import { novicePriceForPlayer, reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 import { manualReminderSlot, sendEveningPaymentReminders } from '../services/eveningPaymentReminderService.ts';
 import { enqueueTelegramEveningSync } from '../services/telegramSyncOutboxService.ts';
@@ -101,7 +102,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
 
   const participants = await db.all<any>(`
     SELECT ep.id, ep.player_id, p.nickname, ep.attendance_status,
-           ep.payment_status, ep.amount_due, ep.amount_paid,
+           ep.payment_status, ep.amount_due, ep.extension_due, ep.amount_paid,
            p.club_role, p.judge_level, p.game_level,
            CASE WHEN EXISTS (
              SELECT 1 FROM evening_fee_waivers w
@@ -135,6 +136,9 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
     : null;
   const staffPlayerId = staff?.organizer_player_id ? String(staff.organizer_player_id) : null;
 
+  const extensions = (await db.all<any>('SELECT id, games_count, amount, note, created_at FROM evening_extensions WHERE evening_id = ? ORDER BY created_at ASC, id ASC', [eveningId]))
+    .map((row: any) => ({ id: String(row.id), games_count: Number(row.games_count), amount: Number(row.amount), note: row.note || null, created_at: String(row.created_at) }));
+
   return {
     evening: {
       id: evening.id,
@@ -162,8 +166,10 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
       fee_review_status: participant.fee_review_status || null,
       fee_review_reason: participant.fee_review_reason || null,
       amount_due: Number(participant.amount_due || 0),
+      extension_due: Number(participant.extension_due || 0),
       amount_paid: Number(participant.amount_paid || 0),
     }))),
+    extensions,
   };
 }
 
@@ -218,6 +224,7 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
       await db.run('UPDATE evening_staff_assignments SET organizer_player_id = NULL, updated_at = ? WHERE evening_id = ?', [new Date().toISOString(), eveningId]);
       if (normalizeEveningFormat(evening.format) === 'CASUAL') {
         await reconcileRegularEveningPayments(db, eveningId);
+        await reconcileOtherFormatExtensions(db, eveningId);
       }
       return res.json(await loadStaff(db, eveningId));
     }
@@ -255,6 +262,7 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
 
     if (normalizeEveningFormat(evening.format) === 'CASUAL') {
       await reconcileRegularEveningPayments(db, eveningId);
+      await reconcileOtherFormatExtensions(db, eveningId);
     }
 
     return res.json(await loadStaff(db, eveningId));
@@ -270,11 +278,57 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
     await ensureClubOperationsSchema(db);
     await reconcileRegularEveningPayments(db, eveningId);
     await reconcileNoviceEveningCharges(db, eveningId);
+    await reconcileOtherFormatExtensions(db, eveningId);
     const payments = await loadPayments(db, eveningId);
     if (!payments) return res.status(404).json({ error: 'Вечер не найден' });
     return res.json(payments);
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
+  }
+});
+
+// «Продлить вечер» (owner, 2026-10-12): the organizer enters how many games the extension covered and the amount the club paid;
+// it is split between the players of those last games (not the organizer and the judge) and charged after the evening is closed.
+router.post('/:id/extensions', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    await ensureClubOperationsSchema(db);
+    const eveningId = String(req.params.id);
+    const evening = await db.get<any>('SELECT id FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+    if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+    const gamesCount = Number(req.body?.games_count);
+    const amount = Number(req.body?.amount);
+    if (!Number.isInteger(gamesCount) || gamesCount < 1 || gamesCount > EXTENSION_MAX_GAMES) {
+      return res.status(400).json({ error: `Укажите, сколько игр было в продлении: от 1 до ${EXTENSION_MAX_GAMES}` });
+    }
+    if (!Number.isInteger(amount) || amount < 1 || amount > EXTENSION_MAX_AMOUNT) {
+      return res.status(400).json({ error: 'Укажите сумму продления целым числом рублей' });
+    }
+    const note = String(req.body?.note || '').trim().slice(0, 200) || null;
+    await db.run(
+      'INSERT INTO evening_extensions (id, evening_id, games_count, amount, note, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), eveningId, gamesCount, amount, note, null, new Date().toISOString()],
+    );
+    await reconcileRegularEveningPayments(db, eveningId);
+    await reconcileOtherFormatExtensions(db, eveningId);
+    return res.status(201).json(await loadPayments(db, eveningId));
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось добавить продление' });
+  }
+});
+
+router.delete('/:id/extensions/:extensionId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    await ensureClubOperationsSchema(db);
+    const eveningId = String(req.params.id);
+    const removed = await db.run('DELETE FROM evening_extensions WHERE id = ? AND evening_id = ?', [String(req.params.extensionId), eveningId]);
+    if (!removed?.changes) return res.status(404).json({ error: 'Продление не найдено' });
+    await reconcileRegularEveningPayments(db, eveningId);
+    await reconcileOtherFormatExtensions(db, eveningId);
+    return res.json(await loadPayments(db, eveningId));
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось убрать продление' });
   }
 });
 
@@ -343,10 +397,12 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
         `, [now, participantId, eveningId]);
       }
       await reconcileRegularEveningPayments(db, eveningId);
+      await reconcileOtherFormatExtensions(db, eveningId);
       return res.json(await loadPayments(db, eveningId));
     }
 
     await reconcileRegularEveningPayments(db, eveningId);
+    await reconcileOtherFormatExtensions(db, eveningId);
     const refreshed = await db.get<any>('SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id = ?', [participantId]);
     const due = Math.max(0, Number(refreshed?.amount_due || 0));
     if (due === 0) return res.status(400).json({ error: 'Для этого игрока взнос за вечер не требуется' });

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { calculateExtensionShares } from './eveningExtensionService.ts';
 
 /**
  * Who plays a regular (CASUAL) evening without a fee: the club owner always, and the organizer assigned to that evening
@@ -142,6 +143,62 @@ const reconcileClosedLedger = async (
   }
 };
 
+/** Shares of the evening's extensions per participant id, and the participants who never pay one (organizer, judge, club owner). */
+const loadExtensionShares = async (
+  db: DatabaseWrapper,
+  eveningId: string,
+  evening: any,
+  participants: any[],
+  completedGameParticipants: Array<Set<string>>,
+  assignedOrganizerId: string | null,
+  assignedJudgeId: string | null,
+) => {
+  const hasExtensions = await tableExists(db, 'evening_extensions');
+  const extensionRows = hasExtensions
+    ? await db.all<any>('SELECT id, games_count, amount FROM evening_extensions WHERE evening_id = ? ORDER BY created_at ASC, id ASC', [eveningId])
+    : [];
+  const excluded = new Set<string>();
+  for (const participant of participants) {
+    const playerId = String(participant.player_id);
+    if (isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedOrganizerId) || (assignedJudgeId !== null && playerId === assignedJudgeId)) {
+      excluded.add(String(participant.id));
+    }
+  }
+  return { shares: calculateExtensionShares(extensionRows, completedGameParticipants, excluded), excluded, hasExtensions: extensionRows.length > 0 };
+};
+
+/** The completed games of an evening: how many each participant played and who sat in each game, in playing order. */
+const loadCompletedGames = async (db: DatabaseWrapper, eveningId: string, participants: any[]) => {
+  const participantIds = new Set(participants.map((participant: any) => String(participant.id)));
+  const byPlayerId = new Map(participants.map((participant: any) => [String(participant.player_id), String(participant.id)]));
+  const gameRows = await db.all<any>(`
+    SELECT id, winner_team, protocol_text, slots_json
+      FROM games
+     WHERE evening_id = ? AND archived_at IS NULL
+     ORDER BY global_game_number ASC, id ASC
+  `, [eveningId]);
+
+  const playedCounts = new Map<string, number>();
+  const completedGameParticipants: Array<Set<string>> = [];
+  for (const game of gameRows) {
+    const protocol = safeJsonParse<any>(game.protocol_text, null);
+    if (!isCompletedGame(game, protocol)) continue;
+    const directParticipantIds = participantIdsFromGame(game, protocol);
+    const ids = new Set(directParticipantIds.filter((id) => participantIds.has(id)));
+    if (!ids.size) {
+      const slots = safeJsonParse<any[]>(game.slots_json, []);
+      for (const slot of Array.isArray(slots) ? slots : []) {
+        const playerId = String(slot?.player_id || '').trim();
+        const participantId = playerId ? byPlayerId.get(playerId) : null;
+        if (participantId) ids.add(participantId);
+      }
+    }
+    for (const id of ids) playedCounts.set(id, (playedCounts.get(id) || 0) + 1);
+    completedGameParticipants.push(ids);
+  }
+  return { playedCounts, completedGameParticipants };
+};
+
 export async function reconcileRegularEveningPayments(
   db: DatabaseWrapper,
   eveningId: string,
@@ -159,20 +216,20 @@ export async function reconcileRegularEveningPayments(
   // Current global club_role/judge_level are permissions/qualifications and are
   // deliberately not selected here: changing them later must never rewrite history.
   const participants = await db.all<any>(`
-    SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.attendance_status
+    SELECT ep.*
       FROM evening_participants ep
      WHERE ep.evening_id = ?
   `, [eveningId]);
-  const participantIds = new Set(participants.map((participant: any) => String(participant.id)));
-  const byPlayerId = new Map(participants.map((participant: any) => [String(participant.player_id), String(participant.id)]));
+  const hasExtensionColumn = participants.length > 0 && 'extension_due' in participants[0];
 
   const hasStaffAssignments = await tableExists(db, 'evening_staff_assignments');
   const staffAssignment = hasStaffAssignments
-    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    ? await db.get<any>('SELECT organizer_player_id, judge_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
     : null;
   const assignedStaffPlayerId = staffAssignment?.organizer_player_id
     ? String(staffAssignment.organizer_player_id)
     : null;
+  const assignedJudgePlayerId = staffAssignment?.judge_player_id ? String(staffAssignment.judge_player_id) : null;
 
   const hasFeeWaivers = await tableExists(db, 'evening_fee_waivers');
   const waiverRows = hasFeeWaivers
@@ -194,29 +251,10 @@ export async function reconcileRegularEveningPayments(
     : [];
   const reviewHoldIds = new Set(diagnosticRows.map((row: any) => String(row.participant_id)));
 
-  const gameRows = await db.all<any>(`
-    SELECT id, winner_team, protocol_text, slots_json
-      FROM games
-     WHERE evening_id = ? AND archived_at IS NULL
-     ORDER BY global_game_number ASC, id ASC
-  `, [eveningId]);
+  const { playedCounts, completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
 
-  const playedCounts = new Map<string, number>();
-  for (const game of gameRows) {
-    const protocol = safeJsonParse<any>(game.protocol_text, null);
-    if (!isCompletedGame(game, protocol)) continue;
-    const directParticipantIds = participantIdsFromGame(game, protocol);
-    const ids = new Set(directParticipantIds.filter((id) => participantIds.has(id)));
-    if (!ids.size) {
-      const slots = safeJsonParse<any[]>(game.slots_json, []);
-      for (const slot of Array.isArray(slots) ? slots : []) {
-        const playerId = String(slot?.player_id || '').trim();
-        const participantId = playerId ? byPlayerId.get(playerId) : null;
-        if (participantId) ids.add(participantId);
-      }
-    }
-    for (const id of ids) playedCounts.set(id, (playedCounts.get(id) || 0) + 1);
-  }
+  // «Продление вечера»: shares of what the club paid for extra time (see eveningExtensionService); charged after the evening is closed.
+  const { shares: extensionShares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedStaffPlayerId, assignedJudgePlayerId);
 
   const closed = evening.status === 'completed' || Boolean(evening.settled_at);
   const now = new Date().toISOString();
@@ -228,7 +266,8 @@ export async function reconcileRegularEveningPayments(
         || reviewHoldIds.has(participantId)
         || isRegularFeeFreeByStaffRule(evening.starts_at, playerId, assignedStaffPlayerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
-      const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed);
+      const extensionDue = closed && !feeExempt ? (extensionShares.get(participantId) || 0) : 0;
+      const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed) + extensionDue;
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
       if (closed) {
@@ -251,11 +290,17 @@ export async function reconcileRegularEveningPayments(
             : 'unpaid';
       if (
         Number(participant.amount_due || 0) !== canonicalDue
+        || (hasExtensionColumn && Number(participant.extension_due || 0) !== extensionDue)
         || String(participant.payment_status || '') !== paymentStatus
       ) {
+        // `extension_due` is added by ensureClubOperationsSchema; a participants table that does not have it yet is simply not touched.
         await tx.run(
-          'UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
-          [canonicalDue, paymentStatus, now, participant.id],
+          hasExtensionColumn
+            ? 'UPDATE evening_participants SET amount_due = ?, extension_due = ?, payment_status = ?, updated_at = ? WHERE id = ?'
+            : 'UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
+          hasExtensionColumn
+            ? [canonicalDue, extensionDue, paymentStatus, now, participant.id]
+            : [canonicalDue, paymentStatus, now, participant.id],
         );
       }
     }
@@ -265,4 +310,67 @@ export async function reconcileRegularEveningPayments(
     applied: true,
     games_by_participant: Object.fromEntries([...playedCounts.entries()]),
   };
+}
+
+/**
+ * «Продление вечера» on evenings of the other formats (rating, novice, tournament evening ...): the price of such an evening is
+ * written by other services and may be recalculated at any time, so the extension is added on top of whatever `amount_due` is now.
+ * `extension_total_due` remembers the total we wrote: while `amount_due` still equals it, the base price is `amount_due - extension_due`;
+ * otherwise another service has rewritten the price and `amount_due` already is the base. Charged after the evening is closed,
+ * with an ordinary ledger adjustment. Regular (CASUAL) evenings are handled by reconcileRegularEveningPayments.
+ */
+export async function reconcileOtherFormatExtensions(db: DatabaseWrapper, eveningId: string): Promise<void> {
+  const evening = await db.get<any>('SELECT id, title, format, status, settled_at, starts_at FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+  if (!evening || normalizeEveningFormat(evening.format) === 'CASUAL') return;
+  if (!(await tableExists(db, 'evening_extensions'))) return;
+
+  const participants = await db.all<any>('SELECT ep.* FROM evening_participants ep WHERE ep.evening_id = ?', [eveningId]);
+  if (!participants.length || !('extension_total_due' in participants[0])) return;
+
+  const hasStaffAssignments = await tableExists(db, 'evening_staff_assignments');
+  const staffAssignment = hasStaffAssignments
+    ? await db.get<any>('SELECT organizer_player_id, judge_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    : null;
+  const assignedOrganizerId = staffAssignment?.organizer_player_id ? String(staffAssignment.organizer_player_id) : null;
+  const assignedJudgeId = staffAssignment?.judge_player_id ? String(staffAssignment.judge_player_id) : null;
+  const waiverRows = (await tableExists(db, 'evening_fee_waivers'))
+    ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
+    : [];
+  const waivedIds = new Set(waiverRows.map((row: any) => String(row.participant_id)));
+
+  const { completedGameParticipants } = await loadCompletedGames(db, eveningId, participants);
+  const { shares } = await loadExtensionShares(db, eveningId, evening, participants, completedGameParticipants, assignedOrganizerId, assignedJudgeId);
+  const closed = evening.status === 'completed' || Boolean(evening.settled_at);
+  const now = new Date().toISOString();
+
+  await db.transaction(async (tx: DatabaseWrapper) => {
+    for (const participant of participants) {
+      const participantId = String(participant.id);
+      const newExtension = closed && !waivedIds.has(participantId) ? (shares.get(participantId) || 0) : 0;
+      const oldExtension = Math.max(0, Number(participant.extension_due || 0));
+      const due = Math.max(0, Number(participant.amount_due || 0));
+      const previousTotal = Number(participant.extension_total_due || 0);
+      const ourTotalStillStands = oldExtension > 0 && due === previousTotal;
+      if (newExtension === oldExtension && (oldExtension === 0 || ourTotalStillStands)) continue;
+
+      const base = ourTotalStillStands ? due - oldExtension : due;
+      const total = base + newExtension;
+      const paid = Math.max(0, Number(participant.amount_paid || 0));
+      const status = total === 0 ? String(participant.payment_status || '') : paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+      await tx.run(
+        'UPDATE evening_participants SET amount_due = ?, extension_due = ?, extension_total_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
+        [total, newExtension, newExtension > 0 ? total : 0, status, now, participantId],
+      );
+      if (closed && newExtension !== oldExtension) {
+        await addLedgerAdjustment(tx, {
+          type: 'debt_created',
+          amount: newExtension - oldExtension,
+          eveningId,
+          playerId: String(participant.player_id),
+          participantId,
+          description: `Продление вечера: ${String(evening.title || 'Игровой вечер')}`,
+        });
+      }
+    }
+  });
 }

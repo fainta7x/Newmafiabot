@@ -5,7 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from './eveningParticipantState.ts';
-import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
+import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { reconcileNoviceEveningCharges } from './eveningSlotPlanningService.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
@@ -258,6 +258,7 @@ export async function settleEveningFromCloseout(
   // historical backfill. This is a durable write, not a response-time clamp.
   await reconcileRegularEveningPayments(db, eveningId);
   await reconcileNoviceEveningCharges(db, eveningId);
+  await reconcileOtherFormatExtensions(db, eveningId);
   const state = await loadEveningCloseout(db, eveningId);
   const evening = state.evening;
   if (evening.status === 'completed' || evening.settled_at) {

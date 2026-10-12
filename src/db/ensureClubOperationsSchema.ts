@@ -71,6 +71,23 @@ async function ensureApplicationMigrationHistory(db: DatabaseWrapper) {
 }
 
 async function ensureEveningFeeEvidenceSchema(db: DatabaseWrapper) {
+  // «Продление вечера» (owner, 2026-10-12): what the club paid the venue for extra time, split between the players of the
+  // last `games_count` games. Only the organizer's input is stored; the shares are always recalculated from the games.
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS evening_extensions (
+      id TEXT PRIMARY KEY,
+      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
+      games_count INTEGER NOT NULL CHECK (games_count > 0),
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      note TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  await db.run(`
+    CREATE INDEX IF NOT EXISTS idx_evening_extensions_evening
+      ON evening_extensions(evening_id)
+  `);
   await db.run(`
     CREATE TABLE IF NOT EXISTS evening_fee_waivers (
       participant_id TEXT PRIMARY KEY REFERENCES evening_participants(id) ON DELETE CASCADE,
@@ -459,6 +476,16 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   }
   await fillUpcomingEveningStaffOnce(db);
   await ensureEveningFeeEvidenceSchema(db);
+  // The part of `amount_due` that is the player's share of an evening extension (shown as a separate line).
+  const participantColumns = await db.all<{ name: string }>('PRAGMA table_info(evening_participants)');
+  if (!participantColumns.some((column) => column.name === 'extension_due')) {
+    await db.run('ALTER TABLE evening_participants ADD COLUMN extension_due INTEGER NOT NULL DEFAULT 0');
+  }
+  // The `amount_due` we last wrote on a non-regular evening with the extension included: when another service recalculates
+  // `amount_due` it no longer matches, and the extension is added again on top of the fresh price.
+  if (!participantColumns.some((column) => column.name === 'extension_total_due')) {
+    await db.run('ALTER TABLE evening_participants ADD COLUMN extension_total_due INTEGER NOT NULL DEFAULT 0');
+  }
 
   // Legacy organizer-role triggers were global and could rewrite regular-evening
   // history merely because a player later received organizer permissions. Keep the

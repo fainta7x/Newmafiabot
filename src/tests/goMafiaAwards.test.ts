@@ -32,7 +32,7 @@ describe('GoMafia nominations and podium places as awards', () => {
     expect(enrichGoMafiaAppearance(appearance(), page, '1202').nominations).toEqual([{ key: 'best_sheriff', rank: 2 }, { key: 'mvp', rank: 1 }]);
   });
 
-  it('turns places 1–3 and nominations into awards, and nothing for other places', () => {
+  it('turns places 1–3 and the winners of nominations into awards, and nothing for other places', () => {
     const awards = federationAwardsOf('1202', [
       appearance({ place: 2, nominations: [{ key: 'best_sheriff', rank: 2 }, { key: 'mvp', rank: 1 }] }),
       appearance({ tournamentId: '9', place: 27 }),
@@ -40,8 +40,7 @@ describe('GoMafia nominations and podium places as awards', () => {
     ]);
     expect(awards.map((award) => [award.kind, award.title, award.sourceKey])).toEqual([
       ['placement', '2 место', 'gomafia:1202:2765:place'],
-      ['nomination', 'Лучший шериф · 2 место', 'gomafia:1202:2765:nom:best_sheriff'],
-      ['nomination', 'MVP турнира', 'gomafia:1202:2765:nom:mvp'],
+      ['nomination', 'MVP турнира', 'gomafia:1202:2765:nom:mvp'], // the 2nd name of «лучший шериф» is not awarded
     ]);
   });
 

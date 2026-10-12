@@ -29,11 +29,12 @@ export function federationAwardsOf(externalPlayerId: string, tournaments: Career
       awards.push({ ...base, sourceKey: `gomafia:${externalPlayerId}:${item.tournamentId}:place`, kind: 'placement', title: `${item.place} место`, placeResult: `${item.place} место`,
         description: `Итоговая таблица турнира GoMafia: ${item.place} место.` });
     }
-    for (const nomination of finished ? item.nominations ?? [] : []) {
+    // Only the first name of a nomination list is awarded: the meaning of the 2nd and 3rd positions is not confirmed, so nothing is claimed for them.
+    for (const nomination of finished ? (item.nominations ?? []).filter((entry) => entry.rank === 1) : []) {
       const label = GOMAFIA_NOMINATIONS[nomination.key];
       awards.push({ ...base, sourceKey: `gomafia:${externalPlayerId}:${item.tournamentId}:nom:${nomination.key}`, kind: 'nomination',
-        title: nomination.rank === 1 ? label : `${label} · ${nomination.rank} место`, placeResult: null,
-        description: `Номинация «${label}» на турнире GoMafia, позиция в списке: ${nomination.rank}.` });
+        title: label, placeResult: null,
+        description: `Номинация «${label}» на турнире GoMafia.` });
     }
   }
   return awards;

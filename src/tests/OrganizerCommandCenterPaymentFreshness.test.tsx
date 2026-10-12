@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OrganizerCommandCenter from '../components/crm/OrganizerCommandCenter.tsx';
+import { CRMOverview } from '../components/crm/CRMOverview.tsx';
 
 const currentEvening = {
   id: 'current', title: '11 сентября', starts_at: '2026-09-11T17:00:00.000Z', venue: 'Суп с котом', format: 'CASUAL', status: 'published',
@@ -89,6 +90,32 @@ describe('OrganizerCommandCenter action destinations', () => {
     expect(openSection).toHaveBeenCalledTimes(1);
     expect(openSection).toHaveBeenCalledWith('current', 'participants');
     expect(openSection).not.toHaveBeenCalledWith('current', 'overview');
+  });
+});
+
+describe('CRM Today add player shortcut', () => {
+  it('forwards the actual current evening ID through CRMOverview to the existing roster-add action', async () => {
+    const onOpenEveningAdd = vi.fn();
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
+    render(<CRMOverview
+      overview={null}
+      onOpenEvening={vi.fn()}
+      onOpenEveningAdd={onOpenEveningAdd}
+      onOpenPlayer={vi.fn()}
+      onNavigateTab={vi.fn()}
+      onCreateEvening={vi.fn()}
+    />);
+    const shortcut = await screen.findByRole('button', { name: /Добавить игрока в состав/ });
+    fireEvent.click(shortcut);
+    expect(onOpenEveningAdd).toHaveBeenCalledTimes(1);
+    expect(onOpenEveningAdd).toHaveBeenCalledWith('current');
+  });
+
+  it('does not show an add-player shortcut if the host did not provide permission/callback', async () => {
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
+    render(<OrganizerCommandCenter {...props} />);
+    await screen.findByTestId('crm-today-clear');
+    expect(screen.queryByRole('button', { name: /Добавить игрока в состав/ })).toBeNull();
   });
 });
 

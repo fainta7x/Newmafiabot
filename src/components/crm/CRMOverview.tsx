@@ -27,6 +27,7 @@ export const navigateEveningSection = (eveningId: string, section: EveningSectio
 export const CRMOverview = ({
   overview,
   onOpenEvening,
+  onOpenEveningAdd,
   onOpenPlayer,
   onNavigateTab,
   onCreateEvening,
@@ -40,6 +41,7 @@ export const CRMOverview = ({
       showTitle={false}
       overview={overview}
       onOpenEvening={onOpenEvening}
+      onOpenEveningAdd={onOpenEveningAdd}
       onOpenEveningSection={navigateEveningSection}
       onOpenPlayer={onOpenPlayer}
       onNavigateTab={(tab) => onNavigateTab(tab)}

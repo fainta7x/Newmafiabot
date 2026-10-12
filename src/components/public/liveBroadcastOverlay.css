@@ -849,30 +849,39 @@ body.live-broadcast-document #root {
 .live-broadcast-fact.is-red > b { color: #ff8a9b; }
 .live-broadcast-fact.is-black > b { color: #fff; }
 .live-broadcast-fact.is-sheriff > b { color: var(--role-sheriff); }
+.live-broadcast-fact.is-reveal > b { color: var(--gold); }
 
 /* «Вскрытие»: the player who claims to be the Sheriff, and the checks he announced. */
 .live-broadcast-reveal-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: calc(4 * var(--u)) calc(7 * var(--u));
   margin: calc(2 * var(--u)) 0;
-  padding: calc(3 * var(--u)) calc(7 * var(--u));
+  padding: calc(2 * var(--u)) calc(6 * var(--u));
   border-radius: calc(6 * var(--u));
-  background: rgba(255, 196, 66, .16);
-  border: 1px solid rgba(255, 196, 66, .4);
-  color: var(--gold);
-  font-size: calc(11 * var(--u));
+  font-size: calc(10 * var(--u));
   font-weight: 800;
-  letter-spacing: .03em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: rgba(255, 196, 66, .16);
+  color: var(--gold);
+  border: 1px solid rgba(255, 196, 66, .4);
+  text-align: center;
 }
 
-.live-broadcast-reveal-banner > span { text-transform: uppercase; font-size: calc(10 * var(--u)); letter-spacing: .05em; }
+.live-broadcast-announced {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(3 * var(--u));
+}
 
-/* The announced colour is the point: кр in red, ч in white. */
-.live-broadcast-announced { font-size: calc(13 * var(--u)); font-weight: 900; }
-.live-broadcast-announced.is-red { color: #ff8a9b; }
-.live-broadcast-announced.is-black { color: #fff; }
+.live-broadcast-announced > i {
+  font-style: normal;
+  font-size: calc(9 * var(--u));
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.live-broadcast-announced.is-red > i { color: #ff8a9b; }
+.live-broadcast-announced.is-black > i { color: #fff; }
 
 .live-broadcast-fact-values {
   display: flex;

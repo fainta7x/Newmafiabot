@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import LiveBroadcastOverlay from '../components/public/LiveBroadcastOverlay';
 import { buildLiveBroadcastState } from '../lib/liveBroadcast';
@@ -35,19 +35,22 @@ describe('reveals on the broadcast', () => {
     expect(none.reveals).toBeUndefined();
   });
 
-  it('the screen shows one line «Вскрылся с: 9кр 3ч» on the card of the player who revealed', async () => {
-    const state = { ...buildLiveBroadcastState(snapshot([{ seat: 10, checks: [{ target: 9, color: 'red' }, { target: 3, color: 'black' }] }, { seat: 7, checks: [] }]), metadata)!, updatedAt: '2026-10-12T18:00:00.000Z' };
+  it('the screen marks the player and shows what he announced next to the real colour of each seat', async () => {
+    const state = { ...buildLiveBroadcastState(snapshot([{ seat: 10, checks: [{ target: 9, color: 'red' }, { target: 3, color: 'black' }] }]), metadata)!, updatedAt: '2026-10-12T18:00:00.000Z' };
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ connected: true, receivedAt: '2026-10-12T18:00:00.000Z', state }), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
     const { container } = render(<LiveBroadcastOverlay token="t" />);
     await waitFor(() => expect(container.querySelectorAll('.live-broadcast-player').length).toBe(10));
-    const lines = [...container.querySelectorAll('.live-broadcast-reveal-banner')];
-    expect(lines).toHaveLength(2);
-    const don = container.querySelector('.live-broadcast-player.is-speaking .live-broadcast-reveal-banner')!;
-    expect(don.textContent).toBe('Вскрылся с:9кр3ч');
-    expect([...don.querySelectorAll('.live-broadcast-announced')].map((item) => item.className.includes('is-red') ? 'red' : 'black')).toEqual(['red', 'black']);
-    // A reveal without announced checks is only marked.
-    expect(lines.map((line) => line.textContent)).toContain('Вскрылся шерифом');
-    expect(container.querySelector('.live-broadcast-fact.is-reveal')).toBeNull();
+    const tags = container.querySelectorAll('.live-broadcast-reveal-banner');
+    expect(tags).toHaveLength(1);
+    expect(tags[0].textContent).toBe('вскрылся шерифом');
+    const card = tags[0].closest('.live-broadcast-player')!;
+    const row = card.querySelector('.live-broadcast-fact.is-reveal')!;
+    expect(within(row as HTMLElement).getByText('Вскрылся с:')).toBeDefined();
+    const announced = [...row.querySelectorAll('.live-broadcast-announced')].map((item) => item.textContent);
+    expect(announced).toEqual(['9кр', '3ч']);
+    // The chip keeps the real colour: seat 9 is mafia, so announcing it red is visible to viewers at once.
+    expect(row.querySelector('.live-broadcast-announced.is-red .live-broadcast-seat-chip')!.className).toContain('is-mafia');
+    expect(screen.queryAllByText('вскрылся шерифом')).toHaveLength(1);
   });
 
   it('shows nothing extra when nobody revealed', async () => {

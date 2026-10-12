@@ -3,6 +3,7 @@ import path from 'path';
 import { createApp } from './src/app.ts';
 import { getDb } from './src/db/index.ts';
 import developerReadRoutes from './src/server/routes/developerReadRoutes.ts';
+import { startGoMafiaFederationSync } from './src/server/services/goMafiaFederationSync.ts';
 
 dotenv.config();
 
@@ -81,6 +82,8 @@ async function startServer() {
   app.listen(PORT, HOST, () => {
     console.log(`Mafia CRM Server listening on ${HOST}:${PORT}`);
   });
+
+  startGoMafiaFederationSync(db);
 }
 
 startServer().catch((e) => {

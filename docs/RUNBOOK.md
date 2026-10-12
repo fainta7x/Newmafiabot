@@ -516,3 +516,14 @@ Duplicate safeguards (so the pause is not needed for normal work):
 ### Weekly development snapshot
 
 Use [DEVELOPMENT_SNAPSHOT.md](DEVELOPMENT_SNAPSHOT.md) for the reviewed data projection, scoped credentials, encrypted Actions artifact, first-run verification and local-only decryption. Never restore this projection into production or the shared sandbox.
+
+## GitHub PR updates in the existing club bot
+
+The Python bot runs `github_pr_notifications.github_pr_notification_task` from `main.py`, parallel to existing organizer notices. It checks **public** GitHub PR metadata every 10 minutes using the public GitHub API, without API tokens, webhook changes, GitHub Actions secrets or a second Telegram bot. Messages use the existing `ORGANIZER_NOTIFICATION_IDS` recipient list (the same audience as organizer messages); if no recipient is configured, the task logs that it is disabled. It never sends to club player channels.
+
+It displays waiting/failed/passed/merged PR states, actual PR title and body excerpt, Release gate + Secret scan + both CodeQL jobs, and three recent merged PRs. Every message links to the PR, and merged-to-main is explicitly not claimed to be deployed on Amvera. The GitHub API has unauthenticated rate limits; the task reads at most 5 active PR check lists per 10-minute poll and handles failures without bringing down the bot. Changes may arrive with up to a 10-minute delay.
+
+A state file `/data/github_pr_notifications.json` on persistent Amvera storage prevents replaying old PRs or duplicating notifications after restarts. The first successful poll only records baseline status; it deliberately does not spam historical PRs. The monitor acquires a cross-process file lock for rolling-deploy overlap. The file is notification-only metadata and never touches the production SQLite database. Do not delete it unless deliberately resetting notification history.
+
+Verification: `python -m unittest tests.test_github_pr_notifications` and the required Python release-gate job. After code merges to GitHub, **deploy to Amvera** and confirm that the existing organizer private recipient gets a message on the next PR status transition. No user-provided token/chat ID or GitHub secret setup is required.
+

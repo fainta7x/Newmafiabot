@@ -638,7 +638,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
       if (Array.isArray(body.chat)) chatFeed.ingest(body.chat);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не получилось отправить'); }
   };
-  const chatDock = current && current.money_mode !== 'training'
+  const chatDock = current
     ? <PokerChatDock messages={chatFeed.messages} viewerId={viewerId || current.viewer_id || null} canPost={Boolean(current.players?.some((player: Player) => player.id === (viewerId || current.viewer_id)))} muted={chatMuted} onMutedChange={changeChatMuted} onSend={sendChat} />
     : null;
   /** Buying back into a tournament goes through the tournament (the cost is in club tokens, the chips are nominal). */
@@ -675,7 +675,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
             <div className="poker-street-banner-static">Ждём второго игрока</div>
             <div className="mt-2 text-[12px] text-white/70">Раздача начнётся сама, как только за столом будут двое</div>
           </div>
-          {current.money_mode !== 'training' ? <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={waitingPlayers} layout={waitingLayout} muted={chatMuted} /> : null}
+          <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={waitingPlayers} layout={waitingLayout} muted={chatMuted} />
           {waitingPlayers.slice(0, 8).map((player: Player, index: number) => {
             const spot = waitingLayout[index];
             const edge = spot.x < 20 ? 'left' : spot.x > 80 ? 'right' : 'centre';
@@ -716,7 +716,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
           <div key={hand.pot} className="poker-chip-flight absolute left-1/2 z-[5] -translate-x-1/2 -translate-y-1/2" style={{ top: `${POT_Y}%` }}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/35 bg-black/70 py-1 pl-1 pr-3 shadow-[0_6px_16px_rgba(0,0,0,.6)]"><img src="/assets/poker/chips/chip-1000-v2.webp" alt="" className="h-7 w-7 object-contain" /><span className="text-[11px] uppercase tracking-[.14em] text-amber-100/65">Банк</span><span className="text-base font-black tabular-nums text-amber-100">{formatPokerAmount(Number(hand.pot) > 0 ? hand.pot : finished ? hand.last_pot_awarded || 0 : 0, stackDisplay, bigBlind)}</span></span>
           </div>
-          {current.money_mode !== 'training' ? <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={orderedPlayers} layout={layout} muted={chatMuted} /> : null}
+          <PokerChatBubbles messages={chatFeed.messages} createdAt={chatFeed.createdAt} players={orderedPlayers} layout={layout} muted={chatMuted} />
           {hand.street !== 'preflop' && !finished && !streetSweep ? <div key={`street-${hand.id}-${hand.street}`} className="poker-street-banner pointer-events-none absolute left-1/2 z-[7]" style={{ top: `${BOARD_Y}%` }}>{streetName(hand.street)}</div> : null}
           {(() => { const said = actionSentence(hand, stackDisplay, tickerEntry); return said && !finished ? <div key={said.key} className={`poker-action-ticker absolute left-1/2 z-[6] is-${said.type}`} style={{ top: `calc(${BOARD_Y}% + 46px)` }}>{said.text}</div> : null; })()}
           <div className="absolute left-1/2 z-[5] flex -translate-x-1/2 -translate-y-1/2 gap-1" style={{ top: `${BOARD_Y}%` }}>{shownBoard.map((card: Card, index: number) => <span key={`${card.rank}-${card.suit}-${index}`} className={`poker-board-card ${finished && winningKeys(hand).has(cardKey(card)) ? 'rounded-lg ring-2 ring-amber-300' : ''}`} style={{ animationDelay: `${index * 88}ms` }}><PlayingCard card={card} board /></span>)}{Array.from({ length: 5 - shownBoard.length }).map((_, index) => <span key={`empty-${index}`} className="poker-card-slot" />)}</div>

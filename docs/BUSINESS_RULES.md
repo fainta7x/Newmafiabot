@@ -818,7 +818,7 @@ A poker multi-table tournament is its own event with its own record; it is not a
 
 ## Poker table chat and emotes (owner, 2026-10-10)
 
-- Every human poker table (the permanent «Общий стол», open tables on club tokens, tournament tables) has a chat; the training table with bots has none. Only people seated at the table write; anybody who looks at the table (an eliminated tournament player, for instance) can read.
+- Every human poker table (the permanent «Общий стол», open tables on club tokens, tournament tables) has a chat; the training table with bots has them too (owner, 2026-10-12; bots do not answer). Only people seated at the table write; anybody who looks at the table (an eliminated tournament player, for instance) can read.
 - A message is a short plain text (up to 140 characters, one line, links are replaced by «…») or one of the **emotes**: an emoji with its own short animation drawn over the sender's seat, with a phrase under it. A few emotes are friendly (hello, bye, GG, good luck); most are teasing and provocative on purpose (the owner asked for «задиристые»). The phrases do not address a person as «ты»/«вы».
 - One message per person every 1.5 seconds; the table keeps the last 100 messages and anything older than a day is swept. Each viewer can switch the chat off for himself («Выключить чат»): then nobody's messages and emotes are shown to him.
 - The emote list is in `src/shared/pokerEmotes.ts`; adding one is a code change (an emoji, a phrase, one of the animation names).

@@ -20,6 +20,8 @@ export type PokerState = {
   deck_remaining: number; winner_ids: string[]; last_action: string | null; last_pot_awarded: number;
   /** Players whose cards are shown after a showdown. */
   revealed_ids: string[];
+  /** Cards a player chose to show after the hand (owner, 2026-10-12): indexes 0/1 into his hole cards. Two shown cards move him to `revealed_ids`. */
+  shown_cards?: Record<string, number[]>;
   /** The five cards of the winning hand, lit up after a showdown. */
   winning_cards: PokerCard[];
   /** The last full raise: the next raise must be at least this much more. */

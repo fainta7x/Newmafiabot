@@ -301,7 +301,7 @@ export const DataSettingsCRM: React.FC = () => {
   const tabs = [
     { id: 'achievements', icon: Award, label: 'Ачивки' },
     { id: 'shop', icon: ShoppingBag, label: 'Магазин' },
-    { id: 'database', icon: Database, label: 'База' },
+    { id: 'database', icon: Database, label: 'Правка' },
     { id: 'log', icon: History, label: 'Журнал' },
   ] as const;
 
@@ -309,7 +309,7 @@ export const DataSettingsCRM: React.FC = () => {
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div>
         <h2 className="text-[24px] font-black tracking-tight">Данные и настройки</h2>
-        <p className="mt-1 text-[13px] text-text-secondary">Каталоги и технические данные клуба. Настройки конкретного игрока находятся в его карточке.</p>
+        <p className="mt-1 text-[13px] text-text-secondary">Ачивки и товары магазина жетонов. «Правка» — прямое исправление записей, только на крайний случай. Настройки конкретного игрока — в его карточке.</p>
       </div>
 
       {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}

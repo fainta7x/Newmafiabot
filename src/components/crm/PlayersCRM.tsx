@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  Coins,
   Copy,
   Edit3,
   Filter,
@@ -46,6 +47,8 @@ import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
+import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
+import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 import { useClubOwner } from './useClubOwner.ts';
 import PlayerMusicSlotsAdmin from './PlayerMusicSlotsAdmin.tsx';
@@ -110,6 +113,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  // The player's own profile, opened from the CRM card as players see it (the card itself holds only the organizer's facts and actions).
+  const [showPublicProfile, setShowPublicProfile] = useState(false);
+  // Club tokens (owner, 2026-10-12: «не могу начислить жетоны» — the form was hidden at the bottom of the card): a visible action.
+  const [showTokensSheet, setShowTokensSheet] = useState(false);
   const [showMergeSheet, setShowMergeSheet] = useState(false);
   const [showMusicSheet, setShowMusicSheet] = useState(false);
   const [mergeCandidates, setMergeCandidates] = useState<Player[]>([]);
@@ -593,33 +600,41 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             {profileError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div> : null}
             {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
 
-            <section data-testid="crm-player-next" className="rounded-[17px] border border-white/10 bg-white/[0.055] p-3.5">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Следующее</div>
-              {bookingEvening && booking ? (
-                <div className="mt-1.5 flex items-center gap-3">
-                  <div className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-text-primary">{bookingEvening.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}</span></div>
-                  <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="min-h-[44px] shrink-0 rounded-[12px] bg-white px-3 text-[11px] font-semibold text-[#090a0d]">Открыть</button>
-                </div>
-              ) : nextTask ? (
-                <div className="mt-1.5"><strong className="block text-[13px] font-semibold text-text-primary">{nextTask.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{nextTask.due_at ? `Срок ${fmtDate(nextTask.due_at, true)}` : 'Без срока'}</span></div>
-              ) : (
-                <div className="mt-1.5 text-[12px] text-text-secondary">Нет запланированных действий. Можно связаться или поставить задачу.</div>
-              )}
-            </section>
+            {bookingEvening && booking ? (
+              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">
+                Следующий вечер: <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="font-semibold text-text-primary underline decoration-border-soft underline-offset-2">{bookingEvening.title}</button> · {fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}
+              </p>
+            ) : nextTask ? (
+              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">Ближайшая задача: <strong className="text-text-primary">{nextTask.title}</strong> · {nextTask.due_at ? `срок ${fmtDate(nextTask.due_at, true)}` : 'без срока'}</p>
+            ) : null}
 
             <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">
-              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
+              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
               <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4 shrink-0" /> Создать задачу</button>
               <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4 shrink-0" /> Записать общение</button>
+              <button type="button" data-testid="crm-player-tokens" onClick={() => setShowTokensSheet(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Coins className="h-4 w-4 shrink-0" /> Жетоны</button>
               <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4 shrink-0" /> Данные и фото</button>
             </section>
+
+            <button type="button" data-testid="crm-open-player-profile" onClick={() => setShowPublicProfile(true)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary active:bg-surface-hover">
+              <span>Открыть профиль игрока<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Так его видят другие игроки: игры, роли, Elo, награды</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button>
 
             <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
             <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
 
-            <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
+            <section data-testid="crm-player-form" className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
+              <div className="text-[13px] font-bold text-text-primary">Анкета</div>
               <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Контактный статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
               <div className="flex items-start justify-between gap-3"><span className="text-[11px] text-text-secondary">Контакт</span><strong className="text-right text-[11px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
+              {[
+                ['Телефон', playerDetails.phone],
+                ['Источник', playerDetails.source],
+                ['Предпочтительный формат', playerDetails.preferred_format],
+                ['Кто пригласил', playerDetails.referred_by],
+                ['Не пришли', playerDetails.no_show_count ? String(playerDetails.no_show_count) : ''],
+              ].filter(([, value]) => value).map(([label, value]) => <div key={String(label)} className="flex items-start justify-between gap-3"><span className="text-[11px] text-text-secondary">{label}</span><strong className="max-w-[62%] break-words text-right text-[11px] text-text-primary">{value}</strong></div>)}
               {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[10px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
               {playerDetails.do_not_invite_until ? <div className="rounded-[11px] bg-warning-soft p-2.5 text-[11px] text-warning">Не приглашать до {fmtDate(playerDetails.do_not_invite_until)}{playerDetails.pause_reason ? ` · ${playerDetails.pause_reason}` : ''}</div> : null}
             </section>
@@ -660,24 +675,17 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               <div className="border-t border-border-soft p-3"><PlayerServiceTools player={playerDetails} /></div>
             </details>
 
-            <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Все данные игрока</summary>
-              <div className="space-y-3 border-t border-border-soft p-3 text-[12px]">
-                {[
-                  ['Телефон', playerDetails.phone || '—'],
-                  ['Telegram', playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : '—'],
-                  ['Источник', playerDetails.source || '—'],
-                  ['Предпочтительный формат', playerDetails.preferred_format || '—'],
-                  ['Кто пригласил', playerDetails.referred_by || '—'],
-                  ['Посещений', playerDetails.attendance_count ?? playerDetails.stats?.attendanceCount ?? 0],
-                  ['Не пришли', playerDetails.no_show_count || 0],
-                  ['Открытых задач', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
-                ].map(([label, value]) => <div key={String(label)} className="flex items-start justify-between gap-3"><span className="text-text-muted">{label}</span><strong className="max-w-[62%] break-words text-right text-text-primary">{value}</strong></div>)}
-              </div>
-            </details>
           </div>
         ) : null}
         {/* The card's own sheets are nested inside it: a sibling sheet would close the card, and the card closing unmounts them (owner report 2026-09-30: «Данные и фото» did nothing). */}
+        <MobileSheet open={showTokensSheet && Boolean(playerDetails)} onClose={() => setShowTokensSheet(false)} title="Жетоны игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-lg">
+          {playerDetails ? <PlayerTokenLedgerCard playerId={playerDetails.id} initialBalance={Number((playerDetails as any).tokens || 0)} /> : null}
+        </MobileSheet>
+
+        <MobileSheet open={showPublicProfile && Boolean(playerDetails)} onClose={() => setShowPublicProfile(false)} title="Профиль игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-2xl" bodyClassName="p-0">
+          {playerDetails ? <CanonicalPremiumPlayerProfile playerId={playerDetails.id} mode="public" selfPlayerId="" onClose={() => setShowPublicProfile(false)} /> : null}
+        </MobileSheet>
+
         <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
           <div className="space-y-2">
             <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />

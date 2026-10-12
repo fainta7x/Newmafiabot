@@ -32,15 +32,24 @@ describe('poker sound transitions from the authoritative table snapshot', () => 
     const flop = state(hand({ street: 'flop', board: [1, 2, 3] }));
     expect(pokerSoundCues(old, flop)).toEqual(['board']);
     const bet = state(hand({ street: 'flop', board: [1, 2, 3], action_log: [{ type: 'bet' }] }));
-    expect(pokerSoundCues(flop, bet)).toEqual(['chips']);
+    expect(pokerSoundCues(flop, bet)).toEqual(['chipsBig']);
     expect(pokerSoundCues(bet, bet)).toEqual([]);
     expect(pokerSoundCues(bet, state(hand({ street: 'finished', board: [1, 2, 3], action_log: [{ type: 'bet' }] })))).toEqual(['win']);
   });
 
-  it('never makes a chips sound for check and fold', () => {
+  it('knocks for check, tosses the cards for fold and never makes a chips sound for either', () => {
     const old = state(hand());
-    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'check' }] })))).toEqual([]);
-    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'fold' }] })))).toEqual([]);
+    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'check' }] })))).toEqual(['check']);
+    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'fold' }] })))).toEqual(['fold']);
+  });
+
+  it('tells a call (a few chips) from a raise (a heavy stack) and sweeps the bets into the pot on the next street', () => {
+    const old = state(hand());
+    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'call' }] })))).toEqual(['chips']);
+    expect(pokerSoundCues(old, state(hand({ action_log: [{ type: 'raise' }] })))).toEqual(['chipsBig']);
+    const betting = state(hand({ pot: 120, action_log: [{ type: 'call' }] }));
+    const flop = state(hand({ pot: 120, street: 'flop', board: [1, 2, 3], action_log: [{ type: 'call' }] }));
+    expect(pokerSoundCues(betting, flop)).toEqual(['sweep', 'board']);
   });
 
   it('signals a new personal turn and only the threshold crossing of the countdown', () => {

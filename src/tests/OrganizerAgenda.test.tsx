@@ -18,6 +18,13 @@ const json = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body
 describe('«Дела»', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  it('preview hides items the home screen already shows elsewhere', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json(agenda)));
+    render(<OrganizerAgenda mode="preview" hideItemIds={['check:unclosed:e1']} onOpenEveningSection={vi.fn()} onOpenPlayer={vi.fn()} onCreateEvening={vi.fn()} />);
+    await screen.findByText('Давно не были: постоянные · 1');
+    expect(screen.queryByText('Вечер прошёл, но не закрыт')).toBeNull();
+  });
+
   it('groups by urgency, opens the evening, records «Написал» and puts an item off', async () => {
     const calls: Array<{ url: string; body: any }> = [];
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {

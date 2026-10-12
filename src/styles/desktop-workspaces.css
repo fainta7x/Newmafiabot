@@ -2,10 +2,12 @@
 @media (min-width: 1024px) {
   .crm-command-center { max-width: none; display: flex; flex-direction: column; gap: 20px; }
   .crm-command-center > * { min-width: 0; margin-block: 0; }
-  .crm-today-planning { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+  .crm-today-planning { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
   .crm-today-planning > * { margin-block: 0; min-width: 0; }
-  .crm-today-week { grid-column: 2; grid-row: 1; }
-  .crm-today-agenda { grid-column: 1; grid-row: 1; }
+  .crm-today-week { grid-column: 1; grid-row: 1; }
+  .crm-today-agenda { grid-column: 2; grid-row: 1; }
+  .crm-today-week:empty { display: none; }
+  .crm-today-planning:not(:has(.crm-today-week:not(:empty))) .crm-today-agenda { grid-column: 1 / -1; }
   [data-testid="crm-active-player-list"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   [data-testid="crm-active-player-list"] > button { min-width: 0; border-top: 0; border-bottom: 1px solid var(--border-soft); }
   [data-testid="crm-active-player-list"] > button:nth-child(odd) { border-right: 1px solid var(--border-soft); }

@@ -789,6 +789,12 @@ The first-killed red player gets Ci compensation only if their best move (ЛХ) 
 - **Sports terms.** The mafia nomination of tournaments and evening/season results is «Лучший чёрный» (not «Лучшая мафия»); the others stay «Лучший мирный», «Лучший шериф», «Лучший дон».
 - **App activity (owner, 2026-10-05).** The club owner and organizers see, per player, when he was last in the app, how often he came, which screens he opened and which controls he pressed (CRM player card, «Активность в приложении»). Players are not told and cannot see it; other players never see it. History starts at the day the feature went live and is kept 180 days. Only tracked controls appear as clicks.
 
+## Poker: showing cards after a hand (owner, 2026-10-12)
+
+- After a hand is over, a player who took part may show **one chosen card or both** to everyone at the table. Cards are hidden by default and showing is always the player's own choice.
+- Showing is possible only **after** the hand ends (never while it is running — a folded player must not help others), only for the player's own cards, and only until the next hand is dealt. Cards already opened at a showdown cannot be shown again.
+- Both cards shown = the same as a showdown (the hand and its name are visible, also in the hand history). One card shown: others see that card and a card back; the history keeps it hidden. Works at every table type (training, club tokens, tournaments); it changes no chips, results or ratings.
+
 ## Poker table seats (owner, 2026-10-05)
 
 - A person who is completely AFK for **more than 5 minutes** — the app closed or the screen left, or «Отойти»/missed turns without coming back — is taken off the table; his cards are folded in a running hand and his chips stay in his bankroll. Bots are never kicked this way.

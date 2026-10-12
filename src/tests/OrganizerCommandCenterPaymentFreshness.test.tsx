@@ -127,27 +127,16 @@ describe('OrganizerCommandCenter action destinations', () => {
   });
 });
 
-describe('CRM Today add player shortcut', () => {
-  it('forwards the actual current evening ID through CRMOverview to the existing roster-add action', async () => {
-    const onOpenEveningAdd = vi.fn();
+describe('CRM Today overview', () => {
+  it('does not offer adding a player on the overview (it lives inside the evening)', async () => {
     vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
     render(<CRMOverview
       overview={null}
       onOpenEvening={vi.fn()}
-      onOpenEveningAdd={onOpenEveningAdd}
       onOpenPlayer={vi.fn()}
       onNavigateTab={vi.fn()}
       onCreateEvening={vi.fn()}
     />);
-    const shortcut = await screen.findByRole('button', { name: /Добавить игрока в состав/ });
-    fireEvent.click(shortcut);
-    expect(onOpenEveningAdd).toHaveBeenCalledTimes(1);
-    expect(onOpenEveningAdd).toHaveBeenCalledWith('current');
-  });
-
-  it('does not show an add-player shortcut if the host did not provide permission/callback', async () => {
-    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
-    render(<OrganizerCommandCenter {...props} />);
     await screen.findByTestId('crm-today-clear');
     expect(screen.queryByRole('button', { name: /Добавить игрока в состав/ })).toBeNull();
   });
@@ -225,5 +214,13 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(previous.textContent).toContain('Долги с прошлого вечера · не текущая оплата');
     expect(previous.textContent).toContain('4 сентября');
     expect(previous.textContent).toContain('300 ₽');
+  });
+
+  it('puts the previous-evening debts above the current evening actions (owner, 2026-10-12)', async () => {
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 400, previousDue: 300 }))));
+    render(<OrganizerCommandCenter {...props} />);
+    const previous = await screen.findByTestId('previous-evening-debts');
+    const actions = screen.getByLabelText('Действия сегодня');
+    expect(previous.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

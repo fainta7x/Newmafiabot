@@ -61,7 +61,7 @@ const SORTS: Array<{ value: SortBy; label: string }> = [
 
 const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) => (
   <button type="button" aria-pressed={active} onClick={onClick}
-    className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-semibold ${active ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.04] text-white/65'}`}>{children}</button>
+    className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-semibold ${active ? 'bg-white text-black' : 'border border-white/20 bg-white/[0.07] text-white/90'}`}>{children}</button>
 );
 
 // The editing panel uses tap targets instead of dropdowns (owner, 2026-10-01: «много неудобных полей»).
@@ -69,7 +69,7 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
 const Section = ({ title, about, children }: { title: string; about?: string; children: ReactNode }) => (
   <section className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-3">
     <h4 className="text-[13px] font-semibold text-white">{title}</h4>
-    {about ? <p className="mt-0.5 text-[11px] leading-4 text-white/45">{about}</p> : null}
+    {about ? <p className="mt-0.5 text-[11px] leading-4 text-white/70">{about}</p> : null}
     <div className="mt-2">{children}</div>
   </section>
 );
@@ -89,13 +89,13 @@ const Choice = <T extends string>({ label, value, current, onChange, options }: 
           return (
             <button key={option.value} type="button" aria-pressed={active} disabled={option.disabled}
               onClick={() => onChange(option.value === current ? '' : option.value)}
-              className={`min-h-10 rounded-full px-3 text-[12px] font-semibold transition disabled:opacity-35 ${active ? 'bg-white text-black' : 'border border-white/12 bg-white/[0.04] text-white/70'} ${changed ? 'outline outline-2 outline-offset-2 outline-[#e63261]' : ''}`}>
+              className={`min-h-10 rounded-full px-3 text-[12px] font-semibold transition disabled:opacity-35 ${active ? 'bg-white text-black' : 'border border-white/20 bg-white/[0.07] text-white/90'} ${changed ? 'outline outline-2 outline-offset-2 outline-[#e63261]' : ''}`}>
               {option.label}
             </button>
           );
         })}
       </div>
-      <p className="mt-1.5 text-[11px] leading-4 text-white/45">{current ? null : <span className="font-semibold text-white/60">Сейчас по-разному. </span>}{hint}</p>
+      <p className="mt-1.5 text-[11px] leading-4 text-white/70">{current ? null : <span className="font-semibold text-white/80">Сейчас по-разному. </span>}{hint}</p>
     </div>
   );
 };
@@ -113,7 +113,7 @@ const Mark = ({ label, ariaLabel, value, current, onChange }: {
   const changed = Boolean(value) && value !== current;
   return (
     <button type="button" aria-label={ariaLabel} aria-pressed={shown === 'yes' ? true : shown === 'no' ? false : 'mixed'} onClick={() => onChange(next())}
-      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition ${shown === 'yes' ? 'bg-white text-black' : shown === 'no' ? 'border border-white/12 bg-white/[0.04] text-white/55' : 'border border-dashed border-white/30 text-white/60'} ${changed ? 'outline outline-2 outline-offset-2 outline-[#e63261]' : ''}`}>
+      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition ${shown === 'yes' ? 'bg-white text-black' : shown === 'no' ? 'border border-white/12 bg-white/[0.04] text-white/75' : 'border border-dashed border-white/30 text-white/80'} ${changed ? 'outline outline-2 outline-offset-2 outline-[#e63261]' : ''}`}>
       <span aria-hidden="true">{shown === 'yes' ? '✓' : shown === 'no' ? '–' : '≈'}</span>{label}
     </button>
   );
@@ -292,12 +292,12 @@ export function PlayerAccessBulkCRM() {
   return (
     <div className={`space-y-3 ${selected.size ? 'pb-[78dvh]' : 'pb-6'}`} data-testid="crm-access-bulk">
       <div className="flex items-start gap-2 px-0.5">
-        <p className="min-w-0 flex-1 text-[12px] leading-5 text-white/50">Отметь игроков — внизу появится панель, где всё меняется сразу у всех. Кабинет организатора выдаётся только в карточке игрока.</p>
-        <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
+        <p className="min-w-0 flex-1 text-[12px] leading-5 text-white/75">Отметь игроков — внизу появится панель, где всё меняется сразу у всех. Кабинет организатора выдаётся только в карточке игрока.</p>
+        <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/80"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
 
       <label className="relative block">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/80" />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти игрока по нику"
           className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-3 text-[15px] text-white outline-none placeholder:text-white/30" />
       </label>
@@ -313,9 +313,9 @@ export function PlayerAccessBulkCRM() {
           ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
           ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
         ] as const).map(([title, filters, value, setValue]) => (
-          <div key={title} className="flex items-center gap-2">
-            <span className="w-[62px] shrink-0 text-[10px] font-semibold uppercase leading-3 tracking-[0.08em] text-white/35">{title}</span>
-            <div className="-mr-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pr-1" aria-label={title}>
+          <div key={title} className="space-y-1">
+            <span className="block px-0.5 text-[11px] font-semibold uppercase leading-3 tracking-[0.08em] text-white/70">{title}</span>
+            <div className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1" aria-label={title}>
               {filters.map((item) => (
                 <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => (current === item.value ? 'all' : item.value))}>
                   {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
@@ -328,7 +328,7 @@ export function PlayerAccessBulkCRM() {
 
       {error && !selected.size ? <div className="rounded-2xl bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">{error}</div> : null}
 
-      <div className="flex items-center gap-2 px-0.5 text-[12px] text-white/50">
+      <div className="flex items-center gap-2 px-0.5 text-[12px] text-white/75">
         <span data-testid="crm-access-bulk-count" className="min-w-0 flex-1 whitespace-nowrap">{loading ? 'Загружаем…' : `Игроков: ${visible.length}`}</span>
         <label className="shrink-0"><span className="sr-only">Порядок</span>
           <select aria-label="Порядок" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}
@@ -376,7 +376,7 @@ export function PlayerAccessBulkCRM() {
           <div className="flex items-center gap-2 border-b border-white/[0.08] px-4 pb-2.5 pt-3">
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold text-white">Отмечено: {selected.size}</p>
-              <p className="truncate text-[11px] text-white/45">{selectedRows.map((row) => row.nickname).join(', ')}</p>
+              <p className="truncate text-[11px] text-white/70">{selectedRows.map((row) => row.nickname).join(', ')}</p>
             </div>
             <button type="button" onClick={dropPicks} className="min-h-10 shrink-0 rounded-xl border border-white/15 px-3 text-[12px] text-white/70">Отмена</button>
           </div>
@@ -429,7 +429,7 @@ export function PlayerAccessBulkCRM() {
             {changes.length ? (
               <div className="mb-2 max-h-[18dvh] overflow-y-auto rounded-xl border border-white/10 bg-black/30 px-3 py-2" data-testid="crm-access-bulk-summary">
                 <p className="text-[11px] font-semibold text-white/70">Что изменится у {selected.size === 1 ? 'игрока' : `${selected.size} игроков`}:</p>
-                <ul className="mt-1 space-y-0.5 text-[11px] leading-4 text-white/60">{changes.map((line) => <li key={line}>• {line}</li>)}</ul>
+                <ul className="mt-1 space-y-0.5 text-[11px] leading-4 text-white/80">{changes.map((line) => <li key={line}>• {line}</li>)}</ul>
               </div>
             ) : <p className="mb-2 text-center text-[11px] text-white/40">Сейчас показано то, что стоит у игроков. Поменяй нужное.</p>}
             {/* The result shows right by the button: the list above may be scrolled far away. */}

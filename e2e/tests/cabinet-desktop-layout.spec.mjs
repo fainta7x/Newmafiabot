@@ -17,7 +17,8 @@ for (const width of [390, 1024, 1366, 1440]) {
       const agenda = await page.locator('.crm-today-agenda').boundingBox();
       const week = await page.locator('.crm-today-week').boundingBox();
       expect(Math.abs(week.y-agenda.y)).toBeLessThan(2);
-      expect(agenda.width).toBeGreaterThan(week.width*1.5);
+      // Equal columns (owner, 2026-10-12): the week of evenings must not be a small fragment next to «Дела».
+      expect(Math.abs(agenda.width-week.width)).toBeLessThan(week.width*0.15);
     }
     await shot('crm-upcoming');
     await page.goto('/e2e/organizer-crm.html?scenario=active');

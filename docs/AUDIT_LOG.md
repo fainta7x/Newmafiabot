@@ -859,3 +859,76 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - Acceptance: live Chagin 13 appearances → four nomination victories (507: don; 616: red/sheriff/MVP), no awards for ranks 2/3; all five keys, hidden results and transient failures tested; corrections preserve manual and unrelated awards.
 
 - FIXED PR #881 review `goMafiaCareerSource.ts`: malformed/duplicate published tournament lists left history winner flags available; mark nominations unavailable before award building so a contradictory payload cannot create new wins.
+
+## 2026-10-12 · CRM / cabinet redesign — owner walk-through (collecting; nothing fixed yet)
+
+Scope: the owner dictates what he dislikes while clicking through the organizer CRM (phone and desktop). Audit first, redesign in slices after the owner confirms. Status of every item: open unless marked. Items 1–7 fixed in the «Сегодня» slice (PR below): header block is a home button; action tiles became full-width rows; add-player shortcut removed from the overview; debts first; the `debts:<evening>` item is hidden from the «Дела» preview when the debts block shows the same evening; desktop week/agenda columns are equal and week rows are bigger.
+Note for item 16: `docs/ARCHITECTURE.md` says experienced-player decisions live in «Ещё → Развитие», so the section cannot simply be deleted — rename and surface its open items as tasks instead.
+
+### CRM «Сегодня» (`OrganizerCommandCenter.tsx`, `OrganizerAgenda.tsx`, `CRMOverview.tsx`)
+1. Header «2LA noire · NEWMAFIA» (`OrganizerCRM.tsx`, ~line 302) is not a link; expected: tap goes to the home page like on any site.
+2. «Нет ответа · приглашённых ещё не ответили» (`actionCards`, grid-cols-2) takes half the screen width as a lone tile; looks unfinished.
+3. «Добавить игрока в состав» button sits on the home screen; owner: it belongs inside the evening, not on the overview.
+4. «Дела» block is huge and left, «На этой неделе» (`WeekEventsPanel.tsx`) is tiny and right/below — the sizes do not match the importance.
+5. «Долги с прошлого вечера» (`previous-evening-debts`) is at the very bottom; owner: debts are the top priority and should be first, then the evening and what is open for it (no answer, unpaid), then the rest.
+6. Overlap/duplication between «Дела», «Долги за вечер» and other lists — unclear which one is the main to-do list.
+
+### CRM «События» → «Вечера» (desktop; `EveningsList.tsx`, `WeekEventsPanel.tsx`, `OrganizerCRM.tsx`)
+7. «На этой неделе» (`WeekEventsPanel`) is a small card in the top-left; with a single evening it looks like a cropped fragment. Owner: with one evening it must not be a tiny window. (He does not want a settings window right there — drilling into the evening and choosing tournaments inside is fine.)
+8. Tabs «Свои события», «Будущее», «История»: no complaints for now.
+
+### CRM «Игроки» → карточка игрока (`PlayersCRM.tsx`, related `PlayerProfileCRM*`)
+9. Card mixes two things: the player's own profile and the organizer's CRM record. Result: a lot of odd information in odd order. Owner direction: separate them (CRM card = organizer facts and actions; link «Открыть профиль игрока» to the player profile).
+10. Separate window «Следующий игровой вечер: иду / не иду / записан»: not needed as its own block; the answer belongs in the evening view, here at most a plain-text status («записан»).
+11. «Анкета» appears at the top (with edit buttons) and again lower: duplicate; one place only.
+12. «Создать задачу», «Записать общение»: owner OK to keep (it is the comment/CRM note); low priority.
+13. Learning / «Отслеживание тренажёра» block: keep only as a link to the player's profile where learning is linked.
+14. Header part (photo, edit data, player music, replace login, delete photo): fine.
+
+### CRM «Ещё»: Дела, Развитие, Обучение, Уровни и роли (`MoreCRM.tsx`, `CuratorTasksPanel.tsx`, `NoviceDevelopmentCRM.tsx`, `LearningProgressCRM.tsx`, `LearningActivityCRM.tsx`)
+15. «Дела» (incl. curator tasks): OK as is.
+16. «Развитие игроков» (`NoviceDevelopmentCRM`, «Первые заявки, новичковый этап и перевод в клуб»): owner does not use it and does not understand its purpose; name unclear, maybe it should not be a section at all. Direction: the organizer just receives tasks/notifications («нужно настроить профиль» etc.) in «Дела»; decide whether to remove the section after checking what only it offers.
+17. «Обучение» (`LearningProgressCRM`): on mobile the layout «плывёт» (desktop OK) — verify at 360/390 px.
+18. «Обучение»: tapping a player opens a plain profile instead of the exam detail for that player — illogical; should open the exam breakdown.
+19. «Уровни и роли»: functionally OK, but colours/light theme are too pale (weakest contrast on the most important thing); selected rows are highlighted oddly.
+20. «Уровни и роли»: quick filters (новичок, клуб, турнирный игрок…) sit in a left column as cell-like boxes — inconvenient; want a horizontal chip row on top.
+
+### CRM «Ещё»: Памятка, Администрирование, Аналитика (`MoreCRM.tsx`, `AnalyticsCRM.tsx`, `AppUsagePanel.tsx`)
+21. «Памятка новичку»: just a separate page with the newcomer guide; owner does not see why it is a CRM menu item. Decide: remove from the menu or move to where newcomers actually get it (link already sent from the bot/profile).
+22. «Администрирование» / global CRM settings: purpose unclear to the owner, looks meaningless as one block; move items to sensible places or drop.
+23. «Аналитика» (reports): cards in a random mess; unclear terms («откуда новые игроки», «подробнее будете в записи» — wording not understood); needs plain-Russian labels and a clear order.
+24. «Использование приложения» (`AppUsagePanel`, who tapped where): screens are named inconsistently — some in Russian, some raw «player»/«Плеер»; show Russian names for all screens and explain what «65 игроков» counts.
+25. «Сейчас в приложении онлайн»: OK. Owner's question about the «Сегодня / ближайшие вечера / клубы» block on that screen is unfinished in the dictation — clarify with the owner.
+
+### CRM «Ещё» → Администрирование (`MoreCRM.tsx`, `DataSettingsCRM.tsx`, `ClubDigestCard.tsx`, `AnnouncementPhotosCard.tsx`, `CommerceAdminCRM.tsx`, `BettingAdminCRM.tsx`)
+26. Club publications («Фотографии», «Сводка для игроков», «Что нового в 2LA Noire»): important and must be filled correctly, but today it is a long scroll of unclear fields. Needs a much simpler interface (few clear steps, preview).
+27. «Оплата и поддержка», «Управление ставками»: not worked on yet (owner); leave as is for now.
+28. «Данные и настройки» (add new product, expert modes etc.): owner does not understand what the section is for; clarify contents, split or hide expert modes.
+29. «Проект / Дорожная карта» (incl. «подтвердить два ответа»): unfinished new section, keep; finish later.
+30. «Состояние системы», «Оформление», «Тестовые режимы»: OK, keep.
+31. General finding (owner): many functions are important, but the CRM is hard to navigate — too many items, unclear names, no hierarchy. Redesign principle: fewer top-level entries grouped by the organizer's tasks (today / people / evenings / club publications / money / system), plain-Russian names, one place per function.
+
+### Status after the first redesign PR (2026-10-12)
+Fixed (verified by screenshots at 390 px and 1280 px, no horizontal overflow): items 1–7 («Сегодня», week panel); 10 and 11 (next-evening status is a plain text line; one «Анкета» block, duplicates removed); 16 (renamed «Заявки новых игроков», section kept); 17–18 (Обучение: two-column tiles on phones, row expands to the exam breakdown with an «Открыть карточку игрока» button); 19–20 (Уровни и роли: stronger contrast, filter titles above the chip rows); 21 (памятка moved out of the top level into the collapsed administration group as «Ссылка-памятка для новичка»); 23–24 (analytics wording; every screen has a Russian name, «чел.»/«заходов» explained); 31 (Ещё grouped: Каждый день / Люди и обучение / Деньги и отчёты / Администрирование).
+Still open: 9 (full split of CRM card vs player profile — only the duplicates were removed), 13 (learning block link), 16 (open applications as tasks in «Дела»), 22 and 28 («Данные и настройки» purpose/expert modes), 26 (club publications flow simplification), 27, 29, 25 (owner to clarify).
+
+### Second pass (2026-10-12): logic and hierarchy checked by the assistant, not only the owner's list
+Fixed: «Дела» and «Аналитика» belong under «Ещё» (the menu highlights it) but had no way back — added «← Ещё»; analytics «Сегодня и ближайший вечер» links were plain `<a href>` (full page reload, CRM state lost) — now open the evening inside the CRM; item 26 — «Публикации и каналы» split into three tabs (Публикации / Каналы / Связь), technical wording («Durable outbox», «маршрутизатор») replaced; item 28 — «Данные и настройки» explains what is inside and «База» tab renamed «Правка»; item 9/13 — the CRM player card now has «Открыть профиль игрока» (the profile exactly as players see it) so the card keeps the organizer's facts and actions; item 16 — open applications already surface on «Сегодня» (`level-decisions` block), no extra task type needed.
+Checked, no defect: evening → player card → back returns to the same evening section; «Обучение» → player card → back returns to «Обучение»; unknown `/admin/more/<x>` falls back to the menu.
+Not changed on purpose: «Оплата и поддержка», «Управление ставками», «Проект» (owner: not worked on yet / unfinished). Open question for the owner: «Игровой движок» and «Музыкальная база» leave the CRM shell (`/player/conduct/music`), so «Назад» there is the player app's own navigation.
+
+## 2026-10-12 · Poker: chat covers the game, no desktop layout, silent sounds (owner report)
+- `PokerChat.tsx`: the chat sheet was a full-screen dimmed modal over table and action buttons — fixed: on a phone a compact panel (emote strip + one input line, history on demand) sits inside the block above the action buttons and the table re-measures around it (hero cards and buttons stay visible); from 1120 px wide it is a permanent column beside the table. Status: fixed on the branch (not merged: poker tournaments are running).
+- Poker has no real desktop layout beyond the centred phone-size table (empty black sides): the chat column is the first use of the width; a left column (hand history / tournament info) is still open.
+- `PokerSoundToggle.tsx`: sounds exist since #868 but were off by default, the speaker icon was easy to miss, and a saved «on» never resumed the AudioContext after a reload (`play` returns when no context) — fixed (on by default, unlock on first tap, louder). Needs the owner's phone check.
+
+### Poker follow-up (2026-10-12, owner: «это не звуки покера, какое-то пиликанье»; «нормальные фишки летают»; desktop layout)
+- Sounds rebuilt (`src/lib/pokerSoundEngine.ts`): the old cues were bare sine beeps. Now chips are a click + inharmonic ring + knock on felt, cards a hiss + dry snap, check a knuckle rap, fold a card toss; cues added for check, fold, a raise (heavier stack) and sweeping the bets into the pot (`pokerSound.ts`). No samples (nothing to download or license) — rendered offline to check levels (peak 0.1–0.5, no clipping, chips centred near 2.4 kHz, knock near 240 Hz). Nobody has listened to them yet: the owner's ear on a phone is the real test; volumes/recipes live in one file.
+- Flying chips: bets to the pot and the pot to the winner now fly as separate chips (up to nine, staggered, along an arc, rotating) instead of one block. Found and fixed on the way: the global `img { max-width: 100% }` squeezed the chips to zero width.
+- Desktop layout from 1120 px: left column «ход раздачи + стеки» (`PokerDeskSidebar.tsx`), table in the centre, chat column on the right.
+
+### Poker: show cards after the hand (owner request 2026-10-12) — new feature
+`showPokerCards` (`pokerLobbyService.ts`), `POST /poker/lobbies/:id/show {cards:[0|1]}`, hand field `shown_cards` (indexes on the server, masked cards `[Card|null, Card|null]` for other viewers), UI buttons after a finished hand (`poker-show-cards`) and a card back next to a shown card. Rule recorded in `docs/BUSINESS_RULES.md`. Tests: `pokerShowCards.test.ts`, `PlayerPokerTable.test.tsx`; screenshot at 390 px via `poker-harness.html?finished=1`. Not merged (tournaments running).
+
+### CRM: club tokens could not be found (owner 2026-10-12: «не могу просто начислить жетоны»)
+The manual token adjustment existed (`POST /api/players/:id/tokens/adjustments`, reason required, ledger entry) but only inside the player card → last collapsed block «Финансы и служебные настройки». Fixed: a visible «Жетоны» button among the quick actions of the CRM player card opens the same ledger card in a sheet; form wording «Начислить (+) или списать (−)», button «Применить». No server change.

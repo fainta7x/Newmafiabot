@@ -155,19 +155,6 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     moveWindowScroll(0);
   };
 
-  const handleOpenEveningAdd = (id: string) => {
-    eveningListScrollRef.current = activeTab === 'evenings' && !activeEveningId && typeof window !== 'undefined' ? window.scrollY : 0;
-    setActivePlayerId(null);
-    setPlayerReturnContext(null);
-    setActiveEveningId(id);
-    // The existing add picker is in the management roster, not the answers tab.
-    setActiveEveningSection('management');
-    setEveningIntent('add');
-    setActiveTab('evenings');
-    navigateAdmin(organizerEveningPath(id, 'management'));
-    moveWindowScroll(0);
-  };
-
   const handleOpenPlayer = (id: string) => {
     setPlayerReturnContext({
       tab: activeTab,
@@ -297,10 +284,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     <div className={`crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col ${activeTab === 'analytics' ? 'overflow-x-clip' : 'overflow-x-hidden'} bg-app-bg font-sans text-text-primary transition-colors duration-200`}>
       <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
-          <div className="min-w-0">
+          {/* The title block is the way home, as on any site (owner, 2026-10-12). */}
+          <button type="button" data-testid="crm-header-home" aria-label="На главную страницу CRM" onClick={() => switchPrimaryTab('overview')} className="min-w-0 text-left">
             <h1 className="truncate text-[16px] font-black leading-tight tracking-tight text-text-primary sm:text-[17px]">{screenTitle}</h1>
             <span className="mt-0.5 hidden truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted sm:block">2LA noire · NEWMAFIA</span>
-          </div>
+          </button>
           <div className="flex shrink-0 items-center gap-2">
             {isOrganizer ? (
               <nav className="hidden items-center gap-1 rounded-[13px] border border-border-soft bg-surface-1 p-1 md:flex">
@@ -382,7 +370,6 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 overview={crmOverview}
                 onOpenEvening={handleOpenEvening}
                 onOpenEveningSection={handleOpenEveningSection}
-                onOpenEveningAdd={handleOpenEveningAdd}
                 onOpenPlayer={handleOpenPlayer}
                 onNavigateTab={(tab) => openSecondaryTab(tab as 'tasks' | 'analytics')}
                 onCreateEvening={openCreateEvening}
@@ -436,11 +423,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               />
             ) : null}
 
+            {/* «Дела» and «Аналитика» live under «Ещё» (the menu highlights it), so they get the same way back as its other screens. */}
+            {(activeTab === 'tasks' && !showTaskList) || activeTab === 'analytics' ? (
+              <button type="button" data-testid="crm-back-to-more" onClick={() => switchPrimaryTab('more')} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[13px] font-semibold text-text-secondary active:bg-surface-hover">← Ещё</button>
+            ) : null}
             {activeTab === 'tasks' ? (showTaskList ? <div className="space-y-3">
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
             </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
-            {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
+            {activeTab === 'analytics' ? <AnalyticsCRM onOpenEvening={handleOpenEvening} /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
                 evenings={evenings}

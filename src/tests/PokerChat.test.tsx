@@ -19,6 +19,7 @@ describe('PokerChatDock', () => {
     dock();
     expect(screen.getByTestId('poker-chat-open').textContent).toContain('1');
     fireEvent.click(screen.getByTestId('poker-chat-open'));
+    fireEvent.click(screen.getByTestId('poker-chat-history'));
     expect(screen.getByText('всем привет')).toBeTruthy();
     expect(screen.getByText('Я:')).toBeTruthy();
     expect(screen.getByText('Боб:')).toBeTruthy();
@@ -46,6 +47,42 @@ describe('PokerChatDock', () => {
     fireEvent.click(screen.getByTestId('poker-chat-open'));
     expect(screen.queryByTestId('poker-emote-board')).toBeNull();
     expect(screen.getByText(/Писать могут только игроки/)).toBeTruthy();
+  });
+});
+
+describe('PokerChatDock does not cover the game', () => {
+  const dock = () => render(<PokerChatDock messages={messages} viewerId="ann" canPost muted={false} onMutedChange={vi.fn()} onSend={vi.fn()} />);
+
+  it('on a phone opens a small panel without a dimming backdrop and keeps the emotes at hand', () => {
+    dock();
+    fireEvent.click(screen.getByTestId('poker-chat-open'));
+    const panel = screen.getByTestId('poker-chat-sheet');
+    expect(panel.parentElement?.className || '').not.toContain('inset-0');
+    expect(panel.className).not.toContain('bg-black/55');
+    expect(screen.getByTestId('poker-emote-board')).toBeTruthy();
+    expect(screen.queryByTestId('poker-chat-open')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Закрыть чат'));
+    expect(screen.queryByTestId('poker-chat-sheet')).toBeNull();
+  });
+
+  it('puts the panel into the given slot so the table can make room instead of being covered', () => {
+    const slot = document.createElement('div');
+    document.body.appendChild(slot);
+    render(<PokerChatDock messages={messages} viewerId="ann" canPost muted={false} onMutedChange={vi.fn()} onSend={vi.fn()} slot={slot} />);
+    fireEvent.click(screen.getByTestId('poker-chat-open'));
+    expect(slot.contains(screen.getByTestId('poker-chat-sheet'))).toBe(true);
+    expect(screen.getByTestId('poker-chat-sheet').className).not.toContain('fixed');
+    slot.remove();
+  });
+
+  it('on a wide screen stays open beside the table with the history visible', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('1120'), addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    try {
+      dock();
+      expect(screen.queryByTestId('poker-chat-open')).toBeNull();
+      expect(screen.getByTestId('poker-chat-sheet')).toBeTruthy();
+      expect(screen.getByText('всем привет')).toBeTruthy();
+    } finally { vi.unstubAllGlobals(); }
   });
 });
 

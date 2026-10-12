@@ -82,6 +82,12 @@ const history = [{
   ],
 }];
 
+// ?finished=1: the hand is over — the viewer may show his cards, and a bot has shown only one of its two.
+if (params.get('finished')) Object.assign(lobby.hand, {
+  street: 'finished', current_seat: null, winner_ids: ['bot-lucky'], is_viewer_turn: false, next_hand_in: 4,
+  shown_cards: { 'bot-bluff': [null, { rank: 'K', suit: 'hearts' }] }, revealed_ids: [],
+});
+
 // ?waiting=1: the permanent «Общий стол» with one player, before the first deal.
 if (params.get('waiting')) Object.assign(lobby, { title: 'Общий стол', permanent: true, ownerId: '', status: 'waiting', players: players.slice(0, 1), hand: null, viewer_id: 'viewer' });
 

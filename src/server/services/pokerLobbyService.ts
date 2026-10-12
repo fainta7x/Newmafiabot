@@ -194,6 +194,30 @@ export const publicPokerHistory = (lobby: PokerLobby, viewerId: string) => (lobb
   players: entry.players.map((player) => ({ ...player, cards: player.revealed || player.id === viewerId ? player.cards : [] })),
 }));
 
+/**
+ * After a hand is over a player may show one or both of his cards to the table (owner, 2026-10-12). Never during the hand
+ * (that would let a folded player help a friend), only his own cards, and a showdown card cannot be «hidden» again.
+ */
+export const showPokerCards = (lobby: PokerLobby, playerId: string, requested: unknown) => {
+  const hand = lobby.hand;
+  if (!hand || hand.street !== 'finished') throw new Error('Показать карты можно, когда раздача закончилась.');
+  const seat = hand.players.find((player) => player.id === playerId);
+  if (!seat) throw new Error('Вы не участвовали в этой раздаче.');
+  if ((hand.revealed_ids || []).includes(playerId)) throw new Error('Ваши карты уже открыты.');
+  const wanted = [...new Set((Array.isArray(requested) ? requested : []).map(Number))].filter((index) => index === 0 || index === 1);
+  if (!wanted.length) throw new Error('Выберите, какие карты показать.');
+  const shown = [...new Set([...(hand.shown_cards?.[playerId] || []), ...wanted])].sort();
+  hand.shown_cards = { ...(hand.shown_cards || {}), [playerId]: shown };
+  if (shown.length === 2) {
+    // Both cards: the same as a showdown — the whole hand and its name are visible, in the history too.
+    hand.revealed_ids = [...(hand.revealed_ids || []), playerId];
+    const entry = lobby.history?.find((item) => item.id === hand.id);
+    const historyPlayer = entry?.players.find((player) => player.id === playerId);
+    if (historyPlayer) { historyPlayer.revealed = true; historyPlayer.label = pokerHandLabel(hand, playerId); }
+  }
+  return shown;
+};
+
 export const rebuyPoker = (lobby: PokerLobby, playerId: string, chips = POKER_REBUY_CHIPS) => {
   const seat = lobby.players.find((player) => player.id === playerId);
   if (!seat) throw new Error('Вы не сидите за этим столом.');
@@ -247,8 +271,14 @@ const publicState = (fullLobby: PokerLobby, viewerId?: string) => {
   // A player who sat down during a hand watches it and plays from the next one.
   const viewerAtTable = Boolean(viewerId && lobby.players.some((player) => player.id === viewerId));
   const viewerSeated = viewerAtTable;
+  // One shown card: the others see it, the second stays a card back (null). Full shows go through `revealed_ids` above.
+  const shownCards = lobby.hand.street === 'finished'
+    ? Object.fromEntries(Object.entries(lobby.hand.shown_cards || {})
+      .filter(([id]) => !(lobby.hand!.revealed_ids || []).includes(id))
+      .map(([id, indexes]) => [id, [0, 1].map((index) => (indexes.includes(index) ? lobby.hand!.hole_cards[id]?.[index] ?? null : null))]))
+    : {};
   const showdownLabels = lobby.hand.street === 'finished' ? Object.fromEntries((lobby.hand.revealed_ids || []).map((id) => [id, pokerHandLabel(lobby.hand!, id)])) : {};
-  const hand = { ...lobby.hand, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, deal_elapsed_ms: Math.round(dealElapsed), deal_card_ms: POKER_DEAL_CARD_MS, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
+  const hand = { ...lobby.hand, shown_cards: shownCards, deck: [], burn_cards: [], dealt_card_count: dealtCardCount, deal_elapsed_ms: Math.round(dealElapsed), deal_card_ms: POKER_DEAL_CARD_MS, showdown_labels: showdownLabels, viewer_id: viewerSeated ? viewerId : null, waiting_for_next_hand: viewerAtTable && !viewer, next_hand_in: lobby.status === 'playing' && lobby.hand.finished_at ? Math.max(0, Math.ceil((lobby.hand.finished_at + NEXT_HAND_DELAY_MS - Date.now()) / 1000)) : null, hole_cards: holeCards, hand_label: viewerId ? pokerHandLabel(lobby.hand, viewerId) : null, turn_remaining: currentPlayer ? pokerTurnRemaining(lobby.hand, currentPlayer) : null, is_viewer_turn: isViewerTurn, available_actions: availableActions };
   return { ...lobby, hand, tournament_clock: tournamentClock, tournament_rebuy: tournamentRebuy, viewer_out: viewerOut };
 };
 

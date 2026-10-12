@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { AnalyticsHeading, AnalyticsStatus, analyticsCard, useAnalyticsQuery } from './analyticsShared.tsx';
 import { type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
-import { SCREEN_LABELS, actionLabel } from '../../lib/screenLabels.ts';
+import { screenLabel as screenName, actionLabel } from '../../lib/screenLabels.ts';
 
 // Screen names are shared with «Сейчас в приложении» (src/lib/screenLabels.ts).
 
 
 const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы', public: 'Публичные' } as const;
 
-const screenLabel = (row: UiUsageRow) => SCREEN_LABELS[row.name] || row.name;
+const screenLabel = (row: UiUsageRow) => screenName(row.name);
 
 
 
@@ -24,7 +24,7 @@ export const AppUsagePanel: React.FC<{ period:string; active?:boolean }> = ({ pe
 
   return (
     <section className={analyticsCard} data-testid="crm-app-usage">
-      <AnalyticsHeading title="Как пользуются приложением" help="usage" caption="За период · история ограничена последними 180 днями · без имён" />
+      <AnalyticsHeading title="Как пользуются приложением" help="usage" caption="За период · «чел.» — сколько разных людей заходило, «заходов» — сколько раз открывали экран · без имён" />
       <AnalyticsStatus {...query} />
       <div className="mt-3 grid grid-cols-2 gap-1 rounded-[12px] border border-border-soft bg-surface-2 p-1 text-[13px]">
         {(['player', 'crm'] as const).map((value) => (

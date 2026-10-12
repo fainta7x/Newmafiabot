@@ -113,4 +113,45 @@ describe('poker table screen', () => {
     expect(balances.at(-1)).toBe(4000);
     expect(balances).not.toContain(3500);
   });
+
+  it('lets the player show one or both of his cards after the hand, and only then', async () => {
+    const finishedHand = {
+      id: 'h1', street: 'finished', pot: 0, board: [], action_log: [], dealer_seat: 1, current_seat: null, animation_phase: 'playing',
+      dealt_card_count: 4, viewer_id: 'me', winner_ids: ['oleg'], revealed_ids: [], shown_cards: {}, showdown_labels: {}, next_hand_in: 3,
+      players: [{ id: 'me', nickname: 'Я', seat: 1, chips: 990 }, { id: 'oleg', nickname: 'Олег', seat: 2, chips: 1010 }],
+      hole_cards: { me: [{ rank: 'A', suit: 'spades' }, { rank: 'K', suit: 'hearts' }] },
+    };
+    const shows: unknown[] = [];
+    (fetch as any).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/poker/lobbies') && !init?.method) return json({ lobbies: [entry] });
+      if (url.endsWith('/show')) { shows.push(JSON.parse(String(init?.body))); return json({ lobby: { ...lobby(true), status: 'playing', hand: finishedHand } }); }
+      if (url.endsWith('/join') || url.endsWith('/poker/lobbies/main')) return json({ lobby: { ...lobby(true), status: 'playing', hand: finishedHand } });
+      return json({});
+    });
+    await sitDown();
+    expect(screen.getByTestId('poker-show-cards')).not.toBeNull();
+    expect(screen.getByTestId('poker-show-card-1').textContent).toContain('K');
+    fireEvent.click(screen.getByTestId('poker-show-card-1'));
+    fireEvent.click(screen.getByTestId('poker-show-both'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(shows).toEqual([{ cards: [1] }, { cards: [0, 1] }]);
+  });
+
+  it('offers no card showing to someone whose cards were already open at the showdown', async () => {
+    const finishedHand = {
+      id: 'h1', street: 'finished', pot: 0, board: [], action_log: [], dealer_seat: 1, current_seat: null, animation_phase: 'playing',
+      dealt_card_count: 4, viewer_id: 'me', winner_ids: ['me'], revealed_ids: ['me'], shown_cards: {}, showdown_labels: {}, next_hand_in: 3,
+      players: [{ id: 'me', nickname: 'Я', seat: 1, chips: 1010 }, { id: 'oleg', nickname: 'Олег', seat: 2, chips: 990 }],
+      hole_cards: { me: [{ rank: 'A', suit: 'spades' }, { rank: 'K', suit: 'hearts' }] },
+    };
+    (fetch as any).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/poker/lobbies') && !init?.method) return json({ lobbies: [entry] });
+      if (url.endsWith('/join') || url.endsWith('/poker/lobbies/main')) return json({ lobby: { ...lobby(true), status: 'playing', hand: finishedHand } });
+      return json({});
+    });
+    await sitDown();
+    expect(screen.queryByTestId('poker-show-cards')).toBeNull();
+  });
 });

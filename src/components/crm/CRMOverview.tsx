@@ -8,7 +8,6 @@ interface CRMOverviewProps {
   onOpenEvening: (id: string) => void;
   /** Keep mounted OrganizerCRM state in sync with the selected evening section. */
   onOpenEveningSection?: (id: string, section: EveningSection) => void;
-  onOpenEveningAdd?: (id: string) => void;
   onOpenPlayer: (id: string) => void;
   onNavigateTab: (tab: string) => void;
   onCreateEvening: () => void;
@@ -30,7 +29,6 @@ export const CRMOverview = ({
   overview,
   onOpenEvening,
   onOpenEveningSection,
-  onOpenEveningAdd,
   onOpenPlayer,
   onNavigateTab,
   onCreateEvening,
@@ -44,7 +42,6 @@ export const CRMOverview = ({
       showTitle={false}
       overview={overview}
       onOpenEvening={onOpenEvening}
-      onOpenEveningAdd={onOpenEveningAdd}
       onOpenEveningSection={onOpenEveningSection ?? navigateEveningSection}
       onOpenPlayer={onOpenPlayer}
       onNavigateTab={(tab) => onNavigateTab(tab)}

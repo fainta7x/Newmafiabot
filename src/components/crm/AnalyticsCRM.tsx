@@ -26,7 +26,13 @@ const subtitle = (range: AnalyticsRange) => {
 function Metric({ label, value, help, basis='за период' }: { label:string; value:string; help:Parameters<typeof AnalyticsHelp>[0]['name']; basis?:string }) {
   return <div className={analyticsInset}><div className="flex items-start justify-between gap-1"><span className="pt-2 text-xs text-text-secondary">{label}</span><AnalyticsHelp name={help} title={label} /></div><strong className="block text-2xl font-semibold tabular-nums">{value}</strong><p className="mt-1 text-xs text-text-muted">{basis}</p></div>;
 }
-export function AnalyticsCRM() {
+export function AnalyticsCRM({ onOpenEvening }: { onOpenEvening?: (id: string) => void } = {}) {
+  // Opens the evening inside the CRM (no page reload); the href still works for «open in a new tab».
+  const openEvening = (id: string) => (event: React.MouseEvent) => {
+    if (!onOpenEvening || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    onOpenEvening(id);
+  };
   const owner = useClubOwner() === true;
   const [tab,setTab] = useState<Tab>(savedTab);
   const [period,setPeriod] = useState('30d');
@@ -68,13 +74,13 @@ export function AnalyticsCRM() {
         <section className={analyticsCard}><AnalyticsHeading title="Кто давно не был" caption="На сегодня · группы не пересекаются" help="inactive" />
           <div className="mt-3 grid grid-cols-3 gap-2">{[['30–59 дней',data.inactive30],['60–89 дней',data.inactive60],['90+ дней',data.inactive90]].map(([label,value])=><div key={String(label)} className={analyticsInset}><strong className="block text-2xl font-semibold">{value}</strong><span className="text-xs text-text-secondary">{label}</span></div>)}</div>
         </section>
-        <section className={analyticsCard}><AnalyticsHeading title="Откуда новые игроки" caption="Первый визит за период · только участники клуба" help="sources" />
+        <section className={analyticsCard}><AnalyticsHeading title="Как новички узнали о клубе" caption="Те, кто впервые пришёл за период" help="sources" />
           {Object.keys(data.sourceBreakdown).length===0?<p className="mt-3 text-xs text-text-secondary">В этом периоде первых визитов пока нет.</p>:<div className="mt-3 space-y-2">{Object.entries(data.sourceBreakdown).map(([label,count])=><div key={label} className={'flex items-center justify-between gap-3 '+analyticsInset}><span className="min-w-0 break-words text-sm">{label}</span><strong className="shrink-0">{String(count)}</strong></div>)}</div>}
         </section>
-        <details className={analyticsCard}><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Подробнее о базе и записях</summary>
-          <AnalyticsHeading title="Участники клуба" caption="На сегодня · посещения за всё время" help="members" />
+        <details className={analyticsCard}><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Ещё цифры: состав клуба, допуски, отмены</summary>
+          <AnalyticsHeading title="Сколько человек в клубе" caption="На сегодня · по числу посещений за всё время" help="members" />
           <p className="my-3 text-sm">Всего: {data.totalPlayers}. Ещё не были: {data.neverPlayed}; один вечер: {data.playedOnce}; 2–3: {data.playedTwoOrThree}; 4+: {data.playedFourPlus}.</p>
-          <AnalyticsHeading title="Уровни и допуски" caption="На сегодня · не зависят от выбранного периода" help="levels" />
+          <AnalyticsHeading title="Новички и допуски" caption="На сегодня · не зависит от выбранного периода" help="levels" />
           <p className="my-3 text-sm">Новички: {data.noviceLevel}. Допущены в клуб: {data.clubApproved}; к турнирам: {data.tournamentApproved}.</p>
           <AnalyticsHeading title="Записи, отмены и неявки" caption="Завершённые вечера периода · фактические записи" help="registrations" />
           <p className="mt-3 text-sm">Записей: {data.totalRegistrations}. Отмены: {data.totalCancelled} · {formatShare(data.totalCancelled,data.registrationBase)}. Неявки: {data.totalNoShow} · {formatShare(data.totalNoShow,data.totalRegistrations)}.</p>
@@ -83,9 +89,9 @@ export function AnalyticsCRM() {
     </div>
     <div id="analytics-panel-now" role="tabpanel" aria-labelledby="analytics-tab-now" hidden={effectiveTab!=='now'} className="space-y-4">
       <section className={analyticsCard}><AnalyticsHeading title="Сегодня и ближайший вечер" caption="На сегодня · время Москвы" help="now" /><AnalyticsStatus {...now} />
-        {now.data && <><div className="mt-3 space-y-2">{now.data.today.map(evening=><a key={evening.id} href={'/admin/evenings/'+evening.id} className={'block min-h-11 text-sm '+analyticsInset}>{evening.title} · {new Date(evening.starts_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})}</a>)}</div>
+        {now.data && <><div className="mt-3 space-y-2">{now.data.today.map(evening=><a key={evening.id} href={'/admin/evenings/'+evening.id} onClick={openEvening(evening.id)} className={'block min-h-11 text-sm '+analyticsInset}>{evening.title} · {new Date(evening.starts_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})}</a>)}</div>
           {!now.data.today.length && <p className="mt-3 text-xs text-text-secondary">Сегодня вечеров нет.</p>}
-          {now.data.next && <a className="mt-3 block min-h-11 rounded-xl bg-surface-2 p-3 text-sm" href={'/admin/evenings/'+now.data.next.id}>Ближайший: {now.data.next.title} · {new Date(now.data.next.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Moscow'})}</a>}
+          {now.data.next && <a className="mt-3 block min-h-11 rounded-xl bg-surface-2 p-3 text-sm" href={'/admin/evenings/'+now.data.next.id} onClick={openEvening(now.data.next.id)}>Ближайший: {now.data.next.title} · {new Date(now.data.next.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Moscow'})}</a>}
           {owner && <p className="mt-3 text-sm">Неоплаченных записей: {now.data.openDebtCount}</p>}
         </>}
       </section>

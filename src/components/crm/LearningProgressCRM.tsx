@@ -14,7 +14,7 @@ const lastPassed = (row: LearningPlayerRow) => Object.values(row.passed).sort().
 
 const Chip = ({ active, onClick, children, testId }: { active: boolean; onClick: () => void; children: ReactNode; testId?: string }) => (
   <button type="button" data-testid={testId} aria-pressed={active} onClick={onClick}
-    className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-semibold ${active ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.04] text-white/65'}`}>{children}</button>
+    className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-semibold ${active ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.04] text-white/85'}`}>{children}</button>
 );
 
 /** A player's trainer exams as small marks: passed levels are filled, the rest are outlined. */
@@ -22,7 +22,7 @@ export const LevelMarks = ({ row }: { row: LearningPlayerRow }) => (
   <div className="flex flex-wrap gap-1">
     {SPLIT_VOTE_LEVELS.map((level) => (
       <span key={level.id} title={row.passed[level.id] ? `Сдан ${dateLabel(row.passed[level.id])}` : 'Не сдан'}
-        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.passed[level.id] ? 'bg-emerald-400/20 text-emerald-200' : 'border border-white/10 text-white/35'}`}>
+        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.passed[level.id] ? 'bg-emerald-400/20 text-emerald-200' : 'border border-white/10 text-white/60'}`}>
         {row.passed[level.id] ? '✓ ' : ''}{level.label}
       </span>
     ))}
@@ -38,6 +38,7 @@ function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: stri
   const [level, setLevel] = useState<SplitVoteLevelId | 'any'>('any');
   const [status, setStatus] = useState<Status>('passed');
   const [sort, setSort] = useState<Sort>('recent');
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,22 +74,22 @@ function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: stri
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-[15px] font-semibold text-white">Тренажёры попила</h3>
-            <p className="mt-0.5 text-[12px] leading-5 text-white/50">Кто какие экзамены сдал. Практику без экзамена здесь не видно.</p>
+            <p className="mt-0.5 text-[12px] leading-5 text-white/75">Кто какие экзамены сдал. Практику без экзамена здесь не видно.</p>
           </div>
           <button type="button" onClick={() => void load()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-1.5">
+        <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           {SPLIT_VOTE_LEVELS.map((item) => (
             <button key={item.id} type="button" onClick={() => { setLevel(item.id); setStatus('passed'); }} className={`rounded-2xl border p-2 text-left ${level === item.id ? 'border-white/40 bg-white/[0.08]' : 'border-white/10 bg-black/10'}`}>
               <strong className="block text-[18px] text-white">{counts[item.id] ?? 0}</strong>
-              <span className="text-[11px] text-white/50">{item.label}</span>
+              <span className="block truncate text-[11px] text-white/70">{item.label}</span>
             </button>
           ))}
         </div>
       </section>
 
       <label className="relative block">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
         <input data-testid="crm-learning-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти игрока по нику"
           className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-3 text-[15px] text-white outline-none placeholder:text-white/30" />
       </label>
@@ -103,7 +104,7 @@ function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: stri
           <Chip testId="crm-learning-status-not_passed" active={status === 'not_passed'} onClick={() => setStatus('not_passed')}>Не сдали</Chip>
           <Chip testId="crm-learning-status-nothing" active={status === 'nothing'} onClick={() => setStatus('nothing')}>Ничего не сдавали</Chip>
         </div>
-        <label className="flex items-center gap-2 px-1 text-[12px] text-white/50">Порядок:
+        <label className="flex items-center gap-2 px-1 text-[12px] text-white/75">Порядок:
           <select value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="min-h-9 rounded-xl border border-white/10 bg-black/30 px-2 text-[12px] text-white">
             <option value="recent">Сначала недавние сдачи</option>
             <option value="progress">Больше уровней выше</option>
@@ -113,19 +114,35 @@ function SplitVoteProgressCRM({ onOpenPlayer }: { onOpenPlayer?: (playerId: stri
       </div>
 
       {error ? <div className="rounded-2xl bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">{error}</div> : null}
-      <p className="px-1 text-[12px] text-white/45" data-testid="crm-learning-count">{loading ? 'Загружаем…' : `Найдено игроков: ${visible.length}`}</p>
+      <p className="px-1 text-[12px] text-white/70" data-testid="crm-learning-count">{loading ? 'Загружаем…' : `Найдено игроков: ${visible.length}`}</p>
       <div className="space-y-1.5">
-        {visible.map((row) => (
-          <button key={row.id} type="button" data-testid="crm-learning-row" onClick={() => onOpenPlayer?.(row.id)} disabled={!onOpenPlayer}
-            className="flex min-h-[60px] w-full items-center gap-3 rounded-[16px] border border-white/10 bg-white/[0.035] px-3 py-2 text-left active:bg-white/[0.06]">
-            <span className="min-w-0 flex-1">
-              <strong className="block truncate text-[14px] text-white">{row.nickname}</strong>
-              <span className="mt-1 block"><LevelMarks row={row} /></span>
-              {lastPassed(row) ? <span className="mt-1 block text-[11px] text-white/40">Последний экзамен: {dateLabel(lastPassed(row))}</span> : null}
-            </span>
-            {onOpenPlayer ? <ChevronRight className="h-5 w-5 shrink-0 text-white/25" /> : null}
-          </button>
-        ))}
+        {visible.map((row) => {
+          const open = openId === row.id;
+          return (
+            <div key={row.id} data-testid="crm-learning-row" className="rounded-[16px] border border-white/10 bg-white/[0.035]">
+              <button type="button" aria-expanded={open} onClick={() => setOpenId(open ? null : row.id)}
+                className="flex min-h-[60px] w-full items-center gap-3 px-3 py-2 text-left active:bg-white/[0.06]">
+                <span className="min-w-0 flex-1">
+                  <strong className="block truncate text-[14px] text-white">{row.nickname}</strong>
+                  <span className="mt-1 block"><LevelMarks row={row} /></span>
+                  {lastPassed(row) ? <span className="mt-1 block text-[11px] text-white/85">Последний экзамен: {dateLabel(lastPassed(row))}</span> : null}
+                </span>
+                <ChevronRight className={`h-5 w-5 shrink-0 text-white/75 transition-transform ${open ? 'rotate-90' : ''}`} />
+              </button>
+              {open ? (
+                <div data-testid="crm-learning-detail" className="space-y-1 border-t border-white/10 px-3 py-2.5">
+                  {SPLIT_VOTE_LEVELS.map((level) => (
+                    <div key={level.id} className="flex items-center justify-between gap-3 text-[13px]">
+                      <span className="text-white/85">{level.label}</span>
+                      <strong className={row.passed[level.id] ? 'text-emerald-200' : 'text-white/60'}>{row.passed[level.id] ? `сдан ${dateLabel(row.passed[level.id])}` : 'не сдан'}</strong>
+                    </div>
+                  ))}
+                  {onOpenPlayer ? <button type="button" onClick={() => onOpenPlayer(row.id)} className="mt-2 min-h-11 w-full rounded-xl border border-white/20 text-[13px] font-semibold text-white">Открыть карточку игрока</button> : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

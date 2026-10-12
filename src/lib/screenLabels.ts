@@ -25,7 +25,20 @@ export const SCREEN_LABELS: Record<string, string> = {
   '/admin/analytics': 'Аналитика',
 };
 
-export const screenLabel = (path: string) => SCREEN_LABELS[path] || path;
+const SEGMENT_LABELS: Record<string, string> = {
+  player: 'Игрок', admin: 'CRM', events: 'События', evenings: 'Вечера', games: 'Игры', game: 'Игра', rating: 'Рейтинг', profile: 'Профиль',
+  club: 'Клуб', wallet: 'Жетоны', payments: 'Оплаты', conduct: 'Ведение игры', music: 'Музыка', players: 'Игроки', more: 'Ещё', tasks: 'Дела',
+  analytics: 'Аналитика', learning: 'Обучение', school: 'Школа', tournaments: 'Турниры', tournament: 'Турнир', shop: 'Магазин', poker: 'Покер',
+  betting: 'Ставки', stats: 'Статистика', replay: 'Повтор', periods: 'Сезон', elo: 'Elo', awards: 'Награды', history: 'История', guide: 'Памятка',
+  participants: 'Ответы', management: 'Вечер', settings: 'Настройки', gomafia: 'GoMafia', career: 'Карьера', live: 'Эфир', trainer: 'Тренажёр',
+};
+
+/** Readable name of a screen: the exact label when known, otherwise the path put into Russian word by word (never raw «player»). */
+export const screenLabel = (path: string) => {
+  if (SCREEN_LABELS[path]) return SCREEN_LABELS[path];
+  const words = path.split('/').filter((part) => part && part !== ':id').map((part) => SEGMENT_LABELS[part] || part);
+  return words.length ? words.join(' · ') : path;
+};
 
 /** Plain names of the buttons the app reports (`data-track` / `data-testid`, ids replaced by `:id`). */
 const NAV_LABELS: Record<string, string> = { home: 'Главная', events: 'События', games: 'Игры', rating: 'Рейтинг', club: 'Клуб', profile: 'Профиль' };

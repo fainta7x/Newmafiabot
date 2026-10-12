@@ -24,7 +24,8 @@ type EloEvent = {
 type PreviewOutcome = { expected_percent: number; elo_delta: number; team_delta: number; carry_modifier: number } | null;
 type EloJourneyData = {
   player: { id: string; nickname: string; elo: number; seed: number };
-  summary: { games: number; current: number; computed_current: number; peak: number; floor: number; net: number; last_delta: number };
+  summary: { games: number; current: number; computed_current: number; chart_start?: number; peak: number; floor: number; net: number; last_delta: number };
+  scope?: { period: string; period_label: string; format: string; format_label: string };
   preview: {
     basis: string;
     red: { win: PreviewOutcome; loss: PreviewOutcome };
@@ -77,10 +78,14 @@ export default function PlayerEloJourney({
   onBack,
   onOpenGame,
   embedded = false,
+  period = 'all',
+  format = 'all',
 }: {
   onBack?: () => void;
   onOpenGame?: (gameId: string) => void;
   embedded?: boolean;
+  period?: string;
+  format?: string;
 }) {
   const [data, setData] = useState<EloJourneyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +96,12 @@ export default function PlayerEloJourney({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch('/api/player/elo-journey', { credentials: 'include' })
+    setLoading(true);
+    setError(null);
+    const query = new URLSearchParams();
+    if (period !== 'all') query.set('period', period);
+    if (format !== 'all') query.set('format', format);
+    void fetch(`/api/player/elo-journey${query.toString() ? `?${query}` : ''}`, { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить историю Elo');
@@ -100,7 +110,7 @@ export default function PlayerEloJourney({
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить историю Elo'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [period, format]);
 
   const newest = useMemo(() => data ? data.events.slice().reverse() : [], [data]);
 
@@ -119,9 +129,9 @@ export default function PlayerEloJourney({
         </div>}
 
         <section className="rounded-[28px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.07] to-white/[0.025] p-4">
-          <div className="flex items-end justify-between gap-3"><div><div className="text-[11px] uppercase tracking-[0.14em] text-white/30">Текущий Elo</div><div className="mt-1 text-4xl font-black">{Math.round(data.summary.current)}</div></div><div className={`text-right text-lg font-black ${data.summary.net > 0 ? 'text-emerald-300' : data.summary.net < 0 ? 'text-rose-300' : 'text-white/50'}`}>{signed(data.summary.net)}<div className="mt-0.5 text-[11px] font-medium text-white/25">от старта {Math.round(data.player.seed)}</div></div></div>
-          <div className="mt-4"><JourneyChart seed={data.player.seed} events={data.events} /></div>
-          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center"><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{Math.round(data.summary.peak)}</div><div className="text-[11px] text-white/25">пик</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{Math.round(data.summary.floor)}</div><div className="text-[11px] text-white/25">минимум</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.summary.games}</div><div className="text-[11px] text-white/25">игр в Elo</div></div></div>
+          <div className="flex items-end justify-between gap-3"><div><div className="text-[11px] uppercase tracking-[0.14em] text-white/30">Текущий Elo</div><div className="mt-1 text-4xl font-black">{Math.round(data.summary.current)}</div><div className="mt-1 text-[10px] text-white/40">Общий рейтинг, не зависит от периода</div></div><div className={`text-right text-lg font-black ${data.summary.net > 0 ? 'text-emerald-300' : data.summary.net < 0 ? 'text-rose-300' : 'text-white/50'}`}>{signed(data.summary.net)}<div className="mt-0.5 text-[11px] font-medium text-white/35">{data.scope && (data.scope.period !== 'all' || data.scope.format !== 'all') ? 'за выбранные игры' : `от старта ${Math.round(data.player.seed)}`}</div></div></div>
+          <div className="mt-4"><JourneyChart seed={data.summary.chart_start ?? data.player.seed} events={data.events} /></div>
+          <div className="mt-1 text-[11px] text-white/50">{data.scope ? `${data.scope.period_label} · ${data.scope.format_label}` : 'Вся карьера'}</div><div className="mt-3 grid grid-cols-3 gap-1.5 text-center"><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{Math.round(data.summary.peak)}</div><div className="text-[11px] text-white/25">пик</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{Math.round(data.summary.floor)}</div><div className="text-[11px] text-white/25">минимум</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-sm font-bold">{data.summary.games}</div><div className="text-[11px] text-white/25">игр в Elo</div></div></div>
         </section>
 
         <section className="rounded-[24px] border border-sky-200/10 bg-sky-200/[0.03] p-4">
@@ -136,7 +146,7 @@ export default function PlayerEloJourney({
           <div className="elo-event-list mt-3 space-y-1.5">{events.length ? events.map((event) => {
             const open = openEvent === event.id;
             return <div key={event.id} className="overflow-hidden rounded-2xl bg-black/20"><button type="button" onClick={() => setOpenEvent(open ? null : event.id)} className="flex w-full items-center gap-3 p-3 text-left"><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${event.won ? 'bg-emerald-300/10' : 'bg-rose-300/10'}`}>{event.won ? '✓' : '×'}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{event.title}</div><div className="mt-0.5 text-[11px] text-white/25">{dateText(event.date)} · {event.team === 'red' ? '🔴 красные' : '⚫ чёрные'} · шанс {event.expected_percent}%</div></div><div className="shrink-0 text-right"><div className={`text-sm font-black ${event.elo_delta > 0 ? 'text-emerald-300' : event.elo_delta < 0 ? 'text-rose-300' : 'text-white/45'}`}>{signed(event.elo_delta)}</div><div className="text-[11px] text-white/20">{Math.round(event.elo_before)} → {Math.round(event.elo_after)}</div></div></button>{open && <div className="border-t border-white/[0.05] px-3 pb-3 pt-2"><div className="text-xs font-semibold">{event.explanation.headline}</div><div className="mt-2 space-y-1">{event.explanation.details.map((detail) => <div key={detail} className="text-[11px] leading-4 text-white/35">• {detail}</div>)}</div><div className="mt-2 rounded-xl bg-white/[0.04] px-2.5 py-2 font-mono text-[11px] text-white/45">{event.explanation.formula}</div>{onOpenGame && <button type="button" onClick={() => onOpenGame(event.id)} className="mt-2 text-[11px] font-semibold text-white/40">Открыть протокол ›</button>}</div>}</div>;
-          }) : <div className="px-3 py-8 text-center text-xs text-white/25">Рейтинговых игр пока нет.</div>}</div>
+          }) : <div className="px-3 py-8 text-center text-xs text-white/25">В выбранном периоде нет рейтинговых игр.</div>}</div>
         </section>
       </div>
     </main>

@@ -1,0 +1,49 @@
+/** @vitest-environment jsdom */
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import PlayerMetricRatings from '../components/player/PlayerMetricRatings.tsx';
+
+const body = (metricKey: string, rows: any[], extra: Record<string, unknown> = {}) => ({
+  metric: { key: metricKey, label: metricKey === 'elo_gain' ? 'Прирост Elo' : metricKey === 'win_rate' ? 'Винрейт' : 'Победы', group: 'Победы', unit: metricKey === 'elo_gain' ? 'elo' : 'count', hint: 'Подсказка', min_games: metricKey === 'win_rate' ? 5 : null },
+  metrics: [{ key: 'wins', label: 'Победы', group: 'Победы' }, { key: 'win_rate', label: 'Винрейт', group: 'Победы' }, { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo' }],
+  filters: { period: 'all', format: 'all', period_label: 'Всё время', format_label: 'Все форматы', seasons: [{ key: 'period:autumn', label: 'Осень 2026' }], formats: [{ key: 'RATING', label: 'Рейтинговый' }] },
+  games_in_scope: 12, total: rows.length, rows, me: null, ...extra,
+});
+const row = (rank: number, id: string, nickname: string, value: number, text: string, me = false) => ({ rank, player_id: id, nickname, avatar_url: null, value, value_text: text, games: 7, is_me: me });
+const respond = (payload: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } }));
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+describe('rankings by figure', () => {
+  it('lists the leaders, marks the viewer and reloads for another figure, season and format', async () => {
+    const fetcher = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('metric=elo_gain')) return respond(body('elo_gain', [row(1, 'a', 'Анна', 24.4, '+24'), row(2, 'b', 'Борис', -12, '−12', true)]));
+      return respond(body('wins', [row(1, 'a', 'Анна', 9, '9'), row(2, 'c', 'Вера', 8, '8')], { me: row(14, 'm', 'Я сам', 2, '2', true) }));
+    });
+    vi.stubGlobal('fetch', fetcher);
+    render(<PlayerMetricRatings />);
+    expect(await screen.findByTestId('metric-row-a')).toBeDefined();
+    expect(within(screen.getByTestId('metric-row-m')).getByText('вы')).toBeDefined();
+    expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('Всё время · Все форматы, игр в выборе: 12');
+
+    fireEvent.change(screen.getByLabelText('Показатель'), { target: { value: 'elo_gain' } });
+    await waitFor(() => expect(screen.getByText('+24')).toBeDefined());
+    expect(screen.getByText('−12')).toBeDefined();
+    expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('а не сам Elo');
+
+    fireEvent.change(screen.getByLabelText('Период рейтинга'), { target: { value: 'period:autumn' } });
+    fireEvent.change(screen.getByLabelText('Формат вечера рейтинга'), { target: { value: 'RATING' } });
+    await waitFor(() => expect(fetcher.mock.calls.some(([url]) => String(url).includes('metric=elo_gain&period=period%3Aautumn&format=RATING'))).toBe(true));
+  });
+
+  it('explains an empty ranking behind a minimum of games and shows an error', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => respond(body('win_rate', []))));
+    render(<PlayerMetricRatings />);
+    expect(await screen.findByText('Пока ни у кого нет 5 игр в этом выборе.')).toBeDefined();
+    cleanup();
+    vi.stubGlobal('fetch', vi.fn(() => respond({ error: 'Сбой' }, 500)));
+    render(<PlayerMetricRatings />);
+    expect((await screen.findByRole('alert')).textContent).toContain('Сбой');
+  });
+});

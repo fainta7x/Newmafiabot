@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, RotateCcw, Trophy, X } from 'lucide-react';
 import TournamentCupAsset from './TournamentCupAsset.tsx';
+import { NominationPlaque, PlaceMedal, medalTierFromPlace, nominationGlyphFromTitle } from './TrophyIcons.tsx';
 import PlayerTournamentView from './PlayerTournamentView.tsx';
 import { CABINET_CATEGORIES, cabinetItems, type CabinetAchievement, type CabinetCategory, type CabinetItem, type CabinetVerifiedAward } from '../../lib/trophyCabinetModel.ts';
 import './TrophyCabinet.css';
@@ -17,20 +18,8 @@ const formatDate = (raw:string|null) => {
 /** Original lightweight vector exhibits: perspective is applied by the room, not baked into a static picture. */
 function Exhibit({item}:{item:CabinetItem}) {
   if(item.shape==='cup') return <TournamentCupAsset designKey={item.trophyDesignKey} />;
-  if(item.shape==='medal') return <svg className="trophy-cabinet__object trophy-cabinet__object--medal" viewBox="0 0 104 124" fill="none" aria-hidden="true">
-    <defs><linearGradient id="cabinet-medal-metal" x1="25" y1="23" x2="81" y2="106"><stop stopColor="#E9E7D7"/><stop offset=".5" stopColor="#687485"/><stop offset="1" stopColor="#B9BFC3"/></linearGradient></defs>
-    <path d="M26 8H43L52 34L61 8H78L62 53H42L26 8Z" fill="#566878" stroke="#B9C3C6" strokeWidth="2"/>
-    <circle cx="52" cy="75" r="33" fill="#161F29" stroke="url(#cabinet-medal-metal)" strokeWidth="8"/>
-    <circle cx="52" cy="75" r="26" fill="url(#cabinet-medal-metal)" fillOpacity=".8"/>
-    <path d="M52 56L57.6 68L71 70L61 79L64 92L52 85L40 92L43 79L33 70L46.4 68L52 56Z" fill="#DADAD4" stroke="#6F7B87"/>
-  </svg>;
-  return <svg className="trophy-cabinet__object trophy-cabinet__object--plaque" viewBox="0 0 104 124" fill="none" aria-hidden="true">
-    <defs><linearGradient id="cabinet-plaque-metal" x1="18" y1="15" x2="86" y2="108"><stop stopColor="#B2B8BC"/><stop offset=".42" stopColor="#454F5D"/><stop offset="1" stopColor="#929BA0"/></linearGradient></defs>
-    <path d="M16 26L29 13H75L88 26V99L75 111H29L16 99V26Z" fill="#171D25" stroke="url(#cabinet-plaque-metal)" strokeWidth="5"/>
-    <path d="M25 32L34 23H70L79 32V93L70 102H34L25 93V32Z" stroke="#778391" strokeOpacity=".65"/>
-    <path d="M52 40L58.6 53.4L73.4 55.6L62.7 66L65.2 80.8L52 73.8L38.8 80.8L41.3 66L30.6 55.6L45.4 53.4L52 40Z" fill="#AFB6BD" stroke="#D6D3C9"/>
-    <path d="M36 92H68" stroke="#8A958F" strokeWidth="2"/>
-  </svg>;
+  if(item.shape==='medal') return <PlaceMedal tier={medalTierFromPlace(item.place)} />;
+  return <NominationPlaque glyph={nominationGlyphFromTitle(item.title)} />;
 }
 
 export default function TrophyCabinet({awards,earnedAchievements,onPinAward,busy=false}:{

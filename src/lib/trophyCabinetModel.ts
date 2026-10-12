@@ -48,6 +48,8 @@ export type CabinetItem = {
   photoUrl: string | null;
   /** Verified first place; not a decorative "winner" badge created by the room. */
   tournamentWinner: boolean;
+  /** The place printed on a medal (1, 2, 3); read from the verified place text, never guessed. */
+  place: string | null;
 };
 
 export const CABINET_CATEGORIES: Array<{ id: CabinetCategory; title: string }> = [
@@ -114,6 +116,7 @@ export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: Cabin
       pinned: Number(award.pinned_position || 0) > 0,
       photoUrl: award.photo_url || null,
       tournamentWinner: first,
+      place: award.place_result || null,
     };
   });
   // Only earned achievements; locked achievements never appear as won trophies.
@@ -134,6 +137,7 @@ export const cabinetItems = (awards: CabinetVerifiedAward[], achievements: Cabin
       pinned: false,
       photoUrl: null,
       tournamentWinner: false,
+      place: null,
     });
   }
   return items.sort((a, b) => Number(b.pinned) - Number(a.pinned) || String(b.date || '').localeCompare(String(a.date || '')) || a.id.localeCompare(b.id));

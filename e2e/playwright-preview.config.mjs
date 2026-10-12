@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['gomafia-career-preview.spec.mjs', 'trophy-cabinet-preview.spec.mjs', 'achievement-paths-preview.spec.mjs', 'cabinet-desktop-layout.spec.mjs', 'desktop-workspaces.spec.mjs', 'crm-analytics-preview.spec.mjs', 'player-game-detail-preview.spec.mjs', 'live-reveal-preview.spec.mjs', 'project-board-preview.spec.mjs', 'live-broadcast-reveal-preview.spec.mjs', 'crm-evening-roster.spec.mjs', 'crm-player-role-save.spec.mjs', 'live-game-compact-layout.spec.mjs', 'ui-preview.spec.mjs', 'mobile-usability.spec.mjs', 'crm-visual-audit.spec.mjs', 'player-cabinet-visual-audit.spec.mjs', 'telegram-webapp-viewport.spec.mjs', 'split-vote-preview.spec.mjs', 'poker-visual.spec.mjs'],
+  testMatch: ['gomafia-career-preview.spec.mjs', 'trophy-cabinet-preview.spec.mjs', 'achievement-paths-preview.spec.mjs', 'cabinet-desktop-layout.spec.mjs', 'desktop-workspaces.spec.mjs', 'crm-analytics-preview.spec.mjs', 'player-game-detail-preview.spec.mjs', 'live-reveal-preview.spec.mjs', 'trophy-icons-preview.spec.mjs', 'project-board-preview.spec.mjs', 'live-broadcast-reveal-preview.spec.mjs', 'crm-evening-roster.spec.mjs', 'crm-player-role-save.spec.mjs', 'live-game-compact-layout.spec.mjs', 'ui-preview.spec.mjs', 'mobile-usability.spec.mjs', 'crm-visual-audit.spec.mjs', 'player-cabinet-visual-audit.spec.mjs', 'telegram-webapp-viewport.spec.mjs', 'split-vote-preview.spec.mjs', 'poker-visual.spec.mjs'],
   timeout: 30_000,
   expect: { timeout: 8_000 },
   workers: 1,

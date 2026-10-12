@@ -21,7 +21,7 @@ import { buildCircleExits } from '../../lib/circleExits.ts';
 
 export const TOP_SIZE = 30;
 
-type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Вскрытия' | 'Elo';
+type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Вскрытия' | 'Федерация' | 'Elo';
 export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
@@ -29,11 +29,11 @@ export type MetricKey =
   | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
   | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black'
   | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs'
-  | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers' | 'don_reveals' | 'don_handed_reveal';
+  | 'fed_avg_place' | 'fed_best_place' | 'fed_tournaments' | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers' | 'don_reveals' | 'don_handed_reveal';
 
 /** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
 interface Sample { minimum: number; words: [string, string, string] }
-interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo' | 'decimal'; minGames?: number; sample?: Sample; hint: string }
+interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo' | 'decimal'; minGames?: number; sample?: Sample; hint: string; /** A place in a tournament: the smaller the better. */ lowerIsBetter?: boolean }
 
 export const METRICS: MetricDef[] = [
   { key: 'wins', label: 'Победы', group: 'Победы', unit: 'count', hint: 'Больше всех побед' },
@@ -60,6 +60,9 @@ export const METRICS: MetricDef[] = [
   { key: 'black_miss_rate', label: 'Доля промахов, когда в чёрной команде', group: 'Отстрелы', unit: 'percent', sample: { minimum: 10, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Какая доля ночей прошла без жертвы, когда игрок был в чёрной команде' },
   { key: 'times_shot', label: 'Чаще всех убивают ночью', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока убили ночью, пока он играл за красных' },
   { key: 'night_pairs', label: 'Пары: убит, когда в чёрных', group: 'Отстрелы', unit: 'count', hint: 'Игрок убит ночью, когда в чёрной команде был этот игрок (от 3 общих игр и 2 убийств)' },
+  { key: 'fed_avg_place', label: 'Среднее место на турнирах федерации', group: 'Федерация', unit: 'decimal', lowerIsBetter: true, sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Среднее место в итоговой таблице турниров GoMafia (меньше — лучше), от 2 турниров; считаются игроки с подтверждённой привязкой. Не зависит от выбранного периода и формата клуба' },
+  { key: 'fed_best_place', label: 'Лучшее место на турнире федерации', group: 'Федерация', unit: 'count', lowerIsBetter: true, sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Лучшее итоговое место на турнире GoMafia (1 — победа), от 2 турниров' },
+  { key: 'fed_tournaments', label: 'Турниров сыграно в федерации', group: 'Федерация', unit: 'count', sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Сколько турниров GoMafia с опубликованным итогом сыграл игрок, от 2' },
   { key: 'critical_exits', label: 'Заголосован на критике', group: 'Ход игры', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока заголосовали на критическом круге (красных больше чёрных не более чем на 2)' },
   { key: 'sheriff_reveals', label: 'Вскрылся шерифом', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько раз настоящий шериф открыто назвал себя шерифом' },
   { key: 'sheriff_found_black', label: 'Нашёл чёрных, вскрывшись', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько чёрных (дон и мафия) шериф назвал в объявленных проверках' },
@@ -223,6 +226,27 @@ const valueText = (value: number, unit: MetricDef['unit']) => {
   return String(Math.round(value));
 };
 
+
+/** Federation tournament results (GoMafia, verified links only): the places of the final standings, per club player. */
+async function loadFederationPlaces(db: DatabaseWrapper): Promise<Map<string, number[]>> {
+  const out = new Map<string, number[]>();
+  try {
+    const rows = await db.all<any>(`
+      SELECT l.player_id, s.snapshot_json FROM gomafia_player_links l
+        JOIN gomafia_player_snapshots s ON s.external_player_id = l.external_player_id AND s.scope = 'career-v1'
+       WHERE l.status = 'verified'`);
+    for (const row of rows) {
+      let tournaments: any[] = [];
+      try { tournaments = JSON.parse(row.snapshot_json)?.career?.tournaments ?? []; } catch { continue; }
+      const places = tournaments.map((item) => Number(item?.place)).filter((place) => Number.isInteger(place) && place > 0);
+      if (places.length) out.set(String(row.player_id), places);
+    }
+  } catch {
+    // The federation tables exist only after the first link: no data means no federation ranking.
+  }
+  return out;
+}
+
 export interface MetricRatingQuery { metric?: string; period?: string; format?: string }
 
 /** The games of the chosen season and evening format (oldest first) with everything the club tables need around them. */
@@ -295,10 +319,16 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const accuracy = new Map<string, { value: number; sample: number }>();
   const nightMetrics = new Set<MetricKey>(['black_misses', 'black_miss_rate', 'times_shot', 'night_pairs']);
   const revealMetrics = new Set<MetricKey>(['sheriff_reveals', 'sheriff_found_black', 'black_reveals', 'black_covers', 'don_reveals', 'don_handed_reveal']);
-  const statSource = metric.sample || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
+  const statSource = (metric.sample && metric.group !== 'Федерация') || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
   const scopedStat = statSource.games.filter((game) => scopedIds.has(game.id));
   const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
-  if (metric.key === 'critical_exits') {
+  if (metric.group === 'Федерация') {
+    for (const [id, places] of await loadFederationPlaces(db)) {
+      const value = metric.key === 'fed_avg_place' ? places.reduce((sum, place) => sum + place, 0) / places.length
+        : metric.key === 'fed_best_place' ? Math.min(...places) : places.length;
+      accuracy.set(id, { value, sample: places.length });
+    }
+  } else if (metric.key === 'critical_exits') {
     for (const [id, stats] of buildCircleExits(scopedStat, statSource.memo.facts)) if (stats.games) accuracy.set(id, { value: stats.critical, sample: stats.games });
   }
   const reveal = revealMetrics.has(metric.key) ? buildRevealStats(scopedStat, statSource.memo.facts) : null;
@@ -311,7 +341,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
       if (metric.key === 'don_handed_reveal' && stats.donGames) accuracy.set(id, { value: stats.donHandedReveal, sample: stats.donGames });
       if (metric.key === 'black_covers' && stats.blackGames) accuracy.set(id, { value: stats.blackCovers, sample: stats.blackGames });
     }
-  } else if (metric.key === 'critical_exits') {
+  } else if (metric.key === 'critical_exits' || metric.group === 'Федерация') {
     // filled above
   } else if (metric.sample && night) {
     for (const [id, stats] of night.players) {
@@ -358,7 +388,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const viewerIsPlayer = viewerId !== 'organizer';
   const rows = playerRows.flatMap((player: any) => {
     const id = String(player.id);
-    const agg = aggs.get(id);
+    const agg = aggs.get(id) ?? (metric.group === 'Федерация' ? emptyAgg() : undefined);
     if (!agg) return [];
     if (!visibleStats(player.profile_visibility_json) && id !== viewerId) return [];
     const found = metric.sample ? accuracy.get(id) : null;
@@ -369,7 +399,8 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     const sample = metric.sample ? found!.sample : sampleGames(agg, metric.key);
     return [{ id, nickname: String(player.nickname || 'Игрок'), value, games: sample, agg, avatar: avatarUrl(id, player.has_db_avatar, player.avatar_suppressed) }];
   });
-  rows.sort((a, b) => b.value - a.value
+  const direction = metric.lowerIsBetter ? -1 : 1;
+  rows.sort((a, b) => (b.value - a.value) * direction
     || winRatePercent(b.agg.wins, b.agg.games) - winRatePercent(a.agg.wins, a.agg.games)
     || a.games - b.games
     || a.nickname.localeCompare(b.nickname, 'ru'));

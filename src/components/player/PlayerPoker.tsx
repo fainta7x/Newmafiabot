@@ -4,6 +4,7 @@ import { cardIdentity, orderOwnCards, pokerBetStep } from './pokerCards.ts';
 import PokerInvitePanel from './PokerInvitePanel.tsx';
 import PokerTournaments from './PokerTournaments.tsx';
 import PokerSoundToggle, { usePokerSoundEffects } from './PokerSoundToggle.tsx';
+import PokerDeskSidebar from './PokerDeskSidebar.tsx';
 import { PokerChatBubbles, PokerChatDock, readPokerChatMuted, usePokerChat, writePokerChatMuted } from './PokerChat.tsx';
 
 type Card = { rank: string; suit: string };
@@ -176,6 +177,31 @@ const chipBreakdown = (amount: number) => {
   return chips;
 };
 
+/**
+ * Chips that really fly (owner, 2026-10-12): every chip leaves on its own, a little after the previous one, rises along an arc
+ * and turns in the air — a stack of bets goes to the pot, the pot goes to the winner. Offsets are in pixels from the anchor.
+ */
+function FlyingChips({ amount, from, to, duration = 0.8 }: { amount: number; from: { x: number; y: number }; to: { x: number; y: number }; duration?: number }) {
+  const flat = chipBreakdown(amount).flatMap(({ denomination, count }) => Array.from({ length: count }, () => denomination));
+  if (!flat.length) return null;
+  // A big pile is drawn as at most nine chips: the biggest ones first.
+  const shown = flat.slice(0, 9);
+  return <>{shown.map((denomination, index) => {
+    // A fixed spread per chip (no randomness): the animation must not change when the table re-renders.
+    const side = index % 2 === 0 ? 1 : -1;
+    const spread = ((index * 37) % 17) - 8;
+    const mx = (from.x + to.x) / 2 + side * (6 + (index % 3) * 5);
+    const my = Math.min(from.y, to.y) - 34 - (index % 4) * 6;
+    return <img key={index} src={`/assets/poker/chips/chip-${denomination}-v2.webp`} alt="" aria-hidden="true" className="poker-flying-chip"
+      style={{
+        '--fx': `${from.x + spread * 0.6}px`, '--fy': `${from.y + side * 3}px`,
+        '--mx': `${mx}px`, '--my': `${my}px`,
+        '--tx': `${to.x + spread * 0.8}px`, '--ty': `${to.y + (index % 3) * 2}px`,
+        '--spin': `${side * (180 + index * 40)}deg`, '--dur': `${duration}s`, '--delay': `${index * 0.05}s`,
+      } as CSSProperties} />;
+  })}</>;
+}
+
 const formatChipCount = (amount: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.max(0, Number(amount) || 0));
 const isClubTokenTable = (lobby: any) => lobby?.money_mode === 'club_tokens';
 const pokerModeLabel = (lobby: any) => lobby?.money_mode === 'tournament' ? 'Турнир' : isClubTokenTable(lobby) ? 'На клубные жетоны' : 'Тренировка';
@@ -308,25 +334,6 @@ function PlayingCard({ card, small = false, tiny = false, board = false }: { car
 function BetChip({ amount, displayAmount }: { amount: number; displayAmount?: string }) {
   const top = CHIP_DENOMINATIONS.find((value) => amount >= value) || 1;
   return <span className="inline-flex items-center gap-0.5"><img src={`/assets/poker/chips/chip-${top}-v2.webp`} alt="" className="h-6 w-6 object-contain drop-shadow-[0_3px_3px_rgba(0,0,0,.7)]" /><span className="text-[12px] font-black tabular-nums text-white [text-shadow:0_1px_3px_rgba(0,0,0,.95)]">{displayAmount || amount}</span></span>;
-}
-
-function ChipAmount({ amount, compact = false }: { amount: number; compact?: boolean }) {
-  const stacks = chipBreakdown(amount);
-  if (!stacks.length) return null;
-  return <div className="inline-flex flex-col items-center">
-    <div className={`flex items-end justify-center ${compact ? '-space-x-1.5' : '-space-x-2'}`}>
-      {stacks.map(({ denomination, count }) => <span key={denomination} className={`relative block ${compact ? 'h-10 w-7' : 'h-16 w-10'}`}>
-        {Array.from({ length: count }).map((_, index) => <img
-          key={`${denomination}-${index}`}
-          src={`/assets/poker/chips/chip-${denomination}-v2.webp`}
-          alt={index === count - 1 ? `Фишки ${denomination}` : ''}
-          className={`${compact ? 'h-7 w-7' : 'h-10 w-10'} absolute bottom-0 left-0 object-contain drop-shadow-[0_4px_3px_rgba(0,0,0,.7)]`}
-          style={{ zIndex: index + 1, transform: `translateY(-${index * (compact ? 3 : 4)}px)` }}
-        />)}
-      </span>)}
-    </div>
-    <span className={`${compact ? '-mt-1 px-1.5 py-px text-[8px]' : '-mt-1 px-3 py-1 text-[11px]'} relative z-20 rounded-full border border-amber-200/20 bg-black/80 font-bold text-amber-100 shadow-lg`}>{amount}</span>
-  </div>;
 }
 
 export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBalanceChange }: { initialLobbyId?: string | null; onExit?: () => void; onTokenBalanceChange?: (balance: number) => void }) {
@@ -765,8 +772,8 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
             const spot = betSpot(layout[index]);
             return <div key={`bet-${player.id}-${committed}`} className="poker-chip-flight absolute z-[8] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${spot.x}%`, top: spot.top }}><SeatMarkers dealer={dealer} small={small} big={big} />{committed ? <BetChip amount={committed} displayAmount={formatPokerAmount(committed, stackDisplay, bigBlind)} /> : null}</div>;
           })}
-          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="poker-pot-award pointer-events-none absolute left-1/2 z-40" style={{ top: `${POT_Y}%`, '--award-x': `${(layout[winnerIndex].x - 50) * PX_X}px`, '--award-y': `${(layout[winnerIndex].y - POT_Y) * (tableH / 100)}px` } as CSSProperties}><ChipAmount amount={Number(hand.last_pot_awarded)} compact /></div> : null}
-          {streetSweep ? streetSweep.bets.map((bet) => { const from = orderedPlayers.findIndex((player) => player.id === bet.id); return from < 0 ? null : <div key={`${streetSweep.key}-${bet.id}`} className="poker-bet-to-pot pointer-events-none absolute left-1/2 z-30" style={{ top: `${POT_Y}%`, '--bet-from-x': `${(layout[from].x - 50) * PX_X}px`, '--bet-from-y': `${(layout[from].y + 6 - POT_Y) * (tableH / 100)}px` } as CSSProperties}><ChipAmount amount={bet.amount} compact /></div>; }) : null}
+          {winnerIndex >= 0 && Number(hand.last_pot_awarded || 0) > 0 ? <div className="pointer-events-none absolute left-1/2 z-40" style={{ top: `${POT_Y}%` }}><FlyingChips amount={Number(hand.last_pot_awarded)} from={{ x: 0, y: 0 }} to={{ x: (layout[winnerIndex].x - 50) * PX_X, y: (layout[winnerIndex].y - POT_Y) * (tableH / 100) }} duration={1.1} /></div> : null}
+          {streetSweep ? streetSweep.bets.map((bet) => { const from = orderedPlayers.findIndex((player) => player.id === bet.id); return from < 0 ? null : <div key={`${streetSweep.key}-${bet.id}`} className="pointer-events-none absolute left-1/2 z-30" style={{ top: `${POT_Y}%` }}><FlyingChips amount={bet.amount} from={{ x: (layout[from].x - 50) * PX_X, y: (layout[from].y + 6 - POT_Y) * (tableH / 100) }} to={{ x: 0, y: 0 }} duration={0.7} /></div>; }) : null}
 
           {heroIndex >= 0 ? (() => {
             const hero = orderedPlayers[heroIndex];
@@ -826,6 +833,7 @@ export default function PlayerPoker({ initialLobbyId = null, onExit, onTokenBala
         <div className="mb-2 flex items-center gap-2"><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount - pokerBetStep(bigBlind)))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">−</button><input type="range" aria-label="Размер ставки" disabled={!actions?.can_bet} min={actions?.min_bet_total || 0} max={actions?.max_bet_total || 0} step={pokerBetStep(bigBlind)} value={betAmount} onChange={(event) => setBetAmount(clampBet(Number(event.target.value)))} className="h-9 min-w-0 flex-1 accent-amber-300 disabled:opacity-30" /><button type="button" disabled={!actions?.can_bet} onClick={() => setBetAmount(clampBet(betAmount + pokerBetStep(bigBlind)))} className="h-9 w-9 shrink-0 rounded-xl bg-white/10 disabled:opacity-30">+</button></div>
         <div className="grid grid-cols-3 gap-2"><button type="button" disabled={!actions?.can_fold} onClick={() => void pokerAction('fold')} className="min-h-12 rounded-2xl bg-[#d91e4d] text-sm font-bold disabled:opacity-30">Пас</button>{actions?.to_call > 0 ? <button type="button" disabled={!actions?.can_call} onClick={() => void pokerAction('call')} className="min-h-12 rounded-2xl bg-[#0f9b6d] text-sm font-bold leading-tight disabled:opacity-30">Колл<br />{formatPokerAmount(actions.call_amount ?? actions.to_call, stackDisplay, bigBlind)}</button> : <button type="button" disabled={!actions?.can_check} onClick={() => void pokerAction('check')} className="min-h-12 rounded-2xl bg-white/15 text-sm font-bold disabled:opacity-30">Чек</button>}<button type="button" disabled={!actions?.can_bet} onClick={() => void pokerAction(betAmount >= Number(actions?.max_bet_total || Infinity) ? 'all_in' : 'bet', betAmount)} className="min-h-12 rounded-2xl bg-[#d5a54b] text-sm font-bold leading-tight text-black disabled:opacity-30">{betAmount >= Number(actions?.max_bet_total || Infinity) ? 'Олл-ин' : hand.current_bet > 0 ? 'Рейз до' : 'Бет'}<br />{formatPokerAmount(betAmount, stackDisplay, bigBlind)}</button></div></>}
       </>}</div></div>
+      <PokerDeskSidebar hand={hand} players={orderedPlayers} viewerId={viewerId || current.viewer_id || null} title={pokerModeLabel(current)} describe={(entry) => actionSentence(hand, stackDisplay, entry)?.text ?? null} />
       {chatDock}
     </main>
     );

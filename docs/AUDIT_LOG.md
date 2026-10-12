@@ -1,5 +1,25 @@
 # Audit log
 
+## 2026-10-12 · Player profile statistics audit (owner: «статистика берётся из разных мест и странные данные за разные периоды»)
+
+Scope: read-only, from the code (`premiumPlayerProfileRoutes.ts` → `premiumPlayerProfileService.ts` (PPS), `playerProfileService.ts`, `lib/gameStatistics.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, UI `CanonicalPremiumPlayerProfile.tsx`, `PlayerProfileCareerSections.tsx`, `PlayerGameNumbers.tsx`). Nothing is fixed yet.
+
+**Sources.** Five: `/summary` (tiles, whole «Подробная статистика», last games, pinned awards), `/games` (with period/role/team/result filters), `/roles` (no period at all), `/elo?range=all` (hard-coded; for the own profile the Elo tab is a different component and endpoint, `/api/player/elo-journey`), and `game_stats` («Игра в цифрах») inside the summary.
+
+**Confusions a player notices (most confusing first; all open)**
+1. «Подробная статистика» (collapsed) mixes all-time numbers (streaks, red/black, ПУ/ЛХ, «Игра в цифрах») with the «Текущий сезон» block, and no heading except «Текущий сезон» names a period. It is the most interesting block and it is hidden.
+2. The tile «Победы» shows a percent, not wins; the count of wins is not on the overview.
+3. The tile «В сезоне» shows a bare «#N»: the season place is ranked by number of wins (then win rate, games), not by Elo, so it disagrees with the Elo rating table.
+4. «Season» is defined three ways: the overview uses the RATING period containing today («Вне сезона» between periods); the «Игры» tab button uses `active_periods[0]` of `/api/player/rating-periods` (not filtered by type, and with no active period it silently loads ALL games); the Elo API's `range=season` means «last 120 days». The period buttons live only on «Игры»; «Роли» and «Elo» ignore them.
+5. Game counts disagree: tile «Игры» (completed with a winner, club + tournaments, all formats), «По N играм с журналом ходов», the sum of role counts (includes `unknown`), Elo history (NOVICE evenings excluded) — none is explained.
+6. «ПУ» appears twice with different bases (counter over all games incl. drafts; «Первым убитым … из N игр за красных» over red games with a log).
+7. The exclusion rules of «Игра в цифрах» (zero circle, re-votes, sheriff counts as red) are one level deeper in a nested `<details>`.
+8. «Последние игры» shows 3 rows with no scope text and no link to «Игры»; tournament games are mixed into every figure with no label «клуб + турниры».
+9. Different date fields decide «the same game is in the season»: evening `starts_at` (profile list) vs `created_at/completed_at` (season place table, `loadCompletedGameSnapshots`) vs `protocol.completed_at` (`loadStatGames`), so the season's «N побед из M» and the place can disagree at the edges.
+10. The «completed game» rule exists in at least four places with small differences (`isCompleted` in PPS, `buildPlayerProfileStats`, `loadStatGames`, `loadCompletedGameSnapshots`); win rate is recomputed in six places.
+
+**Proposal (nothing built; for the owner's «да»)**: one period selector at the top of «Обзор»/«Карьера» (Всё время / Сезон «…» / Диапазон) applied to all stats, with a visible scope line («Сезон … · клубные и турнирные игры · только завершённые»); four tiles with plain labels (Игры, Победы + %, Elo + место, Сезон + место по победам); move streaks, red/black, the season block and ПУ/ЛХ/нулевой круг out of the collapsed block; keep only «Игра в цифрах» there with «по N играм с журналом ходов (из M)»; fold the red/black and per-role win rates into «Роли»; show the count and win rate of the filtered list on «Игры»; on the server one «completed games of player P in [from,to)» function (one date field, one completed rule) used by summary/games/roles/elo/stats, returning the scope in each response; decide whether Elo-related counts exclude NOVICE games or the screen says so.
+
 ## 2026-10-12 · UX audit pass 2A — personal game navigation and real results
 
 **Scope before change:** `PlayerEveningsHub.tsx` mounts `PlayerHistoryStatsView.tsx` for its visible «Мои игры» tab, but that view fetches **every** club game from `GET /api/player/games/all` and labels the list «Все игры клуба»; personal results already exist in authenticated `PlayerMeResponse.games.all` and elsewhere in the deeper `CanonicalPremiumPlayerProfile` career tab. `PlayerHomeDashboard.tsx` displays the authenticated most recent game ID but its «Последняя игра» card calls `onOpenGames()` without that ID.

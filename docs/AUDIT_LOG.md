@@ -15,6 +15,10 @@
 
 **Out of scope:** unmounted legacy `EveningAnnouncementPanel` is not a second active UI; keep it untouched. Don't rewrite announcement/retry worker or club-wide mailing preferences. Mobile CSS/screenshots + CI must pass before merging; main merge is not deployed/runtime confirmed.
 
+
+## 2026-10-12 · First-application action returns to onboarding (FIX CODED; PR #847)
+
+On mounted `PlayerEventSlotDetail.tsx`, the `first_application_required` recovery CTA «К первой заявке» previously called generic `onBack`, returning to the calendar without locating the application. The existing application form lives in `PlayerEventsCalendar.tsx`. PR #847 adds a dedicated callback to close the event and focus/scroll the existing onboarding block with a React regression test. No changes to enrollment/RSVP API or identity. CI/merge/deploy and mobile runtime verification pending.
 ## 2026-10-12 · CI regression: premature unified Answers test in main (FIXED in PR #849)
 
 A test file `src/tests/EveningUnifiedAnswers.test.tsx` was accidentally written to `main` before its implementation from PR #845 was merged. The test asserted unified response/delivery rows unavailable in the mounted main CRM component, causing four failures in CI shard 2/3 for unrelated PRs (#847/#848). Fix: remove the premature suite from main only; preserve the corrected complete suite on #845 and restore it with its actual feature. No production code or shipped behavior is removed. Verification: PR #849 CI and merge still required.

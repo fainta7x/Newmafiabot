@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Plus, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening, type Player } from '../../lib/api.ts';
 import { getEveningResponse, getEveningRosterResponseLabel } from '../../lib/eveningResponse.ts';
+import { isInOrganizerWorkingRoster as isActiveEveningParticipant } from '../../lib/eveningParticipantView.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
@@ -9,13 +10,6 @@ import EveningListControls from './EveningListControls.tsx';
 
 type EveningData = GameEvening & { participants: EveningParticipant[] };
 type AddMode = 'players' | 'guest';
-
-const isActiveEveningParticipant = (participant: EveningParticipant) => {
-  if (participant.attendance_status === 'no_show') return false;
-  if (participant.attendance_status === 'attended') return true;
-  const response = getEveningResponse(participant);
-  return response === 'going' || response === 'late' || response === 'unanswered';
-};
 
 const inactiveLabel = (participant: EveningParticipant) => (
   participant.attendance_status === 'no_show'

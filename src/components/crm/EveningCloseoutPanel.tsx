@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, Gift, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
-import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { isAttendingResponse } from '../../lib/eveningResponse.ts';
+import { needsEveningCloseoutAttendance } from '../../lib/eveningParticipantView.ts';
 import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
 
 type Participant = {
@@ -42,10 +43,10 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 };
 
 
-const expectedResponse = (participant: Participant) => ['going', 'late'].includes(getEveningResponse(participant));
+const expectedResponse = isAttendingResponse;
 
 export const reconcileCloseoutParticipants = (current: CloseoutState, participants: Participant[]): CloseoutState => {
-  const pendingExpected = participants.filter((item) => expectedResponse(item) && item.attendance_status === 'pending');
+  const pendingExpected = participants.filter(needsEveningCloseoutAttendance);
   const attended = participants.filter((item) => item.attendance_status === 'attended');
   const noShow = participants.filter((item) => item.attendance_status === 'no_show');
   const unplannedAttended = attended.filter((item) => !expectedResponse(item));

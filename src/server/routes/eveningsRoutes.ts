@@ -17,7 +17,7 @@ import { assignParticipantToTable } from '../services/tableAssignmentService.ts'
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
-  serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
+  loadParticipantResponseHistory, serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
 import {
   createGuestPlaceholder, listGuestPlaceholdersForEvening,
@@ -439,6 +439,14 @@ router.patch('/participants/:participantId/move-table', requireOrganizerAuth, as
     if(guest){const updated=await updateGuestPlaceholder(db,String(req.params.participantId),{table_id:req.body?.table_id});await runCrmAutomations(db);return res.json(updated);}
     await assignParticipantToTable(db,String(req.params.participantId),req.body?.table_id);await runCrmAutomations(db);const row=await db.get<any>(`${participantSelect} WHERE ep.id=?`,[String(req.params.participantId)]);return res.json(serializeEveningParticipant(row));
   }catch(err:any){return res.status(err.status||500).json({error:err.message||'Database error'});}
+});
+
+// Where each answer of a participant came from (owner, 2026-10-12): the answer to «why does it say Не иду».
+router.get('/participants/:participantId/response-history', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    return res.json({ history: await loadParticipantResponseHistory(db, String(req.params.participantId)) });
+  } catch (err: any) { return res.status(err.status || 500).json({ error: err.message || 'Database error' }); }
 });
 
 router.use(baseRouter);

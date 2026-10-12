@@ -65,6 +65,7 @@ router.put('/evenings/:eveningId/slots', async (req, res) => {
       String(req.params.eveningId),
       String(player.id),
       req.body.slot_ids,
+      { source: 'mini_app_slots' },
     );
     return res.json(plan);
   } catch (error: any) {

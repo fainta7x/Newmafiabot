@@ -26,7 +26,7 @@ async function registerForSelectedEvening(db: DatabaseWrapper, eveningId: string
   const participant = await db.get<any>('SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?', [eveningId, playerId]);
   if (!participant || String(participant.attendance_status) !== 'pending') return false;
   // Only the player's own choice alerts the organizer, not the organizer approving an application.
-  await setParticipantResponse(db, String(participant.id), 'going', { byPlayer });
+  await setParticipantResponse(db, String(participant.id), 'going', { byPlayer, source: 'novice_application' });
   return true;
 }
 

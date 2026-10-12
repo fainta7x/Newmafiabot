@@ -133,7 +133,7 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
         .catch((error) => console.warn('[VK JOIN] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     }
   } else {
-    await setParticipantResponse(db, String(participant.id), responseStatus, { byPlayer: true });
+    await setParticipantResponse(db, String(participant.id), responseStatus, { byPlayer: true, source: 'vk_join' });
     if (Number(participant.amount_paid || 0) === 0 && String(participant.payment_status || 'unpaid') === 'unpaid') {
       await db.run('UPDATE evening_participants SET amount_due=?, updated_at=? WHERE id=?', [amountDue, now, participant.id]);
     }

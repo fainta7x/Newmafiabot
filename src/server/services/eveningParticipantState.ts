@@ -7,6 +7,7 @@ import {
   type EveningAttendanceFact,
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
+import { ensureEveningResponseHistorySchema } from '../../db/ensureEveningResponseHistorySchema.ts';
 import { reconcileParticipantAttendanceReward } from './eveningAttendanceRewardService.ts';
 import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 
@@ -55,11 +56,11 @@ export async function setParticipantResponse(
   db: DatabaseWrapper,
   participantId: string,
   status: EveningResponseStatus,
-  options: { byPlayer?: boolean } = {},
+  options: { byPlayer?: boolean; source?: string } = {},
 ) {
-  const previous = options.byPlayer
-    ? (await db.get<{ response_status: string | null }>('SELECT response_status FROM evening_participants WHERE id = ?', [participantId]))?.response_status
-    : null;
+  const before = await db.get<{ response_status: string | null; evening_id: string | null; player_id: string | null }>(
+    'SELECT response_status, evening_id, player_id FROM evening_participants WHERE id = ?', [participantId]);
+  const previous = options.byPlayer ? before?.response_status : null;
   const now = new Date().toISOString();
   const isPositive = status === 'going' || status === 'late';
   await db.run(
@@ -70,6 +71,18 @@ export async function setParticipantResponse(
       WHERE id = ?`,
     [status, status, isPositive ? 1 : 0, now, now, participantId],
   );
+
+  // Every change of the answer is written down with where it came from (owner, 2026-10-12: «ставится само»).
+  try {
+    await ensureEveningResponseHistorySchema(db);
+    await db.run(
+      `INSERT INTO evening_response_history (participant_id, evening_id, player_id, previous_status, new_status, source, by_player, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [participantId, before?.evening_id ?? null, before?.player_id ?? null, before?.response_status ?? null, status, options.source || (options.byPlayer ? 'player_unspecified' : 'organizer_or_system'), options.byPlayer ? 1 : 0, now],
+    );
+  } catch (error) {
+    console.warn('[EVENING RESPONSE] history not written:', error instanceof Error ? error.message : String(error));
+  }
 
   // A changed answer can move an already arrived player between 500 and 400.
   await reconcileParticipantAttendanceReward(db, participantId);
@@ -125,3 +138,9 @@ export const legacyAttendancePatchToFact = (
   if (attendance === 'attended') return arrival === 'late' ? 'attended_late' : 'attended_on_time';
   throw new EveningParticipantStateError('Некорректная комбинация фактической явки');
 };
+
+export async function loadParticipantResponseHistory(db: DatabaseWrapper, participantId: string) {
+  await ensureEveningResponseHistorySchema(db);
+  return db.all<{ previous_status: string | null; new_status: string; source: string; by_player: number; created_at: string }>(
+    'SELECT previous_status, new_status, source, by_player, created_at FROM evening_response_history WHERE participant_id = ? ORDER BY id DESC LIMIT 50', [participantId]);
+}

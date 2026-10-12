@@ -360,16 +360,17 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
         String(evening.id),
         String(player.id),
         plan.slots.map((slot) => slot.id),
+        { source: 'telegram_quick_rsvp' },
       );
     } else if (responseStatus === 'late') {
-      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), lateSlotIds, { notifyOrganizer: false });
-      await setParticipantResponse(db, String(participant.id), 'late');
+      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), lateSlotIds, { notifyOrganizer: false, source: 'telegram_quick_rsvp' });
+      await setParticipantResponse(db, String(participant.id), 'late', { source: 'telegram_quick_rsvp' });
       await notifyOrganizerAboutResponse(db, String(participant.id), existingParticipant?.response_status ?? null, 'late')
         .catch((error) => console.warn('[BOT RSVP] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     } else {
       // Clearing the games is a step towards the chosen answer; only that answer alerts the organizer.
-      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false });
-      await setParticipantResponse(db, String(participant.id), responseStatus as any);
+      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), [], { notifyOrganizer: false, source: 'telegram_quick_rsvp' });
+      await setParticipantResponse(db, String(participant.id), responseStatus as any, { source: 'telegram_quick_rsvp' });
       await notifyOrganizerAboutResponse(db, String(participant.id), existingParticipant?.response_status ?? null, responseStatus)
         .catch((error) => console.warn('[BOT RSVP] organizer notification failed:', error instanceof Error ? error.message : String(error)));
     }

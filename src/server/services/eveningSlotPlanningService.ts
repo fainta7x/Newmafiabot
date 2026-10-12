@@ -470,7 +470,7 @@ export async function replacePlayerSlotSelection(
   eveningId: string,
   playerId: string,
   raw: unknown,
-  options: { notifyOrganizer?: boolean } = {},
+  options: { notifyOrganizer?: boolean; source?: string } = {},
 ) {
   const { evening } = await ensureSlotsForEvening(db, eveningId);
   if (!['published','active'].includes(String(evening.status || '')) || evening.settled_at) throw Object.assign(new Error('Запись на это событие закрыта'), { statusCode: 409 });
@@ -503,7 +503,7 @@ export async function replacePlayerSlotSelection(
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
       await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [estimate, paymentStatus, now, participant.id]);
     }
-    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined', { byPlayer: options.notifyOrganizer !== false });
+    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined', { byPlayer: options.notifyOrganizer !== false, source: options.source || (ids.length ? 'slot_selection' : 'slot_selection_cleared') });
   });
   await enqueueTelegramEveningSync(db, eveningId);
   // Keep the existing VK announcement current immediately after a player changes

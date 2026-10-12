@@ -828,3 +828,26 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Observable failure:** after the compact `/prs` change (#860) `/prs` stopped answering and `/api/health/runtime` showed `bot: fail`, `telegram: fail` on every later build.
 - **Cause (confirmed by `import main` locally):** the rewrite of `overview()` in `github_pr_notifications.py` cut the end of the file, so `prs_command` and `github_pr_notification_task` were gone; `main.py` imports the latter, the whole Python bot crashed at start. CI did not catch it: «Python bot syntax» only compiles files and the unit tests import the module, not `main.py`.
 - **Fix:** the tail was restored; a regression test now asserts the names `main.py` imports exist. Status: fixed in the PR after this entry; confirm on the next deploy that `/api/health/runtime` is 200 and `/prs` answers. Open: make the CI bot check import `main.py` (not only compile it).
+
+### 2026-10-12 — GoMafia: своя привязка осталась «ожидает», организатору ничего не пришло
+
+- **Scope:** `goMafiaRoutes.ts` (`PUT /gomafia/me`, `bind`), `clubOrderService.ts` («Порядок в клубе»), `organizerNotificationService.ts`, CRM player card `PlayerGoMafiaLink`.
+- **Owner's report:** he linked his own profile as a test; it did not become linked; the request «goes to the organizer» although he IS the organizer; no notification arrived and he does not know where in the CRM such requests are seen.
+- **Findings:**
+  1. `bind()` makes every self-link `pending`, even when the person who presses is an organizer (`req.userRole === 'ORGANIZER'`): an organizer cannot confirm himself without a second manual step. — fixed (the organizer's own link is confirmed at once)
+  2. A new `pending` request notifies nobody: no `enqueueOrganizerNotification`, so nothing in Telegram. — fixed
+  3. A pending request is not shown anywhere in the CRM (not in «Порядок в клубе», not in a list of requests): the only way to see it is to open that exact player's card. — fixed (item «Запрос на привязку GoMafia» in «Порядок в клубе»)
+  4. Process cause (for the architecture audit): a new «request that needs the organizer» was built without the two things every such flow in this app has (an organizer notification and an item in the organizer's to-do list); there is no shared checklist or helper that forces them. — rule written in `ARCHITECTURE.md`; a shared helper is still open
+- **Plan:** an organizer's own link is confirmed at once; a pending request enqueues the existing organizer Telegram notification and appears in «Порядок в клубе» («Запрос на привязку GoMafia»); a regression test; add the rule «every request that waits for an organizer needs a notification and a to-do item» to `docs/ARCHITECTURE.md`.
+
+### 2026-10-12 — Игрок «Денди»: в записи на вечер сам собой ставится «Не иду»
+
+- **Scope:** every writer of `evening_participants.response_status`: `setParticipantResponse` callers (`botRoutes.ts` quick RSVP, `playerSelfCoreRoutes.ts`, `participantRoutes.ts`, VK poll sync `vkEveningIntegrationService.ts`, `vkJoinRegistrationService.ts`), `replacePlayerSlotSelection` (`eveningSlotPlanningService.ts`), `organizerEveningSlotSelectionService.ts`, the Mini App `PlayerEventSlotDetail.tsx`.
+- **Owner's report:** the player Денди complains that her registration is «automatically» set to «Не иду / не приду» again and again. Exact evening, channel (Telegram buttons / Mini App / VK) and time are not known yet; production data was not touched.
+- **Code facts found (no timer or job sets «Не иду» for someone who did not answer):**
+  1. `replacePlayerSlotSelection` turns **any empty list of games into «Не иду»**, and creates the participant row if there is none. Callers that can send an empty list: the Mini App «Отменить запись / Очистить выбор» + Save, the VK mini-app route (`vkJoinStateRouter.ts`), and the Telegram quick RSVP for «Пока думаю» / «Не буду» (intended). So «clearing the games» and «declining» are the same action — a probable source of surprise.
+  2. A VK poll vote «Не иду» is applied as her answer and can come back on the next VK sync when her app answer equals the last applied VK status (`canVkVoteOverride`).
+  3. There is **no history** of who or what changed the answer (no source, no time per change), so a report like this cannot be answered from the data.
+- **Owner update (same day):** Денди says she opens the evening and it ALREADY says «Не иду» — she never pressed anything. Owner said «записывай, надо разобраться».
+- **Done:** every change of the answer is now written to `evening_response_history` (previous → new status, `source`, by player or not, time) from `setParticipantResponse`; sources are named at every caller (`telegram_quick_rsvp`, `mini_app_slots`, `player_slots_route`, `vk_miniapp_slots`, `vk_poll`, `vk_join`, `player_app_answer`, `organizer_card`, `organizer_slots`, `novice_application`, `slot_selection_cleared`); organizer endpoint `GET /api/evenings/participants/:id/response-history`.
+- **Status:** root cause still unknown — it will be visible from the history after the next occurrence. Still open: a screen in the CRM participant card that shows the history; and whether «clear the games» should stay «Не иду» (owner decision).

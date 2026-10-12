@@ -883,3 +883,11 @@ Scope: the owner dictates what he dislikes while clicking through the organizer 
 12. «Создать задачу», «Записать общение»: owner OK to keep (it is the comment/CRM note); low priority.
 13. Learning / «Отслеживание тренажёра» block: keep only as a link to the player's profile where learning is linked.
 14. Header part (photo, edit data, player music, replace login, delete photo): fine.
+
+### CRM «Ещё»: Дела, Развитие, Обучение, Уровни и роли (`MoreCRM.tsx`, `CuratorTasksPanel.tsx`, `NoviceDevelopmentCRM.tsx`, `LearningProgressCRM.tsx`, `LearningActivityCRM.tsx`)
+15. «Дела» (incl. curator tasks): OK as is.
+16. «Развитие игроков» (`NoviceDevelopmentCRM`, «Первые заявки, новичковый этап и перевод в клуб»): owner does not use it and does not understand its purpose; name unclear, maybe it should not be a section at all. Direction: the organizer just receives tasks/notifications («нужно настроить профиль» etc.) in «Дела»; decide whether to remove the section after checking what only it offers.
+17. «Обучение» (`LearningProgressCRM`): on mobile the layout «плывёт» (desktop OK) — verify at 360/390 px.
+18. «Обучение»: tapping a player opens a plain profile instead of the exam detail for that player — illogical; should open the exam breakdown.
+19. «Уровни и роли»: functionally OK, but colours/light theme are too pale (weakest contrast on the most important thing); selected rows are highlighted oddly.
+20. «Уровни и роли»: quick filters (новичок, клуб, турнирный игрок…) sit in a left column as cell-like boxes — inconvenient; want a horizontal chip row on top.

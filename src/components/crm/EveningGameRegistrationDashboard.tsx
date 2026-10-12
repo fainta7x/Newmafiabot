@@ -5,7 +5,7 @@ import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
-type Filter = 'attention' | 'delivery' | 'all' | RegistrationState;
+type Filter = 'attention' | 'delivery' | 'not_sent' | 'all' | RegistrationState;
 type AudiencePlayer = {
   id: string;
   nickname: string;
@@ -76,6 +76,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
+  const [deliveryWarning, setDeliveryWarning] = useState('');
   const [filter, setFilter] = useState<Filter>('attention');
   const [search, setSearch] = useState('');
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         fetch(`/api/evenings/${encodeURIComponent(eveningId)}/slots`, { credentials: 'include', headers }),
       ]);
       const audienceBody = audienceResponse.ok ? await audienceResponse.json().catch(() => ({})) : {};
+      setDeliveryWarning(audienceResponse.ok ? '' : 'Не удалось загрузить статус доставки. Ответы уже записавшихся игроков доступны, но список приглашённых может быть неполным.');
       const slotBody = slotResponse.ok ? await slotResponse.json().catch(() => ({})) : {};
       const audiencePlayers: AudiencePlayer[] = Array.isArray(audienceBody?.players) ? audienceBody.players : [];
       const slots: Slot[] = Array.isArray(slotBody?.slots) ? slotBody.slots : [];
@@ -175,11 +177,13 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const attentionCount = rows.filter(needsReply).length;
   const failedCount = rows.filter(deliveryFailed).length;
   const sentCount = rows.filter((row) => row.eligibleNow && Boolean(row.firstSentAt)).length;
+  const notSentCount = rows.filter((row) => row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus !== 'failed').length;
   const visibleRows = useMemo(() => rows.filter((row) => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
     if (query && !row.nickname.toLocaleLowerCase('ru-RU').includes(query)) return false;
     if (filter === 'attention') return needsReply(row);
     if (filter === 'delivery') return deliveryFailed(row);
+    if (filter === 'not_sent') return row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus !== 'failed';
     return filter === 'all' || row.state === filter;
   }), [filter, rows, search]);
 
@@ -309,6 +313,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     { id: 'attention', label: 'Нужен ответ', count: attentionCount },
     { id: 'unknown', label: 'Нет ответа', count: counts.unknown },
     { id: 'delivery', label: 'Не доставлено', count: failedCount },
+    { id: 'not_sent', label: 'Не отправлено', count: notSentCount },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
     { id: 'games', label: 'Идут', count: counts.games },
     { id: 'declined', label: 'Не будут', count: counts.declined },
@@ -337,6 +342,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       </label>
 
       {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
+      {deliveryWarning ? <div className="mt-3 rounded-[11px] bg-warning-soft px-3 py-2 text-[12px] text-warning">{deliveryWarning}</div> : null}
       {readonly ? <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Вечер завершён — запись доступна только для просмотра.</div> : null}
       {loading ? <p className="py-5 text-center text-[11px] text-text-secondary">Загружаю запись…</p> : null}
 

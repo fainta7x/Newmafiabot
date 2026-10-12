@@ -4,6 +4,8 @@ export type EloJourneyScopedEvent = {
   id: string;
   source: 'club' | 'tournament';
   date: string;
+  /** Actual game completion date for season inclusion, distinct from Elo replay sort date. */
+  season_date?: string;
   elo_before: number;
   elo_after: number;
 };
@@ -16,7 +18,7 @@ export const filterEloJourneyEvents = <T extends EloJourneyScopedEvent>(
   clubFormats: ReadonlyMap<string, string> = new Map(),
 ): T[] => events.filter((event) => {
   if (scope.start !== undefined && scope.end !== undefined) {
-    const date = new Date(event.date).getTime();
+    const date = new Date(event.season_date || event.date).getTime();
     if (!Number.isFinite(date) || date < scope.start || date >= scope.end) return false;
   }
   if (!scope.format || scope.format === 'all') return true;

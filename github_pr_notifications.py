@@ -46,18 +46,32 @@ def github(path):
     return fetch(path)[0]
 
 
+# One colour language (owner request 2026-10-12): 🟢 already merged · 🟡 not merged yet, checks running or work going on ·
+# 🔵 checks passed, waits for the merge (NOT done yet) · 🔴 tests failed · ⚪ closed without merging.
+LEGEND = "🟢 слито · 🟡 в работе или в проверке · 🔵 проверки пройдены, ещё не слито · 🔴 тесты не прошли"
+
+
 def status(pr, checks):
     if pr.get("merged_at"):
-        return "merged", "✅ Слито в main"
+        return "merged", "🟢 Слито в main"
     if pr["state"] == "closed":
         return "closed", "⚪ Закрыто без слияния"
     found = {check["name"]: check for check in checks}
     selected = [found.get(name) for name in CHECKS]
     if any(c and c.get("conclusion") in ("failure", "cancelled", "timed_out") for c in selected):
-        return "failed", "❌ Тесты не прошли"
+        return "failed", "🔴 Тесты не прошли"
     if all(c and c.get("status") == "completed" and c.get("conclusion") == "success" for c in selected):
-        return "ready", "✅ Проверки пройдены, ждёт слияния"
-    return "pending", "⏳ В проверке"
+        return "ready", "🔵 Проверки пройдены — ещё не слито"
+    return "pending", "🟡 В проверке"
+
+
+def author(pr):
+    """Whose PR it is: both assistants push under the owner's GitHub account, so the branch name and the footer tell them apart."""
+    ref = (pr.get("head") or {}).get("ref", "") or ""
+    body = pr.get("body") or ""
+    if ref.startswith("claude/") or "claude.ai/code" in body or "Claude Code" in body:
+        return "🤖 Claude"
+    return "💬 GPT"
 
 
 def message(pr, label, checks, history):
@@ -68,7 +82,7 @@ def message(pr, label, checks, history):
                        pr.get("title", ""))
     lines = ["<b>2LA Noire · GitHub</b>", label,
              '<a href="https://github.com/' + REPO + '/pull/' + str(number) + '">PR #' + str(number) + '</a> — ' + title,
-             "Изменения: " + html.escape(description[:180])]
+             "Автор: " + author(pr), "Изменения: " + html.escape(description[:180])]
     if pr["state"] == "open" and checks:
         found = {check["name"]: check for check in checks}
         lines.append("<b>Проверки:</b>")
@@ -81,8 +95,8 @@ def message(pr, label, checks, history):
     lines.append("<b>Последние слияния:</b>")
     for item in history[:3]:
         n = int(item["number"])
-        lines.append('• <a href="https://github.com/' + REPO + '/pull/' + str(n) + '">#' + str(n) + '</a> ' +
-                     html.escape(item.get("title", "")[:75]))
+        lines.append('🟢 <a href="https://github.com/' + REPO + '/pull/' + str(n) + '">#' + str(n) + '</a> ' +
+                     html.escape(item.get("title", "")[:75]) + " · " + author(item))
     if pr.get("merged_at"):
         lines.append("<i>Это не подтверждает деплой на Amvera.</i>")
     return "\n".join(lines)[:3800]
@@ -153,7 +167,7 @@ async def tick(bot, recipients):
                 state[number] = new_state
                 save(state)
                 continue
-            label = "🆕 Открыт новый PR · ⏳ в проверке" if new_state == "open" else status(pr, [])[1]
+            label = "🆕 Открыт новый PR · 🟡 в проверке" if new_state == "open" else status(pr, [])[1]
             text = message(pr, label, [], [p for p in merges if p["number"] != pr["number"]])
             for recipient in recipients:
                 try:
@@ -165,24 +179,26 @@ async def tick(bot, recipients):
 
 
 async def overview():
-    """What is open right now and how far its checks are: for the /prs command."""
+    """What is open right now and how far its checks are, whose it is, and what was merged lately: for the /prs command."""
     pulls = await asyncio.to_thread(github, PULLS_PATH)
     opened = [p for p in pulls if p["state"] == "open"]
-    lines = ["<b>2LA Noire · GitHub</b>"]
+    lines = ["<b>2LA Noire · GitHub</b>", "<i>" + LEGEND + "</i>"]
     if not opened:
         lines.append("Открытых PR нет — всё слито или закрыто.")
+    else:
+        lines.append("<b>Ещё не слито:</b>")
     for pr in opened[:6]:
         checks = (await asyncio.to_thread(github, "/commits/" + pr["head"]["sha"] + "/check-runs?per_page=100")).get("check_runs", [])
         label = status(pr, checks)[1]
         title = html.escape(pr.get("title", "")[:90])
         number = int(pr["number"])
-        lines.append('• <a href="https://github.com/' + REPO + '/pull/' + str(number) + '">#' + str(number) + "</a> " + title + "\n   " + label)
-    merged = sorted((p for p in pulls if p.get("merged_at")), key=lambda p: p["merged_at"], reverse=True)[:3]
+        lines.append('<a href="https://github.com/' + REPO + '/pull/' + str(number) + '">#' + str(number) + "</a> " + title + "\n   " + label + " · " + author(pr))
+    merged = sorted((p for p in pulls if p.get("merged_at")), key=lambda p: p["merged_at"], reverse=True)[:5]
     if merged:
-        lines.append("<b>Последние слияния:</b>")
+        lines.append("<b>Уже слито:</b>")
         for item in merged:
             n = int(item["number"])
-            lines.append('• <a href="https://github.com/' + REPO + '/pull/' + str(n) + '">#' + str(n) + "</a> " + html.escape(item.get("title", "")[:75]))
+            lines.append('🟢 <a href="https://github.com/' + REPO + '/pull/' + str(n) + '">#' + str(n) + "</a> " + html.escape(item.get("title", "")[:70]) + " · " + author(item))
     lines.append("<i>Слияние в main не значит деплой на Amvera.</i>")
     return "\n".join(lines)[:3800]
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type PaymentItem = {
   participant_id: string;
@@ -190,9 +191,7 @@ export default function PlayerPayments({ onBack, view = 'full' }: { onBack?: () 
 
   const load = async () => {
     try {
-      const response = await fetch('/api/player/payments', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить оплату');
+      const body = await getJson<any>('/api/player/payments', 'Не удалось загрузить оплату');
       setData(body as PaymentData);
       setError(null);
     } catch (loadError: any) {

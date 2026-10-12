@@ -8,6 +8,7 @@ import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import { TournamentGameSetup } from '../crm/tournaments/TournamentGameSetup.tsx';
 import TournamentLiveGameModal from './TournamentLiveGameModal.tsx';
 import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
@@ -63,9 +64,7 @@ const permissionLabel = (key: keyof PlayerJudgingDashboard['permissions']) => {
 };
 
 export async function loadPlayerJudgingDashboard(): Promise<PlayerJudgingDashboard> {
-  const response = await fetch('/api/player/judging', { credentials: 'include' });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить судейство');
+  const body = await getJson<any>('/api/player/judging', 'Не удалось загрузить судейство');
   return body as PlayerJudgingDashboard;
 }
 
@@ -146,9 +145,7 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
     setError(null);
     setFeedback(null);
     try {
-      const response = await fetch(`/api/tournaments/${encodeURIComponent(game.tournament_id)}`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить турнир');
+      const body = await getJson<any>(`/api/tournaments/${encodeURIComponent(game.tournament_id)}`, 'Не удалось загрузить турнир');
       const detail = body as Tournament;
       const freshGame = detail.games?.find((item) => item.id === game.id);
       setTournament(detail);

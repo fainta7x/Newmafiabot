@@ -1,5 +1,6 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Suggestion = {
   player_id: string;
@@ -36,9 +37,7 @@ export default function SmartFriendInviteSuggestions() {
 
   const load = async () => {
     try {
-      const response = await fetch('/api/player/friend-invite-suggestions', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить подсказки');
+      const body = await getJson<any>('/api/player/friend-invite-suggestions', 'Не удалось загрузить подсказки');
       setItems(Array.isArray(body.suggestions) ? body.suggestions : []);
     } catch {
       setItems([]);

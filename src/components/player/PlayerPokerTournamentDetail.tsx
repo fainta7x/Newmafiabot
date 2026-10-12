@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { countPlayers } from '../../lib/russianPlural.ts';
 import PokerTournamentSchedule, { type PokerScheduleRow } from './PokerTournamentSchedule.tsx';
 import PokerTournamentParticipants, { type PokerTournamentParticipant } from './PokerTournamentParticipants.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Tournament = {
   id: string; title: string; description: string; status: 'registration' | 'running' | 'finished' | 'cancelled'; cancel_reason: string | null;
@@ -25,9 +26,7 @@ export default function PlayerPokerTournamentDetail({ tournamentId, onBack, onSa
   const [error, setError] = useState('');
 
   const load = async () => {
-    const response = await fetch(`/api/player/poker/tournaments/${encodeURIComponent(tournamentId)}`, { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || 'Не удалось открыть турнир');
+    const body = await getJson<any>(`/api/player/poker/tournaments/${encodeURIComponent(tournamentId)}`, 'Не удалось открыть турнир');
     setItem(body.tournament);
   };
   useEffect(() => { window.scrollTo(0, 0); void load().catch((reason) => setError(reason.message)); }, [tournamentId]);

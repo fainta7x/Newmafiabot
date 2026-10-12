@@ -6,6 +6,7 @@ import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 import VenueAddress from '../public/VenueAddress.tsx';
 import PlayerEveningWorkspace from './PlayerEveningWorkspace.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type EventItem = {
   id: string;
@@ -66,9 +67,7 @@ export default function PlayerEventSlotDetail({
     if (event.event_type === 'tournament') return;
     setError('');
     try {
-      const response = await fetch(`/api/player/evenings/${encodeURIComponent(event.id)}/slots`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игры');
+      const body = await getJson<any>(`/api/player/evenings/${encodeURIComponent(event.id)}/slots`, 'Не удалось загрузить игры');
       setPlan(body as Plan);
       if (body?.first_application_required) setSaveError({ message: '', needsFirstApplication: true });
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);

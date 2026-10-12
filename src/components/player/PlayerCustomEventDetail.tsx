@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import VenueAddress from '../public/VenueAddress.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type CustomEvent = {
   id: string; title: string; description?: string; cover_image_data_url?: string | null;
@@ -16,9 +17,7 @@ export default function PlayerCustomEventDetail({ eventId, onBack, onSaved }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const load = async () => {
-    const response = await fetch(`/api/custom-events/${encodeURIComponent(eventId)}`, { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || 'Не удалось открыть событие');
+    const body = await getJson<any>(`/api/custom-events/${encodeURIComponent(eventId)}`, 'Не удалось открыть событие');
     setEvent(body); setGuest(Number(body.guest_count || 0) === 1);
   };
   useEffect(() => { window.scrollTo(0,0); void load().catch((e) => setError(e.message)); }, [eventId]);

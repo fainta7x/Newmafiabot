@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type EconomyScope = 'shop' | 'bets' | 'history';
 type BetTeam = 'red' | 'black';
@@ -189,9 +190,7 @@ export default function PlayerEconomy({ onBalanceChange, view }: { onBalanceChan
 
   const load = async () => {
     try {
-      const response = await fetch('/api/player/economy', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить жетоны');
+      const body = await getJson<any>('/api/player/economy', 'Не удалось загрузить жетоны');
       const next = body as EconomyData;
       setData(next);
       setError(null);
@@ -203,9 +202,7 @@ export default function PlayerEconomy({ onBalanceChange, view }: { onBalanceChan
 
   const loadBetting = async () => {
     try {
-      const response = await fetch('/api/player/bets', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить ставки');
+      const body = await getJson<any>('/api/player/bets', 'Не удалось загрузить ставки');
       const next = body as BettingData;
       setBetting(next);
       setData((previous) => previous ? { ...previous, balance: Number(next.balance || 0) } : previous);

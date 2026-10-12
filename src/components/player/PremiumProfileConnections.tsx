@@ -1,6 +1,7 @@
 import PersonalRecentEvening from './PersonalRecentEvening.tsx';
 import PersonalTeamwork from './PersonalTeamwork.tsx';
 import { useEffect, useMemo, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type SharedGame = {
   id: string;
@@ -133,9 +134,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const loadConnections = async () => {
     setConnectionsError('');
     try {
-      const response = await fetch(`/api/player/profiles/${encodeURIComponent(playerId)}/connections`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить связи');
+      const body = await getJson<any>(`/api/player/profiles/${encodeURIComponent(playerId)}/connections`, 'Не удалось загрузить связи');
       setConnections(Array.isArray(body.connections) ? body.connections : []);
       setMostSuccessful(body.most_successful_partnership || null);
       setInvitedBy(body.invited_by || null);
@@ -152,9 +151,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const loadInviteContext = async () => {
     if (isSelf) return;
     try {
-      const response = await fetch(`/api/player/profiles/${encodeURIComponent(playerId)}/invitation-context`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось проверить приглашение');
+      const body = await getJson<any>(`/api/player/profiles/${encodeURIComponent(playerId)}/invitation-context`, 'Не удалось проверить приглашение');
       setContext(body);
       const firstAvailable = (body.evenings || []).find((item: InvitationEvening) => (item.state || 'eligible') === 'eligible' && !item.existing_invitation);
       setSelectedEveningId((current) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type Channel = 'telegram' | 'vk';
 type State = {
@@ -18,9 +19,7 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
   const [error, setError] = useState('');
 
   const load = async () => {
-    const response = await fetch('/api/player/notification-preferences', { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить настройки');
+    const body = await getJson<any>('/api/player/notification-preferences', 'Не удалось загрузить настройки');
     setState(body as State);
   };
   useEffect(() => { void load().catch((e) => setError(e?.message || 'Не удалось загрузить настройки')); }, []);

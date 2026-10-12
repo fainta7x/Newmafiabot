@@ -12,6 +12,8 @@ type PaymentItem = {
   evening_status: string;
   attendance_status: string;
   amount_due: number;
+  /** The part of the cost that is the share of an evening extension. */
+  extension_due?: number;
   amount_paid: number;
   outstanding: number;
   payment_status: 'unpaid' | 'partial' | 'paid' | 'waived' | string;
@@ -110,6 +112,11 @@ function PaymentCard({ item, freeCredits, applying, onUseFree, testAvailable = f
         <div className="rounded-xl bg-white/[0.04] p-2"><div className="text-sm font-semibold text-emerald-200/75">{rubles(item.amount_paid)}</div><div className="mt-1 text-[11px] text-white/30">оплачено</div></div>
         <div className="rounded-xl bg-white/[0.04] p-2"><div className={`text-sm font-semibold ${item.outstanding > 0 ? 'text-rose-200/80' : 'text-white/65'}`}>{rubles(item.outstanding)}</div><div className="mt-1 text-[11px] text-white/30">осталось</div></div>
       </div>
+      {Number(item.extension_due || 0) > 0 && (
+        <div data-testid="payment-extension-note" className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/50">
+          В стоимость входит продление вечера: {rubles(Number(item.extension_due))}. Платится одной суммой вместе с вечером.
+        </div>
+      )}
       {canUseFree && (
         <button type="button" disabled={applying} onClick={() => onUseFree(item.participant_id)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-medium text-white/70 disabled:opacity-40">
           {applying ? 'Применяем…' : '🎟️ Использовать бесплатный вечер'}

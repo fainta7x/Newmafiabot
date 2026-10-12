@@ -857,3 +857,5 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - FIXED `goMafiaAwardsService.ts`: insert/upsert retains an automatic award when a later authoritative source names a different winner; retained awards are not retracted.
 - FIXED `PlayerGoMafiaLink.tsx`: tournament chronology does not display imported nomination wins; only the separate trophy showcase exposes them.
 - Acceptance: live Chagin 13 appearances → four nomination victories (507: don; 616: red/sheriff/MVP), no awards for ranks 2/3; all five keys, hidden results and transient failures tested; corrections preserve manual and unrelated awards.
+
+- FIXED PR #881 review `goMafiaCareerSource.ts`: malformed/duplicate published tournament lists left history winner flags available; mark nominations unavailable before award building so a contradictory payload cannot create new wins.

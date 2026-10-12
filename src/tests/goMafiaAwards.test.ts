@@ -76,6 +76,12 @@ describe('GoMafia nominations and podium places as awards', () => {
     const hidden=enrichGoMafiaAppearance(appearance(),{...page,tournament:{...page.tournament,is_hidden_result:'1'}},'1202');
     expect(hidden.nominations).toEqual([]);expect(federationAwardsOf('1202',[hidden])).toEqual([]);
     expect(nominationsOfPlayer({...page,nominations:{...page.nominations,mvp:[user('1202'),user('1202')]}},'1202')).toEqual([{key:'best_sheriff',rank:2}]);
+    const july=parseGoMafiaHistory(history,parseGoMafiaPlayerReference('1202')!).tournaments.find(t=>t.tournamentId==='616')!;
+    for(const nominations of [{...publicNominations[0].nominations,mvp:[user('1202'),user('1202')]},{mvp:'changed schema'}]) {
+      const ambiguous=enrichGoMafiaAppearance(july,{...publicNominations[0],nominations},'1202');
+      expect(ambiguous.nominationsStatus).toBe('unavailable');expect(ambiguous.nominations).toBeUndefined();
+      expect(federationAwardsOf('1202',[ambiguous]).filter(a=>a.kind==='nomination')).toEqual([]);
+    }
   });
   it('retracts a corrected winner, preserves failures/manual awards, and reinstates the same row', async () => {
     const winner=appearance({nominations:[{key:'mvp',rank:1}],nominationsStatus:'available',scoreStatus:'available'});

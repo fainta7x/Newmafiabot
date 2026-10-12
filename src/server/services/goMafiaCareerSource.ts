@@ -90,13 +90,15 @@ export function enrichGoMafiaAppearance(appearance: CareerAppearance, data: any,
   if (String(data?.tournament?.id) !== appearance.tournamentId) throw new Error('Tournament identity mismatch');
   const unavailable = { ...appearance, totalScore: null, scoreStatus: 'unavailable' as const, scoreRetrievedAt: new Date().toISOString() };
   if (String(data.tournament.is_hidden_result) === '1') return { ...unavailable, nominations:[], nominationsStatus:'hidden', status:'unknown' };
-  if (data.nominations && Object.keys(GOMAFIA_NOMINATIONS).every(key=>{
+  const nominationsAvailable = data.nominations && Object.keys(GOMAFIA_NOMINATIONS).every(key=>{
     const list=data.nominations[key];
     return Array.isArray(list) && list.every(entry=>id(entry?.user?.id)) && new Set(list.map(entry=>id(entry?.user?.id))).size===list.length;
-  })) {
-    appearance = { ...appearance, nominations:nominationsOfPlayer(data,externalPlayerId), nominationsStatus:'available' };
-    unavailable.nominations = appearance.nominations; unavailable.nominationsStatus = appearance.nominationsStatus;
-  }
+  });
+  // A successfully read but ambiguous payload must not inherit winner flags.
+  // History flags remain the fallback only when the tournament request fails.
+  appearance = { ...appearance, nominations:nominationsAvailable ? nominationsOfPlayer(data,externalPlayerId) : undefined,
+    nominationsStatus:nominationsAvailable ? 'available' : 'unavailable' };
+  unavailable.nominations = appearance.nominations; unavailable.nominationsStatus = appearance.nominationsStatus;
   const games = appearance.games.map(game => {
     const matches: Array<{ tableId: string; points: number | null }> = [];
     for (const round of Array.isArray(data.games) ? data.games : []) {

@@ -54,7 +54,7 @@ export default function GatheredPostSheet({ eveningId, open, onClose, onDone }: 
   };
 
   return (
-    <MobileSheet open={open} onClose={() => !busy && onClose()} title="Мы собрались" subtitle="Фото уйдёт в Telegram и ВК. После поста открываются игры вечера."
+    <MobileSheet open={open} onClose={() => !busy && onClose()} title="Мы собрались" subtitle="Фото уйдёт в Telegram и ВК. Игры вечера от него не зависят, удобно сделать его перед 2–3-й игрой."
       footer={<div className="grid grid-cols-[auto_1fr] gap-2">
         <button type="button" disabled={busy} onClick={() => void send('/skip', { reason: 'Пропущено организатором' })} className="min-h-12 rounded-2xl bg-white/[0.06] px-4 text-[14px] font-medium text-white/60 disabled:opacity-50">Пропустить</button>
         <button type="button" disabled={busy || (!photo && !retryable)} onClick={() => void send('', photo ? { data_url: photo, caption } : { caption })} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{busy ? 'Публикуем…' : !photo && retryable ? 'Повторить отправку' : 'Опубликовать'}</button>

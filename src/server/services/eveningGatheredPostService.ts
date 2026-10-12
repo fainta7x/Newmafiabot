@@ -4,8 +4,8 @@ import { createVkWallPost, getVkDestinations, vkApi } from './vkPublishingServic
 
 /**
  * «Мы собрались» (user-approved 2026-09-24): once the evening starts, the organizer takes a photo
- * and it is posted to Telegram and VK. The first game of a running evening waits for this post
- * unless the organizer presses «Пропустить».
+ * and it is posted to Telegram and VK. Owner, 2026-10-12: the games do not wait for this post any more; it is a task of the
+ * running evening (best before the 2nd–3rd game), and a skipped post stays as a reminder.
  */
 export const MAX_GATHERED_PHOTO_BYTES = 1_200_000;
 
@@ -50,7 +50,7 @@ export async function loadGatheredPost(db: DatabaseWrapper, eveningId: string) {
   return { ...row, has_photo: Boolean(row.has_photo), state };
 }
 
-/** True when the first game may start: the post reached at least one channel, or it was skipped. */
+/** True when the post reached at least one channel or was skipped. It no longer gates the first game. */
 export async function gatheredPostSatisfied(db: DatabaseWrapper, eveningId: string) {
   const post = await loadGatheredPost(db, eveningId);
   return post.state !== 'pending';

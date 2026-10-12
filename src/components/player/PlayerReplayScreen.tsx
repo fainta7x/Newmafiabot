@@ -41,7 +41,7 @@ type SpeechView = 'chronological' | 'rounds';
 
 const roleLabel = (role: string | null) => getPlayerGameRoleLabel(role) ?? '—';
 const roleIcon = (role: string | null) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : role === 'don' ? '🎩' : '🎭';
-const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'finish' ? '🏁' : '•';
+const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'reveal' ? '🎭' : type === 'finish' ? '🏁' : '•';
 const durationLabel = (seconds: number) => {
   const rounded = Math.max(0, Math.round(seconds || 0));
   const minutes = Math.floor(rounded / 60);

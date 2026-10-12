@@ -201,7 +201,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     return 'Анонс ещё не отправлен';
   };
 
-  const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined') => {
+  const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered') => {
     if (savingStatusIds.has(row.playerId) || readonly) return;
 
     const previousResponseStatus = row.responseStatus;
@@ -370,7 +370,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             </div>
             {responseOpen ? <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border-soft pt-3 sm:grid-cols-4" aria-label={`Ответ ${row.nickname}`}>
               {([
-                ['going', 'Иду'], ['late', 'Приду позже'], ['thinking', 'Пока думаю'], ['declined', 'Не иду'],
+                ['going', 'Иду'], ['late', 'Приду позже'], ['thinking', 'Пока думаю'], ['declined', 'Не иду'], ['unanswered', 'Нет ответа'],
               ] as const).map(([status, label]) => <button key={status} type="button" aria-pressed={row.responseStatus === status} disabled={busy || readonly} onClick={() => void setStatus(row, status)} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${row.responseStatus === status ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>{label}</button>)}
             </div> : null}
             {editing ? <div className="mt-3 border-t border-border-soft pt-3">

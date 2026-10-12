@@ -36,6 +36,12 @@ jobs:
       - run: npm ci
       - run: npm ci
         working-directory: e2e
+      - name: Inspect public GoMafia player page (PR 852 only; no login or secrets)
+        if: github.event.pull_request.number == 852
+        continue-on-error: true
+        working-directory: e2e
+        timeout-minutes: 2
+        run: node scripts/gomafiaSourceProbe.mjs
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
       - name: Check mobile screens

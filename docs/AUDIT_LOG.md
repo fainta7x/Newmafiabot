@@ -1,5 +1,15 @@
 # Audit log
 
+## 2026-10-12 · Player entity P4 — contact-status compatibility read (scoped)
+
+**Scope audited before any code change:** `src/lib/playerUtils.ts:getCanInviteStatus`, `src/server/routes/playersRoutes.ts` list/detail/invite guard, `src/server/services/eveningAnnouncementTrackingService.ts` outreach selector, `playerTokensRoutes.ts` player-create writer, and `playerInvitationEligibilityService.ts` SQL identity/eligibility reads.
+
+- **[open, exact duplicate]** Four client/CRM read-and-guard points independently resolve status as `contact_status || (lifecycle_status === 'blocked' ? 'blocked' : lifecycle_status === 'paused' ? 'paused' : 'normal')`: `playerUtils.ts` and three `playersRoutes.ts` uses. Introduce a single exported **pure** `deriveContactStatus` in existing `src/lib/playerUtils.ts` and replace only these exact copies; preserve truthy `contact_status` priority and the unknown-string fallback semantics.
+- **[open, same expression but sensitive use]** `eveningAnnouncementTrackingService.ts` has an identical expression wrapped in `String()`, but controls personal delivery. Keep this untouched this slice; no notification delivery changes under a cosmetic entity refactor.
+- **[do not change]** `playerTokensRoutes.ts` writes new-player `contact_status` during creation. `playerInvitationEligibilityService.ts` SQL `COALESCE(contact_status,lifecycle_status,'normal')` is *not* equivalent for arbitrary legacy lifecycle values and affects invitation eligibility. These require separate proof.
+- **[safety]** Preserve `getCanInviteStatus` `do_not_invite_until` handling, stop-attending semantics, blocked/paused invitation protection and the calculated engagement stage. No API schema, field names, SQL, payment, player IDs, notifications, UI rendering or live-game behaviour changes.
+- **[tests planned]** An exact original-vs-helper golden matrix for normal/paused/blocked, null/empty/legacy/unknown values, and a frozen date check of `getCanInviteStatus`. Focused CI then a single reviewable PR. Ownership is *read interpretation only*, not a new persistence model.
+
 ## 2026-10-12 · Screens-and-paths audit (owner request): usefulness of each page and where each button leads
 
 Scope of pass 1: the main flows of the Organizer CRM and the Player app, read-only. **NOT yet audited (pass 2, still open):** Player — Poker, Wallet (Оплата / Магазин / Ставки / История), Settings, «Ведение» (conduct) and their sub-screens; CRM — the «Ещё» subscreens (Данные, Ставки, Оплата и поддержка/Commerce, Telegram, Развитие, Обучение, Уровни и роли, Музыкальная база, Система, Оформление), tournament panels, EveningGamesView tap-by-tap, TasksCRM, the profile/Players detail card; legacy `EveningOverviewView` / `EveningParticipantsWorkboard` are not mounted (confirmed by imports). Ratings are 1–5 for how useful and interesting the page is. Nothing below is fixed yet unless marked.

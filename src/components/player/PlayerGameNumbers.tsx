@@ -2,7 +2,7 @@ import type { TargetCounts } from '../../lib/gameActionFacts';
 import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
 
 /**
- * «Игра в цифрах» in the player's career: how accurate his votes, nominations and best moves are, how often he was the
+ * «Точность решений» in the player's career: how accurate his votes, nominations and best moves are, how often he was the
  * first killed, how the sheriff / don checks went. Counted from the chronology of his own games, so a block with no such
  * game stays hidden, and a figure with nothing behind it shows «—».
  */
@@ -11,26 +11,29 @@ import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
 const gamesDative = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игре' : 'играм');
 const percentText = (value: Share) => (value.percent === null ? '—' : `${value.percent}%`);
 
-function Tile({ title, value, hint }: { title: string; value: string; hint: string }) {
-  return <div className="rounded-2xl border border-white/[0.05] bg-black/15 p-3">
-    <div className="text-[11px] font-semibold text-white/45">{title}</div>
-    <div className="mt-1 text-xl font-black">{value}</div>
-    <div className="mt-0.5 text-[11px] leading-snug text-white/25">{hint}</div>
+function Tile({ title, value, hint, percent }: { title: string; value: string; hint: string; percent?: number | null }) {
+  return <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-black/15 p-3">
+    <div className="min-h-[30px] text-[11px] font-semibold leading-tight text-white/55">{title}</div>
+    <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+    {percent != null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`${title}: ${percent}%`}>
+      <div className="h-full rounded-full bg-amber-200/75" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
+    </div> : null}
+    <div className="mt-1.5 text-[11px] leading-snug text-white/40">{hint}</div>
   </div>;
 }
 
 export default function PlayerGameNumbers({ stats }: { stats: PlayerGameStatistics | null | undefined }) {
   if (!stats || stats.games === 0) return null;
-  const tiles: Array<{ title: string; value: string; hint: string }> = [];
-  if (stats.votesAsRed.total > 0) tiles.push({ title: 'Голоса красным в чёрных', value: percentText(stats.votesAsRed), hint: `голосов за чёрных: ${stats.votesAsRed.count} из ${stats.votesAsRed.total} (за красных)` });
-  if (stats.nominationsAsRed.total > 0) tiles.push({ title: 'Меткость выставлений', value: percentText(stats.nominationsAsRed), hint: `выставил чёрных: ${stats.nominationsAsRed.count} из ${stats.nominationsAsRed.total}` });
+  const tiles: Array<{ title: string; value: string; hint: string; percent?: number | null }> = [];
+  if (stats.votesAsRed.total > 0) tiles.push({ title: 'Голоса в чёрных', value: percentText(stats.votesAsRed), hint: `${stats.votesAsRed.count} из ${stats.votesAsRed.total} голосов за красных`, percent: stats.votesAsRed.percent });
+  if (stats.nominationsAsRed.total > 0) tiles.push({ title: 'Меткость выставлений', value: percentText(stats.nominationsAsRed), hint: `${stats.nominationsAsRed.count} из ${stats.nominationsAsRed.total} в чёрных`, percent: stats.nominationsAsRed.percent });
   if (stats.bestMove.count > 0) tiles.push({ title: 'Лучший ход', value: stats.bestMove.averageBlack === null ? '—' : `${stats.bestMove.averageBlack} из 3`, hint: `чёрных в среднем, ходов: ${stats.bestMove.count}` });
   if (stats.firstKilled.total > 0) tiles.push({ title: 'Первым убитым', value: `${stats.firstKilled.count}`, hint: `из ${stats.firstKilled.total} игр за красных` });
-  if (stats.sheriffChecks.total > 0) tiles.push({ title: 'Чёрные проверки шерифа', value: percentText(stats.sheriffChecks), hint: `нашёл чёрных: ${stats.sheriffChecks.count} из ${stats.sheriffChecks.total}` });
-  if (stats.donChecks.total > 0) tiles.push({ title: 'Проверки Дона', value: percentText(stats.donChecks), hint: `нашёл Шерифа: ${stats.donChecks.count} из ${stats.donChecks.total}` });
+  if (stats.sheriffChecks.total > 0) tiles.push({ title: 'Проверки шерифа', value: percentText(stats.sheriffChecks), hint: `${stats.sheriffChecks.count} из ${stats.sheriffChecks.total} в чёрных`, percent: stats.sheriffChecks.percent });
+  if (stats.donChecks.total > 0) tiles.push({ title: 'Проверки Дона', value: percentText(stats.donChecks), hint: `${stats.donChecks.count} из ${stats.donChecks.total} в Шерифа`, percent: stats.donChecks.percent });
   if (!tiles.length && !stats.actions) return null;
-  return <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4" aria-label="Игра в цифрах">
-    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Игра в цифрах</div>
+  return <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4" aria-label="Точность решений">
+    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Точность решений</div>
     <div className="mt-0.5 text-[11px] text-white/20">По {stats.games} {gamesDative(stats.games)} с журналом ходов</div>
     <div className="mt-3 grid grid-cols-2 gap-2">{tiles.map((tile) => <Tile key={tile.title} {...tile} />)}</div>
     {stats.actions && <details data-testid="game-action-metrics" className="mt-4 border-t border-white/10 pt-2">

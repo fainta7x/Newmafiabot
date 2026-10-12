@@ -81,7 +81,15 @@ export function parseProjectState(markdown: string): BoardCard[] {
   }
   for (const section of sections) {
     const title = clean(section.title);
-    if (/^waiting on the owner/i.test(title)) {
+    if (/^Нужен ваш ответ$/i.test(title)) {
+      for (const item of topItems(section.lines)) cards.push(makeCard(title, item, 'waiting'));
+    } else if (/^В работе$/i.test(title)) {
+      for (const item of topItems(section.lines)) cards.push(makeCard(title, item, 'active'));
+    } else if (/^Планируем$/i.test(title)) {
+      for (const item of topItems(section.lines)) cards.push(makeCard(title, item, 'info', { stage: 'idea' }));
+    } else if (/^Уже сделано$/i.test(title)) {
+      for (const item of topItems(section.lines)) cards.push(makeCard(title, item, 'done', { stage: 'merged' }));
+    } else if (/^waiting on the owner/i.test(title)) {
       for (const item of topItems(section.lines)) cards.push(makeCard(title, item, 'waiting'));
     } else if (/^current queue/i.test(title)) {
       for (const item of topItems(section.lines)) cards.push(makeCard(title, item, /^\s*\d+\.\s+~~/.test(item) || /^\s*\d+\.\s+[^.]{0,80}?(?:built|done|implemented)\b/i.test(item.replace(/\*\*|~~/g, '')) ? 'done' : 'active'));

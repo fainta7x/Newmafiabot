@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-12 · First-application action returns to onboarding (FIX CODED; PR #847)
+
+On mounted `PlayerEventSlotDetail.tsx`, the `first_application_required` recovery CTA «К первой заявке» previously called generic `onBack`, returning to the calendar without locating the application. The existing application form lives in `PlayerEventsCalendar.tsx`. PR #847 adds a dedicated callback to close the event and focus/scroll the existing onboarding block with a React regression test. No changes to enrollment/RSVP API or identity. CI/merge/deploy and mobile runtime verification pending.
+
 ## 2026-10-12 · UX audit pass 2C — CRM «Добавить игрока» is an unreachable working path
 
 **[mounted-path finding, fix in this PR]** `OrganizerCRM.tsx:handleOpenEveningAdd` already stores the `eveningIntent='add'` instruction, but `CRMOverview.tsx` currently fails to forward its `onOpenEveningAdd` prop to `OrganizerCommandCenter.tsx` (the prop does not exist there). Thus Today's nearest evening has no one-tap addition even though `EveningActiveRosterView.tsx` already has an add-player/guest picker. Additionally, the parent helper sets the address to `/admin/evenings/:id/participants`, but `EveningWorkspace.tsx` interprets `initialAddOpen=true` as **management → roster**, making visible pane and URL disagree.

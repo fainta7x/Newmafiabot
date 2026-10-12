@@ -54,7 +54,7 @@ describe('path builders and back targets', () => {
     // «Прошедшие» and «Мои игры» are tabs of «Вечера» (owner, 2026-10-06): Back goes to «Скоро».
     expect(appBackTarget('/player/games')).toBe('/player/events');
     expect(appBackTarget('/player/recaps')).toBe('/player/events');
-    expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games');
+    expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games/club%3A1');
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');
     expect(appBackTarget('/player/poker/table%3A42')).toBe('/player/poker');
     // the personal Elo history is the profile's tab now

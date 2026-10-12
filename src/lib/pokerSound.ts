@@ -33,8 +33,9 @@ export const pokerSoundState = (tableId: unknown, hand: any): PokerSoundState =>
 };
 
 export const pokerSoundCues = (before: PokerSoundState | null, after: PokerSoundState): PokerSoundCue[] => {
-  if (!before || !before.handId || !after.handId || before.tableId !== after.tableId) return [];
-  if (before.handId !== after.handId) return ['deal'];
+  if (!before || !after.handId || before.tableId !== after.tableId) return [];
+  // First hand after waiting: the owner has already enabled audio in the same mounted table.
+  if (!before.handId || before.handId !== after.handId) return ['deal'];
   const cues: PokerSoundCue[] = [];
   if (after.boardCount > before.boardCount) cues.push('board');
   if (after.logCount > before.logCount && CHIP_ACTIONS.has(after.lastActionType)) cues.push('chips');

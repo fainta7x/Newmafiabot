@@ -1,4 +1,5 @@
 import { buildLiveGameStateView, parseLiveGameSnapshot } from './liveGameState';
+import { normalizeReveals, type RevealColor } from './liveReveals';
 import { determineVotingResult, type VotingRound } from '../shared/tournamentVoting';
 
 export const LIVE_BROADCAST_VERSION = 1 as const;
@@ -79,6 +80,12 @@ export type LiveBroadcastDayVote = {
   assignments: Record<number, number>;
 };
 
+/** «Вскрытие»: a player who openly claimed to be the Sheriff and the checks he announced (the judge's record). */
+export type LiveBroadcastReveal = {
+  seat: number;
+  checks: Array<{ target: number; color: RevealColor }>;
+};
+
 /** A killed player's «протокол»: whom they named red, black and sheriff. */
 export type LiveBroadcastProtocol = {
   seat: number;
@@ -110,6 +117,8 @@ export type LiveBroadcastState = {
   timeline?: LiveBroadcastTimelineEntry[];
   dayVotes?: LiveBroadcastDayVote[];
   protocols?: LiveBroadcastProtocol[];
+  /** Who revealed as the Sheriff and which checks they announced; absent when nobody did. */
+  reveals?: LiveBroadcastReveal[];
   /** Red and black wins in the evening's finished games; the server fills it in. */
   eveningScore?: { red: number; black: number } | null;
   updatedAt: string;
@@ -359,6 +368,7 @@ export const buildLiveBroadcastState = (
   const shotSeat = toSeat(snapshot.shotPlayerSlot);
   const donSeat = toSeat(snapshot.donCheckSlot);
   const sheriffSeat = toSeat(snapshot.sheriffCheckSlot);
+  const reveals: LiveBroadcastReveal[] = normalizeReveals(snapshot.reveals, players.length >= 8 ? players.length : 10);
   const night: LiveBroadcastNight | null = phaseKey === 'night' && (shotSeat || donSeat || sheriffSeat)
     ? {
         shotSeat,
@@ -412,6 +422,7 @@ export const buildLiveBroadcastState = (
     night,
     bestMove,
     timeline,
+    ...(reveals.length ? { reveals } : {}),
     // The server replaces this with its receive time. Keeping the field in the
     // client contract makes the public response shape stable and easy to test.
     updatedAt: '',

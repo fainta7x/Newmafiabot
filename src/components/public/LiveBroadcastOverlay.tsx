@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { revealVersions } from '../../lib/revealStats.ts';
 import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
 import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
@@ -191,6 +192,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const timeline = state.timeline || [];
   const protocolBySeat = new Map((state.protocols || []).map((protocol) => [protocol.seat, protocol]));
   const revealBySeat = new Map((state.reveals || []).map((reveal) => [reveal.seat, reveal]));
+  const versions = revealVersions(state.reveals || []);
   const bestMove = state.bestMove;
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
   const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
@@ -346,6 +348,19 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
         </aside>
       ) : null}
 
+
+      {versions.length ? (
+        <aside className="live-broadcast-versions" aria-label="Две версии стола">
+          <div className="live-broadcast-versions-title">Две версии стола</div>
+          {versions.map((version) => (
+            <div key={version.claimant} className="live-broadcast-version">
+              <div className="live-broadcast-version-head"><Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />Шериф <SeatChip seat={version.claimant} kinds={kinds} /></div>
+              <div className="live-broadcast-version-row"><b>Чёрные</b><span>{version.blacks.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span></div>
+              {version.reds.length ? <div className="live-broadcast-version-row"><b>Красные</b><span>{version.reds.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} />)}</span></div> : null}
+            </div>
+          ))}
+        </aside>
+      ) : null}
 
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {

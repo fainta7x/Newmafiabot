@@ -946,3 +946,7 @@ Route visual organization refinement requested after deployment of #757: **date/
 ### Split trainer presentation and feedback — owner 2026-10-09
 
 User reports unreadable/overloaded table visuals, lengthy wordy tasks, and insufficient why-this-is-wrong feedback. Focused improvement: clearer nomination chips, explicit seats/legible vote destination labels, short task facts and rules-based answers/mistakes in both split trainers including timed expert/broken splits. Do not change scoring, generated votes, exams, achievements, time limits or player progress. Pending focused/mobile/CI verification and Amvera release separately.
+
+### Personal Telegram PR / merge notifications — owner request 2026-10-12
+
+Owner requests messages inside the **existing club bot's private chat**, covering PR waiting/test-failed/merged status, a concise description of the change, and recent merged history. Implementation staged in `feat/pr-status-telegram-digest-20261012`: independent GitHub Actions event workflow, safe read-only formatter, no runtime or DB changes, targeted tests and Runbook setup. Activation requires new GitHub Actions secrets `TELEGRAM_PR_BOT_TOKEN` and `TELEGRAM_PR_CHAT_ID` plus manual test after merge; until then delivery is **not configured/verified**. GitHub merge is distinct from Amvera deployment.

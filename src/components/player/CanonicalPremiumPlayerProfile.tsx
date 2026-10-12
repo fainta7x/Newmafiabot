@@ -1,4 +1,4 @@
-import { countGames } from '../../lib/russianPlural';
+import { countGames, countWins } from '../../lib/russianPlural';
 import { ChevronRight, GraduationCap } from 'lucide-react';
 import { openPlayerGame } from './playerProfileNavigation.ts';
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -6,6 +6,7 @@ import PlayerAwardSuggestionAction from './PlayerAwardSuggestionAction.tsx';
 import PremiumProfileConnections from './PremiumProfileConnections.tsx';
 import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
 import PlayerProfileCareerSections from './PlayerProfileCareerSections.tsx';
+import PlayerProfileStatsHero from './PlayerProfileStatsHero.tsx';
 import PlayerGoMafiaLink from './PlayerGoMafiaLink.tsx';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
 import PlayerEloJourney from './PlayerEloJourney.tsx';
@@ -226,19 +227,19 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">
         {isSelf&&<PlayerProfileCompletionCard/>}
+        {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
+        :<>
+          {scopeSelector}
+          <PlayerProfileStatsHero games={stats.games??stats.completed_games??null} wins={stats.wins??null} winRate={stats.win_rate??null} elo={p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'} seasonPlace={summary?.season?.place??null} />
+          {summary?.filters?<p data-testid="profile-stats-scope-note" className="-mt-2 text-[11px] leading-4 text-white/40">В выборке: {summary.filters.period_label} · {summary.filters.format_label} · {countWins(stats.wins??0)} из {stats.games??0} игр. Elo — общий рейтинг, а место — по победам текущего сезона.</p>:null}
+        </>}
         <PlayerGoMafiaLink playerId={playerId} isSelf={isSelf} />
          {isSelf&&<button type="button" onClick={()=>switchTab('learning')} data-testid="profile-learning-shortcut" className="flex min-h-[66px] items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/[.065] px-4 text-left">
            <GraduationCap className="h-5 w-5 shrink-0 text-amber-200/80" />
            <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-white">Обучение</strong><span className="mt-1 block text-xs text-white/55">Уроки, правила и тренажёры</span></span>
            <ChevronRight className="h-4 w-4 shrink-0 text-white/50"/>
          </button>}
-        {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
-        :<>
-          {scopeSelector}
-          <section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Винрейт',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['Место в сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] leading-3 text-white/50">{l}</div></div>)}</section>
-          {summary?.filters?<p data-testid="profile-stats-scope-note" className="-mt-2 text-[11px] leading-4 text-white/40">Считаем: {summary.filters.period_label} · {summary.filters.format_label} · клубные и турнирные игры, {stats.wins??0} побед из {stats.games??0}. Elo — текущий рейтинг, он не зависит от выбора. Место в сезоне — по числу побед в текущем сезоне.</p>:null}
-        </>}
-        {/* The four numbers above answer «how am I doing»; the detailed block below is open by default (owner, 2026-10-12, reversing the 2026-10-06 «less scrolling» collapse) and can still be folded. */}
+        {/* The chart and totals above answer «how am I doing»; the detailed block below is open by default (owner, 2026-10-12, reversing the 2026-10-06 «less scrolling» collapse) and can still be folded. */}
         {!statsHidden&&<details open data-testid="profile-more-stats" className="group rounded-2xl border border-white/10 bg-white/[.02]"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold">Подробная статистика<span className="text-white/35 transition group-open:rotate-180">⌄</span></summary><div className="space-y-4 px-3 pb-3"><PlayerProfileCareerSections stats={summary?.stats} season={summary?.season} gameStats={summary?.game_stats} nightShots={summary?.night_shots} reveals={summary?.reveals} circleExits={summary?.circle_exits}/></div></details>}
         <PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="pinned"/>
         <StaffWorkStats stats={summary?.staff} testId="profile-staff-stats" />

@@ -15,6 +15,11 @@ export async function ensureGoMafiaSchema(db: DatabaseWrapper): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_gomafia_link_verified
       ON gomafia_player_links(status, external_player_id);
+    CREATE TABLE IF NOT EXISTS gomafia_refresh_attempts (
+      external_player_id TEXT PRIMARY KEY,
+      last_attempt_at TEXT NOT NULL,
+      last_error TEXT
+    );
     CREATE TABLE IF NOT EXISTS gomafia_player_snapshots (
       external_player_id TEXT NOT NULL,
       scope TEXT NOT NULL DEFAULT 'all',

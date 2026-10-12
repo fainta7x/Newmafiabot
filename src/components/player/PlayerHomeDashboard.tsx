@@ -62,6 +62,7 @@ export default function PlayerHomeDashboard({
   onOpenEvents,
   onOpenGames,
   onOpenMyGames,
+  onOpenGame,
   onOpenRating,
   onOpenWallet,
   onOpenLearning,
@@ -71,6 +72,8 @@ export default function PlayerHomeDashboard({
   onOpenGames: () => void;
   /** «Вечера → Мои игры»; without it the button falls back to onOpenGames. */
   onOpenMyGames?: () => void;
+  /** Opens the specific game instead of sending «Последняя игра» to the archive. */
+  onOpenGame?: (gameKey: string) => void;
   onOpenRating: () => void;
   /** «Кошелёк → Оплата»: pay a debt for past evenings. */
   onOpenWallet?: () => void;
@@ -291,7 +294,7 @@ export default function PlayerHomeDashboard({
         </section>
 
         {latestGame && (
-          <button type="button" onClick={onOpenGames} className="min-h-11 w-full rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left">
+          <button type="button" onClick={() => onOpenGame ? onOpenGame(latestGame.id) : onOpenGames()} className="min-h-11 w-full rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/45">Последняя игра</div>

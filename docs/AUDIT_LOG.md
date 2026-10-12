@@ -1,5 +1,17 @@
 # Audit log
 
+## 2026-10-12 · UX audit pass 2A — personal game navigation and real results
+
+**Scope before change:** `PlayerEveningsHub.tsx` mounts `PlayerHistoryStatsView.tsx` for its visible «Мои игры» tab, but that view fetches **every** club game from `GET /api/player/games/all` and labels the list «Все игры клуба»; personal results already exist in authenticated `PlayerMeResponse.games.all` and elsewhere in the deeper `CanonicalPremiumPlayerProfile` career tab. `PlayerHomeDashboard.tsx` displays the authenticated most recent game ID but its «Последняя игра» card calls `onOpenGames()` without that ID.
+
+- **[confirmed UX failure; implementation in this branch]** «Мои игры» shows strangers' games as primary content. Make authenticated `data.games.all` the default and provide a compact, meaningful personal summary (wins/losses strip, game role, seat and game result), without changing API or player stats.
+- **[keep existing feature]** Keep the original all-club archive reachable on the same screen under clearly labelled expandable «Все игры клуба», with existing GET and game-detail link behavior.
+- **[confirmed navigation failure; implementation in this branch]** «Последняя игра» must use `latestGame.id` with the established `/player/games/:key` address. Browser and Telegram Back must still return to the games tab.
+- **[compatibility]** `PlayerHistoryStatsView` must preserve old deep links (club/tournament), game detail and Replay; no new API writes. Authenticated personal list is not to be confused with the public archive. No Live Game layout, reward, rating, finance, Telegram, VK or database changes.
+- **[verification]** Focused React tests for own-only list, old archive, deep links, Home latest-game click; CI/UI preview for mobile. Deployed screenshot and actual Amvera navigation are separate verification.
+
+**Wider UX programme approved by owner 2026-10-12:** audit useful navigation, logic, visual clarity and motivation in mounted Player, CRM, Judge, Poker and Wallet areas; fix safe verified defects by impact, one PR per coherent area. Do not add new modules/features or polish unused components, and preserve Claude's concurrent code.
+
 ## 2026-10-12 · Participant P5 — Telegram ↔ CRM canonical RSVP end-to-end contract
 
 **[diagnostic integration test coded, CI/merge pending]** The same evening participant is changed via the authenticated Telegram quick-response endpoint (`botRoutes.ts`) and the authorized organizer's participant PATCH endpoint (`participantRoutes.ts`). Both ultimately use `eveningParticipantState.ts`; exact game commitments use `eveningSlotPlanningService.ts`.

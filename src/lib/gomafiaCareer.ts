@@ -21,6 +21,7 @@ export interface CareerAppearance {
   status: 'registered' | 'upcoming' | 'completed' | 'results_published' | 'unknown';
   sourceUrl: string;
   /** Nominations of the tournament page in which this player's exact federation ID is named (rank = position in the published list). */
+  nominationsStatus?: 'available' | 'unavailable' | 'hidden';
   nominations?: Array<{ key: GoMafiaNominationKey; rank: number }>;
   games: Array<FederationGame & { gameNumber: number; seat: number | null; externalTableId: string | null; scoreRetrievedAt: string | null; eloDelta: number | null }>;
 }

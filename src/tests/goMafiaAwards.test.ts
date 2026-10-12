@@ -1,8 +1,12 @@
+import publicNominations from './fixtures/gomafia/chagin-nominations.json';
+import history from './fixtures/gomafia/chagin-history-1.json';
+import capturedCareer from './fixtures/gomafia/chagin-career.json';
+import { parseGoMafiaPlayerReference } from '../lib/gomafiaExternalProfile.ts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensurePlayerProfileIntegritySchema } from '../db/ensurePlayerProfileIntegritySchema.ts';
 import type { CareerAppearance } from '../lib/gomafiaCareer.ts';
-import { enrichGoMafiaAppearance, nominationsOfPlayer } from '../server/services/goMafiaCareerSource.ts';
+import { enrichGoMafiaAppearance, nominationsOfPlayer, parseGoMafiaHistory } from '../server/services/goMafiaCareerSource.ts';
 import { federationAwardsOf, syncGoMafiaAwards } from '../server/services/goMafiaAwardsService.ts';
 
 const user = (id: string) => ({ user: { id, login: `u${id}` }, amount: null });
@@ -56,4 +60,42 @@ describe('GoMafia nominations and podium places as awards', () => {
     await syncGoMafiaAwards(db, 'p2', '1202', tournaments);
     expect((await db.all<any>('SELECT player_id FROM player_verified_awards')).every((row) => row.player_id === 'p1')).toBe(true);
   });
+  it('matches the four real Chagin wins and all five published categories by exact player ID', () => {
+    const tournaments=parseGoMafiaHistory(history,parseGoMafiaPlayerReference('1202')!).tournaments;
+    const enriched=publicNominations.map(data=>enrichGoMafiaAppearance(tournaments.find(t=>t.tournamentId===String(data.tournament.id))!,data,'1202'));
+    expect(federationAwardsOf('1202',enriched).filter(a=>a.kind==='nomination').map(a=>[a.sourceKey,a.title])).toEqual([
+      ['gomafia:1202:616:nom:best_red','Лучший мирный'],['gomafia:1202:616:nom:best_sheriff','Лучший шериф'],['gomafia:1202:616:nom:mvp','MVP турнира'],['gomafia:1202:507:nom:best_don','Лучший дон'],
+    ]);
+    expect(federationAwardsOf('1202',capturedCareer.career.tournaments as CareerAppearance[]).filter(a=>a.kind==='nomination')).toHaveLength(4);
+    expect(nominationsOfPlayer(publicNominations[2],'6151')).toEqual([{key:'best_mafia',rank:1}]);
+    const blackWinner=enrichGoMafiaAppearance(appearance({place:null}),publicNominations[2],'6151');
+    expect(federationAwardsOf('6151',[blackWinner]).map(a=>a.title)).toEqual(['Лучший чёрный']);
+    expect(tournaments.find(t=>t.tournamentId==='616')?.nominations).toEqual([{key:'best_red',rank:1},{key:'best_sheriff',rank:1},{key:'mvp',rank:1}]);
+  });
+  it('does not publish hidden or duplicate nominations', () => {
+    const hidden=enrichGoMafiaAppearance(appearance(),{...page,tournament:{...page.tournament,is_hidden_result:'1'}},'1202');
+    expect(hidden.nominations).toEqual([]);expect(federationAwardsOf('1202',[hidden])).toEqual([]);
+    expect(nominationsOfPlayer({...page,nominations:{...page.nominations,mvp:[user('1202'),user('1202')]}},'1202')).toEqual([{key:'best_sheriff',rank:2}]);
+    const july=parseGoMafiaHistory(history,parseGoMafiaPlayerReference('1202')!).tournaments.find(t=>t.tournamentId==='616')!;
+    for(const nominations of [{...publicNominations[0].nominations,mvp:[user('1202'),user('1202')]},{mvp:'changed schema'}]) {
+      const ambiguous=enrichGoMafiaAppearance(july,{...publicNominations[0],nominations},'1202');
+      expect(ambiguous.nominationsStatus).toBe('unavailable');expect(ambiguous.nominations).toBeUndefined();
+      expect(federationAwardsOf('1202',[ambiguous]).filter(a=>a.kind==='nomination')).toEqual([]);
+    }
+  });
+  it('retracts a corrected winner, preserves failures/manual awards, and reinstates the same row', async () => {
+    const winner=appearance({nominations:[{key:'mvp',rank:1}],nominationsStatus:'available',scoreStatus:'available'});
+    await syncGoMafiaAwards(db,'p1','1202',[winner]);
+    const original=await db.get<any>("SELECT id FROM player_verified_awards WHERE kind='nomination'");
+    await db.run("INSERT INTO player_verified_awards(id,player_id,kind,title,source_type,verification_status,created_by,created_at,updated_at) VALUES ('manual','p1','nomination','Manual','manual','verified','organizer','2026-10-12','2026-10-12')");
+    await syncGoMafiaAwards(db,'p1','1202',[appearance({scoreStatus:'refresh_failed'})]);
+    expect((await db.get<any>('SELECT verification_status FROM player_verified_awards WHERE id=?',[original!.id]))?.verification_status).toBe('verified');
+    await syncGoMafiaAwards(db,'p1','1202',[{...winner,nominations:[]}]);
+    expect((await db.get<any>('SELECT verification_status FROM player_verified_awards WHERE id=?',[original!.id]))?.verification_status).toBe('rejected');
+    expect((await db.get<any>("SELECT verification_status FROM player_verified_awards WHERE id='manual'"))?.verification_status).toBe('verified');
+    await syncGoMafiaAwards(db,'p1','1202',[winner]);
+    expect((await db.get<any>('SELECT verification_status FROM player_verified_awards WHERE id=?',[original!.id]))?.verification_status).toBe('verified');
+    expect(await db.all("SELECT id FROM player_verified_awards WHERE kind='nomination' AND source_type='automatic'")).toHaveLength(1);
+  });
+
 });

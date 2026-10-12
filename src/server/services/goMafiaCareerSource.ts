@@ -32,6 +32,14 @@ export function parseGoMafiaStructuredStats(data: any, ref: GoMafiaPlayerReferen
     roleWinRatePercent: { citizen: number(stats.win_rate?.red?.win?.percent), sheriff: number(stats.win_rate?.sheriff?.win?.percent), mafia: number(stats.win_rate?.mafia?.win?.percent), don: number(stats.win_rate?.don?.win?.percent) },
   }, now);
 }
+/** The profile's ID-linked history marks only winners with <nomination>_id:1. */
+function historyNominations(value: unknown): CareerAppearance['nominations'] {
+  if (Array.isArray(value)) return value.length === 0 ? [] : undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  return (Object.keys(GOMAFIA_NOMINATIONS) as GoMafiaNominationKey[])
+    .filter(key => number((value as Record<string,unknown>)[key + '_id']) === 1)
+    .map(key => ({key, rank:1}));
+}
 export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { total: number; tournaments: CareerAppearance[] } {
   if (String(data?.user?.id) !== ref.externalPlayerId) throw new Error('GoMafia history identity mismatch');
   const total = number(data.historyTotal);
@@ -46,6 +54,7 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
     if (!tid || !start || !end || typeof row.title !== 'string' || !Array.isArray(row.games)) throw new Error('Malformed GoMafia appearance');
     const sourceUrl = `https://gomafia.pro/tournament/${tid}`;
     const place = number(row.place);
+    const nominations = historyNominations(row.nominations);
     const games = row.games.map((game: any) => {
       const gameNumber = number(game.game_num);
       if (!Number.isInteger(gameNumber) || gameNumber! < 1) throw new Error('Missing GoMafia game number');
@@ -61,6 +70,7 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
     return { tournamentId: tid, tournamentName: row.title.slice(0, 180), dateStart: start, dateEnd: end,
       location: [row.country_translate, row.city_translate].filter(v => typeof v === 'string').join(', ') || null,
       place: place && Number.isInteger(place) && place > 0 ? place : null, totalScore: null, scoreRetrievedAt: null, scoreStatus: 'not_checked', eloDelta: number(row.elo), eloAfter: eloPoints.get(tid) ?? null,
+      nominations, nominationsStatus: nominations === undefined ? 'unavailable' : 'available',
       status: place && place > 0 ? 'results_published' : 'unknown', sourceUrl, games };
   });
   return { total: total!, tournaments };
@@ -70,16 +80,25 @@ export function nominationsOfPlayer(data: any, externalPlayerId: string): NonNul
   const found: NonNullable<CareerAppearance['nominations']> = [];
   for (const key of Object.keys(GOMAFIA_NOMINATIONS) as GoMafiaNominationKey[]) {
     const list = Array.isArray(data?.nominations?.[key]) ? data.nominations[key] : [];
-    list.slice(0, 10).forEach((item: any, index: number) => { if (String(item?.user?.id) === externalPlayerId) found.push({ key, rank: index + 1 }); });
+    const matches = list.map((item: any,index:number)=>({id:id(item?.user?.id),rank:index+1})).filter((item:any)=>item.id===externalPlayerId);
+    if (matches.length === 1) found.push({key,rank:matches[0].rank});
   }
   return found;
 }
 
 export function enrichGoMafiaAppearance(appearance: CareerAppearance, data: any, externalPlayerId: string): CareerAppearance {
   if (String(data?.tournament?.id) !== appearance.tournamentId) throw new Error('Tournament identity mismatch');
-  appearance = { ...appearance, nominations: nominationsOfPlayer(data, externalPlayerId) };
   const unavailable = { ...appearance, totalScore: null, scoreStatus: 'unavailable' as const, scoreRetrievedAt: new Date().toISOString() };
-  if (String(data.tournament.is_hidden_result) === '1') return unavailable;
+  if (String(data.tournament.is_hidden_result) === '1') return { ...unavailable, nominations:[], nominationsStatus:'hidden', status:'unknown' };
+  const nominationsAvailable = data.nominations && Object.keys(GOMAFIA_NOMINATIONS).every(key=>{
+    const list=data.nominations[key];
+    return Array.isArray(list) && list.every(entry=>id(entry?.user?.id)) && new Set(list.map(entry=>id(entry?.user?.id))).size===list.length;
+  });
+  // A successfully read but ambiguous payload must not inherit winner flags.
+  // History flags remain the fallback only when the tournament request fails.
+  appearance = { ...appearance, nominations:nominationsAvailable ? nominationsOfPlayer(data,externalPlayerId) : undefined,
+    nominationsStatus:nominationsAvailable ? 'available' : 'unavailable' };
+  unavailable.nominations = appearance.nominations; unavailable.nominationsStatus = appearance.nominationsStatus;
   const games = appearance.games.map(game => {
     const matches: Array<{ tableId: string; points: number | null }> = [];
     for (const round of Array.isArray(data.games) ? data.games : []) {

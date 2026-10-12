@@ -14,5 +14,6 @@ console.log(JSON.stringify({ externalPlayerId: snapshot.externalPlayerId, retrie
   historyGames: gameIds.length, years: career.yearlyStats.map(s => ({ year: s.year, games: s.totalGames })),
   resultsWithScore: career.tournaments.filter(t => t.totalScore !== null).length,
   gamesWithScore: career.tournaments.flatMap(t => t.games).filter(g => g.score !== null).length,
+  nominationWins: career.tournaments.flatMap(t=>(t.nominations??[]).filter(n=>n.rank===1).map(n=>({tournamentId:t.tournamentId,date:t.dateStart,key:n.key}))),
   registrations: career.registrationsStatus }, null, 2));
 if (process.argv[3]) writeFileSync(process.argv[3], JSON.stringify(snapshot, null, 2) + '\n');

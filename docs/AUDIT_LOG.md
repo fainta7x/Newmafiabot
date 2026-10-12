@@ -851,3 +851,11 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - **Owner update (same day):** Денди says she opens the evening and it ALREADY says «Не иду» — she never pressed anything. Owner said «записывай, надо разобраться».
 - **Done:** every change of the answer is now written to `evening_response_history` (previous → new status, `source`, by player or not, time) from `setParticipantResponse`; sources are named at every caller (`telegram_quick_rsvp`, `mini_app_slots`, `player_slots_route`, `vk_miniapp_slots`, `vk_poll`, `vk_join`, `player_app_answer`, `organizer_card`, `organizer_slots`, `novice_application`, `slot_selection_cleared`); organizer endpoint `GET /api/evenings/participants/:id/response-history`.
 - **Status:** root cause still unknown — it will be visible from the history after the next occurrence. Still open: a screen in the CRM participant card that shows the history; and whether «clear the games» should stay «Не иду» (owner decision).
+
+## GoMafia nomination audit — 2026-10-12 (owner request)
+- FIXED `goMafiaCareerSource.ts`: profile history's observed winner flags are ignored; a tournament-read failure loses published nomination wins on initial import. Nominations are extracted before the hidden-results guard.
+- FIXED `goMafiaAwardsService.ts`: insert/upsert retains an automatic award when a later authoritative source names a different winner; retained awards are not retracted.
+- FIXED `PlayerGoMafiaLink.tsx`: tournament chronology does not display imported nomination wins; only the separate trophy showcase exposes them.
+- Acceptance: live Chagin 13 appearances → four nomination victories (507: don; 616: red/sheriff/MVP), no awards for ranks 2/3; all five keys, hidden results and transient failures tested; corrections preserve manual and unrelated awards.
+
+- FIXED PR #881 review `goMafiaCareerSource.ts`: malformed/duplicate published tournament lists left history winner flags available; mark nominations unavailable before award building so a contradictory payload cannot create new wins.

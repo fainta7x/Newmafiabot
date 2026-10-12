@@ -73,7 +73,7 @@ export async function refreshVerifiedGoMafiaProfiles(
               }
             }
           }
-          if (item.scoreStatus === 'refresh_failed' && !item.nominations?.length && prior?.nominations?.length) item.nominations = prior.nominations;
+          if (item.scoreStatus === 'refresh_failed' && item.nominations === undefined && prior?.nominations?.length) item.nominations = prior.nominations;
           if (item.scoreStatus === 'refresh_failed' && prior?.totalScore !== null && prior?.totalScore !== undefined) {
             item.totalScore = prior.totalScore;
             item.scoreRetrievedAt = prior.scoreRetrievedAt ?? previousSnapshot!.retrievedAt;

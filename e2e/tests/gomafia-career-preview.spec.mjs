@@ -18,6 +18,12 @@ for (const width of [360,390]) {
   await expect(cheaters.getByText('Баллы: -0,2',{exact:true}).first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`gomafia-games-${width}.png`),fullPage:true});
+  await page.getByLabel('Год спортивной карьеры').selectOption('2023');
+  await expect(panel.getByTestId('gomafia-nomination')).toHaveCount(4);
+  await expect(panel.getByText('Номинация: Лучший дон',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Номинация: MVP турнира',{exact:true})).toBeVisible();
+  await panel.getByText('Номинация: MVP турнира',{exact:true}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath(`gomafia-nominations-${width}.png`),fullPage:true});
   await page.getByLabel('Год спортивной карьеры').selectOption('2022');
   await expect(panel.getByText('Турнирные выступления · 1',{exact:true})).toBeVisible();
   await expect(panel.getByRole('link',{name:'TULA MAFIA OPEN 2022 ↗'})).toBeVisible();

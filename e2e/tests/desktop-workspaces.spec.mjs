@@ -18,7 +18,7 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
       await page.getByRole('button', { name: 'Ещё', exact: true }).click();
       await expect(page.locator('.crm-more-menu')).toBeVisible();
       await expect(page.locator('[data-crm-duplicate-primary-title]')).toBeHidden();
-      await page.getByRole('button', { name: 'Администрирование и настройки' }).click();
+      await page.getByRole('button', { name: 'Служебное' }).click();
       await expect(page.getByTestId('crm-more-service-tools')).toBeVisible();
       const reports = await page.locator('.crm-more-reports').boundingBox();
       const admin = await page.locator('.crm-more-admin').boundingBox();

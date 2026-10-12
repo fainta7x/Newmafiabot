@@ -43,7 +43,8 @@ import PlayerIdentityFields from '../player/PlayerIdentityFields.tsx';
 import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import PlayerGoMafiaLink from '../player/PlayerGoMafiaLink.tsx';
-import { PlayerProfileContent } from './PlayerProfileContent.tsx';
+import PlayerProfileIntegrityPanel from './PlayerProfileIntegrityPanel.tsx';
+import PlayerActivityCard from './PlayerActivityCard.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
@@ -666,8 +667,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><Award className="h-4 w-4 text-warning" /> Игровой профиль и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
-              <div className="border-t border-border-soft p-3"><PlayerProfileContent player={playerDetails} /></div>
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><Award className="h-4 w-4 text-warning" /> Проверка профиля и активность <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
+              <div className="space-y-3 border-t border-border-soft p-3"><PlayerProfileIntegrityPanel player={playerDetails} /><PlayerActivityCard playerId={String(playerDetails.id)} /></div>
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">

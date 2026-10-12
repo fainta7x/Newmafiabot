@@ -941,3 +941,11 @@ Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime veri
 - **Was only half done, now fixed:** 7 — on «События» the running-evening card and the lists sat in the left half of a two-column grid (right half empty); now one column on the full width, the week list in two columns (single evening full width).
 - **Partly done — the owner should check live:** 4 and 6 (the debts item is hidden from «Дела» only for the evening the debts block shows; debts of other evenings stay in «Дела»); 9 and 13 (the card still holds the organizer's profile blocks «Игровой профиль и награды» etc.; «Открыть профиль игрока» was added, nothing was removed); 16 (renamed, not turned into tasks); 19 (contrast raised, the odd highlight of selected rows not changed); 22 («Администрирование» regrouped, not dissolved); 23 (wording only, the card layout was not redone); 24 («65 игроков» is explained but you still cannot see who they were).
 - **Not done:** 25 (unclear in the dictation — asked), 27 and 29 (owner: not worked on yet), the cabinet/profile of the player (waiting for screenshots).
+
+### Second pass on the partial items (2026-10-12, same day)
+- 9/13: the CRM player card no longer embeds the player's own profile content; the collapsed block is now «Проверка профиля и активность» (the organizer's integrity panel + activity), the profile itself is behind «Открыть профиль игрока».
+- 19: selected rows in «Уровни и роли» have an accent tint, a bar on the left and an accent checkbox (before: a barely visible white wash).
+- 22: the collapsed group «Администрирование и настройки» is now «Служебное» with a plain description of what is inside.
+- 4/6 stays as designed: the debts block and the «Дела» preview must not show the same debts twice, so only the evening shown in the debts block is hidden from the preview.
+- 24: «чел.» counts distinct people anonymously by design (`uiTelemetry` keeps no names); listing who they were would change that privacy rule, so it is not done without the owner's decision.
+- Still open: 16 (applications as tasks — they already show on «Сегодня»), 23 (analytics card layout), 25 (dictation unclear), 27/29, the player's cabinet and profile.

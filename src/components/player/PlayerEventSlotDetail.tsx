@@ -46,11 +46,13 @@ export default function PlayerEventSlotDetail({
   event,
   onBack,
   onSaved,
+  onFirstApplication,
   onOpenGame,
 }: {
   event: EventItem;
   onBack: () => void;
   onSaved: () => void;
+  onFirstApplication: () => void;
   onOpenGame?: (gameKey: string, eveningId: string) => void;
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -219,7 +221,7 @@ export default function PlayerEventSlotDetail({
               {saveError ? (
                 <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
                   {saveError.needsFirstApplication ? 'Сначала выбери путь в разделе «События»: новичок сможет записаться сразу, опытного игрока проверит организатор.' : saveError.message}
-                  {saveError.needsFirstApplication ? <button type="button" onClick={onBack} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
+                  {saveError.needsFirstApplication ? <button type="button" onClick={onFirstApplication} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
                 </div>
               ) : null}
               <button disabled={busy || !changed || registrationLocked} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">

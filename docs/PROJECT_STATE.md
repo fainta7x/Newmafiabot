@@ -12,7 +12,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Prioritized concrete queue (verify latest main before acting):**
 1. **P0/P1 — player games** (in branch `fix/ux-player-my-games-and-latest-navigation`, tests/PR/CI pending): «Вечера → Мои игры» currently shows the *entire club archive*; the Home «Последняя игра» opens the list, not its game. Switch the primary list to authenticated games with a compact win/loss visual and role/seat/result; retain the club archive behind an explicit disclosure; route latest game by its canonical ID.
-2. **P1 — CRM attention navigation** (source confirmed in `OrganizerCommandCenter.tsx`): «Нет ответа» today opens `overview` instead of participant answers; retarget only after verifying correct destination and callback behavior; add an action regression.
+2. **P1 — CRM attention navigation (FIXED; PR #841 merged `7f93a7d`).** The «Нет ответа» tile now opens the true «Ответы» section; its rendered click has an action regression test. No communication or payment changes.
 3. **P1 — first application** (`PlayerEventSlotDetail.tsx`): «К первой заявке» currently calls `onBack`; trace where that sends a first-time player before changing it. Avoid adding a duplicate onboarding wizard.
 4. **P1 — personal game replay/back behavior:** game detail uses a full `<a href>` for replay while other entrypoints navigate internally. Verify Telegram Back/return context and route before changing; no global router rewrite.
 5. **P2 — context-rich history/interest:** make existing profile career data (roles, results, nominations, streaks, Elo) visible where meaningful without duplicating underlying API; old flat club archive is secondary. Don't invent performance data.

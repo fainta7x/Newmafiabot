@@ -12,6 +12,15 @@
 
 **Wider UX programme approved by owner 2026-10-12:** audit useful navigation, logic, visual clarity and motivation in mounted Player, CRM, Judge, Poker and Wallet areas; fix safe verified defects by impact, one PR per coherent area. Do not add new modules/features or polish unused components, and preserve Claude's concurrent code.
 
+## 2026-10-12 · UX audit pass 2B — CRM unanswered card must open participant answers
+
+**[confirmed on mounted navigation]** `OrganizerCommandCenter.tsx` «Нет ответа» builds its count from `snapshot.attention.communication` with status `unanswered`, yet navigates to `eveningSection='overview'`. `EveningWorkspace.tsx` explicitly labels `participants` as «Ответы» and mounts `EveningParticipantsView.tsx` with the RSVP dashboard and the expandable personal-contact list. This is an actual wrong-destination action, not a request for a new screen.
+
+- **[in this PR]** Retarget only the «Нет ответа» tile to `participants`, preserving event ID and CRM routing. No changes to counts, contact eligibility, auto reminders, events, messaging or forms.
+- **[regression]** Assert by rendering the mounted command-center snapshot that a click on «Нет ответа» sends `onOpenEveningSection('current','participants')`, not `overview`. Preserve payment navigation regression separately.
+- **[follow-up]** The delivery-error list currently opens route overview on purpose to inspect communications. Do not conflate failed deliveries and unanswered RSVP or automatically expand contact sections from unrelated tiles.
+- **[deployment]** PR/code/CI and Amvera screenshot are different states. Keep current mobile two-column action layout unchanged.
+
 ## 2026-10-12 · Participant P5 — Telegram ↔ CRM canonical RSVP end-to-end contract
 
 **[diagnostic integration test coded, CI/merge pending]** The same evening participant is changed via the authenticated Telegram quick-response endpoint (`botRoutes.ts`) and the authorized organizer's participant PATCH endpoint (`participantRoutes.ts`). Both ultimately use `eveningParticipantState.ts`; exact game commitments use `eveningSlotPlanningService.ts`.

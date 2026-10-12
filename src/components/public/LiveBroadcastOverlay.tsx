@@ -48,6 +48,21 @@ const FactRow = ({ label, seats, kinds, tone }: { label: string; seats: number[]
   </div>
 );
 
+/** «Вскрытие»: the checks a player announced as the Sheriff; the chip keeps the REAL team colour, the word is what he claimed. */
+const AnnouncedRow = ({ checks, kinds }: { checks: Array<{ target: number; color: 'red' | 'black' }>; kinds: Map<number, RoleKind> }) => (
+  <div className="live-broadcast-fact is-reveal">
+    <b>Назвал</b>
+    <div className="live-broadcast-fact-values">
+      {checks.map((check) => (
+        <span key={check.target} className={`live-broadcast-announced is-${check.color}`}>
+          <SeatChip seat={check.target} kinds={kinds} />
+          <i>{check.color === 'red' ? 'красн.' : 'чёрн.'}</i>
+        </span>
+      ))}
+    </div>
+  </div>
+);
+
 /** Seat chip coloured by the seat's real team: viewers see roles anyway. */
 const SeatChip = ({ seat, kinds }: { seat: number | null; kinds: Map<number, RoleKind> }) => (
   seat ? <span className={`live-broadcast-seat-chip is-${kinds.get(seat) || 'citizen'}`}>{seat}</span> : <span className="live-broadcast-seat-chip is-empty">—</span>
@@ -175,6 +190,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const kinds = new Map(state.players.map((player) => [player.seat, roleKind(player.role)]));
   const timeline = state.timeline || [];
   const protocolBySeat = new Map((state.protocols || []).map((protocol) => [protocol.seat, protocol]));
+  const revealBySeat = new Map((state.reveals || []).map((reveal) => [reveal.seat, reveal]));
   const bestMove = state.bestMove;
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
   const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
@@ -369,6 +385,8 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                     <span>{exit?.label || player.status}</span>
                   </div>
                 ) : null}
+                {revealBySeat.has(player.seat) ? <div className="live-broadcast-reveal-banner">вскрылся шерифом</div> : null}
+                {revealBySeat.get(player.seat)?.checks.length ? <AnnouncedRow checks={revealBySeat.get(player.seat)!.checks} kinds={kinds} /> : null}
                 {exit?.hands.length ? <FactRow label="Руками" seats={exit.hands} kinds={kinds} /> : null}
                 {bestMove && bestMove.bySeat === player.seat ? <FactRow label="ЛХ" seats={bestMove.seats} kinds={kinds} tone="best" /> : null}
                 {protocol?.red.length ? <FactRow label="Красные" seats={protocol.red} kinds={kinds} tone="red" /> : null}

@@ -918,7 +918,7 @@ Checked, no defect: evening → player card → back returns to the same evening
 Not changed on purpose: «Оплата и поддержка», «Управление ставками», «Проект» (owner: not worked on yet / unfinished). Open question for the owner: «Игровой движок» and «Музыкальная база» leave the CRM shell (`/player/conduct/music`), so «Назад» there is the player app's own navigation.
 
 ## 2026-10-12 · Poker: chat covers the game, no desktop layout, silent sounds (owner report)
-- `PokerChat.tsx`: the chat sheet was a full-screen dimmed modal over table and action buttons — fixed: on a phone a compact panel (emote strip + one input line, history on demand) sits inside the block above the action buttons and the table re-measures around it (hero cards and buttons stay visible); from 1120 px wide it is a permanent column beside the table. Status: fixed on the branch (not merged: poker tournaments are running).
+- `PokerChat.tsx`: the chat sheet was a full-screen dimmed modal over table and action buttons — fixed: on a phone a compact panel (emote strip + one input line, history on demand) sits inside the block above the action buttons and the table re-measures around it (hero cards and buttons stay visible); from 1120 px wide it is a permanent column beside the table. Status: fixed, merged in #883 (`c8d93632`).
 - Poker has no real desktop layout beyond the centred phone-size table (empty black sides): the chat column is the first use of the width; a left column (hand history / tournament info) is still open.
 - `PokerSoundToggle.tsx`: sounds exist since #868 but were off by default, the speaker icon was easy to miss, and a saved «on» never resumed the AudioContext after a reload (`play` returns when no context) — fixed (on by default, unlock on first tap, louder). Needs the owner's phone check.
 
@@ -928,7 +928,10 @@ Not changed on purpose: «Оплата и поддержка», «Управле
 - Desktop layout from 1120 px: left column «ход раздачи + стеки» (`PokerDeskSidebar.tsx`), table in the centre, chat column on the right.
 
 ### Poker: show cards after the hand (owner request 2026-10-12) — new feature
-`showPokerCards` (`pokerLobbyService.ts`), `POST /poker/lobbies/:id/show {cards:[0|1]}`, hand field `shown_cards` (indexes on the server, masked cards `[Card|null, Card|null]` for other viewers), UI buttons after a finished hand (`poker-show-cards`) and a card back next to a shown card. Rule recorded in `docs/BUSINESS_RULES.md`. Tests: `pokerShowCards.test.ts`, `PlayerPokerTable.test.tsx`; screenshot at 390 px via `poker-harness.html?finished=1`. Not merged (tournaments running).
+`showPokerCards` (`pokerLobbyService.ts`), `POST /poker/lobbies/:id/show {cards:[0|1]}`, hand field `shown_cards` (indexes on the server, masked cards `[Card|null, Card|null]` for other viewers), UI buttons after a finished hand (`poker-show-cards`) and a card back next to a shown card. Rule recorded in `docs/BUSINESS_RULES.md`. Tests: `pokerShowCards.test.ts`, `PlayerPokerTable.test.tsx`; screenshot at 390 px via `poker-harness.html?finished=1`. Merged in #883 (`c8d93632`).
 
 ### CRM: club tokens could not be found (owner 2026-10-12: «не могу просто начислить жетоны»)
 The manual token adjustment existed (`POST /api/players/:id/tokens/adjustments`, reason required, ledger entry) but only inside the player card → last collapsed block «Финансы и служебные настройки». Fixed: a visible «Жетоны» button among the quick actions of the CRM player card opens the same ledger card in a sheet; form wording «Начислить (+) или списать (−)», button «Применить». No server change.
+
+### Status after merge #883 (2026-10-12, `c8d93632`)
+Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime verified: the Amvera build and the owner's phone/desktop check of CRM and poker (sounds by ear, flying chips, show-cards on a live table) are still to be done.

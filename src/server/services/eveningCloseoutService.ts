@@ -5,7 +5,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from './eveningParticipantState.ts';
-import { reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
+import { reconcileExtensionsAfterClose, reconcileOtherFormatExtensions, reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { reconcileNoviceEveningCharges } from './eveningSlotPlanningService.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
@@ -328,6 +328,10 @@ export async function settleEveningFromCloseout(
       [now, now, `${CLOSEOUT_TASK_PREFIX}${eveningId}`],
     );
   });
+
+  // The evening is closed only now: the shares of an extension entered before closing are calculated after it, so the players'
+  // amounts, the ledger and the reminders include them at once, not when somebody next opens the payments.
+  await reconcileExtensionsAfterClose(db, eveningId);
 
   await runCrmAutomations(db);
   try {

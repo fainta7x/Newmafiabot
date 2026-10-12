@@ -117,6 +117,19 @@ describe('evening extension: the charge and the API', () => {
     expect(await due('a')).toMatchObject({ extension_due: 0, amount_due: 300 });
   });
 
+  it('includes an extension entered before closing in the amounts and the ledger right after the evening is closed', async () => {
+    await seed('CASUAL', false);
+    await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id='ev'");
+    const created = await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
+    expect(created.status).toBe(201);
+    expect(await due('a')).toMatchObject({ extension_due: 0 });
+    const settled = await request(app).post('/api/evenings/ev/closeout/settle').set('Cookie', cookie()).send({});
+    expect(settled.status).toBe(200);
+    expect(await due('a')).toMatchObject({ extension_due: 83, amount_due: 300 + 83 });
+    const ledger = await db.get<any>("SELECT COALESCE(SUM(amount),0) AS total FROM financial_transactions WHERE source_id='ep-a' AND type='debt_created'");
+    expect(Number(ledger.total)).toBe(383);
+  });
+
   it('refuses nonsense input and needs the organizer', async () => {
     await seed();
     const post = (body: any) => request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send(body);
@@ -164,6 +177,19 @@ describe('evening extension: the charge and the API', () => {
       expect(await base('a')).toMatchObject({ amount_due: 683, extension_due: 83 });
       const ledger = await db.get<any>("SELECT COALESCE(SUM(amount),0) AS total FROM financial_transactions WHERE source_id='ep-a' AND type='debt_created'");
       expect(Number(ledger.total)).toBe(83);
+    });
+
+    it('does not charge a player whose free-evening credit set the amount to zero and waived', async () => {
+      await seed('RATING');
+      await setBase('a', 600);
+      await setBase('d', 600);
+      await request(app).post('/api/evenings/ev/extensions').set('Cookie', cookie()).send({ games_count: 1, amount: 250 });
+      expect(await base('d')).toMatchObject({ extension_due: 83 });
+      // The shop credit is redeemed afterwards: no waiver row, just a zero amount and `waived`.
+      await db.run("UPDATE evening_participants SET amount_due=0, payment_status='waived' WHERE id='ep-d'");
+      await request(app).get('/api/evenings/ev/payments').set('Cookie', cookie());
+      expect(await base('d')).toMatchObject({ amount_due: 0, extension_due: 0, payment_status: 'waived' });
+      expect(await base('a')).toMatchObject({ amount_due: 683, extension_due: 83 });
     });
 
     it('charges nothing before the evening is closed, and nobody who got a gifted evening', async () => {

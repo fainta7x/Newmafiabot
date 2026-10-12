@@ -15,12 +15,12 @@ export const AUTO_REMINDER_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const DEFAULT_PAYMENT_DETAILS = 'переводом на номер +7 967 431-71-19 (Сбербанк)';
 const paymentDetails = () => String(process.env.CLUB_PAYMENT_DETAILS || '').trim() || DEFAULT_PAYMENT_DETAILS;
 
-export type EveningDebtor = { player_id: string; nickname: string; amount_due: number; amount_paid: number; owed: number };
+export type EveningDebtor = { player_id: string; nickname: string; amount_due: number; amount_paid: number; owed: number; extension_due?: number };
 
 /** Those who attended, are not exempt and have paid less than they owe (the same people «Дела» lists as «Не оплатили»). */
 export async function loadEveningDebtors(db: DatabaseWrapper, eveningId: string): Promise<EveningDebtor[]> {
   const rows = await db.all<any>(
-    `SELECT ep.player_id, COALESCE(p.nickname, 'Игрок') AS nickname, ep.amount_due, ep.amount_paid
+    `SELECT ep.player_id, COALESCE(p.nickname, 'Игрок') AS nickname, ep.amount_due, ep.amount_paid, ep.extension_due
        FROM evening_participants ep
   LEFT JOIN players p ON p.id = ep.player_id
       WHERE ep.evening_id = ? AND ep.attendance_status = 'attended' AND ep.player_id IS NOT NULL
@@ -31,6 +31,7 @@ export async function loadEveningDebtors(db: DatabaseWrapper, eveningId: string)
   return rows.map((row) => ({
     player_id: String(row.player_id), nickname: String(row.nickname),
     amount_due: Number(row.amount_due || 0), amount_paid: Number(row.amount_paid || 0),
+    extension_due: Number(row.extension_due || 0),
     owed: Math.round(Number(row.amount_due || 0) - Number(row.amount_paid || 0)),
   }));
 }
@@ -48,6 +49,7 @@ export const paymentReminderText = (evening: { title?: string | null; starts_at?
     '💰 Напоминание об оплате',
     '',
     `Ты играл на вечере «${evening.title || 'Игровой вечер'}»${date ? ` ${date}` : ''}. Осталось оплатить ${rubles(debtor.owed)}${partly}.`,
+    ...(debtor.extension_due && debtor.extension_due > 0 ? [`В сумму входит продление вечера: ${rubles(debtor.extension_due)}.`] : []),
     `Оплатить можно ${paymentDetails()}.`,
     'Если уже заплатил, напиши организатору, и он отметит оплату.',
   ].join('\n');

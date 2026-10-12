@@ -41,6 +41,8 @@ const serializePayment = (row: any) => {
     attendance_status: String(row.attendance_status || 'pending'),
     payment_expected: paymentExpected,
     amount_due: amountDue,
+    // The part of `amount_due` that is the share of an evening extension (one payment, shown as a separate line).
+    extension_due: Math.min(amountDue, Math.max(0, Number(row.extension_due || 0))),
     amount_paid: amountPaid,
     outstanding,
     payment_status: paymentExpected ? normalizePaymentStatus(amountDue, amountPaid, row.payment_status) : 'waived',
@@ -87,7 +89,7 @@ router.get('/payments', async (req, res) => {
     const [rows, tokenPackages, campaigns, intents] = await Promise.all([
       db.all<any>(`
         SELECT ep.id AS participant_id, ep.evening_id, ep.response_status, ep.registration_status, ep.payment_status,
-               ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
+               ep.amount_due, ep.extension_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
                e.title, e.starts_at, e.venue, e.status AS evening_status, e.format AS evening_format, e.settled_at
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id

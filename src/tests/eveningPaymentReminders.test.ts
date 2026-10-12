@@ -48,6 +48,13 @@ describe('reminders to the players who owe for an evening', () => {
     expect(text).not.toMatch(/в приложении/i);
   });
 
+  it('mentions the evening extension share only when the debt includes one', () => {
+    const evening = { title: 'Вечер', starts_at: '2026-10-09T18:00:00Z' };
+    const base = { player_id: 'p', nickname: 'Дина', amount_due: 350, amount_paid: 0, owed: 350 };
+    expect(paymentReminderText(evening, { ...base, extension_due: 50 })).toContain('В сумму входит продление вечера: 50 ₽.');
+    expect(paymentReminderText(evening, { ...base, extension_due: 0 })).not.toContain('продление');
+  });
+
   it('reminds each debtor once a day: a second press the same day sends nothing new', async () => {
     const db = await setup(Date.now() - 2 * DAY);
     const first = await sendEveningPaymentReminders(db, 'e1', manualReminderSlot());

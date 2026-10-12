@@ -136,4 +136,52 @@ describe('rankings by one figure of the statistics', () => {
     // The scope still applies: that game is not in the spring season.
     expect((await get('?metric=nominations_accuracy&period=period:spring')).rows).toEqual([]);
   });
+
+  it('ranks the misses of the black team and the pairs «victim — black player», and shows them in the profile', async () => {
+    let seq = 0;
+    const ev = (round: number, kind: string, extra: Record<string, unknown> = {}) => ({ seq: ++seq, at: '2026-09-24T18:00:00.000Z', round, phase: 'night', kind, ...extra });
+    const night = (round: number, shot: number | null, killed: number | null) => [
+      ev(round, 'night_step', { value: 'shooting' }),
+      ...(shot ? [ev(round, 'shot_target', { target: shot })] : []),
+      ...(killed ? [ev(round, 'exit', { seat: killed, value: 'killed' })] : []),
+      ev(round, 'night_step', { value: 'morning' }),
+    ];
+    const date = '2026-09-24T18:00:00.000Z';
+    // p1 (seat 1, citizen) is killed in the first two games, never in the third; p2 plays mafia, p3 the sheriff.
+    const nightsOf = [
+      [...night(2, 1, 1), ...night(3, 3, null)],
+      [...night(2, 1, 1), ...night(3, null, null)],
+      [...night(2, 3, null), ...night(3, null, null)],
+    ];
+    for (let i = 0; i < 3; i++) {
+      const n = 80 + i;
+      await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES (?,?,?,'completed','RATING',?,?)`, [`evN${n}`, `Ночи ${n}`, date, date, date]);
+      const payload = {
+        kind: 'club_evening_protocol',
+        player_results: [{ role: 'citizen', seat_number: 1, player_id: 'p1', participant_id: `n1-${n}`, display_name: 'p1' }, { role: 'mafia', seat_number: 2, player_id: 'p2', participant_id: `n2-${n}`, display_name: 'p2' }, { role: 'sheriff', seat_number: 3, player_id: 'p3', participant_id: `n3-${n}`, display_name: 'p3' }],
+        protocol: { status: 'completed', winner_team: 'red', completed_at: date, events: nightsOf[i] },
+      };
+      await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES (?,?,?,?,'red','Red',?,'[]',?)`, [n, `evN${n}`, n, date, JSON.stringify(payload), date]);
+    }
+    // p2 hid the statistics: he is visible to himself only.
+    const own = await get('?metric=black_misses', 'p2');
+    expect(own.metric).toMatchObject({ key: 'black_misses', group: 'Отстрелы', min_sample: { minimum: 5, word: 'ночей' } });
+    expect(own.rows[0]).toMatchObject({ nickname: 'Борис', value: 4, sample_text: '6 ночей', is_me: true });
+    expect((await get('?metric=black_misses')).rows.map((row: any) => row.nickname)).not.toContain('Борис');
+    expect((await get('?metric=black_miss_rate', 'p2')).rows).toEqual([]); // 6 nights are fewer than the 10 needed for a rate
+
+    const shot = await get('?metric=times_shot');
+    expect(shot.rows).toEqual([]); // 3 games as a red player are fewer than the 5 needed
+    // Pairs need the victim and the black player to be visible: p2 hid the statistics, so for others there is no pair.
+    expect((await get('?metric=night_pairs')).rows).toEqual([]);
+    await db.run(`UPDATE players SET profile_visibility_json='{}' WHERE id='p2'`);
+    const pairs = await get('?metric=night_pairs');
+    expect(pairs.rows).toHaveLength(1);
+    expect(pairs.rows[0]).toMatchObject({ nickname: 'Анна', partner_nickname: 'Борис', value: 2, sample_text: 'из 3 общих игр', rank: 1, is_me: true });
+
+    const profile = (await request(app).get('/api/player/profiles/p1/summary').set('Cookie', cookie('p1'))).body;
+    expect(profile.night_shots).toMatchObject({ killed: 2, games_as_red: 3, partners: [{ nickname: 'Борис', kills: 2, together: 3 }] });
+    const blackProfile = (await request(app).get('/api/player/profiles/p2/summary').set('Cookie', cookie('p1'))).body;
+    expect(blackProfile.night_shots).toMatchObject({ black_nights: 6, black_misses: 4 });
+  });
 });

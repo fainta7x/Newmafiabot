@@ -4,10 +4,11 @@ import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadPlayerGameProfile, type PlayerGameHistoryItem } from './playerProfileService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
-import { buildPlayerGameStatistics } from '../../lib/gameStatistics.ts';
+import { buildPlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
 import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
 import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
+import { buildNightShotStats } from '../../lib/nightShots.ts';
 import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
@@ -187,6 +188,29 @@ const buildFacts = (games: PlayerGameHistoryItem[], elo: Awaited<ReturnType<type
   return facts.slice(0, 3);
 };
 
+/**
+ * Night shots around one player (owner request 2026-10-12): how often he was killed at night, with which black players at
+ * the table it happened most («убит, когда в чёрных …»), and the nights without a victim while he played black.
+ */
+const profileNightShots = async (db: DatabaseWrapper, games: StatGame[], playerId: string) => {
+  const stats = buildNightShotStats(games);
+  const own = stats.players.get(playerId);
+  if (!own || (own.killed === 0 && own.blackNights === 0)) return null;
+  const partners = [...stats.pairs.values()]
+    .filter((pair) => pair.victim === playerId && pair.kills >= 2)
+    .sort((a, b) => b.kills - a.kills || a.together - b.together)
+    .slice(0, 5);
+  const names = new Map<string, string>();
+  if (partners.length) {
+    const rows = await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${partners.map(() => '?').join(',')})`, partners.map((pair) => pair.black));
+    for (const row of rows) names.set(String(row.id), String(row.nickname || 'Игрок'));
+  }
+  return {
+    killed: own.killed, games_as_red: own.redGames, black_nights: own.blackNights, black_misses: own.blackMisses,
+    partners: partners.map((pair) => ({ player_id: pair.black, nickname: names.get(pair.black) || 'Игрок', kills: pair.kills, together: pair.together })),
+  };
+};
+
 export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false, filter: ProfileStatFilter = {}) {
   const player = await loadIdentity(db, playerId);
   const visibility = publicVisibility(player.profile_visibility_json);
@@ -246,6 +270,9 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     visibility,
     cosmetics: parseJson<Record<string, unknown>>(player.profile_cosmetics_json, {}),
   };
+  const scopedStatGames = statsVisible
+    ? (await loadStatGames(db).catch(() => [])).filter((game) => !scopeActive || scoped.some((own) => own.id === game.id))
+    : [];
   return {
     viewer: { is_self: isSelf, is_organizer: organizer },
     player: identity,
@@ -268,10 +295,8 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     } : null,
     season: statsVisible ? await loadSeasonBlock(db, playerId, games) : null,
     filters: statsVisible ? filters : null,
-    game_stats: statsVisible ? buildPlayerGameStatistics(
-      (await loadStatGames(db).catch(() => [])).filter((game) => !scopeActive || scoped.some((own) => own.id === game.id)),
-      playerId,
-    ) : null,
+    game_stats: statsVisible ? buildPlayerGameStatistics(scopedStatGames, playerId) : null,
+    night_shots: statsVisible ? await profileNightShots(db, scopedStatGames, playerId) : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,
     })) : [],

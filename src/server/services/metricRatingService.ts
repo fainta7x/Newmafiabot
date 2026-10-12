@@ -9,6 +9,7 @@ import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
 import { buildPlayerGameStatistics, type PlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
+import { buildNightShotStats } from '../../lib/nightShots.ts';
 
 /**
  * Club rankings by one figure of the player statistics (owner request 2026-10-12): «who collected the most» wins, games,
@@ -18,13 +19,14 @@ import { russianPlural } from '../../lib/russianPlural.ts';
 
 export const TOP_SIZE = 30;
 
-type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Elo';
+type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Elo';
 export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
   | 'citizen_wins' | 'sheriff_wins' | 'mafia_wins' | 'don_wins'
   | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
-  | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black';
+  | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black'
+  | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs';
 
 /** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
 interface Sample { minimum: number; words: [string, string, string] }
@@ -51,6 +53,10 @@ export const METRICS: MetricDef[] = [
   { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
   { key: 'don_checks', label: 'Проверки дона', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок дона нашла шерифа' },
   { key: 'best_move_black', label: 'Лучший ход: чёрных в среднем', group: 'Меткость', unit: 'decimal', sample: { minimum: 3, words: ['ход', 'хода', 'ходов'] }, hint: 'Сколько чёрных в среднем в лучшем ходу (из 3)' },
+  { key: 'black_misses', label: 'Промахи, когда в чёрной команде', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Сколько ночей без жертвы было в играх, где игрок был в чёрной команде (мафией или доном)' },
+  { key: 'black_miss_rate', label: 'Доля промахов, когда в чёрной команде', group: 'Отстрелы', unit: 'percent', sample: { minimum: 10, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Какая доля ночей прошла без жертвы, когда игрок был в чёрной команде' },
+  { key: 'times_shot', label: 'Чаще всех убивают ночью', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока убили ночью, пока он играл за красных' },
+  { key: 'night_pairs', label: 'Пары: убит, когда в чёрных', group: 'Отстрелы', unit: 'count', hint: 'Игрок убит ночью, когда в чёрной команде был этот игрок (от 3 общих игр и 2 убийств)' },
   { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo', unit: 'elo', hint: 'Сколько Elo набрал или потерял за период' },
 ];
 const METRIC_BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
@@ -269,12 +275,49 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
 
   // Chronology figures are computed only when asked for.
   const accuracy = new Map<string, { value: number; sample: number }>();
-  if (metric.sample) {
-    const scopedStat = (await loadStatGamesCached(db)).filter((game) => scopedIds.has(game.id));
+  const nightMetrics = new Set<MetricKey>(['black_misses', 'black_miss_rate', 'times_shot', 'night_pairs']);
+  const scopedStat = metric.sample || metric.key === 'night_pairs' ? (await loadStatGamesCached(db)).filter((game) => scopedIds.has(game.id)) : [];
+  const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
+  if (metric.sample && night) {
+    for (const [id, stats] of night.players) {
+      if (metric.key === 'black_misses' && stats.blackNights) accuracy.set(id, { value: stats.blackMisses, sample: stats.blackNights });
+      if (metric.key === 'black_miss_rate' && stats.blackNights) accuracy.set(id, { value: winRatePercent(stats.blackMisses, stats.blackNights), sample: stats.blackNights });
+      if (metric.key === 'times_shot' && stats.redGames) accuracy.set(id, { value: stats.killed, sample: stats.redGames });
+    }
+  } else if (metric.sample) {
     for (const id of aggs.keys()) {
       const found = accuracyOf(buildPlayerGameStatistics(scopedStat, id), metric.key);
       if (found) accuracy.set(id, found);
     }
+  }
+
+  if (metric.key === 'night_pairs' && night) {
+    const visible = new Map(playerRows.filter((player: any) => visibleStats(player.profile_visibility_json) || String(player.id) === viewerId).map((player: any) => [String(player.id), player]));
+    const pairRows = [...night.pairs.values()]
+      .filter((pair) => pair.kills >= 2 && pair.together >= 3 && visible.has(pair.victim) && visible.has(pair.black))
+      .sort((a, b) => b.kills - a.kills || b.kills / b.together - a.kills / a.together || a.together - b.together)
+      .map((pair, index, all) => ({ pair, index, rank: 0, all }));
+    let place = 0;
+    pairRows.forEach((row, index) => { place = index > 0 && pairRows[index - 1].pair.kills === row.pair.kills ? place : index + 1; row.rank = place; });
+    const nick = (id: string) => String(visible.get(id)?.nickname || 'Игрок');
+    const toPair = (row: (typeof pairRows)[number]) => ({
+      rank: row.rank, player_id: row.pair.victim, nickname: nick(row.pair.victim), avatar_url: avatarUrl(row.pair.victim, visible.get(row.pair.victim)?.has_db_avatar, visible.get(row.pair.victim)?.avatar_suppressed),
+      partner_id: row.pair.black, partner_nickname: nick(row.pair.black),
+      value: row.pair.kills, value_text: String(row.pair.kills), games: row.pair.together,
+      sample_text: `из ${row.pair.together} общих игр`,
+      is_me: viewerId !== 'organizer' && row.pair.victim === viewerId,
+    });
+    return {
+      metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: null, min_sample: null },
+      metrics: METRICS.map((item) => ({ key: item.key, label: item.label, group: item.group })),
+      filters: {
+        period: season ? season.key : 'all', format: formatKey,
+        period_label: season ? season.label : 'Всё время', format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
+        seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label })),
+        formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
+      },
+      games_in_scope: scoped.length, total: pairRows.length, rows: pairRows.slice(0, TOP_SIZE).map(toPair), me: null,
+    };
   }
 
   const viewerIsPlayer = viewerId !== 'organizer';

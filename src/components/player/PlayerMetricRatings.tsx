@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { countGames } from '../../lib/russianPlural';
 
-type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; is_me: boolean };
+type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; partner_nickname?: string | null; is_me: boolean };
 type Rating = {
   metric: { key: string; label: string; group: string; unit: string; hint: string; min_games: number | null; min_sample?: { minimum: number; word: string } | null };
   metrics: Array<{ key: string; label: string; group: string }>;
@@ -19,7 +19,7 @@ function PlayerLine({ row }: { row: Row }) {
   return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'bg-black/20'}`}>
     <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs font-semibold ${chip(row.rank)}`}>{row.rank}</div>
     {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-xs text-white/45">{row.nickname.slice(0, 1).toUpperCase()}</div>}
-    <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.nickname}{row.is_me ? <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-100/60">вы</span> : null}</div><div className="text-[11px] text-white/35">{row.sample_text || countGames(row.games)}</div></div>
+    <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.nickname}{row.partner_nickname ? <span className="font-normal text-white/50"> · убит, когда в чёрных {row.partner_nickname}</span> : null}{row.is_me ? <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-100/60">вы</span> : null}</div><div className="text-[11px] text-white/35">{row.sample_text || countGames(row.games)}</div></div>
     <div className="shrink-0 text-right text-base font-semibold tabular-nums">{row.value_text}</div>
   </button>;
 }

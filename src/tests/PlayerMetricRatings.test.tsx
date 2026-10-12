@@ -46,4 +46,13 @@ describe('rankings by figure', () => {
     render(<PlayerMetricRatings />);
     expect((await screen.findByRole('alert')).textContent).toContain('Сбой');
   });
+
+  it('shows a pair ranking as «victim — when this player is in the black team»', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => respond(body('night_pairs', [{ ...row(1, 'a', 'Богданчик', 4, '4'), partner_nickname: 'Иван', sample_text: 'из 9 общих игр' }]))));
+    render(<PlayerMetricRatings />);
+    const line = await screen.findByTestId('metric-row-a');
+    expect(line.textContent).toContain('Богданчик');
+    expect(line.textContent).toContain('убит, когда в чёрных Иван');
+    expect(line.textContent).toContain('из 9 общих игр');
+  });
 });

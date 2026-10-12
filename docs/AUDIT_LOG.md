@@ -875,3 +875,11 @@ Scope: the owner dictates what he dislikes while clicking through the organizer 
 ### CRM «События» → «Вечера» (desktop; `EveningsList.tsx`, `WeekEventsPanel.tsx`, `OrganizerCRM.tsx`)
 7. «На этой неделе» (`WeekEventsPanel`) is a small card in the top-left; with a single evening it looks like a cropped fragment. Owner: with one evening it must not be a tiny window. (He does not want a settings window right there — drilling into the evening and choosing tournaments inside is fine.)
 8. Tabs «Свои события», «Будущее», «История»: no complaints for now.
+
+### CRM «Игроки» → карточка игрока (`PlayersCRM.tsx`, related `PlayerProfileCRM*`)
+9. Card mixes two things: the player's own profile and the organizer's CRM record. Result: a lot of odd information in odd order. Owner direction: separate them (CRM card = organizer facts and actions; link «Открыть профиль игрока» to the player profile).
+10. Separate window «Следующий игровой вечер: иду / не иду / записан»: not needed as its own block; the answer belongs in the evening view, here at most a plain-text status («записан»).
+11. «Анкета» appears at the top (with edit buttons) and again lower: duplicate; one place only.
+12. «Создать задачу», «Записать общение»: owner OK to keep (it is the comment/CRM note); low priority.
+13. Learning / «Отслеживание тренажёра» block: keep only as a link to the player's profile where learning is linked.
+14. Header part (photo, edit data, player music, replace login, delete photo): fine.

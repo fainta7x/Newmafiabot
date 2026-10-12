@@ -4,6 +4,8 @@ import { pokerSoundCues, pokerSoundState, type PokerSoundCue, type PokerSoundSta
 
 const SOUND_KEY = '2la-poker-sound-enabled';
 let context: AudioContext | null = null;
+/** The first version was so quiet that a phone speaker played nothing audible; the cues stay short, just clearer. */
+const LOUDNESS = 1.8;
 
 // No downloaded samples, licensing dependency, external request or game-server change.
 // Web Audio starts only after a user's explicit click. All cues are deliberately quiet.
@@ -20,7 +22,7 @@ const note = (ctx: AudioContext, start: number, hz: number, duration: number, vo
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(hz, start);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.007);
+  gain.gain.exponentialRampToValueAtTime(volume * LOUDNESS, start + 0.007);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   oscillator.connect(gain).connect(ctx.destination);
   oscillator.start(start);
@@ -38,7 +40,7 @@ const softCard = (ctx: AudioContext, start: number) => {
   filter.type = 'lowpass';
   filter.frequency.value = 850;
   const gain = ctx.createGain();
-  gain.gain.value = 0.065;
+  gain.gain.value = 0.065 * LOUDNESS;
   source.connect(filter).connect(gain).connect(ctx.destination);
   source.start(start);
 };
@@ -81,8 +83,9 @@ const play = (cue: PokerSoundCue) => {
  * the same transition memory, despite rendering different table layouts.
  */
 export function usePokerSoundEffects(tableId: string | null, hand: any) {
+  // On unless the player switched it off: the cues are short and quiet, and a silent table looked like «no sounds at all» (owner, 2026-10-12).
   const [enabled, setEnabled] = useState(() => {
-    try { return window.localStorage.getItem(SOUND_KEY) === 'on'; } catch { return false; }
+    try { return window.localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
   });
   const previous = useRef<PokerSoundState | null>(null);
   useEffect(() => {
@@ -91,6 +94,17 @@ export function usePokerSoundEffects(tableId: string | null, hand: any) {
     previous.current = next;
     if (enabled && document.visibilityState === 'visible') cues.forEach(play);
   }, [tableId, hand, enabled]);
+
+  // A browser lets sound start only after a tap: unlock the audio engine on the first touch of the table, so a remembered «on»
+  // works after a reload without the player having to press the speaker again.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const unlock = () => { const ctx = getContext(); if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => {}); };
+    unlock();
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, [enabled]);
 
   useEffect(() => {
     const onVisibility = () => {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
+import { fetchPublicGoMafiaStats } from '../services/goMafiaPublicStatsService.ts';
 
 const router = Router();
 
@@ -51,6 +52,47 @@ router.get('/gomafia/players/:playerId', async (req, res) => {
     if (!await profileExists(req.db, String(req.params.playerId))) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ link: await load(req.db, String(req.params.playerId)) });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить привязку GoMafia' }); }
+});
+
+// Read-only, cached external career: never alters club games, Elo or awards.
+router.get('/gomafia/players/:playerId/career', async (req, res) => {
+  const viewerId = getPlayerSessionId(req);
+  if (!viewerId && req.userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
+  try {
+    const playerId = String(req.params.playerId);
+    if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
+    const link = await load(req.db, playerId);
+    if (!link) return res.json({ status: 'unlinked', snapshot: null });
+    if (link.status !== 'verified' && viewerId !== playerId && req.userRole !== 'ORGANIZER')
+      return res.json({ status: 'pending', snapshot: null });
+    const cached = await req.db.get<{ snapshot_json: string; retrieved_at: string }>(
+      'SELECT snapshot_json, retrieved_at FROM gomafia_player_snapshots WHERE external_player_id=? AND scope=?',
+      [link.external_player_id, 'all'],
+    );
+    let snapshot = cached ? JSON.parse(cached.snapshot_json) : null;
+    let lastError: string | null = null;
+    const age = cached ? Date.now() - Date.parse(cached.retrieved_at) : Number.POSITIVE_INFINITY;
+    // Cache for 24 hours, with no mass/bulk crawl; externally sourced info can lag.
+    if (link.status === 'verified' && (!snapshot || age > 24 * 60 * 60 * 1000)) {
+      try {
+        const ref = parseGoMafiaPlayerReference(link.profile_url);
+        if (!ref) throw new Error('Некорректная ссылка GoMafia');
+        snapshot = await fetchPublicGoMafiaStats(ref);
+        await req.db.run(`INSERT INTO gomafia_player_snapshots
+          (external_player_id, scope, snapshot_json, retrieved_at, source_url) VALUES (?, 'all', ?, ?, ?)
+          ON CONFLICT(external_player_id, scope) DO UPDATE SET
+          snapshot_json=excluded.snapshot_json, retrieved_at=excluded.retrieved_at, source_url=excluded.source_url`,
+          [link.external_player_id, JSON.stringify(snapshot), snapshot.retrievedAt, link.profile_url]);
+      } catch {
+        lastError = 'Сейчас не удалось обновить GoMafia. Показываем последние доступные данные.';
+      }
+    }
+    return res.json({ status: link.status, snapshot, error: lastError,
+      source: 'gomafia', profile_url: link.profile_url, external_games: [],
+      history_status: 'not_integrated' });
+  } catch {
+    return res.status(500).json({ error: 'Не удалось загрузить спортивную карьеру' });
+  }
 });
 
 router.put('/gomafia/me', async (req, res) => {

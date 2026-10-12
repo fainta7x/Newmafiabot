@@ -202,7 +202,9 @@ export default function PlayerEconomy({ onBalanceChange, view }: { onBalanceChan
 
   const loadBetting = async () => {
     try {
-      const body = await getJson<any>('/api/player/bets', 'Не удалось загрузить ставки');
+      const response = await fetch('/api/player/bets', { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить ставки');
       const next = body as BettingData;
       setBetting(next);
       setData((previous) => previous ? { ...previous, balance: Number(next.balance || 0) } : previous);

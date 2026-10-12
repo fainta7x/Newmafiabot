@@ -20,7 +20,6 @@ import {
   updateLiveProtocolEvidence,
   type LiveProtocolEvidence,
 } from '../../lib/liveClubSession.ts';
-import { getJson } from '../../lib/requestJson.ts';
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
@@ -197,7 +196,9 @@ export default function TournamentLiveGameModal({
       setLoading(true);
       setError(null);
       try {
-        const body = await getJson<any>(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, 'Не удалось загрузить турнирный протокол');
+        const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить турнирный протокол');
         if (!cancelled) setPayload({ protocol: body.protocol, player_results: body.player_results || [], game: body.game || null });
       } catch (loadError: any) {
         if (!cancelled) setError(loadError?.message || 'Не удалось загрузить игру');

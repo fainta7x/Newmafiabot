@@ -15,7 +15,7 @@ for (const width of [360,390]) {
   await cheaters.locator('summary').click();
   await cheaters.getByText('№1 · Мирный · Место 6',{exact:true}).scrollIntoViewIfNeeded();
   await expect(cheaters.getByText('№1 · Мирный · Место 6',{exact:true})).toBeVisible();
-  await expect(cheaters.getByText('Баллы: -0,2',{exact:true})).toBeVisible();
+  await expect(cheaters.getByText('Баллы: -0,2',{exact:true}).first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`gomafia-games-${width}.png`),fullPage:true});
   await page.getByLabel('Год спортивной карьеры').selectOption('2022');

@@ -16,7 +16,7 @@
 
 The original achievement-paths timeout was a stale test clicking already-open «Подробная статистика» closed; upstream #855 fixed it and is preserved. Temporary diagnostic probe/workflow changes and manual tournament import are removed. Local Chrome is blocked by the environment's Unix-socket restriction, so browser evidence comes from Actions. Automatic approval review rejected the broad local suite after an unverified api.telegram.org request; it was stopped and not retried. Existing GitHub CI was inspected: it does not inject production bot secrets, and Telegram tests use dummy tokens/mock transports. Those isolated CI checks passed; no real bot messages are authorized by this integration task.
 
-**Release:** implementation is verified; PR #852 merge is pending at this documentation update. Amvera deployment and production import have **not** been performed or verified. Retain the public-registration limitation above; this is not a promise to ingest private signup lists.
+**Release:** implementation is verified; PR #852 merge is pending at this documentation update. Amvera deployment and production import of this PR have **not** been performed or verified. Read-only production check at 2026-10-12 14:23 UTC: `/api/health` is ok; `/api/health/runtime` is HTTP 503, database ok, bot/Telegram fail, deployed build `9d743183e1e1c397e179b9f07a8fb0449e18aff9`. This is a different revision, not evidence of this integration running. Retain the public-registration limitation above; this is not a promise to ingest private signup lists.
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 

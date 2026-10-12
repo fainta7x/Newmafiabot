@@ -16,6 +16,9 @@ export interface GoMafiaPublicSnapshot {
   profileUrl: string;
   retrievedAt: string;
   year: number | null;
+  /** Descriptive source filters, NOT an assertion of all-time statistics. */
+  gameFilter: string | null;
+  tournamentFilter: string | null;
   totalGames: number | null;
   overallElo: number | null;
   tableElo: number | null;
@@ -96,6 +99,8 @@ export function createGoMafiaPublicSnapshot(
     profileUrl: canonical.profileUrl,
     retrievedAt,
     year: values.year === null ? null : count(values.year),
+    gameFilter: typeof values.gameFilter === 'string' ? values.gameFilter.slice(0, 80) : null,
+    tournamentFilter: typeof values.tournamentFilter === 'string' ? values.tournamentFilter.slice(0, 80) : null,
     totalGames: count(values.totalGames),
     overallElo: metric(values.overallElo),
     tableElo: metric(values.tableElo),

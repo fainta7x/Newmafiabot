@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { countGames, countWins } from '../../lib/russianPlural.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import { getJson } from '../../lib/requestJson.ts';
 
 /**
- * «Игры → История»: the club's archive of finished games and the page of one game. A player's own games (with the filters,
- * roles, Elo change and points) live in his profile — «Профиль → Игры» — and open the same game page from here, so the
- * two places no longer repeat each other. A game has its own address, `/player/games/:key`.
+ * «Вечера → Мои игры» starts with the signed-in player's actual game history.
+ * The complete club archive remains available as a secondary disclosure.
+ * Both lists reuse the same canonical game-detail URL /player/games/:key.
  */
 
 type AllGame = {
@@ -37,6 +39,7 @@ export default function PlayerGamesArchive({
   /** Tells the shell which game is open (or none) so the address follows. */
   onGameChange?: (gameKey: string | null) => void;
 }) {
+  const [clubArchiveOpen, setClubArchiveOpen] = useState(false);
   const [allGames, setAllGames] = useState<AllGame[] | null>(null);
   const [allGamesError, setAllGamesError] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export default function PlayerGamesArchive({
   const requested = useRef(0);
 
   useEffect(() => {
+    if (!clubArchiveOpen) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -56,7 +60,11 @@ export default function PlayerGamesArchive({
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [clubArchiveOpen]);
+
+  const personalGames = data.games?.all ?? [];
+  const finished = personalGames.filter((game) => game.status === 'completed' && typeof game.won === 'boolean');
+  const wins = finished.filter((game) => game.won).length;
 
   const openGame = async (gameKey: string) => {
     const generation = ++requested.current;
@@ -110,9 +118,47 @@ export default function PlayerGamesArchive({
             ) : null}
           </>
         ) : (
-          <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Все игры клуба</h2>
-            <p className="mt-1 text-[12px] leading-4 text-white/35">Игры с ролями, Elo и фильтрами — в профиле, во вкладке «Игры».</p>
+          <>
+          <section data-testid="player-my-games" className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+            <h2 className="text-lg font-semibold">Мои игры</h2>
+            <p className="mt-1 text-xs leading-5 text-white/55">Твои роли, места за столом и результаты. Нажми на игру, чтобы открыть протокол.</p>
+            {personalGames.length ? (
+              <>
+                <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
+                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{countGames(personalGames.length)}</b></span>
+                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-emerald-300">{countWins(wins)}</b></span>
+                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{finished.length ? Math.round(wins / finished.length * 100) : 0}%</b> побед</span>
+                </div>
+                {finished.length ? <div className="mt-3" aria-label="Результаты последних игр">
+                  <div className="mb-2 text-[11px] uppercase tracking-wider text-white/45">Последние {Math.min(finished.length, 8)} игр</div>
+                  <div className="grid grid-cols-8 gap-1.5">{finished.slice(0, 8).map((game) => (
+                    <span key={game.id} title={game.won ? 'Победа' : 'Поражение'} aria-label={game.won ? 'Победа' : 'Поражение'} className={`h-2.5 rounded-full ${game.won ? 'bg-emerald-400/85' : 'bg-rose-400/80'}`} />
+                  ))}</div>
+                  <p className="mt-1.5 text-[11px] text-white/45">Зелёный — победа, красный — поражение. Слева — последняя.</p>
+                </div> : null}
+                <div className="mt-4 space-y-2">
+                  {personalGames.map((game) => (
+                    <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="flex min-h-16 w-full items-start justify-between gap-3 rounded-2xl border border-white/[0.07] bg-black/20 p-3 text-left active:bg-white/[0.06]">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{game.title || 'Игра'}{game.game_number ? ` · №${game.game_number}` : ''}</span>
+                        <span className="mt-1 block text-xs text-white/50">{[formatDate(game.date), game.role ? getPlayerGameRoleLabel(game.role) : null, game.seat_number ? `место №${game.seat_number}` : null].filter(Boolean).join(' · ')}</span>
+                        {(game.best_move || game.first_killed) ? <span className="mt-1.5 block text-[11px] text-amber-200/80">{[game.best_move ? 'Лучший ход' : null, game.first_killed ? 'Убит первым' : null].filter(Boolean).join(' · ')}</span> : null}
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className={`block text-xs font-semibold ${game.won === true ? 'text-emerald-300' : game.won === false ? 'text-rose-300' : 'text-white/50'}`}>{game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Без результата'}</span>
+                        <span className="mt-2 block text-[11px] text-white/45">Подробнее ›</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : <p className="mt-4 rounded-2xl bg-black/20 px-4 py-5 text-sm text-white/60">Ты ещё не играл. После первой завершённой игры здесь появятся результаты и роли.</p>}
+          </section>
+          <details className="rounded-3xl border border-white/10 bg-white/[0.025] p-4" onToggle={(event) => setClubArchiveOpen(event.currentTarget.open)}>
+            <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-white/70">
+              Все игры клуба <span className="text-white/40">Открыть архив ▾</span>
+            </summary>
+            <p className="mt-1 text-xs leading-5 text-white/45">Полный архив, включая игры других участников.</p>
             <div className="mt-3">
               {allGamesError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGamesError}</p>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
@@ -124,7 +170,8 @@ export default function PlayerGamesArchive({
                   </button>;
                 })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Завершённых игр пока нет.</p>}
             </div>
-          </section>
+          </details>
+          </>
         )}
       </div>
     </main>

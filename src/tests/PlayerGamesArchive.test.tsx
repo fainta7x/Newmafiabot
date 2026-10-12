@@ -8,39 +8,76 @@ vi.mock('../components/player/PlayerGameDetail.tsx', () => ({
 }));
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
-const data: any = { player: { id: 'me' } };
-const detail = { game: { id: 'club:g1', source: 'club', title: 'Вечер 3 октября', game_number: 4, date: null, format: 'STANDARD', winner_team: 'red', judge_name: null, table_name: null, elo_affected: true } };
+const data: any = {
+  player: { id: 'me' },
+  games: { all: [
+    { id: 'club:g1', source: 'club', title: 'Моя последняя игра', date: '2026-10-03T18:00:00.000Z', game_number: 4, role: 'sheriff', seat_number: 3, status: 'completed', won: true },
+    { id: 'club:g0', source: 'club', title: 'Моя предыдущая игра', date: '2026-09-25T18:00:00.000Z', game_number: 1, role: 'citizen', seat_number: 8, status: 'completed', won: false },
+  ] },
+};
+const detail = { game: { id: 'club:g1', source: 'club', title: 'Моя последняя игра', game_number: 4, date: null, format: 'STANDARD', winner_team: 'red', judge_name: null, table_name: null, elo_affected: true } };
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-describe('games archive and the page of one game', () => {
+describe('personal games, club archive and the page of one game', () => {
   const stubFetch = () => vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.includes('/games/all')) return json({ games: [{ id: 'club:g1', source: 'club', title: 'Вечер 3 октября', date: '2026-10-03T18:00:00.000Z', game_number: 4, format: 'STANDARD', winner_team: 'red', judge_name: 'Иван' }] });
+    if (url.includes('/games/all')) return json({ games: [
+      { id: 'club:g1', source: 'club', title: 'Моя последняя игра', date: '2026-10-03T18:00:00.000Z', game_number: 4, format: 'STANDARD', winner_team: 'red', judge_name: 'Иван' },
+      { id: 'club:g2', source: 'club', title: 'Чужая игра в клубе', date: '2026-10-04T18:00:00.000Z', game_number: 5, format: 'STANDARD', winner_team: 'black', judge_name: 'Иван' },
+    ] });
     if (url.includes('/api/player/games/club%3Ag1')) return json(detail);
     return json({}, 404);
   }));
 
-  it('lists the club games and tells the shell which game was opened and closed', async () => {
+  it('shows only the signed-in player games by default and opens their detail', async () => {
     stubFetch();
+    const fetch = vi.mocked(globalThis.fetch);
     const onGameChange = vi.fn();
     render(<PlayerGamesArchive data={data} onGameChange={onGameChange} />);
-    fireEvent.click(await screen.findByText('Вечер 3 октября'));
+    expect(screen.getByTestId('player-my-games')).toBeDefined();
+    expect(screen.getByText(/Моя последняя игра/)).toBeDefined();
+    expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
+    expect(screen.getAllByLabelText('Победа')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Поражение')).toHaveLength(1);
+    expect(screen.queryByText('Чужая игра в клубе')).toBeNull();
+    expect(fetch).not.toHaveBeenCalledWith('/api/player/games/all', expect.anything());
+
+    fireEvent.click(screen.getByText(/Моя последняя игра/));
     expect(onGameChange).toHaveBeenCalledWith('club:g1');
     expect(await screen.findByTestId('detail')).toBeDefined();
     expect(await screen.findByRole('link', { name: /Replay игры/ })).toBeDefined();
-    // The detail opened from the list owns a history entry, so Back steps through history instead of pushing a list entry.
     const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
     fireEvent.click(screen.getByText('← Назад к играм'));
     expect(back).toHaveBeenCalledTimes(1);
     back.mockRestore();
   });
 
-  it('opens the game named by the address and closes it when the address loses it', async () => {
+  it('retains the original club-wide archive as an expandable alternative', async () => {
+    stubFetch();
+    render(<PlayerGamesArchive data={data} />);
+    const summary = screen.getByText(/Все игры клуба/);
+    const details = summary.closest('details')!;
+    fireEvent.click(summary);
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
+    expect(await screen.findByText('Чужая игра в клубе')).toBeDefined();
+    expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
+  });
+
+  it('opens deep-linked club games and returns to personal games when URL loses target', async () => {
     stubFetch();
     const view = render(<PlayerGamesArchive data={data} initialGameKey="club:g1" />);
-    await waitFor(() => expect(screen.getByTestId('detail').textContent).toContain('Вечер 3 октября'));
+    await waitFor(() => expect(screen.getByTestId('detail').textContent).toContain('Моя последняя игра'));
     view.rerender(<PlayerGamesArchive data={data} initialGameKey={null} />);
-    expect(await screen.findByText('Все игры клуба')).toBeDefined();
+    expect(await screen.findByTestId('player-my-games')).toBeDefined();
+  });
+
+  it('shows a useful personal empty state without confusing it with an empty club archive', () => {
+    stubFetch();
+    const fetch = vi.mocked(globalThis.fetch);
+    render(<PlayerGamesArchive data={{ ...data, games: { all: [] } }} />);
+    expect(screen.getByText(/Ты ещё не играл/)).toBeDefined();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

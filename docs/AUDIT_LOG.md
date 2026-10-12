@@ -862,7 +862,8 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 
 ## 2026-10-12 · CRM / cabinet redesign — owner walk-through (collecting; nothing fixed yet)
 
-Scope: the owner dictates what he dislikes while clicking through the organizer CRM (phone and desktop). Audit first, redesign in slices after the owner confirms. Status of every item: open.
+Scope: the owner dictates what he dislikes while clicking through the organizer CRM (phone and desktop). Audit first, redesign in slices after the owner confirms. Status of every item: open unless marked. Items 1–7 fixed in the «Сегодня» slice (PR below): header block is a home button; action tiles became full-width rows; add-player shortcut removed from the overview; debts first; the `debts:<evening>` item is hidden from the «Дела» preview when the debts block shows the same evening; desktop week/agenda columns are equal and week rows are bigger.
+Note for item 16: `docs/ARCHITECTURE.md` says experienced-player decisions live in «Ещё → Развитие», so the section cannot simply be deleted — rename and surface its open items as tasks instead.
 
 ### CRM «Сегодня» (`OrganizerCommandCenter.tsx`, `OrganizerAgenda.tsx`, `CRMOverview.tsx`)
 1. Header «2LA noire · NEWMAFIA» (`OrganizerCRM.tsx`, ~line 302) is not a link; expected: tap goes to the home page like on any site.

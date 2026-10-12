@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  Gamepad2, Link2, MessageCircle, Plus, RefreshCw, UserCheck, Sprout
+  Gamepad2, Link2, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
@@ -73,7 +73,6 @@ interface Props {
   overview: CrmOverview | null;
   onOpenEvening: (id: string) => void;
   /** Existing CRM roster add-player/guest picker; never a new registration path. */
-  onOpenEveningAdd?: (id: string) => void;
   onOpenEveningSection: (id: string, section: EveningSection) => void;
   onOpenPlayer: (id: string) => void;
   onNavigateTab: (tab: 'tasks' | 'analytics') => void;
@@ -108,7 +107,6 @@ const communicationLabel = (status: string) => {
 export default function OrganizerCommandCenter({
   overview,
   onOpenEvening,
-  onOpenEveningAdd,
   onOpenEveningSection,
   onOpenPlayer,
   onCreateEvening,
@@ -297,6 +295,12 @@ export default function OrganizerCommandCenter({
     <div className="crm-today-context space-y-3">
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
 
+    {/* Debts first (owner, 2026-10-12): money owed is the top priority of the day. */}
+    {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
+      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEveningSection(data.wrapup!.evening.id, 'payments')} aria-label="Открыть оплаты прошлого вечера" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
+      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
+    </section> : null}
+
     {levelDecisions.length ? <section data-testid="level-decisions" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><Sprout className="h-4 w-4" /> Новые игроки ждут решения · {levelDecisions.length}</div>
       <p className="mt-1 text-[12px] leading-4 text-text-secondary">Пока уровень не подтверждён, игрок не может сам записываться на вечера.</p>
@@ -370,15 +374,15 @@ export default function OrganizerCommandCenter({
 
       {!paymentsFresh ? <section data-testid="crm-payments-refreshing" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-[13px] text-text-secondary"><RefreshCw className="h-4 w-4 animate-spin text-accent" /> Обновляем оплаты за {snapshot.evening.title} · {formatPaymentDate(snapshot.evening.starts_at)}…</section> : null}
 
-      {actionCards.length ? <section aria-label="Действия сегодня" className="crm-today-actions grid grid-cols-2 gap-2">
-        {actionCards.map((item) => <button key={item.id} type="button" onClick={item.action} className="min-h-[78px] rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left active:bg-surface-hover">
-          <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${item.tone}`}>{item.icon}{item.label}</div>
-          <div className="mt-1.5 text-[22px] font-bold leading-none text-text-primary">{item.value}</div>
-          <div className="mt-1 text-[12px] leading-4 text-text-secondary">{item.detail}</div>
+      {actionCards.length ? <section aria-label="Действия сегодня" className="crm-today-actions space-y-2">
+        {actionCards.map((item) => <button key={item.id} type="button" onClick={item.action} className="flex min-h-14 w-full items-center gap-3 rounded-[16px] border border-border-soft bg-surface-1 px-3 py-2.5 text-left active:bg-surface-hover">
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-surface-2 ${item.tone}`}>{item.icon}</span>
+          <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-text-primary">{item.label}</span><span className="mt-0.5 block text-[12px] leading-4 text-text-secondary">{item.detail}</span></span>
+          <span className="shrink-0 text-[22px] font-bold leading-none text-text-primary">{item.value}</span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
         </button>)}
       </section> : paymentsFresh ? <section data-testid="crm-today-clear" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section> : null}
 
-      {onOpenEveningAdd ? <button type="button" onClick={() => onOpenEveningAdd(snapshot.evening.id)} className="flex min-h-11 w-full items-center justify-between gap-2 rounded-[12px] border border-border-soft bg-surface-1 px-3 py-2 text-left text-[13px] font-semibold text-text-secondary active:bg-surface-hover"><span className="inline-flex items-center gap-2"><Plus className="h-4 w-4 shrink-0" />Добавить игрока в состав</span><ArrowRight className="h-4 w-4 shrink-0 text-text-muted" /></button> : null}
 
       {(deliveryProblems.length > 0 || attendanceAttention > 0) ? <section className="rounded-[18px] border border-warning/20 bg-surface-1 p-3">
         <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><AlertTriangle className="h-4 w-4" /> Требует уточнения</div>
@@ -394,12 +398,8 @@ export default function OrganizerCommandCenter({
     {evenings && onOpenTournament ? <div className="crm-today-week"><WeekEventsPanel evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={onOpenTournament} /></div> : null}
 
     {/* «Дела» (owner, 2026-09-30): the urgent part here, the full list under «Ещё → Дела». */}
-    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
+    <div className="crm-today-agenda"><OrganizerAgenda mode="preview" hideItemIds={data?.wrapup?.unpaid.length ? [`debts:${data.wrapup.evening.id}`] : []} refreshKey={orderRefresh} onOpenEveningSection={onOpenEveningSection} onOpenPlayer={onOpenPlayer} onCreateEvening={onCreateEvening} onOpenAll={() => onNavigateTab('tasks')} /></div>
     </div>
 
-    {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
-      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEveningSection(data.wrapup!.evening.id, 'payments')} aria-label="Открыть оплаты прошлого вечера" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
-      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
-    </section> : null}
   </div>;
 }

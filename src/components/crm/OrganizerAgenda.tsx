@@ -38,7 +38,7 @@ const post = async (url: string, body: unknown, method = 'POST') => {
  * «Дела» (owner, 2026-09-30): one list instead of «Задачи» and «Порядок в клубе», grouped by when it matters.
  * The home screen shows the «Сейчас» part and counts; the full list lives under «Ещё → Дела».
  */
-export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenEveningSection, onOpenPlayer, onCreateEvening, onOpenAll, onOpenTaskList }: {
+export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenEveningSection, onOpenPlayer, onCreateEvening, onOpenAll, onOpenTaskList, hideItemIds = [] }: {
   mode?: 'preview' | 'full';
   refreshKey?: number;
   onOpenEveningSection: (id: string, section: EveningSection) => void;
@@ -46,6 +46,8 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
   onCreateEvening: () => void;
   onOpenAll?: () => void;
   onOpenTaskList?: () => void;
+  /** Items already shown by the parent screen (the home screen's debts block). */
+  hideItemIds?: string[];
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
@@ -154,9 +156,10 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
     );
   };
 
-  const nowItems = data?.items.filter((item) => item.group === 'now') || [];
+  const visibleItems = data?.items.filter((item) => !hideItemIds.includes(item.id)) || [];
+  const nowItems = visibleItems.filter((item) => item.group === 'now');
   // The home screen shows what is urgent and a little of the club upkeep, so both are always in sight.
-  const restItems = data?.items.filter((item) => item.group !== 'now') || [];
+  const restItems = visibleItems.filter((item) => item.group !== 'now');
   const previewItems = [...nowItems.slice(0, 3), ...restItems.slice(0, nowItems.length ? 1 : 3)];
 
   return (
@@ -171,11 +174,11 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
       </div>
       {cancelFor ? <CancelEveningSheet eveningId={cancelFor} open onClose={() => setCancelFor('')} onDone={() => { setCancelFor(''); void load(); }} /> : null}
       {error ? <p className="mt-3 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{error}</p> : null}
-      {data && !data.items.length ? (
+      {data && !visibleItems.length ? (
         <div className="mt-3 flex min-h-11 items-center gap-2 rounded-[12px] bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> Дел нет — всё в порядке{data.snoozed ? ` (отложено: ${data.snoozed})` : ''}.</div>
       ) : null}
 
-      {data?.items.length && mode === 'preview' ? (
+      {data && visibleItems.length > 0 && mode === 'preview' ? (
         <div className="mt-3 space-y-2">
           {previewItems.map(card)}
           <button type="button" data-testid="agenda-open-all" onClick={onOpenAll} className="flex min-h-11 w-full items-center justify-between rounded-[12px] border border-border-soft px-3 text-left text-[13px] font-semibold text-text-primary">
@@ -196,7 +199,7 @@ export default function OrganizerAgenda({ mode = 'full', refreshKey = 0, onOpenE
           {data.snoozed ? <p className="px-0.5 text-[11px] text-text-muted">Отложено: {data.snoozed}. Вернутся сами, если ещё будут нужны.</p> : null}
         </div>
       ) : null}
-      {data && (mode === 'full' || !data.items.length) ? (
+      {data && (mode === 'full' || !visibleItems.length) ? (
         <p data-testid="agenda-coverage" className="mt-3 px-0.5 text-[11px] leading-4 text-text-muted">
           {data.checked ? `Проверено: игроков ${data.checked.players}, были на вечерах ${data.checked.players_with_visits}${data.checked.last_visit ? `, последний визит ${new Date(data.checked.last_visit).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })}` : ''}, открытых задач ${data.checked.open_tasks}.` : null}
           {data.errors?.length ? <span className="mt-1 block text-danger">Не получилось проверить: {data.errors.join('; ')}</span> : null}

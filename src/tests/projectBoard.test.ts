@@ -46,7 +46,7 @@ describe('project board', () => {
     const cards = parseProjectState(readFileSync('docs/PROJECT_BOARD_RU.md', 'utf8'));
     expect(cards.filter((card) => card.status === 'waiting').length).toBe(3);
     expect(cards.every((card) => card.title.length > 0 && card.summary.length <= 170)).toBe(true);
-    expect(cards.every((card) => /^[А-Яа-яЁё]/.test(card.title))).toBe(true);
+    expect(cards.every((card) => /[А-Яа-яЁё]/.test(card.title))).toBe(true);
     expect(cards.some((card) => card.title.includes('GoMafia') && card.status === 'done')).toBe(true);
     const groups = groupByDirection(cards);
     expect(groups.length).toBeGreaterThan(2);

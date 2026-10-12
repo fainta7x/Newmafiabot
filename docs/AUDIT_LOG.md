@@ -15,6 +15,10 @@
 
 **Out of scope:** unmounted legacy `EveningAnnouncementPanel` is not a second active UI; keep it untouched. Don't rewrite announcement/retry worker or club-wide mailing preferences. Mobile CSS/screenshots + CI must pass before merging; main merge is not deployed/runtime confirmed.
 
+## 2026-10-12 · CI regression: premature unified Answers test in main (FIXED in PR #849)
+
+A test file `src/tests/EveningUnifiedAnswers.test.tsx` was accidentally written to `main` before its implementation from PR #845 was merged. The test asserted unified response/delivery rows unavailable in the mounted main CRM component, causing four failures in CI shard 2/3 for unrelated PRs (#847/#848). Fix: remove the premature suite from main only; preserve the corrected complete suite on #845 and restore it with its actual feature. No production code or shipped behavior is removed. Verification: PR #849 CI and merge still required.
+
 ## 2026-10-12 · UX audit pass 2C — CRM «Добавить игрока» is an unreachable working path
 
 **[mounted-path finding, fix in this PR]** `OrganizerCRM.tsx:handleOpenEveningAdd` already stores the `eveningIntent='add'` instruction, but `CRMOverview.tsx` currently fails to forward its `onOpenEveningAdd` prop to `OrganizerCommandCenter.tsx` (the prop does not exist there). Thus Today's nearest evening has no one-tap addition even though `EveningActiveRosterView.tsx` already has an add-player/guest picker. Additionally, the parent helper sets the address to `/admin/evenings/:id/participants`, but `EveningWorkspace.tsx` interprets `initialAddOpen=true` as **management → roster**, making visible pane and URL disagree.

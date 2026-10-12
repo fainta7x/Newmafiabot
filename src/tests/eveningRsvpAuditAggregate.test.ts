@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { auditEveningRsvpDrift } from '../scripts/auditEveningRsvpDrift.ts';
+import { auditEveningRsvpDrift, inspectEveningRsvpFile } from '../scripts/auditEveningRsvpDrift.ts';
 
 const databases: Database.Database[] = [];
 
@@ -68,6 +71,37 @@ describe('opt-in aggregated RSVP diagnostic', () => {
     const publicOutput = JSON.stringify(report);
     for (const id of ['stale-declined', 'stale-unanswered', 'walkin', 'finished-person']) {
       expect(publicOutput).not.toContain(id);
+    }
+  });
+
+  it('opens an explicitly chosen existing SQLite file as read-only and does not modify it', () => {
+    const folder = mkdtempSync(path.join(tmpdir(), '2la-rsvp-audit-'));
+    const file = path.join(folder, 'audit.sqlite');
+    try {
+      const disk = new Database(file);
+      disk.exec(`
+        CREATE TABLE game_evenings (id TEXT PRIMARY KEY, status TEXT, settled_at TEXT);
+        CREATE TABLE evening_participants (
+          evening_id TEXT, response_status TEXT, registration_status TEXT,
+          arrival_status TEXT, attendance_status TEXT
+        );
+        INSERT INTO game_evenings VALUES ('event','active',NULL);
+        INSERT INTO evening_participants VALUES ('event','declined','registered','unknown','pending');
+      `);
+      disk.close();
+
+      const before = readFileSync(file);
+      const report = inspectEveningRsvpFile(file);
+      const after = readFileSync(file);
+      expect(report.by_scope.open.declined_with_old_positive_registration).toBe(1);
+      expect(report.by_scope.open.agenda_positive_without_canonical).toBe(1);
+      expect(after).toEqual(before);
+
+      const nonexistent = path.join(folder, 'missing.sqlite');
+      expect(() => inspectEveningRsvpFile(nonexistent)).toThrow();
+      expect(() => readFileSync(nonexistent)).toThrow();
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
     }
   });
 

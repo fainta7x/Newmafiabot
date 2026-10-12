@@ -532,3 +532,6 @@ select optgroup {
     border: 1px solid rgba(255, 255, 255, .1); background: rgba(16, 19, 18, .95); color: #fff; box-shadow: 0 20px 40px rgba(0, 0, 0, .5);
   }
 }
+
+/* The hidden card of a player who showed only one (owner, 2026-10-12). */
+.poker-card-back-tiny { display: inline-block; width: 28px; height: 40px; border-radius: 5px; border: 1px solid rgba(232, 196, 124, .8); background: repeating-linear-gradient(45deg, #6b1a24 0 3px, #4a0f18 3px 6px); box-shadow: 0 2px 4px rgba(0, 0, 0, .6); }

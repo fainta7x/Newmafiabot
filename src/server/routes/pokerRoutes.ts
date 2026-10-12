@@ -5,7 +5,7 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAcces
 import {
   addPokerBot, createPokerLobby, getPokerLobby, joinPokerLobby, kickPokerPlayer, leavePokerLobby, listPokerLobbies,
   POKER_BUY_IN_TOKENS, POKER_MIN_BUY_IN_TOKENS, pokerEffectiveStack, pokerMoneyMode, pokerTableForPlayer, sweepIdlePokerSeats, touchPokerSeat,
-  publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, startPokerLobby, tickPokerLobby, type PokerSeatExit,
+  publicPokerHistory, publicPokerLobby, rebuyPoker, setPokerSitOut, showPokerCards, startPokerLobby, tickPokerLobby, type PokerSeatExit,
 } from '../services/pokerLobbyService.ts';
 import { applyPokerAction } from '../services/pokerEngine.ts';
 import { withPersistedPokerRuntime } from '../services/pokerPersistenceService.ts';
@@ -295,6 +295,12 @@ router.post('/poker/lobbies/:id/action', route(async (req) => {
   if (table.hand.animation_phase !== 'playing') throw new PokerRouteError(409, 'Дождитесь окончания автоматической выкладки карт.');
   if (table.hand.players.find((item) => item.seat === table.hand?.current_seat)?.id !== player.id) throw new PokerRouteError(409, 'Сейчас ход другого игрока.');
   try { applyPokerAction(table.hand, req.body || {}); } catch (error) { conflict(error, 'Действие недоступно.'); }
+  return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
+}));
+router.post('/poker/lobbies/:id/show', route(async (req) => {
+  const player = await actor(req); const table = lobby(req.params.id);
+  tickPokerLobby(table);
+  try { showPokerCards(table, player.id, req.body?.cards); } catch (error) { conflict(error, 'Не получилось показать карты.'); }
   return { body: { lobby: viewFor(req, publicPokerLobby(table, player.id)) } };
 }));
 router.post('/poker/lobbies/:id/chat', route(async (req) => {

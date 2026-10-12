@@ -31,4 +31,18 @@ describe('GoMafia link asks only for the ID', () => {
     const put = calls.find((call) => call.body);
     expect(JSON.parse(put!.body!)).toEqual({ profile: '1202' });
   });
+
+  it('summarises the final-standing places of the tournaments: count, average and best place', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).endsWith('/career')) return new Response(JSON.stringify({ status: 'verified', snapshot: null, yearly_stats: [], tournaments: [
+        { tournamentId: 'a', tournamentName: 'A', dateStart: '2026-06-20', place: 4, games: [] }, { tournamentId: 'b', tournamentName: 'B', dateStart: '2025-02-15', place: 2, games: [] }, { tournamentId: 'c', tournamentName: 'C', dateStart: '2024-01-01', place: null, games: [] },
+      ] }), { status: 200 });
+      return new Response(JSON.stringify({ link: { external_player_id: '1202', profile_url: 'https://gomafia.pro/stats/1202', status: 'verified', updated_at: '' } }), { status: 200 });
+    }));
+    render(<PlayerGoMafiaLink playerId="p1" isSelf={false} />);
+    const box = await screen.findByTestId('gomafia-places-summary');
+    expect(box.textContent).toContain('2Турниров');
+    expect(box.textContent).toContain('3Среднее место');
+    expect(box.textContent).toContain('2Лучшее место');
+  });
 });

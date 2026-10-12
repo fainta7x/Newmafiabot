@@ -52,6 +52,10 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const snap = year === 'all' ? career?.snapshot : career?.yearly_stats?.find((s: any) => String(s.year) === year);
   const years = [...new Set<number>([...(career?.yearly_stats ?? []).map((s: any) => Number(s.year)), ...(career?.tournaments ?? []).map((t: any) => Number(t.dateStart?.slice(0,4)))])].filter(Number.isFinite).sort((a,b)=>b-a);
   const tournaments = (career?.tournaments ?? []).filter((t: any) => year === 'all' || t.dateStart?.startsWith(year));
+  // Final standings of the selected year: how many tournaments, the average and the best place (smaller is better).
+  const places: number[] = tournaments.map((t: any) => Number(t.place)).filter((place: number) => Number.isInteger(place) && place > 0);
+  const averagePlace = places.length ? places.reduce((sum, place) => sum + place, 0) / places.length : null;
+  const bestPlace = places.length ? Math.min(...places) : null;
   const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : snap?.tournamentFilter === 'Все турниры' ? 'За всё время' : 'Период источника не определён';
   const save = async () => {
     setBusy(true);
@@ -116,6 +120,11 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     </div>}
     {year !== 'all' && !snap && <p className="mt-2 text-xs text-white/50">Статистика за {year} год пока недоступна. Турнирная история показана по опубликованным датам.</p>}
     {career?.syncing && <p role="status" className="mt-3 text-xs text-white/60">Автоматически обновляем спортивную карьеру…</p>}
+    {places.length > 0 && <div data-testid="gomafia-places-summary" className="mt-4 grid grid-cols-3 gap-2">
+      <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong className="text-lg">{places.length}</strong><div className="text-xs text-white/55">Турниров</div></div>
+      <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong className="text-lg">{averagePlace == null ? '—' : averagePlace.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</strong><div className="text-xs text-white/55">Среднее место</div></div>
+      <div className="rounded-xl bg-amber-200/10 p-2 text-center"><strong className="text-lg text-amber-100">{bestPlace}</strong><div className="text-xs text-white/55">Лучшее место</div></div>
+    </div>}
     {tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-4 space-y-3">
       <strong className="block text-sm">Турнирные выступления · {tournaments.length}</strong>
       {tournaments.map((item: any) => <article key={item.tournamentId} className="rounded-xl bg-white/[.045] p-3">

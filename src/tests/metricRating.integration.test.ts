@@ -201,4 +201,26 @@ describe('rankings by one figure of the statistics', () => {
     expect((await roles('?role=nope')).role.key).toBe('don');
     expect((await request(app).get('/api/rating/roles')).status).toBe(401);
   });
+
+  it('ranks the federation (GoMafia) places of verified players: smaller average place first, from two tournaments', async () => {
+    const { ensureGoMafiaSchema } = await import('../db/ensureGoMafiaSchema.ts');
+    await ensureGoMafiaSchema(db);
+    const link = async (player: string, external: string, places: Array<number | null>, status = 'verified') => {
+      await db.run(`INSERT INTO gomafia_player_links (player_id,external_player_id,profile_url,status,linked_by,linked_at,updated_at) VALUES (?,?,?,?,?,?,?)`, [player, external, `https://gomafia.pro/stats/${external}`, status, 'organizer', stamp, stamp]);
+      await db.run(`INSERT INTO gomafia_player_snapshots (external_player_id,scope,snapshot_json,retrieved_at,source_url) VALUES (?,?,?,?,?)`,
+        [external, 'career-v1', JSON.stringify({ career: { tournaments: places.map((place, index) => ({ tournamentId: String(index), place })) } }), stamp, `https://gomafia.pro/stats/${external}`]);
+    };
+    await link('p1', '11', [4, 2, 6]);       // average 4, best 2, three tournaments
+    await link('p3', '33', [1, 9]);          // average 5, best 1
+    await link('p2', '22', [3]);             // only one tournament: not listed (and hid the statistics anyway)
+    const avg = await get('?metric=fed_avg_place');
+    expect(avg.metric).toMatchObject({ key: 'fed_avg_place', group: 'Федерация' });
+    expect(avg.rows.map((row: any) => [row.nickname, row.value_text, row.games])).toEqual([['Анна', '4,0', 3], ['Вера', '5,0', 2]]);
+    const best = await get('?metric=fed_best_place');
+    expect(best.rows.map((row: any) => [row.nickname, row.value])).toEqual([['Вера', 1], ['Анна', 2]]);
+    const count = await get('?metric=fed_tournaments');
+    expect(count.rows.map((row: any) => [row.nickname, row.value])).toEqual([['Анна', 3], ['Вера', 2]]);
+    // The club season / format filters do not apply to the federation.
+    expect((await get('?metric=fed_avg_place&period=period:spring')).rows).toHaveLength(2);
+  });
 });

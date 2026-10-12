@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
-import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 
 interface EveningParticipantsViewProps {
   eveningId: string;
@@ -15,7 +14,6 @@ interface EveningParticipantsViewProps {
 export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = ({ eveningId }) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAudience, setShowAudience] = useState(false);
-  const [showContacts, setShowContacts] = useState(false);
   const refresh = () => setRefreshKey((value) => value + 1);
 
   return (
@@ -26,31 +24,13 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
       <section className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
         <button
           type="button"
-          onClick={() => setShowContacts((value) => !value)}
-          aria-expanded={showContacts}
-          className="flex min-h-[52px] w-full items-center justify-between gap-3 px-3 text-left"
-        >
-          <span className="min-w-0">
-            <strong className="block text-[12px] text-text-primary">Написать игрокам лично</strong>
-            <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Контакты тех, кто не ответил или думает, и быстрые ответы. Открывается по необходимости.</span>
-          </span>
-          {showContacts ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
-        </button>
-        {showContacts ? <div className="border-t border-border-soft p-2.5">
-          <EveningPersonalInvites key={eveningId} eveningId={eveningId} onChanged={refresh} />
-        </div> : null}
-      </section>
-
-      <section className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
-        <button
-          type="button"
           onClick={() => setShowAudience((value) => !value)}
           aria-expanded={showAudience}
           className="flex min-h-[52px] w-full items-center justify-between gap-3 px-3 text-left"
         >
           <span>
-            <strong className="block text-[12px] text-text-primary">Кого звать на вечер</strong>
-            <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">База рассылки и исключения. Открывай только перед публикацией или новой рассылкой.</span>
+            <strong className="block text-[12px] text-text-primary">Настройки базы рассылки</strong>
+            <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Это общие настройки клуба, а не второй список ответов. Здесь можно исключать игроков из будущих личных рассылок.</span>
           </span>
           {showAudience ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
         </button>

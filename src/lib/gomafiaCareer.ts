@@ -3,7 +3,7 @@ import type { GoMafiaPublicSnapshot } from './gomafiaExternalProfile.ts';
 
 export type GoMafiaNominationKey = 'best_red' | 'best_mafia' | 'best_don' | 'best_sheriff' | 'mvp';
 export const GOMAFIA_NOMINATIONS: Record<GoMafiaNominationKey, string> = {
-  best_red: 'Лучший мирный', best_mafia: 'Лучшая мафия', best_don: 'Лучший дон', best_sheriff: 'Лучший шериф', mvp: 'MVP турнира',
+  best_red: 'Лучший мирный', best_mafia: 'Лучший чёрный', best_don: 'Лучший дон', best_sheriff: 'Лучший шериф', mvp: 'MVP турнира',
 };
 
 export interface CareerAppearance {

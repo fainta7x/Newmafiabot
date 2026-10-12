@@ -84,14 +84,16 @@ export function createGoMafiaPublicSnapshot(
   values: Partial<Omit<GoMafiaPublicSnapshot, 'source' | 'externalPlayerId' | 'profileUrl' | 'retrievedAt'>>,
   retrievedAt: string,
 ): GoMafiaPublicSnapshot {
+  const canonical = parseGoMafiaPlayerReference(reference.profileUrl);
+  if (!canonical || canonical.externalPlayerId !== reference.externalPlayerId) throw new Error('Invalid GoMafia reference');
   if (!Number.isFinite(Date.parse(retrievedAt))) throw new Error('Invalid GoMafia retrieval timestamp');
   const count = (v: unknown) => normalizeGoMafiaMetric(v, { integer: true });
   const metric = (v: unknown) => normalizeGoMafiaMetric(v);
   const percent = (v: unknown) => normalizeGoMafiaMetric(v, { percentage: true });
   return {
     source: 'gomafia',
-    externalPlayerId: reference.externalPlayerId,
-    profileUrl: reference.profileUrl,
+    externalPlayerId: canonical.externalPlayerId,
+    profileUrl: canonical.profileUrl,
     retrievedAt,
     year: values.year === null ? null : count(values.year),
     totalGames: count(values.totalGames),

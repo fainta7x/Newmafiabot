@@ -5,7 +5,7 @@ import CanonicalPremiumPlayerProfile from '../components/player/CanonicalPremium
 
 vi.mock('../components/player/PremiumProfileConnections.tsx', () => ({ default: () => <div data-testid="connections-stub" /> }));
 vi.mock('../components/player/PremiumProfileShowcase.tsx', () => ({ default: ({ section }: any) => <div data-testid={`showcase-${section}`} /> }));
-vi.mock('../components/player/PlayerEloJourney.tsx', () => ({ default: () => <div data-testid="elo-journey-stub" /> }));
+vi.mock('../components/player/PlayerEloJourney.tsx', () => ({ default: ({ period, format }: { period?: string; format?: string }) => <div data-testid="elo-journey-stub" data-period={period} data-format={format} /> }));
 vi.mock('../components/player/SmartFriendInviteSuggestions.tsx', () => ({ default: () => <div data-testid="smart-friends-stub" /> }));
 vi.mock('../components/player/PlayerAwardSuggestionAction.tsx', () => ({ default: () => <div data-testid="award-suggestion-stub" /> }));
 vi.mock('../components/player/PlayerProfileCompleteness.tsx', () => ({ PlayerProfileCompletionCard: () => <div data-testid="completion-stub" /> }));
@@ -109,6 +109,26 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(await screen.findByTestId('elo-journey-stub')).toBeDefined();
     // the simple list of the profile endpoint is not fetched for himself: one history, not two
     expect(screen.queryByText('История Elo')).toBeNull();
+  });
+
+  it('shares the selected season and evening format with the own Elo journey', async () => {
+    const filters = {
+      period: 'all', format: 'all', period_label: 'Всё время', format_label: 'Все форматы',
+      seasons: [{ key: 'period:summer', label: 'Лето 2026', games: 8 }],
+      formats: [{ key: 'RATING', label: 'Рейтинговый', games: 6 }, { key: 'CASUAL', label: 'Клубный', games: 2 }],
+    };
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).includes('/summary')
+      ? response({ ...summary('self', 'Игрок'), filters: { ...filters,
+        period: String(input).includes('period=period%3Asummer') ? 'period:summer' : 'all',
+        format: String(input).includes('format=RATING') ? 'RATING' : 'all',
+      } })
+      : response({})));
+    render(<CanonicalPremiumPlayerProfile playerId="self" selfPlayerId="self" mode="self" initialTab="elo" />);
+    await screen.findByTestId('elo-journey-stub');
+    fireEvent.change(await screen.findByLabelText('Период статистики'), { target: { value: 'period:summer' } });
+    fireEvent.change(screen.getByLabelText('Формат вечера'), { target: { value: 'RATING' } });
+    await waitFor(() => expect(screen.getByTestId('elo-journey-stub').getAttribute('data-period')).toBe('period:summer'));
+    expect(screen.getByTestId('elo-journey-stub').getAttribute('data-format')).toBe('RATING');
   });
 
   it('keeps Learning as a first-level Progress category and supports old deep links', async () => {

@@ -67,7 +67,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
   return (
     <section data-testid="crm-week-events" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-center gap-2.5 text-[15px] font-bold text-text-primary"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent/10"><CalendarDays className="h-4 w-4 text-accent" /></span> {title} · {items.length}</div>
-      <div className="mt-2 space-y-1.5">
+      <div className="crm-week-list mt-2 space-y-1.5">
         {items.map((item) => (
           <button key={item.key} type="button" data-testid="crm-week-event" onClick={() => (item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id))}
             className="flex min-h-16 w-full items-center gap-2 rounded-[12px] bg-surface-2 px-3 py-2.5 text-left active:opacity-90">

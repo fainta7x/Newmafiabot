@@ -20,7 +20,7 @@ describe('«Ещё» structure', () => {
     render(<MoreCRM {...props} />);
     expect(screen.queryByTestId('crm-more-guide')).toBeNull();
     expect(screen.queryByTestId('crm-more-system')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Администрирование и настройки/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Служебное/ }));
     expect(screen.getByTestId('crm-more-guide').textContent).toContain('Ссылка-памятка для новичка');
     expect(screen.getByTestId('crm-more-system')).toBeDefined();
   });

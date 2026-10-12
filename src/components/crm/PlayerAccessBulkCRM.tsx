@@ -349,8 +349,8 @@ export function PlayerAccessBulkCRM() {
           const curates = normalizeCuratorAreas(row.curator_areas);
           return (
             <button key={row.id} type="button" data-testid="crm-access-bulk-row" aria-pressed={checked} onClick={() => toggle(row.id)}
-              className={`flex min-h-[64px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${index ? 'border-t border-white/[0.06]' : ''} ${checked ? 'bg-white/[0.08]' : 'active:bg-white/[0.04]'}`}>
-              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-[13px] font-bold ${checked ? 'border-white bg-white text-black' : 'border-white/30 text-transparent'}`}>✓</span>
+              className={`flex min-h-[64px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${index ? 'border-t border-white/[0.06]' : ''} ${checked ? 'bg-accent/15 shadow-[inset_3px_0_0_0_var(--ds-accent)]' : 'active:bg-white/[0.04]'}`}>
+              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-[13px] font-bold ${checked ? 'border-accent bg-accent text-white' : 'border-white/40 text-transparent'}`}>✓</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
                   <strong className="min-w-0 flex-1 truncate text-[14px] text-white">{row.nickname}</strong>

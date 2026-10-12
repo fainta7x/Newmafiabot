@@ -32,7 +32,7 @@ for (const width of [360, 390]) {
 
     await capture('crm-more', 'crm-more');
     await expect(page.getByTestId('crm-more-telegram')).toBeVisible();
-    await page.getByRole('button', { name: /Администрирование и настройки/ }).click();
+    await page.getByRole('button', { name: /Служебное/ }).click();
     await expect(page.getByTestId('crm-more-data')).toBeVisible();
     await page.screenshot({ path: info.outputPath(`crm-more-admin-${width}.png`), fullPage: true });
 

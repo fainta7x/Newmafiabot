@@ -63,6 +63,15 @@ export async function refreshVerifiedGoMafiaProfiles(
         snapshot.career.yearlyStats.sort((a,b) => (b.year ?? 0) - (a.year ?? 0));
         for (const item of snapshot.career.tournaments) {
           const prior = old?.tournaments?.find((t: any) => t.tournamentId === item.tournamentId);
+          if (item.scoreStatus === 'refresh_failed') {
+            for (const game of item.games) {
+              const oldGame = prior?.games?.find((g: any) => g.externalGameId === game.externalGameId && g.role === game.role && g.seat === game.seat);
+              if (oldGame?.score != null) {
+                game.score = oldGame.score; game.externalTableId = oldGame.externalTableId ?? null;
+                game.scoreRetrievedAt = oldGame.scoreRetrievedAt ?? previousSnapshot!.retrievedAt;
+              }
+            }
+          }
           if (item.scoreStatus === 'refresh_failed' && prior?.totalScore !== null && prior?.totalScore !== undefined) {
             item.totalScore = prior.totalScore;
             item.scoreRetrievedAt = prior.scoreRetrievedAt ?? previousSnapshot!.retrievedAt;

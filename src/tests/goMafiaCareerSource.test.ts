@@ -25,10 +25,24 @@ describe('source-backed public GoMafia career', () => {
     for (const [tid,data,score] of [['2765',cheaters,11.3],['1846',restart,7.1],['30',tula,2.2]] as const) {
       const appearance = all.find(t => t.tournamentId === tid)!;
       expect(enrichGoMafiaAppearance(appearance,data,'1202')).toMatchObject({totalScore:score,status:'results_published'});
+      const enriched=enrichGoMafiaAppearance(appearance,data,'1202');
+      expect(enriched.games.every(g=>g.score !== null && g.externalTableId !== null)).toBe(true);
+      expect(enriched.games.reduce((sum,g)=>sum+(g.score??0),0)).toBeCloseTo(score);
       expect(enrichGoMafiaAppearance(appearance,data,'999').totalScore).toBeNull();
       if (tid === '2765') expect(enrichGoMafiaAppearance(appearance,{...data,tournamentResultWithoutFinal:data.tournamentResultWithFinal},'1202').totalScore).toBe(11.3);
       expect(enrichGoMafiaAppearance(appearance,{...data,tournament:{...data.tournament,is_hidden_result:'1'}},'1202').totalScore).toBeNull();
     }
+  });
+  it('fails closed on ambiguous game rows and mismatched seats without copying current Elo', () => {
+    const appearance=parseGoMafiaHistory(history1,ref).tournaments.find(t=>t.tournamentId==='2765')!;
+    const duplicate=structuredClone(cheaters);
+    const table=duplicate.games[0].game[0];
+    table.table.push({...table.table[0]});
+    expect(enrichGoMafiaAppearance(appearance,duplicate,'1202').games[0].score).toBeNull();
+    const wrongSeat=structuredClone(cheaters);
+    wrongSeat.games[0].game[0].table[0].place=99;
+    expect(enrichGoMafiaAppearance(appearance,wrongSeat,'1202').games[0].score).toBeNull();
+    expect(enrichGoMafiaAppearance(appearance,{...cheaters,tournament:{...cheaters.tournament,is_hidden_result:'1'}},'1202').games.every(g=>g.score===null)).toBe(true);
   });
   it('imports all-time data with truthful filters instead of confusing the 2026 default with total career', () => {
     expect(parseGoMafiaStructuredStats(allStats,ref,'all','2026-10-12')).toMatchObject({year:null,totalGames:164,overallElo:1685.02,overallWinRatePercent:51,tournamentFilter:'Все турниры'});
@@ -46,6 +60,7 @@ describe('source-backed public GoMafia career', () => {
     const snapshot = await fetchPublicGoMafiaCareer(ref,read);
     expect(snapshot.career?.tournaments).toHaveLength(13);
     expect(snapshot.career?.yearlyStats.map(s=>s.year)).toEqual([2026,2025,2024,2023,2022]);
+    expect(snapshot.career?.tournaments.find(t=>t.tournamentId==='2765')?.games[0]).toMatchObject({score:-0.2,externalTableId:'76238'});
     expect(snapshot.career?.registrationsStatus).toBe('unavailable');
     expect(read).toHaveBeenCalledWith('/stats/1202?tab=history&page=2', undefined);
     const repeated = await fetchPublicGoMafiaCareer(ref,read);

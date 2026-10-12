@@ -15,7 +15,7 @@ export interface CareerAppearance {
   eloAfter: number | null;
   status: 'registered' | 'upcoming' | 'completed' | 'results_published' | 'unknown';
   sourceUrl: string;
-  games: Array<FederationGame & { gameNumber: number; seat: number | null; eloDelta: number | null }>;
+  games: Array<FederationGame & { gameNumber: number; seat: number | null; externalTableId: string | null; scoreRetrievedAt: string | null; eloDelta: number | null }>;
 }
 export interface GoMafiaCareer {
   tournaments: CareerAppearance[];

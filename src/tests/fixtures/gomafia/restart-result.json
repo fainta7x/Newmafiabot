@@ -11,5 +11,194 @@
       "place": "31",
       "sum": "7.10"
     }
+  ],
+  "games": [
+    {
+      "gameNum": 1,
+      "game": [
+        {
+          "table_id": 54588,
+          "table": [
+            {
+              "id": 1202,
+              "place": 8,
+              "role": "red",
+              "points": 0,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 2,
+      "game": [
+        {
+          "table_id": 54597,
+          "table": [
+            {
+              "id": 1202,
+              "place": 5,
+              "role": "red",
+              "points": 1.2,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 3,
+      "game": [
+        {
+          "table_id": 54603,
+          "table": [
+            {
+              "id": 1202,
+              "place": 6,
+              "role": "sheriff",
+              "points": 0,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 4,
+      "game": [
+        {
+          "table_id": 54619,
+          "table": [
+            {
+              "id": 1202,
+              "place": 9,
+              "role": "red",
+              "points": 1,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 5,
+      "game": [
+        {
+          "table_id": 54630,
+          "table": [
+            {
+              "id": 1202,
+              "place": 4,
+              "role": "don",
+              "points": 0,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 6,
+      "game": [
+        {
+          "table_id": 54635,
+          "table": [
+            {
+              "id": 1202,
+              "place": 1,
+              "role": "mafia",
+              "points": 0,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 7,
+      "game": [
+        {
+          "table_id": 54650,
+          "table": [
+            {
+              "id": 1202,
+              "place": 7,
+              "role": "sheriff",
+              "points": 0,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 8,
+      "game": [
+        {
+          "table_id": 54659,
+          "table": [
+            {
+              "id": 1202,
+              "place": 2,
+              "role": "don",
+              "points": 1.2,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 9,
+      "game": [
+        {
+          "table_id": 54669,
+          "table": [
+            {
+              "id": 1202,
+              "place": 3,
+              "role": "red",
+              "points": 1.2,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 10,
+      "game": [
+        {
+          "table_id": 54674,
+          "table": [
+            {
+              "id": 1202,
+              "place": 8,
+              "role": "mafia",
+              "points": 1.4,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "gameNum": 11,
+      "game": [
+        {
+          "table_id": 54685,
+          "table": [
+            {
+              "id": 1202,
+              "place": 10,
+              "role": "red",
+              "points": 1.1,
+              "elo": 1685.02
+            }
+          ]
+        }
+      ]
+    }
   ]
 }

@@ -55,7 +55,7 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
       return { source: 'gomafia' as const, externalGameId: `${ref.externalPlayerId}:${tid}:${gameNumber}`,
         externalPlayerId: ref.externalPlayerId, tournamentName: row.title.slice(0, 180), date: null,
         role: role ?? null, result: winner && team ? (winner === team ? 'win' as const : 'loss' as const) : null,
-        score: null, sourceUrl, gameNumber: gameNumber!, seat: number(game.place), eloDelta: number(game.elo) };
+        score: null, externalTableId: null, scoreRetrievedAt: null, sourceUrl, gameNumber: gameNumber!, seat: number(game.place), eloDelta: number(game.elo) };
     });
     if (new Set(games.map((g: FederationGame) => g.externalGameId)).size !== games.length) throw new Error('Duplicate GoMafia game number');
     return { tournamentId: tid, tournamentName: row.title.slice(0, 180), dateStart: start, dateEnd: end,
@@ -70,15 +70,32 @@ export function enrichGoMafiaAppearance(appearance: CareerAppearance, data: any,
   if (String(data?.tournament?.id) !== appearance.tournamentId) throw new Error('Tournament identity mismatch');
   const unavailable = { ...appearance, totalScore: null, scoreStatus: 'unavailable' as const, scoreRetrievedAt: new Date().toISOString() };
   if (String(data.tournament.is_hidden_result) === '1') return unavailable;
+  const games = appearance.games.map(game => {
+    const matches: Array<{ tableId: string; points: number | null }> = [];
+    for (const round of Array.isArray(data.games) ? data.games : []) {
+      if (number(round.gameNum) !== game.gameNumber) continue;
+      for (const table of Array.isArray(round.game) ? round.game : []) {
+        const tableId = id(table.table_id);
+        if (!tableId) continue;
+        for (const player of Array.isArray(table.table) ? table.table : []) {
+          const role = ({ red:'citizen', sheriff:'sheriff', mafia:'mafia', don:'don' } as Record<string,string>)[player.role];
+          if (String(player.id) === externalPlayerId && number(player.place) === game.seat && role === game.role)
+            matches.push({ tableId, points:number(player.points) });
+        }
+      }
+    }
+    return matches.length === 1 ? { ...game, score:matches[0].points, externalTableId:matches[0].tableId,
+      scoreRetrievedAt:new Date().toISOString() } : game;
+  });
   const finals = Array.isArray(data.tournamentResultWithFinal) ? data.tournamentResultWithFinal : [];
   const qualifying = Array.isArray(data.tournamentResultWithoutFinal) ? data.tournamentResultWithoutFinal : [];
   // The site exposes finalist and qualifying tables separately; one player may be in both.
   const finalRows = finals.filter((row: any) => String(row.user_id) === externalPlayerId);
   const rows = finalRows.length ? finalRows : qualifying.filter((row: any) => String(row.user_id) === externalPlayerId);
-  if (rows.length !== 1) return unavailable;
+  if (rows.length !== 1) return { ...unavailable, games };
   const row = rows[0];
   const place = number(row.place);
-  return { ...appearance, totalScore: number(row.sum), scoreRetrievedAt: new Date().toISOString(), scoreStatus: number(row.sum) === null ? 'unavailable' : 'available', place: place && Number.isInteger(place) && place > 0 ? place : appearance.place,
+  return { ...appearance, games, totalScore: number(row.sum), scoreRetrievedAt: new Date().toISOString(), scoreStatus: number(row.sum) === null ? 'unavailable' : 'available', place: place && Number.isInteger(place) && place > 0 ? place : appearance.place,
     status: data.tournament.status === 'completed' ? 'results_published' : 'unknown' };
 }
 
@@ -144,7 +161,7 @@ export async function fetchPublicGoMafiaCareer(ref: GoMafiaPlayerReference, read
   snapshot.career = { tournaments: tournaments.sort((a,b)=>b.dateStart.localeCompare(a.dateStart)), yearlyStats,
     historyTotal: initial.total, registrationsStatus: 'unavailable', limitations: [
       'Публичный профиль показывает сыгранные турниры. Автоматическое обнаружение будущей регистрации недоступно: в проверенных открытых карточках нет состава с ID игроков.',
-      'История игр содержит номер, роль, результат и изменение Elo; точная дата игры, её баллы и полный протокол в этом источнике отсутствуют.',
+      'Точная дата отдельной игры и полный протокол событий не опубликованы в используемых источниках. Баллы игры доступны только при однозначном совпадении игрока, номера игры и места в открытой таблице турнира.',
       ...(unavailableYears.length ? [`Не удалось обновить статистику за ${unavailableYears.join(', ')}; повторим при следующей синхронизации.`] : []),
       ...(missingScores ? [`Не удалось обновить итоговые баллы ${missingScores} турниров; повторим при следующей синхронизации.`] : []),
     ] };

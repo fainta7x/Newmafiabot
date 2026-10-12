@@ -57,11 +57,13 @@ describe('one federation writer on a real isolated SQLite database',()=>{
   });
   it('preserves previously sourced scores and annual statistics during enrichment failure',async()=>{
     await setup();const initial=snapshot(first);initial.career!.tournaments[0].totalScore=7.8;
+    Object.assign(initial.career!.tournaments[0].games[0],{score:-0.2,externalTableId:'76238',scoreRetrievedAt:first});
     initial.career!.yearlyStats=[parseGoMafiaStructuredStats(stats,ref,2026,first)];
     await refreshVerifiedGoMafiaProfiles(db,{now:new Date(first),fetchSnapshot:async()=>initial});
     await refreshVerifiedGoMafiaProfiles(db,{now:new Date('2026-10-12T20:00:00Z'),fetchSnapshot:async()=>{const failed=snapshot('2026-10-12T20:00:00Z');failed.career!.tournaments[0].scoreStatus='refresh_failed';return failed;}});
     const saved=JSON.parse((await db.get('SELECT snapshot_json FROM gomafia_player_snapshots'))!.snapshot_json);
     expect(saved.career.tournaments[0].totalScore).toBe(7.8);expect(saved.career.yearlyStats[0].retrievedAt).toBe(first);
+    expect(saved.career.tournaments[0].games[0]).toMatchObject({score:-0.2,externalTableId:'76238',scoreRetrievedAt:first});
   });
   it('bounds concurrent background/read refreshes to four profiles per database',async()=>{
     await setup();

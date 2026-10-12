@@ -62,10 +62,13 @@ def check_summary(repo: str, sha: str) -> tuple[list[str], bool, bool]:
     checks = api_get(f"/repos/{repo}/commits/{sha}/check-runs?per_page=100").get("check_runs", [])
     def pick(predicate):
         return next((c for c in checks if predicate(c.get("name", ""))), None)
+    codeql_js = pick(lambda name: name == "Analyze (javascript-typescript)")
+    codeql_py = pick(lambda name: name == "Analyze (python)")
     pairs = [
         ("CI / Release gate", pick(lambda name: name == "Release gate")),
         ("Gitleaks / Secret scan", pick(lambda name: name == "Secret scan")),
-        ("CodeQL", pick(lambda name: name.startswith("Analyze (") or "CodeQL" in name)),
+        ("CodeQL / TypeScript", codeql_js),
+        ("CodeQL / Python", codeql_py),
     ]
     lines = [f"• {label}: {check_state(check)}" for label, check in pairs]
     failed = any(c and c.get("status") == "completed" and c.get("conclusion") in ("failure", "timed_out", "cancelled", "action_required") for _, c in pairs)

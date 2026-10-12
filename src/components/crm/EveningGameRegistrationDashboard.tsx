@@ -319,17 +319,22 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <strong className="block text-[13px] text-text-primary">Ответы и игры</strong>
-          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">В рассылке: {audienceCount}. По умолчанию показываем только тех, по кому ещё нет решения.</span>
+          <h2 className="text-[16px] font-bold text-text-primary">Ответы игроков</h2>
+          <p className="mt-1 text-[12px] leading-5 text-text-secondary">Ответ, доставка анонса, личный контакт и игры — в одном списке.</p>
+          <p className="mt-1 text-[11px] text-text-muted">В рассылке: {audienceCount} · доставлено: {sentCount} · ошибок доставки: {failedCount}</p>
         </div>
         <button type="button" disabled={loading} onClick={() => void load()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {filterItems.map((item) => <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'unknown' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[10px] ${filter === item.id ? 'text-white/80' : 'text-text-muted'}`}>{item.label}</span></button>)}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Фильтр ответов и доставки">
+        {filterItems.map((item) => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'delivery' && item.count ? 'bg-danger-soft text-danger' : item.id === 'attention' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[11px] ${filter === item.id ? 'text-white/90' : 'text-text-muted'}`}>{item.label}</span></button>)}
       </div>
+      <label className="relative mt-3 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока по имени" aria-label="Найти игрока" className="mobile-field w-full pl-9" />
+      </label>
 
       {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
       {readonly ? <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Вечер завершён — запись доступна только для просмотра.</div> : null}
@@ -339,6 +344,8 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         {visibleRows.map((row) => {
           const busy = savingId === row.playerId || savingStatusIds.has(row.playerId);
           const editing = editingPlayerId === row.playerId;
+          const responseOpen = editingResponseId === row.playerId;
+          const chatUrl = chatUrlFor(row);
           const slotText = row.slots.length
             ? row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')
             : STATE_LABELS[row.state];
@@ -387,7 +394,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             </div> : null}
           </div>;
         })}
-        {!visibleRows.length ? <p className="py-5 text-center text-[11px] text-text-muted">В этой группе пока никого.</p> : null}
+        {!visibleRows.length ? <p className="py-5 text-center text-[12px] text-text-muted">{search.trim() ? 'По запросу никого не найдено.' : filter === 'attention' ? 'Сейчас нет игроков, которым нужен ответ.' : 'В этой группе пока никого.'}</p> : null}
       </div> : null}
     </section>
   );

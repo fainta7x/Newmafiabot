@@ -6,6 +6,13 @@ type Linked = {
   status: 'pending' | 'verified';
   updated_at: string;
 };
+/** The player types only the number after «/stats/»; a whole pasted link is cut down to that number. */
+export const goMafiaIdFromInput = (value: string) => {
+  const raw = value.trim();
+  if (/[/.:]/.test(raw)) return raw.match(/stats\/(\d{1,12})/)?.[1] ?? raw.replace(/\D/g, '').slice(0, 12);
+  return raw.replace(/\D/g, '').slice(0, 12);
+};
+
 export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false }: { playerId: string; isSelf: boolean; organizer?: boolean }) {
   const [link, setLink] = useState<Linked | null>(null);
   const [input, setInput] = useState('');
@@ -58,7 +65,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       if (!response.ok) throw new Error(body.error || 'Не удалось привязать GoMafia');
       setLink(body.link);
       setInput('');
-      setMessage(organizer ? 'Привязка подтверждена организатором.' : 'Ссылка сохранена. Организатор сможет подтвердить привязку.');
+      setMessage(body.link?.status === 'verified' ? 'Привязка подтверждена. Карьера подтянется автоматически.' : 'Запрос отправлен организатору — он получит уведомление и подтвердит привязку.');
     } catch (error: any) {
       setMessage(String(error?.message || 'Ошибка сохранения'));
     } finally {
@@ -74,10 +81,14 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       {link && <a className="text-xs text-amber-200 underline" href={link.profile_url} target="_blank" rel="noopener noreferrer">Открыть ↗</a>}
     </div>
     {(isSelf || organizer) && <div className="mt-3 space-y-2">
-      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'Ссылка GoMafia этого игрока или ID' : 'Ссылка на свой профиль GoMafia или его ID'}</label>
-      <input id="gomafia-player-url" value={input} onChange={e => setInput(e.target.value)}
-        placeholder="https://gomafia.pro/stats/123"
-        className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[.07] px-3 text-sm text-white" />
+      <label htmlFor="gomafia-player-url" className="block text-xs text-white/70">{organizer ? 'ID этого игрока на GoMafia' : 'Твой ID на GoMafia'}</label>
+      <div className="flex min-h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/[.07] focus-within:border-amber-200/60">
+        <span className="flex shrink-0 items-center bg-black/25 px-3 text-sm text-white/45">gomafia.pro/stats/</span>
+        <input id="gomafia-player-url" value={input} onChange={e => setInput(goMafiaIdFromInput(e.target.value))} inputMode="numeric" autoComplete="off"
+          placeholder="1202"
+          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-white outline-none" />
+      </div>
+      <p className="text-[11px] leading-4 text-white/40">Это число в конце адреса твоего профиля на gomafia.pro, например для gomafia.pro/stats/1202 пиши 1202. Целую ссылку тоже можно вставить, число возьмём сами.</p>
       <button type="button" onClick={() => void save()} disabled={busy || !input.trim()}
         className="min-h-11 rounded-xl bg-amber-200 px-4 text-sm font-semibold text-black disabled:opacity-50">
         {busy ? 'Сохраняем…' : link ? 'Обновить привязку' : 'Привязать GoMafia'}

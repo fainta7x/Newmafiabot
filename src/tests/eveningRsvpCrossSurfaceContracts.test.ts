@@ -12,7 +12,7 @@ import { isEveningGameRosterEligible } from '../lib/eveningDomain.ts';
  * NOT the desired future rule. Snapshotting their divergence lets a later
  * migration review its effects before touching reminders/cancellation/money.
  *
- * The tested paths are:
+ * The historical fixtures use the on-disk NOT NULL default 'unanswered'\n * together with legacy registration values, rather than inserting SQL NULL.\n *\n * The tested paths are:
  * organizerAgendaService.absenceItems, botRoutes./evenings/open,
  * eveningShortfallService post-start reconciliation,
  * clubAnalyticsService participantStats.
@@ -41,8 +41,8 @@ const rows = [
   { id: 'late-now', response: 'late', legacy: 'late', attendance: 'pending', arrival: 'unknown', canonical: 'late' },
   { id: 'stale-unanswered', response: 'unanswered', legacy: 'registered', attendance: 'pending', arrival: 'unknown', canonical: 'unanswered' },
   { id: 'stale-declined', response: 'declined', legacy: 'registered', attendance: 'pending', arrival: 'unknown', canonical: 'declined' },
-  { id: 'legacy-confirmed', response: null, legacy: 'confirmed', attendance: 'pending', arrival: 'unknown', canonical: 'going' },
-  { id: 'legacy-late', response: null, legacy: 'waitlist', attendance: 'pending', arrival: 'late', canonical: 'late' },
+  { id: 'legacy-confirmed', response: 'unanswered', legacy: 'confirmed', attendance: 'pending', arrival: 'unknown', canonical: 'going' },
+  { id: 'legacy-late', response: 'unanswered', legacy: 'waitlist', attendance: 'pending', arrival: 'late', canonical: 'late' },
   { id: 'walk-in', response: 'unanswered', legacy: 'invited', attendance: 'attended', arrival: 'unknown', canonical: 'unanswered' },
   { id: 'no-show', response: 'going', legacy: 'going', attendance: 'no_show', arrival: 'unknown', canonical: 'going' },
   { id: 'thinking', response: 'thinking', legacy: 'thinking', attendance: 'pending', arrival: 'unknown', canonical: 'thinking' },

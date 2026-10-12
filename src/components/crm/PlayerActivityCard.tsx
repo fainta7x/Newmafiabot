@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { actionLabel, screenLabel } from '../../lib/screenLabels.ts';
+import { russianPlural } from '../../lib/russianPlural.ts';
 
 type Activity = {
   days: number;
@@ -19,7 +20,7 @@ const dateTime = (value: string | null) => value && Number.isFinite(Date.parse(v
   ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
   : '—';
 const dayText = (day: string) => new Date(`${day}T12:00:00+03:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short', timeZone: 'Europe/Moscow' });
-const visitsWord = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'заход' : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? 'захода' : 'заходов');
+const visitsWord = (count: number) => russianPlural(count, 'заход', 'захода', 'заходов');
 
 /**
  * «Активность в приложении» in the CRM player card (owner request, 2026-10-05): when the player was last seen, how often he

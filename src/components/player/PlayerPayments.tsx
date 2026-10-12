@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
+import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
 
 type PaymentItem = {
   participant_id: string;
@@ -78,12 +79,7 @@ const PURPOSE_HINT: Record<PaymentPurpose['id'], string> = {
 };
 
 const rubles = (value: number) => `${Math.max(0, Math.trunc(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
-const dateLabel = (value: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
-};
+const dateLabel = formatPlayerGameDateTime;
 const statusLabel = (status: string) => {
   if (status === 'paid') return 'Оплачено';
   if (status === 'waived') return 'Бесплатно';

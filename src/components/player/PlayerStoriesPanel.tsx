@@ -2,6 +2,7 @@ import { countGames, countPlayers,   } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import type { PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import EveningVotingPanel from './EveningVotingPanel.tsx';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 
 type StoryGame = {
   game_key: string;
@@ -68,7 +69,7 @@ const timeText = (value: string | null) => {
 };
 
 const winnerText = (winner: 'red' | 'black' | null) => winner === 'red' ? 'Красные' : winner === 'black' ? 'Чёрные' : '—';
-const roleText = (role: PlayerGameDetailData['players'][number]['role']) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : '—';
+const roleText = (role: PlayerGameDetailData['players'][number]['role']) => getPlayerGameRoleLabel(role) ?? '—';
 
 const Avatar = ({ src, size = 40 }: { src: string | null | undefined; size?: number }) => src ? (
   <img src={src} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover" />

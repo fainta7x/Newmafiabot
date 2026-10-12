@@ -7,6 +7,7 @@ import { EveningGameProtocolModal } from '../crm/EveningGameProtocolModal.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import { TournamentGameSetup } from '../crm/tournaments/TournamentGameSetup.tsx';
 import TournamentLiveGameModal from './TournamentLiveGameModal.tsx';
+import { formatPlayerGameDateTime } from '../../lib/playerGameDate.ts';
 
 type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
@@ -45,15 +46,7 @@ export type PlayerJudgingDashboard = {
   tournament_games: JudgingTournamentGame[];
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    timeZone: 'Europe/Moscow',
-  }).format(date);
-};
+const formatDate = formatPlayerGameDateTime;
 
 const levelDescription: Record<JudgeLevel, string> = {
   none: 'Нет полномочий на самостоятельное ведение игр.',

@@ -33,7 +33,7 @@ describe('EveningParticipantsView invitation flow', () => {
     expect(screen.queryByText('Явка не отмечена')).toBeNull();
     expect(screen.queryByText('Оплачено')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /Кого звать на вечер/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Настройки базы рассылки/ }));
     expect(screen.getByTestId('invite-audience-manager')).toBeTruthy();
   });
 });

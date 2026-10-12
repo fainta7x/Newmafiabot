@@ -263,7 +263,7 @@ export default function OrganizerCommandCenter({
     const rows: Array<{ id: string; label: string; value: string; detail: string; tone: string; icon: React.ReactNode; action: () => void }> = [];
     if (unansweredCount > 0) rows.push({
       id: 'unanswered', label: 'Нет ответа', value: String(unansweredCount), detail: 'приглашённых ещё не ответили', tone: 'text-warning', icon: <MessageCircle className="h-4 w-4" />,
-      action: () => onOpenEveningSection(snapshot.evening.id, 'overview'),
+      action: () => onOpenEveningSection(snapshot.evening.id, 'participants'),
     });
     if (snapshot.mode === 'active') rows.push({
       id: 'present', label: 'Пришли', value: String(snapshot.stats.present), detail: 'фактически на месте', tone: 'text-success', icon: <UserCheck className="h-4 w-4" />,

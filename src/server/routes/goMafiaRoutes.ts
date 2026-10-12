@@ -115,7 +115,7 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
       return res.json({ status: 'pending', snapshot: null });
     const cached = await req.db.get<{ snapshot_json: string; retrieved_at: string }>(
       'SELECT snapshot_json, retrieved_at FROM gomafia_player_snapshots WHERE external_player_id=? AND scope=?',
-      [link.external_player_id, 'all'],
+      [link.external_player_id, 'default-period'],
     );
     let snapshot = cached ? JSON.parse(cached.snapshot_json) : null;
     let lastError: string | null = null;
@@ -127,7 +127,7 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
         if (!ref) throw new Error('Некорректная ссылка GoMafia');
         snapshot = await fetchPublicGoMafiaStats(ref);
         await req.db.run(`INSERT INTO gomafia_player_snapshots
-          (external_player_id, scope, snapshot_json, retrieved_at, source_url) VALUES (?, 'all', ?, ?, ?)
+          (external_player_id, scope, snapshot_json, retrieved_at, source_url) VALUES (?, 'default-period', ?, ?, ?)
           ON CONFLICT(external_player_id, scope) DO UPDATE SET
           snapshot_json=excluded.snapshot_json, retrieved_at=excluded.retrieved_at, source_url=excluded.source_url`,
           [link.external_player_id, JSON.stringify(snapshot), snapshot.retrievedAt, link.profile_url]);

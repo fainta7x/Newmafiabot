@@ -516,3 +516,18 @@ Duplicate safeguards (so the pause is not needed for normal work):
 ### Weekly development snapshot
 
 Use [DEVELOPMENT_SNAPSHOT.md](DEVELOPMENT_SNAPSHOT.md) for the reviewed data projection, scoped credentials, encrypted Actions artifact, first-run verification and local-only decryption. Never restore this projection into production or the shared sandbox.
+
+## GitHub PR → personal Telegram status (independent of Amvera)
+
+Workflow: `.github/workflows/pr-status-telegram.yml`. It uses the **existing club bot** via Telegram Bot API; it never starts a second bot, changes the webhook, calls production APIs or executes PR code. The read-only formatter is `scripts/telegram_pr_digest.py`.
+
+Configure **GitHub repository → Settings → Secrets and variables → Actions → New repository secret**:
+
+- `TELEGRAM_PR_BOT_TOKEN` — the same token as the production club bot's `TELEGRAM_BOT_TOKEN`, copied directly into the GitHub secret field (never commit or paste it into PR/comments/chat);
+- `TELEGRAM_PR_CHAT_ID` — the **one numeric personal chat/user ID** of the organizer, not a club group or comma-separated list. The recipient must already have opened the club bot with /start. The authorized organizer can identify their own numeric ID from their Telegram profile integration or from the bot's authenticated /start log; do not query getUpdates on the production webhook.
+
+After merging this feature into `main`, open **Actions → PR status to Telegram → Run workflow** to send a test message. Verify the message arrives in the private conversation **with the existing club bot**.
+
+Events: PR opened/reopened/new head/ready, completion of the CI workflow on a PR, PR merged/closed. The digest shows the actual current PR title/body summary, separate Release gate, Secret scan and both CodeQL jobs, plus a short list of the three latest previously merged PRs. A merge explicitly does **not** claim Amvera deployment. CI events for already-closed PRs are ignored to avoid duplicate final messages. Changes to an open PR may yield one additional pending message per new head. The notifier is not a required merge gate; failure to send cannot unblock a failed CI gate. Missing secrets cause a logged skip (no fake delivery success). GitHub's Auto-merge and branch protection remain authoritative.
+
+Focused offline test: `python -m unittest discover -s tests -p 'test_pr_telegram_digest.py'`.

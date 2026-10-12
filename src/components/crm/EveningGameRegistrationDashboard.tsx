@@ -349,24 +349,28 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           const slotText = row.slots.length
             ? row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')
             : STATE_LABELS[row.state];
-          return <div key={row.playerId} className="rounded-[13px] bg-surface-2 p-3">
-            <div className="flex items-start gap-2">
+          return <div key={row.playerId} data-testid={`evening-answer-row-${row.playerId}`} className="rounded-[13px] bg-surface-2 p-3">
+            <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <strong className="block truncate text-[12px] text-text-primary">{row.nickname}</strong>
-                <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">{row.slots.length ? `Игры: ${slotText}` : slotText}</span>
+                <strong className="block truncate text-[13px] font-bold text-text-primary">{row.nickname}</strong>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className={`rounded-[7px] px-2 py-1 text-[11px] font-semibold ${row.state === 'games' ? 'bg-success-soft text-success' : row.state === 'declined' ? 'bg-danger-soft text-danger' : row.state === 'unknown' ? 'bg-warning-soft text-warning' : 'bg-surface-1 text-text-secondary'}`}>{row.responseStatus === 'late' ? 'Придёт позже' : STATE_LABELS[row.state]}</span>
+                  <span className={`text-[11px] ${deliveryFailed(row) ? 'text-danger' : 'text-text-muted'}`}>{deliveryLabel(row)}</span>
+                </div>
+                {row.lastDeliveryError && deliveryFailed(row) ? <p className="mt-1 break-words text-[11px] text-danger">Причина: {row.lastDeliveryError}</p> : null}
+                {row.slots.length ? <p className="mt-1 text-[11px] text-text-muted">Игры: {row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')}</p> : null}
               </div>
-              <button type="button" disabled={busy} onClick={() => openSlotEditor(row)} className={`flex min-h-[44px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[10px] font-bold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>
-                Игры {editing ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </button>
             </div>
-
-            {!editing ? <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'going')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.responseStatus === 'going' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Будет</button>
-              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'late')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.responseStatus === 'late' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Позже</button>
-              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'thinking')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.state === 'thinking' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Думает</button>
-              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'declined')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.state === 'declined' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Не будет</button>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <button type="button" aria-expanded={responseOpen} disabled={busy || readonly} onClick={() => { setEditingResponseId(responseOpen ? null : row.playerId); setEditingPlayerId(null); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${responseOpen ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Ответ {responseOpen ? '▴' : '▾'}</button>
+              <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button>
+              {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-surface-1 px-2 text-[12px] font-semibold text-accent"><MessageCircle className="h-4 w-4" />Написать</a> : <span className="flex min-h-11 items-center justify-center rounded-[10px] bg-surface-1 px-2 text-center text-[11px] text-text-muted">Нет контакта</span>}
+            </div>
+            {responseOpen ? <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border-soft pt-3 sm:grid-cols-4" aria-label={`Ответ ${row.nickname}`}>
+              {([
+                ['going', 'Иду'], ['late', 'Приду позже'], ['thinking', 'Пока думаю'], ['declined', 'Не иду'],
+              ] as const).map(([status, label]) => <button key={status} type="button" aria-pressed={row.responseStatus === status} disabled={busy || readonly} onClick={() => void setStatus(row, status)} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${row.responseStatus === status ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>{label}</button>)}
             </div> : null}
-
             {editing ? <div className="mt-3 border-t border-border-soft pt-3">
               <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
                 <span>Точные игры</span>

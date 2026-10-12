@@ -138,33 +138,38 @@ describe('CRM-PAY-003-R2 evening-specific fee exemptions', () => {
     expect(Number(duplicateRows?.count || 0)).toBeLessThanOrEqual(2);
   });
 
-  describe('who plays without a fee (owner decision 2026-10-06)', () => {
+  describe('who plays without a fee (owner decisions 2026-10-06 and 2026-10-12)', () => {
     const dueOf = async (participantId: string) => (await db.get<any>('SELECT amount_due FROM evening_participants WHERE id=?', [participantId]))?.amount_due;
     const assign = (ids: { eveningId: string; playerId: string }) => db.run(
       'INSERT INTO evening_staff_assignments (evening_id, organizer_player_id, assigned_at, updated_at) VALUES (?,?,?,?)', [ids.eveningId, ids.playerId, now, now],
     );
 
-    it('charges the assigned organizer of an evening after the change like everybody else', async () => {
-      const ids = await seedPlayedParticipant({ suffix: 'new-rule-organizer', clubRole: 'organizer' });
+    it('never charges the organizer assigned to the evening, also when he plays, on a recent and on an old evening', async () => {
+      const recent = await seedPlayedParticipant({ suffix: 'new-rule-organizer', clubRole: 'organizer' });
+      await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id=?", [recent.eveningId]);
+      await assign(recent);
+      await reconcileRegularEveningPayments(db, recent.eveningId);
+      expect(await dueOf(recent.participantId)).toBe(0);
+
+      const old = await seedPlayedParticipant({ suffix: 'old-rule-organizer', clubRole: 'organizer' });
+      await assign(old);
+      await reconcileRegularEveningPayments(db, old.eveningId);
+      expect(await dueOf(old.participantId)).toBe(0);
+    });
+
+    it('still charges a player who is not the assigned organizer of that evening, a judge included', async () => {
+      const ids = await seedPlayedParticipant({ suffix: 'plain-player', clubRole: 'organizer' });
       await db.run("UPDATE game_evenings SET starts_at='2026-10-09T20:00:00+03:00' WHERE id=?", [ids.eveningId]);
-      await assign(ids);
       await reconcileRegularEveningPayments(db, ids.eveningId);
       expect(await dueOf(ids.participantId)).toBe(100);
     });
 
-    it('keeps the assigned organizer of an evening before the change exempt, so closed evenings are not charged afterwards', async () => {
-      const ids = await seedPlayedParticipant({ suffix: 'old-rule-organizer', clubRole: 'organizer' });
-      await assign(ids);
-      await reconcileRegularEveningPayments(db, ids.eveningId);
-      expect(await dueOf(ids.participantId)).toBe(0);
-    });
-
-    it('labels exemptions by the same rule: owner always, the assigned organizer only on older evenings', () => {
-      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', 'org', 'org')).toBe(false);
+    it('labels exemptions by the same rule: the owner always, the assigned organizer of that evening', () => {
+      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', 'org', 'org')).toBe(true);
       expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', PRIMARY_ORGANIZER_PLAYER_ID, 'org')).toBe(true);
       expect(isRegularFeeFreeByStaffRule('2026-10-02T21:00:00+03:00', 'org', 'org')).toBe(true);
-      expect(isRegularFeeFreeByStaffRule('2026-10-02T21:00:00+03:00', 'other', 'org')).toBe(false);
-      expect(isRegularFeeFreeByStaffRule('not a date', 'org', 'org')).toBe(false);
+      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', 'other', 'org')).toBe(false);
+      expect(isRegularFeeFreeByStaffRule('2026-10-09T20:00:00+03:00', 'org', null)).toBe(false);
     });
 
     it('never charges the club owner', async () => {

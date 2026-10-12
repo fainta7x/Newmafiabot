@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-12 · Bug hunt: the organizer of the evening was charged on a regular evening
+
+Scope: owner report — on the evening of 9 October the organizer played 4 games on a regular (CASUAL) evening and an accrual appeared although he had gifted himself the evening; the owner expects the organizer never to be charged. Traced through `isRegularFeeFreeByStaffRule` and its callers (`reconcileRegularEveningPayments`, the CRM label in `eveningStaffRoutes.ts`, `closedEveningPaymentService.ts`).
+- **[fixed in PR, not yet merged/deployed/verified]** `src/server/services/eveningPaymentPricingService.ts`: the 2026-10-06 rule exempted only the club owner (the assigned organizer only for evenings before that date), so the assigned organizer was charged 100 ₽ per played game. Now the club owner and the organizer assigned to the evening are fee-free on regular evenings with no date limit; the judge and everybody else pay. Tests: `crmPay003R2FeeExemptions.test.ts`.
+- **[open, to verify after the deploy]** The previously accrued debt of the 9 October evening is corrected only when the evening is recalculated (opening its payments or closing): an ordinary ledger adjustment, history not rewritten. Other organizers charged since 2026-10-06 change the same way.
+- **[open, not investigated]** Why the manual «Подарить вечер» of the owner did not remove the accrual (possibly the gift was set on a closed evening after the debt entry); not reproduced because production data is not available here.
+
 ## 2026-10-12 · Player entity P4 — contact-status compatibility read (scoped)
 
 **Scope audited before any code change:** `src/lib/playerUtils.ts:getCanInviteStatus`, `src/server/routes/playersRoutes.ts` list/detail/invite guard, `src/server/services/eveningAnnouncementTrackingService.ts` outreach selector, `playerTokensRoutes.ts` player-create writer, and `playerInvitationEligibilityService.ts` SQL identity/eligibility reads.

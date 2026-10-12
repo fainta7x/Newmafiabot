@@ -8,6 +8,10 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 ## Existing-product UX audit and improvement — ACTIVE (owner approval 2026-10-12)
 
+**Owner UX correction (2026-10-12, active branch `fix/ux-single-evening-answers-worklist`, NOT YET VERIFIED OR MERGED):** «Сегодня → Ответы» still opens the evening/route for the owner; root is the URL-only popstate helper not preserving mounted CRM section state. The owner requires one consolidated «Ответы» list instead of separate quick response, «Написать игрокам лично» and failed/unsent invitation lists. The branch routes Today through the real CRM state and combines RSVP, delivery status/error, personal Telegram chat and exact game slot edits in the existing list, removing redundant contacts list; keeps global mailing preferences secondary. Focused React tests and full CI pending. **Do not claim this live bug fixed until merged and deployed.**
+
+
+
 **Scope:** a complete user-path and screen audit of the *existing* Player Cabinet, Organizer CRM, games/judging, Wallet and Poker: navigation correctness, actions and state after saving, clarity of copy/status, mobile density and visual hierarchy, engagement from actual stats and game results. **No new product modules.** Every finding must trace to a mounted source/action in `docs/AUDIT_LOG.md`; fix high-confidence problems in small independent PRs with focused tests and 390px preview before touching risky Live Game, finance or identity writers. Claude's concurrent work must be preserved.
 
 **Prioritized concrete queue (verify latest main before acting):**

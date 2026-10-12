@@ -1,6 +1,7 @@
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
 import { normalizeRole, normalizeWinner } from './clubGameAnalyticsService.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
+import { isCompletedClubGamePayload } from './completedClubGame.ts';
 
 /**
  * Finished games with their chronology, in the shape the statistics read (`src/lib/gameStatistics.ts`): club evening
@@ -31,7 +32,7 @@ export async function loadStatGames(db: any, options: { sinceMs?: number | null;
   `, limit ? [since,until,limit] : [since,until]);
   for (const row of clubRows) {
     const payload = parse(row.protocol_text);
-    if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
+    if (!isCompletedClubGamePayload(payload)) continue;
     const date = new Date(String(row.completed_at || row.created_at || row.game_date || row.evening_date || ''));
     if (!Number.isFinite(date.getTime())) continue;
     if (options.sinceMs && date.getTime() < options.sinceMs) continue;

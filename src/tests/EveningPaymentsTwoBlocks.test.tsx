@@ -31,6 +31,17 @@ describe('evening payments: two blocks and a direct route (owner, 2026-10-12)', 
     expect(unpaid.compareDocumentPosition(paid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('sums what is still owed and what was really received, not the price list', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json(payload([
+      row('a', 'Аня', { amount_paid: 100 }),
+      row('c', 'Вера', { payment_status: 'paid', amount_paid: 350 }),
+    ]))));
+    render(<EveningPaymentsPanel eveningId="e1" />);
+    expect((await screen.findByTestId('evening-payments-group-unpaid')).textContent).toMatch(/200/);
+    expect(screen.getByTestId('evening-payments-group-unpaid').textContent).not.toMatch(/300/);
+    expect(screen.getByTestId('evening-payments-group-paid').textContent).toMatch(/350/);
+  });
+
   it('keeps one flat list for a chip filter and for a search', async () => {
     vi.stubGlobal('fetch', vi.fn(() => json(payload([row('a', 'Аня'), row('c', 'Вера', { payment_status: 'paid', amount_paid: 300 })]))));
     render(<EveningPaymentsPanel eveningId="e1" />);

@@ -188,10 +188,12 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
       else if (item.payment_status === 'paid' || Number(item.amount_paid || 0) >= due) paidItems.push(item);
       else unpaid.push(item);
     }
-    const sum = (items: PaymentParticipant[]) => items.reduce((total, item) => total + Math.max(0, Number(item.amount_due || 0)), 0);
+    // The money still owed by the debtors, and the money actually received from those who paid (not the price list).
+    const owed = (items: PaymentParticipant[]) => items.reduce((total, item) => total + Math.max(0, Number(item.amount_due || 0) - Math.max(0, Number(item.amount_paid || 0))), 0);
+    const received = (items: PaymentParticipant[]) => items.reduce((total, item) => total + Math.max(0, Number(item.amount_paid || 0)), 0);
     return [
-      { id: 'unpaid', title: 'Не оплатили', tone: 'text-danger', items: unpaid, amount: sum(unpaid) as number | null },
-      { id: 'paid', title: 'Оплатили', tone: 'text-success', items: paidItems, amount: sum(paidItems) as number | null },
+      { id: 'unpaid', title: 'Не оплатили', tone: 'text-danger', items: unpaid, amount: owed(unpaid) as number | null },
+      { id: 'paid', title: 'Оплатили', tone: 'text-success', items: paidItems, amount: received(paidItems) as number | null },
       { id: 'free', title: 'Без оплаты', tone: 'text-text-muted', items: free, amount: null as number | null },
     ];
   })();

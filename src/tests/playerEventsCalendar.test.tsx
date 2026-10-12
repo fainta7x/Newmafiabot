@@ -3,10 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../components/player/PlayerEventSlotDetail.tsx', () => ({
-  default: ({ event, onSaved }: { event: { title: string }; onSaved: () => void }) => (
+  default: ({ event, onSaved, onFirstApplication }: { event: { title: string }; onSaved: () => void; onFirstApplication: () => void }) => (
     <div>
       <div>DETAIL:{event.title}</div>
       <button type="button" onClick={onSaved}>REFRESH_EVENT</button>
+      <button type="button" onClick={onFirstApplication}>GO_TO_FIRST_APPLICATION</button>
     </div>
   ),
 }));
@@ -31,6 +32,35 @@ describe('PlayerEventsCalendar', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it('returns from an evening directly to first-application choices and focuses them', async () => {
+    const scrollIntoView = vi.fn();
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({ events: [event], novice_state: {
+          player: { club_stage: 'NEW', game_level: 'unrated' }, applications: [],
+          novice_visits: 0, free_visits_remaining: 2, next_novice_price_per_game: 200,
+          can_self_register: false,
+        } }),
+      } as Response);
+      const onEventChange = vi.fn();
+      render(<PlayerEventsCalendar onEventChange={onEventChange} />);
+      const buttons = await screen.findAllByRole('button', { name: /Пятничная игра/ });
+      fireEvent.click(buttons[0]);
+      expect(await screen.findByText('DETAIL:Пятничная игра')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'GO_TO_FIRST_APPLICATION' }));
+      const onboarding = await screen.findByRole('region', { name: 'Первая заявка' });
+      await waitFor(() => expect(document.activeElement).toBe(onboarding));
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+      expect(screen.getByRole('button', { name: /Я новичок или почти не играл/ })).toBeTruthy();
+      expect(onEventChange).toHaveBeenLastCalledWith(null);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
   });
 
   it('opens event detail after a click', async () => {

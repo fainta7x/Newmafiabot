@@ -36,7 +36,8 @@ export const eloJourneyChartSummary = (
   // lifetime seed: its shape and the season delta must represent the same games.
   const chartStart = scoped ? events[0]?.elo_before ?? current : seed;
   const values = [chartStart, ...events.map((event) => event.elo_after)].filter(Number.isFinite);
-  const net = events.length ? events[events.length - 1].elo_after - chartStart : 0;
+  // Format filters may skip intervening rated games. Only the selected games' own deltas belong in the total.
+  const net = events.reduce((sum, event) => sum + (event.elo_after - event.elo_before), 0);
   return {
     chart_start: chartStart,
     games: events.length,

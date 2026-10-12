@@ -47,3 +47,15 @@ If browser/WebView autoplay protection blocks a later automatic start, the contr
 ## Next audio block
 
 Speech recording, Replay audio and live WebRTC audio are intentionally separate from this v1 and can be added without changing the role-deal/music storage model.
+
+## Poker table sound feedback (opt-in)
+
+The poker table uses quiet synthesized sounds from the browser's Web Audio API, **not** a downloaded/paid/licensed sound pack. No external file requests, storage migrations or server writes are needed.
+
+- Cards: a soft paper-like sound on a new deal and when board cards arrive.
+- Chips: short chip clicks after a bet, raise, call or blind; not after check/fold.
+- Turn: a short two-note cue when it becomes the viewer's turn.
+- Timer: two quiet ticks when the viewer's remaining time first crosses five seconds.
+- Pot: two subdued notes when a hand is finished.
+
+The speaker control next to **История** is off by default and persists on/off locally. Turning it on is the explicit browser gesture that unlocks audio. Turning it off silences all future cues; no cue plays while the page is hidden. The detector reads actual server hand-state transitions, not every polling response; mounting a table, reconnecting or reloading never replays earlier history. Browser/WebView restrictions may still block sound; poker actions must always work without audio. Test a real mobile browser and Telegram WebView after deployment.

@@ -1,6 +1,11 @@
 import type { FederationGame } from './gomafiaExternalGames.ts';
 import type { GoMafiaPublicSnapshot } from './gomafiaExternalProfile.ts';
 
+export type GoMafiaNominationKey = 'best_red' | 'best_mafia' | 'best_don' | 'best_sheriff' | 'mvp';
+export const GOMAFIA_NOMINATIONS: Record<GoMafiaNominationKey, string> = {
+  best_red: 'Лучший мирный', best_mafia: 'Лучшая мафия', best_don: 'Лучший дон', best_sheriff: 'Лучший шериф', mvp: 'MVP турнира',
+};
+
 export interface CareerAppearance {
   tournamentId: string;
   tournamentName: string;
@@ -15,6 +20,8 @@ export interface CareerAppearance {
   eloAfter: number | null;
   status: 'registered' | 'upcoming' | 'completed' | 'results_published' | 'unknown';
   sourceUrl: string;
+  /** Nominations of the tournament page in which this player's exact federation ID is named (rank = position in the published list). */
+  nominations?: Array<{ key: GoMafiaNominationKey; rank: number }>;
   games: Array<FederationGame & { gameNumber: number; seat: number | null; externalTableId: string | null; scoreRetrievedAt: string | null; eloDelta: number | null }>;
 }
 export interface GoMafiaCareer {

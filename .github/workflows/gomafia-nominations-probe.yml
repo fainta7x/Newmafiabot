@@ -1,0 +1,54 @@
+name: GoMafia nominations probe (temporary)
+
+# One-off, read-only check of the PUBLIC GoMafia pages: for the player 1202's tournaments, which nominations name him (and at which
+# position of the list). Prints tournament, place, nomination key and position only. Remove after the check.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/gomafia-nominations-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Nominations of player 1202
+        run: |
+          cat > probe.mjs <<'JS'
+          const UA = { 'user-agent': 'Mozilla/5.0 (compatible; 2la-noire-probe)' };
+          const PLAYER = '1202';
+          const KEYS = ['best_red', 'best_mafia', 'best_don', 'best_sheriff', 'mvp'];
+          const next = async (url) => {
+            const html = await (await fetch(url, { headers: UA })).text();
+            const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+            return m ? JSON.parse(m[1])?.props?.pageProps?.serverData : null;
+          };
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const history = [];
+          for (const page of [1, 2]) {
+            const data = await next(`https://gomafia.pro/stats/${PLAYER}${page > 1 ? `?tab=history&page=${page}` : ''}`);
+            for (const row of data?.history ?? []) if (!history.some((h) => h.id === row.id)) history.push(row);
+            await sleep(400);
+          }
+          console.log('appearances:', history.length);
+          let named = 0;
+          for (const row of history) {
+            const data = await next(`https://gomafia.pro/tournament/${row.id}`);
+            await sleep(400);
+            const lists = KEYS.map((key) => {
+              const list = Array.isArray(data?.nominations?.[key]) ? data.nominations[key] : [];
+              return { key, size: list.length, rank: list.findIndex((item) => String(item?.user?.id) === PLAYER) + 1 };
+            });
+            const mine = lists.filter((l) => l.rank > 0);
+            named += mine.length;
+            console.log(`${row.date_start} | place ${row.place} | ${String(row.title).slice(0, 48)} | lists: ${lists.map((l) => `${l.key}:${l.size}`).join(' ')} | named: ${mine.map((l) => `${l.key}#${l.rank}`).join(', ') || '-'} | history.nominations=${JSON.stringify(row.nominations)}`);
+          }
+          console.log('total nominations naming the player:', named);
+          JS
+          node probe.mjs

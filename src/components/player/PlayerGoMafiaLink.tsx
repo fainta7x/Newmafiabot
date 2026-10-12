@@ -11,6 +11,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [career, setCareer] = useState<any>(null);
   useEffect(() => {
     const abort = new AbortController();
     setLink(null);
@@ -20,6 +21,17 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       .catch(() => { /* External profile link is optional; do not block a player's profile. */ });
     return () => abort.abort();
   }, [playerId]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/player/gomafia/players/' + encodeURIComponent(playerId) + '/career',
+      { credentials: 'include', signal: controller.signal })
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setCareer(data); })
+      .catch(() => { /* External data never blocks the club profile. */ });
+    return () => controller.abort();
+  }, [playerId, link?.external_player_id, link?.status]);
+  const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
+  const snap = career?.snapshot;
   const save = async () => {
     setBusy(true);
     setMessage('');
@@ -41,7 +53,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   };
   return <section data-testid="player-gomafia-link" className="rounded-2xl border border-white/10 bg-white/[.04] p-4">
     <div className="flex items-start justify-between gap-3">
-      <div><strong className="text-sm">GoMafia · Турнирная карьера</strong>
+      <div><strong className="text-sm">Спортивная карьера</strong>
         <p className="mt-1 text-xs text-white/55">{link
           ? link.status === 'verified' ? 'Привязка подтверждена' : 'Ожидает подтверждения организатора'
           : 'Профиль пока не привязан'}</p></div>
@@ -58,6 +70,19 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       </button>
       {message && <p role="status" className="text-xs text-white/70">{message}</p>}
     </div>}
-    <p className="mt-2 text-[11px] text-white/40">Внешние турниры и Elo будут показаны отдельно от клубных после подключения синхронизации.</p>
+    {snap && <div data-testid="gomafia-federation-stats" className="mt-3 space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.overallElo)}</strong><div className="text-xs text-white/55">Elo</div></div>
+        <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{stat(snap.totalGames)}</strong><div className="text-xs text-white/55">Игры</div></div>
+        <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong>{snap.overallWinRatePercent == null ? '—' : String(snap.overallWinRatePercent) + '%'}</strong><div className="text-xs text-white/55">Винрейт</div></div>
+      </div>
+      <div className="grid grid-cols-2 gap-1 text-xs text-white/65">
+        <span>Мирный: {stat(snap.roleGames?.citizen)}</span><span>Шериф: {stat(snap.roleGames?.sheriff)}</span>
+        <span>Мафия: {stat(snap.roleGames?.mafia)}</span><span>Дон: {stat(snap.roleGames?.don)}</span>
+      </div>
+      <p className="text-xs text-white/45">Данные GoMafia · Обновлено {new Date(snap.retrievedAt).toLocaleDateString('ru-RU')}</p>
+    </div>}
+    {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
+    <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
   </section>;
 }

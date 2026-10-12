@@ -1,12 +1,14 @@
 # 2LA Noire — Current Project State
 
-## GoMafia public player-statistics integration — DISCOVERY / PHASE 0 (owner request 2026-10-12)
+## GoMafia external tournament career — PHASE 1 IMPLEMENTED IN PR #852 (owner approval 2026-10-12)
 
-Owner wants to gather publicly available GoMafia player statistics for existing club players. GoMafia displays stable-looking public player URLs `https://gomafia.pro/stats/<id>`, ELO, games, role mix and win rates, but **no official documented public API or permitted bulk-data contract has been confirmed**. Do not infer a private API from browser requests and do not automate crawling until access method, limits and terms are checked.
+Goal: a self-service or organizer-linked GoMafia profile, tournament games, externally sourced career statistics, and an overall ranking covering both club and external competitive play.
 
-This first, isolated PR adds `src/lib/gomafiaExternalProfile.ts` with a strict explicit-profile-ID parser (no nickname-based auto-linking or arbitrary URLs), separately sourced typed read-only snapshot contract, and focused regressions. **No production DB migration, player merge, web scraping, network fetch or UI sync has been introduced.**
+PR #852 currently adds a strictly validated GoMafia /stats/ID parser, typed external-stat snapshot model, **additive** SQLite tables for source identities/snapshots/external game records, authenticated self-claim API (`PUT /api/player/gomafia/me`) and organizer verification API (`PUT /api/player/gomafia/organizer/:playerId`), plus a player-profile link panel. Self-claims remain `pending` until verified; duplicate external IDs cannot link to two club players. Existing internal Elo, tournament games, trophies, club scoring and profile identities are untouched. The organizer API is wired but needs a dedicated CRM control in a subsequent UI slice.
 
-Next approved integration slices to discuss before work: (1) link `GoMafia ID` to a player only after the organizer/player explicitly confirms matching identities; (2) choose supported provider access (official cooperation/API where available; otherwise limited and compliant public HTML extraction only if allowed), rate limits, stale/failure states and snapshot provenance; (3) display *external* GoMafia statistics in a separate section of the player profile with last-refresh timestamp, not mixed into local club ELO, matches or achievements. Require focused security/parsing tests and UI review. No bulk historical game import without provenance and deduplication controls.
+**Not yet implemented or verified:** pulling real external tournament games/statistics into snapshots, displaying those game rows in the app, external-to-local same-game deduplication, and the combined rating calculation. Public GoMafia pages visibly list player totals, role statistics, ELO, and sometimes an 'История игр' area. A documented official public API/permission for automated extraction is not confirmed. Do not invent an endpoint or import games via undocumented bulk scraping without checking provider rules/limits. Integration records retain external game IDs and an optional local-match key for future deduplication. Combined leaderboard needs an owner-approved normalization/formula before implementation: DO NOT add GoMafia Elo to club Elo directly.
+
+CI and deployment of #852 must be checked separately. Schema is additive and uses a separate GoMafia namespace, without overwriting production player records.
 
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { getEveningResponse } from '../lib/eveningResponse.ts';
 import {
@@ -80,6 +81,30 @@ async function readSqlIds(db: DatabaseWrapper, predicate: string): Promise<strin
 }
 
 describe('RSVP contracts across server reads (diagnostic, no production changes)', () => {
+  it.each([
+    [
+      '../server/services/organizerAgendaService.ts',
+      "ep.response_status IN ('going', 'late') OR ep.registration_status IN ('going', 'late', 'registered', 'confirmed')",
+    ],
+    [
+      '../server/routes/botRoutes.ts',
+      "ep.response_status IN ('going', 'late')",
+    ],
+    [
+      '../server/services/eveningShortfallService.ts',
+      "response_status IN ('going','late') AND attendance_status = 'pending'",
+    ],
+    [
+      '../server/services/clubAnalyticsService.ts',
+      "COALESCE(ep.response_status,'')<>'declined' AND (ep.response_status IN ('going','late') OR ep.registration_status IN ('going','confirmed','registered') OR ep.attendance_status IN ('attended','no_show'))",
+    ],
+  ])('keeps the SQL policy snapshot tied to its actual source: %s', (path, clause) => {
+    // If an owner changes this query, review the synthetic comparison instead of
+    // silently treating a copied SQL clause as the application's current truth.
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    expect(source).toContain(clause);
+  });
+
   it('pins the canonical meaning of stored current/legacy responses', async () => {
     const db = newDatabase();
     await seedAuditEvening(db);

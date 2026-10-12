@@ -22,6 +22,7 @@ import {
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
+import { formatPlayerGameDate } from '../../lib/playerGameDate.ts';
 
 type AwardFilter = 'place_1' | 'place_2' | 'place_3' | 'nominations';
 
@@ -43,12 +44,7 @@ const historicalNominationOptions: Array<{ key: PlayerAwardKey; label: string }>
   { key: 'nomination_other', label: 'Другая номинация' },
 ];
 
-const fmtDate = (value: string | null | undefined) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
-};
+const fmtDate = formatPlayerGameDate;
 
 const emptyAwardStats: PlayerAwardStats = {
   firstPlaces: 0,

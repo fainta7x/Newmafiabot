@@ -1,12 +1,8 @@
 import React from 'react';
 import { type PlayerGameHistoryItem } from '../../lib/api.ts';
+import { formatPlayerGameDate } from '../../lib/playerGameDate.ts';
 
-const fmtDate = (value?: string | null) => {
-  if (!value) return 'Дата не указана';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
-};
+const fmtDate = formatPlayerGameDate;
 
 const roleInfo = (role: PlayerGameHistoryItem['role']) => {
   if (role === 'don') return { label: 'Дон', icon: '🎩', className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' };

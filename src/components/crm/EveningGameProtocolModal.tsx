@@ -24,6 +24,7 @@ import {
   getTechFoulChange,
   type TechFoulType,
 } from './tournaments/protocol/protocolDisciplineUtils';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 
 interface EveningGameProtocolModalProps {
   game: ClubGameRecord;
@@ -34,13 +35,7 @@ interface EveningGameProtocolModalProps {
 
 type Tab = 'players' | 'votes' | 'nights' | 'summary';
 
-const roleLabel = (role: string | null) => {
-  if (role === 'citizen') return 'Мирный';
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Не выбрана';
-};
+const roleLabel = (role: string | null) => getPlayerGameRoleLabel(role) ?? 'Не выбрана';
 
 const EXIT_LABELS: Record<string, string> = { alive: 'в игре', killed: 'убит', voted_zero_round: 'заголосован в нулевом', voted_day: 'заголосован', removed: 'удалён' };
 const exitLabel = (value: unknown) => EXIT_LABELS[String(value || '')] || 'в игре';

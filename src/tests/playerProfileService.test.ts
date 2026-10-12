@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildPlayerProfileStats, PlayerGameHistoryItem } from '../server/services/playerProfileService.ts';
 
 const game = (patch: Partial<PlayerGameHistoryItem> = {}): PlayerGameHistoryItem => ({
-  id: Math.random().toString(), source: 'club', evening_id: 'e1', tournament_id: null,
+  id: Math.random().toString(), source: 'club', evening_id: 'e1', tournament_id: null, evening_format: 'CASUAL',
   title: 'Вечер', date: '2026-08-01T20:00:00.000Z', game_number: 1, global_game_number: 1,
   table_name: 'Основной', judge_name: null, seat_number: 1, role: 'citizen', team: 'red',
   winner_team: 'red', status: 'completed', won: true, exit_type: 'alive', regular_fouls: 0,

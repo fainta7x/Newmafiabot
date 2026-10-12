@@ -52,11 +52,18 @@ export interface PlayerRevealStats {
   blackGames: number; blackReveals: number; blackRevealsDon: number; blackRevealsMafia: number; blackCovers: number; blackAnnouncedBlackOnRed: number;
   /** Red player: voting days where a revealed candidate stood, and his vote for each kind of revealed candidate. */
   townChances: number; townVotesSheriff: number; townVotesMafia: number; townVotesDon: number;
+  /**
+   * The Don's reveals (owner, 2026-10-12). Games as the Don; games where a plain mafia partner revealed while he did not («отдал вскрытие»);
+   * what he announced as black / red: by the real colour of the player named; and per named player id / per pair of players named black together.
+   */
+  donGames: number; donHandedReveal: number; donNamedBlackRed: number; donNamedBlackBlack: number; donNamedRedBlack: number; donNamedRedRed: number;
+  donTargets: Record<string, { black: number; red: number }>; donBundles: Record<string, number>;
 }
 export const emptyRevealStats = (): PlayerRevealStats => ({
   sheriffGames: 0, sheriffReveals: 0, sheriffCheckedDon: 0, sheriffCheckedMafia: 0, sheriffCheckedRed: 0,
   blackGames: 0, blackReveals: 0, blackRevealsDon: 0, blackRevealsMafia: 0, blackCovers: 0, blackAnnouncedBlackOnRed: 0,
   townChances: 0, townVotesSheriff: 0, townVotesMafia: 0, townVotesDon: 0,
+  donGames: 0, donHandedReveal: 0, donNamedBlackRed: 0, donNamedBlackBlack: 0, donNamedRedBlack: 0, donNamedRedRed: 0, donTargets: {}, donBundles: {},
 });
 
 const isBlack = (role: StatRole | null | undefined) => role === 'mafia' || role === 'don';
@@ -75,6 +82,11 @@ export function buildRevealStats(games: StatGame[], memo?: ActionFactsMemo): Map
     for (const seat of seated) {
       const stats = of(seat.playerId!);
       if (seat.role === 'sheriff') stats.sheriffGames += 1;
+      if (seat.role === 'don') {
+        stats.donGames += 1;
+        const mafiaRevealed = [...reveals.keys()].some((revealSeat) => roleOf(revealSeat) === 'mafia');
+        if (mafiaRevealed && !reveals.has(seat.seat)) stats.donHandedReveal += 1;
+      }
       if (isBlack(seat.role)) stats.blackGames += 1;
     }
     for (const record of reveals.values()) {
@@ -96,6 +108,23 @@ export function buildRevealStats(games: StatGame[], memo?: ActionFactsMemo): Map
           const role = roleOf(target);
           if (color === 'red' && isBlack(role)) stats.blackCovers += 1;
           if (color === 'black' && isRed(role)) stats.blackAnnouncedBlackOnRed += 1;
+        }
+        if (owner.role === 'don') {
+          // His version of the table: the blacks he announced plus every rival claimant (if he is the Sheriff, the rival is black).
+          const named = new Set<number>([...record.checks].filter(([, color]) => color === 'black').map(([target]) => target));
+          for (const rival of reveals.keys()) if (rival !== record.seat) named.add(rival);
+          const note = (target: number, color: 'red' | 'black') => {
+            const id = seated.find((seat) => seat.seat === target)?.playerId;
+            if (id) { const entry = stats.donTargets[id] || (stats.donTargets[id] = { black: 0, red: 0 }); entry[color] += 1; }
+            const role = roleOf(target);
+            if (color === 'black') { if (isRed(role)) stats.donNamedBlackRed += 1; else if (isBlack(role)) stats.donNamedBlackBlack += 1; }
+            else if (isBlack(role)) stats.donNamedRedBlack += 1; else if (isRed(role)) stats.donNamedRedRed += 1;
+          };
+          for (const target of named) note(target, 'black');
+          for (const [target, color] of record.checks) if (color === 'red') note(target, 'red');
+          const ids = [...named].map((target) => seated.find((seat) => seat.seat === target)?.playerId).filter(Boolean) as string[];
+          ids.sort();
+          for (let i = 0; i < ids.length; i += 1) for (let j = i + 1; j < ids.length; j += 1) { const key = `${ids[i]}|${ids[j]}`; stats.donBundles[key] = (stats.donBundles[key] || 0) + 1; }
         }
       }
     }
@@ -120,6 +149,21 @@ export function buildRevealStats(games: StatGame[], memo?: ActionFactsMemo): Map
   }
   return players;
 }
+
+export interface RevealVersion { claimant: number; blacks: number[]; reds: number[] }
+/**
+ * The competing versions of the table (owner, 2026-10-12): every reveal says «the claimant is the Sheriff»; his blacks are the
+ * black checks he announced plus every rival claimant (if he is the Sheriff, the rival is black), his reds the red checks he announced.
+ * Meaningful only when two or more players revealed.
+ */
+export const revealVersions = (records: Array<{ seat: number; checks: Array<{ target: number; color: 'red' | 'black' }> }>): RevealVersion[] => {
+  if (records.length < 2) return [];
+  return records.map((record) => {
+    const blacks = new Set(record.checks.filter((check) => check.color === 'black').map((check) => check.target));
+    for (const rival of records) if (rival.seat !== record.seat) blacks.add(rival.seat);
+    return { claimant: record.seat, blacks: [...blacks].sort((a, b) => a - b), reds: record.checks.filter((check) => check.color === 'red').map((check) => check.target).sort((a, b) => a - b) };
+  });
+};
 
 /** The reveals of one finished game as plain data for a game page: who claimed to be the Sheriff and the announced checks. */
 export const revealsForGamePage = (events: LiveGameEvent[]) => [...finalRevealsOfEvents(events).values()]

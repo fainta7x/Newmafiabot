@@ -875,7 +875,7 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 ### Waiting on the owner
 
-- **Reveal: comparison of the two versions + the Don's reveal statistics (owner, 2026-10-12, explained with an example; wording in `BUSINESS_RULES.md`).** Not built yet. To build: (a) the Don's figures — whom he names black (per player and bundles), whom he names red (cover vs real red), the list of Dons, reveals as Don vs handing the reveal to a plain black; (b) the training view of the two competing versions of the table (claimant = Sheriff, his announced blacks + the rival claimant are black) on the game page / game review. Assumption to confirm with the owner: the rival claimant counts as black in each version automatically.
+- **Reveal: comparison of the two versions + the Don's reveal statistics (owner, 2026-10-12, explained with an example; wording in `BUSINESS_RULES.md`).** Built in a PR (merge/deploy/phone check pending): profile of a Don shows reveals as Don vs handing the reveal to a plain black, whom he names black (the rival claimant included) and red, the bundles, the split by real colour; rating «Вскрытия» got «Вскрылся доном» and «Отдал вскрытие обычному чёрному»; the game page shows «Две версии стола» (which version was true). Not done: the versions on the broadcast graphic and in the CRM review; a club-wide «all Dons» table.
 
 - **Poker: chat and emotes at the training table with bots (owner, 2026-10-12).** Enabled on the owner's «да» (the client no longer hides the dock and bubbles for `money_mode === 'training'`; the server never restricted it). Waiting for the owner's test on a phone; bots do not answer.
 

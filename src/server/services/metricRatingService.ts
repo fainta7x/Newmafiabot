@@ -29,7 +29,7 @@ export type MetricKey =
   | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
   | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black'
   | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs'
-  | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers';
+  | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers' | 'don_reveals' | 'don_handed_reveal';
 
 /** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
 interface Sample { minimum: number; words: [string, string, string] }
@@ -65,6 +65,8 @@ export const METRICS: MetricDef[] = [
   { key: 'sheriff_found_black', label: 'Нашёл чёрных, вскрывшись', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько чёрных (дон и мафия) шериф назвал в объявленных проверках' },
   { key: 'black_reveals', label: 'Вскрылся за чёрных', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз мафия или дон открыто назвал себя шерифом' },
   { key: 'black_covers', label: 'Накрыл своего чёрного', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз чёрный объявил красной проверку на своего напарника' },
+  { key: 'don_reveals', label: 'Вскрылся доном', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз дон сам открыто назвал себя шерифом' },
+  { key: 'don_handed_reveal', label: 'Отдал вскрытие обычному чёрному', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз вскрылся обычный чёрный, пока дон молчал' },
   { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo', unit: 'elo', hint: 'Сколько Elo набрал или потерял за период' },
 ];
 const METRIC_BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
@@ -285,7 +287,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   // Chronology figures are computed only when asked for.
   const accuracy = new Map<string, { value: number; sample: number }>();
   const nightMetrics = new Set<MetricKey>(['black_misses', 'black_miss_rate', 'times_shot', 'night_pairs']);
-  const revealMetrics = new Set<MetricKey>(['sheriff_reveals', 'sheriff_found_black', 'black_reveals', 'black_covers']);
+  const revealMetrics = new Set<MetricKey>(['sheriff_reveals', 'sheriff_found_black', 'black_reveals', 'black_covers', 'don_reveals', 'don_handed_reveal']);
   const statSource = metric.sample || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
   const scopedStat = statSource.games.filter((game) => scopedIds.has(game.id));
   const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
@@ -298,6 +300,8 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
       if (metric.key === 'sheriff_reveals' && stats.sheriffGames) accuracy.set(id, { value: stats.sheriffReveals, sample: stats.sheriffGames });
       if (metric.key === 'sheriff_found_black' && stats.sheriffGames) accuracy.set(id, { value: stats.sheriffCheckedDon + stats.sheriffCheckedMafia, sample: stats.sheriffGames });
       if (metric.key === 'black_reveals' && stats.blackGames) accuracy.set(id, { value: stats.blackReveals, sample: stats.blackGames });
+      if (metric.key === 'don_reveals' && stats.donGames) accuracy.set(id, { value: stats.blackRevealsDon, sample: stats.donGames });
+      if (metric.key === 'don_handed_reveal' && stats.donGames) accuracy.set(id, { value: stats.donHandedReveal, sample: stats.donGames });
       if (metric.key === 'black_covers' && stats.blackGames) accuracy.set(id, { value: stats.blackCovers, sample: stats.blackGames });
     }
   } else if (metric.key === 'critical_exits') {

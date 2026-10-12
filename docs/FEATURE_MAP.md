@@ -26,6 +26,11 @@ This map reflects current `main`. Do not use old roadmap text to infer that a su
 - Focused coverage: `src/tests/weeklyEveningAutomation.test.ts`.
 - Existing Telegram `public_router_refresh_task` reaches `/api/bot/telegram/public-router`; `botTelegramRoutes.ts` reuses that heartbeat for the due-aware weekly reconciler.
 
+### Evening payments and the extension («Продлить вечер»)
+
+- CRM «Вечер → Оплата»: `src/components/crm/EveningPaymentsPanel.tsx` (two blocks «Не оплатили / Оплатили») and `EveningExtensionBlock.tsx` (the extension form); routes `GET/PATCH /api/evenings/:id/payments`, `POST/DELETE /api/evenings/:id/extensions` in `src/server/routes/eveningStaffRoutes.ts`.
+- Calculation: `src/server/services/eveningExtensionService.ts` (split and shares), applied by `eveningPaymentPricingService.ts` (`reconcileRegularEveningPayments` for regular evenings, `reconcileOtherFormatExtensions` for the other formats). Who is free of fees on a regular evening: `isRegularFeeFreeByStaffRule` in the same file.
+
 ### RSVP ↔ game-slot synchronization
 
 - Canonical participant response compatibility: `src/lib/eveningResponse.ts` plus participant/server routes.

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
-import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { isParticipantResponseLockedAfterAttendance, setParticipantResponse } from '../services/eveningParticipantState.ts';
 import { notifyOrganizerAboutResponse } from '../services/organizerResponseNotificationService.ts';
 import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt, type RsvpFollowupOption } from '../services/eveningRsvpNudgeService.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
@@ -299,7 +299,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       'SELECT id, attendance_status, response_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
       [evening.id, player.id],
     );
-    if (existingParticipant && String(existingParticipant.attendance_status || 'pending') !== 'pending') {
+    if (isParticipantResponseLockedAfterAttendance(existingParticipant)) {
       return res.status(409).json({
         error: 'Явка уже отмечена. Изменить ответ после этого может только организатор.',
         code: 'attendance_locked',

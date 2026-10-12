@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import GoMafiaTournamentOrganizer from './GoMafiaTournamentOrganizer.tsx';
 
 type Linked = {
   external_player_id: string;
@@ -13,7 +12,6 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [career, setCareer] = useState<any>(null);
-  const [careerVersion, setCareerVersion] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
     setLink(null);
@@ -31,7 +29,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       .then(data => { if (!controller.signal.aborted) setCareer(data); })
       .catch(() => { /* External data never blocks the club profile. */ });
     return () => controller.abort();
-  }, [playerId, link?.external_player_id, link?.status, careerVersion]);
+  }, [playerId, link?.external_player_id, link?.status]);
   const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
   const snap = career?.snapshot;
   const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : 'Период источника не определён';
@@ -112,8 +110,6 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
         </div>
       </div>)}
     </div>}
-    {organizer && link?.status === 'verified' &&
-      <GoMafiaTournamentOrganizer playerId={playerId} onImported={() => setCareerVersion(version => version + 1)} />}
     {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
     <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
   </section>;

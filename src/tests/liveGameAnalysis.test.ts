@@ -97,3 +97,16 @@ describe('game analysis', () => {
     expect(analysis.circles[0].votings[0].votes).toEqual([{ candidate: 5, voters: [1] }]);
   });
 });
+
+describe('reveals in the analysis', () => {
+  it('folds «вскрытие» and the announced checks into the circle and drops removed ones', () => {
+    const at = '2026-10-12T10:00:00Z';
+    const ev = (seq: number, kind: string, extra: Record<string, unknown>) => ({ seq, at, round: 2, phase: 'day_speeches', kind, ...extra }) as any;
+    const analysis = buildGameAnalysis([
+      ev(1, 'reveal', { seat: 7 }), ev(2, 'announced_check', { seat: 7, target: 3, value: 'red' }), ev(3, 'announced_check', { seat: 7, target: 9, value: 'black' }),
+      ev(4, 'announced_check_removed', { seat: 7, target: 3 }), ev(5, 'reveal', { seat: 8 }), ev(6, 'reveal_removed', { seat: 8 }),
+    ]);
+    expect(analysis.circles).toHaveLength(1);
+    expect(analysis.circles[0].reveals).toEqual([{ seat: 7, checks: [{ target: 9, color: 'black' }] }]);
+  });
+});

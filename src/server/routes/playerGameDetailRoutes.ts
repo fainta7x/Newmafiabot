@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { getPlayerSessionId } from '../auth.ts';
+import { revealsForGamePage } from '../../lib/revealStats.ts';
+import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/playerEloHistoryService.ts';
 
 const router = Router();
@@ -354,6 +356,7 @@ router.get('/games/:gameKey', async (req, res) => {
           first_killed: participantInfo(firstKilledId || null, participantDirectory),
           zero_round_voted: participantInfo(zeroRoundVotedId || null, participantDirectory),
           ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
+          reveals: revealsForGamePage(sanitizeLiveGameEvents(protocol.events)),
         },
         players,
       });
@@ -363,7 +366,7 @@ router.get('/games/:gameKey', async (req, res) => {
       SELECT tg.id, tg.game_number, tg.judge_name, tg.completed_at,
              COALESCE(tgp.winner_team, tg.winner_team) AS winner_team,
              t.title AS tournament_title, t.date AS tournament_date,
-             tgp.votes_json, tgp.shots_json, tgp.replacement_json, tgp.judge_notes,
+             tgp.votes_json, tgp.shots_json, tgp.replacement_json, tgp.judge_notes, tgp.events_json,
              tgp.end_reason, tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id,
              tgp.ppk_culprit_participant_id
         FROM tournament_games tg
@@ -487,6 +490,7 @@ router.get('/games/:gameKey', async (req, res) => {
         first_killed: participantInfo(String(game.first_killed_participant_id || '') || null, participantDirectory),
         zero_round_voted: participantInfo(String(game.zero_round_voted_participant_id || '') || null, participantDirectory),
         ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
+        reveals: revealsForGamePage(sanitizeLiveGameEvents(safeJsonParse<any>(game.events_json, []))),
       },
       players,
     });

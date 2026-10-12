@@ -1,5 +1,6 @@
 import { gameActionFacts, type ActionFactsMemo } from './gameActionFacts';
 import type { StatGame, StatRole } from './gameStatistics';
+import type { LiveGameEvent } from '../shared/liveGameEvents';
 
 /**
  * «Вскрытие» in numbers (owner, 2026-10-12; rules in docs/BUSINESS_RULES.md): who openly claimed to be the Sheriff and which
@@ -15,9 +16,11 @@ import type { StatGame, StatRole } from './gameStatistics';
 export interface RevealRecord { seat: number; checks: Map<number, 'red' | 'black'>; since: number }
 
 /** The reveals standing at the end of a game (a removed reveal or check is gone), with the event order they were made in. */
-export function finalReveals(game: StatGame): Map<number, RevealRecord> {
+export function finalReveals(game: StatGame): Map<number, RevealRecord> { return finalRevealsOfEvents(game.events); }
+
+export function finalRevealsOfEvents(events: LiveGameEvent[]): Map<number, RevealRecord> {
   const records = new Map<number, RevealRecord>();
-  for (const event of [...game.events].sort((a, b) => a.seq - b.seq)) {
+  for (const event of [...events].sort((a, b) => a.seq - b.seq)) {
     const seat = event.seat ?? null;
     if (!seat) continue;
     if (event.kind === 'reveal' && !records.has(seat)) records.set(seat, { seat, checks: new Map(), since: event.round });
@@ -117,3 +120,8 @@ export function buildRevealStats(games: StatGame[], memo?: ActionFactsMemo): Map
   }
   return players;
 }
+
+/** The reveals of one finished game as plain data for a game page: who claimed to be the Sheriff and the announced checks. */
+export const revealsForGamePage = (events: LiveGameEvent[]) => [...finalRevealsOfEvents(events).values()]
+  .sort((a, b) => a.since - b.since || a.seat - b.seat)
+  .map((record) => ({ seat: record.seat, round: record.since, checks: [...record.checks].map(([target, color]) => ({ target, color })) }));

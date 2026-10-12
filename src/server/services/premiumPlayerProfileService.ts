@@ -4,12 +4,16 @@ import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
 import { loadPlayerEloHistory } from './playerEloHistoryService.ts';
 import { loadPlayerGameProfile, type PlayerGameHistoryItem } from './playerProfileService.ts';
 import { winRatePercent } from '../../shared/stats.ts';
-import { buildPlayerGameStatistics } from '../../lib/gameStatistics.ts';
+import { buildPlayerGameStatistics, type StatGame } from '../../lib/gameStatistics.ts';
 import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
 import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
+import { buildNightShotStats } from '../../lib/nightShots.ts';
+import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
+/** What the profile statistics are counted over: one rating season or all time, and one evening format or all of them. */
+export type ProfileStatFilter = { period?: string; format?: string };
 export type PremiumGameRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
 
 const ROLES: PremiumGameRole[] = ['citizen', 'sheriff', 'mafia', 'don'];
@@ -184,7 +188,30 @@ const buildFacts = (games: PlayerGameHistoryItem[], elo: Awaited<ReturnType<type
   return facts.slice(0, 3);
 };
 
-export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false) {
+/**
+ * Night shots around one player (owner request 2026-10-12): how often he was killed at night, with which black players at
+ * the table it happened most («убит, когда в чёрных …»), and the nights without a victim while he played black.
+ */
+const profileNightShots = async (db: DatabaseWrapper, games: StatGame[], playerId: string) => {
+  const stats = buildNightShotStats(games);
+  const own = stats.players.get(playerId);
+  if (!own || (own.killed === 0 && own.blackNights === 0)) return null;
+  const partners = [...stats.pairs.values()]
+    .filter((pair) => pair.victim === playerId && pair.kills >= 2)
+    .sort((a, b) => b.kills - a.kills || a.together - b.together)
+    .slice(0, 5);
+  const names = new Map<string, string>();
+  if (partners.length) {
+    const rows = await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${partners.map(() => '?').join(',')})`, partners.map((pair) => pair.black));
+    for (const row of rows) names.set(String(row.id), String(row.nickname || 'Игрок'));
+  }
+  return {
+    killed: own.killed, games_as_red: own.redGames, black_nights: own.blackNights, black_misses: own.blackMisses,
+    partners: partners.map((pair) => ({ player_id: pair.black, nickname: names.get(pair.black) || 'Игрок', kills: pair.kills, together: pair.together })),
+  };
+};
+
+export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false, filter: ProfileStatFilter = {}) {
   const player = await loadIdentity(db, playerId);
   const visibility = publicVisibility(player.profile_visibility_json);
   const isSelf = viewerId === playerId;
@@ -198,8 +225,25 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   ]);
   if (!canSeePrivate) for (const achievement of achievements.earned) { achievement.evidence = null; achievement.steps = undefined; }
   const games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
-  const recent = games.slice(0, 5);
-  const wins = games.filter((game) => game.won).length;
+  // One scope for every number of the statistics block: the chosen season (or all time) and the chosen evening format.
+  const seasons = await loadRatingSeasons(db);
+  const chosenSeason = seasons.find((item) => item.key === filter.period) || null;
+  const periodKey = chosenSeason ? chosenSeason.key : 'all';
+  const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format as EveningFormat : 'all';
+  const inSeason = (game: PlayerGameHistoryItem, season: { start: number; end: number }) => { const time = dateTime(game.date); return time >= season.start && time < season.end; };
+  const periodGames = chosenSeason ? games.filter((game) => inSeason(game, chosenSeason)) : games;
+  const scoped = formatKey === 'all' ? periodGames : periodGames.filter((game) => game.evening_format === formatKey);
+  const scopeActive = periodKey !== 'all' || formatKey !== 'all';
+  const filters = {
+    period: periodKey,
+    format: formatKey,
+    seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label, games: games.filter((game) => inSeason(game, item)).length })).filter((item) => item.games > 0),
+    formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key], games: periodGames.filter((game) => game.evening_format === key).length })).filter((item) => item.games > 0),
+    period_label: chosenSeason ? chosenSeason.label : 'Всё время',
+    format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
+  };
+  const recent = scoped.slice(0, 5);
+  const wins = scoped.filter((game) => game.won).length;
   const recentWins = recent.filter((game) => game.won).length;
   const monthCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const movement = round(elo.filter((item) => dateTime(item.date) >= monthCutoff).reduce((sum, item) => sum + item.elo_delta, 0), 2);
@@ -226,27 +270,33 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     visibility,
     cosmetics: parseJson<Record<string, unknown>>(player.profile_cosmetics_json, {}),
   };
+  const scopedStatGames = statsVisible
+    ? (await loadStatGames(db).catch(() => [])).filter((game) => !scopeActive || scoped.some((own) => own.id === game.id))
+    : [];
   return {
     viewer: { is_self: isSelf, is_organizer: organizer },
     player: identity,
     stats: visibility.game_statistics || canSeePrivate ? {
-      games: games.length,
+      games: scoped.length,
       wins,
-      win_rate: winRatePercent(wins, games.length),
+      win_rate: winRatePercent(wins, scoped.length),
       recent_form: recent.map((game) => game.won ? 'W' : 'L'),
       recent_wins: recentWins,
-      strongest_role: strongestRole(games),
+      strongest_role: strongestRole(scoped),
       personal_elo_max: elo.length ? Math.max(numeric(player.elo), ...elo.map((item) => item.elo_after)) : numeric(player.elo),
-      current_streak: winStreaks(games).current,
-      best_streak: winStreaks(games).best,
-      red: teamSplit(games, 'red'),
-      black: teamSplit(games, 'black'),
-      first_killed: profile.gameStats.firstKilled,
-      best_moves: profile.gameStats.bestMoves,
-      zero_round_voted: profile.gameStats.zeroRoundVoted,
+      current_streak: winStreaks(scoped).current,
+      best_streak: winStreaks(scoped).best,
+      red: teamSplit(scoped, 'red'),
+      black: teamSplit(scoped, 'black'),
+      // One rule for the whole block: finished games inside the chosen scope (drafts are not counted).
+      first_killed: scoped.filter((game) => game.first_killed).length,
+      best_moves: scoped.filter((game) => game.best_move).length,
+      zero_round_voted: scoped.filter((game) => game.zero_round_voted).length,
     } : null,
     season: statsVisible ? await loadSeasonBlock(db, playerId, games) : null,
-    game_stats: statsVisible ? buildPlayerGameStatistics(await loadStatGames(db).catch(() => []), playerId) : null,
+    filters: statsVisible ? filters : null,
+    game_stats: statsVisible ? buildPlayerGameStatistics(scopedStatGames, playerId) : null,
+    night_shots: statsVisible ? await profileNightShots(db, scopedStatGames, playerId) : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,
     })) : [],

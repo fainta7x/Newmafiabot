@@ -70,7 +70,10 @@ router.get('/profiles/:playerId/summary', async (req, res) => {
     const playerId = String(req.params.playerId);
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
-    const summary = await loadPremiumProfileSummary(req.db, playerId, viewer.viewerId, viewer.organizer);
+    const summary = await loadPremiumProfileSummary(req.db, playerId, viewer.viewerId, viewer.organizer, {
+      period: typeof req.query.period === 'string' ? req.query.period : undefined,
+      format: typeof req.query.format === 'string' ? req.query.format : undefined,
+    });
     if (!featureVisible(access.row, viewer, playerId, 'game_statistics')) {
       summary.player.elo = null as any;
       summary.player.rating_position = null as any;

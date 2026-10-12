@@ -1,5 +1,5 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents';
-import { playerActionMetrics, type PlayerActionMetrics } from './gameActionFacts';
+import { playerActionMetrics, type ActionFactsMemo, type PlayerActionMetrics } from './gameActionFacts';
 import type { VotingRound } from '../shared/tournamentVoting';
 import { winRatePercent } from '../shared/stats';
 import { buildGameAnalysis, type AnalysisCircle } from './liveGameAnalysis';
@@ -39,12 +39,20 @@ interface Prepared {
   roleOf: (seat: number | null | undefined) => StatRole | null;
 }
 
-const prepare = (games: StatGame[]): Prepared[] => games
+/** An explicit cache for callers that hold games which are never mutated (the club rankings); everything else analyses afresh. */
+export interface StatMemo { prepared: Map<StatGame, Prepared>; facts: ActionFactsMemo }
+export const createStatMemo = (): StatMemo => ({ prepared: new Map(), facts: new Map() });
+const prepareOne = (game: StatGame, memo?: StatMemo): Prepared => {
+  const cached = memo?.prepared.get(game);
+  if (cached) return cached;
+  const roles = new Map(game.seats.map((item) => [item.seat, item.role]));
+  const value: Prepared = { game, circles: buildGameAnalysis(game.events).circles, roleOf: (seat) => (seat ? roles.get(seat) ?? null : null) };
+  memo?.prepared.set(game, value);
+  return value;
+};
+const prepare = (games: StatGame[], memo?: StatMemo): Prepared[] => games
   .filter((game) => Array.isArray(game.events) && game.events.length > 0)
-  .map((game) => {
-    const roles = new Map(game.seats.map((item) => [item.seat, item.role]));
-    return { game, circles: buildGameAnalysis(game.events).circles, roleOf: (seat) => (seat ? roles.get(seat) ?? null : null) };
-  });
+  .map((game) => prepareOne(game, memo));
 
 /** A day of the game = an engine round in which somebody was voted on. */
 const votingDays = (circles: AnalysisCircle[]) => circles.filter((circle) => circle.votings.length > 0);
@@ -146,8 +154,8 @@ export interface PlayerGameStatistics {
   donChecks: Share;
 }
 
-export const buildPlayerGameStatistics = (games: StatGame[], playerId: string): PlayerGameStatistics => {
-  const prepared = prepare(games).filter(({ game }) => game.seats.some((item) => item.playerId === playerId));
+export const buildPlayerGameStatistics = (games: StatGame[], playerId: string, memo?: StatMemo): PlayerGameStatistics => {
+  const prepared = prepare(games, memo).filter(({ game }) => game.seats.some((item) => item.playerId === playerId));
   let votes = 0; let votesForBlack = 0;
   let nominations = 0; let nominationsBlack = 0;
   let lhCount = 0; let lhBlackSum = 0; let lhWithBlack = 0;
@@ -186,7 +194,7 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string): 
     }
   }
 
-  const actions = playerActionMetrics(games, playerId);
+  const actions = playerActionMetrics(games, playerId, memo?.facts);
   votes = actions.votes.red.red + actions.votes.red.black;
   votesForBlack = actions.votes.red.black;
   sheriffChecks = actions.checks.sheriff.red + actions.checks.sheriff.black; sheriffHits = actions.checks.sheriff.black;

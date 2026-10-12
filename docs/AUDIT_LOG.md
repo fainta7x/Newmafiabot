@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-10-12 · Architecture phase 4 — evening participant read projections
+
+**Scope / confirmed owner chain:** `evening_participants` persisted state -> `src/server/services/eveningParticipantState.ts` (canonical response/attendance writes, serialization, reward reconciliation) -> `src/lib/eveningResponse.ts` / `eveningDomain.ts` (read normalization) -> CRM roster (`EveningActiveRosterView.tsx`) and evening closeout (`EveningCloseoutPanel.tsx`). The organizer PATCH endpoint `participantRoutes.ts` uses the state service; exact game selection is owned separately by `eveningSlotPlanningService.ts` and `eveningSlotRoutes.ts`. Do not create a second save model.
+
+- **[phase-4 candidate, behavior preserving]** `EveningActiveRosterView.tsx` locally implements `isActiveEveningParticipant`: exclude `no_show`, always include `attended`, otherwise include RSVP `going` / `late` / `unanswered`. This intentionally retains manually invited/unanswered participants in the organizer's working roster; it is NOT identical to `eveningDomain.isEveningGameRosterEligible`.
+- **[phase-4 candidate, behavior preserving]** `EveningCloseoutPanel.tsx` locally computes `expectedResponse` by testing `getEveningResponse` against `going` / `late`, while `eveningResponse.isAttendingResponse` already owns the same truth. `pending_expected` combines that expected RSVP with strictly `attendance_status === 'pending'`; `unplanned_attended` is genuinely different from an expected or paid player. Centralize read-only selectors and preserve the exact predicate.
+- **[invariant / must not unify]** Organizer working roster (which includes unanswered), game-seat eligibility (which excludes unanswered pending), and payment expectation (format-dependent) are three separate projections of the same participant, not conflicting sources of persistence. Planned RSVP, factual attendance, slot commitment and money remain independent facts. Legacy explicit `response_status='unanswered'` must not become an invented `going` because `registration_status='registered'` is stale.
+- **[out of scope]** Server mutations, reward or fee reconciliation, announcement outbox, existing protocol, active game, data schema, React markup/styles, optimistic update control flow. Pure selector tests should cover all five RSVP states × pending/attended/no_show and legacy fallbacks. Preserve closeout `can_close_without_override` and payment behavior.
+
+**Implementation policy:** introduce `src/lib/eveningParticipantView.ts` only for these stable read projections; refactor the two existing call sites and guard with focused tests. Keep selector ownership separate from financial business rules.
+
 ## 2026-10-11 · Architecture unification phase 3 — game record presentation
 
 Scope: confirmed mounted consumer analysis of `PlayerGameDetail.tsx`, `PlayerHistoryStatsView.tsx` and `EveningGamesView.tsx`; distinguish display-only commonality from protocol/game-rule ownership. All observations read from current `main` after phase 2 (#814).

@@ -41,6 +41,7 @@ import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import PlayerIdentityFields from '../player/PlayerIdentityFields.tsx';
 import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
+import PlayerGoMafiaLink from '../player/PlayerGoMafiaLink.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
@@ -614,6 +615,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </section>
 
             <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
+            <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
 
             <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
               <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Контактный статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>

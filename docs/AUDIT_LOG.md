@@ -891,3 +891,10 @@ Scope: the owner dictates what he dislikes while clicking through the organizer 
 18. «Обучение»: tapping a player opens a plain profile instead of the exam detail for that player — illogical; should open the exam breakdown.
 19. «Уровни и роли»: functionally OK, but colours/light theme are too pale (weakest contrast on the most important thing); selected rows are highlighted oddly.
 20. «Уровни и роли»: quick filters (новичок, клуб, турнирный игрок…) sit in a left column as cell-like boxes — inconvenient; want a horizontal chip row on top.
+
+### CRM «Ещё»: Памятка, Администрирование, Аналитика (`MoreCRM.tsx`, `AnalyticsCRM.tsx`, `AppUsagePanel.tsx`)
+21. «Памятка новичку»: just a separate page with the newcomer guide; owner does not see why it is a CRM menu item. Decide: remove from the menu or move to where newcomers actually get it (link already sent from the bot/profile).
+22. «Администрирование» / global CRM settings: purpose unclear to the owner, looks meaningless as one block; move items to sensible places or drop.
+23. «Аналитика» (reports): cards in a random mess; unclear terms («откуда новые игроки», «подробнее будете в записи» — wording not understood); needs plain-Russian labels and a clear order.
+24. «Использование приложения» (`AppUsagePanel`, who tapped where): screens are named inconsistently — some in Russian, some raw «player»/«Плеер»; show Russian names for all screens and explain what «65 игроков» counts.
+25. «Сейчас в приложении онлайн»: OK. Owner's question about the «Сегодня / ближайшие вечера / клубы» block on that screen is unfinished in the dictation — clarify with the owner.

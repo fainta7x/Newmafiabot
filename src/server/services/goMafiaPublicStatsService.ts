@@ -2,14 +2,29 @@ import { createGoMafiaPublicSnapshot, type GoMafiaPublicSnapshot, type GoMafiaPl
 
 /** Parse only visibly published stats; missing or changed markup fails closed. */
 export function parsePublicGoMafiaStats(page: string, reference: GoMafiaPlayerReference, now: string): GoMafiaPublicSnapshot {
-  // Reject executable markup rather than trying to sanitize arbitrary HTML with regex.
-  // We only consume text tokens and never render the provider's HTML.
-  if (/<script|<style|<iframe|<object|<svg/i.test(page)) {
-    throw new Error('Untrusted active markup in GoMafia response');
+  // Extract visible text without executing or decoding page HTML.
+  // Script/style contents are skipped by tag boundaries, not HTML-filtering regex.
+  const lower = page.toLowerCase();
+  let decoded = '';
+  let cursor = 0;
+  while (cursor < page.length) {
+    const open = page.indexOf('<', cursor);
+    if (open < 0) { decoded += page.slice(cursor); break; }
+    decoded += page.slice(cursor, open) + '\\n';
+    const close = page.indexOf('>', open + 1);
+    if (close < 0) throw new Error('Malformed GoMafia HTML');
+    const tag = lower.slice(open + 1, close).trim().split(/\\s/)[0];
+    if (tag === 'script' || tag === 'style') {
+      const closingStart = lower.indexOf('</' + tag, close + 1);
+      if (closingStart < 0) throw new Error('Malformed GoMafia HTML');
+      const closingEnd = lower.indexOf('>', closingStart);
+      if (closingEnd < 0) throw new Error('Malformed GoMafia HTML');
+      cursor = closingEnd + 1;
+    } else {
+      cursor = close + 1;
+    }
   }
-  const decoded = page
-    .replace(/<[^>]*>/g, '\n')
-    .replace(/&nbsp;|&#160;/gi, ' ');
+  decoded = decoded.replace(/&nbsp;|&#160;/gi, ' ');
   const tokens = decoded.split(/\n/).map(s => s.replace(/[\u00a0\u202f]/g, ' ').trim()).filter(Boolean);
   const section = tokens.indexOf('Основная статистика');
   if (section < 0) throw new Error('GoMafia did not return a recognized public statistics section');

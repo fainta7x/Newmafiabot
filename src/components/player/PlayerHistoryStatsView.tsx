@@ -3,6 +3,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { countGames, countWins } from '../../lib/russianPlural.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import { getJson } from '../../lib/requestJson.ts';
@@ -124,8 +125,8 @@ export default function PlayerGamesArchive({
             {personalGames.length ? (
               <>
                 <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
-                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{personalGames.length}</b> игр</span>
-                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-emerald-300">{wins}</b> побед</span>
+                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{countGames(personalGames.length)}</b></span>
+                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-emerald-300">{countWins(wins)}</b></span>
                   <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{finished.length ? Math.round(wins / finished.length * 100) : 0}%</b> побед</span>
                 </div>
                 {finished.length ? <div className="mt-3" aria-label="Результаты последних игр">
@@ -141,7 +142,7 @@ export default function PlayerGamesArchive({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">{game.title || 'Игра'}{game.game_number ? ` · №${game.game_number}` : ''}</span>
                         <span className="mt-1 block text-xs text-white/50">{[formatDate(game.date), game.role ? getPlayerGameRoleLabel(game.role) : null, game.seat_number ? `место №${game.seat_number}` : null].filter(Boolean).join(' · ')}</span>
-                        {(game.best_move || game.first_killed) ? <span className="mt-1.5 block text-[11px] text-amber-200/80">{[game.best_move ? 'Лучший ход' : null, game.first_killed ? 'Первая убитая ночь' : null].filter(Boolean).join(' · ')}</span> : null}
+                        {(game.best_move || game.first_killed) ? <span className="mt-1.5 block text-[11px] text-amber-200/80">{[game.best_move ? 'Лучший ход' : null, game.first_killed ? 'Убит первым' : null].filter(Boolean).join(' · ')}</span> : null}
                       </span>
                       <span className="shrink-0 text-right">
                         <span className={`block text-xs font-semibold ${game.won === true ? 'text-emerald-300' : game.won === false ? 'text-rose-300' : 'text-white/50'}`}>{game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Без результата'}</span>

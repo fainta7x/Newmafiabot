@@ -6,7 +6,7 @@ import './crmOverviewCanonical.css';
 interface CRMOverviewProps {
   overview: CrmOverview | null;
   onOpenEvening: (id: string) => void;
-  /** Navigate using the mounted CRM route state, not only the browser address. */
+  /** Keep mounted OrganizerCRM state in sync with the selected evening section. */
   onOpenEveningSection?: (id: string, section: EveningSection) => void;
   onOpenEveningAdd?: (id: string) => void;
   onOpenPlayer: (id: string) => void;
@@ -30,6 +30,7 @@ export const CRMOverview = ({
   overview,
   onOpenEvening,
   onOpenEveningSection,
+  onOpenEveningAdd,
   onOpenPlayer,
   onNavigateTab,
   onCreateEvening,
@@ -43,6 +44,7 @@ export const CRMOverview = ({
       showTitle={false}
       overview={overview}
       onOpenEvening={onOpenEvening}
+      onOpenEveningAdd={onOpenEveningAdd}
       onOpenEveningSection={onOpenEveningSection ?? navigateEveningSection}
       onOpenPlayer={onOpenPlayer}
       onNavigateTab={(tab) => onNavigateTab(tab)}

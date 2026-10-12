@@ -15,6 +15,15 @@
 
 **Out of scope:** unmounted legacy `EveningAnnouncementPanel` is not a second active UI; keep it untouched. Don't rewrite announcement/retry worker or club-wide mailing preferences. Mobile CSS/screenshots + CI must pass before merging; main merge is not deployed/runtime confirmed.
 
+## 2026-10-12 · UX audit pass 2C — CRM «Добавить игрока» is an unreachable working path
+
+**[mounted-path finding, fix in this PR]** `OrganizerCRM.tsx:handleOpenEveningAdd` already stores the `eveningIntent='add'` instruction, but `CRMOverview.tsx` currently fails to forward its `onOpenEveningAdd` prop to `OrganizerCommandCenter.tsx` (the prop does not exist there). Thus Today's nearest evening has no one-tap addition even though `EveningActiveRosterView.tsx` already has an add-player/guest picker. Additionally, the parent helper sets the address to `/admin/evenings/:id/participants`, but `EveningWorkspace.tsx` interprets `initialAddOpen=true` as **management → roster**, making visible pane and URL disagree.
+
+- **[planned scoped correction]** Expose the existing action as a secondary `Добавить игрока` one-tap shortcut in today's current/upcoming evening context (not an artificial urgent blocker); propagate the optional callback via `CRMOverview`, align its existing `handleOpenEveningAdd` URL/section with `management` and let the already implemented roster picker open by `initialAddOpen`.
+- **[acceptance evidence]** Rendered command-center click passes the exact target evening ID to the provided callback; the intermediate CRMOverview prop is forwarded; the organizer's add route uses `/admin/evenings/:id/management` and the existing picker. The shortcut is absent if no snapshot/callback.
+- **[preserve]** No new registration backend or guest flow, state/identity/reward/payment writes, date/price changes or game logic; no new actor access for limited event hosts. Keep status/attention tiles and their priority unchanged.
+- **[review focus]** Small CTA minimum 44 px on mobile; a green Playwright/UI preview is technical evidence, not Amvera runtime verification. The same audit also noted event-host roster player links have a deliberately no-op callback; this is **not** a safe invitation to grant host-level access to organizer player cards and remains a permission-specific follow-up.
+
 ## 2026-10-12 · Player profile statistics audit (owner: «статистика берётся из разных мест и странные данные за разные периоды»)
 
 Scope: read-only, from the code (`premiumPlayerProfileRoutes.ts` → `premiumPlayerProfileService.ts` (PPS), `playerProfileService.ts`, `lib/gameStatistics.ts`, `gameStatisticsService.ts`, `clubGameAnalyticsService.ts`, UI `CanonicalPremiumPlayerProfile.tsx`, `PlayerProfileCareerSections.tsx`, `PlayerGameNumbers.tsx`). Nothing is fixed yet.

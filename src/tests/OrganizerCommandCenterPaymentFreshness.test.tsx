@@ -108,7 +108,6 @@ describe('OrganizerCommandCenter action destinations', () => {
     expect(openSection).toHaveBeenCalledWith('current', 'participants');
   });
 
-
   it('opens the actual evening «Ответы» screen for invited players who have not replied', async () => {
     const body = responseBody({ currentDue: 0 });
     (body.snapshot.attention.communication as Array<any>).push({
@@ -125,6 +124,32 @@ describe('OrganizerCommandCenter action destinations', () => {
     expect(openSection).toHaveBeenCalledTimes(1);
     expect(openSection).toHaveBeenCalledWith('current', 'participants');
     expect(openSection).not.toHaveBeenCalledWith('current', 'overview');
+  });
+});
+
+describe('CRM Today add player shortcut', () => {
+  it('forwards the actual current evening ID through CRMOverview to the existing roster-add action', async () => {
+    const onOpenEveningAdd = vi.fn();
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
+    render(<CRMOverview
+      overview={null}
+      onOpenEvening={vi.fn()}
+      onOpenEveningAdd={onOpenEveningAdd}
+      onOpenPlayer={vi.fn()}
+      onNavigateTab={vi.fn()}
+      onCreateEvening={vi.fn()}
+    />);
+    const shortcut = await screen.findByRole('button', { name: /Добавить игрока в состав/ });
+    fireEvent.click(shortcut);
+    expect(onOpenEveningAdd).toHaveBeenCalledTimes(1);
+    expect(onOpenEveningAdd).toHaveBeenCalledWith('current');
+  });
+
+  it('does not show an add-player shortcut if the host did not provide permission/callback', async () => {
+    vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
+    render(<OrganizerCommandCenter {...props} />);
+    await screen.findByTestId('crm-today-clear');
+    expect(screen.queryByRole('button', { name: /Добавить игрока в состав/ })).toBeNull();
   });
 });
 

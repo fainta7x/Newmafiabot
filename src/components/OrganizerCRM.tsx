@@ -160,10 +160,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(id);
-    setActiveEveningSection('participants');
+    // The existing add picker is in the management roster, not the answers tab.
+    setActiveEveningSection('management');
     setEveningIntent('add');
     setActiveTab('evenings');
-    navigateAdmin(organizerEveningPath(id, 'participants'));
+    navigateAdmin(organizerEveningPath(id, 'management'));
     moveWindowScroll(0);
   };
 

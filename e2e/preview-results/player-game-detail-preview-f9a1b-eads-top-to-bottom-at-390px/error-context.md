@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: trophy-cabinet-preview.spec.mjs >> interactive verified trophy cabinet keeps mobile/desktop profile layout at 360px
-- Location: tests/trophy-cabinet-preview.spec.mjs:4:3
+- Name: player-game-detail-preview.spec.mjs >> game page reads top to bottom at 390px
+- Location: tests/player-game-detail-preview.spec.mjs:4:33
 
 # Error details
 

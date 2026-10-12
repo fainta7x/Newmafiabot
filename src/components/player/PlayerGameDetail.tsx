@@ -100,8 +100,12 @@ export type PlayerGameDetailData = {
   }>;
 };
 
-const roleLabel = (role: PlayerGameDetailData['players'][number]['role']) =>
-  getPlayerGameRoleLabel(role) ?? 'Роль не указана';
+type DetailPlayer = PlayerGameDetailData['players'][number];
+type StoryEntry =
+  | { key: string; order: number; kind: 'vote'; vote: PlayerGameDetailData['protocol']['votes'][number] }
+  | { key: string; order: number; kind: 'night'; shot: PlayerGameDetailData['protocol']['shots'][number] };
+
+const roleLabel = (role: DetailPlayer['role']) => getPlayerGameRoleLabel(role) ?? 'Роль не указана';
 
 const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) =>
   getPlayerGameWinnerLabel(winner) ?? 'Результат не указан';
@@ -115,7 +119,7 @@ const endReasonLabel = (reason: string) => {
 const exitLabel = (exit: string | null) => {
   if (exit === 'alive') return 'дожил до конца';
   if (exit === 'killed') return 'убит ночью';
-  if (exit === 'voted_zero_round') return 'заголосован в 0 круг';
+  if (exit === 'voted_zero_round') return 'заголосован в 0 круге';
   if (exit === 'voted_day') return 'заголосован днём';
   if (exit === 'removed') return 'удалён';
   return null;
@@ -126,14 +130,6 @@ const colorMarkLabel = (mark: string) => {
   if (mark === 'black') return 'чёрный';
   if (mark === 'sheriff') return 'шериф';
   return mark;
-};
-
-const voteOutcomeLabel = (outcome: string | null) => {
-  if (!outcome) return null;
-  if (outcome === 'tie_revote') return 'ничья → переголосование';
-  if (outcome === 'night') return 'никто не заголосован → ночь';
-  if (outcome === 'eliminated') return 'игрок заголосован';
-  return outcome.replaceAll('_', ' ');
 };
 
 const shotResultLabel = (result: string | null) => {
@@ -161,23 +157,32 @@ export const formatEloDelta = (value: number | null | undefined) => {
   return `${rounded > 0 ? '+' : ''}${shortNumber(rounded)} Elo`;
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+const ROLE_CHIP: Record<string, string> = {
+  citizen: 'bg-rose-400/12 text-rose-100',
+  sheriff: 'bg-amber-300/15 text-amber-100',
+  mafia: 'bg-slate-300/15 text-slate-100',
+  don: 'bg-violet-300/15 text-violet-100',
+};
+const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 0 ? 'text-rose-300' : 'text-white/70');
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">{title}</h2>
-      {children}
+    <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">{title}</h2>
+      {hint ? <p className="mt-1 text-[12px] leading-4 text-white/35">{hint}</p> : null}
+      <div className="mt-3">{children}</div>
     </section>
   );
 }
 
-function PersonTag({ person, prefix }: { person: ProtocolPerson; prefix: string }) {
-  if (!person) return null;
-  return (
-    <div className="rounded-2xl bg-black/20 px-3 py-2 text-sm text-white/70">
-      <span className="text-white/40">{prefix}: </span>
-      <span className="font-medium text-white/85">#{person.seat_number} {person.nickname}</span>
-    </div>
-  );
+function RoleChip({ role }: { role: DetailPlayer['role'] }) {
+  return <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_CHIP[role || ''] || 'bg-white/[0.07] text-white/55'}`}>{roleLabel(role)}</span>;
+}
+
+function Avatar({ player }: { player: DetailPlayer }) {
+  return player.avatar_url
+    ? <img src={player.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+    : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>;
 }
 
 export default function PlayerGameDetail({
@@ -194,6 +199,104 @@ export default function PlayerGameDetail({
   onBack: () => void;
 }) {
   const seatPlayer = (seat: number) => detail?.players.find((player) => player.seat_number === seat) || null;
+  const seatLabel = (seat: number) => { const player = seatPlayer(seat); return player ? `#${seat} ${player.nickname}` : `#${seat}`; };
+  const me = detail ? detail.players.find((player) => player.player_id && player.player_id === selfId) || null : null;
+
+  // The game as one story: the zero circle, the first night, the first day, … (the night N comes after the day N−1).
+  const story = React.useMemo<StoryEntry[]>(() => {
+    if (!detail) return [];
+    return [
+      ...detail.protocol.votes.map((vote): StoryEntry => ({ key: `vote:${vote.round_number}`, order: vote.day_number * 10 + (vote.is_revote ? 1 : 0), kind: 'vote', vote })),
+      ...detail.protocol.shots.map((shot): StoryEntry => ({ key: `night:${shot.night_number}`, order: (shot.night_number - 1) * 10 + 5, kind: 'night', shot })),
+    ].sort((a, b) => a.order - b.order);
+  }, [detail]);
+
+  const sides = detail ? [
+    { team: 'red' as const, title: 'Красные', players: detail.players.filter((player) => player.team === 'red') },
+    { team: 'black' as const, title: 'Чёрные', players: detail.players.filter((player) => player.team === 'black') },
+  ].filter((side) => side.players.length) : [];
+  const unassigned = detail ? detail.players.filter((player) => player.team !== 'red' && player.team !== 'black') : [];
+
+  const renderPlayer = (item: DetailPlayer) => {
+    const isSelf = Boolean(item.player_id) && item.player_id === selfId;
+    const exit = exitLabel(item.exit_type);
+    const parts = [
+      item.score.win_point ? { label: 'победа', value: item.score.win_point } : null,
+      item.score.judge_bonus ? { label: 'судья', value: item.score.judge_bonus } : null,
+      item.score.protocol_bonus ? { label: 'протокол', value: item.score.protocol_bonus } : null,
+      item.score.best_move_points ? { label: 'ЛХ', value: item.score.best_move_points } : null,
+      item.score.ci_points ? { label: 'CI', value: item.score.ci_points } : null,
+      item.score.disciplinary_penalty_points ? { label: 'дисциплина', value: -item.score.disciplinary_penalty_points } : null,
+    ].filter(Boolean) as Array<{ label: string; value: number }>;
+    const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
+    return (
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
+        <summary className="flex min-h-[60px] cursor-pointer list-none items-center gap-2.5 px-2.5 py-2">
+          <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
+          <Avatar player={item} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-[11px] font-semibold text-sky-100/70">вы</span> : null}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <RoleChip role={item.role} />
+              {exit ? <span className="truncate text-[11px] text-white/40">{exit}</span> : null}
+              {marks.map((mark) => <span key={mark} className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[10px] text-white/55">{mark}</span>)}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className={`text-base font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
+            {detail?.game.elo_affected && item.elo_delta != null ? <div className={`text-[11px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta)}</div> : <div className="text-[11px] text-white/25">баллы</div>}
+          </div>
+          <span className="shrink-0 text-white/30 transition group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+        <div className="space-y-2 border-t border-white/[0.06] px-3 pb-3 pt-2.5 text-[12px] text-white/55">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Из чего баллы</div>
+            {parts.length ? <div className="mt-1.5 flex flex-wrap gap-1.5">{parts.map((part) => <span key={`${part.label}:${part.value}`} className={`rounded-full px-2 py-1 text-[11px] ${part.value > 0 ? 'bg-emerald-400/10 text-emerald-200/80' : 'bg-rose-400/10 text-rose-200/80'}`}>{part.label} {signedScore(part.value)}</span>)}</div> : <div className="mt-1 text-white/35">Дополнительных начислений нет.</div>}
+          </div>
+          {item.exit_order != null || item.regular_fouls > 0 || item.minor_technical_fouls > 0 || item.major_technical_fouls > 0 ? (
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              {item.exit_order != null ? <span className="rounded-full bg-white/[0.06] px-2 py-1">вышел {item.exit_order}-м</span> : null}
+              {item.regular_fouls > 0 ? <span className="rounded-full bg-white/[0.06] px-2 py-1">фолы {item.regular_fouls}</span> : null}
+              {item.minor_technical_fouls > 0 ? <span className="rounded-full bg-white/[0.06] px-2 py-1">мал. тех {item.minor_technical_fouls}</span> : null}
+              {item.major_technical_fouls > 0 ? <span className="rounded-full bg-white/[0.06] px-2 py-1">бол. тех {item.major_technical_fouls}</span> : null}
+            </div>
+          ) : null}
+          {item.best_move ? <div className="rounded-xl bg-white/[0.045] px-2.5 py-2">Лучший ход: {item.best_move_seats.length ? item.best_move_seats.map(seatLabel).join(', ') : 'без номеров'}</div> : null}
+          {item.color_protocol.length > 0 ? (
+            <div className="rounded-xl bg-white/[0.045] px-2.5 py-2">
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-white/30">Цветовой протокол</div>
+              {item.color_protocol.map((entry, index) => <div key={`${entry.mark}:${index}`}>{colorMarkLabel(entry.mark)}: {entry.seat_numbers.length ? entry.seat_numbers.map((seat) => `#${seat}`).join(', ') : '—'}</div>)}
+            </div>
+          ) : null}
+          {item.removal_reason || item.notes ? <div className="leading-5 text-white/40">{item.removal_reason ? <div>Причина удаления: {item.removal_reason}</div> : null}{item.notes ? <div>{item.notes}</div> : null}</div> : null}
+          {item.player_id ? <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id!)} className="min-h-9 rounded-xl bg-white/[0.07] px-3 text-[12px] text-white/70">Открыть профиль игрока</button> : null}
+          <div className="border-t border-white/[0.06] pt-2 text-[11px] text-white/35">
+            {detail?.game.elo_affected && item.elo_delta != null
+              ? `Elo: ${formatEloDelta(item.elo_delta)}${item.elo_before != null && item.elo_after != null ? ` · было ${shortNumber(item.elo_before)}, стало ${shortNumber(item.elo_after)}` : ''}`
+              : 'Эта игра рейтинг Elo не меняет.'}
+          </div>
+        </div>
+      </details>
+    );
+  };
+
+  const winnerTone = detail?.game.winner_team === 'red' ? 'from-rose-500/20 via-rose-500/[0.07]' : detail?.game.winner_team === 'black' ? 'from-slate-300/20 via-slate-300/[0.06]' : 'from-white/10 via-white/[0.03]';
+  const keyMoments: Array<{ label: string; value: string; extra?: string }> = [];
+  if (detail) {
+    const first = detail.protocol.first_killed;
+    if (first) keyMoments.push({ label: 'Первым убит (ПУ)', value: `#${first.seat_number} ${first.nickname}` });
+    for (const player of detail.players.filter((item) => item.best_move)) {
+      const named = player.best_move_seats;
+      const hits = named.filter((seat) => seatPlayer(seat)?.team === 'black').length;
+      keyMoments.push({
+        label: 'Лучший ход (ЛХ)',
+        value: `#${player.seat_number} ${player.nickname}`,
+        extra: named.length ? `назвал чёрными ${named.map((seat) => `#${seat}`).join(', ')} · угадал ${hits} из ${named.length}` : undefined,
+      });
+    }
+    if (detail.protocol.zero_round_voted) keyMoments.push({ label: 'Заголосован в нулевом круге', value: `#${detail.protocol.zero_round_voted.seat_number} ${detail.protocol.zero_round_voted.nickname}` });
+    if (detail.protocol.ppk_culprit) keyMoments.push({ label: 'Виновник ППК', value: `#${detail.protocol.ppk_culprit.seat_number} ${detail.protocol.ppk_culprit.nickname}` });
+  }
 
   return (
     <>
@@ -206,208 +309,131 @@ export default function PlayerGameDetail({
 
       {detail && (
         <>
-          <div className="px-1 pb-1 pt-2">
-            <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire · Игра №{detail.game.game_number}</div>
-            <h1 className="mt-1 text-2xl font-semibold text-white">{detail.game.title}</h1>
-            <p className="mt-1 text-sm text-white/45">{formatDate(detail.game.date)}</p>
-          </div>
-
-          <Section title="Итог игры">
+          <section data-testid="game-hero" className={`overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b ${winnerTone} to-transparent p-4`}>
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold text-white/90">{winnerLabel(detail.game.winner_team)}</div>
-                <div className="mt-1 text-sm text-white/45">{endReasonLabel(detail.protocol.end_reason)}</div>
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">2LA Noire · Игра №{detail.game.game_number}</div>
+                <h1 className="mt-1 text-xl font-semibold leading-6 text-white">{detail.game.title}</h1>
+                <p className="mt-1 text-sm text-white/45">{formatDate(detail.game.date)}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">
-                {detail.game.source === 'tournament'
-                  ? 'Турнир'
-                  : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}
+              <span className="shrink-0 rounded-full bg-white/[0.08] px-2.5 py-1 text-[11px] text-white/60">
+                {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}
               </span>
             </div>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="min-w-0">
+                <div className="text-lg font-semibold text-white">{winnerLabel(detail.game.winner_team)}</div>
+                <div className="text-sm text-white/50">{endReasonLabel(detail.protocol.end_reason)}</div>
+              </div>
+            </div>
             {(detail.game.table_name || detail.game.judge_name) && (
-              <div className="mt-3 text-xs text-white/35">
+              <div className="mt-3 text-xs text-white/40">
                 {[detail.game.table_name, detail.game.judge_name ? `судья ${detail.game.judge_name}` : null].filter(Boolean).join(' · ')}
               </div>
             )}
-            <div className="mt-3 space-y-2">
-              <PersonTag person={detail.protocol.first_killed} prefix="ПУ" />
-              <PersonTag person={detail.protocol.zero_round_voted} prefix="Заголосован в 0 круг" />
-              {detail.players.filter((player) => player.best_move).map((player) => (
-                <div key={`best-move:${player.participant_id}`} className="rounded-2xl bg-black/20 px-3 py-2 text-sm text-white/70">
-                  <span className="text-white/40">ЛХ: </span>
-                  <span className="font-medium text-white/85">#{player.seat_number} {player.nickname}</span>
-                  {player.best_move_source && (
-                    <span className="text-white/35"> · {player.best_move_source === 'first_killed' ? 'от ПУ' : player.best_move_source === 'zero_round_voted' ? 'от 0 круга' : player.best_move_source}</span>
-                  )}
-                  {player.best_move_seats.length > 0 && (
-                    <span className="text-white/55"> · оставил {player.best_move_seats.map((seat) => `#${seat}`).join(', ')}</span>
-                  )}
+          </section>
+
+          {me && (
+            <section data-testid="game-mine" className="rounded-3xl border border-sky-200/20 bg-sky-200/[0.06] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100/60">Ваша игра</div>
+              <div className="mt-2 flex items-center gap-3">
+                <Avatar player={me} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2"><RoleChip role={me.role} /><span className={`text-sm font-semibold ${me.won ? 'text-emerald-300' : 'text-rose-300'}`}>{me.won ? 'Победа' : 'Поражение'}</span></div>
+                  <div className="mt-1 text-xs text-white/45">Место за столом {me.seat_number}{exitLabel(me.exit_type) ? ` · ${exitLabel(me.exit_type)}` : ''}</div>
                 </div>
-              ))}
-              <PersonTag person={detail.protocol.ppk_culprit} prefix="ППК" />
-            </div>
-            {detail.protocol.judge_notes && (
-              <div className="mt-3 rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-sm leading-5 text-white/60">
-                <div className="mb-1 text-[11px] uppercase tracking-[0.15em] text-white/30">Заметка судьи</div>
-                {detail.protocol.judge_notes}
+                <div className="shrink-0 text-right">
+                  <div className={`text-2xl font-semibold tabular-nums ${pointsTone(me.score.total_points)}`}>{signedScore(me.score.total_points)}</div>
+                  <div className="text-[11px] text-white/40">{detail.game.elo_affected && me.elo_delta != null ? formatEloDelta(me.elo_delta) : 'баллов за игру'}</div>
+                </div>
               </div>
-            )}
-          </Section>
+            </section>
+          )}
 
-          {(detail.protocol.votes.length > 0 || detail.protocol.shots.length > 0 || detail.protocol.replacement) && (
-            <Section title="Как проходила игра">
-              {detail.protocol.votes.length > 0 && (
-                <div>
-                  <div className="mb-2 text-sm font-medium text-white/75">Голосования</div>
-                  <div className="space-y-2">
-                    {detail.protocol.votes.map((round) => {
-                      const outcome = voteOutcomeLabel(round.outcome);
-                      return (
-                        <div key={round.round_number} className="rounded-2xl bg-black/20 p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium text-white/80">
-                              {round.day_number === 0 ? 'Нулевой круг' : `День ${round.day_number}`}
-                              {round.is_revote ? ' · переголосование' : ''}
-                            </div>
-                            {round.eligible_voters != null && <div className="text-[11px] text-white/30">голосуют {round.eligible_voters}</div>}
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {round.nominated_seats.map((seat) => {
-                              const candidate = seatPlayer(seat);
-                              const count = Number(round.vote_counts[String(seat)] || 0);
-                              return (
-                                <span key={seat} className="rounded-xl bg-white/[0.06] px-2 py-1.5 text-xs text-white/65">
-                                  #{seat}{candidate ? ` ${candidate.nickname}` : ''} · {count}
-                                </span>
-                              );
-                            })}
-                          </div>
-                          {outcome && <div className="mt-2 text-[11px] text-white/35">Итог: {outcome}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {detail.protocol.shots.length > 0 && (
-                <div className={detail.protocol.votes.length ? 'mt-4' : ''}>
-                  <div className="mb-2 text-sm font-medium text-white/75">Ночи</div>
-                  <div className="space-y-2">
-                    {detail.protocol.shots.map((shot) => {
-                      const target = seatPlayer(shot.target_seat);
-                      return (
-                        <div key={shot.night_number} className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2.5">
-                          <span className="text-sm text-white/55">Ночь {shot.night_number}</span>
-                          <span className="text-right text-sm text-white/75">
-                            #{shot.target_seat}{target ? ` ${target.nickname}` : ''} · {shotResultLabel(shot.result)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {detail.protocol.replacement && (
-                <div className="mt-4 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">В протоколе зафиксирована замена игрока.</div>
-              )}
+          {keyMoments.length > 0 && (
+            <Section title="Главное в игре">
+              <ul className="space-y-2">
+                {keyMoments.map((moment, index) => (
+                  <li key={`${moment.label}:${index}`} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                    <div className="text-[11px] text-white/40">{moment.label}</div>
+                    <div className="mt-0.5 text-sm font-medium text-white/90">{moment.value}</div>
+                    {moment.extra ? <div className="mt-0.5 text-[12px] text-white/50">{moment.extra}</div> : null}
+                  </li>
+                ))}
+              </ul>
             </Section>
           )}
 
-          <Section title="Игроки и баллы">
-            <div className="space-y-2">
-              {detail.players.map((item) => {
-                const isSelf = item.player_id === selfId;
-                const scoreParts = [
-                  item.score.win_point ? { label: 'победа', value: item.score.win_point } : null,
-                  item.score.judge_bonus ? { label: 'судья', value: item.score.judge_bonus } : null,
-                  item.score.protocol_bonus ? { label: 'протокол', value: item.score.protocol_bonus } : null,
-                  item.score.best_move_points ? { label: 'ЛХ', value: item.score.best_move_points } : null,
-                  item.score.ci_points ? { label: 'CI', value: item.score.ci_points } : null,
-                  item.score.disciplinary_penalty_points ? { label: 'дисциплина', value: -item.score.disciplinary_penalty_points } : null,
-                ].filter(Boolean) as Array<{ label: string; value: number }>;
-                const exit = exitLabel(item.exit_type);
-
-                return (
-                  <div key={`${item.seat_number}:${item.player_id || item.nickname}`} className={`rounded-2xl border p-3 ${isSelf ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-black/20'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
-                      <button type="button" disabled={!item.player_id} onClick={() => item.player_id && openCanonicalPlayerProfile(item.player_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default">
-                        {item.avatar_url ? (
-                          <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
-                        ) : (
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
-                            {item.nickname.slice(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div>
-                          <div className="mt-0.5 text-xs text-white/40">{roleLabel(item.role)} · {item.won ? 'победа' : 'поражение'}</div>
-                        </div>
-                      </button>
-                      <div className="shrink-0 text-right">
-                        <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Итого</div>
-                        <div className={`text-lg font-semibold ${item.score.total_points > 0 ? 'text-emerald-300' : item.score.total_points < 0 ? 'text-rose-300' : 'text-white/75'}`}>
-                          {signedScore(item.score.total_points)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {scoreParts.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                        {scoreParts.map((part) => (
-                          <span key={`${part.label}:${part.value}`} className={`rounded-full px-2 py-1 ${part.value > 0 ? 'bg-emerald-400/10 text-emerald-200/80' : 'bg-rose-400/10 text-rose-200/80'}`}>
-                            {part.label} {signedScore(part.value)}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-[11px] text-white/30">Дополнительных начислений нет.</div>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-white/50">
-                      {exit && <span className="rounded-full bg-white/[0.06] px-2 py-1">{exit}</span>}
-                      {item.exit_order != null && <span className="rounded-full bg-white/[0.06] px-2 py-1">уход #{item.exit_order}</span>}
-                      {item.regular_fouls > 0 && <span className="rounded-full bg-white/[0.06] px-2 py-1">фолы {item.regular_fouls}</span>}
-                      {item.minor_technical_fouls > 0 && <span className="rounded-full bg-white/[0.06] px-2 py-1">мал. тех {item.minor_technical_fouls}</span>}
-                      {item.major_technical_fouls > 0 && <span className="rounded-full bg-white/[0.06] px-2 py-1">бол. тех {item.major_technical_fouls}</span>}
-                      {item.first_killed && <span className="rounded-full bg-white/[0.06] px-2 py-1">ПУ</span>}
-                      {item.zero_round_voted && <span className="rounded-full bg-white/[0.06] px-2 py-1">0 круг</span>}
-                    </div>
-
-                    {item.best_move && (
-                      <div className="mt-2 rounded-xl bg-white/[0.045] px-2.5 py-2 text-xs text-white/55">
-                        ЛХ: {item.best_move_seats.length ? item.best_move_seats.map((seat) => `#${seat}`).join(', ') : 'без номеров'}
-                      </div>
-                    )}
-
-                    {item.color_protocol.length > 0 && (
-                      <div className="mt-2 rounded-xl bg-white/[0.045] px-2.5 py-2 text-xs text-white/55">
-                        <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-white/30">Цветовой протокол</div>
-                        {item.color_protocol.map((entry, index) => (
-                          <div key={`${entry.mark}:${index}`}>{colorMarkLabel(entry.mark)}: {entry.seat_numbers.length ? entry.seat_numbers.map((seat) => `#${seat}`).join(', ') : '—'}</div>
-                        ))}
-                      </div>
-                    )}
-
-                    {(item.removal_reason || item.notes) && (
-                      <div className="mt-2 text-[11px] leading-5 text-white/35">
-                        {item.removal_reason && <div>Причина удаления: {item.removal_reason}</div>}
-                        {item.notes && <div>{item.notes}</div>}
-                      </div>
-                    )}
-
-                    <div className="mt-3 border-t border-white/[0.06] pt-2 text-[11px] text-white/28">
-                      {detail.game.elo_affected && item.elo_delta != null
-                        ? `Elo: ${formatEloDelta(item.elo_delta)}${item.elo_before != null && item.elo_after != null ? ` · ${shortNumber(item.elo_before)} → ${shortNumber(item.elo_after)}` : ''}`
-                        : 'Elo: эта игра рейтинг не меняет'}
-                    </div>
+          <Section title="Составы и баллы" hint="Нажмите на игрока, чтобы увидеть, из чего сложились баллы.">
+            <div className="space-y-4">
+              {sides.map((side) => (
+                <div key={side.team}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
+                    <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
+                    {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
                   </div>
-                );
-              })}
+                  <div className="space-y-2">{side.players.map(renderPlayer)}</div>
+                </div>
+              ))}
+              {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
             </div>
           </Section>
+
+          {(story.length > 0 || detail.protocol.replacement) && (
+            <Section title="Ход игры" hint="Голосования и ночные выстрелы по порядку.">
+              <ol className="space-y-2.5 border-l border-white/10 pl-3">
+                {story.map((entry) => {
+                  if (entry.kind === 'night') {
+                    const shot = entry.shot;
+                    const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
+                    return (
+                      <li key={entry.key} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-white/80">Ночь {shot.night_number}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
+                        </div>
+                        <div className="mt-1 text-[13px] text-white/60">Мафия стреляла в {seatLabel(shot.target_seat)}</div>
+                      </li>
+                    );
+                  }
+                  const vote = entry.vote;
+                  const counts = vote.nominated_seats.map((seat) => ({ seat, votes: Number(vote.vote_counts[String(seat)] || 0) }));
+                  const top = Math.max(1, ...counts.map((item) => item.votes));
+                  const leaders = counts.filter((item) => item.votes === top && top > 0);
+                  const result = vote.outcome === 'tie_revote' ? 'Ничья — переголосование'
+                    : vote.outcome === 'night' ? 'Никто не заголосован — наступает ночь'
+                    : vote.outcome === 'eliminated' ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
+                    : vote.outcome ? vote.outcome.replaceAll('_', ' ') : null;
+                  return (
+                    <li key={entry.key} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-white/80">{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
+                        {vote.eligible_voters != null ? <span className="shrink-0 text-[11px] text-white/35">голосуют {vote.eligible_voters}</span> : null}
+                      </div>
+                      <div className="mt-2 space-y-1.5">
+                        {counts.map((item) => (
+                          <div key={item.seat} className="flex items-center gap-2 text-[12px]">
+                            <span className="w-28 shrink-0 truncate text-white/65">{seatLabel(item.seat)}</span>
+                            <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]"><span className="block h-full rounded-full bg-white/35" style={{ width: `${Math.round((item.votes / top) * 100)}%` }} /></span>
+                            <span className="w-5 shrink-0 text-right font-medium tabular-nums text-white/75">{item.votes}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {result ? <div className="mt-2 text-[12px] text-white/50">{result}</div> : null}
+                    </li>
+                  );
+                })}
+              </ol>
+              {detail.protocol.replacement ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">В протоколе зафиксирована замена игрока.</div> : null}
+            </Section>
+          )}
+
+          {detail.protocol.judge_notes && (
+            <Section title="Заметка судьи">
+              <p className="rounded-2xl bg-black/20 px-3 py-3 text-sm leading-5 text-white/65">{detail.protocol.judge_notes}</p>
+            </Section>
+          )}
         </>
       )}
     </>

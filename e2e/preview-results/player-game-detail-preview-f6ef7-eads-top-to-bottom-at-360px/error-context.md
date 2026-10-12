@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: trophy-cabinet-preview.spec.mjs >> two numbered tournament wins have different 2.5D models and drill into the real tournament screen
-- Location: tests/trophy-cabinet-preview.spec.mjs:35:1
+- Name: player-game-detail-preview.spec.mjs >> game page reads top to bottom at 360px
+- Location: tests/player-game-detail-preview.spec.mjs:4:33
 
 # Error details
 

@@ -7,7 +7,7 @@ import { EveningGamesView } from './EveningGamesView.tsx';
 import { EveningManagementView } from './EveningManagementView.tsx';
 import EveningRouteView from './EveningRouteView.tsx';
 
-export type EveningSection = 'overview' | 'participants' | 'games' | 'management' | 'tables' | 'closeout';
+export type EveningSection = 'overview' | 'participants' | 'games' | 'management' | 'payments' | 'tables' | 'closeout';
 
 interface EveningWorkspaceProps {
   eveningId: string;
@@ -63,7 +63,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       <div className="sticky top-0 z-30 -mx-1 bg-app-bg/92 px-1 py-1 backdrop-blur-xl sm:top-[60px]">
         <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
           {tabs.map((tab) => {
-            const active = section === tab.id || (tab.id === 'management' && (section === 'tables' || section === 'closeout'));
+            const active = section === tab.id || (tab.id === 'management' && (section === 'payments' || section === 'tables' || section === 'closeout'));
             return (
               <button
                 key={tab.id}
@@ -85,7 +85,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         ? <EveningRouteView eveningId={eveningId} refreshKey={headerKey} onOpenSection={openSection} onChanged={() => setHeaderKey((key) => key + 1)} />
         : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
-      {section === 'management' || section === 'tables' || section === 'closeout' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' || section === 'closeout' ? section : undefined} onEveningChanged={() => setHeaderKey((key) => key + 1)} /> : null}
+      {section === 'management' || section === 'payments' || section === 'tables' || section === 'closeout' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'payments' || section === 'tables' || section === 'closeout' ? section : undefined} onEveningChanged={() => setHeaderKey((key) => key + 1)} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} /> : null}
     </div>
   );

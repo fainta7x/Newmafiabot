@@ -79,6 +79,7 @@ describe('evening route', () => {
     expect(open.stages.map((stage: any) => stage.id)).toEqual(['prepare', 'gather', 'live', 'closeout']);
     expect(open.stages.flatMap((stage: any) => stage.steps).some((step: any) => step.id === 'created')).toBe(false);
     expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.map((step: any) => step.id)).toEqual(['money', 'close']);
+    expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.find((step: any) => step.id === 'money').target).toBe('payments');
     expect(open.stages.find((stage: any) => stage.id === 'closeout').steps.find((step: any) => step.id === 'close').detail).toContain('нет отметки у 1 игрок');
 
     const closed = (await request(app).get('/api/evenings/c2/route').set('Cookie', organizerCookie())).body;

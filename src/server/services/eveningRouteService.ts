@@ -14,7 +14,7 @@ import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
  * computed from the evening's real data so every step shows what is done and where to act.
  */
 export type RouteStageId = 'prepare' | 'gather' | 'live' | 'closeout';
-export type RouteTarget = 'overview' | 'participants' | 'management' | 'tables' | 'closeout' | 'games';
+export type RouteTarget = 'overview' | 'participants' | 'management' | 'payments' | 'tables' | 'closeout' | 'games';
 export type RouteStepStatus = 'done' | 'todo' | 'attention' | 'info';
 export type RouteStep = {
   id: string;
@@ -221,7 +221,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   ].filter(Boolean);
   if (evening.status !== 'cancelled') {
     steps.closeout.push(
-      { id: 'money', title: 'Оплаты', detail: debtors ? `Не оплатили: ${players(debtors)}` : 'Все оплатили', status: debtors ? 'attention' : 'done', target: 'closeout' },
+      { id: 'money', title: 'Оплаты', detail: debtors ? `Не оплатили: ${players(debtors)}` : 'Все оплатили', status: debtors ? 'attention' : 'done', target: 'payments' },
       closed
         ? { id: 'close', title: 'Вечер закрыт', status: 'done' }
         : { id: 'close', title: 'Закрыть вечер', detail: blockers.length ? `Сначала: ${blockers.join(', ')}` : 'Итоги, долги и статистика сохранятся', status: stageNow === 'closeout' ? (blockers.length ? 'attention' : 'todo') : 'info', target: 'closeout' },

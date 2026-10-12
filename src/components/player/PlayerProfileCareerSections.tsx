@@ -26,10 +26,9 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
   if (!stats) return null;
   const tile = 'rounded-2xl border border-white/10 bg-white/[.04] p-3';
   return <>
-    <section className="grid grid-cols-3 gap-2" aria-label="Серии и винрейт">
-      <div className={tile}><div className="text-lg font-semibold">{stats.win_rate ?? 0}%</div><div className="text-[11px] text-white/50">винрейт</div></div>
-      <div className={tile}><div className="text-lg font-semibold">{stats.current_streak || '—'}</div><div className="text-[11px] text-white/50">побед подряд</div></div>
-      <div className={tile}><div className="text-lg font-semibold">{stats.best_streak || '—'}</div><div className="text-[11px] text-white/50">рекорд серии</div></div>
+    <section className="grid grid-cols-2 gap-2" aria-label="Серии побед">
+      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Сейчас</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.current_streak || '—'}</div><div className="text-[11px] text-white/50">побед подряд</div></div>
+      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Лучший результат</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.best_streak || '—'}</div><div className="text-[11px] text-white/50">рекорд серии</div></div>
     </section>
 
     {season ? <section data-testid="profile-season" className="rounded-2xl border border-sky-200/10 bg-sky-200/[0.035] p-4">
@@ -43,9 +42,23 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
       </div>
     </section> : null}
 
-    {stats.red && stats.black ? <section className="grid grid-cols-2 gap-2" aria-label="Красные и чёрные">
-      <div className="rounded-2xl border border-rose-200/10 bg-rose-200/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.1em] text-rose-100/50">За красных</div><div className="mt-1 text-2xl font-semibold">{stats.red.games ? `${stats.red.win_rate}%` : '—'}</div><div className="text-[11px] text-white/40">{stats.red.wins} побед из {stats.red.games}</div></div>
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><div className="text-[11px] uppercase tracking-[0.1em] text-white/50">За чёрных</div><div className="mt-1 text-2xl font-semibold">{stats.black.games ? `${stats.black.win_rate}%` : '—'}</div><div className="text-[11px] text-white/40">{stats.black.wins} побед из {stats.black.games}</div></div>
+    {stats.red && stats.black ? <section aria-label="Красные и чёрные" className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3">
+      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">Победы по командам</div>
+      <div className="grid grid-cols-2 gap-2">
+        {([
+          { label: 'За красных', stat: stats.red, color: 'bg-rose-300', border: 'border-rose-200/10' },
+          { label: 'За чёрных', stat: stats.black, color: 'bg-white/70', border: 'border-white/10' },
+        ]).map(({ label, stat, color, border }) => (
+          <div key={label} className={`min-w-0 rounded-2xl border ${border} bg-black/15 p-3`}>
+            <div className="text-[11px] text-white/55">{label}</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">{stat.games ? `${stat.win_rate}%` : '—'}</div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`${label}: ${stat.games ? stat.win_rate : 0}% побед`}>
+              <div className={`h-full rounded-full ${color}`} style={{ width: `${stat.games ? Math.min(100, Math.max(0, stat.win_rate)) : 0}%` }} />
+            </div>
+            <div className="mt-2 text-[11px] text-white/45">{stat.wins} из {stat.games} игр</div>
+          </div>
+        ))}
+      </div>
     </section> : null}
 
     {(stats.first_killed || stats.best_moves || stats.zero_round_voted) ? <section className="grid grid-cols-3 gap-2" aria-label="ПУ, ЛХ и нулевой круг">

@@ -63,14 +63,43 @@ try {
     })));
   };
   await state('default-dom');
-  for (const label of ['История игр', '2026', 'Все игры', 'Турниры ФСМ', '2025']) {
+  log('next-data-shape', await page.evaluate(() => {
+    const text = document.querySelector('#__NEXT_DATA__')?.textContent || '';
+    if (!text) return { available: false };
+    const data = JSON.parse(text);
+    const shapes = [];
+    const walk = (value, path, level) => {
+      if (level > 5 || shapes.length >= 200 || value === null || typeof value !== 'object') return;
+      if (Array.isArray(value)) {
+        shapes.push({ path, type: 'array', length: value.length,
+          exampleKeys: value[0] && typeof value[0] === 'object' ? Object.keys(value[0]).slice(0, 25) : [] });
+        if (value.length > 0) walk(value[0], path + '[0]', level + 1);
+      } else {
+        const keys = Object.keys(value);
+        shapes.push({ path, type: 'object', keys: keys.slice(0, 40) });
+        for (const key of keys.slice(0, 45)) walk(value[key], path + '.' + key, level + 1);
+      }
+    };
+    walk(data, 'next', 0);
+    return { bytes: text.length, shapes };
+  }));
+  for (const label of ['2026', 'Все игры', 'Турниры ФСМ', 'История игр', '2025']) {
     const item = page.getByText(label, { exact: true }).first();
     if (await item.count() === 0) { log('not-found', label); continue; }
     try {
       await item.click({ timeout: 4500 });
       await page.waitForTimeout(1800);
       await state('after-' + label);
-      log('visible-text-' + label, trim(await page.locator('main').innerText().catch(() => ''), 1100));
+      log('visible-text-' + label, trim(await page.locator('body').innerText({timeout: 4000}).catch(() => ''), 1800));
+      if (label === 'История игр') {
+        log('history-rows', await page.locator('a[href^="/tournament/"]').evaluateAll(links =>
+          links.slice(0, 20).map(a => ({
+            href: new URL(a.href).pathname,
+            title: (a.textContent || '').trim().slice(0, 140),
+            context: (a.closest('tr')?.textContent || a.parentElement?.parentElement?.textContent || '').trim().slice(0, 300),
+          })),
+        ));
+      }
     } catch (error) { log('click-failed-' + label, trim(error, 220)); }
   }
   log('requests', calls.filter(call => call.resource === 'fetch' || call.resource === 'xhr' || call.resource === 'document').slice(0, 75));

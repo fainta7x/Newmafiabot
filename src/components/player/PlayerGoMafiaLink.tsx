@@ -82,6 +82,19 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       </div>
       <p className="text-xs text-white/45">Данные GoMafia · Обновлено {new Date(snap.retrievedAt).toLocaleDateString('ru-RU')}</p>
     </div>}
+    {Array.isArray(career?.external_games) && career.external_games.length > 0 && <div data-testid="gomafia-history" className="mt-4 space-y-2">
+      <strong className="text-sm">История федеративных игр</strong>
+      {career.external_games.map((game: any) => <div key={game.externalGameId}
+        className="rounded-xl border border-white/10 bg-white/[.03] p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div><div className="text-sm font-medium">{game.tournamentName || 'Турнирная игра'}</div>
+          <div className="mt-1 text-xs text-white/55">{game.date || 'Дата неизвестна'} · {({ citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' } as Record<string, string>)[game.role] || 'Роль не указана'} · {game.result === 'win' ? 'Победа' : game.result === 'loss' ? 'Поражение' : 'Результат не указан'}</div></div>
+          <a href={game.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-amber-200 underline">Источник ↗</a>
+        </div>
+      </div>)}
+    </div>}
+    {career?.status === 'verified' && career?.history_status === 'not_imported' &&
+      <p className="mt-2 text-xs text-white/50">История федеративных игр пока не импортирована. Полные протоколы можно открыть на сайте федерации.</p>}
     {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
     <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
   </section>;

@@ -7,6 +7,9 @@ import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { calculateCanonicalEloGame, DEFAULT_ELO, type EloTeam } from '../services/eloRatingService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
+import { loadRatingSeasons } from '../services/clubSeasonService.ts';
+import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
+import { eloJourneyChartSummary, filterEloJourneyEvents } from '../../lib/eloJourneyScope.ts';
 
 const router = Router();
 
@@ -93,11 +96,12 @@ router.get('/elo-journey', async (req, res) => {
 
   try {
     const db = req.db;
-    const [player, timeline, snapshots, ratingRows] = await Promise.all([
+    const [player, timeline, snapshots, ratingRows, seasons] = await Promise.all([
       db.get(`SELECT id, nickname, elo, COALESCE(elo_seed, ?) AS elo_seed FROM players WHERE id = ? LIMIT 1`, [DEFAULT_ELO, playerId]),
       loadPlayerEloHistory(db),
       loadCompletedGameSnapshots(db),
       db.all(`SELECT id, elo FROM players WHERE id <> ? AND elo IS NOT NULL`, [playerId]),
+      loadRatingSeasons(db),
     ]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -130,10 +134,28 @@ router.get('/elo-journey', async (req, res) => {
       }];
     });
 
+    const requestedPeriod = typeof req.query.period === 'string' ? req.query.period : 'all';
+    const season = seasons.find((item) => item.key === requestedPeriod) || null;
+    const requestedFormat = typeof req.query.format === 'string' ? req.query.format : 'all';
+    const format: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(requestedFormat)
+      ? requestedFormat as EveningFormat : 'all';
+    // Format is read only for the authenticated player's already-known Elo games.
+    // Tournament games always use TOURNAMENT; old STANDARD evenings normalize to CASUAL.
+    const clubFormats = new Map<string, string>();
+    if (format !== 'all') {
+      const rows = await db.all(`SELECT g.id, e.format FROM games g
+        JOIN game_evenings e ON e.id = g.evening_id WHERE g.evening_id IS NOT NULL`);
+      for (const row of rows) clubFormats.set(`club:${String(row.id)}`, String(row.format));
+    }
+    const selected = filterEloJourneyEvents(events, {
+      start: season?.start, end: season?.end, format,
+    }, clubFormats);
+
     const seed = Number.isFinite(Number(player.elo_seed)) ? Number(player.elo_seed) : DEFAULT_ELO;
-    const values = [seed, ...events.map((event) => Number(event.elo_after))].filter(Number.isFinite);
     const computedCurrent = events.length ? Number(events[events.length - 1].elo_after) : seed;
     const current = Number.isFinite(Number(player.elo)) ? Number(player.elo) : computedCurrent;
+    const scoped = Boolean(season || format !== 'all');
+    const chartSummary = eloJourneyChartSummary(selected, seed, current, scoped);
     const clubElos = ratingRows.map((row: any) => Number(row.elo)).filter(Number.isFinite);
     const clubAverage = clubElos.length ? clubElos.reduce((sum: number, value: number) => sum + value, 0) / clubElos.length : DEFAULT_ELO;
 
@@ -144,14 +166,16 @@ router.get('/elo-journey', async (req, res) => {
         elo: round(current),
         seed: round(seed),
       },
+      scope: { period: season?.key || 'all', period_label: season?.label || 'Всё время', format, format_label: format === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[format] },
       summary: {
-        games: events.length,
+        ...chartSummary,
         current: round(current),
         computed_current: round(computedCurrent),
-        peak: round(Math.max(...values)),
-        floor: round(Math.min(...values)),
-        net: round(computedCurrent - seed),
-        last_delta: events.length ? Number(events[events.length - 1].elo_delta) : 0,
+        chart_start: round(chartSummary.chart_start),
+        peak: round(chartSummary.peak),
+        floor: round(chartSummary.floor),
+        net: round(chartSummary.net),
+        last_delta: round(chartSummary.last_delta),
       },
       preview: {
         basis: `Средний Elo остальных игроков клуба: ${Math.round(clubAverage)}. Личные игровые баллы в прогнозе = 0.`,
@@ -164,7 +188,7 @@ router.get('/elo-journey', async (req, res) => {
           loss: previewOutcome(playerId, current, clubAverage, 'black', false),
         },
       },
-      events,
+      events: selected,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось построить Elo-карьеру' });

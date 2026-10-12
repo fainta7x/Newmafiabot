@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { openExternalMusicUrl } from '../../lib/openExternalMusicUrl.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type UploadTrack = {
   id: string;
@@ -34,9 +35,7 @@ export default function JudgeMusicPlaylist() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const reload = async () => {
-    const response = await fetch('/api/player/music-library/organizer', { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить музыкальную базу.');
+    const body = await getJson<any>('/api/player/music-library/organizer', 'Не удалось загрузить музыкальную базу.');
     setUploads(body.uploads || []);
     setLinks(body.links || []);
     setPlayerSlots(body.player_slots || []);

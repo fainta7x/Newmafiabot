@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type MusicEntry = {
   id: string;
@@ -23,9 +24,7 @@ export default function PlayerMusicSlots() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    const response = await fetch('/api/player/music-library/player-slots', { credentials: 'include' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить музыку.');
+    const body = await getJson<any>('/api/player/music-library/player-slots', 'Не удалось загрузить музыку.');
     const next = body.slots as Slot[];
     setSlots(next);
     setDrafts(Object.fromEntries(next.map(({ slot, entry }) => [slot, {

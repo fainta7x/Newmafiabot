@@ -1,5 +1,6 @@
 import { countGames, countWins } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
+import { getJson } from '../../lib/requestJson.ts';
 
 type RatingPeriodSummary = {
   id: string;
@@ -130,9 +131,7 @@ export default function PlayerRatingPeriods({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/player/rating-periods', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить рейтинговые периоды');
+        const body = await getJson<any>('/api/player/rating-periods', 'Не удалось загрузить рейтинговые периоды');
         const next: PeriodListResponse = {
           active_periods: Array.isArray(body?.active_periods) ? body.active_periods : [],
           completed_periods: Array.isArray(body?.completed_periods) ? body.completed_periods : [],
@@ -159,9 +158,7 @@ export default function PlayerRatingPeriods({
     setSelectedPlayerId(null);
     void (async () => {
       try {
-        const response = await fetch(`/api/player/rating-periods/${encodeURIComponent(selectedPeriodId)}`, { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить таблицу периода');
+        const body = await getJson<any>(`/api/player/rating-periods/${encodeURIComponent(selectedPeriodId)}`, 'Не удалось загрузить таблицу периода');
         if (!cancelled) setDetail(body as RatingPeriodDetail);
       } catch (error: any) {
         if (!cancelled) {

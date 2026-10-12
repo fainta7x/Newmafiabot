@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
 import PlayerPokerTournamentDetail from './PlayerPokerTournamentDetail.tsx';
 import PlayerCustomEventDetail from './PlayerCustomEventDetail.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 type EventSlot = {
   id: string;
@@ -171,9 +172,7 @@ export default function PlayerEventsCalendar({
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/player/calendar?month=${monthKey}`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить календарь');
+      const body = await getJson<any>(`/api/player/calendar?month=${monthKey}`, 'Не удалось загрузить календарь');
       setEvents(Array.isArray(body.events) ? body.events : []);
       if (body?.novice_state?.player) {
         setNoviceState(body.novice_state);

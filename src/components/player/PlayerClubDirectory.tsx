@@ -6,6 +6,7 @@ import { Badge, type BadgeVariant } from '../ui/Badge.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card.tsx';
 import { Input } from '../ui/Input.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { getJson } from '../../lib/requestJson.ts';
 
 type DirectoryPlayer = { id: string; nickname: string; elo: number; game_level: string; avatar_url: string | null };
 
@@ -26,9 +27,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/player/players', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игроков');
+        const body = await getJson<any>('/api/player/players', 'Не удалось загрузить игроков');
         if (!cancelled) setPlayers(Array.isArray(body?.players) ? body.players : []);
       } catch (loadError: any) { if (!cancelled) setError(loadError?.message || 'Не удалось загрузить игроков'); }
     })();

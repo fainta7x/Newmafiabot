@@ -1,5 +1,11 @@
 # 2LA Noire — Current Project State
 
+## GoMafia nominations — verification and correction (owner request, 2026-10-12)
+
+Latest main already includes nomination import (#878) and winner-rule confirmation (#880); the initial #852 implementation imported results/games, not nomination awards. Live source adapter checked all 13 Chagin tournaments / 164 games: **four nomination wins**, all in 2023 — best_don on 1 April (507), best_red / best_sheriff / MVP on 22 July (616). Four separate podium placements are not additional nomination wins. Second/third positions in nomination lists are not victories; `best_mafia` is the single «Лучший чёрный» category.
+
+Current correction branch `feat/gomafia-career-awards-20261012`: profile winner flags back up initial tournament-read failures; hidden/ambiguous nominations fail closed; authoritatively corrected automatic awards are retracted/reinstated by stable key without deleting audit rows or altering manual awards; nomination wins appear in the sporting chronology. Real public fixtures and SQLite correction/idempotence tests added. CI/merge/runtime of this correction are pending; no production DB write performed during investigation. Normal refresh TTL remains six hours.
+
 ## GoMafia sports career — PR #852 completion (2026-10-12)
 
 **Owner-approved scope:** link one stable GoMafia ID, then automatically discover available sporting history without pasting tournament links. «Спортивная карьера» is separate from «Клубная карьера» 2LA Noire; federation results never change club Elo, local games/tournaments/ratings, achievements or money.
@@ -16,7 +22,7 @@
 
 The original achievement-paths timeout was a stale test clicking already-open «Подробная статистика» closed; upstream #855 fixed it and is preserved. Temporary diagnostic probe/workflow changes and manual tournament import are removed. Local Chrome is blocked by the environment's Unix-socket restriction, so browser evidence comes from Actions. Automatic approval review rejected the broad local suite after an unverified api.telegram.org request; it was stopped and not retried. Existing GitHub CI was inspected: it does not inject production bot secrets, and Telegram tests use dummy tokens/mock transports. Those isolated CI checks passed; no real bot messages are authorized by this integration task.
 
-**Release:** implementation is verified; PR #852 merge is pending at this documentation update. Amvera deployment and production import of this PR have **not** been performed or verified. Read-only production check at 2026-10-12 14:23 UTC: `/api/health` is ok; `/api/health/runtime` is HTTP 503, database ok, bot/Telegram fail, deployed build `9d743183e1e1c397e179b9f07a8fb0449e18aff9`. This is a different revision, not evidence of this integration running. Retain the public-registration limitation above; this is not a promise to ingest private signup lists.
+**Release:** implementation is verified; PR #852 was merged as `eac1520b4878ab05f52632aff271ff564f553acf`; later nomination work is included in current main. Amvera deployment and production import of this PR have **not** been performed or verified. Read-only production check at 2026-10-12 14:23 UTC: `/api/health` is ok; `/api/health/runtime` is HTTP 503, database ok, bot/Telegram fail, deployed build `9d743183e1e1c397e179b9f07a8fb0449e18aff9`. This is a different revision, not evidence of this integration running. Retain the public-registration limitation above; this is not a promise to ingest private signup lists.
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
@@ -760,6 +766,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Спортивная карьера: выигранные номинации GoMafia видны рядом с результатом турнира; вторые и третьи позиции не считаются победами.
 - Спортивная карьера: после подтверждения GoMafia ID автоматически появляются турниры, результаты, годы и история игр. Клубный рейтинг считается отдельно; будущие регистрации показываются только при наличии подтверждённого публичного источника (сейчас недоступны).
 
 - Страница сыгранной игры стала понятнее: сверху итог (кто победил и как закончилась игра), блок «Ваша игра», главное (ПУ, лучший ход и сколько чёрных угадано), составы по командам с баллами (нажмите на игрока — видно, из чего баллы) и ход игры по порядку: нулевой круг, ночи и дни с голосами.

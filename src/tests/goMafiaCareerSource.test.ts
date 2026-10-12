@@ -67,6 +67,20 @@ describe('source-backed public GoMafia career', () => {
     expect(repeated.career?.tournaments.map(t=>t.tournamentId)).toEqual(snapshot.career?.tournaments.map(t=>t.tournamentId));
     expect(()=>parseGoMafiaHistory({...history1,history:[{...history1.history[0],games:[history1.history[0].games[0],history1.history[0].games[0]]}]},ref)).toThrow(/Duplicate/);
   });
+  it('retains published history nomination winners when initial tournament enrichment fails', async () => {
+    const read=vi.fn(async(path:string,params?:Record<string,string>)=>{
+      if(path==='/stats/1202')return history1;
+      if(path.includes('page=2'))return history2;
+      if(params)return allStats;
+      throw new Error('Temporary tournament failure');
+    });
+    const snapshot=await fetchPublicGoMafiaCareer(ref,read);
+    const july=snapshot.career!.tournaments.find(t=>t.tournamentId==='616')!;
+    expect(july.scoreStatus).toBe('refresh_failed');
+    expect(july.nominationsStatus).toBe('available');
+    expect(july.nominations).toEqual([{key:'best_red',rank:1},{key:'best_sheriff',rank:1},{key:'mvp',rank:1}]);
+    expect(snapshot.career!.tournaments.flatMap(t=>t.nominations??[]).filter(n=>n.rank===1)).toHaveLength(4);
+  });
   it('fails incomplete pagination without marking a partial career current', async () => {
     const read = vi.fn(async(path: string)=>path.includes('page=2')?{...history2,history:[]}:history1);
     await expect(fetchPublicGoMafiaCareer(ref,read)).rejects.toThrow(/pagination/);

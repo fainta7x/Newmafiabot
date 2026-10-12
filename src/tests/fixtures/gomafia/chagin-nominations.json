@@ -1,0 +1,356 @@
+[
+  {
+    "tournament": {
+      "id": "616",
+      "is_hidden_result": "0",
+      "status": "completed"
+    },
+    "nominations": {
+      "best_red": [
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1291"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4473"
+          },
+          "amount": null
+        }
+      ],
+      "best_mafia": [
+        {
+          "user": {
+            "id": "4473"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1291"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1044"
+          },
+          "amount": null
+        }
+      ],
+      "best_don": [
+        {
+          "user": {
+            "id": "1288"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4095"
+          },
+          "amount": null
+        }
+      ],
+      "best_sheriff": [
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4095"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "300"
+          },
+          "amount": null
+        }
+      ],
+      "mvp": [
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4473"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1291"
+          },
+          "amount": null
+        }
+      ]
+    },
+    "tournamentResultWithFinal": [
+      {
+        "user_id": "1202",
+        "place": "1",
+        "sum": "12.05"
+      }
+    ],
+    "tournamentResultWithoutFinal": [],
+    "games": []
+  },
+  {
+    "tournament": {
+      "id": "507",
+      "is_hidden_result": "0",
+      "status": "completed"
+    },
+    "nominations": {
+      "best_red": [
+        {
+          "user": {
+            "id": "3750"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4480"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4095"
+          },
+          "amount": null
+        }
+      ],
+      "best_mafia": [
+        {
+          "user": {
+            "id": "300"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4480"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "3809"
+          },
+          "amount": null
+        }
+      ],
+      "best_don": [
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "3750"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4094"
+          },
+          "amount": null
+        }
+      ],
+      "best_sheriff": [
+        {
+          "user": {
+            "id": "4094"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "300"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1202"
+          },
+          "amount": null
+        }
+      ],
+      "mvp": [
+        {
+          "user": {
+            "id": "3750"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "4480"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "300"
+          },
+          "amount": null
+        }
+      ]
+    },
+    "tournamentResultWithFinal": [
+      {
+        "user_id": "1202",
+        "place": "1",
+        "sum": "8.67"
+      }
+    ],
+    "tournamentResultWithoutFinal": [],
+    "games": []
+  },
+  {
+    "tournament": {
+      "id": "2765",
+      "is_hidden_result": "0",
+      "status": "completed"
+    },
+    "nominations": {
+      "best_red": [
+        {
+          "user": {
+            "id": "1"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "2709"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "1835"
+          },
+          "amount": null
+        }
+      ],
+      "best_mafia": [
+        {
+          "user": {
+            "id": "6151"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "169"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "126"
+          },
+          "amount": null
+        }
+      ],
+      "best_don": [
+        {
+          "user": {
+            "id": "6582"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "8841"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "2566"
+          },
+          "amount": null
+        }
+      ],
+      "best_sheriff": [
+        {
+          "user": {
+            "id": "39"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "2566"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "3299"
+          },
+          "amount": null
+        }
+      ],
+      "mvp": [
+        {
+          "user": {
+            "id": "1"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "2566"
+          },
+          "amount": null
+        },
+        {
+          "user": {
+            "id": "39"
+          },
+          "amount": null
+        }
+      ]
+    },
+    "tournamentResultWithFinal": [
+      {
+        "user_id": "1202",
+        "place": "27",
+        "sum": "11.30"
+      }
+    ],
+    "tournamentResultWithoutFinal": [],
+    "games": []
+  }
+]

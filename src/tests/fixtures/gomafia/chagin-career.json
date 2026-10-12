@@ -280,7 +280,9 @@
             "seat": 10,
             "eloDelta": -14
           }
-        ]
+        ],
+        "nominations": [],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "2765",
@@ -537,7 +539,9 @@
             "seat": 9,
             "eloDelta": 29
           }
-        ]
+        ],
+        "nominations": [],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "2357",
@@ -714,7 +718,14 @@
             "seat": 3,
             "eloDelta": -16
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_don",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "1846",
@@ -907,7 +918,9 @@
             "seat": 10,
             "eloDelta": 20
           }
-        ]
+        ],
+        "nominations": [],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "1520",
@@ -1084,7 +1097,14 @@
             "seat": 6,
             "eloDelta": -14
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_mafia",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "721",
@@ -1293,7 +1313,14 @@
             "seat": 3,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_red",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "646",
@@ -1630,7 +1657,14 @@
             "seat": 10,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_sheriff",
+            "rank": 2
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "616",
@@ -1839,7 +1873,26 @@
             "seat": 3,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_red",
+            "rank": 1
+          },
+          {
+            "key": "best_don",
+            "rank": 2
+          },
+          {
+            "key": "best_sheriff",
+            "rank": 1
+          },
+          {
+            "key": "mvp",
+            "rank": 1
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "566",
@@ -2048,7 +2101,22 @@
             "seat": 6,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_red",
+            "rank": 2
+          },
+          {
+            "key": "best_mafia",
+            "rank": 3
+          },
+          {
+            "key": "best_sheriff",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "507",
@@ -2257,7 +2325,18 @@
             "seat": 9,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_don",
+            "rank": 1
+          },
+          {
+            "key": "best_sheriff",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "394",
@@ -2514,7 +2593,9 @@
             "seat": 7,
             "eloDelta": 39
           }
-        ]
+        ],
+        "nominations": [],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "414",
@@ -2691,7 +2772,22 @@
             "seat": 8,
             "eloDelta": 0
           }
-        ]
+        ],
+        "nominations": [
+          {
+            "key": "best_red",
+            "rank": 2
+          },
+          {
+            "key": "best_don",
+            "rank": 2
+          },
+          {
+            "key": "mvp",
+            "rank": 3
+          }
+        ],
+        "nominationsStatus": "available"
       },
       {
         "tournamentId": "30",
@@ -2868,7 +2964,9 @@
             "seat": 10,
             "eloDelta": 26
           }
-        ]
+        ],
+        "nominations": [],
+        "nominationsStatus": "available"
       }
     ],
     "yearlyStats": [

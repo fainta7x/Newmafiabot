@@ -1,3 +1,4 @@
+import { GOMAFIA_NOMINATIONS, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
 import { useEffect, useState } from 'react';
 
 type Linked = {
@@ -137,7 +138,10 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
           {item.eloDelta != null && <span>Δ Elo: {item.eloDelta > 0 ? '+' : ''}{stat(item.eloDelta)}</span>}
           {item.eloAfter != null && <span>Elo после турнира: {stat(item.eloAfter)}</span>}
         </div>
-        {item.scoreStatus === 'refresh_failed' && item.totalScore != null && <p className="mt-1 text-[11px] text-white/45">Баллы из сохранённого результата · {item.scoreRetrievedAt ? new Date(item.scoreRetrievedAt).toLocaleDateString('ru-RU') : 'дата обновления неизвестна'}</p>}
+        {item.nominationsStatus !== 'hidden' && (item.status === 'results_published' || item.status === 'completed') && item.nominations?.filter((entry:any)=>entry.rank===1).map((entry:any)=><div data-testid="gomafia-nomination" key={entry.key} className="mt-2 text-xs text-amber-100">Номинация: {GOMAFIA_NOMINATIONS[entry.key as GoMafiaNominationKey]}</div>)}
+        {item.nominationsStatus === 'unavailable' && <p className="mt-1 text-[11px] text-white/45">{item.nominations?.length ? 'Номинации из сохранённых данных' : 'Номинации пока недоступны'}</p>}
+        {item.nominationsStatus === 'hidden' && <p className="mt-1 text-[11px] text-white/45">Номинации скрыты источником</p>}
+        {item.scoreStatus === 'refresh_failed'  && item.totalScore != null && <p className="mt-1 text-[11px] text-white/45">Баллы из сохранённого результата · {item.scoreRetrievedAt ? new Date(item.scoreRetrievedAt).toLocaleDateString('ru-RU') : 'дата обновления неизвестна'}</p>}
         {item.games?.length > 0 && <details className="mt-3 text-xs">
           <summary className="min-h-11 cursor-pointer py-3 text-white/70">Игры · {item.games.length}</summary>
           <div className="space-y-2">{item.games.map((game: any) => <div key={game.externalGameId} className="flex flex-wrap justify-between gap-2 border-t border-white/10 pt-2">

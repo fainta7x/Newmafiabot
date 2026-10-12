@@ -1,5 +1,6 @@
 import PlayerGameNumbers from './PlayerGameNumbers.tsx';
 import PlayerNightShots, { type NightShots } from './PlayerNightShots.tsx';
+import PlayerCircleExits, { type CircleExitNumbers } from './PlayerCircleExits.tsx';
 import PlayerReveals, { type RevealNumbers } from './PlayerReveals.tsx';
 import type { PlayerGameStatistics } from '../../lib/gameStatistics';
 
@@ -21,7 +22,7 @@ export type ProfileSeason = { label: string; games: number; wins: number; win_ra
  * red/black split, the first-killed / best-move counters and «Игра в цифрах». Every number comes from the profile summary,
  * so the overview, the «Игры», «Роли» and «Elo» tabs can no longer disagree.
  */
-export default function PlayerProfileCareerSections({ stats, season, gameStats, nightShots, reveals }: { stats: ProfileCareerStats; season: ProfileSeason; gameStats?: PlayerGameStatistics | null; nightShots?: NightShots; reveals?: RevealNumbers }) {
+export default function PlayerProfileCareerSections({ stats, season, gameStats, nightShots, reveals, circleExits }: { stats: ProfileCareerStats; season: ProfileSeason; gameStats?: PlayerGameStatistics | null; nightShots?: NightShots; reveals?: RevealNumbers; circleExits?: CircleExitNumbers }) {
   if (!stats) return null;
   const tile = 'rounded-2xl border border-white/10 bg-white/[.04] p-3';
   return <>
@@ -56,5 +57,6 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
     <PlayerGameNumbers stats={gameStats} />
     <PlayerNightShots shots={nightShots} />
     <PlayerReveals numbers={reveals} />
+    <PlayerCircleExits numbers={circleExits} />
   </>;
 }

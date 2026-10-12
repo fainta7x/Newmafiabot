@@ -10,6 +10,7 @@ import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
 import { buildRevealStats } from '../../lib/revealStats.ts';
+import { buildCircleExits } from '../../lib/circleExits.ts';
 import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
@@ -298,6 +299,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     filters: statsVisible ? filters : null,
     game_stats: statsVisible ? buildPlayerGameStatistics(scopedStatGames, playerId) : null,
     night_shots: statsVisible ? await profileNightShots(db, scopedStatGames, playerId) : null,
+    circle_exits: statsVisible ? buildCircleExits(scopedStatGames).get(playerId) ?? null : null,
     reveals: statsVisible ? buildRevealStats(scopedStatGames).get(playerId) ?? null : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,

@@ -1,4 +1,17 @@
 export type ContactStatus = 'normal' | 'paused' | 'blocked';
+
+/**
+ * Single read-side compatibility rule for a player's contact permissions.
+ * A stored contact_status wins; only the legacy blocked/paused lifecycle values
+ * carry contact semantics. Engagement stage and other legacy values do not.
+ *
+ * Intentionally preserves the old '||' fallback for empty strings.
+ */
+export const deriveContactStatus = (player: {
+  contact_status?: string | null;
+  lifecycle_status?: string | null;
+}): string => player.contact_status
+  || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
 export type EngagementStage = 'lead' | 'newcomer' | 'returning' | 'regular' | 'inactive';
 
 export interface CanInviteResult {
@@ -55,7 +68,7 @@ export function getCanInviteStatus(player: {
   lifecycle_status?: string | null;
   do_not_invite_until?: string | null;
 }, now: Date = new Date()): CanInviteResult {
-  const contactStatus = player.contact_status || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
+  const contactStatus = deriveContactStatus(player);
 
   if (contactStatus === 'blocked') {
     return { canInvite: false, reason: 'Игрок заблокирован' };

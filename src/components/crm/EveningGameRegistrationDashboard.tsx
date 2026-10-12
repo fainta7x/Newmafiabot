@@ -333,7 +333,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Фильтр ответов и доставки">
-        {filterItems.map((item) => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'delivery' && item.count ? 'bg-danger-soft text-danger' : item.id === 'attention' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[11px] ${filter === item.id ? 'text-white/90' : 'text-text-muted'}`}>{item.label}</span></button>)}
+        {filterItems.map((item) => <button key={item.id} type="button" aria-label={`${item.count} ${item.label}`} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'delivery' && item.count ? 'bg-danger-soft text-danger' : item.id === 'attention' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[11px] ${filter === item.id ? 'text-white/90' : 'text-text-muted'}`}>{item.label}</span></button>)}
       </div>
       <label className="relative mt-3 block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />

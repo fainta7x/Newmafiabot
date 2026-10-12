@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-10-12 · Participant P5 — Telegram ↔ CRM canonical RSVP end-to-end contract
+
+**[diagnostic integration test coded, CI/merge pending]** The same evening participant is changed via the authenticated Telegram quick-response endpoint (`botRoutes.ts`) and the authorized organizer's participant PATCH endpoint (`participantRoutes.ts`). Both ultimately use `eveningParticipantState.ts`; exact game commitments use `eveningSlotPlanningService.ts`.
+
+- **[guard added]** `src/tests/eveningCrossChannelRsvpContract.integration.test.ts` tests actual HTTP handlers with in-memory project SQLite: Telegram `going → going → late → thinking → going → declined` must mirror `response_status` and `registration_status`, select/clear exactly the correct slots, avoid duplicate organizer alerts on repeat or going→late, and queue self-service sign-up/cancellation alerts only on intended transitions.
+- **[guard added]** Telegram sign-up → organizer correction to declined must clear game slots **without** generating a fake *player-originated* cancellation alert; after rejoining and organizer factual attendance mark, the bot must reject further changes with `attendance_locked`, leaving persisted response and selected slots intact.
+- **[audit-only]** The Telegram route currently saves a temporary coarse `going/declined` when it calls `replacePlayerSlotSelection`, then saves `late/thinking/declined` separately. This is a potential duplicate-write/race risk, but changing its transaction, outbox, rewards or synchronization scope without contract tests could break real RSVP behavior; no code change is included in this test-only slice.
+- **[follow-up]** After CI evidence, decide whether a narrowly scoped single-write RSVP+slots operation is justified; independently audit the player-cabinet PUT and VK entrypoint against the same contract. Preserve auto-shortfall, financial pricing, notifications and attendance rewards unless proven by an integration test.
+
+**No production code, schema, data, payments, UI or bot action changed.** Independent from Claude's screen/navigation and generic GET work. P1–P4 previously delivered separate read projections, SQL diagnostics and contact-status vocabulary; distinguish test evidence from runtime verification.
+
 ## 2026-10-12 · Player entity P4 — contact-status compatibility read (scoped)
 
 **Scope audited before any code change:** `src/lib/playerUtils.ts:getCanInviteStatus`, `src/server/routes/playersRoutes.ts` list/detail/invite guard, `src/server/services/eveningAnnouncementTrackingService.ts` outreach selector, `playerTokensRoutes.ts` player-create writer, and `playerInvitationEligibilityService.ts` SQL identity/eligibility reads.

@@ -141,6 +141,7 @@ eveningSlotRoutes.put('/:eveningId/slots/me', async (req, res) => {
       String(req.params.eveningId),
       String(player.id),
       req.body.slot_ids,
+      { source: 'player_slots_route' },
     );
     return res.json(plan);
   } catch (error: any) {

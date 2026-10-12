@@ -94,7 +94,7 @@ export async function replaceOrganizerPlayerSlotSelection(
         [estimate, paymentStatus, now, participant.id],
       );
     }
-    await setParticipantResponse(tx, String(participant.id), slotIds.length ? 'going' : 'declined');
+    await setParticipantResponse(tx, String(participant.id), slotIds.length ? 'going' : 'declined', { source: 'organizer_slots' });
   });
 
   return loadEveningSlotPlan(db, eveningId, playerId);

@@ -34,7 +34,7 @@ router.post('/evenings/:id/slots', async (req, res) => {
     const vkSession = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
     const playerId = vkSession?.player_id || getPlayerSessionId(req);
     if (!playerId) return res.status(401).json({ error: 'Сначала подтвердите профиль через VK ID или Telegram' });
-    const plan = await replacePlayerSlotSelection(db, req.params.id, String(playerId), req.body?.slot_ids);
+    const plan = await replacePlayerSlotSelection(db, req.params.id, String(playerId), req.body?.slot_ids, { source: 'vk_miniapp_slots' });
     try {
       await hydrateVkOAuthAccessToken(db);
       await syncDirectVkEveningPublications(db, req.params.id, baseUrlFor(req), { onlyExisting: true });

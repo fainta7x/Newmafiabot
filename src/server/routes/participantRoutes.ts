@@ -66,7 +66,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 
     if (data.table_id !== undefined) await assignParticipantToTable(db, current.id, data.table_id);
     const explicitResponse = data.response_status ?? (['going','late','thinking','declined','unanswered'].includes(String(data.registration_status)) ? data.registration_status : undefined);
-    if (explicitResponse !== undefined) await setParticipantResponse(db, current.id, parseResponseStatus(explicitResponse));
+    if (explicitResponse !== undefined) await setParticipantResponse(db, current.id, parseResponseStatus(explicitResponse), { source: 'organizer_card' });
 
     const fact = data.attendance_fact !== undefined
       ? parseAttendanceFact(data.attendance_fact)

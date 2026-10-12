@@ -32,6 +32,27 @@ class PrNotificationTests(unittest.TestCase):
         self.assertEqual(mod.status(pr, checks)[0], "pending")
 
 
+class PrMarksTests(unittest.TestCase):
+    def test_author_is_told_by_branch_or_footer(self):
+        self.assertEqual(mod.author({"head": {"ref": "claude/busy-euler-bogxha"}, "body": ""}), "🤖 Claude")
+        self.assertEqual(mod.author({"head": {"ref": "feat/x"}, "body": "text\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"}), "🤖 Claude")
+        self.assertEqual(mod.author({"head": {"ref": "fix/player-first-application-focus"}, "body": "Fix confirmed defect"}), "💬 GPT")
+        self.assertEqual(mod.author({"head": None, "body": None}), "💬 GPT")
+
+    def test_status_uses_one_colour_language(self):
+        open_pr = {"number": 1, "title": "T", "state": "open", "merged_at": None}
+        passed = [{"name": name, "status": "completed", "conclusion": "success"} for name in mod.CHECKS]
+        running = [{"name": mod.CHECKS[0], "status": "in_progress", "conclusion": None}]
+        self.assertEqual(mod.status({**open_pr, "state": "closed", "merged_at": "2026-10-12T12:00:00Z"}, [])[1], "🟢 Слито в main")
+        self.assertEqual(mod.status(open_pr, running)[1], "🟡 В проверке")
+        # Passed checks are NOT «done»: the line says it is not merged yet and is not green.
+        ready = mod.status(open_pr, passed)[1]
+        self.assertTrue(ready.startswith("🔵"))
+        self.assertIn("ещё не слито", ready)
+        failed = [{"name": mod.CHECKS[0], "status": "completed", "conclusion": "failure"}]
+        self.assertTrue(mod.status(open_pr, failed)[1].startswith("🔴"))
+
+
 class PrNotificationIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         mod._pulls_etag = None
@@ -104,6 +125,21 @@ class PrNotificationIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(state.read_text(encoding="utf-8")), {"5": "open", "6": "open"})
         self.assertEqual(bot.send_message.await_count, 0)
 
+    async def test_overview_separates_open_from_merged_and_marks_whose(self):
+        merged = {**self.pr(7, "closed", merged_at="2026-10-12T11:00:00Z"), "head": {"sha": "m", "ref": "claude/busy-euler-bogxha"}, "body": ""}
+        opened = {**self.pr(8), "head": {"sha": "o", "ref": "feat/gomafia"}}
+        passed = {"check_runs": [{"name": name, "status": "completed", "conclusion": "success"} for name in mod.CHECKS]}
+
+        def fake_github(path):
+            return [opened, merged] if path.startswith("/pulls?") else passed
+
+        with patch.object(mod, "github", side_effect=fake_github):
+            text = await mod.overview()
+        self.assertLess(text.index("Ещё не слито"), text.index("Уже слито"))
+        self.assertIn("🔵 Проверки пройдены — ещё не слито · 💬 GPT", text)
+        self.assertIn("🟢 <a href=", text)
+        self.assertIn("· 🤖 Claude", text)
+
     async def test_overview_shows_open_prs_with_check_progress(self):
         checks = {"check_runs": [{"name": "Release gate", "status": "in_progress", "conclusion": None}]}
 
@@ -113,8 +149,10 @@ class PrNotificationIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(mod, "github", side_effect=fake_github):
             text = await mod.overview()
         self.assertIn("#11", text)
-        self.assertIn("В проверке", text)
+        self.assertIn("🟡 В проверке", text)
         self.assertIn("Amvera", text)
+        self.assertIn("🟢 слито", text)  # the legend explains the colours
+        self.assertIn("💬 GPT", text)  # no claude/ branch and no footer
 
 
 if __name__ == "__main__":

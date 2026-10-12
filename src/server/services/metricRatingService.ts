@@ -10,7 +10,7 @@ import { loadStatGames } from './gameStatisticsService.ts';
 import { buildPlayerGameStatistics, createStatMemo, type PlayerGameStatistics, type StatGame, type StatMemo } from '../../lib/gameStatistics.ts';
 import { russianPlural } from '../../lib/russianPlural.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
-import { buildRevealStats } from '../../lib/revealStats.ts';
+import { buildRevealStats, emptyRevealStats } from '../../lib/revealStats.ts';
 import { buildCircleExits } from '../../lib/circleExits.ts';
 
 /**
@@ -402,5 +402,62 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     total: ranked.length,
     rows: top,
     me: mine && !top.some((row) => row.is_me) ? toRow(mine) : null,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// «По ролям» (owner request 2026-10-12): for each role the club's players who played it, with the role's own figures.
+// ---------------------------------------------------------------------------------------------------------------------
+export type RoleKey = 'don' | 'mafia' | 'sheriff' | 'citizen';
+export const ROLE_TABLES: Record<RoleKey, { label: string; hint: string; columns: Array<{ key: string; label: string }> }> = {
+  don: { label: 'Дон', hint: 'Игроки, игравшие доном', columns: [{ key: 'reveals', label: 'Вскрылся сам' }, { key: 'handed', label: 'Отдал вскрытие' }, { key: 'named_red', label: 'Назвал чёрными красных' }] },
+  mafia: { label: 'Мафия', hint: 'Игроки, игравшие мафией', columns: [{ key: 'reveals', label: 'Вскрылся' }] },
+  sheriff: { label: 'Шериф', hint: 'Игроки, игравшие шерифом', columns: [{ key: 'reveals', label: 'Вскрылся' }, { key: 'found_black', label: 'Нашёл чёрных' }] },
+  citizen: { label: 'Мирный', hint: 'Игроки, игравшие мирным', columns: [{ key: 'votes_revealed', label: 'Голосов за вскрывшихся (все красные роли)' }] },
+};
+
+export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, query: { role?: string; period?: string; format?: string }) {
+  const role: RoleKey = (['don', 'mafia', 'sheriff', 'citizen'] as const).find((item) => item === query.role) || 'don';
+  const { seasons, season, formatKey, scoped, scopedIds, playerRows } = await loadScope(db, query);
+  const statSource = await loadStatGamesCached(db);
+  const reveal = buildRevealStats(statSource.games.filter((game) => scopedIds.has(game.id)), statSource.memo.facts);
+
+  const own = new Map<string, { games: number; wins: number }>();
+  for (const snapshot of scoped) for (const result of snapshot.players) {
+    if (result.role !== role) continue;
+    const value = own.get(result.player_id) || { games: 0, wins: 0 };
+    value.games += 1;
+    if (result.won) value.wins += 1;
+    own.set(result.player_id, value);
+  }
+  const figure = (id: string): Record<string, number> => {
+    const stats = reveal.get(id) ?? emptyRevealStats();
+    if (role === 'don') return { reveals: stats.blackRevealsDon, handed: stats.donHandedReveal, named_red: stats.donNamedBlackRed };
+    if (role === 'mafia') return { reveals: stats.blackRevealsMafia };
+    if (role === 'sheriff') return { reveals: stats.sheriffReveals, found_black: stats.sheriffCheckedDon + stats.sheriffCheckedMafia };
+    return { votes_revealed: stats.townVotesSheriff + stats.townVotesMafia + stats.townVotesDon };
+  };
+
+  const rows = playerRows.flatMap((player: any) => {
+    const id = String(player.id);
+    const played = own.get(id);
+    if (!played || (!visibleStats(player.profile_visibility_json) && id !== viewerId)) return [];
+    return [{
+      player_id: id, nickname: String(player.nickname || 'Игрок'), avatar_url: avatarUrl(id, player.has_db_avatar, player.avatar_suppressed),
+      games: played.games, wins: played.wins, win_rate: winRatePercent(played.wins, played.games), figures: figure(id), is_me: viewerId !== 'organizer' && id === viewerId,
+    }];
+  }).sort((a, b) => b.games - a.games || b.win_rate - a.win_rate || a.nickname.localeCompare(b.nickname, 'ru'));
+
+  return {
+    role: { key: role, label: ROLE_TABLES[role].label, hint: ROLE_TABLES[role].hint, columns: ROLE_TABLES[role].columns },
+    roles: (Object.keys(ROLE_TABLES) as RoleKey[]).map((key) => ({ key, label: ROLE_TABLES[key].label })),
+    filters: {
+      period: season ? season.key : 'all', format: formatKey,
+      seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label })),
+      formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
+    },
+    games_in_scope: scoped.length,
+    total: rows.length,
+    rows: rows.slice(0, TOP_SIZE),
   };
 }

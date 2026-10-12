@@ -226,3 +226,7 @@ At 1024 px and above CRM and the canonical player profile use a bounded working 
 Desktop follow-up: do not auto-pair unrelated expandable cards in shared grid rows. Profile detailed statistics span the content width; More reports and administration form one independent column. Embedded Elo follows the profile width and bottom spacing, without a second full-height page. Align identity/header content with the workspace edges and keep protocol actions at least 44px high.
 
 Cabinet desktop contract: all major cabinet sections share the profile's 1152px outer frame with 24px inner gutters. Home and settings use independent primary/secondary columns; directory and game archive use two card columns; ranking preserves one ordered list with a compact personal summary beside it. Evening headings/tabs and their nested content share the same edges. CRM Today explicitly separates current work from task/week planning (2:1); success with no urgent actions is a compact status, not a dashboard tile. Phone DOM order and bottom navigation clearance remain unchanged.
+
+## Broadcast: reveals and the two versions (owner, 2026-10-12)
+
+The claimant of a reveal is coloured by his real role (the Don purple, the Sheriff gold); every announced check is coloured by the side it names — red for the one given as red, black for the one given as black. Not a rainbow of real roles next to each other, and not colourless either (both were rejected by the owner). Label «Вскрылся с:» sits above the checks so a narrow card never wraps it.

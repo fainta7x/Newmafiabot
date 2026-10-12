@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
-import { loadMetricRating } from '../services/metricRatingService.ts';
+import { loadMetricRating, loadRoleRating } from '../services/metricRatingService.ts';
 
 const router = Router();
 
@@ -31,6 +31,18 @@ router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {
     res.json(await loadMetricRating(req.db as DatabaseWrapper, viewerId, { metric: one(req.query.metric), period: one(req.query.period), format: one(req.query.format) }));
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Не удалось загрузить рейтинг по показателю' });
+  }
+});
+
+/** The club's players per role (Don, mafia, Sheriff, citizen) with the role's own figures, over a season and evening format. */
+router.get('/roles', async (req: AuthenticatedRequest, res: Response) => {
+  const viewerId = requireClubUser(req, res);
+  if (!viewerId) return;
+  try {
+    const one = (value: unknown) => typeof value === 'string' ? value : undefined;
+    res.json(await loadRoleRating(req.db as DatabaseWrapper, viewerId, { role: one(req.query.role), period: one(req.query.period), format: one(req.query.format) }));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Не удалось загрузить таблицу по ролям' });
   }
 });
 

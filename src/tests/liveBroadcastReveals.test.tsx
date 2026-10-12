@@ -48,8 +48,9 @@ describe('reveals on the broadcast', () => {
     expect(within(row as HTMLElement).getByText('Вскрылся с:')).toBeDefined();
     const announced = [...row.querySelectorAll('.live-broadcast-announced')].map((item) => item.textContent);
     expect(announced).toEqual(['9кр', '3ч']);
-    // The chip keeps the real colour: seat 9 is mafia, so announcing it red is visible to viewers at once.
-    expect(row.querySelector('.live-broadcast-announced.is-red .live-broadcast-seat-chip')!.className).toContain('is-mafia');
+    // The chip takes the colour of the announced side (red / black), not the real role of the seat.
+    expect(row.querySelector('.live-broadcast-announced.is-red .live-broadcast-seat-chip')!.className).toContain('is-claim-red');
+    expect(row.querySelector('.live-broadcast-announced.is-black .live-broadcast-seat-chip')!.className).toContain('is-claim-black');
     expect(screen.queryAllByText('вскрылся шерифом')).toHaveLength(1);
   });
 

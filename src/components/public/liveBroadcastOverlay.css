@@ -1024,3 +1024,8 @@ body.live-broadcast-document #root {
 
 .live-broadcast-version-row > b { width: calc(70 * var(--u)); color: var(--muted); font-weight: 700; }
 .live-broadcast-version-row > span { display: flex; flex-wrap: wrap; gap: calc(6 * var(--u)); }
+
+/* A claim colours the seat by the side it puts him on: red, black or the Sheriff's gold (never by his real role). */
+.live-broadcast-seat-chip.is-claim-red { background: var(--role-citizen); color: #fff; }
+.live-broadcast-seat-chip.is-claim-black { background: #0b0b0e; color: #fff; border: 1px solid rgba(255, 255, 255, .55); }
+.live-broadcast-seat-chip.is-claim-sheriff { background: var(--role-sheriff); color: #1b1407; }

@@ -34,7 +34,7 @@ describe('«Мы собрались» post', () => {
     expect(first.body.code).toBe('judge_required');
     // From the first game on, the photo is a task that is due.
     await db.run("INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES ('g1',1,'2026-10-12','draft','Черновик','','[]',?)", [new Date().toISOString()]);
-    expect(await route()).toMatchObject({ id: 'gathered', status: 'todo', action: 'gathered_post' });
+    expect(await route()).toMatchObject({ id: 'gathered', status: 'attention', action: 'gathered_post' });
 
     const skipped = await request(app).post('/api/evenings/g1/gathered-post/skip').set('Cookie', organizerCookie()).send({ reason: 'нет сети' });
     expect(skipped.body.state).toBe('skipped');

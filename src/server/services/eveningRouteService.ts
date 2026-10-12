@@ -208,7 +208,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         : gathered.state === 'skipped'
           ? { id: 'gathered', title: 'Пост «Мы собрались» пропущен', detail: 'Можно выложить позже', status: 'attention', action: 'gathered_post' }
           // Owner, 2026-10-12: the photo is taken once the evening is running (best before the 2nd–3rd game), not before it, and it does not hold the games.
-          : { id: 'gathered', title: 'Пост «Мы собрались»', detail: games.length ? 'Фото в Telegram и ВК — сделайте, пока все за столами' : 'Фото в Telegram и ВК — лучше перед 2–3-й игрой; игры от него не зависят', status: evening.status === 'active' && games.length ? 'todo' : 'info', action: evening.status === 'active' ? 'gathered_post' : undefined },
+          : { id: 'gathered', title: 'Пост «Мы собрались»', detail: games.length ? 'Фото в Telegram и ВК — сделайте, пока все за столами' : 'Фото в Telegram и ВК — лучше перед 2–3-й игрой; игры от него не зависят', status: evening.status === 'active' && games.length ? 'attention' : 'info', action: evening.status === 'active' ? 'gathered_post' : undefined },
     { id: 'attendance', title: 'Отметить пришедших', detail: `Пришли: ${attended}${pendingExpected ? ` · ждём ещё ${players(pendingExpected)}` : ''}`, status: attended && !pendingExpected ? 'done' : attended ? 'attention' : 'todo', target: 'management' },
     { id: 'play', title: 'Игры вечера', detail: games.length ? `Сыграно: ${games.length - unfinishedGames}${unfinishedGames ? ` · идут/не завершены: ${unfinishedGames}` : ''}` : 'Ещё не начаты', status: games.length && !unfinishedGames ? 'done' : games.length ? 'attention' : 'todo', target: 'games' },
   );

@@ -72,6 +72,22 @@ Planned response is separate from factual attendance:
 
 A walk-in can therefore be `unanswered` (or keep an older real response) while also being factually `attended` and participating in games.
 
+### Participant state — writer vs read projections
+
+One participant record can be presented in different work contexts without another mutable state model:
+
+| Concern | Owner / reader | Contract |
+| --- | --- | --- |
+| Canonical RSVP and physical attendance mutations | `src/server/services/eveningParticipantState.ts`, called by authenticated routes such as `participantRoutes.ts` | Persist `response_status` plus narrow legacy compatibility, and attendance/arrival facts; reconcile attendance rewards |
+| Historical/current participant read compatibility | `src/lib/eveningDomain.ts` + `src/lib/eveningResponse.ts` | Normalize current and legacy status values before interpreting RSVP; do not fabricate a positive answer from an explicit `unanswered` |
+| Organizer working list | `src/lib/eveningParticipantView.ts` → `EveningActiveRosterView.tsx` | Include unanswered manually added players, exclude `no_show`, retain factually arrived walk-ins |
+| Closeout attendance decisions | `src/lib/eveningParticipantView.ts` → `EveningCloseoutPanel.tsx` | Require attendance resolution only for pending participants who answered `going` or `late` |
+| Actual game-seat eligibility | `isEveningGameRosterEligible` in `eveningDomain.ts` and game-specific services | Deliberately **not** the organizer working list; pending unanswered players are not automatically game-eligible |
+| Exact games promised | `eveningSlotPlanningService.ts` / `eveningSlotRoutes.ts` | Slot selection is a separate fact; no implicit slots for thinking/late responses |
+| Fee calculation and paid/debt state | `eveningPaymentPricingService.ts`, `eveningSlotPlanningService.ts`, `closedEveningPaymentService.ts`, `eveningPaymentScope.ts` | Different format-specific finance rules; never derive payment from organizer list membership |
+
+Selectors are **pure read projections**, not a second store or permission system. New Cabinet/CRM/bot entrypoints should call the existing server mutation path and consume authoritative read values rather than writing parallel states. Do not merge organizer list, game eligibility and payment expectation into one `isActive` boolean.
+
 ## 5. Player application
 
 Primary shell:

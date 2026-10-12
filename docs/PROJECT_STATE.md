@@ -1,5 +1,14 @@
 # 2LA Noire — Current Project State
 
+## GoMafia public player-statistics integration — DISCOVERY / PHASE 0 (owner request 2026-10-12)
+
+Owner wants to gather publicly available GoMafia player statistics for existing club players. GoMafia displays stable-looking public player URLs `https://gomafia.pro/stats/<id>`, ELO, games, role mix and win rates, but **no official documented public API or permitted bulk-data contract has been confirmed**. Do not infer a private API from browser requests and do not automate crawling until access method, limits and terms are checked.
+
+This first, isolated PR adds `src/lib/gomafiaExternalProfile.ts` with a strict explicit-profile-ID parser (no nickname-based auto-linking or arbitrary URLs), separately sourced typed read-only snapshot contract, and focused regressions. **No production DB migration, player merge, web scraping, network fetch or UI sync has been introduced.**
+
+Next approved integration slices to discuss before work: (1) link `GoMafia ID` to a player only after the organizer/player explicitly confirms matching identities; (2) choose supported provider access (official cooperation/API where available; otherwise limited and compliant public HTML extraction only if allowed), rate limits, stale/failure states and snapshot provenance; (3) display *external* GoMafia statistics in a separate section of the player profile with last-refresh timestamp, not mixed into local club ELO, matches or achievements. Require focused security/parsing tests and UI review. No bulk historical game import without provenance and deduplication controls.
+
+
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
 **Single planning document:** maintain the current development queue in this file. Other documentation describes rules, architecture, or operating procedures; Git history preserves completed and superseded plans. Before treating a queue item as unfinished, compare it with the latest `main` implementation.

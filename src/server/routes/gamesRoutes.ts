@@ -3,7 +3,6 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { allowedTableSizes, isSupportedTableSize } from '../../lib/tableComposition.ts';
 import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
-import { gatheredPostSatisfied } from '../services/eveningGatheredPostService.ts';
 import { autoAssignEveningOrganizer, eveningJudgeId, eveningOrganizerAssigned } from '../services/eveningStaffService.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
@@ -139,18 +138,6 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       && !(await eveningOrganizerAssigned(db, eveningId))
       && !(await autoAssignEveningOrganizer(db, eveningId, req.organizerPlayerId || null))) {
       return res.status(409).json({ error: 'Назначьте организатора вечера — без него вечер не начать.', code: 'organizer_required' });
-    }
-    // The first game waits for the «Мы собрались» post (or an explicit «Пропустить»); a published evening
-    // started by its first game is held to the same rule, so the post cannot be bypassed.
-    if (['active', 'published'].includes(String(evening.status))
-      && !(await db.get('SELECT id FROM games WHERE evening_id = ? AND archived_at IS NULL LIMIT 1', [eveningId]))
-      && !(await gatheredPostSatisfied(db, eveningId))) {
-      return res.status(409).json({
-        error: String(evening.status) === 'published'
-          ? 'Сначала начните вечер во вкладке «Маршрут» и опубликуйте пост «Мы собрались» (или нажмите «Пропустить»).'
-          : 'Сначала опубликуйте пост «Мы собрались» во вкладке «Маршрут» или нажмите «Пропустить».',
-        code: 'gathered_post_required',
-      });
     }
     const tableId = req.body?.evening_table_id ? String(req.body.evening_table_id) : null;
     if (tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [tableId, eveningId])) return res.status(400).json({ error: 'Выбранный стол не относится к этому вечеру' });

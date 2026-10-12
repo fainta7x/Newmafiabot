@@ -21,20 +21,25 @@ async function setup(status = 'active') {
 }
 
 describe('«Мы собрались» post', () => {
-  it('blocks the first game of a running evening until the post is published or skipped', async () => {
-    const { app } = await setup();
-    const blocked = await request(app).post('/api/games/evening/g1').set('Cookie', organizerCookie()).send({});
-    expect(blocked.status).toBe(409);
-    expect(blocked.body.code).toBe('gathered_post_required');
+  it('does not hold the first game of a running evening; the post is a task of the route that becomes due once games are played', async () => {
+    const { app, db } = await setup();
+    const route = async () => (await request(app).get('/api/evenings/g1/route').set('Cookie', organizerCookie())).body.stages.find((stage: any) => stage.id === 'live').steps[0];
+    // Before the first game: only an informational step that says when to take the photo.
+    expect(await route()).toMatchObject({ id: 'gathered', status: 'info', action: 'gathered_post' });
+    expect((await route()).detail).toContain('2–3-й игрой');
+
+    // The game creation reaches the judge check (it used to stop earlier with 409 «gathered_post_required»).
+    const first = await request(app).post('/api/games/evening/g1').set('Cookie', organizerCookie()).send({});
+    expect(first.status).toBe(400);
+    expect(first.body.code).toBe('judge_required');
+    // From the first game on, the photo is a task that is due.
+    await db.run("INSERT INTO games (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES ('g1',1,'2026-10-12','draft','Черновик','','[]',?)", [new Date().toISOString()]);
+    expect(await route()).toMatchObject({ id: 'gathered', status: 'attention', action: 'gathered_post' });
 
     const skipped = await request(app).post('/api/evenings/g1/gathered-post/skip').set('Cookie', organizerCookie()).send({ reason: 'нет сети' });
     expect(skipped.body.state).toBe('skipped');
-    const after = await request(app).post('/api/games/evening/g1').set('Cookie', organizerCookie()).send({});
-    expect(after.body.code).not.toBe('gathered_post_required');
-
-    const route = await request(app).get('/api/evenings/g1/route').set('Cookie', organizerCookie());
-    const live = route.body.stages.find((stage: any) => stage.id === 'live');
-    expect(live.steps[0]).toMatchObject({ id: 'gathered', status: 'attention', action: 'gathered_post' });
+    expect(await route()).toMatchObject({ id: 'gathered', status: 'attention', action: 'gathered_post' });
+    expect(Number((await db.get<any>('SELECT COUNT(*) AS count FROM games WHERE evening_id = ?', ['g1'])).count)).toBeGreaterThan(0);
   });
 
   it('sends the photo to the evening Telegram group and records a failed VK leg', async () => {

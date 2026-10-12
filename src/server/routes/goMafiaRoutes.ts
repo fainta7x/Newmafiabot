@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
+import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
 import { fetchPublicGoMafiaStats } from '../services/goMafiaPublicStatsService.ts';
@@ -20,7 +20,7 @@ const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player
   if (!ref) return { error: 'Укажи ссылку GoMafia вида https://gomafia.pro/stats/123 или ID игрока.', status: 400 };
   if (!await profileExists(db, playerId)) return { error: 'Игрок не найден', status: 404 };
   await ensureGoMafiaSchema(db);
-  const claimed = await db.get<{ player_id: string }>(
+  const claimed = await db.get(
     'SELECT player_id FROM gomafia_player_links WHERE external_player_id=?', [ref.externalPlayerId],
   );
   if (claimed && claimed.player_id !== playerId) return {
@@ -47,7 +47,7 @@ const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player
 // Public profile link metadata requires an authenticated player/organizer session,
 // and respects the existing profile statistics visibility in the main profile UI.
 router.get('/gomafia/players/:playerId', async (req, res) => {
-  if (!getPlayerSessionId(req) && req.userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
+  if (!getPlayerSessionId(req) && (req as AuthenticatedRequest).userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
   try {
     if (!await profileExists(req.db, String(req.params.playerId))) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ link: await load(req.db, String(req.params.playerId)) });
@@ -57,13 +57,13 @@ router.get('/gomafia/players/:playerId', async (req, res) => {
 // Read-only, cached external career: never alters club games, Elo or awards.
 router.get('/gomafia/players/:playerId/career', async (req, res) => {
   const viewerId = getPlayerSessionId(req);
-  if (!viewerId && req.userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
+  if (!viewerId && (req as AuthenticatedRequest).userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
   try {
     const playerId = String(req.params.playerId);
     if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
     const link = await load(req.db, playerId);
     if (!link) return res.json({ status: 'unlinked', snapshot: null });
-    if (link.status !== 'verified' && viewerId !== playerId && req.userRole !== 'ORGANIZER')
+    if (link.status !== 'verified' && viewerId !== playerId && (req as AuthenticatedRequest).userRole !== 'ORGANIZER')
       return res.json({ status: 'pending', snapshot: null });
     const cached = await req.db.get<{ snapshot_json: string; retrieved_at: string }>(
       'SELECT snapshot_json, retrieved_at FROM gomafia_player_snapshots WHERE external_player_id=? AND scope=?',

@@ -1,5 +1,6 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
+import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -72,6 +73,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [maxEveningPrice, setMaxEveningPrice] = useState(0);
   const [audienceCount, setAudienceCount] = useState(0);
   const [readonly, setReadonly] = useState(false);
+  const [announcementDueMs, setAnnouncementDueMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(() => new Set());
@@ -149,6 +151,8 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         return priority[a.state] - priority[b.state] || a.nickname.localeCompare(b.nickname, 'ru');
       });
 
+      const dueMs = weeklyAnnouncementDueMs(String((evening as any).starts_at || ''));
+      setAnnouncementDueMs(Number.isFinite(dueMs) ? dueMs : null);
       setReadonly(String(evening.status || '') === 'completed' || Boolean((evening as any).settled_at));
       setMaxEveningPrice(Number(slotBody?.event?.max_evening_price || 0));
       setAllSlots(slots);
@@ -194,11 +198,22 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     return userId ? `tg://user?id=${encodeURIComponent(userId)}` : null;
   };
 
+  // The weekly announcement (and the personal DMs with it) goes out by itself at this moment.
+  const announcementWhen = (() => {
+    if (!announcementDueMs || Date.now() >= announcementDueMs) return '';
+    const moscowDay = (ms: number) => new Date(ms).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+    const time = new Date(announcementDueMs).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' });
+    const day = moscowDay(announcementDueMs) === moscowDay(Date.now())
+      ? 'сегодня'
+      : new Date(announcementDueMs).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'long', day: 'numeric', month: 'long' });
+    return `${day} в ${time} МСК`;
+  })();
+
   const deliveryLabel = (row: Row) => {
     if (!row.eligibleNow) return 'Вне личной рассылки';
     if (row.firstSentAt) return `Анонс доставлен${row.reminderCount ? ` · напоминаний: ${row.reminderCount}` : ''}`;
     if (row.deliveryStatus === 'failed') return 'Анонс не доставлен';
-    return 'Анонс ещё не отправлен';
+    return announcementWhen ? `Анонс отправится ${announcementWhen}` : 'Анонс ещё не отправлен';
   };
 
   const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered') => {
@@ -326,6 +341,14 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           <h2 className="text-[16px] font-bold text-text-primary">Ответы игроков</h2>
           <p className="mt-1 text-[12px] leading-5 text-text-secondary">Ответ, доставка анонса, личный контакт и игры — в одном списке.</p>
           <p className="mt-1 text-[11px] text-text-muted">В рассылке: {audienceCount} · доставлено: {sentCount} · ошибок доставки: {failedCount}</p>
+          {!loading && !deliveryWarning ? <p data-testid="audience-explainer" className="mt-1 text-[11px] leading-4 text-text-muted">
+            В списке все игроки клуба с привязанным Telegram, не на паузе и подходящие по уровню и формату этого вечера — не только записавшиеся.
+            {notSentCount > 0 ? (announcementWhen
+              ? ` Анонс отправится сам ${announcementWhen}, тогда бот напишет игрокам лично.`
+              : sentCount === 0 && failedCount === 0
+                ? ' «Анонс ещё не отправлен» у всех: по этому вечеру личная рассылка ещё не запускалась.'
+                : ` «Анонс ещё не отправлен» у ${notSentCount}: личная рассылка до них ещё не дошла.`) : ''}
+          </p> : null}
         </div>
         <button type="button" disabled={loading} onClick={() => void load()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

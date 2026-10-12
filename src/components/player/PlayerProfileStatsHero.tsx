@@ -21,7 +21,7 @@ export default function PlayerProfileStatsHero({ games, wins, winRate, elo, seas
     : knownWins ? Math.min(100, Math.max(0, won / played * 100)) : null;
   const percent = rate === null ? '—' : `${Math.round(rate)}%`;
 
-  return <section data-testid="profile-key-stats" aria-label="Мои игровые показатели" className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3.5">
+  return <section data-testid="profile-key-stats" aria-label="Игровые показатели" className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3.5">
     <div className="flex items-center gap-3.5">
       <div className="grid h-[108px] w-[108px] shrink-0 place-items-center rounded-full p-[8px]"
         role="img" aria-label={`Процент побед: ${percent}`}
@@ -51,7 +51,7 @@ export default function PlayerProfileStatsHero({ games, wins, winRate, elo, seas
         <div className="mt-1 text-[22px] font-semibold leading-none tabular-nums">{elo}</div>
       </div>
       <div className="min-w-0 rounded-xl bg-black/20 px-3 py-2.5">
-        <div className="text-[10px] text-white/45">Место · текущий сезон</div>
+        <div className="text-[10px] text-white/45">Место в сезоне</div>
         <div className="mt-1 text-[22px] font-semibold leading-none tabular-nums">{seasonPlace && seasonPlace > 0 ? `#${seasonPlace}` : '—'}</div>
       </div>
     </div>

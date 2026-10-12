@@ -165,7 +165,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     setData(null);
     setError('');
     setLoading(true);
-    const suffix=tab==='games'?`games?${gameQuery}`:tab==='elo'?'elo?range=all':tab;
+    const scope=new URLSearchParams();if(statPeriod!=='all')scope.set('period',statPeriod);if(statFormat!=='all')scope.set('format',statFormat);
+    const suffix=tab==='games'?`games?${gameQuery}${scope.toString()?`&${scope}`:''}`:tab==='elo'?`elo?range=all${scope.toString()?`&${scope}`:''}`:`${tab}${scope.toString()?`?${scope}`:''}`;
     json(`/api/player/profiles/${encodeURIComponent(playerId)}/${suffix}`,controller.signal).then((body)=>{
       if(generation===playerRequestGeneration.current) setData(body);
     }).catch((reason:any)=>{
@@ -175,7 +176,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       if(generation===playerRequestGeneration.current) setLoading(false);
     });
     return ()=>controller.abort();
-  },[tab,playerId,gameQuery,settings]);
+  },[tab,playerId,gameQuery,settings,statPeriod,statFormat]);
 
   const switchTab=(next:Tab)=>{
     // Selecting the already visible sub-tab must not clear its fetched data.
@@ -198,6 +199,10 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const eloPoints=Array.isArray(data?.points)?data.points:Array.isArray(data?.history)?data.history:[];
   const birthdayText=birthday?.day&&birthday?.month ? `${String(birthday.day).padStart(2,'0')}.${String(birthday.month).padStart(2,'0')}${birthday.year?`.${birthday.year}`:''}` : null;
 
+  const scopeSelector=summary?.filters&&(summary.filters.seasons.length>0||summary.filters.formats.length>1||statPeriod!=='all'||statFormat!=='all')?<section data-testid="profile-stats-scope" aria-label="Что считать в статистике" className="grid grid-cols-2 gap-2">
+            <label className="text-[11px] text-white/45">Период<select aria-label="Период статистики" value={statPeriod} onChange={e=>setStatPeriod(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{summary.filters.seasons.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+            <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера" value={statFormat} onChange={e=>setStatFormat(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{summary.filters.formats.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
+          </section>:null;
   return <div ref={scrollRef} className="canonical-profile h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
       <div className="profile-identity flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&ownerSettings&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
@@ -227,10 +232,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
          </button>}
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
         :<>
-          {summary?.filters&&(summary.filters.seasons.length>0||summary.filters.formats.length>1||statPeriod!=='all'||statFormat!=='all')?<section data-testid="profile-stats-scope" aria-label="Что считать в статистике" className="grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-white/45">Период<select aria-label="Период статистики" value={statPeriod} onChange={e=>setStatPeriod(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{summary.filters.seasons.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
-            <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера" value={statFormat} onChange={e=>setStatFormat(e.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{summary.filters.formats.map((item:any)=><option key={item.key} value={item.key}>{item.label} · {countGames(item.games)}</option>)}</select></label>
-          </section>:null}
+          {scopeSelector}
           <section data-testid="profile-key-stats" className="grid grid-cols-4 gap-1.5">{[['Игры',stats.games??stats.completed_games??'—'],['Винрейт',stats.win_rate!=null?`${stats.win_rate}%`:stats.wins??'—'],['Elo',p.elo!=null?eloText(p.elo):stats.elo!=null?eloText(stats.elo):'—'],['Место в сезоне',summary?.season?.place?`#${summary.season.place}`:'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3 text-center"><div className="text-lg font-semibold leading-none">{v}</div><div className="mt-1.5 text-[11px] leading-3 text-white/50">{l}</div></div>)}</section>
           {summary?.filters?<p data-testid="profile-stats-scope-note" className="-mt-2 text-[11px] leading-4 text-white/40">Считаем: {summary.filters.period_label} · {summary.filters.format_label} · клубные и турнирные игры, {stats.wins??0} побед из {stats.games??0}. Elo — текущий рейтинг, он не зависит от выбора. Место в сезоне — по числу побед в текущем сезоне.</p>:null}
         </>}
@@ -242,7 +244,8 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         <button onClick={()=>switchTab('connections')} className="flex min-h-12 w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[.04] px-4 text-left text-sm font-semibold">Связи и приглашения<span className="text-white/35">›</span></button>
       </div>}
       {!settings&&tab==='games'&&<>
-        <div className="flex flex-wrap gap-2">{(['all','season','custom'] as const).map(k=><button key={k} onClick={()=>setPeriod(k)} className={`rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'За всё время':k==='season'?'Текущий сезон':'Диапазон дат'}</button>)}</div>
+        {scopeSelector}
+        <div className="flex flex-wrap gap-2">{(['all','custom'] as const).map(k=><button key={k} onClick={()=>setPeriod(k)} className={`rounded-full px-3 py-2 text-xs ${period===k?'bg-white text-black':'bg-white/10'}`}>{k==='all'?'Любые даты':'Диапазон дат'}</button>)}</div>
         {period==='season'&&<div className="text-xs text-white/45">{activePeriod?.title||'Активный сезон не задан'}</div>}
         {period==='custom'&&<div className="grid grid-cols-2 gap-2"><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="rounded-xl bg-white/10 p-3"/><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="rounded-xl bg-white/10 p-3"/></div>}
         <details className="rounded-2xl border border-white/10 p-3"><summary className="cursor-pointer text-sm">Дополнительные фильтры</summary><div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -256,8 +259,10 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         {total>15&&<div className="flex justify-between"><button disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-15))} className="rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Назад</button><button disabled={offset+15>=total} onClick={()=>setOffset(offset+15)} className="rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Дальше</button></div>}
       </>}
       {!settings&&(tab==='roles'||(tab==='elo'&&!isSelf))&&error?<div className="rounded-xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">{error}</div>:null}
+      {!settings&&tab==='roles'&&scopeSelector}
       {!settings&&tab==='roles'&&!error&&<section className="profile-role-list space-y-2">{(data?.roles||data?.items||[]).map((r:any)=><div key={r.role} className="rounded-2xl border border-white/10 p-4"><b>{r.label||r.role}</b><div className="text-xs text-white/55">{(r.games??r.total??0)>0?`${countGames(r.games??r.total)} · ${r.win_rate??0}% побед`:'Пока не играл на этой роли'}</div></div>)}</section>}
       {!settings&&tab==='elo'&&isSelf&&<PlayerEloJourney embedded/>}
+      {!settings&&tab==='elo'&&!isSelf&&scopeSelector}
       {!settings&&tab==='elo'&&!isSelf&&!error&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">История Elo</h2><div className="mt-3 space-y-2">{eloPoints.map((x:any,i:number)=><article key={x.id||i} className="rounded-xl bg-white/[.035] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{x.title||'Игра'}{x.game_number?` · #${x.game_number}`:''}</div><div className="mt-1 text-xs text-white/45">{fmt(x.date||x.played_at)}{roleLabel(x.role)?` · ${roleLabel(x.role)}`:''}{gameLinkProps(x.id)?<> · <a {...gameLinkProps(x.id)!} className="text-sky-200/70">игра ›</a></>:null}</div></div><div className="shrink-0 text-right"><div className="text-base font-semibold">{eloText(x.elo_after)}</div><div className={`text-xs ${Number(x.elo_delta)>0?'text-emerald-300':Number(x.elo_delta)<0?'text-red-300':'text-white/40'}`}>{deltaText(x.elo_delta)}</div></div></div></article>)}</div>{!loading&&eloPoints.length===0?<div className="mt-3 rounded-xl bg-white/[.035] p-5 text-center text-sm text-white/45">Истории Elo пока нет. Она появится после первых игр, которые идут в рейтинг.</div>:null}</section>}
       {!settings&&tab==='learning'&&learning}
       {!settings&&tab==='awards'&&<><PremiumProfileShowcase playerId={playerId} isSelf={isSelf} section="awards"/>{isSelf?<PlayerAwardSuggestionAction/>:null}</>}

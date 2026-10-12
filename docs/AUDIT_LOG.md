@@ -9,7 +9,11 @@
 - **[invariant / must not unify]** Organizer working roster (which includes unanswered), game-seat eligibility (which excludes unanswered pending), and payment expectation (format-dependent) are three separate projections of the same participant, not conflicting sources of persistence. Planned RSVP, factual attendance, slot commitment and money remain independent facts. Legacy explicit `response_status='unanswered'` must not become an invented `going` because `registration_status='registered'` is stale.
 - **[out of scope]** Server mutations, reward or fee reconciliation, announcement outbox, existing protocol, active game, data schema, React markup/styles, optimistic update control flow. Pure selector tests should cover all five RSVP states × pending/attended/no_show and legacy fallbacks. Preserve closeout `can_close_without_override` and payment behavior.
 
-**Implementation policy:** introduce `src/lib/eveningParticipantView.ts` only for these stable read projections; refactor the two existing call sites and guard with focused tests. Keep selector ownership separate from financial business rules.
+**[Implemented in phase-4 branch; CI/merge/runtime pending]** `src/lib/eveningParticipantView.ts` owns the read-only selectors `isInOrganizerWorkingRoster` and `needsEveningCloseoutAttendance`, while `getEveningResponse`/`isAttendingResponse` remain the canonical response interpretation. CRM roster and closeout have been rewired to call them in place. `src/tests/eveningParticipantView.test.ts` covers all five RSVP states × three attendance states, explicit unanswered with stale registered compatibility value, legacy confirmed/waitlist/declined, manual walk-ins and separate game-seat eligibility.
+
+**[Open, audit only]** `eveningSlotPlanningService.ts` and `eveningPaymentScope.ts` still contain local planned-response string comparisons; these are financial/slot paths and must not be bulk-changed without proving row serialization, legacy compatibility, pricing and update idempotency via integration tests. `EveningParticipantsWorkboard.tsx` is documented as a possibly unmounted legacy surface; confirm the import graph before modifying it.
+
+**Implementation policy:** keep selector ownership separate from financial business rules. No schema, server mutations, React markup, attendance rewards, payment calculations or game mechanics altered.
 
 ## 2026-10-11 · Architecture unification phase 3 — game record presentation
 

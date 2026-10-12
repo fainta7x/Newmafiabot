@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import GoMafiaTournamentOrganizer from './GoMafiaTournamentOrganizer.tsx';
 
 type Linked = {
   external_player_id: string;
@@ -12,6 +13,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [career, setCareer] = useState<any>(null);
+  const [careerVersion, setCareerVersion] = useState(0);
   useEffect(() => {
     const abort = new AbortController();
     setLink(null);
@@ -29,7 +31,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
       .then(data => { if (!controller.signal.aborted) setCareer(data); })
       .catch(() => { /* External data never blocks the club profile. */ });
     return () => controller.abort();
-  }, [playerId, link?.external_player_id, link?.status]);
+  }, [playerId, link?.external_player_id, link?.status, careerVersion]);
   const stat = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : '—';
   const snap = career?.snapshot;
   const save = async () => {
@@ -95,6 +97,21 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     </div>}
     {career?.status === 'verified' && career?.history_status === 'not_imported' &&
       <p className="mt-2 text-xs text-white/50">История федеративных игр пока не импортирована. Полные протоколы можно открыть на сайте федерации.</p>}
+    {Array.isArray(career?.tournaments) && career.tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-3 space-y-2">
+      <strong className="block text-sm">Турнирные выступления</strong>
+      {career.tournaments.map((item: any) => <div key={item.tournamentId} className="rounded-xl bg-white/[.045] p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0"><div className="text-sm font-medium">{item.tournamentName}</div>
+            <div className="mt-1 text-xs text-white/55">{item.dateRange || 'Дата не указана'} · Место: {item.place} · {stat(item.totalScore)} баллов</div>
+            <div className="mt-1 text-[11px] text-white/45">Игрок в таблице: {item.externalNickname}</div>
+          </div>
+          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+            className="shrink-0 text-xs text-amber-200 underline">Источник ↗</a>
+        </div>
+      </div>)}
+    </div>}
+    {organizer && link?.status === 'verified' &&
+      <GoMafiaTournamentOrganizer playerId={playerId} onImported={() => setCareerVersion(version => version + 1)} />}
     {career?.error && <p className="mt-2 text-xs text-amber-100">{career.error}</p>}
     <p className="mt-2 text-[11px] text-white/40">Турнирные протоколы доступны по ссылке GoMafia. Клубная статистика 2LA Noire считается отдельно.</p>
   </section>;

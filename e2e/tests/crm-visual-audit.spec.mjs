@@ -27,7 +27,7 @@ for (const width of [360, 390]) {
     await capture('crm-evening-roster', 'crm-evening-roster');
     await capture('crm-players', 'crm-players');
     await page.getByRole('button', { name: /Аватар: Пристань/ }).click();
-    await expect(page.getByTestId('crm-player-next')).toBeVisible();
+    await expect(page.getByTestId('crm-player-work-card')).toBeVisible();
     await page.screenshot({ path: info.outputPath(`crm-player-card-${width}.png`), fullPage: true });
 
     await capture('crm-more', 'crm-more');

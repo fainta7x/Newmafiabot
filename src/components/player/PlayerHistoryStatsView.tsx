@@ -114,7 +114,7 @@ export default function PlayerGamesArchive({
               }}
             />
             {selectedGameKey.startsWith('club:') ? (
-              <button type="button" onClick={() => { window.history.pushState({}, '', `/player/replay/${encodeURIComponent(selectedGameKey)}`); window.dispatchEvent(new PopStateEvent('popstate')); }} data-track="game-open-replay" className="flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold text-sky-200/80">Replay игры ›</button>
+              <button type="button" onClick={() => { window.history.pushState({ replayFromProtocol: true }, '', `/player/replay/${encodeURIComponent(selectedGameKey)}`); window.dispatchEvent(new PopStateEvent('popstate')); }} data-track="game-open-replay" className="flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold text-sky-200/80">Replay игры ›</button>
             ) : null}
           </>
         ) : (

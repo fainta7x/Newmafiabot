@@ -22,7 +22,7 @@ describe('GoMafia public profile identity', () => {
       'https://gomafia.pro@evil.example/stats/218',
       'https://gomafia.pro/stats/218?redirect=https://evil.example',
       'https://gomafia.pro/rating', 'https://gomafia.pro/stats/218/../../admin',
-      'https://gomafia.pro:443/stats/218#extra',
+      'https://gomafia.pro:8443/stats/218#extra',
     ]) {
       expect(parseGoMafiaPlayerReference(value), value).toBeNull();
     }

@@ -1,17 +1,23 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
-type Filter = 'all' | RegistrationState;
+type Filter = 'attention' | 'delivery' | 'all' | RegistrationState;
 type AudiencePlayer = {
   id: string;
   nickname: string;
   eligible_now?: boolean;
   response_status?: string;
   attention_status?: string;
+  telegram_user_id?: string | null;
+  telegram_username?: string | null;
+  first_sent_at?: string | null;
+  delivery_status?: string | null;
+  last_error?: string | null;
+  reminder_count?: number;
 };
 type Slot = {
   id: string;
@@ -27,6 +33,13 @@ type Row = {
   responseStatus: string;
   slots: Slot[];
   state: RegistrationState;
+  telegramUserId: string | null;
+  telegramUsername: string | null;
+  firstSentAt: string | null;
+  deliveryStatus: string;
+  lastDeliveryError: string | null;
+  reminderCount: number;
+  eligibleNow: boolean;
 };
 
 const STATE_LABELS: Record<RegistrationState, string> = {
@@ -63,7 +76,9 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<Filter>('unknown');
+  const [filter, setFilter] = useState<Filter>('attention');
+  const [search, setSearch] = useState('');
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingSlotIds, setEditingSlotIds] = useState<string[]>([]);
 
@@ -119,9 +134,16 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           responseStatus,
           slots: playerSlots,
           state: stateFor(responseStatus, playerSlots),
+          telegramUserId: audience?.telegram_user_id ? String(audience.telegram_user_id) : null,
+          telegramUsername: audience?.telegram_username ? String(audience.telegram_username) : null,
+          firstSentAt: audience?.first_sent_at || null,
+          deliveryStatus: String(audience?.delivery_status || 'not_sent'),
+          lastDeliveryError: audience?.last_error || null,
+          reminderCount: Number(audience?.reminder_count || 0),
+          eligibleNow: Boolean(audience?.eligible_now),
         };
       }).sort((a, b) => {
-        const priority: Record<RegistrationState, number> = { unknown: 0, thinking: 2, games: 3, declined: 4 };
+        const priority: Record<RegistrationState, number> = { unknown: 0, thinking: 1, games: 2, declined: 3 };
         return priority[a.state] - priority[b.state] || a.nickname.localeCompare(b.nickname, 'ru');
       });
 

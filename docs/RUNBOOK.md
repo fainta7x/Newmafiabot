@@ -179,6 +179,18 @@ Do not repeatedly rerun red jobs hoping they become green.
 
 ## 6. Database safety
 
+### Opt-in read-only RSVP drift census
+
+The cross-surface participant semantics audit (see `docs/AUDIT_LOG.md`, P2/P3) has an **offline, explicit, aggregate-only** inspector:
+
+```bash
+npx tsx src/scripts/auditEveningRsvpDrift.ts --db /path/to/authorized/existing.sqlite
+```
+
+Run **only** from an authorized environment that can already read the exact database file and has the project dependencies. The app does not invoke this tool on startup. There is no default DB path. The tool fails if the path is absent; opens with SQLite `readonly` and `fileMustExist`, plus `query_only`, and only selects grouped status/attendance counts. It never selects player IDs, nicknames, phones or evening identifiers and does not change migrations, data, check-pointing, financial records, bot delivery, or scheduling. **Do not copy the production DB into a repository or use a repository checkpoint as a substitute for current runtime data.**
+
+The output separates open, completed and other evening scopes and compares *existing* raw SQL interpretations (agenda, bot, shortfall, analytics) with canonical RSVP normalization. The named count fields are evidence of possible drift, not permission to rewrite cancellation or payment behavior. Do not claim production occurrence based on synthetic test fixtures. If authorized runtime access is unavailable, record the inspection as **not performed**; no request for user identities or raw participant rows is necessary.
+
 ### Backend selection
 
 For canonical Amvera production, `deploy/start-web.sh` is the runtime contract:

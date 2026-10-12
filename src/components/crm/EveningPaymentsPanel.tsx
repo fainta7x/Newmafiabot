@@ -176,6 +176,69 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
     return 'Без оплаты';
   };
 
+  // «Все» shows two blocks, the debtors first; a search or the «Оплатили / Не оплатили» chips keep one flat list.
+  const groupedView = !search.trim() && filter === 'all';
+  const paymentGroups = (() => {
+    const unpaid: PaymentParticipant[] = [];
+    const paidItems: PaymentParticipant[] = [];
+    const free: PaymentParticipant[] = [];
+    for (const item of data?.participants || []) {
+      const due = Number(item.amount_due || 0);
+      if (item.payment_status === 'waived' || due === 0) free.push(item);
+      else if (item.payment_status === 'paid' || Number(item.amount_paid || 0) >= due) paidItems.push(item);
+      else unpaid.push(item);
+    }
+    const sum = (items: PaymentParticipant[]) => items.reduce((total, item) => total + Math.max(0, Number(item.amount_due || 0)), 0);
+    return [
+      { id: 'unpaid', title: 'Не оплатили', tone: 'text-danger', items: unpaid, amount: sum(unpaid) as number | null },
+      { id: 'paid', title: 'Оплатили', tone: 'text-success', items: paidItems, amount: sum(paidItems) as number | null },
+      { id: 'free', title: 'Без оплаты', tone: 'text-text-muted', items: free, amount: null as number | null },
+    ];
+  })();
+
+  const renderRow = (participant: PaymentParticipant) => {
+    const due = Number(participant.amount_due || 0);
+    const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
+    const waived = participant.payment_status === 'waived' || due === 0;
+    const busy = busyIds.has(participant.id);
+    const canGift = data?.evening.format === 'CASUAL';
+
+    return (
+      <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
+          <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
+            {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
+          </div>
+        </div>
+
+        {waived ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
+            {participant.fee_waived && canGift ? (
+              <button type="button" disabled={busy} onClick={() => void setWaived(participant, false)} className="inline-flex min-h-[44px] items-center rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-muted disabled:opacity-40">Вернуть оплату</button>
+            ) : null}
+          </div>
+        ) : paid ? (
+          <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-secondary disabled:opacity-40">
+            <Undo2 className="h-3.5 w-3.5" /> Снять оплату
+          </button>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {canGift ? (
+              <button type="button" disabled={busy} data-testid={`gift-evening-${participant.id}`} onClick={() => setGiftTarget(participant)} aria-label={`Подарить вечер: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
+                <Gift className="h-4 w-4" />
+              </button>
+            ) : null}
+            <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Принять оплату
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading && !data) return null;
 
   return (
@@ -230,48 +293,15 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
             filters={[{ id: 'all', label: 'Все', count: data.participants.length }, { id: 'paid', label: 'Оплатили', count: summary.paid }, { id: 'unpaid', label: 'Не оплатили', count: summary.unpaid }]} /></div>
 
           <div className="mt-2.5 space-y-1.5">
-            {visibleParticipants.map((participant) => {
-              const due = Number(participant.amount_due || 0);
-              const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
-              const waived = participant.payment_status === 'waived' || due === 0;
-              const busy = busyIds.has(participant.id);
-              const canGift = data?.evening.format === 'CASUAL';
-
-              return (
-                <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
-                    <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
-                      {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
-                    </div>
-                  </div>
-
-                  {waived ? (
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[10px] font-bold text-text-muted">0 ₽</span>
-                      {participant.fee_waived && canGift ? (
-                        <button type="button" disabled={busy} onClick={() => void setWaived(participant, false)} className="inline-flex min-h-[44px] items-center rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-muted disabled:opacity-40">Вернуть оплату</button>
-                      ) : null}
-                    </div>
-                  ) : paid ? (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-surface-1 px-2.5 text-[10px] font-black text-text-secondary disabled:opacity-40">
-                      <Undo2 className="h-3.5 w-3.5" /> Снять оплату
-                    </button>
-                  ) : (
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {canGift ? (
-                        <button type="button" disabled={busy} data-testid={`gift-evening-${participant.id}`} onClick={() => setGiftTarget(participant)} aria-label={`Подарить вечер: ${participant.nickname}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40">
-                          <Gift className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[10px] font-black text-success disabled:opacity-40">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Принять оплату
-                      </button>
-                    </div>
-                  )}
+            {groupedView ? paymentGroups.map((group) => group.items.length ? (
+              <div key={group.id} data-testid={`evening-payments-group-${group.id}`} className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2 px-1 pt-1.5">
+                  <span className={`text-[12px] font-black ${group.tone}`}>{group.title} · {group.items.length}</span>
+                  {group.amount !== null ? <span className="text-[11px] font-bold text-text-muted">{money(group.amount)}</span> : null}
                 </div>
-              );
-            })}
+                {group.items.map(renderRow)}
+              </div>
+            ) : null) : visibleParticipants.map(renderRow)}
             {!visibleParticipants.length ? <p role="status" className="p-3 text-center text-[11px] text-text-muted">{search.trim() ? 'Игрок не найден в списке оплат.' : filter === 'unpaid' ? 'Все оплаты отмечены.' : 'Отмеченных оплат пока нет.'}</p> : null}
           </div>
         </>

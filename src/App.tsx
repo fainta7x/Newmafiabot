@@ -271,7 +271,7 @@ export default function App() {
   }
 
   if (parsedPlayerRoute.replayGameKey) {
-    return <PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath('/player/games')} />;
+    return <PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath(playerPathForSection('games', parsedPlayerRoute.replayGameKey))} />;
   }
 
   const initialSection = parsedPlayerRoute.section as PlayerCabinetSection;

@@ -170,7 +170,32 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     unknown: rows.filter((row) => row.state === 'unknown').length,
   }), [rows]);
 
-  const visibleRows = useMemo(() => filter === 'all' ? rows : rows.filter((row) => row.state === filter), [filter, rows]);
+  const needsReply = (row: Row) => row.state === 'unknown' || row.state === 'thinking';
+  const deliveryFailed = (row: Row) => row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus === 'failed';
+  const attentionCount = rows.filter(needsReply).length;
+  const failedCount = rows.filter(deliveryFailed).length;
+  const sentCount = rows.filter((row) => row.eligibleNow && Boolean(row.firstSentAt)).length;
+  const visibleRows = useMemo(() => rows.filter((row) => {
+    const query = search.trim().toLocaleLowerCase('ru-RU');
+    if (query && !row.nickname.toLocaleLowerCase('ru-RU').includes(query)) return false;
+    if (filter === 'attention') return needsReply(row);
+    if (filter === 'delivery') return deliveryFailed(row);
+    return filter === 'all' || row.state === filter;
+  }), [filter, rows, search]);
+
+  const chatUrlFor = (row: Row) => {
+    const username = String(row.telegramUsername || '').trim().replace(/^@/, '');
+    if (username) return `https://t.me/${username}`;
+    const userId = String(row.telegramUserId || '').trim();
+    return userId ? `tg://user?id=${encodeURIComponent(userId)}` : null;
+  };
+
+  const deliveryLabel = (row: Row) => {
+    if (!row.eligibleNow) return 'Вне личной рассылки';
+    if (row.firstSentAt) return `Анонс доставлен${row.reminderCount ? ` · напоминаний: ${row.reminderCount}` : ''}`;
+    if (row.deliveryStatus === 'failed') return 'Анонс не доставлен';
+    return 'Анонс ещё не отправлен';
+  };
 
   const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined') => {
     if (savingStatusIds.has(row.playerId) || readonly) return;
@@ -204,11 +229,9 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         await api.updateParticipant(createdParticipant.id, { response_status: status } as any);
       }
 
-      if (createdParticipant) {
-        setRows((current) => current.map((item) => item.playerId === row.playerId
-          ? { ...item, participant: createdParticipant }
-          : item));
-      }
+      await load(true);
+      onChanged?.();
+      setEditingResponseId(null);
     } catch (err: any) {
       setRows((current) => current.map((item) => item.playerId === row.playerId
         ? {
@@ -283,9 +306,11 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const editTotal = maxEveningPrice > 0 ? Math.min(editRawTotal, maxEveningPrice) : editRawTotal;
 
   const filterItems: Array<{ id: Filter; label: string; count: number }> = [
+    { id: 'attention', label: 'Нужен ответ', count: attentionCount },
     { id: 'unknown', label: 'Нет ответа', count: counts.unknown },
-    { id: 'games', label: 'Идут', count: counts.games },
+    { id: 'delivery', label: 'Не доставлено', count: failedCount },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
+    { id: 'games', label: 'Идут', count: counts.games },
     { id: 'declined', label: 'Не будут', count: counts.declined },
     { id: 'all', label: 'Все', count: rows.length },
   ];

@@ -12,7 +12,7 @@ The profile UX should show (1) `2LA Noire` club history/statistics/Elo; (2) `GoM
 
 PR #852 provides explicit profile link validation, standalone GoMafia schema, protected self-claim (pending) and organizer-confirmed link API, player-profile link panel and CRM player-card link editor. GoMafia ID cannot be linked to two internal players. Local Elo, club statistics, games, awards, balances and rankings remain untouched.
 
-**Not yet implemented/verified:** reliable/authorized data collection from GoMafia and external game records; source-specific read-only snapshots/history in the player UI; careful overlapping source record reconciliation. An official public API or bulk collection permission has not been confirmed. Do not invent endpoints or scrape undocumented/private URLs. UI/CI/deployment and actual data import must be verified separately.
+**Current work in PR #852:** an on-demand public-page parser for the visible GoMafia numerical statistics, a 24-hour read-only cache and a source-labeled Sports Career metrics view in the player profile. This adapter must pass CI and live source compatibility checking before relying on it. **Not yet implemented/verified:** individual external game histories/tournament protocols, authorized bulk sync, matches reconciliation, and full career timeline. An official public API or bulk collection permission has not been confirmed. Do not invent endpoints or scrape undocumented/private URLs. UI/CI/deployment and actual data import must be verified separately.
 
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.

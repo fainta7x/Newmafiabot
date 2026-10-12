@@ -115,6 +115,7 @@ router.get('/elo-journey', async (req, res) => {
         id: gameKey,
         source: event.source,
         date: event.sortAt,
+        season_date: snapshot?.played_at || event.sortAt,
         title: snapshot?.title || (event.source === 'tournament' ? 'Турнир' : 'Игровой вечер'),
         game_number: snapshot?.game_number || event.sortOrder,
         team: row.team,

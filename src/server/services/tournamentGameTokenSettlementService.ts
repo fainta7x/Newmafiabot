@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { JUDGE_REWARD, judgeRewardFor } from './staffRewards.ts';
 import { calculateClubGamePlayerTokens } from './clubGameTokenSettlementService.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
+import { teamFromRoleAlias } from './clubGameTeams.ts';
 
 export type TournamentGameSettlementContext = 'completion' | 'reopen' | 'backfill';
 
@@ -27,12 +28,7 @@ const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-const roleTeam = (role: unknown): 'red' | 'black' | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный', 'sheriff', 'шериф'].includes(value)) return 'red';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный', 'don', 'дон'].includes(value)) return 'black';
-  return null;
-};
+const roleTeam = teamFromRoleAlias;
 
 const calculateBestMovePoints = (seatNumbers: unknown, seats: any[]): number => {
   if (!Array.isArray(seatNumbers)) return 0;

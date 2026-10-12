@@ -10,6 +10,8 @@ import {
   type CanonicalEloPlayerDelta,
   type EloTeam,
 } from './eloRatingService.ts';
+import { teamFromRoleAlias, winnerTeamFromLabel } from './clubGameTeams.ts';
+
 
 export interface PlayerEloHistoryRow extends CanonicalEloPlayerDelta {
   eloBefore: number;
@@ -44,19 +46,9 @@ const numeric = (value: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const teamFromRole = (role: unknown): EloTeam | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный', 'sheriff', 'шериф'].includes(value)) return 'red';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный', 'don', 'дон'].includes(value)) return 'black';
-  return null;
-};
+const teamFromRole = teamFromRoleAlias;
 
-const normalizeWinner = (value: unknown): EloTeam | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
+const normalizeWinner = winnerTeamFromLabel;
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;

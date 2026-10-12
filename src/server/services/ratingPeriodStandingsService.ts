@@ -9,6 +9,7 @@ import {
   normalizeRole,
   roundToTwo,
 } from '../utils/ciHelper.ts';
+import { winnerTeamFromLabel } from './clubGameTeams.ts';
 
 const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
@@ -30,12 +31,7 @@ const booleanOverride = (value: unknown): boolean | null => (
   value === null || value === undefined ? null : Boolean(value)
 );
 
-const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
+const normalizeWinner = winnerTeamFromLabel;
 
 type IncludedGame = {
   id: number;

@@ -2,6 +2,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
+import { teamFromRoleAlias, winnerTeamFromLabel } from './clubGameTeams.ts';
+
 
 export const DEFAULT_ELO = DEFAULT_ELO_SEED;
 export type EloTeam = 'red' | 'black';
@@ -78,19 +80,9 @@ export function calculateCanonicalEloGame(players: CanonicalEloGamePlayer[], win
   });
 }
 
-const teamFromRole = (role: unknown): EloTeam | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный', 'sheriff', 'шериф'].includes(value)) return 'red';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный', 'don', 'дон'].includes(value)) return 'black';
-  return null;
-};
+const teamFromRole = teamFromRoleAlias;
 
-const normalizeWinner = (value: unknown): EloTeam | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
+const normalizeWinner = winnerTeamFromLabel;
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;

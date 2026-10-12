@@ -2,6 +2,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { judgeRewardFor } from './staffRewards.ts';
 import { mutateTokenBalance } from './tokenLedgerService.ts';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
+import { teamFromRoleAlias, winnerTeamFromLabel } from './clubGameTeams.ts';
+
 
 export type ClubGameSettlementContext = 'completion' | 'correction' | 'reopen' | 'archive' | 'restore';
 
@@ -51,19 +53,9 @@ interface DesiredTarget {
   breakdown: ClubGameTokenBreakdown | { judge_reward: number };
 }
 
-const normalizeRole = (role: unknown): 'red' | 'black' | null => {
-  const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный', 'sheriff', 'шериф'].includes(value)) return 'red';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный', 'don', 'дон'].includes(value)) return 'black';
-  return null;
-};
+const normalizeRole = teamFromRoleAlias;
 
-const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
-  const value = String(winner || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(value)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(value)) return 'black';
-  return null;
-};
+const normalizeWinner = winnerTeamFromLabel;
 
 const count = (value: unknown): number => {
   const n = Number(value);

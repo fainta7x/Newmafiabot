@@ -10,10 +10,10 @@ export function parsePublicGoMafiaStats(page: string, reference: GoMafiaPlayerRe
   while (cursor < page.length) {
     const open = page.indexOf('<', cursor);
     if (open < 0) { decoded += page.slice(cursor); break; }
-    decoded += page.slice(cursor, open) + '\\n';
+    decoded += page.slice(cursor, open) + '\n';
     const close = page.indexOf('>', open + 1);
     if (close < 0) throw new Error('Malformed GoMafia HTML');
-    const tag = lower.slice(open + 1, close).trim().split(/\\s/)[0];
+    const tag = lower.slice(open + 1, close).trim().split(/\s/)[0];
     if (tag === 'script' || tag === 'style') {
       const closingStart = lower.indexOf('</' + tag, close + 1);
       if (closingStart < 0) throw new Error('Malformed GoMafia HTML');

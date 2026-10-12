@@ -33,6 +33,9 @@ jobs:
       - name: Check notifier syntax
         run: python -m py_compile scripts/telegram_pr_digest.py
 
+      - name: Run offline notifier regressions
+        run: python -m unittest discover -s tests -p 'test_pr_telegram_digest.py'
+
       - name: Send status to organizer
         env:
           GH_TOKEN: ${{ github.token }}

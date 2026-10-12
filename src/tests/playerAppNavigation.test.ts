@@ -31,6 +31,7 @@ describe('player app navigation', () => {
     expect(parsePlayerRoute('/player/games')).toMatchObject({ section: 'games', target: null });
     // without a remembered place Back goes to the list of games
     expect(appBackTarget('/player/games/club%3Aabc')).toBe('/player/games');
+    expect(appBackTarget('/player/replay/club%3Aabc')).toBe('/player/games/club%3Aabc');
   });
 
   it('keeps the staff music library inside the conduct hub', () => {

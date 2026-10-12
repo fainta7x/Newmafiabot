@@ -527,3 +527,7 @@ A state file `/data/github_pr_notifications.json` on persistent Amvera storage p
 
 Verification: `python -m unittest tests.test_github_pr_notifications` and the required Python release-gate job. After code merges to GitHub, **deploy to Amvera** and confirm that the existing organizer private recipient gets a message when the next PR is opened or merged, and that `/prs` answers. No user-provided token/chat ID or GitHub secret setup is required.
 
+
+## CRM «Проект» screen (owner request 2026-10-12)
+
+Read-only, organizer only. The cards are parsed at request time from `docs/PROJECT_STATE.md` that ships in the image (so a merge to `main` shows after the next deploy); the direction is a keyword guess and the status comes from the file's own structure («Waiting on the owner», «ACTIVE», the queue), so keep new entries in those sections. The «PR» tab reads the public GitHub API (cached for a minute, same colours and authorship rule as the bot's `/prs`); set `GITHUB_TOKEN` in the environment only if the unauthenticated rate limit is hit. If GitHub is unreachable the tab says so and the cards still work.

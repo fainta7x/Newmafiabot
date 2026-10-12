@@ -19,7 +19,7 @@ import {
   Send,
   ShieldCheck,
   Settings2,
-  Sprout, GraduationCap } from 'lucide-react';
+  Sprout, GraduationCap, KanbanSquare } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -32,6 +32,7 @@ import type { OrganizerMoreScreen } from './organizerRouting.ts';
 import NoviceDevelopmentCRM from './NoviceDevelopmentCRM.tsx';
 import LearningProgressCRM from './LearningProgressCRM.tsx';
 import PlayerAccessBulkCRM from './PlayerAccessBulkCRM.tsx';
+import ProjectBoardCRM from './ProjectBoardCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -51,7 +52,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Telegram',
-  system: 'Состояние системы', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Развитие игроков', learning: 'Обучение', access: 'Уровни и роли',
+  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Развитие игроков', learning: 'Обучение', access: 'Уровни и роли',
 };
 
 const menuTone = (id: string) => {
@@ -95,6 +96,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'development' ? <NoviceDevelopmentCRM onOpenPlayer={onOpenPlayer} /> : null}
       {subscreen === 'learning' ? <LearningProgressCRM onOpenPlayer={onOpenPlayer} /> : null}
       {subscreen === 'access' ? <PlayerAccessBulkCRM /> : null}
+      {subscreen === 'project' ? <ProjectBoardCRM /> : null}
     </div>;
   }
 
@@ -114,6 +116,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'commerce', label: 'Оплата и поддержка', detail: 'Жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
     { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },
+    { id: 'project', label: 'Проект', detail: 'Что ждёт вас, дорожная карта и все PR', icon: KanbanSquare, onClick: () => setSubscreen('project') },
     { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
     { id: 'developer', label: '[TEST] Тестовый режим', detail: 'Изолированные тестовые сценарии', icon: FlaskConical, onClick: () => setSubscreen('developer') },

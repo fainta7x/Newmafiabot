@@ -4,6 +4,7 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
+import { getJson } from '../../lib/requestJson.ts';
 
 /**
  * «Игры → История»: the club's archive of finished games and the page of one game. A player's own games (with the filters,
@@ -48,9 +49,7 @@ export default function PlayerGamesArchive({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/player/games/all', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить все игры');
+        const body = await getJson<any>('/api/player/games/all', 'Не удалось загрузить все игры');
         if (!cancelled) setAllGames(Array.isArray(body?.games) ? body.games : []);
       } catch (error: any) {
         if (!cancelled) setAllGamesError(error?.message || 'Не удалось загрузить все игры');
@@ -66,9 +65,7 @@ export default function PlayerGamesArchive({
     setGameDetailLoading(true);
     setGameDetailError(null);
     try {
-      const response = await fetch(`/api/player/games/${encodeURIComponent(gameKey)}`, { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игру');
+      const body = await getJson<any>(`/api/player/games/${encodeURIComponent(gameKey)}`, 'Не удалось загрузить игру');
       if (generation === requested.current) setSelectedGameDetail(body as PlayerGameDetailData);
     } catch (error: any) {
       if (generation === requested.current) setGameDetailError(error?.message || 'Не удалось загрузить игру');

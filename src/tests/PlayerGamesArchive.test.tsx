@@ -31,18 +31,19 @@ describe('personal games, club archive and the page of one game', () => {
   }));
 
   it('shows only the signed-in player games by default and opens their detail', async () => {
-    const fetch = stubFetch();
+    stubFetch();
+    const fetch = vi.mocked(globalThis.fetch);
     const onGameChange = vi.fn();
     render(<PlayerGamesArchive data={data} onGameChange={onGameChange} />);
     expect(screen.getByTestId('player-my-games')).toBeDefined();
-    expect(screen.getByText('Моя последняя игра')).toBeDefined();
-    expect(screen.getByText('Моя предыдущая игра')).toBeDefined();
+    expect(screen.getByText(/Моя последняя игра/)).toBeDefined();
+    expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
     expect(screen.getAllByLabelText('Победа')).toHaveLength(1);
     expect(screen.getAllByLabelText('Поражение')).toHaveLength(1);
     expect(screen.queryByText('Чужая игра в клубе')).toBeNull();
     expect(fetch).not.toHaveBeenCalledWith('/api/player/games/all', expect.anything());
 
-    fireEvent.click(screen.getByText('Моя последняя игра'));
+    fireEvent.click(screen.getByText(/Моя последняя игра/));
     expect(onGameChange).toHaveBeenCalledWith('club:g1');
     expect(await screen.findByTestId('detail')).toBeDefined();
     expect(await screen.findByRole('link', { name: /Replay игры/ })).toBeDefined();
@@ -58,9 +59,10 @@ describe('personal games, club archive and the page of one game', () => {
     const summary = screen.getByText(/Все игры клуба/);
     const details = summary.closest('details')!;
     fireEvent.click(summary);
-    fireEvent.toggle(details);
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
     expect(await screen.findByText('Чужая игра в клубе')).toBeDefined();
-    expect(screen.getByText('Моя предыдущая игра')).toBeDefined();
+    expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
   });
 
   it('opens deep-linked club games and returns to personal games when URL loses target', async () => {
@@ -72,7 +74,8 @@ describe('personal games, club archive and the page of one game', () => {
   });
 
   it('shows a useful personal empty state without confusing it with an empty club archive', () => {
-    const fetch = stubFetch();
+    stubFetch();
+    const fetch = vi.mocked(globalThis.fetch);
     render(<PlayerGamesArchive data={{ ...data, games: { all: [] } }} />);
     expect(screen.getByText(/Ты ещё не играл/)).toBeDefined();
     expect(fetch).not.toHaveBeenCalled();

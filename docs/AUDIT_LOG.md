@@ -1,5 +1,15 @@
 # Audit log
 
+## 2026-10-12 · Participant P6 — VK self-RSVP attendance lock
+
+**[audited; narrow server bugfix planned]** The Telegram quick response route rejects edits after actual attendance or no-show has been marked (`attendance_status !== 'pending'`, HTTP 409). The VK poll reconciliation already protects attended rows, but the separate **self-service VK join form** (`vkJoinRegistrationService.ts:saveVkJoinResponse`) currently fetches an existing participant then calls the canonical response writer **without checking attendance**, so a post-check-in VK reply can overwrite a factual player's planned answer while Telegram correctly refuses.
+
+- **Canonical owner:** add a pure `isParticipantResponseLockedAfterAttendance` predicate to existing `eveningParticipantState.ts` and let the unchanged Telegram guard call it; invoke the same predicate from the VK join service before its update. This prevents a new second, locally coded response-lock rule.
+- **Preservation:** Telegram still returns its exact current 409 + `attendance_locked` code; VK should return status 409 and the same Russian human-readable message. Organizer PATCH keeps the right to correct a checked-in participant's response. VK poll's existing independent guard remains unchanged.
+- **Targeted proof:** in-memory SQLite, actual `saveVkJoinResponse` with pending going/late/declined allowed, then factual attendance/no-show through the canonical writer, verifying VK updates reject and participant response/registration/attendance remain unmodified. Pure helper also tested on null/pending/no-show.
+- **Out of scope:** no schema, DB migration, payment recalculation, rewards rewrite, announcements, Telegram/VK publication sync, organizer override, UI/layout, player IDs or settled-game behavior changes. Not a real-production incident claim; source behavior audit + test guard only.
+- **Coordination:** independent of GPT P5 cross-channel read/write regression tests (#835) and Claude screen work; merge only green checks from current main.
+
 ## 2026-10-12 · Bug hunt: the organizer of the evening was charged on a regular evening
 
 Scope: owner report — on the evening of 9 October the organizer played 4 games on a regular (CASUAL) evening and an accrual appeared although he had gifted himself the evening; the owner expects the organizer never to be charged. Traced through `isRegularFeeFreeByStaffRule` and its callers (`reconcileRegularEveningPayments`, the CRM label in `eveningStaffRoutes.ts`, `closedEveningPaymentService.ts`).

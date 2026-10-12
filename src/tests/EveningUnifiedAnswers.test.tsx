@@ -71,6 +71,25 @@ describe('one organizer response and delivery worklist', () => {
     expect(explainer.textContent).toContain('у 1: личная рассылка до них ещё не дошла');
   });
 
+  it('says when the announcement goes out by itself instead of «not sent»', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-12T10:00:00Z') });
+    try {
+      const { fetcher } = setup();
+      vi.spyOn(api, 'getEvening').mockResolvedValue({
+        id: 'evening-1', status: 'published', starts_at: '2026-10-16T18:00:00Z',
+        participants: [],
+      } as any);
+      render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+      const explainer = await screen.findByTestId('audience-explainer');
+      expect(explainer.textContent).toContain('Анонс отправится сам сегодня в 19:00 МСК');
+      fireEvent.click(screen.getByRole('button', { name: /Не отправлено/ }));
+      expect(within(screen.getByTestId('evening-answer-row-p-unsent')).getByText('Анонс отправится сегодня в 19:00 МСК')).toBeDefined();
+      expect(fetcher).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('saves response edits from inside the one worklist using the existing participant API', async () => {
     const { update } = setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);

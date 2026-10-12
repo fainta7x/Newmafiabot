@@ -843,3 +843,9 @@ New club stories also reject original protocols with any unidentifiable or uncla
 - Critical circle is evaluated from the living composition before elimination: at least one black and one or two more reds than blacks. Voting out a red gives parity immediately or after the next successful kill. It is not merely the final three/four. Incomplete/restored-exit chronology yields unknown critical status, never an invented non-critical result.
 - Counts separate the actor's red/black role and the target's red/black team; sheriff targets are a subset of red targets. Sheriff and don checks have separate breakdowns. Zero-night sheriff identification is not a check. A target selection without confirmation of the regular-night substep is not a check.
 - Evidence and game links are private to the player/organizers; achievements must not bypass existing profile/game privacy. Path and up to three earned-story pins are saved for the canonical player; another player's identity in a request never authorizes writing their preferences.
+
+## Tournament awards: places and nominations (owner, 2026-10-12)
+
+- **Places** in the final standings of a tournament: the **1st place is a cup**, the **2nd and 3rd places are medals**; they are carried into the profiles of the players who took them. The tournaments are the federation's (GoMafia) and the club's own past ones (Cup etc.).
+- **Nominations** are exactly these five: **Лучший мирный, Лучший дон, Лучший шериф, Лучший чёрный (GoMafia key `best_mafia`), MVP турнира.** Only the winner of each nomination gets the award. They are the same nominations the club already uses.
+- Awards only: nothing is recounted — no games, Elo, ratings or achievements change. Matching is by the exact federation ID (never by nickname).

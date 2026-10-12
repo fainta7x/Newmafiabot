@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference, type GoMafiaPublicSnapshot } from '../../lib/gomafiaExternalProfile.ts';
 import { fetchPublicGoMafiaCareer } from './goMafiaCareerSource.ts';
+import { syncGoMafiaAwards } from './goMafiaAwardsService.ts';
 
 const HOUR_MS = 60 * 60 * 1000;
 const REFRESH_INTERVAL_MS = 6 * HOUR_MS;
@@ -72,6 +73,7 @@ export async function refreshVerifiedGoMafiaProfiles(
               }
             }
           }
+          if (item.scoreStatus === 'refresh_failed' && !item.nominations?.length && prior?.nominations?.length) item.nominations = prior.nominations;
           if (item.scoreStatus === 'refresh_failed' && prior?.totalScore !== null && prior?.totalScore !== undefined) {
             item.totalScore = prior.totalScore;
             item.scoreRetrievedAt = prior.scoreRetrievedAt ?? previousSnapshot!.retrievedAt;
@@ -87,6 +89,13 @@ export async function refreshVerifiedGoMafiaProfiles(
         'snapshot_json=excluded.snapshot_json, retrieved_at=excluded.retrieved_at, source_url=excluded.source_url',
         [row.external_player_id, 'career-v1', JSON.stringify(snapshot), snapshot.retrievedAt, ref.profileUrl],
       );
+      // The podium places and nominations of the tournaments become awards of the club profile (awards only, nothing is recounted).
+      try {
+        const link = await db.get<{ player_id: string }>('SELECT player_id FROM gomafia_player_links WHERE external_player_id=? AND status=?', [row.external_player_id, 'verified']);
+        if (link && snapshot.career) await syncGoMafiaAwards(db, link.player_id, row.external_player_id, snapshot.career.tournaments);
+      } catch (error) {
+        console.warn('[GOMAFIA] awards not written:', error instanceof Error ? error.message : String(error));
+      }
       updated++;
     } catch {
       await db.run('UPDATE gomafia_refresh_attempts SET last_error=? WHERE external_player_id=?',

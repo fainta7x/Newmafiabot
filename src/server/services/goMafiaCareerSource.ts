@@ -1,6 +1,6 @@
 import { createGoMafiaPublicSnapshot, parseGoMafiaPlayerReference, type GoMafiaPlayerReference, type GoMafiaPublicSnapshot } from '../../lib/gomafiaExternalProfile.ts';
 import type { FederationGame } from '../../lib/gomafiaExternalGames.ts';
-import type { CareerAppearance } from '../../lib/gomafiaCareer.ts';
+import { GOMAFIA_NOMINATIONS, type CareerAppearance, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
 
 const MAX_BODY = 2 * 1024 * 1024;
 const number = (v: unknown): number | null => {
@@ -66,8 +66,18 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
   return { total: total!, tournaments };
 }
 /** Exact federation user_id only; login is never an association key. */
+export function nominationsOfPlayer(data: any, externalPlayerId: string): NonNullable<CareerAppearance['nominations']> {
+  const found: NonNullable<CareerAppearance['nominations']> = [];
+  for (const key of Object.keys(GOMAFIA_NOMINATIONS) as GoMafiaNominationKey[]) {
+    const list = Array.isArray(data?.nominations?.[key]) ? data.nominations[key] : [];
+    list.slice(0, 10).forEach((item: any, index: number) => { if (String(item?.user?.id) === externalPlayerId) found.push({ key, rank: index + 1 }); });
+  }
+  return found;
+}
+
 export function enrichGoMafiaAppearance(appearance: CareerAppearance, data: any, externalPlayerId: string): CareerAppearance {
   if (String(data?.tournament?.id) !== appearance.tournamentId) throw new Error('Tournament identity mismatch');
+  appearance = { ...appearance, nominations: nominationsOfPlayer(data, externalPlayerId) };
   const unavailable = { ...appearance, totalScore: null, scoreStatus: 'unavailable' as const, scoreRetrievedAt: new Date().toISOString() };
   if (String(data.tournament.is_hidden_result) === '1') return unavailable;
   const games = appearance.games.map(game => {

@@ -32,4 +32,19 @@ describe('game analysis view', () => {
     expect(screen.getByText('выбывает один')).toBeTruthy();
     expect(screen.getByText(/заголосован/)).toBeTruthy();
   });
+
+  it('shows the two competing versions of the table when two players revealed in a circle', () => {
+    seq = 0;
+    const events = [
+      ev(2, 'reveal', { seat: 4, phase: 'day_speeches' }), ev(2, 'announced_check', { seat: 4, target: 1, value: 'black', phase: 'day_speeches' }),
+      ev(2, 'reveal', { seat: 3, phase: 'day_speeches' }), ev(2, 'announced_check', { seat: 3, target: 5, value: 'black', phase: 'day_speeches' }),
+    ];
+    render(<GameAnalysis events={events as any} playerResults={players} />);
+    fireEvent.click(screen.getByTestId('game-analysis-circle-2').querySelector('button')!);
+    const box = screen.getByTestId('analysis-reveal-versions');
+    expect(box.textContent).toContain('Шериф — #4 Игрок 4 (верная)');
+    expect(box.textContent).toContain('чёрные #1, #3');
+    expect(box.textContent).toContain('Шериф — #3 Игрок 3 (ложная)');
+    expect(box.textContent).toContain('чёрные #4, #5');
+  });
 });

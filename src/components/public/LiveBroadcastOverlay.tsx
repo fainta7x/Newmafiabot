@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { revealVersions } from '../../lib/revealStats.ts';
 import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
 import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
@@ -55,7 +56,7 @@ const AnnouncedRow = ({ checks, kinds }: { checks: Array<{ target: number; color
     <div className="live-broadcast-fact-values">
       {checks.map((check) => (
         <span key={check.target} className={`live-broadcast-announced is-${check.color}`}>
-          <SeatChip seat={check.target} kinds={kinds} />
+          <SeatChip seat={check.target} kinds={kinds} tone={check.color} />
           <i>{check.color === 'red' ? 'кр' : 'ч'}</i>
         </span>
       ))}
@@ -64,8 +65,9 @@ const AnnouncedRow = ({ checks, kinds }: { checks: Array<{ target: number; color
 );
 
 /** Seat chip coloured by the seat's real team: viewers see roles anyway. */
-const SeatChip = ({ seat, kinds }: { seat: number | null; kinds: Map<number, RoleKind> }) => (
-  seat ? <span className={`live-broadcast-seat-chip is-${kinds.get(seat) || 'citizen'}`}>{seat}</span> : <span className="live-broadcast-seat-chip is-empty">—</span>
+/** `tone` colours a chip by the side a claim puts the seat on (red / black / the Sheriff's gold), not by its real role. */
+const SeatChip = ({ seat, kinds, tone }: { seat: number | null; kinds: Map<number, RoleKind>; tone?: 'red' | 'black' | 'sheriff' }) => (
+  seat ? <span className={`live-broadcast-seat-chip is-${tone ? `claim-${tone}` : kinds.get(seat) || 'citizen'}`}>{seat}</span> : <span className="live-broadcast-seat-chip is-empty">—</span>
 );
 
 const PlayerStatusIcon = ({ player }: { player: LiveBroadcastPlayer }) => {
@@ -191,6 +193,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const timeline = state.timeline || [];
   const protocolBySeat = new Map((state.protocols || []).map((protocol) => [protocol.seat, protocol]));
   const revealBySeat = new Map((state.reveals || []).map((reveal) => [reveal.seat, reveal]));
+  const versions = revealVersions(state.reveals || []);
   const bestMove = state.bestMove;
   // Days before the first shooting night are only talk: the log starts with the first night (owner, 2026-10-01).
   const firstNight = timeline.findIndex((entry) => entry.kind === 'night');
@@ -346,6 +349,19 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
         </aside>
       ) : null}
 
+
+      {versions.length ? (
+        <aside className="live-broadcast-versions" aria-label="Две версии стола">
+          <div className="live-broadcast-versions-title">Две версии стола</div>
+          {versions.map((version) => (
+            <div key={version.claimant} className="live-broadcast-version">
+              <div className="live-broadcast-version-head"><Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />Шериф <SeatChip seat={version.claimant} kinds={kinds} /></div>
+              <div className="live-broadcast-version-row"><b>Чёрные</b><span>{version.blacks.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} tone="black" />)}</span></div>
+              {version.reds.length ? <div className="live-broadcast-version-row"><b>Красные</b><span>{version.reds.map((seat) => <SeatChip key={seat} seat={seat} kinds={kinds} tone="red" />)}</span></div> : null}
+            </div>
+          ))}
+        </aside>
+      ) : null}
 
       <section className="live-broadcast-players" aria-label="Игроки">
         {state.players.map((player) => {

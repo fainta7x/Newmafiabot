@@ -48,9 +48,31 @@ describe('reveals on the broadcast', () => {
     expect(within(row as HTMLElement).getByText('Вскрылся с:')).toBeDefined();
     const announced = [...row.querySelectorAll('.live-broadcast-announced')].map((item) => item.textContent);
     expect(announced).toEqual(['9кр', '3ч']);
-    // The chip keeps the real colour: seat 9 is mafia, so announcing it red is visible to viewers at once.
-    expect(row.querySelector('.live-broadcast-announced.is-red .live-broadcast-seat-chip')!.className).toContain('is-mafia');
+    // The chip takes the colour of the announced side (red / black), not the real role of the seat.
+    expect(row.querySelector('.live-broadcast-announced.is-red .live-broadcast-seat-chip')!.className).toContain('is-claim-red');
+    expect(row.querySelector('.live-broadcast-announced.is-black .live-broadcast-seat-chip')!.className).toContain('is-claim-black');
     expect(screen.queryAllByText('вскрылся шерифом')).toHaveLength(1);
+  });
+
+  it('puts the two competing versions side by side when two players reveal', async () => {
+    const reveals = [{ seat: 7, checks: [{ target: 8, color: 'black' }] }, { seat: 10, checks: [{ target: 5, color: 'black' }] }];
+    const state = { ...buildLiveBroadcastState(snapshot(reveals), metadata)!, updatedAt: '2026-10-12T18:00:00.000Z' };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ connected: true, receivedAt: '2026-10-12T18:00:00.000Z', state }), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+    const { container } = render(<LiveBroadcastOverlay token="t" />);
+    await waitFor(() => expect(container.querySelectorAll('.live-broadcast-player').length).toBe(10));
+    const panel = container.querySelector('.live-broadcast-versions')!;
+    expect(panel.textContent).toContain('Две версии стола');
+    const versions = [...panel.querySelectorAll('.live-broadcast-version')].map((item) => [item.querySelector('.live-broadcast-version-head')!.textContent, [...item.querySelectorAll('.live-broadcast-version-row > span .live-broadcast-seat-chip')].map((chip) => chip.textContent)]);
+    // Sheriff 7: blacks 8 and the rival 10; Sheriff 10: blacks 5 and the rival 7.
+    expect(versions).toEqual([['Шериф 7', ['8', '10']], ['Шериф 10', ['5', '7']]]);
+  });
+
+  it('shows no versions with a single reveal', async () => {
+    const state = { ...buildLiveBroadcastState(snapshot([{ seat: 10, checks: [] }]), metadata)!, updatedAt: '2026-10-12T18:00:00.000Z' };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ connected: true, receivedAt: '2026-10-12T18:00:00.000Z', state }), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+    const { container } = render(<LiveBroadcastOverlay token="t" />);
+    await waitFor(() => expect(container.querySelectorAll('.live-broadcast-player').length).toBe(10));
+    expect(container.querySelector('.live-broadcast-versions')).toBeNull();
   });
 
   it('shows nothing extra when nobody revealed', async () => {

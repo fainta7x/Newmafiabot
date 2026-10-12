@@ -184,4 +184,21 @@ describe('rankings by one figure of the statistics', () => {
     const blackProfile = (await request(app).get('/api/player/profiles/p2/summary').set('Cookie', cookie('p1'))).body;
     expect(blackProfile.night_shots).toMatchObject({ black_nights: 6, black_misses: 4 });
   });
+
+  it('lists the players of each role with their games and wins, over a season and format', async () => {
+    const roles = async (query: string, as = 'p1') => (await request(app).get(`/api/rating/roles${query}`).set('Cookie', cookie(as))).body;
+    const sheriff = await roles('?role=sheriff');
+    expect(sheriff.role).toMatchObject({ key: 'sheriff', label: 'Шериф' });
+    expect(sheriff.rows.map((row: any) => [row.nickname, row.games, row.wins, row.win_rate])).toEqual([['Вера', 2, 2, 100]]);
+    expect(sheriff.rows[0].figures).toMatchObject({ reveals: 0, found_black: 0 });
+    const citizen = await roles('?role=citizen');
+    expect(citizen.rows.map((row: any) => [row.nickname, row.games, row.wins])).toEqual([['Анна', 3, 2]]);
+    expect(citizen.rows[0].is_me).toBe(true);
+    // p2 hid the statistics: the mafia table is empty for others and has them for himself.
+    expect((await roles('?role=mafia')).rows).toEqual([]);
+    expect((await roles('?role=mafia', 'p2')).rows.map((row: any) => [row.nickname, row.games, row.wins])).toEqual([['Борис', 3, 1]]);
+    expect((await roles('?role=citizen&period=period:autumn')).rows[0]).toMatchObject({ games: 2, wins: 1 });
+    expect((await roles('?role=nope')).role.key).toBe('don');
+    expect((await request(app).get('/api/rating/roles')).status).toBe(401);
+  });
 });

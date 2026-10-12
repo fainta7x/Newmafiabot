@@ -1,3 +1,4 @@
+import { revealVersions } from '../../../../lib/revealStats';
 import React, { useMemo, useState } from 'react';
 import type { PlayerResultData } from '../../../../lib/api';
 import type { LiveGameEvent } from '../../../../shared/liveGameEvents';
@@ -59,6 +60,16 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
               <li key={item.seat}><b className="text-slate-100">{who(item.seat)}</b>{roleOf(item.seat) ? ` (${roleOf(item.seat)})` : ''} вскрылся шерифом{item.checks.length ? ' с проверками: ' : ''}{item.checks.map((check) => `${who(check.target)} — ${check.color === 'red' ? 'красный' : 'чёрный'}${roleOf(check.target) ? ` (${roleOf(check.target)})` : ''}`).join('; ')}</li>
             ))}
           </ul>
+          {revealVersions(circle.reveals).length ? (
+            <div className="mt-1.5 rounded-lg bg-slate-950/50 p-2" data-testid="analysis-reveal-versions">
+              <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Две версии стола</div>
+              <ul className="mt-1 space-y-0.5">
+                {revealVersions(circle.reveals).map((version) => (
+                  <li key={version.claimant}>Шериф — <b className="text-slate-100">{who(version.claimant)}</b>{roleOf(version.claimant) === 'Шериф' ? ' (верная)' : ' (ложная)'}: чёрные {version.blacks.map((seat) => `#${seat}`).join(', ') || '—'}{version.reds.length ? `; красные ${version.reds.map((seat) => `#${seat}`).join(', ')}` : ''}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {circle.votings.map((voting) => (

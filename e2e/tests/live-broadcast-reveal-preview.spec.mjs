@@ -9,6 +9,9 @@ test('broadcast shows reveals and announced checks on the player cards at 1920x1
   const don = page.locator('.live-broadcast-player', { has: page.locator('.live-broadcast-seat-number', { hasText: /^10$/ }) });
   await expect(don.locator('.live-broadcast-fact.is-reveal')).toContainText('кр');
   await expect(don.locator('.live-broadcast-reveal-banner')).toBeVisible();
+  // Two players revealed: the two competing versions of the table are shown side by side.
+  await expect(page.locator('.live-broadcast-version')).toHaveCount(2);
+  await expect(page.locator('.live-broadcast-versions')).toContainText('Две версии стола');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('broadcast-reveals-1920.png') });
 });

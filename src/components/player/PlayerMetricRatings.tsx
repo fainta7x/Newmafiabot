@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { countGames } from '../../lib/russianPlural';
+import { SegmentedControl } from '../ui/SegmentedControl.tsx';
+import PlayerRoleTables from './PlayerRoleTables.tsx';
 
 type Row = { rank: number; player_id: string; nickname: string; avatar_url?: string | null; value: number; value_text: string; games: number; sample_text?: string | null; partner_nickname?: string | null; is_me: boolean };
 type Rating = {
@@ -26,6 +28,7 @@ function PlayerLine({ row }: { row: Row }) {
 
 /** Club rankings by one figure of the statistics: who collected the most, over a season or all time and an evening format. */
 export default function PlayerMetricRatings() {
+  const [view, setView] = useState<'metrics' | 'roles'>('metrics');
   const [metric, setMetric] = useState('wins');
   const [period, setPeriod] = useState('all');
   const [format, setFormat] = useState('all');
@@ -52,18 +55,20 @@ export default function PlayerMetricRatings() {
 
   const groups = data ? Array.from(new Set(data.metrics.map((item) => item.group))) : [];
   return <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white"><div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
+    <SegmentedControl ariaLabel="Вид рейтинга" value={view} items={[{ value: 'metrics', label: 'По показателям' }, { value: 'roles', label: 'По ролям' }]} onValueChange={setView} itemClassName="px-1 text-[12px]" />
     <section data-testid="metric-ratings-controls" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
-      <label className="block text-[11px] text-white/45">Показатель
+      {view === 'metrics' ? <label className="block text-[11px] text-white/45">Показатель
         <select aria-label="Показатель" value={metric} onChange={(event) => setMetric(event.target.value)} className="mobile-field mt-1 w-full text-sm">
           {data ? groups.map((group) => <optgroup key={group} label={group}>{data.metrics.filter((item) => item.group === group).map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</optgroup>) : <option value={metric}>{metric}</option>}
         </select>
-      </label>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      </label> : null}
+      <div className={`${view === 'metrics' ? 'mt-2 ' : ''}grid grid-cols-2 gap-2`}>
         <label className="text-[11px] text-white/45">Период<select aria-label="Период рейтинга" value={period} onChange={(event) => setPeriod(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{data?.filters.seasons.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
         <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера рейтинга" value={format} onChange={(event) => setFormat(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{data?.filters.formats.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
       </div>
     </section>
 
+    {view === 'roles' ? <PlayerRoleTables period={period} format={format} /> : <>
     <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
       {data ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
         <div className="text-sm font-semibold">{data.metric.label}</div>
@@ -77,5 +82,6 @@ export default function PlayerMetricRatings() {
         </div>
         : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">{data.metric.min_games ? `Пока ни у кого нет ${data.metric.min_games} игр в этом выборе.` : data.metric.min_sample ? `Пока ни у кого нет ${data.metric.min_sample.minimum} ${data.metric.min_sample.word} в этом выборе.` : 'В этом выборе пока нет игр.'}</div>}
     </section>
+    </>}
   </div></main>;
 }

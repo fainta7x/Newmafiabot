@@ -849,7 +849,16 @@ body.live-broadcast-document #root {
 .live-broadcast-fact.is-red > b { color: #ff8a9b; }
 .live-broadcast-fact.is-black > b { color: #fff; }
 .live-broadcast-fact.is-sheriff > b { color: var(--role-sheriff); }
-.live-broadcast-fact.is-reveal > b { color: var(--gold); }
+.live-broadcast-fact.is-reveal > b { color: var(--gold); white-space: nowrap; }
+
+/* The reveal row is stacked (label above, checks below) so a narrow player card never wraps it mid-phrase. */
+.live-broadcast-fact.is-reveal {
+  grid-template-columns: 1fr;
+  row-gap: calc(3 * var(--u));
+  margin-top: calc(2 * var(--u));
+}
+
+.live-broadcast-fact.is-reveal .live-broadcast-fact-values { gap: calc(6 * var(--u)); }
 
 /* «Вскрытие»: the player who claims to be the Sheriff, and the checks he announced. */
 .live-broadcast-reveal-banner {
@@ -869,15 +878,16 @@ body.live-broadcast-document #root {
 .live-broadcast-announced {
   display: inline-flex;
   align-items: center;
+  flex: none;
+  white-space: nowrap;
   gap: calc(3 * var(--u));
 }
 
 .live-broadcast-announced > i {
   font-style: normal;
-  font-size: calc(9 * var(--u));
+  font-size: calc(12 * var(--u));
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .02em;
 }
 
 .live-broadcast-announced.is-red > i { color: #ff8a9b; }
@@ -963,3 +973,86 @@ body.live-broadcast-document #root {
 .live-broadcast-canvas.hide-top { --top-space: calc(18 * var(--u0)); }
 .live-broadcast-canvas.hide-players { --bottom-space: calc(18 * var(--u0)); }
 .live-broadcast-player-text .live-broadcast-role { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* «Две версии стола»: the claimants of a reveal side by side, each with the blacks he implies (owner, 2026-10-12). */
+.live-broadcast-versions {
+  --u: var(--u0);
+  position: absolute;
+  right: calc(20 * var(--u0));
+  top: var(--top-space);
+  bottom: var(--bottom-space);
+  width: calc(404 * var(--u));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: calc(10 * var(--u));
+  pointer-events: none;
+}
+
+.live-broadcast-versions-title {
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.live-broadcast-version {
+  padding: calc(12 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(14 * var(--u));
+  background: var(--glass);
+  border: 1px solid rgba(255, 196, 66, .35);
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+}
+
+.live-broadcast-version-head {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  font-size: calc(16 * var(--u));
+  font-weight: 800;
+}
+
+.live-broadcast-version-row {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-size: calc(13 * var(--u));
+}
+
+.live-broadcast-version-row > b { width: calc(70 * var(--u)); color: var(--muted); font-weight: 700; }
+.live-broadcast-version-row > span { display: flex; flex-wrap: wrap; gap: calc(6 * var(--u)); }
+
+/* A claim colours the seat by the side it puts him on: red, black or the Sheriff's gold (never by his real role). */
+.live-broadcast-seat-chip.is-claim-red { background: var(--role-citizen); color: #fff; }
+.live-broadcast-seat-chip.is-claim-black { background: #0b0b0e; color: #fff; border: 1px solid rgba(255, 255, 255, .55); }
+.live-broadcast-seat-chip.is-claim-sheriff { background: var(--role-sheriff); color: #1b1407; }
+
+/* Equal squares: every chip of the versions panel and of the announced checks has the same fixed box, whatever the digits
+   or the border, so the rows line up (owner, 2026-10-12: «квадратики кривые, вёрстка плывёт»). */
+.live-broadcast-versions .live-broadcast-seat-chip {
+  box-sizing: border-box;
+  width: calc(34 * var(--u));
+  min-width: 0;
+  height: calc(30 * var(--u));
+  padding: 0;
+  flex: none;
+  line-height: 1;
+}
+
+.live-broadcast-player-facts .live-broadcast-announced .live-broadcast-seat-chip {
+  box-sizing: border-box;
+  width: calc(26 * var(--u));
+  min-width: 0;
+  height: calc(22 * var(--u));
+  padding: 0;
+  flex: none;
+  line-height: 1;
+}
+
+.live-broadcast-announced > i { line-height: 1; min-width: calc(14 * var(--u)); }
+.live-broadcast-version-head { min-height: calc(30 * var(--u)); }
+.live-broadcast-version-row { min-height: calc(30 * var(--u)); }
+.live-broadcast-version-row > span { align-items: center; }

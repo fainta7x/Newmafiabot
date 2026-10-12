@@ -144,6 +144,17 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     moveWindowScroll(0);
   };
 
+  const handleOpenEveningSection = (id: string, section: EveningSection) => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
+    setActiveEveningId(id);
+    setActiveEveningSection(section);
+    setEveningIntent(null);
+    setActiveTab('evenings');
+    navigateAdmin(organizerEveningPath(id, section));
+    moveWindowScroll(0);
+  };
+
   const handleOpenEveningAdd = (id: string) => {
     eveningListScrollRef.current = activeTab === 'evenings' && !activeEveningId && typeof window !== 'undefined' ? window.scrollY : 0;
     setActivePlayerId(null);
@@ -370,6 +381,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <CRMOverview
                 overview={crmOverview}
                 onOpenEvening={handleOpenEvening}
+                onOpenEveningSection={handleOpenEveningSection}
                 onOpenEveningAdd={handleOpenEveningAdd}
                 onOpenPlayer={handleOpenPlayer}
                 onNavigateTab={(tab) => openSecondaryTab(tab as 'tasks' | 'analytics')}

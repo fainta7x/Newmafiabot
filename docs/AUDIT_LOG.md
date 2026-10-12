@@ -1,5 +1,21 @@
 # Audit log
 
+## 2026-10-12 · UX pass 2D — ONE organizer answers worklist, and honest Today navigation
+
+**Owner-reported actual symptom:** on «Сегодня → Ответы» the app opens the evening/route instead of its answers. Separate per-player lists existed on mounted `EveningParticipantsView`: `EveningGameRegistrationDashboard` (quick replies / game slots) and `EveningPersonalInvites` (same players, Telegram contact); delivery failures live in the `announcement-overview` response, surfaced elsewhere. Owner asked for *one* understandable player list with all existing information and operations.
+
+**Verified root for link:** `CRMOverview.navigateEveningSection` directly pushes `history.pushState` + dispatches `popstate`, bypassing the mounted `OrganizerCRM.navigateAdmin`/controlled pathname state. Where `onNavigate` is supplied by the app shell, browser popstate is not the authoritative router event. The same helper is still used for independent agenda paths, intentionally outside this fix.
+
+**In this branch:**
+- `CRMOverview` accepts the real `onOpenEveningSection` callback; `OrganizerCRM` sets the active evening ID, `activeTab='evenings'`, active section and navigates to its canonical `/admin/evenings/:id/participants` URL. The command-center delivery-failure action also points to that worklist. No API or data write change.
+- `EveningParticipantsView` now mounts only ONE per-evening player list: existing `EveningGameRegistrationDashboard`, enriched by its **already fetched** `announcement-overview` data. Each row presents **current answer + delivery status/error + Telegram chat + inline answer editing + exact game slots**. Search by nickname and filters «Нужен ответ / Нет ответа / Не доставлено / Не отправлено / Думают / Идут / Не будут / Все». Status controls collapse by default to reduce mobile scrolling. One player ID, one row.
+- Removes the mounted redundant `EveningPersonalInvites` card/list. `EveningInviteAudienceManager` stays below an explicit disclosure **only as global club-wide eligibility preferences**; it is not a competing RSVP worklist and its underlying global contact-status controls are unchanged.
+- Existing participant PATCH/POST and slot PUT, actual announcement tracking, delivery/retry, manual Telegram chat URLs and wallet/game rules unchanged. A delivery-overview fetch error is explicitly indicated rather than masquerading as «Вне рассылки».
+- Rendered React regressions cover merged rows, delivery errors, unsent, search, single fetching and saving the quick RSVP; route callback regressions cover Today unanswered and delivery-error paths.
+
+**Out of scope:** unmounted legacy `EveningAnnouncementPanel` is not a second active UI; keep it untouched. Don't rewrite announcement/retry worker or club-wide mailing preferences. Mobile CSS/screenshots + CI must pass before merging; main merge is not deployed/runtime confirmed.
+
+
 ## 2026-10-12 · First-application action returns to onboarding (FIX CODED; PR #847)
 
 On mounted `PlayerEventSlotDetail.tsx`, the `first_application_required` recovery CTA «К первой заявке» previously called generic `onBack`, returning to the calendar without locating the application. The existing application form lives in `PlayerEventsCalendar.tsx`. PR #847 adds a dedicated callback to close the event and focus/scroll the existing onboarding block with a React regression test. No changes to enrollment/RSVP API or identity. CI/merge/deploy and mobile runtime verification pending.

@@ -72,6 +72,16 @@ Planned response is separate from factual attendance:
 
 A walk-in can therefore be `unanswered` (or keep an older real response) while also being factually `attended` and participating in games.
 
+### Participant write authority and read projections
+
+- Persisted participant RSVP and physical attendance are written through `src/server/services/eveningParticipantState.ts` and the authenticated routes (including `participantRoutes.ts`). Compatibility `registration_status` is not a second source of truth.
+- Current/legacy RSVP and attendance are interpreted by `eveningDomain.ts` and `eveningResponse.ts`.
+- Two **read-only**, distinct CRM projections belong to `src/lib/eveningParticipantView.ts`: `isInOrganizerWorkingRoster` includes manually added unanswered participants; `needsEveningCloseoutAttendance` identifies only pending participants who previously answered going/late.
+- Game-seat eligibility is separately owned by `isEveningGameRosterEligible` in `eveningDomain.ts` and game services; selection of particular game slots by `eveningSlotPlanningService.ts`; format-specific payment expectation by `eveningPaymentScope.ts` and the pricing services.
+- A player may be in the organizer roster without an automatic game slot. A walk-in may have arrived without an earlier positive RSVP. Do not infer payments or game eligibility from the organizer roster predicate; do not move write operations into presentation adapters.
+
+**Parallel architecture work:** Claude's shared game-team normalization and client GET helper are distinct from the participant state projection workstream. Reconcile other agent branches against the latest `main` rather than overwriting them.
+
 ## 5. Player application
 
 Primary shell:

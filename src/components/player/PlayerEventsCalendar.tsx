@@ -1,5 +1,5 @@
 import { countGames, countPlayers } from '../../lib/russianPlural';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
 import PlayerPokerTournamentDetail from './PlayerPokerTournamentDetail.tsx';
 import PlayerCustomEventDetail from './PlayerCustomEventDetail.tsx';
@@ -163,6 +163,8 @@ export default function PlayerEventsCalendar({
   const [noviceState, setNoviceState] = useState<NoviceState | null>(null);
   const [applicationBusy, setApplicationBusy] = useState<'NOVICE' | 'EXPERIENCED' | 'OTHER_CITY' | null>(null);
   const [applicationMessage, setApplicationMessage] = useState('');
+  const [focusFirstApplication, setFocusFirstApplication] = useState(false);
+  const firstApplicationRef = useRef<HTMLElement | null>(null);
 
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const queryEventId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('event') : null;
@@ -331,9 +333,21 @@ export default function PlayerEventsCalendar({
     onEventChange?.(null);
   };
 
+  const openFirstApplication = () => {
+    closeEvent();
+    setFocusFirstApplication(true);
+  };
+
+  useEffect(() => {
+    if (selected || !focusFirstApplication || noviceState?.player.club_stage !== 'NEW') return;
+    firstApplicationRef.current?.scrollIntoView({ block: 'start' });
+    firstApplicationRef.current?.focus();
+    setFocusFirstApplication(false);
+  }, [selected, focusFirstApplication, noviceState]);
+
   if (selected?.event_type === 'custom') return <PlayerCustomEventDetail eventId={selected.id} onBack={closeEvent} onSaved={() => void load()} />;
   if (selected?.event_type === 'poker') return <PlayerPokerTournamentDetail tournamentId={selected.id} onBack={closeEvent} onSaved={() => void load()} onOpenPoker={onOpenPoker} />;
-  if (selected) return <PlayerEventSlotDetail event={selected} onBack={closeEvent} onSaved={() => void load()} onOpenGame={onOpenGame} />;
+  if (selected) return <PlayerEventSlotDetail event={selected} onBack={closeEvent} onSaved={() => void load()} onFirstApplication={openFirstApplication} onOpenGame={onOpenGame} />;
 
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const leading = (first.getDay() + 6) % 7;
@@ -351,7 +365,7 @@ export default function PlayerEventsCalendar({
           <p className="mt-1 text-sm leading-5 text-white/50">Ближайший вечер и запись — в первую очередь. Остальные события можно отфильтровать ниже.</p>
         </header>
 
-        {noviceState?.player.club_stage === 'NEW' ? <section className="mb-3 rounded-[24px] border border-sky-300/15 bg-sky-300/[0.07] p-3.5">
+        {noviceState?.player.club_stage === 'NEW' ? <section ref={firstApplicationRef} tabIndex={-1} aria-label="Первая заявка" className="mb-3 rounded-[24px] border border-sky-300/15 bg-sky-300/[0.07] p-3.5">
           <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-sky-100/60">Первый раз в 2LA Noire</div>
           {pendingApplication ? (
             <>

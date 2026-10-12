@@ -220,11 +220,10 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       : item));
 
     try {
-      let createdParticipant: EveningParticipant | null = null;
       if (row.participant) {
         await api.updateParticipant(row.participant.id, { response_status: status } as any);
       } else {
-        createdParticipant = await api.addParticipant(eveningId, {
+        const createdParticipant = await api.addParticipant(eveningId, {
           player_id: row.playerId,
           table_id: null,
           response_status: 'unanswered',

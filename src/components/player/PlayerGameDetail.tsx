@@ -57,6 +57,10 @@ export type PlayerGameDetailData = {
     first_killed: ProtocolPerson;
     zero_round_voted: ProtocolPerson;
     ppk_culprit: ProtocolPerson;
+    /** «Вскрытие»: who claimed to be the Sheriff and the checks he announced (the judge's record). */
+    reveals?: Array<{ seat: number; round: number; checks: Array<{ target: number; color: 'red' | 'black' }> }>;
+    /** When two or more players revealed: each claimant's version of the table (he is the Sheriff; blacks = announced blacks + the rivals). */
+    reveal_versions?: Array<{ claimant: number; blacks: number[]; reds: number[] }>;
   };
   players: Array<{
     player_id: string | null;
@@ -379,6 +383,61 @@ export default function PlayerGameDetail({
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
             </div>
           </Section>
+
+          {detail.protocol.reveals?.length ? (
+            <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
+              <ul data-testid="game-reveals" className="space-y-2.5">
+                {detail.protocol.reveals.map((reveal) => {
+                  const owner = seatPlayer(reveal.seat);
+                  return (
+                    <li key={reveal.seat} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm font-medium text-white/80">{seatLabel(reveal.seat)}</span>
+                        <RoleChip role={owner?.role ?? null} />
+                      </div>
+                      {reveal.checks.length ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {reveal.checks.map((check) => {
+                            const target = seatPlayer(check.target);
+                            const truth = target?.team === 'black' ? 'black' : target?.team === 'red' ? 'red' : null;
+                            const lie = truth !== null && truth !== check.color;
+                            return (
+                              <li key={check.target} className="flex items-center justify-between gap-2 text-[12px]">
+                                <span className="min-w-0 truncate text-white/65">{seatLabel(check.target)}</span>
+                                <span className="flex shrink-0 items-center gap-1.5">
+                                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${check.color === 'black' ? 'bg-slate-200/15 text-slate-100' : 'bg-rose-400/15 text-rose-100'}`}>назвал {check.color === 'black' ? 'чёрным' : 'красным'}</span>
+                                  {target ? <RoleChip role={target.role} /> : null}
+                                  {lie ? <span className="text-[11px] text-amber-200/80">неправда</span> : null}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : <div className="mt-1 text-[12px] text-white/40">Проверок не объявлял.</div>}
+                    </li>
+                  );
+                })}
+              </ul>
+              {detail.protocol.reveal_versions?.length ? (
+                <div data-testid="game-reveal-versions" className="mt-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100/55">Две версии стола</div>
+                  <div className="mt-1 text-[11px] leading-4 text-white/40">Если шериф он, то чёрные те, кого он назвал, и тот, кто вскрылся против него. Верна ровно одна версия.</div>
+                  <ul className="mt-2 space-y-2">
+                    {detail.protocol.reveal_versions.map((version) => {
+                      const claimant = seatPlayer(version.claimant);
+                      const real = claimant?.role === 'sheriff';
+                      return (
+                        <li key={version.claimant} className={`rounded-xl px-3 py-2 text-[12px] ${real ? 'bg-emerald-400/10' : 'bg-black/20'}`}>
+                          <div className="flex items-center justify-between gap-2"><b className="min-w-0 truncate text-white/80">Шериф — {seatLabel(version.claimant)}</b>{claimant ? <span className={`shrink-0 text-[11px] ${real ? 'text-emerald-200/80' : 'text-amber-200/80'}`}>{real ? 'верная версия' : 'ложная версия'}</span> : null}</div>
+                          <div className="mt-1 text-white/55">Чёрные: {version.blacks.length ? version.blacks.map((seat) => `#${seat}`).join(', ') : '—'}{version.reds.length ? ` · красные: ${version.reds.map((seat) => `#${seat}`).join(', ')}` : ''}</div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+            </Section>
+          ) : null}
 
           {(story.length > 0 || detail.protocol.replacement) && (
             <Section title="Ход игры" hint="Голосования и ночные выстрелы по порядку.">

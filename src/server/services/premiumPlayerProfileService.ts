@@ -9,6 +9,8 @@ import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
 import { loadRatingSeasons, seasonForDate } from './clubSeasonService.ts';
 import { loadStatGames } from './gameStatisticsService.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
+import { buildRevealStats } from '../../lib/revealStats.ts';
+import { buildCircleExits } from '../../lib/circleExits.ts';
 import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 
 export type PremiumProfileRange = 'month' | 'season' | 'all';
@@ -211,6 +213,31 @@ const profileNightShots = async (db: DatabaseWrapper, games: StatGame[], playerI
   };
 };
 
+/** The player's reveal figures; for a Don also whom he most often names black / red and in which bundles (with nicknames). */
+const profileReveals = async (db: DatabaseWrapper, games: StatGame[], playerId: string) => {
+  const own = buildRevealStats(games).get(playerId);
+  if (!own) return null;
+  const { donTargets, donBundles, ...numbers } = own;
+  const blackTop = Object.entries(donTargets).filter(([, value]) => value.black > 0).sort((a, b) => b[1].black - a[1].black).slice(0, 5);
+  const redTop = Object.entries(donTargets).filter(([, value]) => value.red > 0).sort((a, b) => b[1].red - a[1].red).slice(0, 5);
+  const bundleTop = Object.entries(donBundles).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const ids = [...new Set([...blackTop.map(([id]) => id), ...redTop.map(([id]) => id), ...bundleTop.flatMap(([key]) => key.split('|'))])];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const rows = await db.all<any>(`SELECT id, nickname FROM players WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+    for (const row of rows) names.set(String(row.id), String(row.nickname || 'Игрок'));
+  }
+  const name = (id: string) => names.get(id) || 'Игрок';
+  return {
+    ...numbers,
+    don: {
+      named_black: blackTop.map(([id, value]) => ({ player_id: id, nickname: name(id), count: value.black })),
+      named_red: redTop.map(([id, value]) => ({ player_id: id, nickname: name(id), count: value.red })),
+      bundles: bundleTop.map(([key, count]) => ({ nicknames: key.split('|').map(name), count })),
+    },
+  };
+};
+
 export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false, filter: ProfileStatFilter = {}) {
   const player = await loadIdentity(db, playerId);
   const visibility = publicVisibility(player.profile_visibility_json);
@@ -297,6 +324,8 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     filters: statsVisible ? filters : null,
     game_stats: statsVisible ? buildPlayerGameStatistics(scopedStatGames, playerId) : null,
     night_shots: statsVisible ? await profileNightShots(db, scopedStatGames, playerId) : null,
+    circle_exits: statsVisible ? buildCircleExits(scopedStatGames).get(playerId) ?? null : null,
+    reveals: statsVisible ? await profileReveals(db, scopedStatGames, playerId) : null,
     recent_games: (visibility.game_statistics || canSeePrivate) ? recent.map((game) => ({
       id: game.id, title: game.title, date: game.date, game_number: game.game_number, role: roleOf(game), won: game.won,
     })) : [],
@@ -308,11 +337,21 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   };
 }
 
-type GameQuery = { role?: string; team?: string; result?: string; from?: string; to?: string; limit?: number; offset?: number };
+type GameQuery = ProfileStatFilter & { role?: string; team?: string; result?: string; from?: string; to?: string; limit?: number; offset?: number };
+/** The season and evening-format scope the overview already uses, applied to the «Игры», «Роли» and «Elo» tabs as well. */
+const scopeProfileGames = async <T extends PlayerGameHistoryItem>(db: DatabaseWrapper, games: T[], filter: ProfileStatFilter): Promise<T[]> => {
+  const season = filter.period && filter.period !== 'all' ? (await loadRatingSeasons(db)).find((item) => item.key === filter.period) || null : null;
+  const format = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format : null;
+  return games.filter((game) => {
+    if (season) { const time = dateTime(game.date); if (time < season.start || time >= season.end) return false; }
+    return !format || game.evening_format === format;
+  });
+};
+
 export async function loadPremiumProfileGames(db: DatabaseWrapper, playerId: string, query: GameQuery) {
   const [profile, elo] = await Promise.all([loadPlayerGameProfile(db, playerId), eloRowsForPlayer(db, playerId)]);
   const eloById = new Map(elo.map((item) => [item.id, item]));
-  let games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
+  let games = await scopeProfileGames(db, [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date)), query);
   if (query.role && ROLES.includes(query.role as PremiumGameRole)) games = games.filter((game) => roleOf(game) === query.role);
   if (query.team === 'red' || query.team === 'black') games = games.filter((game) => game.team === query.team);
   if (query.result === 'win') games = games.filter((game) => game.won === true);
@@ -337,10 +376,10 @@ export async function loadPremiumProfileGames(db: DatabaseWrapper, playerId: str
   return { games: page, total, offset, limit, next_offset: offset + page.length < total ? offset + page.length : null };
 }
 
-export async function loadPremiumProfileRoles(db: DatabaseWrapper, playerId: string) {
+export async function loadPremiumProfileRoles(db: DatabaseWrapper, playerId: string, filter: ProfileStatFilter = {}) {
   const [profile, elo] = await Promise.all([loadPlayerGameProfile(db, playerId), eloRowsForPlayer(db, playerId)]);
   const eloById = new Map(elo.map((item) => [item.id, item]));
-  const games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
+  const games = await scopeProfileGames(db, [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date)), filter);
   const overallWins = games.filter((game) => game.won).length;
   const overallRate = games.length ? (overallWins / games.length) * 100 : 0;
   const roles = ROLES.map((role) => {
@@ -377,7 +416,7 @@ export async function loadPremiumProfileRoles(db: DatabaseWrapper, playerId: str
   };
 }
 
-export async function loadPremiumProfileElo(db: DatabaseWrapper, playerId: string, range: PremiumProfileRange) {
+export async function loadPremiumProfileElo(db: DatabaseWrapper, playerId: string, range: PremiumProfileRange, filter: ProfileStatFilter = {}) {
   const [player, profile, timeline] = await Promise.all([
     loadIdentity(db, playerId),
     loadPlayerGameProfile(db, playerId),
@@ -412,7 +451,10 @@ export async function loadPremiumProfileElo(db: DatabaseWrapper, playerId: strin
   }
   const now = Date.now();
   const cutoff = range === 'month' ? now - 31 * 24 * 60 * 60 * 1000 : range === 'season' ? now - 120 * 24 * 60 * 60 * 1000 : 0;
-  const selected = cutoff ? points.filter((point) => dateTime(point.date) >= cutoff) : points;
+  const scopeActive = Boolean(filter.period && filter.period !== 'all') || (EVENING_FORMATS as readonly string[]).includes(String(filter.format));
+  const inScope = scopeActive ? new Set((await scopeProfileGames(db, games, filter)).map((game) => game.id)) : null;
+  const ranged = cutoff ? points.filter((point) => dateTime(point.date) >= cutoff) : points;
+  const selected = inScope ? ranged.filter((point) => inScope.has(point.id)) : ranged;
   const startElo = selected[0]?.elo_before ?? numeric(player.elo);
   const endElo = selected.at(-1)?.elo_after ?? numeric(player.elo);
   return {

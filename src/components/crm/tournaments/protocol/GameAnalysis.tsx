@@ -51,6 +51,16 @@ export const GameAnalysis: React.FC<{ events?: LiveGameEvent[]; playerResults: P
           </ul>
         </div>
       ) : null}
+      {circle.reveals.length ? (
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Вскрытие</div>
+          <ul className="mt-1 space-y-0.5">
+            {circle.reveals.map((item) => (
+              <li key={item.seat}><b className="text-slate-100">{who(item.seat)}</b>{roleOf(item.seat) ? ` (${roleOf(item.seat)})` : ''} вскрылся шерифом{item.checks.length ? ' с проверками: ' : ''}{item.checks.map((check) => `${who(check.target)} — ${check.color === 'red' ? 'красный' : 'чёрный'}${roleOf(check.target) ? ` (${roleOf(check.target)})` : ''}`).join('; ')}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {circle.votings.map((voting) => (
         <div key={voting.number} className="rounded-lg bg-slate-950/50 p-2">
           <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">{voting.number > 1 ? `Переголосование ${voting.number - 1}` : 'Голосование'}</div>

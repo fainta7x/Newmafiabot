@@ -37,6 +37,34 @@ const detail: PlayerGameDetailData = {
 
 const view = (patch: Partial<Parameters<typeof PlayerGameDetail>[0]> = {}) => render(<PlayerGameDetail detail={detail} loading={false} error={null} selfId="p9" onBack={vi.fn()} {...patch} />);
 
+describe('reveals on the game page', () => {
+  it('shows who claimed to be the Sheriff and marks an announced colour that was not true', () => {
+    view({ detail: { ...detail, protocol: { ...detail.protocol, reveals: [{ seat: 2, round: 2, checks: [{ target: 5, color: 'red' }, { target: 1, color: 'black' }, { target: 3, color: 'red' }] }] } } });
+    const box = screen.getByTestId('game-reveals');
+    expect(box.textContent).toContain('#2 Алоэ');
+    expect(box.textContent).toContain('назвал красным');
+    // seat 5 is the Don announced red, seat 1 a red announced black: two untruths; seat 3 (Sheriff announced red) is true
+    expect(within(box).getAllByText('неправда')).toHaveLength(2);
+  });
+
+  it('shows the two competing versions of the table and which one was true', () => {
+    view({ detail: { ...detail, protocol: { ...detail.protocol,
+      reveals: [{ seat: 3, round: 2, checks: [{ target: 2, color: 'black' }] }, { seat: 5, round: 2, checks: [{ target: 1, color: 'black' }] }],
+      reveal_versions: [{ claimant: 3, blacks: [2, 5], reds: [] }, { claimant: 5, blacks: [1, 3], reds: [] }] } } });
+    const versions = screen.getByTestId('game-reveal-versions');
+    expect(versions.textContent).toContain('Две версии стола');
+    expect(versions.textContent).toContain('Шериф — #3 Дина');
+    expect(versions.textContent).toContain('Чёрные: #2, #5');
+    expect(within(versions).getAllByText('верная версия')).toHaveLength(1); // seat 3 is the real Sheriff
+    expect(within(versions).getAllByText('ложная версия')).toHaveLength(1);
+  });
+
+  it('shows no block when nobody revealed', () => {
+    view();
+    expect(screen.queryByTestId('game-reveals')).toBeNull();
+  });
+});
+
 describe('player game page', () => {
   it('opens with the result, the viewer’s own game and what mattered', () => {
     view();

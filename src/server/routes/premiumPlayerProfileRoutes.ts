@@ -63,6 +63,11 @@ const featureVisible = (row: any, viewer: ViewerContext, playerId: string, featu
   return visibility[feature] !== false;
 };
 
+const scopeFilter = (req: any) => ({
+  period: typeof req.query.period === 'string' ? req.query.period : undefined,
+  format: typeof req.query.format === 'string' ? req.query.format : undefined,
+});
+
 router.get('/profiles/:playerId/summary', async (req, res) => {
   const viewer = requireViewer(req, res);
   if (!viewer) return;
@@ -101,6 +106,8 @@ router.get('/profiles/:playerId/games', async (req, res) => {
       result: typeof req.query.result === 'string' ? req.query.result : undefined,
       from: typeof req.query.from === 'string' ? req.query.from : undefined,
       to: typeof req.query.to === 'string' ? req.query.to : undefined,
+      period: typeof req.query.period === 'string' ? req.query.period : undefined,
+      format: typeof req.query.format === 'string' ? req.query.format : undefined,
       limit: Number(req.query.limit || 15),
       offset: Number(req.query.offset || 0),
     });
@@ -118,7 +125,7 @@ router.get('/profiles/:playerId/roles', async (req, res) => {
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
     if (!featureVisible(access.row, viewer, playerId, 'game_statistics')) return res.status(403).json({ error: 'Игровая статистика скрыта игроком' });
-    return res.json(await loadPremiumProfileRoles(req.db, playerId));
+    return res.json(await loadPremiumProfileRoles(req.db, playerId, scopeFilter(req)));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить статистику ролей' });
   }
@@ -134,7 +141,7 @@ router.get('/profiles/:playerId/elo', async (req, res) => {
     if (!featureVisible(access.row, viewer, playerId, 'game_statistics')) return res.status(403).json({ error: 'Игровая статистика скрыта игроком' });
     const requested = String(req.query.range || 'all');
     const range: PremiumProfileRange = requested === 'month' || requested === 'season' ? requested : 'all';
-    return res.json(await loadPremiumProfileElo(req.db, playerId, range));
+    return res.json(await loadPremiumProfileElo(req.db, playerId, range, scopeFilter(req)));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить историю Elo' });
   }

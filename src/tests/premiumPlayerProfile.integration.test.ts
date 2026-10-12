@@ -110,5 +110,14 @@ describe('premium player profile API', () => {
 
     // Unknown values fall back to the whole history instead of failing.
     expect((await get('?period=nope&format=nope')).stats.games).toBe(3);
+
+    // The «Игры» and «Роли» tabs use the same season and format.
+    const tab = async (name: string, query: string) => (await request(app).get(`/api/player/profiles/p1/${name}${query}`).set('Cookie', p1Cookie)).body;
+    expect((await tab('games', '')).total).toBe(3);
+    expect((await tab('games', '?period=period:autumn&format=CASUAL')).total).toBe(1);
+    expect((await tab('games', '?format=RATING')).total).toBe(2);
+    expect((await tab('roles', '?period=period:autumn')).overall).toMatchObject({ games: 2, wins: 1 });
+    expect((await tab('roles', '')).overall.games).toBe(3);
+    expect((await tab('elo', '?format=CASUAL')).points.every((point: any) => point.id === 'club:2')).toBe(true);
   });
 });

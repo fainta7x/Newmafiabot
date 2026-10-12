@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
+import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
+import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
 
 const router = Router();
 
@@ -118,6 +120,36 @@ router.get('/games/:gameKey/replay', async (req, res) => {
       const killed = round.night_kill ?? round.killed ?? round.night_killed ?? round.shot;
       if (killed != null) events.push({ id: `night:${index}`, type: 'night', round: number, title: 'Ночь', text: `Убит: ${nameOf(killed)}`, player: nameOf(killed) });
     });
+
+    // Games played in the Live Game engine keep a chronology (`protocol.events`) instead of ready-made rounds: fold it
+    // circle by circle. Without this the replay of such a game held nothing but the final line.
+    const engineEvents = events.length ? [] : sanitizeLiveGameEvents(protocol.events);
+    if (engineEvents.length) {
+      const seatName = (seat: number | null | undefined) => (seat ? String(nameOf(seat)) : '—');
+      const EXIT_LABEL: Record<string, string> = { killed: 'Убит', night_kill: 'Убит', voted_day: 'Заголосован', voted_zero_round: 'Заголосован', removed: 'Удалён' };
+      const OUTCOME_LABEL: Record<string, string> = { single_eliminated: 'выбывает один', tie_revote: 'ничья — переголосование', all_tied_eliminated: 'выбывают все спорные', no_elimination: 'никто не выбывает' };
+      for (const circle of buildGameAnalysis(engineEvents).circles) {
+        const number = circle.round <= 1 ? 0 : circle.round - 1;
+        const key = `c${circle.round}`;
+        events.push({ id: `${key}:round`, type: 'round', round: number, title: circle.round <= 1 ? 'Нулевой круг и первая ночь' : `Круг ${number}`, text: circle.round <= 1 ? 'Начало игры' : 'Дневная фаза' });
+        if (circle.nominations.length) events.push({ id: `${key}:nominations`, type: 'nominations', round: number, title: 'Выставлены', text: circle.nominations.map((item) => seatName(item.seat)).join(', '), players: circle.nominations.map((item) => seatName(item.seat)) });
+        for (const reveal of circle.reveals) {
+          const checks = reveal.checks.map((check) => `${seatName(check.target)} — ${check.color === 'red' ? 'красный' : 'чёрный'}`).join('; ');
+          events.push({ id: `${key}:reveal:${reveal.seat}`, type: 'reveal', round: number, title: 'Вскрытие', text: `${seatName(reveal.seat)} вскрылся шерифом${checks ? `: ${checks}` : ''}`, player: seatName(reveal.seat) });
+        }
+        for (const voting of circle.votings) {
+          const votes = voting.votes.map((row) => ({ candidate: String(row.candidate), candidate_name: seatName(row.candidate), votes: row.voters.length }));
+          const text = votes.map((row) => `${row.candidate_name}: ${row.votes}`).join(' · ');
+          events.push({ id: `${key}:votes:${voting.number}`, type: 'votes', round: number, title: voting.number > 1 ? 'Переголосование' : 'Голосование', text: [text, voting.outcome ? OUTCOME_LABEL[voting.outcome] || voting.outcome : ''].filter(Boolean).join(' — '), votes });
+        }
+        if (circle.shot) events.push({ id: `${key}:shot`, type: 'night', round: number, title: 'Ночь', text: `Выстрел мафии: ${seatName(circle.shot)}`, player: seatName(circle.shot) });
+        for (const exit of circle.exits) {
+          const night = exit.phase === 'night';
+          events.push({ id: `${key}:exit:${exit.seat}`, type: night ? 'night' : 'eliminated', round: number, title: night ? 'Ночь' : 'Уход', text: `${EXIT_LABEL[exit.reason] || 'Выбыл'}: ${seatName(exit.seat)}`, player: seatName(exit.seat) });
+        }
+        for (const move of circle.bestMoves) events.push({ id: `${key}:best:${move.seat ?? 'x'}`, type: 'best_move', round: number, title: 'Лучший ход', text: `${move.seat ? seatName(move.seat) : 'Игрок'} оставил: ${move.seats.map((seat) => seatName(seat)).join(', ')}` });
+      }
+    }
 
     const firstKilled = protocol.first_killed ?? protocol.first_killed_player ?? payload.first_killed;
     if (firstKilled != null && !events.some((event) => event.type === 'night' && event.player === nameOf(firstKilled))) {

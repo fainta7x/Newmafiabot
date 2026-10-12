@@ -54,7 +54,7 @@ describe('one organizer response and delivery worklist', () => {
     expect(within(unsent).getByText('Анонс ещё не отправлен')).toBeDefined();
     expect(within(unsent).getByRole('link', { name: 'Написать Ещё не отправлено Ольга' }).getAttribute('href')).toBe('tg://user?id=456');
 
-    fireEvent.click(screen.getByRole('button', { name: /^Все/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
     expect(screen.getByTestId('evening-answer-row-p-going')).toBeDefined();
     expect(screen.getByTestId('evening-answer-row-p-thinking')).toBeDefined();
 
@@ -70,6 +70,17 @@ describe('one organizer response and delivery worklist', () => {
     fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
     fireEvent.click(within(row).getByRole('button', { name: 'Иду' }));
     await waitFor(() => expect(update).toHaveBeenCalledWith('ep-p-failed', { response_status: 'going' }));
+  });
+
+  it('allows resetting a recorded reply to unanswered', async () => {
+    const { update } = setup();
+    render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+    await screen.findByTestId('evening-answer-row-p-going');
+    fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
+    const row = screen.getByTestId('evening-answer-row-p-going');
+    fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
+    fireEvent.click(within(row).getByRole('button', { name: 'Нет ответа' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith('ep-p-going', { response_status: 'unanswered' }));
   });
 
   it('warns rather than reporting false delivery statuses when the delivery API is unavailable', async () => {

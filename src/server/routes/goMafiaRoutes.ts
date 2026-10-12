@@ -3,6 +3,7 @@ import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } f
 import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
 import { fetchPublicGoMafiaStats } from '../services/goMafiaPublicStatsService.ts';
+import { normalizeFederationGame } from '../../lib/gomafiaExternalGames.ts';
 
 const router = Router();
 
@@ -91,9 +92,17 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
         lastError = 'Сейчас не удалось обновить GoMafia. Показываем последние доступные данные.';
       }
     }
+    // Only attributed federation records from a verified import/authorized export.
+    // Existing club games are NEVER queried, merged or rewritten here.
+    const sourceRows = link.status === 'verified'
+      ? await req.db.all(`SELECT external_game_id, external_player_id, game_payload_json, source_url
+          FROM gomafia_external_games WHERE external_player_id=?
+          ORDER BY played_at DESC, external_game_id DESC LIMIT 100`, [link.external_player_id])
+      : [];
+    const games = sourceRows.map(normalizeFederationGame).filter(Boolean);
     return res.json({ status: link.status, snapshot, error: lastError,
-      source: 'gomafia', profile_url: link.profile_url, external_games: [],
-      history_status: 'not_integrated' });
+      source: 'gomafia', profile_url: link.profile_url, external_games: games,
+      history_status: games.length ? 'available' : 'not_imported' });
   } catch {
     return res.status(500).json({ error: 'Не удалось загрузить спортивную карьеру' });
   }

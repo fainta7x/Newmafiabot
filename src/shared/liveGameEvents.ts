@@ -28,6 +28,10 @@ export type LiveGameEventKind =
   | 'first_killed'
   | 'zero_round_voted'
   | 'best_move'
+  | 'reveal'
+  | 'reveal_removed'
+  | 'announced_check'
+  | 'announced_check_removed'
   | 'ppk'
   | 'death_protocol'
   | 'game_end';

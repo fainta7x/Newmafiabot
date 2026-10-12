@@ -14,6 +14,9 @@ type LiveGameJudgeToolbarProps = {
   viewMode: 'table' | 'list';
   onToggleView: () => void;
   requiresTableSeatVoting: boolean;
+  /** «Вскрытие»: how many players have revealed as the Sheriff, and the button that opens the judge's panel. */
+  revealCount?: number;
+  onOpenReveals?: () => void;
 };
 
 export default function LiveGameJudgeToolbar({
@@ -28,6 +31,8 @@ export default function LiveGameJudgeToolbar({
   viewMode,
   onToggleView,
   requiresTableSeatVoting,
+  revealCount = 0,
+  onOpenReveals,
 }: LiveGameJudgeToolbarProps) {
   return (
     <div className="flex flex-wrap justify-between gap-2 items-center bg-slate-900/60 p-3 border border-slate-800 rounded-2xl">
@@ -63,6 +68,17 @@ export default function LiveGameJudgeToolbar({
         >
           +30с за 2 фола
         </button>
+        {onOpenReveals ? (
+          <button
+            type="button"
+            data-testid="live-reveal-open"
+            onClick={onOpenReveals}
+            title="Кто назвал себя шерифом и какие проверки объявил"
+            className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-700 text-amber-200 text-[10px] font-bold"
+          >
+            Вскрытие{revealCount ? ` (${revealCount})` : ''}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onUndo}

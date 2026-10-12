@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BellRing, CheckCircle2, CircleDollarSign, Gift, RefreshCw, Undo2 } from 'lucide-react';
 
 import EveningListControls from './EveningListControls.tsx';
+import EveningExtensionBlock, { type EveningExtension } from './EveningExtensionBlock.tsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { ratingEveningSplit } from '../../lib/ratingEveningMoney.ts';
 import { formatRubleAmount as money } from '../../lib/formatRubleAmount.ts';
@@ -12,6 +13,8 @@ type PaymentParticipant = {
   nickname: string;
   payment_status: string;
   amount_due: number;
+  /** The part of `amount_due` that is the share of an evening extension. */
+  extension_due?: number;
   amount_paid: number;
   club_role?: string | null;
   judge_level?: string | null;
@@ -31,6 +34,7 @@ type PaymentPayload = {
     format?: string;
   };
   participants: PaymentParticipant[];
+  extensions?: EveningExtension[];
 };
 
 
@@ -210,7 +214,7 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
         <div className="min-w-0 flex-1">
           <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
           <div className={`mt-0.5 text-[10px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
-            {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}
+            {waived ? waivedLabel(participant) : paid ? `Оплачено · ${money(due)}` : `Не оплачено · ${money(due)}`}{!waived && Number(participant.extension_due || 0) > 0 ? ` (вечер ${money(due - Number(participant.extension_due))} + продление ${money(Number(participant.extension_due))})` : ''}
           </div>
         </div>
 
@@ -267,6 +271,8 @@ export default function EveningPaymentsPanel({ eveningId, initialFilter = 'all' 
           <BellRing className="h-4 w-4" /> Напомнить должникам ({summary.unpaid})
         </button>
       ) : null}
+
+      {data ? <EveningExtensionBlock eveningId={eveningId} extensions={data.extensions || []} closed={data.evening.closed} onChanged={(payload) => setData(payload as PaymentPayload)} /> : null}
 
       {data?.evening.format === 'RATING' && data.participants.length ? (() => {
         // Internal bookkeeping (organizers only): how the collected entry fees are split.

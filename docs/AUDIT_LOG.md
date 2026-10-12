@@ -898,3 +898,11 @@ Scope: the owner dictates what he dislikes while clicking through the organizer 
 23. «Аналитика» (reports): cards in a random mess; unclear terms («откуда новые игроки», «подробнее будете в записи» — wording not understood); needs plain-Russian labels and a clear order.
 24. «Использование приложения» (`AppUsagePanel`, who tapped where): screens are named inconsistently — some in Russian, some raw «player»/«Плеер»; show Russian names for all screens and explain what «65 игроков» counts.
 25. «Сейчас в приложении онлайн»: OK. Owner's question about the «Сегодня / ближайшие вечера / клубы» block on that screen is unfinished in the dictation — clarify with the owner.
+
+### CRM «Ещё» → Администрирование (`MoreCRM.tsx`, `DataSettingsCRM.tsx`, `ClubDigestCard.tsx`, `AnnouncementPhotosCard.tsx`, `CommerceAdminCRM.tsx`, `BettingAdminCRM.tsx`)
+26. Club publications («Фотографии», «Сводка для игроков», «Что нового в 2LA Noire»): important and must be filled correctly, but today it is a long scroll of unclear fields. Needs a much simpler interface (few clear steps, preview).
+27. «Оплата и поддержка», «Управление ставками»: not worked on yet (owner); leave as is for now.
+28. «Данные и настройки» (add new product, expert modes etc.): owner does not understand what the section is for; clarify contents, split or hide expert modes.
+29. «Проект / Дорожная карта» (incl. «подтвердить два ответа»): unfinished new section, keep; finish later.
+30. «Состояние системы», «Оформление», «Тестовые режимы»: OK, keep.
+31. General finding (owner): many functions are important, but the CRM is hard to navigate — too many items, unclear names, no hierarchy. Redesign principle: fewer top-level entries grouped by the organizer's tasks (today / people / evenings / club publications / money / system), plain-Russian names, one place per function.

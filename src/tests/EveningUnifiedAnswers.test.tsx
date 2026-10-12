@@ -75,9 +75,9 @@ describe('one organizer response and delivery worklist', () => {
   it('allows resetting a recorded reply to unanswered', async () => {
     const { update } = setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
-    await screen.findByTestId('evening-answer-row-p-going');
+    await screen.findByTestId('evening-answer-row-p-failed');
     fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
-    const row = screen.getByTestId('evening-answer-row-p-going');
+    const row = await screen.findByTestId('evening-answer-row-p-going');
     fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
     fireEvent.click(within(row).getByRole('button', { name: 'Нет ответа' }));
     await waitFor(() => expect(update).toHaveBeenCalledWith('ep-p-going', { response_status: 'unanswered' }));

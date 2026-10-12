@@ -4,6 +4,8 @@ import { ensureGoMafiaSchema } from '../../db/ensureGoMafiaSchema.ts';
 import { parseGoMafiaPlayerReference } from '../../lib/gomafiaExternalProfile.ts';
 import { fetchPublicGoMafiaStats } from '../services/goMafiaPublicStatsService.ts';
 import { normalizeFederationGame } from '../../lib/gomafiaExternalGames.ts';
+import { loadPublicGoMafiaTournament } from '../services/goMafiaTournamentService.ts';
+import { normalizeStoredTournamentAppearance } from '../../lib/goMafiaTournaments.ts';
 
 const router = Router();
 
@@ -59,6 +61,47 @@ router.get('/gomafia/players/:playerId', async (req, res) => {
   } catch { return res.status(500).json({ error: 'Не удалось загрузить привязку GoMafia' }); }
 });
 
+// Organizer previews public standings; no database changes and no nickname autolinking.
+router.post('/gomafia/organizer/tournaments/preview', requireOrganizerAuth, async (req, res) => {
+  try {
+    const tournament = await loadPublicGoMafiaTournament(req.body?.url);
+    return res.json(tournament);
+  } catch (error: any) {
+    return res.status(422).json({ error: String(error?.message || 'Не удалось прочитать турнир') });
+  }
+});
+
+// Explicitly confirmed association of a published standings row to this one player.
+// A tournament placement is not an individual game and does not modify club rankings.
+router.post('/gomafia/organizer/:playerId/tournaments', requireOrganizerAuth, async (req, res) => {
+  const playerId = String(req.params.playerId);
+  try {
+    if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
+    const link = await load(req.db, playerId);
+    if (!link || link.status !== 'verified') return res.status(409).json({ error: 'Сначала подтверди профиль GoMafia игрока' });
+    const { url, place, nickname } = req.body || {};
+    if (!Number.isInteger(place) || typeof nickname !== 'string' || !nickname.trim())
+      return res.status(400).json({ error: 'Выбери точную строку из опубликованной таблицы турнира' });
+    const tournament = await loadPublicGoMafiaTournament(url);
+    const matching = tournament.standings.filter(x => x.place === place && x.nickname === nickname);
+    if (matching.length !== 1) return res.status(409).json({ error: 'Строка отсутствует в актуальных результатах турнира' });
+    const entry = matching[0];
+    await req.db.run(`INSERT INTO gomafia_tournament_appearances
+      (player_id, tournament_id, tournament_name, date_range, place, total_score, external_nickname, source_url, confirmed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(player_id, tournament_id) DO UPDATE SET
+      tournament_name=excluded.tournament_name, date_range=excluded.date_range,
+      place=excluded.place, total_score=excluded.total_score,
+      external_nickname=excluded.external_nickname, source_url=excluded.source_url,
+      confirmed_at=excluded.confirmed_at`,
+      [playerId, tournament.tournamentId, tournament.tournamentName, tournament.dateRange,
+        entry.place, entry.totalScore, entry.nickname, tournament.sourceUrl, new Date().toISOString()]);
+    return res.json({ ok: true, tournamentId: tournament.tournamentId });
+  } catch (error: any) {
+    return res.status(422).json({ error: String(error?.message || 'Не удалось привязать турнир') });
+  }
+});
+
 // Read-only, cached external career: never alters club games, Elo or awards.
 router.get('/gomafia/players/:playerId/career', async (req, res) => {
   const viewerId = getPlayerSessionId(req);
@@ -100,8 +143,13 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
           ORDER BY played_at DESC, external_game_id DESC LIMIT 100`, [link.external_player_id])
       : [];
     const games = sourceRows.map(normalizeFederationGame).filter(Boolean);
+    const appearanceRows = link.status === 'verified'
+      ? await req.db.all(`SELECT * FROM gomafia_tournament_appearances
+          WHERE player_id=? ORDER BY confirmed_at DESC LIMIT 100`, [playerId]) : [];
+    const tournaments = appearanceRows.map(normalizeStoredTournamentAppearance).filter(Boolean);
     return res.json({ status: link.status, snapshot, error: lastError,
       source: 'gomafia', profile_url: link.profile_url, external_games: games,
+      tournaments,
       history_status: games.length ? 'available' : 'not_imported' });
   } catch {
     return res.status(500).json({ error: 'Не удалось загрузить спортивную карьеру' });

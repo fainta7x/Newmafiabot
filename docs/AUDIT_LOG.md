@@ -1,5 +1,20 @@
 # Audit log
 
+## 2026-10-12 · Participant entity P1 — CRM read projections (owner-approved architecture programme)
+
+**Status: coded in `refactor/participant-entity-projections-rebased`; PR CI/merge/runtime pending.** Replacement for green-but-conflicted #817, rebuilt from newer `main` containing Claude's architecture PRs #818–820. This work does **not** replace or repeat those helpers.
+
+**Owner chain:** persisted `evening_participants` -> `src/server/services/eveningParticipantState.ts` (writes, response/attendance normalization, reward reconciliation) -> `src/lib/eveningResponse.ts` and `eveningDomain.ts` (reading legacy/current facts) -> multiple CRM projections. Game-slot selection uses `eveningSlotPlanningService.ts`, while format-specific fees are separate. Do not introduce a second persistence owner.
+
+- **[implemented; verify in PR]** `EveningActiveRosterView.tsx` duplicated the organizer working-roster predicate: excludes `no_show`, includes `attended`, and otherwise admits RSVP `going`, `late` or manually-added `unanswered`. Shared read-only `isInOrganizerWorkingRoster` now owns the exact old interpretation.
+- **[implemented; verify in PR]** `EveningCloseoutPanel.tsx` duplicated the canonical positive RSVP check. It now uses existing `isAttendingResponse` and new `needsEveningCloseoutAttendance` (strictly pending + positive response), preserving the existing derived closeout groups and behavior.
+- **[tests]** `eveningParticipantView.test.ts`: all five RSVP statuses × pending/arrived/no-show, legacy confirmed/waitlist/cancelled, deliberate `unanswered` with stale `registration_status='registered'`, and walk-in semantics. Explicitly distinguishes working-roster membership from game-seat eligibility.
+- **[critical separation]** An unanswered manual participant can appear in CRM but is not necessarily eligible for automatic seating. A walk-in can be factually present without ever giving a positive RSVP. Being expected for payment is format-dependent and separate from both. Do not collapse these checks into one `isActive` boolean.
+- **[open; audit and tests before modifying]** `eveningSlotPlanningService.ts`, `eveningPaymentScope.ts`, analytics, judge assignment, bot notifications and other routes have different legacy RSVP fallbacks. Claude's 2026-10-12 architecture audit describes the drift. Avoid broad server, payment or bot changes until per-surface contracts and persisted legacy rows are verified.
+- **[coordination]** GPT scope: CRM participant read selectors + ownership docs only. Claude already owns shared date/plural/role helpers, `clubGameTeams.ts`, and `requestJson.ts`. Never edit another agent's branch or overwrite a newer documentation snapshot.
+
+**Non-goals:** no DB/schema/ID, player records, server writes, ledger, reward, slot mutations, CSS/JSX, Live Game or notification logic. Merge only on green required CI for exact SHA; Amvera verification separate.
+
 ## 2026-10-12 · Architecture audit round 2: entities, labels/formats, data loading (three read-only sweeps)
 
 Scope: grep-based sweeps of `src/components`, `src/lib`, `src/server`, and the Python bot (mounted-ness was checked by import chains only for the display helpers). Nothing below was changed unless marked fixed. Programme and queue: `docs/PROJECT_STATE.md`.

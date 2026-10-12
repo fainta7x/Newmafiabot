@@ -61,6 +61,10 @@ export const describeLiveGameEvents = (events: LiveGameEvent[], nameOf: (seat: n
       case 'table_vote_removed': text = `${seat}: «поднять» снято`; break;
       case 'vote_round_result': { const [round, outcome] = value.split(':'); text = `Итог голосования №${round}: ${OUTCOMES[outcome] || outcome}`; break; }
       case 'shot_target': text = target ? `Выстрел мафии: ${target}` : 'Выстрел снят'; break;
+      case 'reveal': text = `Вскрытие: игрок ${seat} называет себя шерифом`; break;
+      case 'reveal_removed': text = `Вскрытие снято: игрок ${seat}`; break;
+      case 'announced_check': text = `Объявленная проверка игрока ${seat}: ${target} — ${event.value === 'black' ? 'чёрный' : 'красный'}`; break;
+      case 'announced_check_removed': text = `Объявленная проверка снята: игрок ${seat} → ${target}`; break;
       case 'don_check': text = `Дон проверил ${target}: ${value === 'sheriff' ? 'Шериф' : value === 'not_sheriff' ? 'не Шериф' : '—'}`; break;
       case 'sheriff_check': text = `Шериф проверил ${target}: ${value || '—'}`; break;
       case 'foul': text = `${seat}: фолов ${value}`; break;

@@ -9,6 +9,7 @@ import {
   type BestMoveSource,
   type LiveProtocolMarkers,
 } from '../../lib/gameProtocolCore.js';
+import { normalizeReveals, type LiveReveal } from '../../lib/liveReveals.ts';
 import { getTableDecisionSelectionSnapshot } from './tableDecisionSelectionStore.js';
 import type { ActivePlayerState, NightSubPhase, Phase } from './types.js';
 
@@ -31,6 +32,8 @@ export type LiveSnapshot = {
   nightSubPhase: NightSubPhase;
   postNightStage: PostNightStage;
   protocolMarkers: LiveProtocolMarkers;
+  /** «Вскрытие»: who openly claimed to be the Sheriff and the checks they announced. Optional for legacy snapshots. */
+  reveals?: LiveReveal[];
   activeBestMoveSource: BestMoveSource | null;
   activeBestMoveSlot: number | null;
   pendingBestMoveSeats: number[];
@@ -147,6 +150,8 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
     discipline: jsonClone(snapshot.discipline),
   };
 
+  if (snapshot.reveals !== undefined) cloned.reveals = jsonClone(snapshot.reveals);
+
   const shouldPersistTableDecisionSelection = snapshot.tableDecisionSelectionKey !== undefined
     || snapshot.tableDecisionSelectedVoterSlots !== undefined
     || tableDecisionSelection.key !== null
@@ -185,6 +190,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     nominationsMap: snapshot.nominationsMap || {},
     postNightStage: nightFinalActionActive ? (snapshot.postNightStage || 'none') : 'none',
     protocolMarkers,
+    reveals: normalizeReveals(snapshot.reveals, snapshotTableSize(snapshot)),
     activeBestMoveSource: recoveredBestMoveSource,
     activeBestMoveSlot: recoveredBestMoveSlot,
     pendingBestMoveSeats: recoveredBestMoveSource === null ? [] : (snapshot.pendingBestMoveSeats || []),

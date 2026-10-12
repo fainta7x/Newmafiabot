@@ -46,6 +46,7 @@ import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
+import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 import { useClubOwner } from './useClubOwner.ts';
 import PlayerMusicSlotsAdmin from './PlayerMusicSlotsAdmin.tsx';
@@ -110,6 +111,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  // The player's own profile, opened from the CRM card as players see it (the card itself holds only the organizer's facts and actions).
+  const [showPublicProfile, setShowPublicProfile] = useState(false);
   const [showMergeSheet, setShowMergeSheet] = useState(false);
   const [showMusicSheet, setShowMusicSheet] = useState(false);
   const [mergeCandidates, setMergeCandidates] = useState<Player[]>([]);
@@ -608,6 +611,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4 shrink-0" /> Данные и фото</button>
             </section>
 
+            <button type="button" data-testid="crm-open-player-profile" onClick={() => setShowPublicProfile(true)} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-[14px] border border-border-soft bg-surface-1 px-3.5 text-left text-[13px] font-semibold text-text-primary active:bg-surface-hover">
+              <span>Открыть профиль игрока<span className="mt-0.5 block text-[11px] font-normal text-text-secondary">Так его видят другие игроки: игры, роли, Elo, награды</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button>
+
             <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
             <PlayerGoMafiaLink playerId={playerDetails.id} isSelf={false} organizer />
 
@@ -665,6 +673,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
           </div>
         ) : null}
         {/* The card's own sheets are nested inside it: a sibling sheet would close the card, and the card closing unmounts them (owner report 2026-09-30: «Данные и фото» did nothing). */}
+        <MobileSheet open={showPublicProfile && Boolean(playerDetails)} onClose={() => setShowPublicProfile(false)} title="Профиль игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-2xl" bodyClassName="p-0">
+          {playerDetails ? <CanonicalPremiumPlayerProfile playerId={playerDetails.id} mode="public" selfPlayerId="" onClose={() => setShowPublicProfile(false)} /> : null}
+        </MobileSheet>
+
         <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
           <div className="space-y-2">
             <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />

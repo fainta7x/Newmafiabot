@@ -423,11 +423,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               />
             ) : null}
 
+            {/* «Дела» and «Аналитика» live under «Ещё» (the menu highlights it), so they get the same way back as its other screens. */}
+            {(activeTab === 'tasks' && !showTaskList) || activeTab === 'analytics' ? (
+              <button type="button" data-testid="crm-back-to-more" onClick={() => switchPrimaryTab('more')} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[13px] font-semibold text-text-secondary active:bg-surface-hover">← Ещё</button>
+            ) : null}
             {activeTab === 'tasks' ? (showTaskList ? <div className="space-y-3">
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
             </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
-            {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
+            {activeTab === 'analytics' ? <AnalyticsCRM onOpenEvening={handleOpenEvening} /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
                 evenings={evenings}

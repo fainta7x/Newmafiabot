@@ -26,7 +26,13 @@ const subtitle = (range: AnalyticsRange) => {
 function Metric({ label, value, help, basis='за период' }: { label:string; value:string; help:Parameters<typeof AnalyticsHelp>[0]['name']; basis?:string }) {
   return <div className={analyticsInset}><div className="flex items-start justify-between gap-1"><span className="pt-2 text-xs text-text-secondary">{label}</span><AnalyticsHelp name={help} title={label} /></div><strong className="block text-2xl font-semibold tabular-nums">{value}</strong><p className="mt-1 text-xs text-text-muted">{basis}</p></div>;
 }
-export function AnalyticsCRM() {
+export function AnalyticsCRM({ onOpenEvening }: { onOpenEvening?: (id: string) => void } = {}) {
+  // Opens the evening inside the CRM (no page reload); the href still works for «open in a new tab».
+  const openEvening = (id: string) => (event: React.MouseEvent) => {
+    if (!onOpenEvening || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    onOpenEvening(id);
+  };
   const owner = useClubOwner() === true;
   const [tab,setTab] = useState<Tab>(savedTab);
   const [period,setPeriod] = useState('30d');
@@ -83,9 +89,9 @@ export function AnalyticsCRM() {
     </div>
     <div id="analytics-panel-now" role="tabpanel" aria-labelledby="analytics-tab-now" hidden={effectiveTab!=='now'} className="space-y-4">
       <section className={analyticsCard}><AnalyticsHeading title="Сегодня и ближайший вечер" caption="На сегодня · время Москвы" help="now" /><AnalyticsStatus {...now} />
-        {now.data && <><div className="mt-3 space-y-2">{now.data.today.map(evening=><a key={evening.id} href={'/admin/evenings/'+evening.id} className={'block min-h-11 text-sm '+analyticsInset}>{evening.title} · {new Date(evening.starts_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})}</a>)}</div>
+        {now.data && <><div className="mt-3 space-y-2">{now.data.today.map(evening=><a key={evening.id} href={'/admin/evenings/'+evening.id} onClick={openEvening(evening.id)} className={'block min-h-11 text-sm '+analyticsInset}>{evening.title} · {new Date(evening.starts_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})}</a>)}</div>
           {!now.data.today.length && <p className="mt-3 text-xs text-text-secondary">Сегодня вечеров нет.</p>}
-          {now.data.next && <a className="mt-3 block min-h-11 rounded-xl bg-surface-2 p-3 text-sm" href={'/admin/evenings/'+now.data.next.id}>Ближайший: {now.data.next.title} · {new Date(now.data.next.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Moscow'})}</a>}
+          {now.data.next && <a className="mt-3 block min-h-11 rounded-xl bg-surface-2 p-3 text-sm" href={'/admin/evenings/'+now.data.next.id} onClick={openEvening(now.data.next.id)}>Ближайший: {now.data.next.title} · {new Date(now.data.next.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Moscow'})}</a>}
           {owner && <p className="mt-3 text-sm">Неоплаченных записей: {now.data.openDebtCount}</p>}
         </>}
       </section>

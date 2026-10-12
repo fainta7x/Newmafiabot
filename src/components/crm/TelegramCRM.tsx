@@ -64,6 +64,7 @@ const formatMoment = (value: string | null | undefined) => {
 };
 
 export const TelegramCRM: React.FC = () => {
+  const [tab, setTab] = useState<'publish' | 'channels' | 'status'>('publish');
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [organizerNotifications, setOrganizerNotifications] = useState<OrganizerNotifications | null>(null);
@@ -172,7 +173,7 @@ export const TelegramCRM: React.FC = () => {
     setBusy('sync-public'); setMessage(null); setError(null);
     try {
       const result = await request('/api/telegram-settings/actions/sync-public', { method: 'POST' });
-      setMessage(result?.skipped ? 'Публичный канал пока выключен.' : 'Публичный маршрутизатор обновлён.');
+      setMessage(result?.skipped ? 'Публичный канал пока выключен.' : 'Закреплённое сообщение обновлено.');
       await load();
     } catch (err: any) {
       setError(err?.message || 'Не удалось обновить публичный маршрутизатор');
@@ -184,85 +185,28 @@ export const TelegramCRM: React.FC = () => {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div>
-        <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-accent">Telegram</div>
-        <h2 className="mt-1 text-[24px] font-black tracking-tight text-text-primary">Публикации клуба</h2>
-        <p className="mt-1 text-[13px] leading-5 text-text-secondary">
-          Событие само выбирает нужное место по формату. Никаких Chat ID в коде: здесь хранится реальная структура клуба.
+        <p className="text-[13px] leading-5 text-text-secondary">
+          Публикации — что пишем игрокам. Каналы — куда это уходит. Связь — работает ли бот и доходят ли сообщения.
         </p>
       </div>
 
-      <AnnouncementPhotosCard />
-
-      <ClubDigestCard />
-
-      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <strong className="text-[14px] text-text-primary">Готовность</strong>
-            <p className="mt-1 text-[11px] text-text-secondary">Активно настроено {configuredCount} из 4 направлений.</p>
-          </div>
-          <span className="rounded-full bg-surface-2 px-3 py-1.5 text-[11px] font-bold text-text-secondary">{configuredCount}/4</span>
-        </div>
-        <div className="mt-3 grid gap-1.5 text-[11px] text-text-secondary sm:grid-cols-2">
-          <div>🌱 NOVICE → публичный + Школа</div>
-          <div>🎭 CASUAL → публичный + основной клуб</div>
-          <div>🏆 RATING → закрытый канал</div>
-          <div>🏆 TOURNAMENT → закрытый канал</div>
-        </div>
-        <button
-          type="button"
-          disabled={Boolean(busy)}
-          onClick={() => void checkHealth()}
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-primary disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${busy === 'health' ? 'animate-spin' : ''}`} /> Проверить связь без отправки
-        </button>
-      </section>
-
-      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <strong className="text-[14px] text-text-primary">Личные уведомления и уведомления организаторам</strong>
-            <p className="mt-1 text-[11px] leading-5 text-text-secondary">
-              Durable outbox хранит состояние доставки и повторяет временные ошибки Telegram без отката основной операции.
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-[10px] font-bold text-text-secondary">
-            {organizerNotifications?.configured_recipient_count || 0} получ.
-          </span>
-        </div>
-        <div className="mt-3 grid gap-2 text-[10px] leading-4 text-text-secondary sm:grid-cols-2">
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Ждут отправки: <strong className="text-text-primary">{organizerNotifications?.queue_size ?? 0}</strong></div>
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Источник организаторов: <strong className="text-text-primary">{organizerNotifications?.recipient_source || 'none'}</strong></div>
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя успешная: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_success?.sent_at)}</strong></div>
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя ошибка: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_failure?.last_attempt_at)}</strong></div>
-        </div>
-        {organizerNotifications?.latest_failure?.last_error ? (
-          <div className="mt-2 rounded-[12px] border border-danger/20 bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">
-            {organizerNotifications.latest_failure.last_error}
-          </div>
-        ) : null}
-        {organizerNotifications?.using_backup_fallback ? (
-          <div className="mt-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">
-            Используется BACKUP_ADMIN_ID. Это разрешено только явной настройкой ORGANIZER_NOTIFICATION_USE_BACKUP.
-          </div>
-        ) : null}
-        <button
-          type="button"
-          disabled={Boolean(busy) || !organizerNotifications?.configured_recipient_count}
-          onClick={() => void testOrganizerNotifications()}
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-accent px-3 text-[11px] font-bold text-white disabled:opacity-40"
-        >
-          <TestTube2 className="h-4 w-4" /> {busy === 'test-organizer' ? 'Ставим в очередь…' : 'Отправить тестовое уведомление организаторам'}
-        </button>
-        <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          {runtimeMonitor?.note || 'Здесь проверяется только бот. Остальные проверки приложения смотрит разработчик.'}
-        </p>
-      </section>
+      <div role="tablist" aria-label="Раздел публикаций" className="grid grid-cols-3 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
+        {([['publish', 'Публикации'], ['channels', 'Каналы'], ['status', 'Связь']] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} data-testid={`telegram-tab-${id}`} onClick={() => setTab(id)} className={`min-h-11 rounded-[10px] text-[13px] font-bold ${tab === id ? 'bg-accent text-white' : 'text-text-secondary'}`}>{label}</button>
+        ))}
+      </div>
 
       {message ? <div className="rounded-[14px] bg-success-soft px-4 py-3 text-[12px] text-success">{message}</div> : null}
       {error ? <div className="rounded-[14px] bg-danger-soft px-4 py-3 text-[12px] text-danger">{error}</div> : null}
 
+      {tab === 'publish' ? <div className="space-y-4">
+      <AnnouncementPhotosCard />
+
+      <ClubDigestCard />
+
+      </div> : null}
+
+      {tab === 'channels' ? <div className="space-y-4">
       {destinations.map((destination) => {
         const id = destination.id;
         const draft = drafts[id] || { chat_id: '', topic_id: '', invite_url: '', active: false };
@@ -353,7 +297,7 @@ export const TelegramCRM: React.FC = () => {
         <div className="flex gap-3">
           <Send className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
           <div>
-            <h3 className="text-[13px] font-black text-text-primary">Публичный живой маршрутизатор</h3>
+            <h3 className="text-[13px] font-black text-text-primary">Закреплённое сообщение в публичном канале</h3>
             <p className="mt-1 text-[11px] leading-5 text-text-secondary">Показывает только ближайшую игру новичков и ближайший обычный клубный вечер. Рейтинг и турниры в него не попадают.</p>
           </div>
         </div>
@@ -363,9 +307,78 @@ export const TelegramCRM: React.FC = () => {
           onClick={() => void syncPublic()}
           className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-accent text-[11px] font-bold text-white disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 ${busy === 'sync-public' ? 'animate-spin' : ''}`} /> Обновить закреп сейчас
+          <RefreshCw className={`h-4 w-4 ${busy === 'sync-public' ? 'animate-spin' : ''}`} /> Обновить закреплённое сообщение
         </button>
       </section>
+      </div> : null}
+
+      {tab === 'status' ? <div className="space-y-4">
+      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <strong className="text-[14px] text-text-primary">Готовность</strong>
+            <p className="mt-1 text-[11px] text-text-secondary">Активно настроено {configuredCount} из 4 направлений.</p>
+          </div>
+          <span className="rounded-full bg-surface-2 px-3 py-1.5 text-[11px] font-bold text-text-secondary">{configuredCount}/4</span>
+        </div>
+        <div className="mt-3 grid gap-1.5 text-[11px] text-text-secondary sm:grid-cols-2">
+          <div>🌱 NOVICE → публичный + Школа</div>
+          <div>🎭 CASUAL → публичный + основной клуб</div>
+          <div>🏆 RATING → закрытый канал</div>
+          <div>🏆 TOURNAMENT → закрытый канал</div>
+        </div>
+        <button
+          type="button"
+          disabled={Boolean(busy)}
+          onClick={() => void checkHealth()}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-primary disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${busy === 'health' ? 'animate-spin' : ''}`} /> Проверить связь без отправки
+        </button>
+      </section>
+
+      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <strong className="text-[14px] text-text-primary">Личные уведомления и уведомления организаторам</strong>
+            <p className="mt-1 text-[11px] leading-5 text-text-secondary">
+              Очередь отправки помнит, дошло ли каждое сообщение, и повторяет отправку, если Telegram временно не ответил.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-[10px] font-bold text-text-secondary">
+            {organizerNotifications?.configured_recipient_count || 0} получ.
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 text-[10px] leading-4 text-text-secondary sm:grid-cols-2">
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Ждут отправки: <strong className="text-text-primary">{organizerNotifications?.queue_size ?? 0}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Кому приходят: <strong className="text-text-primary">{organizerNotifications?.recipient_source || 'none'}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя успешная: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_success?.sent_at)}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя ошибка: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_failure?.last_attempt_at)}</strong></div>
+        </div>
+        {organizerNotifications?.latest_failure?.last_error ? (
+          <div className="mt-2 rounded-[12px] border border-danger/20 bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">
+            {organizerNotifications.latest_failure.last_error}
+          </div>
+        ) : null}
+        {organizerNotifications?.using_backup_fallback ? (
+          <div className="mt-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">
+            Используется BACKUP_ADMIN_ID. Это разрешено только явной настройкой ORGANIZER_NOTIFICATION_USE_BACKUP.
+          </div>
+        ) : null}
+        <button
+          type="button"
+          disabled={Boolean(busy) || !organizerNotifications?.configured_recipient_count}
+          onClick={() => void testOrganizerNotifications()}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-accent px-3 text-[11px] font-bold text-white disabled:opacity-40"
+        >
+          <TestTube2 className="h-4 w-4" /> {busy === 'test-organizer' ? 'Ставим в очередь…' : 'Отправить тестовое уведомление организаторам'}
+        </button>
+        <p className="mt-2 text-[10px] leading-4 text-text-muted">
+          {runtimeMonitor?.note || 'Здесь проверяется только бот. Остальные проверки приложения смотрит разработчик.'}
+        </p>
+      </section>
+
+      </div> : null}
     </div>
   );
 };

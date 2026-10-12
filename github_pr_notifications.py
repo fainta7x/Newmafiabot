@@ -178,53 +178,30 @@ async def tick(bot, recipients):
             save(state)
 
 
+def _short(title, limit):
+    title = (title or "").strip()
+    return html.escape(title if len(title) <= limit else title[:limit - 1].rstrip() + "…")
+
+
+def _link(number):
+    return '<a href="https://github.com/' + REPO + '/pull/' + str(number) + '">#' + str(number) + "</a>"
+
+
 async def overview():
-    """What is open right now and how far its checks are, whose it is, and what was merged lately: for the /prs command."""
+    """For /prs: one short line per PR (colour, number, title, whose), open ones first, then the last merged."""
     pulls = await asyncio.to_thread(github, PULLS_PATH)
     opened = [p for p in pulls if p["state"] == "open"]
-    lines = ["<b>2LA Noire · GitHub</b>", "<i>" + LEGEND + "</i>"]
+    lines = ["<b>PR клуба</b>"]
     if not opened:
-        lines.append("Открытых PR нет — всё слито или закрыто.")
-    else:
-        lines.append("<b>Ещё не слито:</b>")
+        lines.append("Открытых нет — всё слито.")
     for pr in opened[:6]:
         checks = (await asyncio.to_thread(github, "/commits/" + pr["head"]["sha"] + "/check-runs?per_page=100")).get("check_runs", [])
-        label = status(pr, checks)[1]
-        title = html.escape(pr.get("title", "")[:90])
-        number = int(pr["number"])
-        lines.append('<a href="https://github.com/' + REPO + '/pull/' + str(number) + '">#' + str(number) + "</a> " + title + "\n   " + label + " · " + author(pr))
-    merged = sorted((p for p in pulls if p.get("merged_at")), key=lambda p: p["merged_at"], reverse=True)[:5]
+        icon = status(pr, checks)[1].split(" ", 1)[0]
+        lines.append(icon + " " + _link(int(pr["number"])) + " " + _short(pr.get("title"), 48) + " · " + author(pr))
+    merged = sorted((p for p in pulls if p.get("merged_at")), key=lambda p: p["merged_at"], reverse=True)[:3]
     if merged:
-        lines.append("<b>Уже слито:</b>")
+        lines.append("\n<b>Недавно слито</b>")
         for item in merged:
-            n = int(item["number"])
-            lines.append('🟢 <a href="https://github.com/' + REPO + '/pull/' + str(n) + '">#' + str(n) + "</a> " + html.escape(item.get("title", "")[:70]) + " · " + author(item))
-    lines.append("<i>Слияние в main не значит деплой на Amvera.</i>")
+            lines.append("🟢 " + _link(int(item["number"])) + " " + _short(item.get("title"), 48) + " · " + author(item))
+    lines.append("\n<i>🟡 в работе · 🔵 ждёт слияния · 🔴 тесты упали. Слияние ≠ деплой.</i>")
     return "\n".join(lines)[:3800]
-
-
-@router.message(Command("prs"))
-async def prs_command(message: Message):
-    allowed = set(config.ADMIN_IDS) | set(config.ORGANIZER_NOTIFICATION_IDS)
-    if not message.from_user or message.from_user.id not in allowed:
-        return
-    try:
-        text = await overview()
-    except Exception:
-        logger.exception("PR overview unavailable")
-        await message.answer("Не удалось получить список PR с GitHub. Попробуйте через минуту.")
-        return
-    await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
-
-
-async def github_pr_notification_task(bot):
-    recipients = list(dict.fromkeys(config.ORGANIZER_NOTIFICATION_IDS))
-    if not recipients:
-        logger.info("PR monitor disabled: no organizer notification recipients configured")
-        return
-    while True:
-        try:
-            await tick(bot, recipients)
-        except Exception:
-            logger.exception("PR monitor unavailable; retrying")
-        await asyncio.sleep(POLL_SECONDS)

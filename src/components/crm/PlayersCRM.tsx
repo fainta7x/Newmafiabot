@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  Coins,
   Copy,
   Edit3,
   Filter,
@@ -46,6 +47,7 @@ import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 import PlayerServiceTools from './PlayerServiceTools.tsx';
 import StaffWorkStats from '../player/StaffWorkStats.tsx';
 import { PlayerLearningBlock } from './LearningProgressCRM.tsx';
+import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 import CanonicalPremiumPlayerProfile from '../player/CanonicalPremiumPlayerProfile.tsx';
 import PlayerAccountLinks from './PlayerAccountLinks.tsx';
 import { useClubOwner } from './useClubOwner.ts';
@@ -113,6 +115,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
   // The player's own profile, opened from the CRM card as players see it (the card itself holds only the organizer's facts and actions).
   const [showPublicProfile, setShowPublicProfile] = useState(false);
+  // Club tokens (owner, 2026-10-12: «не могу начислить жетоны» — the form was hidden at the bottom of the card): a visible action.
+  const [showTokensSheet, setShowTokensSheet] = useState(false);
   const [showMergeSheet, setShowMergeSheet] = useState(false);
   const [showMusicSheet, setShowMusicSheet] = useState(false);
   const [mergeCandidates, setMergeCandidates] = useState<Player[]>([]);
@@ -605,9 +609,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             ) : null}
 
             <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">
-              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
+              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
               <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4 shrink-0" /> Создать задачу</button>
               <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4 shrink-0" /> Записать общение</button>
+              <button type="button" data-testid="crm-player-tokens" onClick={() => setShowTokensSheet(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Coins className="h-4 w-4 shrink-0" /> Жетоны</button>
               <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4 shrink-0" /> Данные и фото</button>
             </section>
 
@@ -673,6 +678,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
           </div>
         ) : null}
         {/* The card's own sheets are nested inside it: a sibling sheet would close the card, and the card closing unmounts them (owner report 2026-09-30: «Данные и фото» did nothing). */}
+        <MobileSheet open={showTokensSheet && Boolean(playerDetails)} onClose={() => setShowTokensSheet(false)} title="Жетоны игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-lg">
+          {playerDetails ? <PlayerTokenLedgerCard playerId={playerDetails.id} initialBalance={Number((playerDetails as any).tokens || 0)} /> : null}
+        </MobileSheet>
+
         <MobileSheet open={showPublicProfile && Boolean(playerDetails)} onClose={() => setShowPublicProfile(false)} title="Профиль игрока" subtitle={playerDetails?.nickname} widthClass="sm:max-w-2xl" bodyClassName="p-0">
           {playerDetails ? <CanonicalPremiumPlayerProfile playerId={playerDetails.id} mode="public" selfPlayerId="" onClose={() => setShowPublicProfile(false)} /> : null}
         </MobileSheet>

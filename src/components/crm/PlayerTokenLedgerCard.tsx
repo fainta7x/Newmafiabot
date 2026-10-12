@@ -133,12 +133,12 @@ export const PlayerTokenLedgerCard: React.FC<PlayerTokenLedgerCardProps> = ({ pl
       <form onSubmit={submit} className="min-w-0 space-y-2 rounded-[13px] border border-border-soft bg-surface-2 p-3">
         <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[120px_minmax(0,1fr)]">
           <label className="min-w-0">
-            <span className="mobile-label">Изменение</span>
+            <span className="mobile-label">Начислить (+) или списать (−)</span>
             <input
               inputMode="numeric"
               value={delta}
               onChange={(event) => setDelta(event.target.value)}
-              placeholder="+100 / -100"
+              placeholder="например 500 или -200"
               className="mobile-field min-w-0"
             />
           </label>
@@ -159,7 +159,7 @@ export const PlayerTokenLedgerCard: React.FC<PlayerTokenLedgerCardProps> = ({ pl
             disabled={saving || !delta.trim() || !reason.trim()}
             className="min-h-[44px] min-w-0 flex-1 rounded-[11px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-50"
           >
-            <span className="inline-flex items-center justify-center gap-1.5"><Plus className="h-4 w-4" /> {saving ? 'Сохранение…' : 'Применить корректировку'}</span>
+            <span className="inline-flex items-center justify-center gap-1.5"><Plus className="h-4 w-4" /> {saving ? 'Сохранение…' : 'Применить'}</span>
           </button>
           <button
             type="button"

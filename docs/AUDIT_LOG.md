@@ -929,3 +929,6 @@ Not changed on purpose: «Оплата и поддержка», «Управле
 
 ### Poker: show cards after the hand (owner request 2026-10-12) — new feature
 `showPokerCards` (`pokerLobbyService.ts`), `POST /poker/lobbies/:id/show {cards:[0|1]}`, hand field `shown_cards` (indexes on the server, masked cards `[Card|null, Card|null]` for other viewers), UI buttons after a finished hand (`poker-show-cards`) and a card back next to a shown card. Rule recorded in `docs/BUSINESS_RULES.md`. Tests: `pokerShowCards.test.ts`, `PlayerPokerTable.test.tsx`; screenshot at 390 px via `poker-harness.html?finished=1`. Not merged (tournaments running).
+
+### CRM: club tokens could not be found (owner 2026-10-12: «не могу просто начислить жетоны»)
+The manual token adjustment existed (`POST /api/players/:id/tokens/adjustments`, reason required, ledger entry) but only inside the player card → last collapsed block «Финансы и служебные настройки». Fixed: a visible «Жетоны» button among the quick actions of the CRM player card opens the same ledger card in a sheet; form wording «Начислить (+) или списать (−)», button «Применить». No server change.

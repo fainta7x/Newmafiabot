@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureGoMafiaSchema } from '../db/ensureGoMafiaSchema.ts';
-import { refreshVerifiedGoMafiaProfiles } from '../server/services/goMafiaFederationSync.ts';
+import { refreshVerifiedGoMafiaProfiles, queueGoMafiaProfileRefresh, isGoMafiaProfileRefreshing } from '../server/services/goMafiaFederationSync.ts';
 import { parseGoMafiaStructuredStats, parseGoMafiaHistory } from '../server/services/goMafiaCareerSource.ts';
 import { parseGoMafiaPlayerReference } from '../lib/gomafiaExternalProfile.ts';
 import history1 from './fixtures/gomafia/chagin-history-1.json';
 import history2 from './fixtures/gomafia/chagin-history-2.json';
 import stats from './fixtures/gomafia/chagin-all-stats.json';
+vi.mock('../server/services/goMafiaCareerSource.ts',async importOriginal => ({...await importOriginal<typeof import('../server/services/goMafiaCareerSource.ts')>(),fetchPublicGoMafiaCareer:vi.fn()}));
+import { fetchPublicGoMafiaCareer } from '../server/services/goMafiaCareerSource.ts';
 const ref = parseGoMafiaPlayerReference('1202')!;
 let db: DatabaseWrapper;
-afterEach(()=>{db?.sqlite.close();});
+afterEach(()=>{db?.sqlite.close();vi.mocked(fetchPublicGoMafiaCareer).mockReset();});
 const first = '2026-10-12T13:00:00.000Z';
 async function setup() {
   db = createDatabaseConnection(':memory:');
@@ -79,6 +81,26 @@ describe('one federation writer on a real isolated SQLite database',()=>{
     const jobs=ids.map(externalPlayerId=>refreshVerifiedGoMafiaProfiles(db,{externalPlayerId,now:new Date(first),fetchSnapshot}));
     await vi.waitFor(()=>expect(fetchSnapshot).toHaveBeenCalledTimes(4));release();await Promise.all(jobs);
     expect(fetchSnapshot).toHaveBeenCalledTimes(4);
+  });
+  it('keeps a fifth initial import pending until an executing slot is released',async()=>{
+    await setup();
+    const ids=['1202','43','44','45','46'];
+    for(const external of ids.slice(1)) {
+      await db.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES (?,?,?,?)',[external,external,first,first]);
+      await db.run(`INSERT INTO gomafia_player_links(player_id,external_player_id,profile_url,status,linked_by,linked_at,updated_at) VALUES (?,?,?,'verified','organizer',?,?)`,[external,external,`https://gomafia.pro/stats/${external}`,first,first]);
+    }
+    let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});
+    const fetchSnapshot=vi.fn(async(reference:typeof ref)=>{await held;return parseGoMafiaStructuredStats({...stats,user:{...stats.user,id:reference.externalPlayerId}},reference,'all',first);});
+    const running=ids.slice(0,4).map(externalPlayerId=>refreshVerifiedGoMafiaProfiles(db,{externalPlayerId,now:new Date(first),fetchSnapshot}));
+    await vi.waitFor(()=>expect(fetchSnapshot).toHaveBeenCalledTimes(4));
+    vi.mocked(fetchPublicGoMafiaCareer).mockImplementation(async reference=>parseGoMafiaStructuredStats({...stats,user:{...stats.user,id:reference.externalPlayerId}},reference,'all',new Date().toISOString()));
+    queueGoMafiaProfileRefresh(db,'46');queueGoMafiaProfileRefresh(db,'46');
+    expect(isGoMafiaProfileRefreshing(db,'46')).toBe(true);
+    expect(fetchPublicGoMafiaCareer).not.toHaveBeenCalled();
+    release();await Promise.all(running);
+    await vi.waitFor(()=>expect(isGoMafiaProfileRefreshing(db,'46')).toBe(false));
+    expect(fetchPublicGoMafiaCareer).toHaveBeenCalledTimes(1);
+    expect(await db.all('SELECT external_player_id FROM gomafia_player_snapshots')).toHaveLength(5);
   });
 
 });

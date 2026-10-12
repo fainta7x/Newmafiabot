@@ -17,6 +17,13 @@ const profileExists = async (db: any, playerId: string) => {
   return Boolean(await db.get('SELECT id FROM players WHERE id=? AND COALESCE(source, \'\') != \'legacy_guest_migrated\' LIMIT 1', [playerId]));
 };
 
+const canReadStatistics = async (req: AuthenticatedRequest, playerId: string) => {
+  if (getPlayerSessionId(req) === playerId || req.userRole === 'ORGANIZER') return true;
+  await ensurePlayerProfileVisibilitySchema(req.db);
+  const visibility = await req.db.get<{ profile_visibility_json: string }>('SELECT profile_visibility_json FROM players WHERE id=?', [playerId]);
+  return parsePlayerProfileVisibility(visibility?.profile_visibility_json).game_statistics;
+};
+
 const bind = async (db: any, playerId: string, supplied: unknown, actor: 'player' | 'organizer') => {
   const ref = typeof supplied === 'string' ? parseGoMafiaPlayerReference(supplied) : null;
   if (!ref) return { error: 'Укажи ссылку GoMafia вида https://gomafia.pro/stats/123 или ID игрока.', status: 400 };
@@ -58,6 +65,7 @@ router.get('/gomafia/players/:playerId', async (req, res) => {
   if (!getPlayerSessionId(req) && (req as AuthenticatedRequest).userRole !== 'ORGANIZER') return res.status(401).json({ error: 'Требуется вход' });
   try {
     if (!await profileExists(req.db, String(req.params.playerId))) return res.status(404).json({ error: 'Игрок не найден' });
+    if (!await canReadStatistics(req, String(req.params.playerId))) return res.status(403).json({ error: 'Игровая статистика скрыта игроком' });
     return res.json({ link: await load(req.db, String(req.params.playerId)) });
   } catch { return res.status(500).json({ error: 'Не удалось загрузить привязку GoMafia' }); }
 });
@@ -69,9 +77,7 @@ router.get('/gomafia/players/:playerId/career', async (req, res) => {
   try {
     const playerId = String(req.params.playerId);
     if (!await profileExists(req.db, playerId)) return res.status(404).json({ error: 'Игрок не найден' });
-    await ensurePlayerProfileVisibilitySchema(req.db);
-    const visibility = await req.db.get<{ profile_visibility_json: string }>('SELECT profile_visibility_json FROM players WHERE id=?', [playerId]);
-    if (viewerId !== playerId && (req as AuthenticatedRequest).userRole !== 'ORGANIZER' && !parsePlayerProfileVisibility(visibility?.profile_visibility_json).game_statistics)
+    if (!await canReadStatistics(req, playerId))
       return res.status(403).json({ error: 'Игровая статистика скрыта игроком' });
     const link = await load(req.db, playerId);
     if (!link) return res.json({ status: 'unlinked', snapshot: null });

@@ -92,7 +92,11 @@ export async function refreshVerifiedGoMafiaProfiles(
       await db.run('UPDATE gomafia_refresh_attempts SET last_error=? WHERE external_player_id=?',
         ['Не удалось загрузить публичную статистику', row.external_player_id]);
       failed++;
-    } finally { activeProfiles(db).delete(row.external_player_id); }
+    } finally {
+      activeProfiles(db).delete(row.external_player_id);
+      for (const wake of slotWaiters.get(db) ?? []) wake();
+      slotWaiters.delete(db);
+    }
   }
   return { attempted: rows.length, updated, failed };
 }
@@ -113,13 +117,33 @@ function profileJobs(db: DatabaseWrapper) {
 export function isGoMafiaProfileRefreshing(db: DatabaseWrapper, externalPlayerId: string): boolean {
   return profileJobs(db).has(externalPlayerId) || activeProfiles(db).has(externalPlayerId);
 }
+// FIFO on-demand imports retain pending work; periodic refreshes share the execution cap.
+const queueTails = new WeakMap<DatabaseWrapper, Promise<unknown>>();
+const slotWaiters = new WeakMap<DatabaseWrapper, Array<() => void>>();
+async function waitForGoMafiaSlot(db: DatabaseWrapper, externalPlayerId: string): Promise<void> {
+  while (activeProfiles(db).size >= 4 || activeProfiles(db).has(externalPlayerId)) {
+    await new Promise<void>(resolve => {
+      const waiters = slotWaiters.get(db) ?? [];
+      waiters.push(resolve); slotWaiters.set(db, waiters);
+    });
+  }
+}
 export function queueGoMafiaProfileRefresh(db: DatabaseWrapper, externalPlayerId: string): void {
   const jobs = profileJobs(db);
-  if (isGoMafiaProfileRefreshing(db, externalPlayerId) || new Set([...jobs.keys(), ...activeProfiles(db)]).size >= 4) return;
-  const job = refreshVerifiedGoMafiaProfiles(db, { externalPlayerId })
-    .catch(error => console.warn('[GOMAFIA] career refresh failed', String(error)))
+  if (isGoMafiaProfileRefreshing(db, externalPlayerId)) return;
+  const job = (queueTails.get(db) ?? Promise.resolve()).then(async () => {
+    // A periodic worker can acquire a slot while the database lookup awaits.
+    // Retry an eligible request skipped at capacity, rather than dropping it.
+    let skipped: boolean;
+    do {
+      await waitForGoMafiaSlot(db, externalPlayerId);
+      const result = await refreshVerifiedGoMafiaProfiles(db, { externalPlayerId });
+      skipped = result.attempted > 0 && result.updated === 0 && result.failed === 0;
+    } while (skipped);
+  }).catch(error => console.warn('[GOMAFIA] career refresh failed', String(error)))
     .finally(() => jobs.delete(externalPlayerId));
   jobs.set(externalPlayerId, job);
+  queueTails.set(db, job);
 }
 
 let inProgress = false;

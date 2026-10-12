@@ -37,6 +37,9 @@ describe('verified-ID sports career API',()=>{
   expect(response.body.yearly_stats.map((s:any)=>s.year)).toEqual([2026,2025,2024,2023,2022]);
   await db.run('UPDATE players SET profile_visibility_json=? WHERE id=?',['{"game_statistics":false}','one']);
   expect((await request(app).get('/api/player/gomafia/players/one/career').set('Cookie',cookie('two'))).status).toBe(403);
+  expect((await request(app).get('/api/player/gomafia/players/one').set('Cookie',cookie('two'))).status).toBe(403);
+  expect((await request(app).get('/api/player/gomafia/players/one').set('Cookie',cookie('one'))).body.link.external_player_id).toBe('1202');
+  expect((await request(app).get('/api/player/gomafia/players/one').set('x-test-organizer','yes')).body.link.external_player_id).toBe('1202');
   expect((await request(app).get('/api/player/gomafia/players/one/career').set('Cookie',cookie('one'))).status).toBe(200);
   await db.run("UPDATE gomafia_player_links SET status='pending' WHERE player_id='one'");
   const pending=await request(app).get('/api/player/gomafia/players/one/career').set('Cookie',cookie('one'));

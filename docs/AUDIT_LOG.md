@@ -859,3 +859,15 @@ Scope: player bottom navigation, Progress profile tabs, School catalog, Telegram
 - Acceptance: live Chagin 13 appearances → four nomination victories (507: don; 616: red/sheriff/MVP), no awards for ranks 2/3; all five keys, hidden results and transient failures tested; corrections preserve manual and unrelated awards.
 
 - FIXED PR #881 review `goMafiaCareerSource.ts`: malformed/duplicate published tournament lists left history winner flags available; mark nominations unavailable before award building so a contradictory payload cannot create new wins.
+
+## 2026-10-12 · CRM / cabinet redesign — owner walk-through (collecting; nothing fixed yet)
+
+Scope: the owner dictates what he dislikes while clicking through the organizer CRM (phone and desktop). Audit first, redesign in slices after the owner confirms. Status of every item: open.
+
+### CRM «Сегодня» (`OrganizerCommandCenter.tsx`, `OrganizerAgenda.tsx`, `CRMOverview.tsx`)
+1. Header «2LA noire · NEWMAFIA» (`OrganizerCRM.tsx`, ~line 302) is not a link; expected: tap goes to the home page like on any site.
+2. «Нет ответа · приглашённых ещё не ответили» (`actionCards`, grid-cols-2) takes half the screen width as a lone tile; looks unfinished.
+3. «Добавить игрока в состав» button sits on the home screen; owner: it belongs inside the evening, not on the overview.
+4. «Дела» block is huge and left, «На этой неделе» (`WeekEventsPanel.tsx`) is tiny and right/below — the sizes do not match the importance.
+5. «Долги с прошлого вечера» (`previous-evening-debts`) is at the very bottom; owner: debts are the top priority and should be first, then the evening and what is open for it (no answer, unpaid), then the rest.
+6. Overlap/duplication between «Дела», «Долги за вечер» and other lists — unclear which one is the main to-do list.

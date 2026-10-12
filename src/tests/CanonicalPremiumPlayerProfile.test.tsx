@@ -233,7 +233,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     fireEvent.change(screen.getByLabelText('Период статистики'), { target: { value: 'period:autumn' } });
     fireEvent.change(screen.getByLabelText('Формат вечера'), { target: { value: 'RATING' } });
     await waitFor(() => expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('Осень 2026 · Рейтинговый'));
-    expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('2 побед из 3');
+    expect(screen.getByTestId('profile-stats-scope-note').textContent).toContain('2 победы из 3');
     expect(screen.getByTestId('profile-key-stats').textContent).toContain('67%');
     expect(screen.getByTestId('profile-key-stats').textContent).toContain('Место в сезоне');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('period=period%3Aautumn&format=RATING'))).toBe(true);

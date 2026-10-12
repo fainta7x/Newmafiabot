@@ -30,6 +30,17 @@ describe('personal Elo history scope', () => {
     expect(filterEloJourneyEvents(games, { ...july, format: 'TOURNAMENT' }, formats).map((game) => game.id)).toEqual(['tournament:t1']);
   });
 
+  it('does not include the Elo impact of omitted formats in a filtered total', () => {
+    const casual = filterEloJourneyEvents(games, { format: 'CASUAL' }, formats);
+    // An intervening rated game would make last.elo_after - first.elo_before incorrect.
+    const withGap = [
+      { id: 'club:a', source: 'club' as const, date: '2026-07-10', elo_before: 1000, elo_after: 1010 },
+      { id: 'club:b', source: 'club' as const, date: '2026-07-11', elo_before: 1050, elo_after: 1060 },
+    ];
+    expect(casual).toHaveLength(2);
+    expect(eloJourneyChartSummary(withGap, 1000, 1060, true).net).toBe(20);
+  });
+
   it('does not invent a season trajectory or modify lifetime Elo for an empty period', () => {
     const selected = filterEloJourneyEvents(games, { start: Date.parse('2026-10-01'), end: Date.parse('2027-01-01') });
     expect(selected).toEqual([]);

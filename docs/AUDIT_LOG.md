@@ -1,5 +1,24 @@
 # Audit log
 
+## 2026-10-12 · Screens-and-paths audit (owner request): usefulness of each page and where each button leads
+
+Scope: every mounted Organizer CRM and Player screen, read-only; legacy `EveningOverviewView` / `EveningParticipantsWorkboard` are not mounted (confirmed by imports). Ratings are 1–5 for how useful and interesting the page is. Nothing below is fixed yet unless marked.
+
+**Organizer CRM — the owner's «Оплата» bug (open, fix proposed)**
+- Root cause: the evening router has no `payments` destination. `EveningSection` (`crm/EveningWorkspace.tsx:10`) and `EVENING_SECTIONS` (`crm/organizerRouting.ts:24`) list only overview/participants/games/management/tables/closeout; `payments` exists only as a local sub-pane of `EveningManagementView`, and `initialPane` is passed only for `tables` / `closeout` (`EveningWorkspace.tsx:88`). Every payment entry point therefore lands on «Состав» or «Маршрут».
+- Wrong entry points: «Не оплачено · этот вечер» tile (`OrganizerCommandCenter.tsx:274` → `management`); «Долги с прошлого вечера» arrow (`:396` → evening `overview`, i.e. «Маршрут»); agenda «Долги за вечер» → «К оплатам» (`server/services/clubOrderService.ts:322` → `management`); route step «Оплаты» (`server/services/eveningRouteService.ts:224` → `closeout`, which only lists debtors). The «Собрано ›» / «Долги ›» tiles of «Закрытие» do open the payments pane with a filter, but only after the evening is closed, and the pane is local state (no URL, a reload returns to «Закрытие»).
+- Fix points: add `payments` to the section types (client and `RouteTarget` on the server), pass `initialPane` for it, show «Вечер» as active, retarget the four entry points, optionally a filter in the path.
+- `EveningPaymentsPanel` today: one flat list with chips «Все / Оплатили / Не оплатили» and search; fields for a split exist (`payment_status`, `amount_due`, `amount_paid`, waived/free flags). Two columns do not fit a 390 px phone well (10–11 px text): propose two stacked blocks or two tabs «Не оплатили (N · сумма)» / «Оплатили (N · сумма)» with a «Освобождены» footer.
+- Other CRM navigation defects (open): tile «Нет ответа» opens «Маршрут» instead of «Ответы»; `onOpenEveningAdd` is never forwarded to the command center (dead add flow); the dead branch in the «Идёт сейчас» card; `MORE_SCREENS` still lists a stub `tournaments` screen; `onOpenPlayerCard` is a no-op for event hosts; the player card's return context restores the evening section but not the «Вечер» sub-pane; «Закрытие»/«Оплата» are invisible on the evening tab bar (they hide inside «Вечер»); `ARCHITECTURE.md` §7–8 still mention the legacy panels.
+- CRM ratings: Маршрут 5, Закрытие 4.5, Сегодня 4, Дела 4, Игроки 4, Игры 4, Аналитика 4, Состав 4, События 3.5, Ответы 3.5, Оплата 3, Ещё 3 (plain menu), На этой неделе 3, TasksCRM 2 (duplicates «Дела»).
+
+**Player app (open)**
+- «Вечера → Мои игры» (`PlayerEveningsHub.tsx:59` → `PlayerHistoryStatsView`) is the flat list of ALL club games (`/api/player/games/all`), not the player's own games; the personal list is two levels deep in «Прогресс → Карьера → Игры». Home «Мои игры» (`PlayerHomeDashboard.tsx:289`) and «Последняя игра» (`:294`) both open that club list; «Последняя игра» does not open the game although its key is available.
+- `PlayerEventSlotDetail.tsx:222` «needsFirstApplication» button calls `onBack` (opens the calendar, not the application) — to check. The first-application flow is duplicated on Home and in the calendar. «Обучение» has three entry points; the profile «Карьера» top tab opens «Игры»; «Игра в цифрах» is hidden in a collapsed «Подробная статистика»; the replay link is a plain `<a href>` and exists only from the club-game detail; the «Моя динамика Elo» button is hidden inside «Сообщество → Рейтинг».
+- Games history is plain text (rating 1 for the club archive, 3 for personal game cards and the game detail). Richer screens already exist: «Прошедшие» 4, Replay 4, Elo journey (SVG curve) 5, awards showcase 5.
+- Data already loaded and unused as graphics: per-game role/seat/result for a win-loss strip and seat heatmap, `roleCounts` (role donut), red/black split, streaks, season place, «Игра в цифрах», Elo events (curve per role/team, biggest rise/fall), evening summaries (Elo delta per evening), winner/format/judge on every archive row (colour-coded red/black rows).
+- Player ratings: Elo journey 5, awards 5, «Прошедшие» 4, Replay 4, Home 3, calendar 3, rating 3, directory 3, connections 3, game detail 3, Мои игры 1, settings 2.
+
 ## 2026-10-12 · Participant entity P1 — CRM read projections (owner-approved architecture programme)
 
 **Status: coded in `refactor/participant-entity-projections-rebased`; PR CI/merge/runtime pending.** Replacement for green-but-conflicted #817, rebuilt from newer `main` containing Claude's architecture PRs #818–820. This work does **not** replace or repeat those helpers.

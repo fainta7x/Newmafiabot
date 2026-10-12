@@ -18,6 +18,12 @@ describe('personal Elo history scope', () => {
     expect(result).toMatchObject({ chart_start: 1020, current: 1048, games: 3, peak: 1039, floor: 1019, net: 19 });
   });
 
+  it('uses actual completed-at date across midnight, not the older Elo replay sort time', () => {
+    const lateFinish = { ...games[0], season_date: '2026-07-01T00:10:00Z' };
+    expect(filterEloJourneyEvents([lateFinish], july)).toHaveLength(1);
+    expect(filterEloJourneyEvents([games[0]], july)).toHaveLength(0);
+  });
+
   it('respects format filtering and legacy STANDARD as CASUAL', () => {
     expect(filterEloJourneyEvents(games, { format: 'CASUAL' }, formats).map((game) => game.id)).toEqual(['club:1', 'club:2']);
     expect(filterEloJourneyEvents(games, { ...july, format: 'RATING' }, formats).map((game) => game.id)).toEqual(['club:3']);

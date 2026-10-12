@@ -114,7 +114,7 @@ describe('CRM Today add player shortcut', () => {
   it('does not show an add-player shortcut if the host did not provide permission/callback', async () => {
     vi.stubGlobal('fetch', withClubOrder(() => jsonResponse(responseBody({ currentDue: 0 }))));
     render(<OrganizerCommandCenter {...props} />);
-    await screen.findByText('11 сентября', { exact: false }).catch(() => null);
+    await screen.findByTestId('crm-today-clear');
     expect(screen.queryByRole('button', { name: /Добавить игрока в состав/ })).toBeNull();
   });
 });

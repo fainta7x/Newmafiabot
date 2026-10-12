@@ -17,7 +17,7 @@ const noCredentials = (raw) => {
 };
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, channel: process.env.CI ? 'chrome' : undefined });
   const context = await browser.newContext({ locale: 'ru-RU', viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const calls = [];

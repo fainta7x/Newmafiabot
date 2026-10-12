@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseWrapper } from '../db/index.ts';
 import { refreshVerifiedGoMafiaProfiles } from '../server/services/goMafiaFederationSync.ts';
-import { createGoMafiaPublicSnapshot, parseGoMafiaPlayerReference } from '../lib/gomafiaExternalProfile.ts';
+import { createGoMafiaPublicSnapshot, parseGoMafiaPlayerReference, type GoMafiaPlayerReference } from '../lib/gomafiaExternalProfile.ts';
 
 function fakeDb(rows: Array<{ external_player_id: string; profile_url: string }>) {
-  const run = vi.fn(async () => ({ changes: 1, lastID: null }));
-  const exec = vi.fn(async () => {});
-  const all = vi.fn(async () => rows);
+  const run = vi.fn(async (_sql: string, _params: unknown[]) => ({ changes: 1, lastID: null }));
+  const exec = vi.fn(async (_sql: string) => {});
+  const all = vi.fn(async (_sql: string, _params: unknown[]) => rows);
   return { db: { run, exec, all } as unknown as DatabaseWrapper, run, exec, all };
 }
 
 describe('bounded federation background synchronization', () => {
   it('refreshes a confirmed identity without writing to local game or Elo tables', async () => {
     const { db, run, all } = fakeDb([{ external_player_id: '1202', profile_url: 'https://gomafia.pro/stats/1202' }]);
-    const fetchSnapshot = vi.fn(async (ref) => createGoMafiaPublicSnapshot(
+    const fetchSnapshot = vi.fn(async (ref: GoMafiaPlayerReference) => createGoMafiaPublicSnapshot(
       ref, { year: 2026, gameFilter: 'Все игры', tournamentFilter: 'Турниры ФСМ',
         totalGames: 30, overallElo: 1685.02 }, '2026-10-12T10:00:00Z',
     ));

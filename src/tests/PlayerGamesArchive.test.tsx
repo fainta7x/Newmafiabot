@@ -46,7 +46,13 @@ describe('personal games, club archive and the page of one game', () => {
     fireEvent.click(screen.getByText(/Моя последняя игра/));
     expect(onGameChange).toHaveBeenCalledWith('club:g1');
     expect(await screen.findByTestId('detail')).toBeDefined();
-    expect(await screen.findByRole('link', { name: /Replay игры/ })).toBeDefined();
+    const replay = await screen.findByRole('button', { name: /Replay игры/ });
+    const pop = vi.fn();
+    window.addEventListener('popstate', pop);
+    fireEvent.click(replay);
+    expect(window.location.pathname).toBe('/player/replay/club%3Ag1');
+    expect(pop).toHaveBeenCalledTimes(1);
+    window.removeEventListener('popstate', pop);
     const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
     fireEvent.click(screen.getByText('← Назад к играм'));
     expect(back).toHaveBeenCalledTimes(1);

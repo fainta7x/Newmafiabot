@@ -173,7 +173,7 @@ When a required job fails:
 4. batch related repair commits;
 5. trigger full CI again only when the head is coherent.
 
-The Vitest suite runs as three parallel `Tests (shard N/3)` jobs (each `--pool=forks --maxWorkers=1 --shard=N/3`); together they cover every test file. A failing shard names the failing file. Reproduce locally with the same shard command or run that file directly. `Release gate` requires `web`, all test shards, `bot-syntax` and `combined-container`.
+The Vitest suite runs as five parallel `Tests (shard N/5)` jobs (each `--pool=forks --maxWorkers=1 --shard=N/5`); together they cover every test file. A failing shard names the failing file. Reproduce locally with the same shard command or run that file directly. `Release gate` requires `web`, all test shards, `bot-syntax` and `combined-container`.
 
 Do not repeatedly rerun red jobs hoping they become green.
 

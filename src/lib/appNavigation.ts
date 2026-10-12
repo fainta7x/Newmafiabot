@@ -128,7 +128,7 @@ export const appBackTarget = (pathname: string): string | null => {
       const state = typeof window !== 'undefined' ? window.history.state : null;
       return typeof state?.playerProfileReturn === 'string' && state.playerProfileReturn.startsWith('/player') ? state.playerProfileReturn : '/player/club';
     }
-    if (parts[1] === 'replay') return '/player/games';
+    if (parts[1] === 'replay') return parts[2] ? playerPathForSection('games', safeDecode(parts[2])) : '/player/games';
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'poker' && parts.length > 2) return '/player/poker';

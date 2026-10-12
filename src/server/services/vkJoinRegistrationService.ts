@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { findPlayersByNickname } from './playerRegistrationService.ts';
-import { parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
+import { isParticipantResponseLockedAfterAttendance, parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 import { notifyOrganizerAboutResponse } from './organizerResponseNotificationService.ts';
 
@@ -111,6 +111,9 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
   const participant = await db.get<any>(`
     SELECT * FROM evening_participants WHERE evening_id=? AND player_id=? LIMIT 1
   `, [eveningId, playerId]);
+  if (isParticipantResponseLockedAfterAttendance(participant)) {
+    throw Object.assign(new Error('Явка уже отмечена. Изменить ответ после этого может только организатор.'), { statusCode: 409, code: 'attendance_locked' });
+  }
   const amountDue = ['going', 'late'].includes(responseStatus) ? Number(evening.default_price || 0) : 0;
 
   if (!participant) {

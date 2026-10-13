@@ -58,6 +58,10 @@ describe('«MVP вечера» is no longer hidden', () => {
     expect(await postVotePrompt(db, 'e1', fetchImpl)).toBe(true);
     expect(sent[0].text).toContain('MVP вечера «Пятница» — голосуем!');
     expect(sent[0].text).toContain('Голосование до');
+    expect(sent[0].text).toContain('Нажми на игрока под этим постом');
+    const buttons = sent[0].reply_markup.inline_keyboard.flat();
+    expect(buttons.length).toBe(3);
+    expect(buttons.every((button: any) => String(button.callback_data).startsWith('evv:e1:'))).toBe(true);
     expect(await postVotePrompt(db, 'e1', fetchImpl)).toBe(false);
     expect(sent.length).toBe(1);
     expect(await remindUnvotedPlayers(db, 'e1')).toBe(3);

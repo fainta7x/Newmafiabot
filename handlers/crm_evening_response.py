@@ -310,7 +310,7 @@ _VOTE_ERRORS = {
     "not_attended": "Голосовать могут только игроки, которые были на этом вечере.",
     "not_completed": "Вечер ещё не завершён.",
     "not_found": "Профиль клуба не найден. Нажми /start.",
-    "bad_nominee": "Этого игрока нельзя выбрать.",
+    "bad_nominee": "За себя голосовать нельзя — выбери другого игрока.",
     "ambiguous_nominee": "Не получилось определить игрока. Проголосуй в приложении: Клуб → Истории.",
 }
 
@@ -347,7 +347,8 @@ async def handle_evening_vote(callback: CallbackQuery):
         chosen = (result.get("data") or {}).get("nominee") or "игрок"
         await callback.answer(f"✅ Твой голос: {chosen}", show_alert=False)
         try:
-            if callback.message:
+            # A group post shares one keyboard: a check mark there would show one person's choice to everyone.
+            if callback.message and getattr(getattr(callback.message, "chat", None), "type", "private") == "private":
                 await callback.message.edit_reply_markup(reply_markup=_mark_vote_choice(callback.message.reply_markup, callback.data))
         except Exception as exc:
             print(f"[EVENING VOTE] Vote saved, but the keyboard was not updated: {exc}")

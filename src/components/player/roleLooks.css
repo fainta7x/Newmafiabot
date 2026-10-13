@@ -28,3 +28,8 @@
 .role-portrait-guides .role-guide-center{left:50%;right:auto;top:0;bottom:0;border-top:0;border-left:1px dashed #75e2d7}
 .role-looks-body .role-looks-guide-toggle{display:flex;align-items:center;gap:8px;flex:1 1 100%;font-size:11px}
 .role-looks-guide-toggle input{min-height:18px;width:18px;height:18px;flex:0 0 auto}
+
+/* Wardrobe order: jacket behind the immutable face/hair, headwear above it. */
+.role-portrait-jacket{z-index:1}
+.role-portrait>.role-portrait-base{z-index:2}
+.role-portrait-hat{z-index:3}

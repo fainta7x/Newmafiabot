@@ -77,13 +77,24 @@ export default function EveningActiveRosterView({
   const totalSeats = participants.length;
   const arrivedCount = participants.filter((participant) => participant.attendance_status === 'attended').length;
   const hostName = (participant: any) => (evening?.participants || []).find((item: any) => String(item.id) === String(participant.companion_of))?.nickname;
-  const visibleParticipants = participants.filter((participant) => {
+  const matchingParticipants = participants.filter((participant) => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
     if (query) return participant.nickname.toLocaleLowerCase('ru-RU').includes(query);
     if (filter === 'arrived') return participant.attendance_status === 'attended';
     if (filter === 'expected') return participant.attendance_status !== 'attended';
     return true;
   });
+  // The people who come with a guest stand right under that guest, as a linked part of the same group.
+  const visibleParticipants = (() => {
+    const companionsOf = new Map<string, any[]>();
+    const rest: any[] = [];
+    for (const participant of matchingParticipants as any[]) {
+      if (participant.companion_of && matchingParticipants.some((item: any) => String(item.id) === String(participant.companion_of))) {
+        companionsOf.set(String(participant.companion_of), [...(companionsOf.get(String(participant.companion_of)) || []), participant]);
+      } else rest.push(participant);
+    }
+    return rest.flatMap((participant) => [participant, ...(companionsOf.get(String(participant.id)) || [])]) as EveningParticipant[];
+  })();
   // Only people who are in the working roster are hidden from the picker. Those who answered
   // «Не буду»/«Пока думаю» or were marked «не пришёл» stay addable and are brought back to the roster.
   const existingPlayerIds = useMemo(
@@ -256,11 +267,11 @@ export default function EveningActiveRosterView({
       {visibleParticipants.map((participant, index) => {
         const arrived = participant.attendance_status === 'attended';
         const rowBusy = busyIds.has(participant.id);
-        return <div key={participant.id} data-testid={`evening-active-row-${participant.id}`} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[72px] items-center gap-2 px-3 py-2`}>
+        return <div key={participant.id} data-testid={`evening-active-row-${participant.id}`} className={`${index && !(participant as any).companion_of ? 'border-t border-border-soft' : ''} ${(participant as any).companion_of ? 'ml-5 border-l-2 border-accent/50 bg-surface-2/40 min-h-[60px]' : 'min-h-[72px]'} flex items-center gap-2 px-3 py-2`}>
           <button type="button" onClick={() => (participant as any).is_guest ? setEditingGuest({ id: participant.id, companion: Boolean((participant as any).companion_of), draft: { name: participant.nickname, kind: ((participant as any).contact_kind || 'vk') as GuestContactKind, contact: (participant as any).contact_value || '', going: ['going', 'late'].includes(String(getEveningResponse(participant))), plus: Number((participant as any).plus_count || 0) } }) : onOpenPlayerCard?.(participant.player_id)} aria-label={`Открыть карточку ${participant.nickname}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] text-left active:bg-surface-2">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
-              <strong className="block truncate text-[14px] text-text-primary">{participant.nickname}</strong>
+              <strong className="block truncate text-[14px] text-text-primary">{(participant as any).companion_of ? <span aria-hidden className="mr-1 text-accent">↳</span> : null}{participant.nickname}</strong>
               <span className="mt-1 flex flex-wrap gap-1 text-[12px] leading-4">
                 {(participant as any).is_guest ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">{(participant as any).companion_of ? `Идёт с гостем: ${hostName(participant) || '—'}` : <>Гость-лид{Number((participant as any).plus_count) ? ` +${(participant as any).plus_count}` : ''}{(participant as any).contact_value ? ` · ${guestContactLabel((participant as any).contact_kind)}: ${(participant as any).contact_value}` : ''}</>}</span> : null}
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>

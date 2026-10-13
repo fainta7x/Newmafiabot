@@ -123,3 +123,12 @@ export async function listReleasedWardrobeSets(db: DatabaseWrapper, playerId: st
   }
   return result;
 }
+
+/** Allowed source artwork only, no arbitrary URL and no player exposure. */
+export function listDraftWearableAssets() {
+  return Object.entries(COSMETIC_ASSETS).flatMap(([key, asset]) =>
+    PORTRAIT_EQUIPMENT_SLOTS.some(slot => slot === asset.slot)
+      ? [{ key, slot: asset.slot as PortraitEquipmentSlot, url: asset.url, draft: asset.draft }]
+      : [],
+  );
+}

@@ -1061,6 +1061,7 @@ body.live-broadcast-document #root {
 .live-broadcast-avatar.has-role-portrait{position:relative}
 .live-broadcast-avatar.has-role-portrait img{object-fit:contain}
 .live-broadcast-avatar.has-role-portrait .live-broadcast-wardrobe-layer{position:absolute;inset:0;pointer-events:none}
+.live-broadcast-avatar.has-role-portrait>.live-broadcast-portrait-base{position:relative;z-index:4}
 .live-broadcast-avatar.role-portrait-autumn{background:radial-gradient(ellipse at bottom,#76392c,#23191b 70%)}
 .live-broadcast-avatar.role-portrait-burgundy{background:linear-gradient(135deg,#532431,#21131c)}
 .live-broadcast-player-phrase{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:.8em;color:#d3b8a5;line-height:1.2}

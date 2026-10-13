@@ -98,6 +98,11 @@ export default function CosmeticsLab({ portraitUrl, hatUrl='/cosmetics/autumn-fe
     <section><h2>2. Посмотрите сохранённый образ</h2><p>Это макет карточки для зрителей. Роль выбрана вручную для проверки; в настоящем эфире её выбирает состояние игры.</p><div className="cosmetics-lab-roles" role="group" aria-label="Роль на трансляции">{LOOK_ROLES.map(key=><button key={key} type="button" aria-pressed={role===key} onClick={()=>setRole(key)}>{LOOK_ROLE_LABELS[key]}</button>)}</div>{card(current,'Карточка трансляции')}
     <button type="button" onClick={()=>setFrozen({...current})}>Зафиксировать образ для тестовой игры</button>
     {frozen&&<><p className="cosmetics-lab-note">Теперь измените и сохраните этот образ слева: текущая карточка обновится, зафиксированная останется прежней.</p>{card(frozen,'Образ на момент игры')}</>}</section></div>
+    <section className="cosmetics-lab-workshop" aria-label="Новый шаблон Денди">
+      <h2>Новый скин Денди · первый рабочий этап</h2>
+      <p>Полностью перерисованный векторный персонаж и отдельный редактор одежды. Старые JPG-маски и черновые шляпы здесь не используются.</p>
+      <a href="/character-editor/dendi.html" target="_blank" rel="noreferrer">Открыть модульный редактор Денди →</a>
+    </section>
     <section className="cosmetics-lab-workshop" aria-label="Мастерская пяти сетов"><h2>3. Соберите черновики пяти сетов</h2>
       <p>Здесь нет придуманных костюмов: пять пустых коллекций по утверждённым редкостям. Два существующих эскиза служат только для проверки выбора слотов и примерки. Состав сохраняется локально и не связан с магазином.</p>
       <CosmeticSetStudio key={resetKey} client={studioClient} portraitUrl={portraitUrl} initialOpen allowCreate={false}/>

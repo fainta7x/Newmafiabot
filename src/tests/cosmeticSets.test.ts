@@ -31,6 +31,7 @@ async function setup() {
 describe('draft clothing collections foundation', () => {
   it('stores a set independently of its items, item rarities, ownership, and economy', async () => {
     const db = await setup();
+    const clubBefore = await db.get('SELECT tokens,elo FROM players WHERE id=?', ['p']);
     await createDraftCosmeticSet(db, { id: 'set', name: 'Draft collection', rarity: 'legendary', seasonId: 'autumn' });
     await replaceDraftCosmeticSetItems(db, 'set', { itemIds: ['hat1', 'jacket'] });
     await ensureCosmeticsSchema(db);
@@ -41,7 +42,7 @@ describe('draft clothing collections foundation', () => {
       { id: 'jacket', name: 'jacket', rarity: 'common', slot: 'portrait_jacket', published: false },
     ]);
     expect((await getCosmetics(db, 'p')).inventory).toEqual([]);
-    expect(await db.get('SELECT tokens,elo FROM players WHERE id=?', ['p'])).toMatchObject({ tokens: expect.any(Number), elo: expect.any(Number) });
+    expect(await db.get('SELECT tokens,elo FROM players WHERE id=?', ['p'])).toEqual(clubBefore);
     expect(await db.get('SELECT COUNT(*) as n FROM compendium_memberships')).toEqual({ n: 0 });
   });
 

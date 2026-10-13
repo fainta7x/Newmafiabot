@@ -6,6 +6,22 @@ for (const width of [390, 1440]) {
     await page.goto('/dendi-wardrobe.html');
     await expect(page.getByRole('heading',{name:'Гардероб'})).toBeVisible();
     await expect(page.getByAltText('Портрет игрока')).toBeVisible();
+    // The old isolated ellipse was visibly chopped off on Android: the scene
+    // must now have a continuous panel-wide backdrop behind transparent PNGs.
+    await expect(page.locator('.dgw-halo')).toHaveCount(0);
+    const surface = await page.locator('.dgw-portrait-stage').evaluate(element => {
+      const style = getComputedStyle(element);
+      const portrait = element.querySelector('.role-portrait');
+      const figureStyle = portrait ? getComputedStyle(portrait) : null;
+      return {
+        backgroundImage: style.backgroundImage,
+        clip: style.overflow,
+        figureMask: figureStyle?.maskImage || figureStyle?.webkitMaskImage || '',
+      };
+    });
+    expect(surface.backgroundImage).toContain('linear-gradient');
+    expect(surface.clip).toBe('hidden');
+    expect(surface.figureMask).toContain('linear-gradient');
     await expect(page.getByRole('button',{name:'Мирный'})).toHaveAttribute('aria-pressed','true');
     await expect(page.locator('.dgw-portrait-stage .role-portrait-body-base')).toHaveCount(1); // original suit is NOT an item
     await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(0);

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark"/>
+  <title>2LA NOIRE · Денди · редактор персонажа</title>
+  <link rel="stylesheet" href="./dendi-editor.css"/>
+  <script src="./dendi-editor.js" defer></script>
+</head>
+<body>
+<main class="rig-app" data-testid="dendi-editor">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">2L</span><div><strong>2LA NOIRE</strong><small>РЕДАКТОР ПЕРСОНАЖА</small></div></div>
+    <span class="preview-badge">ТЕСТОВЫЙ СКИН</span>
+  </header>
+  <div class="heading"><div><span class="eyebrow">ПЕРСОНАЖ · 01</span><h1>Денди</h1></div><p>Один персонаж. Сменяемая одежда и аксессуары.</p></div>
+  <nav class="role-tabs" aria-label="Ролевой образ" id="roles"></nav>
+  <div class="workbench">
+    <section class="portrait-panel" aria-label="Предпросмотр Денди">
+      <div class="stage" id="stage">
+        <div id="rig-stage" class="rig-stage" aria-label="Игровой персонаж Денди"></div>
+        <div class="portrait-caption"><strong>Денди</strong><span id="role-name">Мирный</span></div>
+      </div>
+      <div class="stage-footer">
+        <span class="status"><span class="status-dot"></span><span id="status-label">Изменений нет</span></span>
+        <button id="compare" class="text-btn" type="button">Сравнить 4 образа <span aria-hidden="true">↗</span></button>
+      </div>
+    </section>
+    <section class="controls-panel" aria-label="Редактор одежды">
+      <div class="controls-heading"><h2>Экипировка</h2><small>Выбери слот и предмет</small></div>
+      <div id="slots" class="slot-tabs" role="group" aria-label="Слоты экипировки"></div>
+      <div class="inventory-top"><div><span class="eyebrow">ПРЕДМЕТЫ</span><h3 id="inventory-title">Верхняя одежда</h3></div><span id="items-count" class="item-count"></span></div>
+      <div id="items" class="items" role="group" aria-label="Доступные тестовые вещи"></div>
+      <div class="actions">
+        <button id="reset" class="secondary-button" type="button">Сбросить</button>
+        <button id="save" class="primary-button" type="button">Сохранить образ</button>
+      </div>
+      <p class="footer-note">Пробная сборка. Изменения сохраняются только в этом браузере. Сезонные награды, цены и реальные профили не затронуты.</p>
+    </section>
+  </div>
+  <footer class="build-footer"><span>СКИН ДЕНДИ · МОДУЛЬНАЯ СБОРКА V1</span><span>4 РОЛИ · 4 СЛОТА · 8 ТЕСТОВЫХ ПРЕДМЕТОВ</span></footer>
+</main>
+<dialog id="comparison" aria-label="Четыре ролевых образа">
+  <div class="dialog-head"><h2>Четыре образа Денди</h2><button type="button" id="close-compare" aria-label="Закрыть сравнение">✕</button></div>
+  <div id="compare-grid" class="compare-grid"></div>
+  <p>Изменения пока не отправляются в игровой профиль.</p>
+</dialog>
+</body>
+</html>

@@ -61,7 +61,7 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
             onClick={() => { setRole(key); setNotice(''); }}>{LOOK_ROLE_LABELS[key]}</button>)}
         </nav>
         <div className="dgw-portrait-stage">
-          <div className="dgw-halo" aria-hidden="true"/>
+          {/* Stage background is painted across the full panel, never clipped from the old JPG. */}
           <RolePortrait background="noir" baseUrl={faceUrl} bodyBaseUrl={suitUrl} layers={layers}/>
           <div className="dgw-persona"><strong>Денди</strong><small>{LOOK_ROLE_LABELS[role]}</small></div>
 

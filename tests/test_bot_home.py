@@ -402,7 +402,7 @@ def test_player_command_list_hides_organizer_commands():
     assert "crm" not in default and "cabinet" not in default and "start" in default
 
 
-def test_telegram_lineup_counts_guests_with_their_plus(monkeypatch):
+def test_telegram_lineup_counts_guests_and_their_plus_rows(monkeypatch):
     import asyncio
     from handlers import crm_booking
 
@@ -411,11 +411,13 @@ def test_telegram_lineup_counts_guests_with_their_plus(monkeypatch):
             "evening": {"title": "Вечер", "starts_at": "2026-10-16T18:00:00Z"},
             "participants": [
                 {"nickname": "Лиса", "response_status": "going"},
-                {"nickname": "Иван", "response_status": "going", "is_guest": True, "plus_count": 1},
+                {"nickname": "Иван", "response_status": "going", "is_guest": True},
+                {"nickname": "Иван +1", "response_status": "going", "is_guest": True, "companion_of": "g1"},
             ],
         }}
 
     monkeypatch.setattr(crm_booking, "get_evening_participants", fake)
     text = asyncio.run(crm_booking.build_crm_evening_stats_text("e1"))
+    assert "Иван" in text
     assert "Иван +1" in text
     assert "Идут / думают: <b>3</b>" in text

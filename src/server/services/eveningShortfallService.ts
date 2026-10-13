@@ -67,7 +67,7 @@ export async function loadEveningShortfall(db: DatabaseWrapper, eveningId: strin
   await ensureGuestPlayerPlaceholderSchema(db);
   const hasGuests = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'guest_player_placeholders'");
   const guests = hasGuests
-    ? Number((await db.get<any>("SELECT COALESCE(SUM(1 + plus_count), 0) AS count FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND COALESCE(response_status, '') IN ('going', 'late')", [eveningId]))?.count || 0)
+    ? Number((await db.get<any>("SELECT COUNT(*) AS count FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND COALESCE(response_status, '') IN ('going', 'late')", [eveningId]))?.count || 0)
     : 0;
   const confirmed = Number(state.confirmed_players || 0) + guests;
   return { state, minimum, confirmed, short: confirmed < minimum };

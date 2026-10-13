@@ -8,6 +8,7 @@ on:
       - 'e2e/**'
       - 'preview/**'
       - 'scripts/buildUiPreview.mjs'
+      - 'scripts/buildCosmeticsLab.mjs'
       - 'vite.config.ts'
       - 'package*.json'
       - '.github/workflows/ui-preview.yml'
@@ -38,6 +39,8 @@ jobs:
         working-directory: e2e
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
+      - name: Package standalone offline cosmetics lab
+        run: node scripts/buildCosmeticsLab.mjs temp/ui-preview/fiery-autumn-standalone.html
       - name: Check mobile screens
         run: npx playwright test --config playwright-preview.config.mjs
         working-directory: e2e

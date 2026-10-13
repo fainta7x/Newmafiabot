@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api.ts';
-import { LOOK_ROLES, LOOK_ROLE_LABELS, plainPhrase, type LookRole, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
+import { LOOK_ROLES, LOOK_ROLE_LABELS, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, roleEquippedItems, plainPhrase, type LookRole, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import RolePortrait from './RolePortrait.tsx';
 import './roleLooks.css';
@@ -25,19 +25,30 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
     if(loadedKey.current===key)return;
     let cancelled=false;
     setState(null);setError('');setNotice('');
-    client.getRoleLooks().then(value=>{if(!cancelled){loadedKey.current=key;setState(value);setDrafts(value.looks);}}).catch(e=>{if(!cancelled)setError(errorText(e));});
+    client.getRoleLooks().then(value=>{if(!cancelled){loadedKey.current=key;const normalized={...value,looks:value.looks.map(l=>({...l,equippedItems:roleEquippedItems(l)}))};setState(normalized);setDrafts(normalized.looks);}}).catch(e=>{if(!cancelled)setError(errorText(e));});
     return ()=>{cancelled=true;};
   },[open,playerId,reload,client]);
   const look=drafts.find(l=>l.role===role), saved=state?.looks.find(l=>l.role===role);
   const dirty=look && saved && JSON.stringify(look)!==JSON.stringify(saved);
   const update=(patch:Partial<RoleLook>)=>{setNotice('');setDrafts(previous=>previous.map(l=>l.role===role?{...l,...patch}:l));};
+  const updateSlot=(slot:PortraitEquipmentSlot,itemId:string|null)=>{
+    setNotice('');
+    setDrafts(previous=>previous.map(l=>{
+      if(l.role!==role)return l;
+      const equippedItems=roleEquippedItems(l);
+      if(itemId)equippedItems[slot]=itemId;else delete equippedItems[slot];
+      return {...l,equippedItems,
+        hatItemId:equippedItems.portrait_hat||null,
+        jacketItemId:equippedItems.portrait_jacket||null};
+    }));
+  };
   const save=async()=>{
     if(!look||!saved||saving)return;
     setSaving(true);setError('');setNotice('');
     try {
-      const next=await client.saveRoleLook(role,{phrase:look.phrase,background:look.background,hatItemId:look.hatItemId,jacketItemId:look.jacketItemId},saved.revision);
-      setState(previous=>previous?{...previous,looks:previous.looks.map(l=>l.role===role?next:l)}:previous);
-      setDrafts(previous=>previous.map(l=>l.role===role?next:l));setNotice(`Образ «${LOOK_ROLE_LABELS[role]}» сохранён. В уже начатой трансляции остаётся зафиксированный образ.`);
+      const next=await client.saveRoleLook(role,{phrase:look.phrase,background:look.background,hatItemId:look.hatItemId,jacketItemId:look.jacketItemId,equippedItems:roleEquippedItems(look)},saved.revision);
+      setState(previous=>previous?{...previous,looks:previous.looks.map(l=>l.role===role?{...next,equippedItems:roleEquippedItems(next)}:l)}:previous);
+      setDrafts(previous=>previous.map(l=>l.role===role?{...next,equippedItems:roleEquippedItems(next)}:l));setNotice(`Образ «${LOOK_ROLE_LABELS[role]}» сохранён. В уже начатой трансляции остаётся зафиксированный образ.`);
     }catch(e){setError(errorText(e));}finally{setSaving(false);}
   };
   const approve=async()=>{
@@ -60,7 +71,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
       {!state&&!error&&<p role="status">Загружаем образы…</p>}
       {look&&state&&<>
         <div className="role-looks-preview" data-testid="role-look-preview">
-          <RolePortrait showGuides={showGuides} background={look.background} baseUrl={state.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null} hatUrl={previewMode!=='jacket'?state.layers.find(l=>l.itemId===look.hatItemId)?.url:null} jacketUrl={previewMode!=='hat'?state.layers.find(l=>l.itemId===look.jacketItemId)?.url:null} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
+          <RolePortrait showGuides={showGuides} background={look.background} baseUrl={state.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null} layers={state.layers.filter(l=>roleEquippedItems(look)[l.slot]===l.itemId && (previewMode==='all'||(previewMode==='hat'?l.slot==='portrait_hat':l.slot!=='portrait_hat'))).map(l=>({slot:l.slot,itemId:l.itemId,url:l.url}))} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
           <strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[role]}</span>{look.phrase&&<p className="role-looks-phrase">{look.phrase}</p>}
         </div>
         {state.portraitVersion&&<div className="role-looks-isolation" role="group" aria-label="Режим примерки">
@@ -70,18 +81,18 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
         </div>}
         <label>Фраза<input maxLength={64} value={look.phrase} disabled={saving} onChange={e=>update({phrase:plainPhrase(e.target.value)})} placeholder="Ваша короткая фраза"/></label>
         <label>Фон<select aria-label="Фон" value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
-        {(['hatItemId','jacketItemId'] as const).map(field=>{
-          const slot=field==='hatItemId'?'portrait_hat':'portrait_jacket',items=state.layers.filter(l=>l.slot===slot);
-          const label=field==='hatItemId'?'Головной убор':'Верхняя одежда';
+        {PORTRAIT_EQUIPMENT_SLOTS.filter(slot=>slot==='portrait_hat'||slot==='portrait_jacket'||state.layers.some(l=>l.slot===slot)).map(slot=>{
+          const items=state.layers.filter(l=>l.slot===slot);
+          const label=PORTRAIT_SLOT_LABELS[slot];
           const locked=!state.portraitVersion;
-          return <fieldset className="role-looks-inventory" key={field} disabled={saving||locked}>
+          return <fieldset className="role-looks-inventory" key={slot} disabled={saving||locked}>
             <legend>{label}</legend>
             <p className="role-looks-explanation">{locked?'Сначала подготовьте портрет игрока':items.length?'Примерьте вещь отдельно; она не меняет другие слоты.':'Полученные предметы появятся здесь после выпуска коллекции.'}</p>
             <div className="role-looks-item-grid">
-              <button type="button" className="role-looks-item" aria-pressed={!look[field]} onClick={()=>update({[field]:null})}>
+              <button type="button" className="role-looks-item" aria-pressed={!roleEquippedItems(look)[slot]} onClick={()=>updateSlot(slot,null)}>
                 <span className="role-looks-item-empty" aria-hidden="true">∅</span><span>Без предмета</span>
               </button>
-              {items.map(item=><button type="button" className="role-looks-item" key={item.itemId} aria-pressed={look[field]===item.itemId} onClick={()=>update({[field]:item.itemId})} title={item.name}>
+              {items.map(item=><button type="button" className="role-looks-item" key={item.itemId} aria-pressed={roleEquippedItems(look)[slot]===item.itemId} onClick={()=>updateSlot(slot,item.itemId)} title={item.name}>
                 <span className="role-looks-item-thumb"><img src={item.url} alt="" loading="lazy"/></span>
                 <span>{item.name}</span><small>{item.rarity}</small>
               </button>)}

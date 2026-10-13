@@ -38,7 +38,15 @@ export type RoleLook = {
 };
 export type LookLayer = { itemId: string; name: string; slot: PortraitEquipmentSlot; url: string; rarity: string };
 export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: string };
-export type RoleLooksResponse = { looks: RoleLook[]; layers: LookLayer[]; portraitVersion: string | null; canApprovePortrait?: boolean };
+/** A released set is a collection, not a redeemable inventory item.
+ * Player sees only published and reviewed components; ownership is individual.
+ */
+export type WardrobeSetItem = LookLayer & { owned: boolean };
+export type WardrobeSet = { id: string; name: string; rarity: string; items: WardrobeSetItem[] };
+export type RoleLooksResponse = {
+  looks: RoleLook[]; layers: LookLayer[]; portraitVersion: string | null;
+  sets?: WardrobeSet[]; canApprovePortrait?: boolean;
+};
 export type BroadcastRoleLook = RoleLook & {
   gameKey: string; portraitVersion: string | null;
   hatUrl: string | null; jacketUrl: string | null;

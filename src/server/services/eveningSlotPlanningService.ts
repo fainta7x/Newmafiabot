@@ -503,7 +503,10 @@ export async function replacePlayerSlotSelection(
       const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
       await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [estimate, paymentStatus, now, participant.id]);
     }
-    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined', { byPlayer: options.notifyOrganizer !== false, source: options.source || (ids.length ? 'slot_selection' : 'slot_selection_cleared') });
+    // «Очистить выбор» is not a refusal (owner, 2026-10-13): the player is back to «нет ответа», unless he already said «Не иду» himself.
+    const previousAnswer = String((await tx.get<any>('SELECT response_status FROM evening_participants WHERE id = ?', [participant.id]))?.response_status || '');
+    const clearedAnswer = previousAnswer === 'declined' ? 'declined' : 'unanswered';
+    await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : clearedAnswer, { byPlayer: options.notifyOrganizer !== false, source: options.source || (ids.length ? 'slot_selection' : 'slot_selection_cleared') });
   });
   await enqueueTelegramEveningSync(db, eveningId);
   // Keep the existing VK announcement current immediately after a player changes

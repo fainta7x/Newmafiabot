@@ -170,54 +170,54 @@ export default function CommerceAdminCRM() {
 
   return (
     <div className="space-y-4">
-      {error ? <div className="rounded-[14px] bg-danger-soft px-3 py-3 text-[11px] text-danger">{error}</div> : null}
+      {error ? <div className="rounded-[14px] bg-danger-soft px-3 py-3 text-[12px] text-danger">{error}</div> : null}
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Онлайн-оплата</div>
-            <h3 className="mt-1 text-[16px] font-black text-text-primary">4 разных назначения</h3>
-            <p className="mt-1 text-[11px] leading-4 text-text-secondary">Вечер, жетоны, поддержка и сбор считаются отдельно и не меняют учёт оплат вечера.</p>
+            <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-text-muted">Онлайн-оплата</div>
+            <h3 className="mt-1 text-[16px] font-black text-text-primary">За что можно платить онлайн</h3>
+            <p className="mt-1 text-[12px] leading-4 text-text-secondary">Вечер, жетоны, поддержка клуба и целевые сборы считаются отдельно: онлайн-оплата не меняет учёт оплат вечера.</p>
           </div>
-          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${overview?.online_payment.available ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{overview?.online_payment.available ? 'СБП работает' : 'Провайдер не подключён'}</span>
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold ${overview?.online_payment.available ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{overview?.online_payment.available ? 'Онлайн-оплата работает' : 'Онлайн-оплата пока выключена'}</span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {['🎟️ Вечер', '💰 Жетоны', '🖤 Поддержка', '🎯 Сбор'].map((item) => <div key={item} className="rounded-[12px] bg-surface-2 px-3 py-2.5 text-[11px] font-bold text-text-primary">{item}</div>)}
+          {['🎟️ Вечер', '💰 Жетоны', '🖤 Поддержка', '🎯 Сбор'].map((item) => <div key={item} className="rounded-[12px] bg-surface-2 px-3 py-2.5 text-[12px] font-bold text-text-primary">{item}</div>)}
         </div>
       </section>
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-center justify-between gap-3">
-          <div><h3 className="text-[14px] font-black text-text-primary">Пакеты жетонов</h3><p className="mt-1 text-[10px] text-text-muted">Цена задаётся здесь, а не в коде. Обратного вывода жетонов в деньги нет.</p></div>
-          <button type="button" onClick={() => openTokens()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[10px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
+          <div><h3 className="text-[14px] font-black text-text-primary">Пакеты жетонов</h3><p className="mt-1 text-[12px] text-text-muted">Цена задаётся здесь, а не в коде. Обратного вывода жетонов в деньги нет.</p></div>
+          <button type="button" onClick={() => openTokens()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[12px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
         </div>
         <div className="mt-3 space-y-2">
-          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Пакетов пока нет. Добавь первый и задай цену.</div>}
+          {overview?.token_packages.length ? overview.token_packages.map((item) => <button key={item.id} type="button" onClick={() => openTokens(item)} className="flex min-h-[58px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left"><span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent"><Coins className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[12px] text-text-muted">{item.token_amount.toLocaleString('ru-RU')} <TokenIcon /> · {rubles(item.price_rub)} · {item.active ? 'активен' : 'выключен'}</span></span><Pencil className="h-4 w-4 text-text-muted" /></button>) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[12px] text-text-muted">Пакетов пока нет. Добавь первый и задай цену.</div>}
         </div>
       </section>
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-center justify-between gap-3">
-          <div><h3 className="text-[14px] font-black text-text-primary">Целевые сборы</h3><p className="mt-1 text-[10px] text-text-muted">Например, оборудование, турнир или конкретная клубная покупка.</p></div>
-          <button type="button" onClick={() => openCampaign()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[10px] font-bold text-text-primary"><Plus className="h-4 w-4" /> Добавить</button>
+          <div><h3 className="text-[14px] font-black text-text-primary">Целевые сборы</h3><p className="mt-1 text-[12px] text-text-muted">Например, оборудование, турнир или конкретная клубная покупка.</p></div>
+          <button type="button" onClick={() => openCampaign()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] font-bold text-text-primary"><Plus className="h-4 w-4" /> Добавить</button>
         </div>
         <div className="mt-3 space-y-2">
           {overview?.campaigns.length ? overview.campaigns.map((item) => {
             const target = Number(item.target_amount_rub || 0);
             const progress = target > 0 ? Math.min(100, Math.round((item.collected_amount_rub / target) * 100)) : null;
-            return <button key={item.id} type="button" onClick={() => openCampaign(item)} className="w-full rounded-[13px] bg-surface-2 p-3 text-left"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-warning-soft text-warning"><Target className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[10px] text-text-muted">{item.status === 'active' ? 'идёт' : item.status === 'closed' ? 'закрыт' : 'черновик'}{target > 0 ? ` · ${rubles(item.collected_amount_rub)} из ${rubles(target)}` : ''}</span></span><Pencil className="h-4 w-4 text-text-muted" /></div>{progress != null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-1"><div className="h-full rounded-full bg-warning" style={{ width: `${progress}%` }} /></div> : null}</button>;
-          }) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[11px] text-text-muted">Активных или архивных сборов пока нет.</div>}
+            return <button key={item.id} type="button" onClick={() => openCampaign(item)} className="w-full rounded-[13px] bg-surface-2 p-3 text-left"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-warning-soft text-warning"><Target className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[12px] text-text-muted">{item.status === 'active' ? 'идёт' : item.status === 'closed' ? 'закрыт' : 'черновик'}{target > 0 ? ` · ${rubles(item.collected_amount_rub)} из ${rubles(target)}` : ''}</span></span><Pencil className="h-4 w-4 text-text-muted" /></div>{progress != null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-1"><div className="h-full rounded-full bg-warning" style={{ width: `${progress}%` }} /></div> : null}</button>;
+          }) : <div className="rounded-[13px] bg-surface-2 px-3 py-4 text-[12px] text-text-muted">Активных или архивных сборов пока нет.</div>}
         </div>
       </section>
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-4 w-4" /></span><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-text-primary">VK</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">Публикации пока не работают: включим их, когда решим, как они будут устроены.</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${vk?.configured ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{vk?.configured ? `group ${vk.group_id}` : 'не подключён'}</span></div>
-        {!vk?.configured && vk?.missing?.length ? <div className="mt-3 rounded-[12px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Для подключения потребуются: {vk.missing.join(', ')}.</div> : null}
+        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-4 w-4" /></span><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-text-primary">VK</h3><p className="mt-1 text-[12px] leading-4 text-text-muted">Публикации пока не работают: включим их, когда решим, как они будут устроены.</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[12px] font-bold ${vk?.configured ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{vk?.configured ? `group ${vk.group_id}` : 'не подключён'}</span></div>
+        {!vk?.configured && vk?.missing?.length ? <div className="mt-3 rounded-[12px] bg-surface-2 px-3 py-2 text-[12px] text-text-muted">Платежи через VK пока не подключены. Подключение делает разработчик, от вас ничего не нужно.</div> : null}
       </section>
 
-      {overview?.recent_intents.length ? <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4"><h3 className="text-[14px] font-black text-text-primary">Последние онлайн-платежи</h3><div className="mt-3 space-y-2">{overview.recent_intents.slice(0, 10).map((item) => <div key={item.id} className="flex items-center gap-3 rounded-[12px] bg-surface-2 px-3 py-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{item.nickname || 'Игрок'} · {purposeLabel(item.purpose)}</strong><span className="mt-0.5 block truncate text-[10px] text-text-muted">{item.description}</span></span><span className="shrink-0 text-right"><strong className="block text-[11px] text-text-primary">{rubles(item.amount_rub)}</strong><span className="text-[10px] text-text-muted">{item.status}</span></span></div>)}</div></section> : null}
+      {overview?.recent_intents.length ? <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4"><h3 className="text-[14px] font-black text-text-primary">Последние онлайн-платежи</h3><div className="mt-3 space-y-2">{overview.recent_intents.slice(0, 10).map((item) => <div key={item.id} className="flex items-center gap-3 rounded-[12px] bg-surface-2 px-3 py-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-text-primary">{item.nickname || 'Игрок'} · {purposeLabel(item.purpose)}</strong><span className="mt-0.5 block truncate text-[12px] text-text-muted">{item.description}</span></span><span className="shrink-0 text-right"><strong className="block text-[12px] text-text-primary">{rubles(item.amount_rub)}</strong><span className="text-[12px] text-text-muted">{item.status}</span></span></div>)}</div></section> : null}
 
-      <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 text-[11px] font-bold text-text-primary disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Обновить</button>
+      <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 text-[12px] font-bold text-text-primary disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Обновить</button>
 
       <MobileSheet
         open={sheet?.kind === 'tokens'}

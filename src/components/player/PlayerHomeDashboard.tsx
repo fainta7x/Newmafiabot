@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import WhatsNewCard from './WhatsNewCard.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getPlayerGameRoleLabel as roleLabel } from '../../lib/playerGameRoleLabels.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
@@ -246,6 +247,7 @@ export default function PlayerHomeDashboard({
 
         </div>
         <div className="player-home-secondary space-y-3">
+        <WhatsNewCard />
         {news.length ? (
           <section data-testid="player-home-news" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4">
             <div className="flex items-center justify-between gap-2">

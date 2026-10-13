@@ -20,7 +20,7 @@ export async function notifyOrganizerAboutResponse(
   const wasComing = COMING.has(String(previous || ''));
   const isComing = COMING.has(next);
   if (wasComing === isComing) return;
-  if (!isComing && next !== 'declined') return;
+  if (!isComing && next !== 'declined' && next !== 'unanswered') return;
 
   const row = await db.get<any>(
     `SELECT p.id AS player_id, p.nickname, p.game_level, e.id AS evening_id, e.title, e.starts_at,
@@ -44,7 +44,9 @@ export async function notifyOrganizerAboutResponse(
     : ['novice', 'unrated'].includes(String(row.game_level || '')) ? `новичок, был ${visits} раз` : `был ${visits} раз`;
   const text = isComing
     ? `✅ ${escapeHtml(row.nickname)} записался на «${escapeHtml(row.title)}» (${when}) · ${who}`
-    : `❌ ${escapeHtml(row.nickname)} отказался от «${escapeHtml(row.title)}» (${when}) — раньше отвечал «Иду»`;
+    : next === 'unanswered'
+      ? `↩️ ${escapeHtml(row.nickname)} снял запись на «${escapeHtml(row.title)}» (${when}) — теперь без ответа`
+      : `❌ ${escapeHtml(row.nickname)} отказался от «${escapeHtml(row.title)}» (${when}) — раньше отвечал «Иду»`;
 
   await enqueueOrganizerNotification(db, {
     messageKey: `evening-response:${participantId}:${isComing ? 'in' : 'out'}:${Date.now()}`,

@@ -40,6 +40,10 @@ describe('showing cards after a hand (owner, 2026-10-12)', () => {
     expect(seen.shown_cards[loser.id]).toEqual([null, lobby.hand!.hole_cards[loser.id][1]]);
     expect(seen.hole_cards[loser.id]).toBeUndefined();
     expect(seen.revealed_ids).not.toContain(loser.id);
+    // The history keeps the shown card too, the hidden one stays hidden (owner, 2026-10-13).
+    const inHistory = publicPokerHistory(lobby, other.id)[0].players.find((item) => item.id === loser.id)!;
+    expect(inHistory.cards).toEqual([null, lobby.hand!.hole_cards[loser.id][1]]);
+    expect(publicPokerHistory(lobby, other.id)[0].players.find((item) => item.id === other.id)!.cards).toHaveLength(2);
   });
 
   it('shows the whole hand when both cards are chosen, one at a time or together, like a showdown', () => {

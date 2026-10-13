@@ -13,11 +13,13 @@ type JudgingWithEvenings = PlayerJudgingDashboard & { available_evenings?: Judge
 type Props = {
   data: PlayerMeResponse;
   canOpenAdmin?: boolean;
+  /** Way back to the CRM screen the organizer came from («Ещё → Музыкальная база»). */
+  onBackToCrm?: () => void;
   initialPane?: ConductPane;
   onPaneChange?: (pane: ConductPane) => void;
 };
 
-export default function PlayerConductCenter({ data, canOpenAdmin = false, initialPane = 'games', onPaneChange }: Props) {
+export default function PlayerConductCenter({ data, canOpenAdmin = false, onBackToCrm, initialPane = 'games', onPaneChange }: Props) {
   const [pane, setPane] = useState<ConductPane>(initialPane);
   const [judging, setJudging] = useState<JudgingWithEvenings | null>(null);
   const [launchedGame, setLaunchedGame] = useState<ClubGameRecord | null>(null);
@@ -48,6 +50,7 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, initia
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto w-full max-w-[430px] space-y-3">
+        {onBackToCrm && pane === 'music' ? <button type="button" data-testid="conduct-back-to-crm" onClick={onBackToCrm} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-3 text-sm font-semibold text-white/85">← Назад в CRM · Музыкальная база</button> : null}
         <div className="px-1 pb-1 pt-2">
           <div className="text-xs uppercase tracking-[0.2em] text-amber-100/40">Рабочий режим</div>
           <div className="mt-1 flex items-start justify-between gap-3">

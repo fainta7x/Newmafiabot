@@ -84,6 +84,7 @@ import ratingPeriodStandingsRoutes from './server/routes/ratingPeriodStandingsRo
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import uiUsageRoutes from './server/routes/uiUsageRoutes.ts';
+import whatsNewRoutes from './server/routes/whatsNewRoutes.ts';
 import { curatorTaskOrganizerRoutes, curatorTaskPlayerRoutes } from './server/routes/curatorTaskRoutes.ts';
 import presenceRoutes from './server/routes/presenceRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
@@ -340,6 +341,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/ui-events', uiUsageRoutes);
+  app.use('/api/whats-new', whatsNewRoutes);
   app.use('/api/curator-tasks', curatorTaskOrganizerRoutes);
   app.use('/api/presence', presenceRoutes);
   app.post('/api/games', requireOrganizerAuth, (_req, res) => {

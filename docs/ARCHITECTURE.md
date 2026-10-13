@@ -245,6 +245,7 @@ Remote control uses a separate laptop-side bridge and does not expose OBS WebSoc
 - `/api/players` -> player/Elo/token routes;
 - `/api/tasks` -> task routes;
 - `/api/analytics` -> thin analytics routes; `/overview`, `/now`, owner-only `/finance`, staff and legacy delegation use `clubAnalyticsService.ts` and shared Moscow range parsing in `src/lib/analyticsPeriod.ts`, with canonical deduplicated visits from `playerVisitsService.ts`. `AnalyticsCRM` keeps tab data mounted; panels abort stale reads and show retry/loading/empty states. UI-usage summaries use bounded SQL groups, with retention only on daily ingestion; announcement/usage schemas initialize before reads in both app and isolated sandbox.
+- `/api/whats-new` -> `whatsNewRoutes.ts` (players read published notices; the organizer writes them: `whats_new_entries` created lazily by `ensureWhatsNewSchema.ts`, first rows are drafts; CRM `WhatsNewCRM.tsx`, player `WhatsNewCard.tsx`).
 - `/api/ui-events` -> `uiUsageRoutes.ts` (screen/button usage from signed-in players and organizers; the CRM «Кто куда заходил» list `GET /players` shows organizers which signed-in player opened which screens — owner decision 2026-10-13; the totals `GET /summary` stay; `uiUsageService.ts` owns the `ui_usage_events` table and its 180-day retention, `src/lib/uiUsageNames.ts` strips entity ids on both client and server);
 - `/api/crm` -> CRM/table-scouting routes;
 - `/api/rating` / `/api/rating-periods` -> rating flows.

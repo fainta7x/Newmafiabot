@@ -154,4 +154,22 @@ describe('poker table screen', () => {
     await sitDown();
     expect(screen.queryByTestId('poker-show-cards')).toBeNull();
   });
+
+  it('marks a seat whose player showed a single card with «показана карта» (no chat message)', async () => {
+    const finishedHand = {
+      id: 'h1', street: 'finished', pot: 0, board: [], action_log: [], dealer_seat: 1, current_seat: null, animation_phase: 'playing',
+      dealt_card_count: 4, viewer_id: 'me', winner_ids: ['me'], revealed_ids: [], showdown_labels: {}, next_hand_in: 3,
+      shown_cards: { oleg: [null, { rank: 'K', suit: 'hearts' }] },
+      players: [{ id: 'me', nickname: 'Я', seat: 1, chips: 1010 }, { id: 'oleg', nickname: 'Олег', seat: 2, chips: 990 }],
+      hole_cards: { me: [{ rank: 'A', suit: 'spades' }, { rank: 'Q', suit: 'clubs' }] },
+    };
+    (fetch as any).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/poker/lobbies') && !init?.method) return json({ lobbies: [entry] });
+      if (url.endsWith('/join') || url.endsWith('/poker/lobbies/main')) return json({ lobby: { ...lobby(true), status: 'playing', hand: finishedHand } });
+      return json({});
+    });
+    await sitDown();
+    expect(screen.getByTestId('poker-card-shown').textContent).toBe('показана карта');
+  });
 });

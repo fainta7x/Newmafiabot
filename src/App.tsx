@@ -287,6 +287,7 @@ export default function App() {
       canOpenAdmin={rootState.canOpenAdmin}
       canOpenEventHost={rootState.canOpenEventHost}
       onOpenAdmin={() => navigatePath('/admin')}
+      onOpenAdminAt={(path) => navigatePath(path)}
       initialSection={initialSection}
       initialTarget={initialTarget}
       onSectionChange={syncPlayerPath}

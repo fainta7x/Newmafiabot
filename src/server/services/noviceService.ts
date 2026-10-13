@@ -311,6 +311,34 @@ export async function convertNoviceToClubPlayer(
   );
 }
 
+/**
+ * After the organizer sets «Клубный» or «Турнирный» in «Уровни и роли»: the player is decided, so the onboarding task
+ * is done, the relationship stage follows the level and no novice follow-up remains (owner, 2026-10-13). New players
+ * start as «Новичок», so that level alone decides nothing.
+ */
+export async function syncPlayersWithOrganizerLevel(db: DatabaseWrapper, playerIds: string[]) {
+  const ids = [...new Set(playerIds.map(String).filter(Boolean))];
+  if (!ids.length) return;
+  const stamp = now();
+  const marks = ids.map(() => '?').join(',');
+  await db.run(
+    `UPDATE players SET club_stage = 'CLUB_PLAYER'
+      WHERE id IN (${marks}) AND COALESCE(NULLIF(game_level, ''), 'unrated') IN ('club', 'tournament')
+        AND COALESCE(club_stage, 'NEW') IN ('NEW', 'NOVICE_ACTIVE', 'NOVICE_COMPLETED')`, ids);
+  const tasksTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'organizer_tasks'");
+  if (!tasksTable) return;
+  await db.run(
+    `UPDATE organizer_tasks SET status = 'done', completed_at = COALESCE(completed_at, ?), updated_at = ?
+      WHERE automation_key LIKE 'verified-onboarding:new-player:%' AND status NOT IN ('done', 'cancelled')
+        AND player_id IN (SELECT id FROM players WHERE id IN (${marks}) AND COALESCE(NULLIF(game_level, ''), 'unrated') IN ('club', 'tournament'))`,
+    [stamp, stamp, ...ids]);
+  await db.run(
+    `UPDATE organizer_tasks SET status = 'cancelled', updated_at = ?
+      WHERE automation_key LIKE 'feedback-first-visit:%' AND status NOT IN ('done', 'cancelled')
+        AND player_id IN (SELECT id FROM players WHERE id IN (${marks}) AND COALESCE(NULLIF(game_level, ''), 'unrated') IN ('club', 'tournament'))`,
+    [stamp, ...ids]);
+}
+
 /** Newly registered accounts that have neither applied nor been reviewed yet. */
 export async function listPlayersAwaitingFirstDecision(db: DatabaseWrapper) {
   return db.all<any>(
@@ -318,6 +346,8 @@ export async function listPlayersAwaitingFirstDecision(db: DatabaseWrapper) {
             EXISTS(SELECT 1 FROM player_external_identities i WHERE i.player_id = p.id AND i.platform = 'vk') AS has_vk
        FROM players p
       WHERE COALESCE(p.club_stage, 'NEW') = 'NEW'
+        -- A player the organizer has already set to «Клубный» or «Турнирный» is decided, not a newcomer (owner, 2026-10-13).
+        AND COALESCE(NULLIF(p.game_level, ''), 'unrated') IN ('novice', 'unrated')
         AND (p.telegram_user_id IS NOT NULL
              OR EXISTS(SELECT 1 FROM player_external_identities i WHERE i.player_id = p.id AND i.platform = 'vk'))
         -- Any application, including a rejected one, means the organizer already has it in the queue below.

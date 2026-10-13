@@ -18,16 +18,16 @@ for (const width of [390, 1440]) {
       const rect=await page.locator('.dgw-kit-head').boundingBox();
       expect(rect?.y??Infinity).toBeLessThan(820);
     }
-        await page.locator('.dgw-slot[title="Шляпа"]').click();
+    await page.locator('.dgw-slot[title="Шляпа"]').click();
     await expect(page.getByRole('button',{name:/Черновая шляпа/})).toBeVisible();
     await page.getByRole('button',{name:/Черновая шляпа/}).click();
-    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(0);
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1);
     await page.getByRole('button',{name:'Запомнить примерку'}).click();
     await expect(page.getByRole('status')).toContainText('в этой примерке');
     await page.getByRole('button',{name:'Дон'}).click();
-    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1);
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(0);
     await page.getByRole('button',{name:'Мирный'}).click();
-    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(2);
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1);
     await page.getByRole('button',{name:'4 роли'}).click();
     await expect(page.getByRole('dialog',{name:'Сравнение ролей'})).toBeVisible();
     await expect(page.locator('.dgw-four .role-portrait')).toHaveCount(4);

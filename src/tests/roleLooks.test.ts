@@ -11,7 +11,7 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 
 vi.mock('../lib/cosmeticAssets.ts', async original => {
   const actual=await original<any>();
-  return {...actual,COSMETIC_ASSETS:{...actual.COSMETIC_ASSETS,'test-hat':{slot:'portrait_hat',url:'/cosmetics/test-hat.svg',draft:false},'test-jacket':{slot:'portrait_jacket',url:'/cosmetics/test-jacket.svg',draft:false}}};
+  return {...actual,COSMETIC_ASSETS:{...actual.COSMETIC_ASSETS,'test-hat':{slot:'portrait_hat',url:'/cosmetics/test-hat.svg',draft:false},'test-jacket':{slot:'portrait_jacket',url:'/cosmetics/test-jacket.svg',draft:false},'test-shirt':{slot:'portrait_shirt',url:'/cosmetics/test-shirt.svg',draft:false},'test-vest':{slot:'portrait_vest',url:'/cosmetics/test-vest.svg',draft:false}}};
 });
 const opened: DatabaseWrapper[]=[];
 afterEach(()=>{while(opened.length)opened.pop()?.sqlite.close();});
@@ -35,6 +35,12 @@ const approve=(db:DatabaseWrapper)=>approvePortrait(db,'p',{dataUrl:png(),layout
 async function wardrobe(db:DatabaseWrapper){
   for(const [id,slot,asset]of [['hat','portrait_hat','test-hat'],['jacket','portrait_jacket','test-jacket'],['draft','portrait_hat','autumn-fedora-v1']]){
     await db.run('INSERT INTO cosmetic_catalog(id,name,rarity,slot,asset_key,published,created_at) VALUES(?,?,?,?,?,1,?)',[id,id,'rare',slot,asset,'2026-10-13']);
+    await db.run('INSERT INTO cosmetic_inventory(player_id,item_id,quantity,acquired_at) VALUES(?,?,1,?)',['p',id,'2026-10-13']);
+  }
+}
+async function extendedWardrobe(db:DatabaseWrapper){
+  for(const [id,slot,asset] of [['shirt','portrait_shirt','test-shirt'],['vest','portrait_vest','test-vest']]){
+    await db.run('INSERT INTO cosmetic_catalog(id,name,rarity,slot,asset_key,published,created_at) VALUES(?,?,?,?,?,1,?)',[id,id,'common',slot,asset,'2026-10-13']);
     await db.run('INSERT INTO cosmetic_inventory(player_id,item_id,quantity,acquired_at) VALUES(?,?,1,?)',['p',id,'2026-10-13']);
   }
 }
@@ -92,6 +98,48 @@ describe('four role looks',()=>{
     expect((await attachRoleLookSnapshots(db,state,'club:1')).players[0].appearance).toEqual(first.players[0].appearance);
     expect((await attachRoleLookSnapshots(db,state,'tournament:t:1')).players[0].appearance).toMatchObject({phrase:'После',portraitVersion:next.version});
     expect(await readPortraitBytes(db,'p',old.version)).not.toBeNull();expect(await readPortraitBytes(db,'other',old.version)).toBeNull();
+  });
+  it('saves independent mixed-set pieces per role and freezes all layers for live games',async()=>{
+    const db=await setup();await wardrobe(db);await extendedWardrobe(db);await approve(db);
+    const ownerLook={...input('Мой образ'),hatItemId:'hat',equippedItems:{portrait_shirt:'shirt',portrait_vest:'vest',portrait_hat:'hat'}};
+    const saved=await saveRoleLook(db,'p','don',ownerLook);
+    expect(saved.equippedItems).toEqual(ownerLook.equippedItems);
+    expect((await readRoleLooks(db,'p')).looks.find(l=>l.role==='don')?.equippedItems).toEqual(ownerLook.equippedItems);
+    const state={gameId:9,players:[{playerId:'p',role:'Дон'}]} as LiveBroadcastState;
+    const first=await attachRoleLookSnapshots(db,state,'club:9');
+    expect(first.players[0].appearance?.equippedLayers).toEqual([
+      {slot:'portrait_shirt',itemId:'shirt',url:'/cosmetics/test-shirt.svg'},
+      {slot:'portrait_vest',itemId:'vest',url:'/cosmetics/test-vest.svg'},
+      {slot:'portrait_hat',itemId:'hat',url:'/cosmetics/test-hat.svg'},
+    ]);
+    // Legacy caller changes hat/jacket while preserving additional slots.
+    const next=await saveRoleLook(db,'p','don',{...input('Позднее',1),jacketItemId:'jacket'});
+    expect(next.equippedItems).toEqual({portrait_shirt:'shirt',portrait_vest:'vest',portrait_jacket:'jacket'});
+    expect(await db.all("SELECT slot,item_id FROM player_role_look_equipment WHERE player_id='p' AND role='don' ORDER BY slot")).toEqual([
+      {slot:'portrait_jacket',item_id:'jacket'}, {slot:'portrait_shirt',item_id:'shirt'}, {slot:'portrait_vest',item_id:'vest'},
+    ]);
+    const newGame=await attachRoleLookSnapshots(db,state,'club:10');
+    expect(newGame.players[0].appearance?.equippedLayers?.map(l=>l.slot)).toEqual(['portrait_shirt','portrait_vest','portrait_jacket']);
+    expect((await attachRoleLookSnapshots(db,state,'club:9')).players[0].appearance).toEqual(first.players[0].appearance);
+    expect((await readRoleLooks(db,'p')).looks.find(l=>l.role==='mafia')).toEqual(emptyRoleLook('mafia'));
+    expect((await db.get<any>('SELECT quantity FROM cosmetic_inventory WHERE item_id=?',['shirt'])).quantity).toBe(1);
+  });
+  it('rejects unowned or mismatched multi-slot items, malformed slot keys, missing portrait and stale revisions',async()=>{
+    const db=await setup();await extendedWardrobe(db);
+    const loadout={...input(),equippedItems:{portrait_shirt:'shirt'}};
+    await expect(saveRoleLook(db,'p','don',loadout)).rejects.toMatchObject({code:'portrait_preparation_required'});
+    await approve(db);
+    await expect(saveRoleLook(db,'p','don',{...input(),equippedItems:{portrait_shirt:'missing'}})).rejects.toMatchObject({code:'item_not_owned_or_not_ready'});
+    await expect(saveRoleLook(db,'p','don',{...input(),equippedItems:{portrait_hat:'shirt'},hatItemId:'shirt'})).rejects.toMatchObject({code:'item_not_owned_or_not_ready'});
+    for(const equippedItems of [{portrait_fake:'shirt'},{portrait_shirt:'https://example.com'},{portrait_hat:'shirt'}]){
+      await expect(saveRoleLook(db,'p','don',{...input(),equippedItems})).rejects.toThrow();
+    }
+    await saveRoleLook(db,'p','don',loadout);
+    await expect(saveRoleLook(db,'p','don',loadout)).rejects.toMatchObject({code:'look_revision_conflict'});
+    // New map explicitly removes the shirt; old two-column view stays consistent.
+    await saveRoleLook(db,'p','don',{...input('Снял вещь',1),equippedItems:{}});
+    expect((await readRoleLooks(db,'p')).looks.find(l=>l.role==='don')?.equippedItems).toEqual({});
+    expect(await db.all("SELECT slot FROM player_role_look_equipment WHERE player_id='p' AND role='don'")).toEqual([]);
   });
   it('authenticates self writes and restricts identity approval to the owner',async()=>{
     const db=await setup(),app=await createApp(db),cookie=`player_token=${generatePlayerSessionToken('p')}`;

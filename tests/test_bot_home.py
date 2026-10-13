@@ -354,3 +354,9 @@ def test_staff_view_offers_cabinet_status_and_back(monkeypatch):
     _, markup = bot_home.staff_view()
     flat = [t for row in _texts(markup) for t in row]
     assert "🗂 Кабинет организатора" in flat and "🩺 Состояние приложения" in flat and "⬅️ Назад" in flat
+
+
+def test_legacy_menus_return_the_short_keyboard_too():
+    import keyboards
+    for build in (keyboards.main_menu, keyboards.main_menu_judge, keyboards.main_menu_admin):
+        assert [[b.text for b in row] for row in build().keyboard] == [["🎭 Открыть 2LA Noire", "📋 Меню"]]

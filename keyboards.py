@@ -13,81 +13,18 @@ def _mobile_adjust(*sizes: int, max_per_row: int = 3):
 
 # ========== ГЛАВНЫЕ МЕНЮ ПОЛЬЗОВАТЕЛЯ / СУДЬИ / АДМИНА ==========
 def main_menu():
-    """
-    Главное меню обычного игрока:
-    без админки и без панели судьи.
-    """
-    builder = ReplyKeyboardBuilder()
-    buttons = [
-        "🕵️ Записаться на игру",
-        "🧾 Список игроков",
-        "👤 Мой профиль",
-        "💳 Оплатить",
-        "📊 Статистика",
-        "📜 Мои игры",
-        "📜 Все игры",
-        "🏆 Рейтинг",
-        "🛒 Магазин",           # <-- ДОБАВЛЕНО
-        "📋 РЕГЛАМЕНТ",
-    ]
-    for btn in buttons:
-        builder.button(text=btn)
-
-    builder.adjust(3, 2, 2, 2, 1)
-    return builder.as_markup(resize_keyboard=True, is_persistent=True)
+    """The one short keyboard (owner, 2026-10-13): app + menu card. The old ten-button menus are retired;
+    their text buttons still work for phones that keep the old keyboard."""
+    import bot_menu
+    return bot_menu.main_menu_for_user()
 
 
 def main_menu_judge():
-    """
-    Главное меню для судьи:
-    всё как у обычного игрока + кнопка '⚖ Панель судьи'.
-    """
-    builder = ReplyKeyboardBuilder()
-    buttons = [
-        "🕵️ Записаться на игру",
-        "🧾 Список игроков",
-        "👤 Мой профиль",
-        "💳 Оплатить",
-        "📊 Статистика",
-        "📜 Мои игры",
-        "📜 Все игры",
-        "🏆 Рейтинг",
-        "🛒 Магазин",           # <-- ДОБАВЛЕНО
-        "⚖ Панель судьи",
-        "📋 РЕГЛАМЕНТ",
-    ]
-    for btn in buttons:
-        builder.button(text=btn)
-
-    builder.adjust(3, 3, 2, 2, 1)
-    return builder.as_markup(resize_keyboard=True, is_persistent=True)
+    return main_menu()
 
 
 def main_menu_admin():
-    """
-    Главное меню для админа:
-    всё как у обычного игрока + кнопка '🛠 Админ-панель'.
-    В саму админку он попадает по этой кнопке / команде /admin.
-    """
-    builder = ReplyKeyboardBuilder()
-    buttons = [
-        "🕵️ Записаться на игру",
-        "🧾 Список игроков",
-        "👤 Мой профиль",
-        "💳 Оплатить",
-        "📊 Статистика",
-        "📜 Мои игры",
-        "📜 Все игры",
-        "🏆 Рейтинг",
-        "🛒 Магазин",           # <-- ДОБАВЛЕНО
-        "🛠 Админ-панель",
-        "📋 РЕГЛАМЕНТ",
-    ]
-    for btn in buttons:
-        builder.button(text=btn)
-
-    builder.adjust(3, 3, 2, 2, 1)
-    return builder.as_markup(resize_keyboard=True, is_persistent=True)
+    return main_menu()
 
 
 # ========== АДМИН-МЕНЮ (REPLY, ВНУТРЕННЯЯ ПАНЕЛЬ) ==========

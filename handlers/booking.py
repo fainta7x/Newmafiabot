@@ -344,12 +344,12 @@ async def show_players_list(message: Message):
     if total == 0:
         await message.answer(
             f"📋 На вечер {date} пока никто не записался.\n\n"
-            f"Стань первым — нажми «🕵️ Записаться на игру»!",
+            f"Стань первым — открой «📋 Меню» и выбери вечер!",
             reply_markup=keyboards.main_menu()
         )
         return
 
-    text += "\n\n📌 Чтобы записаться — нажми «🕵️ Записаться на игру»"
+    text += "\n\n📌 Чтобы записаться — открой «📋 Меню»"
 
     await message.answer(
         text,

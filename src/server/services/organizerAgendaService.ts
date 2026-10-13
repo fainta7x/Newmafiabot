@@ -1,3 +1,5 @@
+import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
+import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadClubOrder, type ClubOrderAction, type ClubOrderItem } from './clubOrderService.ts';
@@ -220,12 +222,14 @@ async function profileItem(db: DatabaseWrapper, now: number): Promise<AgendaItem
 }
 
 async function noviceFeedbackItem(db: DatabaseWrapper, now: number): Promise<AgendaItem[]> {
+  await ensureInviteAudienceSchema(db);
   const rows = await db.all<any>(`
     SELECT t.id AS task_id, t.player_id, p.nickname, e.title, e.starts_at
       FROM organizer_tasks t
       JOIN players p ON p.id = t.player_id
       LEFT JOIN game_evenings e ON e.id = t.evening_id
      WHERE t.status NOT IN ('done', 'cancelled') AND t.automation_key LIKE 'feedback-first-visit:%'
+       AND ${noviceLevelSql('p')}
      ORDER BY e.starts_at DESC`);
   const quiet = await recentlyContacted(db, 'novice_feedback', now);
   const people = rows.filter((row: any) => !quiet.has(String(row.player_id)))

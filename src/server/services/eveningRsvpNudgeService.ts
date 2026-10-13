@@ -1,3 +1,4 @@
+import { inviteKindOfEvening, loadInvitePreferencesMap } from './playerInvitePreferencesService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
@@ -76,7 +77,7 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
   const rows = await db.all<any>(`
     SELECT ep.id AS participant_id, ep.player_id, ep.response_status, ep.rsvp_followup_at,
            COALESCE(p.contact_status, p.lifecycle_status, 'normal') AS contact_state,
-           e.id AS evening_id, e.title, e.starts_at, e.venue,
+           e.id AS evening_id, e.title, e.starts_at, e.venue, e.format,
            ${announcedSql} AS announced_by_bot,
            ${gamesSql} AS selected_games,
            ${firstGameSql} AS first_game
@@ -90,6 +91,8 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
        AND datetime(e.starts_at) <= datetime(?)
   `, [new Date(now).toISOString(), new Date(now + 7 * DAY_MS).toISOString()]);
 
+  // «Приглашения» in the player's profile: no invitations or nudges for the formats they switched off (owner, 2026-10-13).
+  const invitePrefs = await loadInvitePreferencesMap(db, rows.map((row: any) => String(row.player_id)));
   let queued = 0;
   for (const row of rows) {
     const playerId = String(row.player_id);
@@ -113,6 +116,7 @@ export async function queueEveningRsvpNudges(db: DatabaseWrapper, now = Date.now
       // Paused players («Перестал ходить», or excluded from mailing) get no invitations or nudges.
       // Reminders for evenings they answered themselves still go out.
       if (String(row.contact_state) === 'paused') continue;
+      if ((invitePrefs.get(playerId)?.blocked_kinds || []).includes(inviteKindOfEvening(row.format))) continue;
       if (!Number(row.announced_by_bot)) {
         await send(`invite:${eveningId}:${playerId}`, 'invitation',
           `💬 Ты приглашён на игровой вечер\n${header}\nОтветь, пожалуйста, — так мы соберём столы.`,

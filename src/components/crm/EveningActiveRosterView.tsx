@@ -73,7 +73,10 @@ export default function EveningActiveRosterView({
     () => (evening?.participants || []).filter(isActiveEveningParticipant),
     [evening],
   );
-  const arrivedCount = participants.filter((participant) => participant.attendance_status === 'attended').length;
+  // A guest's «+N» are people too: the counters count seats, not rows (owner, 2026-10-13: four going, one with +1 → five).
+  const seatsOf = (participant: any) => 1 + (participant.is_guest ? Math.max(0, Number(participant.plus_count) || 0) : 0);
+  const totalSeats = participants.reduce((sum, participant) => sum + seatsOf(participant), 0);
+  const arrivedCount = participants.filter((participant) => participant.attendance_status === 'attended').reduce((sum, participant) => sum + seatsOf(participant), 0);
   const visibleParticipants = participants.filter((participant) => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
     if (query) return participant.nickname.toLocaleLowerCase('ru-RU').includes(query);
@@ -242,7 +245,7 @@ export default function EveningActiveRosterView({
 
     <EveningListControls search={search} onSearch={setSearch} filter={filter} onFilter={setFilter}
       searchLabel="Найти участника вечера"
-      filters={[{ id: 'all', label: 'Все', count: participants.length }, { id: 'expected', label: 'Ожидаем', count: participants.length - arrivedCount }, { id: 'arrived', label: 'Пришли', count: arrivedCount }]} />
+      filters={[{ id: 'all', label: 'Все', count: totalSeats }, { id: 'expected', label: 'Ожидаем', count: totalSeats - arrivedCount }, { id: 'arrived', label: 'Пришли', count: arrivedCount }]} />
 
     <div className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
       {visibleParticipants.map((participant, index) => {

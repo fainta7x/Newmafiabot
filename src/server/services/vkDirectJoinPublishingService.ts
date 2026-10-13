@@ -19,7 +19,8 @@ import {
   noviceTelegramGroupFallback,
   organizerContactLinks,
 } from '../../lib/novicePromo.ts';
-import { pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { loadPostTemplate, renderPostTemplate } from './postTemplateService.ts';
+import { announcementPhotoPath, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
 
 type EveningRow = {
   id: string;
@@ -110,7 +111,7 @@ const noviceChatInviteUrl = async (db: DatabaseWrapper): Promise<string | null> 
 const WEEKDAYS_ON = ['В воскресенье', 'В понедельник', 'Во вторник', 'В среду', 'В четверг', 'В пятницу', 'В субботу'];
 
 /** The club evening post in the owner's words (2026-09-29), with the sign-up link instead of a button. */
-const clubShortVkText = (evening: EveningRow, pricePerGame: number, signupUrl: string) => {
+const clubShortVkText = async (db: DatabaseWrapper, evening: EveningRow, pricePerGame: number, signupUrl: string) => {
   const date = new Date(evening.starts_at);
   const zone = evening.timezone || 'Europe/Moscow';
   let when = 'Скоро';
@@ -122,13 +123,13 @@ const clubShortVkText = (evening: EveningRow, pricePerGame: number, signupUrl: s
     when = `${WEEKDAYS_ON[index] ?? 'Скоро'}, ${part({ day: 'numeric', month: 'long' })}`;
     clock = part({ hour: '2-digit', minute: '2-digit' });
   }
-  const place = [String(evening.venue || '').trim(), clock].filter(Boolean).join(', ');
+  const venue = String(evening.venue || '').trim();
   const price = announcementPriceLine('CASUAL', pricePerGame || 100).replace(/^💳 /, '');
-  return [
-    `Привет! ${when}, играем в мафию — ждём тебя 🎭`,
-    `📍 ${[place, price].filter(Boolean).join(' · ')}`,
-    `Отметь, придёшь ли, и выбери игры: ${signupUrl}`,
-  ].join('\n');
+  // The text is the organizer's: «Ещё → Публикации и каналы → Текст постов»; the default is his words of 2026-09-29.
+  return renderPostTemplate(await loadPostTemplate(db, 'vk_club_evening'), {
+    'когда': when, 'время': clock, 'место': venue, 'где_и_когда': [venue, clock].filter(Boolean).join(', '),
+    'цена': price, 'ссылка': signupUrl, 'название': evening.title,
+  });
 };
 
 export const buildDirectVkEveningAnnouncement = async (
@@ -138,7 +139,7 @@ export const buildDirectVkEveningAnnouncement = async (
 ) => {
   const plan = await loadEveningSlotPlan(db, evening.id);
   if (normalizeEveningFormat(plan.event.format) === 'CASUAL') {
-    return clubShortVkText(evening, Number(plan.event.price_per_game || 0), await shortEveningLink(db, baseUrl, evening.id));
+    return clubShortVkText(db, evening, Number(plan.event.price_per_game || 0), await shortEveningLink(db, baseUrl, evening.id));
   }
   const novice = normalizeEveningFormat(plan.event.format) === 'NOVICE';
   // A novice post starts with who it is for (owner, 2026-09-29); why the game is fun comes last.
@@ -203,8 +204,11 @@ export async function getDirectVkEveningAnnouncementDraft(
   const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);
   const joinUrl = joinUrlFor(baseUrl, evening.id);
   const destinations = getVkDestinations();
+  const photoId = await pickAnnouncementPhotoId(db, evening.id, evening.format);
   return {
     message,
+    // The photo that goes with the post: the VK channel has no API, so the organizer copies the text and the photo by hand.
+    photo_url: photoId ? `${String(baseUrl || '').replace(/\/+$/, '')}${announcementPhotoPath(photoId)}` : null,
     join_url: joinUrl,
     cabinet_url: playerCabinetUrlForVk(baseUrl, '/player'),
     share_url: `https://vk.com/share.php?${new URLSearchParams({ url: joinUrl, title: evening.title, comment: message }).toString()}`,
@@ -379,14 +383,19 @@ export async function syncDirectVkEveningPublications(
   const photoId = await pickAnnouncementPhotoId(db, evening.id, evening.format);
   const publicDestination = getVkDestinations().find((item) => item.key === 'public' && item.groupId);
   let wallAttachment: string | null = null;
-  if (photoId && publicDestination?.groupId && canEditVkWallPosts()) {
+  // Why the post may go out without a photo, so the organizer is told instead of finding a bare post (owner, 2026-10-13).
+  let photoProblem: string | null = null;
+  if (!photoId) photoProblem = 'в «Публикациях клуба» нет ни одного фото';
+  else if (!canEditVkWallPosts()) photoProblem = 'на сервере не подключён личный ключ ВК для загрузки фото';
+  else if (publicDestination?.groupId) {
     try {
       wallAttachment = await uploadAnnouncementPhotoToVk(db, photoId, publicDestination.groupId);
     } catch (error) {
-      console.warn('[VK ANNOUNCEMENT PHOTO] Photo upload failed; text post remains available:', error instanceof Error ? error.message : String(error));
+      photoProblem = `ВК не принял фото (${error instanceof Error ? error.message : String(error)})`;
+      console.warn('[VK ANNOUNCEMENT PHOTO] Photo upload failed; text post remains available:', photoProblem);
     }
   }
-  const results: Array<{ destination: string; success: boolean; skipped?: boolean; reason?: string; error?: string }> = [];
+  const results: Array<{ destination: string; success: boolean; skipped?: boolean; reason?: string; error?: string; photo_problem?: string }> = [];
 
   for (const destination of getVkDestinations()) {
     if (!destination.active || !destination.supported || !destination.groupId) continue;
@@ -403,7 +412,7 @@ export async function syncDirectVkEveningPublications(
       if (!synced.publication || synced.skipped) {
         results.push({ destination: destination.key, success: true, skipped: true, reason: synced.reason });
       } else {
-        results.push({ destination: destination.key, success: true });
+        results.push({ destination: destination.key, success: true, ...(destination.key === 'public' && photoProblem ? { photo_problem: photoProblem } : {}) });
       }
     } catch (error: any) {
       if (!error?.vkUncertain) await savePublicationError(db, evening.id, destination, error);

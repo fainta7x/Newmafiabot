@@ -8,6 +8,8 @@ import {
 } from '../services/personalNotificationRouterService.ts';
 import { getVkPersonalDeliveryStatus } from '../services/vkMessageOutboxService.ts';
 
+import { INVITE_KIND_LABELS, INVITE_KINDS, loadInvitePreferences, saveInvitePreferences } from '../services/playerInvitePreferencesService.ts';
+
 const router = Router();
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -51,6 +53,28 @@ router.put('/notification-preferences', async (req, res) => {
     await savePersonalNotificationPreference(req.db, playerId, { preferredChannel: requestedChannel, personalEnabled: req.body?.personal_enabled });
     return res.json(await payloadFor(req.db, playerId));
   } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось сохранить настройки уведомлений' }); }
+});
+
+const invitePayload = async (db: any, playerId: string) => ({
+  ...(await loadInvitePreferences(db, playerId)),
+  kinds: INVITE_KINDS.map((kind) => ({ kind, label: INVITE_KIND_LABELS[kind] })),
+});
+
+// «Приглашения»: which kinds of invitations the player wants and whether friends may write to them directly.
+router.get('/invite-preferences', async (req, res) => {
+  const playerId = requirePlayerId(req, res); if (!playerId) return;
+  try { return res.json(await invitePayload(req.db, playerId)); }
+  catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось загрузить настройки приглашений' }); }
+});
+
+router.put('/invite-preferences', async (req, res) => {
+  const playerId = requirePlayerId(req, res); if (!playerId) return;
+  if (req.body?.blocked_kinds !== undefined && !Array.isArray(req.body.blocked_kinds)) return res.status(400).json({ error: 'blocked_kinds must be a list' });
+  if (req.body?.allow_direct_contact !== undefined && typeof req.body.allow_direct_contact !== 'boolean') return res.status(400).json({ error: 'allow_direct_contact must be boolean' });
+  try {
+    await saveInvitePreferences(req.db, playerId, { blockedKinds: req.body?.blocked_kinds, allowDirectContact: req.body?.allow_direct_contact });
+    return res.json(await invitePayload(req.db, playerId));
+  } catch (error: any) { return res.status(500).json({ error: error?.message || 'Не удалось сохранить настройки приглашений' }); }
 });
 
 router.post('/notification-preferences/test', async (req, res) => {

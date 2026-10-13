@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import WhatsNewCard from './WhatsNewCard.tsx';
+import VotePromptCard from './VotePromptCard.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getPlayerGameRoleLabel as roleLabel } from '../../lib/playerGameRoleLabels.ts';
 import type { PlayerMeResponse } from '../../types/player.ts';
@@ -173,6 +174,7 @@ export default function PlayerHomeDashboard({
         </header>
 
         <div className="player-home-primary space-y-3">
+          <VotePromptCard />
         <CuratorTasksCard />
 
         {debt > 0 && onOpenWallet ? (

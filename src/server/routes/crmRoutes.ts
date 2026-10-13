@@ -1,3 +1,5 @@
+import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
+import { noviceLevelSql } from '../../lib/noviceRule.ts';
 import { Router, Response } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
@@ -132,7 +134,8 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
     const activeTasks = await db.all<any>(`SELECT t.*,p.nickname AS player_nickname,p.telegram_username,p.phone FROM organizer_tasks t LEFT JOIN players p ON p.id=t.player_id WHERE t.status NOT IN ('done','cancelled') AND (t.automation_key IS NULL OR (t.automation_key NOT LIKE 'clarify-participation:%' AND t.automation_key NOT LIKE 'invite-followup:%' AND t.automation_key NOT LIKE 'reminder-confirmed:%' AND t.automation_key NOT LIKE 'reinvite-second-visit:%')) ORDER BY t.due_at ASC,t.created_at DESC`);
     const today = getMoscowDateStr(nowIso)!; const overdueTasks: any[] = []; const todayTasks: any[] = []; const noDeadlineTasks: any[] = [];
     for (const task of activeTasks) { const day = getMoscowDateStr(task.due_at); if (!day) noDeadlineTasks.push(task); else if (day < today) overdueTasks.push(task); else if (day === today) todayTasks.push(task); }
-    const newcomersAfterFirst = await db.all<any>(`SELECT p.*,(SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS attendance_count,(SELECT MAX(ge.starts_at) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS last_visit FROM players p WHERE (SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended')=1 AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled') AND (ot.type='feedback' OR ot.title LIKE '%первой игры%')) LIMIT 10`);
+    await ensureInviteAudienceSchema(db);
+    const newcomersAfterFirst = await db.all<any>(`SELECT p.*,(SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS attendance_count,(SELECT MAX(ge.starts_at) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS last_visit FROM players p WHERE ${noviceLevelSql('p')} AND (SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended')=1 AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled') AND (ot.type='feedback' OR ot.title LIKE '%первой игры%')) LIMIT 10`);
     // Skill assessment is independent from club visit count. A person may be new to 2LA Noire
     // and still be an experienced Mafia player, so every explicitly unassessed profile can surface here.
     const clubAccessReview = await db.all<any>(`

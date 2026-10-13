@@ -188,7 +188,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       if (debouncedSearch) params.search = debouncedSearch;
       if (contactStatusFilter) params.contact_status = contactStatusFilter;
       if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
-      if (activeQuickFilter === 'newcomers') params.first_visit_only = true;
+      if (activeQuickFilter === 'newcomers') params.novice_level = true;
       if (activeQuickFilter === 'lapsed') params.inactive_days = 30;
       if (advancedSegment === 'never') params.never_attended = true;
       if (advancedSegment === 'absent60') params.inactive_days = 60;
@@ -757,7 +757,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" subtitle="Точные сегменты сохранены, но не занимают основной экран." widthClass="sm:max-w-md">
         <div className="space-y-4">
           <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
-          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
+          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Первый визит</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
           <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, itemLabel]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{itemLabel}</button>)}</div></div>
           <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить фильтры</button>
         </div>

@@ -97,25 +97,6 @@ def _safe_get_tech_fouls_count(info: dict) -> int:
     return 0
 
 
-def _safe_get_tech_fouls_display(info: dict) -> str:
-    """
-    Возвращает строковое представление техфолов для отображения.
-    """
-    tf = info.get("technical_fouls")
-    if tf is None:
-        return ""
-    if isinstance(tf, list):
-        small_count = sum(1 for t in tf if t == "small")
-        big_count = sum(1 for t in tf if t == "big")
-        parts = []
-        if small_count:
-            parts.append(f"{small_count}S")
-        if big_count:
-            parts.append(f"{big_count}B")
-        return " / ".join(parts) if parts else ""
-    if isinstance(tf, int):
-        return str(tf) if tf > 0 else ""
-    return ""
 
 
 def _get_elo_display(info: dict) -> str:

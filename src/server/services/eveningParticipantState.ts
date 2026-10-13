@@ -52,6 +52,31 @@ export const serializeEveningParticipant = <T extends Record<string, any>>(row: 
   attendance_fact: getEveningAttendanceFact(row),
 });
 
+/**
+ * «Иду» means every game (owner, 2026-10-13): the player is registered in all open games at once, so they look like
+ * everyone else instead of a special «идёт на весь вечер, игры не выбраны» state. Only for «Иду» with no picked games
+ * at all — exact choices are never touched, and «Приду позже» stays an intent without games.
+ * With `participantId` for one player; without it a sweep over every open evening (old answers set before this rule).
+ */
+export async function registerGoingParticipantsForAllGames(db: DatabaseWrapper, participantId?: string): Promise<number> {
+  const tables = new Set((await db.all<any>("SELECT name FROM sqlite_master WHERE type = 'table'")).map((row: any) => String(row.name)));
+  if (!tables.has('evening_slot_registrations') || !tables.has('evening_game_slots')) return 0;
+  const now = new Date().toISOString();
+  const result = await db.run(
+    `INSERT OR IGNORE INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at)
+     SELECT lower(hex(randomblob(16))), s.id, ep.id, ?, ?
+       FROM evening_participants ep
+       JOIN game_evenings e ON e.id = ep.evening_id
+       JOIN evening_game_slots s ON s.evening_id = ep.evening_id AND s.status = 'open'
+      WHERE ep.response_status = 'going' AND ep.player_id IS NOT NULL
+        AND e.status IN ('published', 'active') AND e.settled_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM evening_slot_registrations r WHERE r.participant_id = ep.id)
+        ${participantId ? 'AND ep.id = ?' : ''}`,
+    participantId ? [now, now, participantId] : [now, now],
+  );
+  return Number((result as any)?.changes || 0);
+}
+
 export async function setParticipantResponse(
   db: DatabaseWrapper,
   participantId: string,
@@ -86,6 +111,8 @@ export async function setParticipantResponse(
 
   // A changed answer can move an already arrived player between 500 and 400.
   await reconcileParticipantAttendanceReward(db, participantId);
+
+  if (status === 'going') await registerGoingParticipantsForAllGames(db, participantId).catch((error) => console.warn('[EVENING RESPONSE] games not registered:', error instanceof Error ? error.message : String(error)));
 
   if (status === 'declined') {
     await db.run(

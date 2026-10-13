@@ -23,6 +23,11 @@ it('author can preview independent draft components and explicitly save without 
   const client={
     getCosmeticDraftSets:async()=>sets,
     getCosmeticDraftItems:async()=>items,
+    getCosmeticDraftAssets:async()=>[
+      {key:'autumn-fedora-v1',slot:'portrait_hat',url:'/cosmetics/autumn-fedora-v1.svg',draft:true},
+      {key:'autumn-jacket-v1',slot:'portrait_jacket',url:'/cosmetics/autumn-jacket-v1.svg',draft:true},
+    ],
+    createCosmeticDraftItem:vi.fn(async()=>{throw new Error('not-needed');}),
     saveCosmeticDraftSetItems:save,
     createCosmeticDraftSet:vi.fn(async()=>{throw new Error('not-needed');}),
   } as CosmeticSetStudioClient;

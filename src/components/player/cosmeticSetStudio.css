@@ -38,3 +38,19 @@
 .cosmetic-set-studio-refresh{justify-self:start}
 @media(max-width:760px){.cosmetic-set-studio-editor{grid-template-columns:minmax(0,1fr)}.cosmetic-set-studio-preview>.role-portrait,.cosmetic-set-studio-no-base{width:min(100%,184px)}}
 @media(max-width:390px){.cosmetic-set-studio-create{grid-template-columns:minmax(0,1fr)}.cosmetic-set-studio-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Owner chooses artwork and rarity; assets here are explicitly draft until approved. */
+.cosmetic-set-studio-add-item{border:1px solid #a8754930;border-radius:12px;min-width:0;background:#201921}
+.cosmetic-set-studio-add-item>summary{cursor:pointer;padding:12px;color:#f2d7b8;font-size:12px;font-weight:650;min-height:48px}
+.cosmetic-set-studio-add-item>summary span{display:block;color:#bea99a;font-size:11px;line-height:1.45;font-weight:400;margin-top:4px}
+.cosmetic-set-studio-item-creator{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:10px;min-width:0}
+.cosmetic-set-studio-item-creator>.cosmetic-set-studio-asset-options,
+.cosmetic-set-studio-item-creator>button,
+.cosmetic-set-studio-item-creator>small,.cosmetic-set-studio-item-creator>.cosmetic-set-studio-muted{grid-column:1/-1}
+.cosmetic-set-studio-asset-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;min-width:0}
+.cosmetic-set-studio-asset-options button{min-height:138px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.cosmetic-set-studio-asset-options img{height:96px;width:min(100%,90px);object-fit:contain}
+.cosmetic-set-studio-asset-options small{font-size:10px;line-height:1.3;color:#d3b59e}
+.cosmetic-set-studio-item-creator>button{justify-self:start}
+.cosmetic-set-studio-item-creator>small{color:#bca797;font-size:11px;line-height:1.5}
+@media(max-width:430px){.cosmetic-set-studio-item-creator{grid-template-columns:minmax(0,1fr)}}

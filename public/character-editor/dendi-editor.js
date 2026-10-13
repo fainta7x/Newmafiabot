@@ -110,7 +110,7 @@
     for(const s of SLOTS){
       const b=document.createElement('button');b.type='button';
       b.setAttribute('aria-pressed',s.id===slot?'true':'false');
-      const icon=document.createElement('span');icon.className='symbol';icon.textContent=s.symbol;
+      const icon=document.createElement('span');icon.className='symbol';icon.textContent=s.symbol;icon.setAttribute('aria-hidden','true');
       const title=document.createElement('span');title.textContent=s.title;
       b.append(icon,title);
       b.onclick=()=>{slot=s.id;renderSlots();renderItems();};

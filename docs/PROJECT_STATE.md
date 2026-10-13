@@ -1,5 +1,10 @@
 # 2LA Noire — Current Project State
 
+## 2026-10-13 · «Огненная осень», PR #891
+
+Добавлен сворачиваемый предпросмотр в собственном профиле: медная рамка с багряными листьями, тёмный покерный стол и янтарная карточка эфира. Три SVG зарегистрированы как draft: коллекция не выпущена, покупки, сундуки и применение оформления не включены. Переключение локальное. Уровни, цена, вероятность выпадения и XP-баланс остаются не настроенными. Добавлены проверки на 360/390/1440 px; локальный запуск остановился до браузера (Chromium отсутствует). 12 focused tests, TypeScript, lint и сборка preview проходят; браузерную проверку и CI нужно подтвердить на новом SHA. Исправлена инициализация косметики в изолированной тестовой БД; регрессия проверяет отдельность инвентаря.
+
+
 ## Cosmetic collection / seasonal compendium — owner approved, 2026-10-13
 
 Paid seasonal compendium; six rarities; lifetime cosmetics; duplicates dismantled only into XP; «gifts» clarified as effects, not item transfers. Owner authorizes backend foundation and asset preparation. Branch `feat/cosmetics-compendium-foundation-20261013`: additive catalog/inventory/equipment/season/membership/audit tables, private self APIs and owner-only issuance/manually recorded payment entitlements. Transactional retries preserve the final copy and separate XP from club wallet/Elo. No prices, chest odds, automatic activity XP, opening/purchases, archive acquisition or player-facing rendering are enabled. Three draft SVG studies and controlled asset keys are prepared. Local focused tests/TypeScript/lint are initial verification; PR CI, merge, deploy and runtime are separate pending states. Next: approve graphical surfaces and first collection; then activity/level/chest balance and pricing. Details: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md).

@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-13 · PR #891 cosmetics sandbox schema — FIXED in branch
+
+Review found that signed test sessions switch to an isolated DB whose runtime initializer omitted the six cosmetics tables. Added ensureCosmeticsSchema to that initializer and a regression checking schema availability and inventory isolation. HTTP tests now use createApp with the production middleware stack rather than a standalone Express/cookie-parser fixture (also flagged by CodeQL). New-head CI/security results remain required; no blanket suppression was added.
+
+
 ## 2026-10-12 · Game page in the player app (owner: «ужасная страница, непонятная, не красивая, не информативная») — FIXED (rework)
 
 Before: `PlayerGameDetail.tsx` was a flat stack — «Итог игры» (winner + loose chips), «Как проходила игра» (votings and nights as separate lists, outcomes as raw words such as «eliminated»/«night»), «Игроки и баллы» (ten tall cards with every score part, fouls and Elo notes open at once). The viewer's own result was only a «вы» mark inside the list. After: result hero, «Ваша игра», «Главное в игре», rosters by team with collapsed details, one ordered story of the game with vote bars and plain results, judge's note. Checked at 360/390 px in a browser (no horizontal overflow, rows ≥ 44 px, screenshot reviewed). Not changed: data, API, scoring. Open: the replay screen and the Telegram result posts are separate surfaces and were not touched.

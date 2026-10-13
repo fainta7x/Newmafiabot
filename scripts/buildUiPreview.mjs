@@ -23,6 +23,7 @@ const pages = [
   'e2e/player-game-detail.html',
   'e2e/live-reveal.html',
   'e2e/trophy-icons.html',
+  'e2e/cosmetics.html',
   'e2e/project-board.html',
   'e2e/live-broadcast-reveal.html',
   'e2e/crm-evenings.html',
@@ -59,6 +60,7 @@ await build({
 // The poker harness needs only the checked-in art bundle. Keep uploads, avatars,
 // checkpoints and other runtime files out of the isolated preview artifact.
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
+await cp(path.join(root, 'public/cosmetics'), path.join(output, 'cosmetics'), { recursive: true });
 const manifest = JSON.parse(await readFile(path.join(output, '.vite/manifest.json'), 'utf8'));
 const bootstrapAsset = manifest[bootstrapSource]?.file;
 if (!bootstrapAsset) throw new Error(`UI preview bootstrap asset missing from Vite manifest: ${bootstrapSource}`);

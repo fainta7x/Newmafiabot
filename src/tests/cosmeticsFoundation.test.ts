@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import express from 'express';
-import cookieParser from 'cookie-parser';
+import { createApp } from '../app.ts';
+import { ensureIsolatedTestRuntimeSchema } from '../db/ensureIsolatedTestRuntimeSchema.ts';
 import request from 'supertest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureCosmeticsSchema } from '../db/ensureCosmeticsSchema.ts';
 import { ensureOrganizerPlayerAccessSchema } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { activateCompendium, compendiumLevel, createCosmeticItem, createCosmeticSeason, dismantleCosmeticDuplicate, equipCosmetic, getCosmetics, grantCosmetic } from '../server/services/cosmeticsService.ts';
-import cosmeticsRoutes from '../server/routes/cosmeticsRoutes.ts';
-import { generateOrganizerToken, generatePlayerSessionToken, parseUserSession } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 
 // A reviewed asset fixture exercises the ready-art path; real artwork remains draft.
 vi.mock('../lib/cosmeticAssets.ts', async importOriginal => {
@@ -94,9 +93,8 @@ describe('cosmetics and compendium foundation', () => {
     expect(state.capabilities).toEqual({ chestOpening: false, purchases: false, automaticActivityXp: false, transfers: false });
   });
   it('authenticates self APIs and blocks player/delegated owner writes', async () => {
-    const db = await setup(); const app = express(); app.use(express.json(), cookieParser());
+    const db = await setup(); const app = await createApp(db);
     await db.run("UPDATE cosmetic_seasons SET starts_at='1900-01-01T00:00:00.000Z',ends_at='9999-01-01T00:00:00.000Z'");
-    app.use((req, _res, next) => { req.db = db; next(); }); app.use(parseUserSession); app.use('/api/player', cosmeticsRoutes);
     expect((await request(app).get('/api/player/cosmetics')).status).toBe(401);
     const cookie = `player_token=${generatePlayerSessionToken('p')}`;
     expect((await request(app).get('/api/player/cosmetics').set('Cookie', cookie)).status).toBe(200);
@@ -111,5 +109,15 @@ describe('cosmetics and compendium foundation', () => {
     const audit = await db.get<any>('SELECT actor_id FROM cosmetic_events WHERE request_id=?', ['owner-grant']); expect(audit.actor_id).toMatch(/^organizer-session:/);
     const otherCookie = `player_token=${generatePlayerSessionToken('other')}`;
     expect((await request(app).get('/api/player/cosmetics').set('Cookie', otherCookie)).body.inventory).toEqual([]);
+  });
+  it('initializes cosmetics in the isolated sandbox without changing the production collection', async () => {
+    const live = await setup(); await grant(live, 'live-grant');
+    const sandbox = createDatabaseConnection(':memory:'); opened.push(sandbox);
+    await sandbox.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES(?,?,?,?)', ['p','Песочница',NOW,NOW]);
+    await ensureIsolatedTestRuntimeSchema(sandbox);
+    const tables = await sandbox.all<any>("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'cosmetic_%' OR name='compendium_memberships')");
+    expect(tables).toHaveLength(6);
+    expect((await getCosmetics(sandbox, 'p')).inventory).toEqual([]);
+    expect((await getCosmetics(live, 'p')).inventory[0].quantity).toBe(1);
   });
 });

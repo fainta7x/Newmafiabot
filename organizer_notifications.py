@@ -115,7 +115,7 @@ def build_organizer_digest(
         unanswered = reminder_recipients if isinstance(reminder_recipients, list) else participant_unanswered
         underfilled_slots = recruitment.get("underfilled_slots") if isinstance(recruitment.get("underfilled_slots"), list) else []
         capacity = max(0, int(evening.get("capacity") or 10))
-        attending_count = len(attending) if participants else int(evening.get("attending_count") or 0)
+        attending_count = (len(attending) + sum(int(p.get("plus_count") or 0) for p in attending if p.get("is_guest"))) if participants else int(evening.get("attending_count") or 0)
 
         lines: list[str] = []
         if hours_to_start <= 48 and hours_to_start > -6 and attending_count < min(10, capacity or 10):

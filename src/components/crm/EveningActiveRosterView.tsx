@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Plus, RefreshCw, Search } from 'lucide-react';
+import { ChevronRight, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening, type Player } from '../../lib/api.ts';
 import { getEveningResponse, getEveningRosterResponseLabel } from '../../lib/eveningResponse.ts';
 import { isInOrganizerWorkingRoster as isActiveEveningParticipant } from '../../lib/eveningParticipantView.ts';
@@ -7,6 +7,8 @@ import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
 import EveningListControls from './EveningListControls.tsx';
+import { guestContactHref, guestContactLabel, type GuestContactKind } from '../../lib/guestContact.ts';
+import { EMPTY_GUEST, GuestFields, type GuestDraft } from './GuestFields.tsx';
 
 type EveningData = GameEvening & { participants: EveningParticipant[] };
 type AddMode = 'players' | 'guest';
@@ -37,8 +39,8 @@ export default function EveningActiveRosterView({
   const [addMode, setAddMode] = useState<AddMode>('players');
   const [addSearch, setAddSearch] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-  const [guestNickname, setGuestNickname] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
+  const [guest, setGuest] = useState<GuestDraft>({ ...EMPTY_GUEST });
+  const [editingGuest, setEditingGuest] = useState<{ id: string; draft: GuestDraft } | null>(null);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'expected' | 'arrived'>('all');
@@ -176,25 +178,47 @@ export default function EveningActiveRosterView({
     }
   };
 
+  const guestPayload = (draft: GuestDraft) => ({
+    contact_kind: draft.contact.trim() ? draft.kind : undefined,
+    contact_value: draft.contact.trim() || undefined,
+    plus_count: draft.plus,
+    // «Записать гостя заранее» (owner, 2026-10-13): by default the guest is signed up as «Иду».
+    response_status: draft.going ? 'going' as const : 'unanswered' as const,
+  });
+
   const addGuest = async () => {
-    if (!evening || !guestNickname.trim() || adding) return;
+    if (!evening || !guest.name.trim() || adding) return;
     setAdding(true);
     setError('');
     try {
       await api.addParticipant(eveningId, {
-        nickname: guestNickname.trim(),
-        phone: guestPhone.trim() || undefined,
+        nickname: guest.name.trim(),
+        ...guestPayload(guest),
         table_id: null,
-        response_status: 'unanswered',
-        registration_status: 'invited',
+        registration_status: guest.going ? 'going' : 'invited',
         amount_due: evening.default_price,
       });
-      setGuestNickname('');
-      setGuestPhone('');
+      setGuest({ ...EMPTY_GUEST });
       setShowAdd(false);
       await load(true);
     } catch (err: any) {
       setError(err?.message || 'Не удалось добавить гостя');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const saveGuest = async () => {
+    if (!editingGuest || adding) return;
+    setAdding(true);
+    setError('');
+    try {
+      const { contact_kind, contact_value, plus_count, response_status } = guestPayload(editingGuest.draft);
+      await api.updateParticipant(editingGuest.id, { contact_kind: contact_kind || null, contact_value: contact_value || null, plus_count, response_status } as any);
+      setEditingGuest(null);
+      await load(true);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось сохранить гостя');
     } finally {
       setAdding(false);
     }
@@ -225,11 +249,12 @@ export default function EveningActiveRosterView({
         const arrived = participant.attendance_status === 'attended';
         const rowBusy = busyIds.has(participant.id);
         return <div key={participant.id} data-testid={`evening-active-row-${participant.id}`} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[72px] items-center gap-2 px-3 py-2`}>
-          <button type="button" onClick={() => onOpenPlayerCard?.(participant.player_id)} aria-label={`Открыть карточку ${participant.nickname}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] text-left active:bg-surface-2">
+          <button type="button" onClick={() => (participant as any).is_guest ? setEditingGuest({ id: participant.id, draft: { name: participant.nickname, kind: ((participant as any).contact_kind || 'vk') as GuestContactKind, contact: (participant as any).contact_value || '', going: ['going', 'late'].includes(String(getEveningResponse(participant))), plus: Number((participant as any).plus_count || 0) } }) : onOpenPlayerCard?.(participant.player_id)} aria-label={`Открыть карточку ${participant.nickname}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] text-left active:bg-surface-2">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[14px] text-text-primary">{participant.nickname}</strong>
               <span className="mt-1 flex flex-wrap gap-1 text-[12px] leading-4">
+                {(participant as any).is_guest ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Гость-лид{Number((participant as any).plus_count) ? ` +${(participant as any).plus_count}` : ''}{(participant as any).contact_value ? ` · ${guestContactLabel((participant as any).contact_kind)}: ${(participant as any).contact_value}` : ''}</span> : null}
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">Ответ: {getEveningRosterResponseLabel(participant)}</span>
                 <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {arrived ? 'на месте' : 'не отмечена'}</span>
@@ -237,6 +262,7 @@ export default function EveningActiveRosterView({
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
           </button>
+          {guestContactHref((participant as any).contact_kind, (participant as any).contact_value) ? <a data-testid="guest-contact-link" href={guestContactHref((participant as any).contact_kind, (participant as any).contact_value) || undefined} target="_blank" rel="noreferrer" aria-label={`Написать гостю ${participant.nickname}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-border-soft bg-surface-2 text-text-secondary"><MessageSquare className="h-4 w-4" /></a> : null}
           {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-11 shrink-0 rounded-[10px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : null}
         </div>;
       })}
@@ -247,11 +273,11 @@ export default function EveningActiveRosterView({
       open={showAdd}
       onClose={() => setShowAdd(false)}
       title="Добавить на вечер"
-      subtitle="Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит."
+      subtitle={addMode === 'guest' ? 'Гость записывается без профиля: имя и способ связи с ним сохраняются на этом вечере.' : 'Добавление в состав не ставит ответ «Иду». Ответ игрока останется «Нет ответа», пока он сам не ответит.'}
       widthClass="sm:max-w-lg"
       footer={addMode === 'players'
         ? <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : `Добавить${selectedPlayerIds.length ? ` · ${selectedPlayerIds.length}` : ''}`}</button>
-        : <button type="button" disabled={!guestNickname.trim() || adding} onClick={() => void addGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : 'Добавить гостя'}</button>}
+        : <button type="button" disabled={!guest.name.trim() || adding} onClick={() => void addGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Добавляем…' : 'Добавить гостя'}</button>}
     >
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-surface-2 p-1">
@@ -271,8 +297,13 @@ export default function EveningActiveRosterView({
             })}
             {!availablePlayers.length ? <div className="p-5 text-center text-[12px] text-text-muted">Никого не найдено или все уже добавлены в событие.</div> : null}
           </div>
-        </> : <div className="space-y-2"><input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Никнейм гостя" className="mobile-field" /><input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} placeholder="Телефон — необязательно" className="mobile-field" /></div>}
+        </> : <GuestFields draft={guest} onChange={setGuest} />}
       </div>
+    </MobileSheet>
+
+    <MobileSheet open={Boolean(editingGuest)} onClose={() => !adding && setEditingGuest(null)} title={editingGuest?.draft.name || 'Гость'} subtitle="Гость без профиля — лид: имя, способ связи и сколько человек с ним." widthClass="sm:max-w-lg"
+      footer={<button type="button" disabled={adding} onClick={() => void saveGuest()} className="min-h-12 w-full rounded-[13px] bg-accent text-[14px] font-bold text-white disabled:opacity-40">{adding ? 'Сохраняем…' : 'Сохранить'}</button>}>
+      {editingGuest ? <GuestFields withName={false} draft={editingGuest.draft} onChange={(draft) => setEditingGuest({ ...editingGuest, draft })} /> : null}
     </MobileSheet>
   </section>;
 }

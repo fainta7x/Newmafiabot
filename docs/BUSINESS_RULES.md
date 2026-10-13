@@ -691,6 +691,8 @@ See `AGENTS.md` and `docs/RUNBOOK.md` for the operational safeguards.
 
 ## Organizer player profile roles and CRM entitlement
 
+- **Guest as a lead (owner, 2026-10-13).** The organizer can sign a guest up in advance (CRM → evening → «Участники» → «+» → «Гость»): a name, how to reach them (ВКонтакте, Telegram or phone) and «+N» — people the guest brings («Добрый день, запишите меня +1»). The default answer is «Иду». The guest has no club profile; the roster marks them «Гость-лид». The «+N» people take seats: the evening's registered count, the shortfall check, the Telegram lineup post and the «сегодня играем» post count the guest as 1 + N and write the name as «Иван +1». The guest's contact is for the organizer only (a tap opens the chat) and is never shown to players.
+- **Evening colours (owner, 2026-10-13).** Evenings are coloured by format everywhere in the organizer app: novice — blue, club — green, rating — amber, tournament — violet (`src/lib/eventKind.ts`); the «На этой неделе» list on «Сегодня» uses the same colours as the calendar.
 Visit counts (user-approved 2026-09-23): a visit counts as soon as the organizer marks the player as attended, including on the evening that is still running; no-shows count only once the evening is completed. The CRM shows the player's four statuses as plain blocks — «Игра» (`game_level`), «В клубе» (membership from `club_role` guest/member plus the automatic visit count and novice-path stage), «Организация» (`club_role` team/organizer plus `judge_level`) and «Доступы» (`organizer_player_access`) — without changing the stored fields.
 
 Organizer CRM player profiles keep four independent concepts separate:

@@ -799,7 +799,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; response_status?: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered'; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; contact_kind?: 'vk' | 'telegram' | 'phone'; contact_value?: string; table_id?: string | null; response_status?: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered'; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',

@@ -1,0 +1,30 @@
+import { test, expect } from '@playwright/test';
+
+for (const width of [390, 1440]) {
+  test(`Dendi original avatar layers and four role outfits at ${width}px`, async({page},testInfo)=>{
+    await page.setViewportSize({width,height:900});
+    await page.goto('/dendi-wardrobe.html');
+    await expect(page.getByRole('heading',{name:'Гардероб'})).toBeVisible();
+    await expect(page.getByAltText('Портрет игрока')).toBeVisible();
+    await expect(page.getByRole('button',{name:'Мирный'})).toHaveAttribute('aria-pressed','true');
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1); // original suit
+    await page.locator('.dgw-slot[title="Шляпа"]').click();
+    await expect(page.getByRole('button',{name:/Черновая шляпа/})).toBeVisible();
+    await page.getByRole('button',{name:/Черновая шляпа/}).click();
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(2);
+    await page.getByRole('button',{name:'Сохранить образ'}).click();
+    await expect(page.getByRole('status')).toContainText('в этой примерке');
+    await page.getByRole('button',{name:'Дон'}).click();
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1);
+    await page.getByRole('button',{name:'Мирный'}).click();
+    await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(2);
+    await page.getByRole('button',{name:'4 роли'}).click();
+    await expect(page.getByRole('dialog',{name:'Сравнение ролей'})).toBeVisible();
+    await expect(page.locator('.dgw-four .role-portrait')).toHaveCount(4);
+    await page.getByRole('button',{name:/Закрыть/}).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.screenshot({path:testInfo.outputPath(`dendi-wardrobe-${width}.png`),fullPage:true});
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+    expect(overflow).toBe(false);
+  });
+}

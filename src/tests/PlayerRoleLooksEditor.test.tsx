@@ -13,7 +13,7 @@ it('keeps independent role drafts and saves only the selected role with its revi
   await screen.findByLabelText('Фраза');fireEvent.change(screen.getByLabelText('Фраза'),{target:{value:'Мирный текст'}});
   fireEvent.click(screen.getByRole('button',{name:/^Дон$/}));expect((screen.getByLabelText('Фраза') as HTMLInputElement).value).toBe('');
   fireEvent.change(screen.getByLabelText('Фраза'),{target:{value:'Донский текст'}});fireEvent.click(screen.getByRole('button',{name:'Сохранить: Дон'}));
-  await waitFor(()=>expect(save).toHaveBeenCalledWith('don',{phrase:'Донский текст',background:'noir',hatItemId:null,jacketItemId:null},0));
+  await waitFor(()=>expect(save).toHaveBeenCalledWith('don',{phrase:'Донский текст',background:'noir',hatItemId:null,jacketItemId:null,equippedItems:{}},0));
   fireEvent.click(screen.getByRole('button',{name:/^Мирный$/}));expect((screen.getByLabelText('Фраза') as HTMLInputElement).value).toBe('Мирный текст');
   expect((screen.getByRole('group',{name:'Головной убор'}) as HTMLFieldSetElement).disabled).toBe(true);
 });
@@ -57,4 +57,27 @@ it('previews inventory-owned garment and hat separately without changing the oth
   expect(screen.getByAltText('Портрет игрока').compareDocumentPosition(screen.getByAltText('Головной убор')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'Сохранить: Мирный'}));
   await waitFor(()=>expect(save).toHaveBeenCalledWith('civilian',expect.objectContaining({hatItemId:'hat-1',jacketItemId:'jacket-1'}),0));
+});
+
+it('exposes new owned slots independently without altering old hat or jacket slots',async()=>{
+  vi.spyOn(api,'getRoleLooks').mockResolvedValue({
+    looks:LOOK_ROLES.map(emptyRoleLook),portraitVersion:'approved-v1',layers:[
+      {itemId:'shirt-1',name:'Тестовая рубашка',slot:'portrait_shirt',url:'/cosmetics/test-shirt.svg',rarity:'common'},
+      {itemId:'hat-1',name:'Медный лист',slot:'portrait_hat',url:'/cosmetics/autumn-fedora-v1.svg',rarity:'rare'},
+      {itemId:'jacket-1',name:'Багряный пиджак',slot:'portrait_jacket',url:'/cosmetics/autumn-jacket-v1.svg',rarity:'rare'},
+    ],
+  });
+  const save=vi.spyOn(api,'saveRoleLook').mockImplementation(async(role,look)=>({...look,role,revision:1}));
+  render(<PlayerRoleLooksEditor playerId="p" nickname="Денди" initialOpen/>);
+  await screen.findByRole('group',{name:'Рубашка / основа одежды'});
+  fireEvent.click(screen.getByRole('button',{name:/Тестовая рубашка/}));
+  fireEvent.click(screen.getByRole('button',{name:/Медный лист/}));
+  expect(screen.getByAltText('Рубашка / основа одежды')).toBeTruthy();
+  expect(screen.getByAltText('Головной убор')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Сохранить: Мирный'}));
+  await waitFor(()=>expect(save).toHaveBeenCalledWith('civilian',expect.objectContaining({
+    hatItemId:'hat-1',jacketItemId:null,equippedItems:{portrait_hat:'hat-1',portrait_shirt:'shirt-1'},
+  }),0));
+  fireEvent.click(screen.getByRole('button',{name:/^Дон$/}));
+  expect(screen.getByRole('button',{name:/Тестовая рубашка/}).getAttribute('aria-pressed')).toBe('false');
 });

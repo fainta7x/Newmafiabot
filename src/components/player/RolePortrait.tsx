@@ -5,9 +5,9 @@ import './roleLooks.css';
 export default function RolePortrait({ baseUrl, background, hatUrl, jacketUrl, fallback, showGuides=false }: { baseUrl?: string | null; background: string; hatUrl?: string | null; jacketUrl?: string | null; fallback?: ReactNode; showGuides?: boolean }) {
   return <span className={`role-portrait role-portrait-${background}`}>
     {baseUrl ? <>
+      {jacketUrl && <img className="role-portrait-layer role-portrait-jacket" src={jacketUrl} alt="Пиджак" />}
       <img className="role-portrait-base" src={baseUrl} alt="Портрет игрока" />
-      {jacketUrl && <img className="role-portrait-layer" src={jacketUrl} alt="Пиджак" />}
-      {hatUrl && <img className="role-portrait-layer" src={hatUrl} alt="Головной убор" />}
+      {hatUrl && <img className="role-portrait-layer role-portrait-hat" src={hatUrl} alt="Головной убор" />}
       {showGuides&&<span className="role-portrait-guides" aria-hidden="true"><span className="role-guide-hat"/><span className="role-guide-chin"/><span className="role-guide-shoulders"/><span className="role-guide-center"/></span>}
     </> : fallback}
   </span>;

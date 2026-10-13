@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { revealVersions } from '../../lib/revealStats.ts';
 import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
 import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
+import { PORTRAIT_SLOT_ORDER, type PortraitLayer } from '../../lib/roleLooks.ts';
 import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
@@ -81,19 +82,27 @@ const BroadcastAvatar = ({ token, player }: { token: string; player: LiveBroadca
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [player.playerId, token, player.appearance?.portraitVersion]);
   const initial = player.nickname.trim().charAt(0).toLocaleUpperCase('ru-RU') || '?';
+  // Existing game snapshots may only have legacy URLs; new snapshots freeze
+  // every individual item layer at the moment the game starts.
+  const legacyLayers: PortraitLayer[] = [
+    ...(player.appearance?.jacketUrl ? [{slot:'portrait_jacket' as const,itemId:'legacy-jacket',url:player.appearance.jacketUrl}] : []),
+    ...(player.appearance?.hatUrl ? [{slot:'portrait_hat' as const,itemId:'legacy-hat',url:player.appearance.hatUrl}] : []),
+  ];
+  const equippedLayers = [...(player.appearance?.equippedLayers ?? legacyLayers)]
+    .sort((a,b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot]);
   return (
     <span className={`live-broadcast-avatar ${player.appearance?.portraitVersion ? 'has-role-portrait' : ''} role-portrait-${player.appearance?.background || 'noir'}`} aria-label={`Аватар: ${player.nickname}`}>
       {!failed && player.playerId ? (
         <img
           src={`/api/public/broadcast/${encodeURIComponent(token)}/avatar/${encodeURIComponent(player.playerId)}${player.appearance?.portraitVersion ? `?gameKey=${encodeURIComponent(player.appearance.gameKey)}&portraitVersion=${encodeURIComponent(player.appearance.portraitVersion)}` : ''}`}
           alt=""
+          className="live-broadcast-portrait-base"
           onError={() => setFailed(true)}
         />
       ) : <span aria-hidden="true">{initial}</span>}
-      {!failed && player.appearance?.portraitVersion && <>
-        {player.appearance.jacketUrl && <img className="live-broadcast-wardrobe-layer" src={player.appearance.jacketUrl} alt="" />}
-        {player.appearance.hatUrl && <img className="live-broadcast-wardrobe-layer" src={player.appearance.hatUrl} alt="" />}
-      </>}
+      {!failed && player.appearance?.portraitVersion && equippedLayers.map(item=>
+        <img key={item.slot} className="live-broadcast-wardrobe-layer" style={{zIndex: PORTRAIT_SLOT_ORDER[item.slot]+1}} src={item.url} alt="" />
+      )}
     </span>
   );
 };

@@ -7,6 +7,8 @@ import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
+import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
@@ -218,6 +220,19 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
   }
 
+  // «MVP вечера»: a post of its own once the results are out, and one reminder for those who have not voted a day later.
+  const voting = await db.all<any>(`
+    SELECT e.id, COALESCE(e.settled_at, e.updated_at) AS closed_at FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  for (const evening of voting) {
+    if (await postVotePrompt(db, String(evening.id), fetchImpl)) posted += 1;
+    const closedAt = new Date(String(evening.closed_at)).getTime();
+    if (Number.isFinite(closedAt) && now - closedAt >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
+  }
+
   // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
   const gathered = await db.all<any>(`
     SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
@@ -381,6 +396,71 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
     [key, eveningId, now, now, now],
   );
   return queued;
+}
+
+const moscowDayTime = (ms: number) => new Date(ms).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+
+/** When voting for a closed evening ends (the same three days the app and the bot use). */
+const votingDeadlineMs = (evening: any) => {
+  const base = new Date(String(evening.settled_at || evening.updated_at || evening.starts_at || '')).getTime();
+  return Number.isFinite(base) ? base + EVENING_VOTING_WINDOW_MS : 0;
+};
+
+/**
+ * «MVP вечера» was hidden (owner, 2026-10-13: people did not vote): a post of its own in the evening's Telegram group and
+ * on the VK wall once the results are out, naming the deadline and where to vote. Each channel is claimed separately.
+ */
+export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const evening = await db.get<any>('SELECT id, title, format, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed') return false;
+  const attendees = Number((await db.get<any>("SELECT COUNT(*) AS n FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.n || 0);
+  const deadline = votingDeadlineMs(evening);
+  if (attendees < 2 || deadline <= Date.now()) return false;
+  const bot = await telegramBotUsername().catch(() => null);
+  const title = String(evening.title || 'Игровой вечер');
+  const base = appUrl('/player');
+  const telegramText = [
+    `🏆 MVP вечера «${title}» — голосуем!`,
+    'Кто сыграл лучше всех? Голосовать могут те, кто был за столом: нажми на игрока — это 10 секунд.',
+    bot ? `Кнопки уже пришли тебе в личные сообщения от бота: https://t.me/${bot}` : 'Кнопки уже пришли тебе в личные сообщения от бота.',
+    `⏳ Голосование до ${moscowDayTime(deadline)}.`,
+  ].join('\n');
+  const vkText = [
+    `🏆 MVP вечера «${title}» — голосуем!`,
+    'Кто сыграл лучше всех? Голосовать могут те, кто был за столом: откройте приложение клуба — на главной карточка «MVP вечера», это 10 секунд.',
+    base ? `👉 ${base}` : '',
+    `⏳ Голосование до ${moscowDayTime(deadline)}.`,
+  ].filter(Boolean).join('\n');
+  let posted = false;
+  const telegramKey = `vote-prompt:${eveningId}`;
+  if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
+    const result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl);
+    await finish(db, telegramKey, result);
+    posted = posted || result.ok;
+  }
+  const vkKey = `vote-prompt-vk:${eveningId}`;
+  if (await claim(db, vkKey, 'vote-prompt', eveningId, null)) {
+    const result = await sendVk(vkText, { db, eveningId, format: evening.format });
+    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    posted = posted || result.status === 'published';
+  }
+  return posted;
+}
+
+/** One reminder, a day after the evening was closed, to attendees who have not voted yet. */
+export async function remindUnvotedPlayers(db: DatabaseWrapper, eveningId: string) {
+  const key = `vote-nudge:${eveningId}`;
+  const evening = await db.get<any>('SELECT id, title, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed' || votingDeadlineMs(evening) <= Date.now()) return 0;
+  if (!(await claim(db, key, 'vote-nudge', eveningId, null))) return 0;
+  try {
+    const queued = await queueEveningVoteMessages(db, eveningId, String(evening.title || 'Игровой вечер'), { nudge: true });
+    await finish(db, key, { ok: true });
+    return queued;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return 0;
+  }
 }
 
 /** 36 hours before the start (owner, 2026-10-02) the tournament announcement goes to the rating group. */

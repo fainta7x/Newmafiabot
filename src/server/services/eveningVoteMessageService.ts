@@ -24,7 +24,15 @@ const buttonLabel = (nickname: string) => {
   return clean.length > 24 ? `${clean.slice(0, 23)}…` : clean;
 };
 
-export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: string, title: string): Promise<number> {
+/**
+ * `nudge`: the reminder for attendees who have not voted yet (owner, 2026-10-13: the vote was missed). It goes through
+ * the same personal channel — buttons in Telegram, a message with the app link in VK — and never to someone who voted.
+ */
+export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: string, title: string, options: { nudge?: boolean } = {}): Promise<number> {
+  const nudge = Boolean(options.nudge);
+  const voted = nudge
+    ? new Set((await db.all<any>("SELECT voter_player_id FROM evening_player_votes WHERE evening_id = ? AND category = 'best_player'", [eveningId]).catch(() => [])).map((row: any) => String(row.voter_player_id)))
+    : new Set<string>();
   const attendees = await db.all<any>(`
     SELECT p.id, p.nickname
       FROM evening_participants ep JOIN players p ON p.id = ep.player_id
@@ -34,8 +42,22 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
   if (attendees.length < 2) return 0;
   let queued = 0;
   for (const voter of attendees) {
+    if (voted.has(String(voter.id))) continue;
     const routing = await resolvePersonalNotificationRouting(db, String(voter.id));
-    if (!routing.personal_enabled || routing.selected_channel !== 'telegram') continue;
+    if (!routing.personal_enabled || !routing.selected_channel) continue;
+    if (routing.selected_channel === 'vk') {
+      // Players reached through VK vote in the app: the message carries the link (owner, 2026-10-13).
+      if (!nudge) continue;
+      const sent = await queuePersonalNotification(db, {
+        notificationKey: `evening-vote-nudge:${eveningId}:${voter.id}`,
+        playerId: String(voter.id), eventType: 'evening_vote_nudge', entityId: eveningId,
+        text: `🏆 «${title}»: вы ещё не проголосовали за MVP вечера. Это 10 секунд — откройте приложение, главная страница, карточка «MVP вечера».`,
+        actionPath: '/player',
+      });
+      if (sent.created) queued += 1;
+      continue;
+    }
+    if (routing.selected_channel !== 'telegram') continue;
     const buttons = attendees
       .filter((other) => String(other.id) !== String(voter.id))
       .flatMap((other) => {
@@ -46,11 +68,11 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
     const rows: Array<typeof buttons> = [];
     for (let index = 0; index < buttons.length; index += 2) rows.push(buttons.slice(index, index + 2));
     const result = await queuePersonalNotification(db, {
-      notificationKey: `evening-vote:${eveningId}:${voter.id}`,
+      notificationKey: `${nudge ? 'evening-vote-nudge' : 'evening-vote'}:${eveningId}:${voter.id}`,
       playerId: String(voter.id),
-      eventType: 'evening_vote',
+      eventType: nudge ? 'evening_vote_nudge' : 'evening_vote',
       entityId: eveningId,
-      text: `🏆 «${title}»: кто сыграл лучше всех?\nНажми на игрока — это твой голос за «Игрока вечера». Передумал? Нажми на другого, голос заменится. Голосование открыто 3 дня.`,
+      text: `${nudge ? '⏰ Ты ещё не проголосовал.\n' : ''}🏆 «${title}»: кто сыграл лучше всех?\nНажми на игрока — это твой голос за «Игрока вечера». Передумал? Нажми на другого, голос заменится. Голосование открыто 3 дня.`,
       telegramReplyMarkup: { inline_keyboard: rows },
     });
     if (result.created) queued += 1;

@@ -38,11 +38,27 @@ describe('guest pre-registration with a contact', () => {
     expect(guestContactHref('vk', '')).toBeNull();
   });
 
-  it('keeps «+N» for the guest and counts those seats in the evening list', async () => {
+  it('makes every «+N» a roster row linked to the guest and keeps the rows in step', async () => {
     const guest = await createGuestPlaceholder(db, { eveningId: 'e1', displayName: 'Иван', responseStatus: 'going', plusCount: 2 });
-    expect(guest.plus_count).toBe(2);
+    const rows = async () => db.all<any>("SELECT id, display_name, companion_of, response_status FROM guest_player_placeholders WHERE evening_id = 'e1' ORDER BY created_at, id");
+    let all = await rows();
+    expect(all.map((row) => row.display_name).sort()).toEqual(['Иван', 'Иван +1', 'Иван +2']);
+    expect(all.filter((row) => row.companion_of === guest.id).length).toBe(2);
     expect((await updateGuestPlaceholder(db, guest.id, { plus_count: 99 }))?.plus_count).toBe(10);
-    const row = await db.get<any>("SELECT COALESCE(SUM(1 + plus_count), 0) AS seats FROM guest_player_placeholders WHERE evening_id = 'e1' AND response_status IN ('going','late')");
-    expect(row.seats).toBe(11);
+    expect((await rows()).length).toBe(11);
+    expect((await updateGuestPlaceholder(db, guest.id, { plus_count: 1 }))?.plus_count).toBe(1);
+    all = await rows();
+    expect(all.length).toBe(2);
+    await updateGuestPlaceholder(db, guest.id, { response_status: 'declined' });
+    expect((await rows()).every((row) => row.response_status === 'declined')).toBe(true);
+    const companion = all.find((row) => row.companion_of === guest.id)!;
+    expect((await updateGuestPlaceholder(db, companion.id, { nickname: 'Пётр' }))?.nickname).toBe('Пётр');
+  });
+
+  it('gives guests saved before the change their «+N» rows when the evening is listed', async () => {
+    const guest = await createGuestPlaceholder(db, { eveningId: 'e1', displayName: 'Анна', responseStatus: 'going' });
+    await db.run('UPDATE guest_player_placeholders SET plus_count = 1 WHERE id = ?', [guest.id]);
+    const listed = await listGuestPlaceholdersForEvening(db, 'e1');
+    expect(listed.map((row: any) => row.nickname).sort()).toEqual(['Анна', 'Анна +1']);
   });
 });

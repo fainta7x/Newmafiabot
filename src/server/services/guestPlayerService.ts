@@ -29,6 +29,7 @@ export const serializeGuestPlaceholder = (row: any) => ({
   contact_kind: row.contact_kind || null,
   contact_value: row.contact_value || null,
   plus_count: normalizeGuestPlus(row.plus_count),
+  companion_of: row.companion_of ? String(row.companion_of) : null,
   lifecycle_status: 'guest_placeholder',
   elo: null,
   is_guest: true,
@@ -38,8 +39,54 @@ export const serializeGuestPlaceholder = (row: any) => ({
     : row.attendance_status === 'no_show' ? 'no_show' : 'pending',
 });
 
+/**
+ * «+N» of a guest are people too (owner, 2026-10-13): each one is a roster row of its own («Иван +1») linked to the
+ * guest by `companion_of`. This makes the rows match the guest's `plus_count`: missing ones are created with the guest's
+ * answer, table and price; extra ones are removed unless the person already arrived or sits in a game.
+ */
+export async function syncGuestCompanions(db: DatabaseWrapper, hostId: string) {
+  const host = await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [hostId]);
+  if (!host || host.companion_of) return;
+  const want = normalizeGuestPlus(host.plus_count);
+  const companions = await db.all<any>('SELECT * FROM guest_player_placeholders WHERE companion_of = ? AND replaced_at IS NULL ORDER BY created_at ASC, id ASC', [hostId]);
+  const now = new Date().toISOString();
+  const hostName = String(host.display_name || '').trim() || 'Гость';
+  const due = Math.max(0, Number(host.amount_due || 0));
+  const kept = [...companions];
+  while (kept.length < want) {
+    const taken = new Set(kept.map((item) => String(item.display_name)));
+    let number = kept.length + 1;
+    while (taken.has(`${hostName} +${number}`)) number += 1;
+    const id = crypto.randomUUID();
+    const response = ['going', 'late', 'thinking', 'declined', 'unanswered'].includes(String(host.response_status)) ? String(host.response_status) : 'unanswered';
+    await db.run(`
+      INSERT INTO guest_player_placeholders (
+        id, evening_id, display_name, table_id, response_status, registration_status,
+        attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes,
+        registered_at, confirmed_at, created_at, updated_at, plus_count, companion_of
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, 0, NULL, ?, ?, ?, ?, 0, ?)
+    `, [id, host.evening_id, `${hostName} +${number}`, host.table_id || null, response, response, due === 0 ? 'waived' : 'unpaid', due, now, response === 'going' || response === 'late' ? now : null, now, now, hostId]);
+    kept.push({ id, display_name: `${hostName} +${number}`, attendance_status: 'pending' });
+  }
+  while (kept.length > want) {
+    const last = kept[kept.length - 1];
+    const playing = await db.get<any>('SELECT 1 FROM games WHERE evening_id = ? AND (slots_json LIKE ? OR protocol_text LIKE ?) LIMIT 1', [host.evening_id, `%${last.id}%`, `%${last.id}%`]);
+    if (String(last.attendance_status || 'pending') !== 'pending' || playing) break;
+    await db.run('DELETE FROM guest_player_placeholders WHERE id = ?', [last.id]);
+    kept.pop();
+  }
+  if (kept.length !== normalizeGuestPlus(host.plus_count)) await db.run('UPDATE guest_player_placeholders SET plus_count = ?, updated_at = ? WHERE id = ?', [kept.length, now, hostId]);
+}
+
 export async function listGuestPlaceholdersForEvening(db: DatabaseWrapper, eveningId: string) {
   await ensureGuestPlayerPlaceholderSchema(db);
+  // Guests saved before «+N» became rows get their rows here, once.
+  const lacking = await db.all<any>(`
+    SELECT h.id FROM guest_player_placeholders h
+     WHERE h.evening_id = ? AND h.replaced_at IS NULL AND h.companion_of IS NULL AND h.plus_count > 0
+       AND h.plus_count > (SELECT COUNT(*) FROM guest_player_placeholders c WHERE c.companion_of = h.id AND c.replaced_at IS NULL)
+  `, [eveningId]);
+  for (const row of lacking) await syncGuestCompanions(db, String(row.id));
   const rows = await db.all<any>('SELECT * FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL ORDER BY created_at ASC, id ASC', [eveningId]);
   return rows.map(serializeGuestPlaceholder);
 }
@@ -76,6 +123,7 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
       registered_at, confirmed_at, created_at, updated_at, contact_kind, contact_value, plus_count
     ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [id,input.eveningId,displayName,input.tableId || null,responseStatus,responseStatus,paymentStatus,due,paid,input.notes || null,now,responseStatus === 'going' || responseStatus === 'late' ? now : null,now,now,cleanContact.kind,cleanContact.value,normalizeGuestPlus(input.plusCount)]);
+  await syncGuestCompanions(db, id);
   return serializeGuestPlaceholder(await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [id]));
 }
 
@@ -107,8 +155,20 @@ export async function updateGuestPlaceholder(db: DatabaseWrapper, guestId: strin
     fields.push('updated_at = ?'); values.push(new Date().toISOString(), guestId);
     await db.run(`UPDATE guest_player_placeholders SET ${fields.join(', ')} WHERE id = ?`, values);
   }
-  if (patch.plus_count !== undefined) {
-    await db.run('UPDATE guest_player_placeholders SET plus_count = ?, updated_at = ? WHERE id = ?', [normalizeGuestPlus(patch.plus_count), new Date().toISOString(), guestId]);
+  if (patch.nickname !== undefined && String(patch.nickname).trim()) {
+    await db.run('UPDATE guest_player_placeholders SET display_name = ?, updated_at = ? WHERE id = ?', [String(patch.nickname).trim().slice(0, 80), new Date().toISOString(), guestId]);
+  }
+  if (!current.companion_of) {
+    if (patch.plus_count !== undefined) {
+      await db.run('UPDATE guest_player_placeholders SET plus_count = ?, updated_at = ? WHERE id = ?', [normalizeGuestPlus(patch.plus_count), new Date().toISOString(), guestId]);
+    }
+    // The people who come with the guest follow the guest's answer and table, unless they are already at the club.
+    if (patch.response_status !== undefined || patch.table_id !== undefined) {
+      await db.run(`UPDATE guest_player_placeholders SET ${patch.response_status !== undefined ? 'response_status = ?, registration_status = ?,' : ''} ${patch.table_id !== undefined ? 'table_id = ?,' : ''} updated_at = ?
+                     WHERE companion_of = ? AND attendance_status = 'pending'`,
+        [...(patch.response_status !== undefined ? [patch.response_status, patch.response_status] : []), ...(patch.table_id !== undefined ? [patch.table_id || null] : []), new Date().toISOString(), guestId]);
+    }
+    await syncGuestCompanions(db, guestId);
   }
   if (patch.contact_kind !== undefined || patch.contact_value !== undefined) {
     const contact = normalizeGuestContact(patch.contact_kind, patch.contact_value);

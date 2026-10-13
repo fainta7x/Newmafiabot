@@ -77,10 +77,11 @@ async function ensureSchema(db: DatabaseWrapper) {
       updated_at TEXT NOT NULL
     )
   `);
-  // How to reach a pre-registered guest (VK, Telegram or phone) and «+N» people they bring (owner, 2026-10-13).
+  // How to reach a pre-registered guest (VK, Telegram or phone) and «+N» people they bring (owner, 2026-10-13):
+  // every «+1» is a roster row of its own, linked to the guest it comes with by `companion_of`.
   // Added to old databases lazily; two concurrent callers may both try, the second «duplicate column» is harmless.
   const guestColumns = await db.all<any>('PRAGMA table_info(guest_player_placeholders)');
-  for (const [column, ddl] of [['contact_kind', 'TEXT'], ['contact_value', 'TEXT'], ['plus_count', 'INTEGER NOT NULL DEFAULT 0']] as const) {
+  for (const [column, ddl] of [['contact_kind', 'TEXT'], ['contact_value', 'TEXT'], ['plus_count', 'INTEGER NOT NULL DEFAULT 0'], ['companion_of', 'TEXT']] as const) {
     if (guestColumns.some((item: any) => item.name === column)) continue;
     try { await db.run(`ALTER TABLE guest_player_placeholders ADD COLUMN ${column} ${ddl}`); }
     catch (error: any) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }

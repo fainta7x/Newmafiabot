@@ -80,11 +80,11 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
   // Guests without a profile (leads) come too; «+N» are the people they bring.
   await ensureGuestPlayerPlaceholderSchema(db);
   const guests = await db.all<any>(
-    "SELECT id, display_name AS nickname, response_status, plus_count FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late') ORDER BY created_at",
+    "SELECT id, display_name AS nickname, response_status FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late') ORDER BY created_at",
     [eveningId],
   );
-  const guestLines = guests.map((guest: any) => `${String(guest.nickname || 'Гость')}${Number(guest.plus_count) ? ` +${Number(guest.plus_count)}` : ''}${guest.response_status === 'late' ? ' (подойдёт позже)' : ''}`);
-  const comingTotal = coming.length + guests.reduce((sum: number, guest: any) => sum + 1 + Number(guest.plus_count || 0), 0);
+  const guestLines = guests.map((guest: any) => `${String(guest.nickname || 'Гость')}${guest.response_status === 'late' ? ' (подойдёт позже)' : ''}`);
+  const comingTotal = coming.length + guests.length;
   const roster = coming.map((item: any, index: number) => {
     const from = firstGame.get(String(item.player_id));
     const note = getEveningResponse(item) === 'late' ? ' (подойдёт позже)' : from && chosen && from > chosen.slot_number ? ` (с ${from}-й игры)` : '';

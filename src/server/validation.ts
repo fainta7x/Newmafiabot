@@ -54,7 +54,7 @@ export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(), registration_status: legacyRegistrationStatusSchema.optional(), attendance_fact: eveningAttendanceFactSchema.optional(),
   attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(), arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(), payment_status: z.enum(['unpaid', 'partial', 'paid', 'waived']).optional(), amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).optional(), notes: z.string().nullable().optional(),
-  contact_kind: z.enum(['vk', 'telegram', 'phone']).nullable().optional(), contact_value: z.string().max(120).nullable().optional(), plus_count: z.number().int().min(0).max(10).optional(),
+  contact_kind: z.enum(['vk', 'telegram', 'phone']).nullable().optional(), contact_value: z.string().max(120).nullable().optional(), plus_count: z.number().int().min(0).max(10).optional(), nickname: z.string().trim().min(1).max(80).optional(),
 });
 
 const playerPhoneSchema = z.string().nullable().optional().refine((value) => {

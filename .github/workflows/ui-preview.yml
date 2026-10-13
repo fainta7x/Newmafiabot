@@ -12,6 +12,7 @@ on:
       - 'scripts/buildDendiPortraitLayers.mjs'
       - 'scripts/buildDendiWardrobePreview.mjs'
       - 'scripts/buildDendiRigPilot.mjs'
+      - 'scripts/exportDendiRigAssets.mjs'
       - 'public/character-editor/**'
       - 'vite.config.ts'
       - 'package*.json'
@@ -49,6 +50,8 @@ jobs:
         run: node scripts/buildDendiWardrobePreview.mjs temp/ui-preview/dendi-wardrobe.html
       - name: Package playable Dendi rig editor
         run: node scripts/buildDendiRigPilot.mjs temp/ui-preview/dendi-skin.html
+      - name: Export Dendi rig as independently removable PNG layers
+        run: node scripts/exportDendiRigAssets.mjs temp/ui-preview/dendi-rig-assets
       - name: Check mobile screens
         run: npx playwright test --config playwright-preview.config.mjs
         working-directory: e2e

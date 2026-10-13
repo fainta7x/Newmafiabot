@@ -13,6 +13,7 @@ const errorText = (error: unknown) => {
 export type RoleLooksClient = Pick<typeof api, 'getRoleLooks' | 'saveRoleLook' | 'approvePlayerPortrait'>;
 export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false, client=api, portraitUrl }: { playerId:string; nickname:string; initialOpen?:boolean; client?:RoleLooksClient; portraitUrl?:(version:string)=>string }) {
   const [open,setOpen]=useState(initialOpen), [role,setRole]=useState<LookRole>('civilian');
+  const [previewMode,setPreviewMode]=useState<'all'|'hat'|'jacket'>('all');
   const [state,setState]=useState<RoleLooksResponse|null>(null), [drafts,setDrafts]=useState<RoleLook[]>([]);
   const [error,setError]=useState(''), [notice,setNotice]=useState(''), [saving,setSaving]=useState(false), [reload,setReload]=useState(0);
   const loadedKey=useRef('');
@@ -58,9 +59,14 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
       {!state&&!error&&<p role="status">Загружаем образы…</p>}
       {look&&state&&<>
         <div className="role-looks-preview" data-testid="role-look-preview">
-          <RolePortrait background={look.background} baseUrl={state.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null} hatUrl={state.layers.find(l=>l.itemId===look.hatItemId)?.url} jacketUrl={state.layers.find(l=>l.itemId===look.jacketItemId)?.url} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
+          <RolePortrait background={look.background} baseUrl={state.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null} hatUrl={previewMode!=='jacket'?state.layers.find(l=>l.itemId===look.hatItemId)?.url:null} jacketUrl={previewMode!=='hat'?state.layers.find(l=>l.itemId===look.jacketItemId)?.url:null} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
           <strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[role]}</span>{look.phrase&&<p className="role-looks-phrase">{look.phrase}</p>}
         </div>
+        {state.portraitVersion&&<div className="role-looks-isolation" role="group" aria-label="Режим примерки">
+          <span>Проверить посадку:</span>
+          {([['all','Весь образ'],['hat','Только шляпа'],['jacket','Только одежда']] as const).map(([mode,label])=><button type="button" key={mode} aria-pressed={previewMode===mode} onClick={()=>setPreviewMode(mode)}>{label}</button>)}
+          <p>Режим проверки временно скрывает другие слои только в предпросмотре. Сохранённые предметы не меняются.</p>
+        </div>}
         <label>Фраза<input maxLength={64} value={look.phrase} disabled={saving} onChange={e=>update({phrase:plainPhrase(e.target.value)})} placeholder="Ваша короткая фраза"/></label>
         <label>Фон<select aria-label="Фон" value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
         {(['hatItemId','jacketItemId'] as const).map(field=>{

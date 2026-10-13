@@ -1,6 +1,6 @@
 /** Stable renderer contract. Draft artwork is not a reward or an active season. */
 export const COSMETIC_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'] as const;
-export const COSMETIC_SLOTS = ['profile_frame', 'profile_cover', 'poker_table', 'poker_card_back', 'seat_accent', 'broadcast_accent', 'emote', 'portrait_hat', 'portrait_jacket'] as const;
+export const COSMETIC_SLOTS = ['profile_frame', 'profile_cover', 'poker_table', 'poker_card_back', 'seat_accent', 'broadcast_accent', 'emote', 'portrait_hat', 'portrait_jacket', 'portrait_shirt', 'portrait_vest', 'portrait_neckwear', 'portrait_accessory'] as const;
 export type CosmeticRarity = typeof COSMETIC_RARITIES[number];
 export type CosmeticSlot = typeof COSMETIC_SLOTS[number];
 export const COSMETIC_ASSETS = {

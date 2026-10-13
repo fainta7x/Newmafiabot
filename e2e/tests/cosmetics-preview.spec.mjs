@@ -51,7 +51,11 @@ for (const width of [360, 390, 1440]) {
     await editor.getByLabel('Фраза', { exact: true }).fill('Оченьдлиннаяфразабезпробелов'.repeat(2));
     await editor.getByLabel('Фон', { exact: true }).selectOption('autumn');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(editor.getByRole('group', { name: 'Головной убор' })).toBeDisabled();
+    const lockedHat = editor.getByRole('group', { name: 'Головной убор' });
+    // Playwright may report the FIELDSET itself enabled; verify its actual disabled attribute
+    // and the user-facing button it disables while the portrait base is unapproved.
+    await expect(lockedHat).toHaveAttribute('disabled', '');
+    await expect(lockedHat.getByRole('button', { name: 'Без предмета' })).toBeDisabled();
     await editor.screenshot({ path: testInfo.outputPath(`role-looks-editor-${width}.png`) });
   });
 }

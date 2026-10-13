@@ -77,6 +77,13 @@ async function ensureSchema(db: DatabaseWrapper) {
       updated_at TEXT NOT NULL
     )
   `);
+  // How to reach a pre-registered guest: VK, Telegram or phone (owner, 2026-10-13). Added to old databases lazily.
+  const guestColumns = await db.all<any>('PRAGMA table_info(guest_player_placeholders)');
+  for (const column of ['contact_kind', 'contact_value']) {
+    if (!guestColumns.some((item: any) => item.name === column)) await db.run(`ALTER TABLE guest_player_placeholders ADD COLUMN ${column} TEXT`);
+  }
+  // «+1»: people the guest brings along; they take seats but are not separate people in the club (owner, 2026-10-13).
+  if (!guestColumns.some((item: any) => item.name === 'plus_count')) await db.run('ALTER TABLE guest_player_placeholders ADD COLUMN plus_count INTEGER NOT NULL DEFAULT 0');
   await db.run('CREATE INDEX IF NOT EXISTS idx_guest_placeholders_evening ON guest_player_placeholders(evening_id, created_at)');
   await db.run('CREATE INDEX IF NOT EXISTS idx_guest_placeholders_legacy_player ON guest_player_placeholders(legacy_player_id)');
 

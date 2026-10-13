@@ -43,4 +43,16 @@ describe('«На этой неделе» on «Сегодня»', () => {
     fireEvent.click(screen.getByText('Вечер club'));
     expect(openEvening).toHaveBeenCalledWith('club');
   });
+
+  it('colours each row by its format, the same colours as the calendar', async () => {
+    render(<WeekEventsPanel now={NOW} onOpenEvening={vi.fn()} onOpenTournament={vi.fn()} evenings={[
+      evening('novice', 'NOVICE', 1), evening('club', 'CASUAL', 2), evening('rating', 'RATING', 3),
+    ]} />);
+    await waitFor(() => expect(screen.getAllByTestId('crm-week-event').length).toBeGreaterThanOrEqual(3));
+    const rowOf = (title: string) => screen.getByText(title).closest('button')!.className;
+    expect(rowOf('Вечер novice')).toContain('border-l-sky-300');
+    expect(rowOf('Вечер club')).toContain('border-l-emerald-300');
+    expect(rowOf('Вечер rating')).toContain('border-l-amber-300');
+    expect(rowOf('Турнир Богдана')).toContain('border-l-violet-300');
+  });
 });

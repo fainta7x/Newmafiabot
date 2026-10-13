@@ -5,9 +5,7 @@ import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensurePlayerProfileMergeSchema } from '../../db/ensurePlayerProfileMergeSchema.ts';
 import { loadPresence } from './presenceService.ts';
-import { loadPersonalNotificationPreference } from './personalNotificationRouterService.ts';
-import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
-import { telegramTextWithAction } from './personalNotificationText.ts';
+import { loadPersonalNotificationPreference, queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 import { vkCommunityApi } from './vkCommunityApiService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
@@ -39,7 +37,7 @@ const inviteTargetAvailable = (row: any) => Boolean(
 );
 
 export class PokerInviteError extends Error {
-  constructor(public code: 'cooldown' | 'no_telegram' | 'notifications_disabled' | 'player_not_found', message: string, public retryAfterSeconds = 0) {
+  constructor(public code: 'cooldown' | 'no_channel' | 'notifications_disabled' | 'player_not_found', message: string, public retryAfterSeconds = 0) {
     super(message);
   }
 }
@@ -140,7 +138,7 @@ export async function loadPokerInviteCandidates(
       vk_status_available: vk.available,
       telegram_linked: Boolean(row.telegram_user_id),
       personal_notifications_enabled: Number(row.personal_enabled) !== 0,
-      can_invite: Boolean(row.telegram_user_id) && Number(row.personal_enabled) !== 0 && cooldownSeconds === 0,
+      can_invite: Boolean(row.telegram_user_id || vkId) && Number(row.personal_enabled) !== 0 && cooldownSeconds === 0,
       invite_cooldown_seconds: cooldownSeconds,
     };
   });
@@ -175,7 +173,9 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   );
   if (!target) throw new PokerInviteError('player_not_found', 'Игрок не найден.');
   if (!inviteTargetAvailable(target)) throw new PokerInviteError('player_not_found', 'Игрок недоступен для приглашения.');
-  if (!target.telegram_user_id) throw new PokerInviteError('no_telegram', 'У игрока не подключён Telegram.');
+  // Telegram first; a player who only has VK gets the invite from the club's VK community (owner, 2026-10-13).
+  const routing = await resolvePersonalNotificationRouting(db, input.targetPlayerId);
+  if (!routing.available_channels.length) throw new PokerInviteError('no_channel', 'У игрока не подключены ни Telegram, ни ВКонтакте.');
 
   const preference = await loadPersonalNotificationPreference(db, input.targetPlayerId);
   if (!preference.personal_enabled) {
@@ -207,18 +207,16 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
     const remaining = POKER_INVITE_COOLDOWN_MS - Math.max(0, now - new Date(String(latest?.created_at || createdAt)).getTime());
     throw new PokerInviteError('cooldown', 'Этого игрока уже звали. Можно повторить через пару минут.', Math.max(1, Math.ceil(remaining / 1000)));
   }
-  await enqueueTelegramMessage(db, {
-    messageKey: `poker-invite:${id}`,
-    category: 'personal',
+  const { delivery } = await queuePersonalNotification(db, {
+    notificationKey: `poker-invite:${id}`,
+    playerId: input.targetPlayerId,
     eventType: 'poker_invite',
     entityId: input.lobbyId,
-    playerId: input.targetPlayerId,
-    chatId: String(target.telegram_user_id),
-    text: telegramTextWithAction(rawText, actionPath, Boolean(replyMarkup)),
-    replyMarkup,
+    text: rawText,
+    actionPath,
+    telegramReplyMarkup: replyMarkup,
   });
-  kickTelegramMessageOutbox(db);
   await db.run('DELETE FROM poker_invites WHERE created_at < ?', [new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()]);
 
-  return { id, target_player_id: String(target.id), cooldown_seconds: Math.ceil(POKER_INVITE_COOLDOWN_MS / 1000) };
+  return { id, target_player_id: String(target.id), channel: (delivery?.selected_channel as 'telegram' | 'vk' | null) || routing.selected_channel, cooldown_seconds: Math.ceil(POKER_INVITE_COOLDOWN_MS / 1000) };
 }

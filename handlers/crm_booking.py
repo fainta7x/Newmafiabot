@@ -51,6 +51,14 @@ def _numbered_stats_block(title: str, players: list[str], start: int = 1) -> tup
     return "\n".join(lines), start + len(players)
 
 
+def _guest_plus(participant: dict) -> int:
+    """«+N»: people a guest brings along (only guests have it)."""
+    try:
+        return max(0, min(10, int(participant.get("plus_count") or 0))) if participant.get("is_guest") else 0
+    except (TypeError, ValueError):
+        return 0
+
+
 async def build_crm_evening_stats_text(evening_id: str) -> str | None:
     """Build the legacy participant list from canonical CRM state only."""
     result = await get_evening_participants(evening_id)
@@ -62,14 +70,18 @@ async def build_crm_evening_stats_text(evening_id: str) -> str | None:
     participants = payload.get("participants") or []
 
     grouped = {status: [] for status in _RESPONSE_LABELS}
+    extra = {"going": 0, "late": 0, "thinking": 0}  # the «+N» people guests bring
     for participant in participants:
         status = str(participant.get("response_status") or "")
         if status not in grouped:
             continue
-        nickname = escape(str(participant.get("nickname") or "Игрок без профиля"))
-        grouped[status].append(nickname)
+        plus = _guest_plus(participant)
+        label = str(participant.get("nickname") or "Игрок без профиля") + (f" +{plus}" if plus else "")
+        grouped[status].append(escape(label))
+        if status in extra:
+            extra[status] += plus
 
-    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
+    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"]) + sum(extra.values())
     title = escape(str(evening.get("title") or "Игровой вечер"))
     starts = _format_start(evening.get("starts_at"))
 

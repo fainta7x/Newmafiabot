@@ -1,3 +1,4 @@
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
@@ -162,12 +163,15 @@ router.post('/players/link-telegram', async (req, res) => {
 router.get('/evenings/open', async (req, res) => {
   try {
     const db = req.db;
+    await ensureGuestPlayerPlaceholderSchema(db);
     const evenings = await db.all(
       `SELECT
          e.id, e.title, e.starts_at, e.ends_at, e.timezone, e.venue,
          e.format, e.status, e.capacity, e.default_price, e.notes,
-         (SELECT COUNT(*) FROM evening_participants ep
-           WHERE ep.evening_id = e.id AND ep.response_status IN ('going', 'late')) AS attending_count,
+         ((SELECT COUNT(*) FROM evening_participants ep
+           WHERE ep.evening_id = e.id AND ep.response_status IN ('going', 'late'))
+          + (SELECT COALESCE(SUM(1 + gp.plus_count), 0) FROM guest_player_placeholders gp
+           WHERE gp.evening_id = e.id AND gp.replaced_at IS NULL AND gp.response_status IN ('going', 'late'))) AS attending_count,
          (SELECT COUNT(*) FROM evening_participants ep
            WHERE ep.evening_id = e.id AND ep.response_status = 'thinking') AS thinking_count,
          (SELECT COUNT(*) FROM evening_participants ep
@@ -224,8 +228,19 @@ router.get('/evenings/:eveningId/participants', async (req, res) => {
        ORDER BY ep.created_at ASC`,
       [req.params.eveningId],
     );
+    // Guests without a profile (leads) are in the lineup too, with «+N» for the people they bring.
+    await ensureGuestPlayerPlaceholderSchema(db);
+    const guests = await db.all<any>(
+      `SELECT id, display_name AS nickname, response_status, registration_status, attendance_status, arrival_status,
+              payment_status, amount_due, amount_paid, registered_at, confirmed_at, updated_at, plus_count
+         FROM guest_player_placeholders
+        WHERE evening_id = ? AND replaced_at IS NULL
+        ORDER BY created_at ASC`,
+      [req.params.eveningId],
+    );
+    const lineup = [...participants, ...guests.map((guest: any) => ({ ...guest, player_id: null, telegram_user_id: null, is_guest: true }))];
 
-    res.json({ evening, participants });
+    res.json({ evening, participants: lineup });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить состав вечера' });
   }

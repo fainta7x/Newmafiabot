@@ -121,7 +121,7 @@ describe('canonical runtime contracts', () => {
     expect(guard).toContain('"admin_evenings_history"');
     expect(guard).toContain('"/shop"');
     expect(guard).toContain('"✏️ Редактировать"');
-    expect(guard).toContain('Эта старая кнопка отключена');
+    expect(guard).toContain('Эта кнопка устарела');
   });
 
   it('finalizes old Telegram evening posts instead of leaving active buttons behind', () => {

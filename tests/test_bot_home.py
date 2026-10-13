@@ -354,3 +354,68 @@ def test_staff_view_offers_cabinet_status_and_back(monkeypatch):
     _, markup = bot_home.staff_view()
     flat = [t for row in _texts(markup) for t in row]
     assert "🗂 Кабинет организатора" in flat and "🩺 Состояние приложения" in flat and "⬅️ Назад" in flat
+
+
+def test_legacy_menus_return_the_short_keyboard_too():
+    import keyboards
+    for build in (keyboards.main_menu, keyboards.main_menu_judge, keyboards.main_menu_admin):
+        assert [[b.text for b in row] for row in build().keyboard] == [["🎭 Открыть 2LA Noire", "📋 Меню"]]
+
+
+def test_retired_buttons_answer_in_plain_words_and_swap_the_old_keyboard():
+    import asyncio
+    from handlers import legacy_retired_actions as retired
+
+    class FakeMessage:
+        def __init__(self):
+            self.sent = []
+
+        async def answer(self, text, reply_markup=None, **kwargs):
+            self.sent.append((text, reply_markup))
+
+    for send in (retired._send_player_app, retired._send_admin_crm):
+        message = FakeMessage()
+        asyncio.run(send(message))
+        text, markup = message.sent[0]
+        assert "legacy" not in text.lower() and "устарела" in text
+        assert [[b.text for b in row] for row in markup.keyboard] == [["🎭 Открыть 2LA Noire", "📋 Меню"]]
+
+
+def test_player_command_list_hides_organizer_commands():
+    import asyncio
+    import commands
+
+    calls = []
+
+    class FakeBot:
+        async def set_my_commands(self, items, scope=None):
+            calls.append((sorted(item.command for item in items), scope))
+
+        async def set_my_description(self, *_):
+            pass
+
+        async def set_my_short_description(self, *_):
+            pass
+
+    asyncio.run(commands.setup_bot_commands(FakeBot()))
+    default = calls[0][0]
+    assert "crm" not in default and "cabinet" not in default and "start" in default
+
+
+def test_telegram_lineup_counts_guests_with_their_plus(monkeypatch):
+    import asyncio
+    from handlers import crm_booking
+
+    async def fake(_evening_id):
+        return {"success": True, "data": {
+            "evening": {"title": "Вечер", "starts_at": "2026-10-16T18:00:00Z"},
+            "participants": [
+                {"nickname": "Лиса", "response_status": "going"},
+                {"nickname": "Иван", "response_status": "going", "is_guest": True, "plus_count": 1},
+            ],
+        }}
+
+    monkeypatch.setattr(crm_booking, "get_evening_participants", fake)
+    text = asyncio.run(crm_booking.build_crm_evening_stats_text("e1"))
+    assert "Иван +1" in text
+    assert "Идут / думают: <b>3</b>" in text

@@ -2,6 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
+import bot_menu
 import config
 from status_check import check_application_status, format_status_message
 
@@ -51,7 +52,7 @@ async def application_status(message: Message):
     if not message.from_user or message.from_user.id not in config.ADMIN_IDS:
         return
     status = await check_application_status()
-    await message.answer(format_status_message(status), parse_mode="HTML")
+    await message.answer(format_status_message(status), parse_mode="HTML", reply_markup=bot_menu.main_menu_for_user())
 
 
 @router.message(lambda message: message.text == "🩺 Проверить состояние приложения")
@@ -59,4 +60,4 @@ async def application_status_button(message: Message):
     if not message.from_user or message.from_user.id not in config.ADMIN_IDS:
         return
     status = await check_application_status()
-    await message.answer(format_status_message(status), parse_mode="HTML")
+    await message.answer(format_status_message(status), parse_mode="HTML", reply_markup=bot_menu.main_menu_for_user())

@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, Trophy } from 'lucide-react';
 import { api, type GameEvening, type Tournament } from '../../lib/api.ts';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { kindOfFormat, kindRow, kindTone, type EventKind } from '../../lib/eventKind.ts';
 
 const DAY = 86_400_000;
 // An evening that started a few hours ago is still «this week's» work (it may be running now).
 const STARTED_GRACE = 6 * 3_600_000;
 
-type Item = { key: string; id: string; title: string; startsAt: string; label: string; draft: boolean; tournament: boolean };
+type Item = { key: string; id: string; title: string; startsAt: string; label: string; draft: boolean; tournament: boolean; kind: EventKind };
 
 const when = (value: string) => new Date(value).toLocaleString('ru-RU', {
   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
@@ -48,7 +49,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       if (evening.status !== 'active' && !inWeek(evening.starts_at)) continue;
       result.push({
         key: `evening-${evening.id}`, id: evening.id, title: evening.title, startsAt: evening.starts_at,
-        label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false,
+        label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false, kind: kindOfFormat(evening.format),
       });
     }
     for (const tournament of includeTournaments ? tournaments : []) {
@@ -57,7 +58,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       if (status !== 'active' && !inWeek(tournament.date)) continue;
       result.push({
         key: `tournament-${tournament.id}`, id: tournament.id, title: tournament.title, startsAt: tournament.date,
-        label: 'Турнир', draft: false, tournament: true,
+        label: 'Турнир', draft: false, tournament: true, kind: 'TOURNAMENT',
       });
     }
     return result.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -70,11 +71,11 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       <div className="crm-week-list mt-2 space-y-1.5">
         {items.map((item) => (
           <button key={item.key} type="button" data-testid="crm-week-event" onClick={() => (item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id))}
-            className="flex min-h-16 w-full items-center gap-2 rounded-[12px] bg-surface-2 px-3 py-2.5 text-left active:opacity-90">
+            className={`flex min-h-16 w-full items-center gap-2 rounded-[12px] bg-surface-2 px-3 py-2.5 text-left active:opacity-90 ${kindRow(item.kind)}`}>
             {item.tournament ? <Trophy className="h-4 w-4 shrink-0 text-warning" /> : null}
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[14px] text-text-primary">{item.title}</strong>
-              <span className="block truncate text-[12px] text-text-muted">{when(item.startsAt)} · {item.label}{item.draft ? ' · черновик' : ''}</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-text-muted"><span>{when(item.startsAt)}</span><span className={`rounded-md border px-1.5 py-0.5 font-semibold ${kindTone(item.kind)}`}>{item.label}</span>{item.draft ? <span>черновик</span> : null}</span>
             </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
           </button>

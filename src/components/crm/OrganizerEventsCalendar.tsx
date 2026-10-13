@@ -1,3 +1,4 @@
+import { kindLabel, kindOfFormat, kindTone } from '../../lib/eventKind.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { api, type GameEvening, type Tournament } from '../../lib/api.ts';
@@ -24,22 +25,9 @@ const FILTERS: Array<{ id: Filter; label: string }> = [
   { id: 'TOURNAMENT', label: 'Турниры' },
 ];
 
-const kindOfEvening = (format: string): CalendarItem['kind'] => {
-  const value = String(format || '').toUpperCase();
-  if (value.includes('NOV')) return 'NOVICE';
-  if (value.includes('RAT')) return 'RATING';
-  if (value.includes('TOUR')) return 'TOURNAMENT';
-  return 'CASUAL';
-};
-
-const tone = (kind: CalendarItem['kind']) => {
-  if (kind === 'NOVICE') return 'border-sky-300/15 bg-sky-300/[0.09] text-sky-100';
-  if (kind === 'RATING') return 'border-amber-200/15 bg-amber-200/[0.09] text-amber-100';
-  if (kind === 'TOURNAMENT') return 'border-violet-200/15 bg-violet-300/[0.09] text-violet-100';
-  return 'border-emerald-200/15 bg-emerald-300/[0.09] text-emerald-100';
-};
-
-const label = (kind: CalendarItem['kind']) => kind === 'NOVICE' ? 'Новички' : kind === 'RATING' ? 'Рейтинг' : kind === 'TOURNAMENT' ? 'Турнир' : 'Клубный';
+const kindOfEvening = kindOfFormat;
+const tone = kindTone;
+const label = kindLabel;
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 const compactDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });

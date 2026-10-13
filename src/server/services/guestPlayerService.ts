@@ -3,6 +3,18 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { replaceClubGameSeatIdentity } from './clubGameSeatIdentityRepair.ts';
 
+export const MAX_GUEST_PLUS = 10;
+export const normalizeGuestPlus = (value: unknown) => Math.min(MAX_GUEST_PLUS, Math.max(0, Math.trunc(Number(value) || 0)));
+
+export const GUEST_CONTACT_KINDS = ['vk', 'telegram', 'phone'] as const;
+/** Contact of a guest: the kind and a trimmed value, or nothing when either is missing. */
+export const normalizeGuestContact = (kind: unknown, value: unknown): { kind: string | null; value: string | null } => {
+  const text = String(value ?? '').trim().slice(0, 120);
+  const normalizedKind = String(kind ?? '').trim().toLowerCase();
+  if (!text || !(GUEST_CONTACT_KINDS as readonly string[]).includes(normalizedKind)) return { kind: null, value: null };
+  return { kind: normalizedKind, value: text };
+};
+
 export const isGuestPlaceholder = (row: any) => Boolean(row?.is_guest || row?.guest_placeholder_id);
 
 export const serializeGuestPlaceholder = (row: any) => ({
@@ -12,8 +24,11 @@ export const serializeGuestPlaceholder = (row: any) => ({
   guest_placeholder_id: String(row.id),
   nickname: String(row.display_name || '').trim() || 'Гость',
   full_name: null,
-  phone: null,
+  phone: row.contact_kind === 'phone' ? (row.contact_value || null) : null,
   telegram_username: null,
+  contact_kind: row.contact_kind || null,
+  contact_value: row.contact_value || null,
+  plus_count: normalizeGuestPlus(row.plus_count),
   lifecycle_status: 'guest_placeholder',
   elo: null,
   is_guest: true,
@@ -37,6 +52,9 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
   amountDue?: number | null;
   amountPaid?: number | null;
   notes?: string | null;
+  contactKind?: string | null;
+  contactValue?: string | null;
+  plusCount?: number | null;
 }) {
   await ensureGuestPlayerPlaceholderSchema(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [input.eveningId]);
@@ -45,6 +63,7 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
   if (input.tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [input.tableId, input.eveningId])) throw new Error('Игровой стол не найден на этом вечере');
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+  const cleanContact = normalizeGuestContact(input.contactKind, input.contactValue);
   const displayName = String(input.displayName || '').trim() || 'Гость';
   const responseStatus = ['going', 'late', 'thinking', 'declined', 'unanswered'].includes(String(input.responseStatus)) ? String(input.responseStatus) : 'unanswered';
   const due = Math.max(0, Number(input.amountDue ?? evening.default_price ?? 0));
@@ -54,9 +73,9 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
     INSERT INTO guest_player_placeholders (
       id, evening_id, display_name, table_id, response_status, registration_status,
       attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes,
-      registered_at, confirmed_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [id,input.eveningId,displayName,input.tableId || null,responseStatus,responseStatus,paymentStatus,due,paid,input.notes || null,now,responseStatus === 'going' || responseStatus === 'late' ? now : null,now,now]);
+      registered_at, confirmed_at, created_at, updated_at, contact_kind, contact_value, plus_count
+    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [id,input.eveningId,displayName,input.tableId || null,responseStatus,responseStatus,paymentStatus,due,paid,input.notes || null,now,responseStatus === 'going' || responseStatus === 'late' ? now : null,now,now,cleanContact.kind,cleanContact.value,normalizeGuestPlus(input.plusCount)]);
   return serializeGuestPlaceholder(await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [id]));
 }
 
@@ -87,6 +106,13 @@ export async function updateGuestPlaceholder(db: DatabaseWrapper, guestId: strin
   if (fields.length) {
     fields.push('updated_at = ?'); values.push(new Date().toISOString(), guestId);
     await db.run(`UPDATE guest_player_placeholders SET ${fields.join(', ')} WHERE id = ?`, values);
+  }
+  if (patch.plus_count !== undefined) {
+    await db.run('UPDATE guest_player_placeholders SET plus_count = ?, updated_at = ? WHERE id = ?', [normalizeGuestPlus(patch.plus_count), new Date().toISOString(), guestId]);
+  }
+  if (patch.contact_kind !== undefined || patch.contact_value !== undefined) {
+    const contact = normalizeGuestContact(patch.contact_kind, patch.contact_value);
+    await db.run('UPDATE guest_player_placeholders SET contact_kind = ?, contact_value = ?, updated_at = ? WHERE id = ?', [contact.kind, contact.value, new Date().toISOString(), guestId]);
   }
   if (patch.attendance_fact) await setGuestAttendance(db, guestId, patch.attendance_fact);
   return serializeGuestPlaceholder(await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [guestId]));

@@ -1,3 +1,4 @@
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -76,6 +77,14 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     }
   }
   const coming = participants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item)));
+  // Guests without a profile (leads) come too; «+N» are the people they bring.
+  await ensureGuestPlayerPlaceholderSchema(db);
+  const guests = await db.all<any>(
+    "SELECT id, display_name AS nickname, response_status, plus_count FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late') ORDER BY created_at",
+    [eveningId],
+  );
+  const guestLines = guests.map((guest: any) => `${String(guest.nickname || 'Гость')}${Number(guest.plus_count) ? ` +${Number(guest.plus_count)}` : ''}${guest.response_status === 'late' ? ' (подойдёт позже)' : ''}`);
+  const comingTotal = coming.length + guests.reduce((sum: number, guest: any) => sum + 1 + Number(guest.plus_count || 0), 0);
   const roster = coming.map((item: any, index: number) => {
     const from = firstGame.get(String(item.player_id));
     const note = getEveningResponse(item) === 'late' ? ' (подойдёт позже)' : from && chosen && from > chosen.slot_number ? ` (с ${from}-й игры)` : '';
@@ -90,7 +99,8 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     [eveningId],
   );
   if (judge?.nickname) lines.push(`🎙 Ведущий вечера: ${judge.nickname}`);
-  lines.push('', `👥 Состав (${coming.length}):`, ...(roster.length ? roster : ['Пока пусто — стань первым!']));
+  const fullRoster = [...roster, ...guestLines.map((line, index) => `${roster.length + index + 1}. ${line}`)];
+  lines.push('', `👥 Состав (${comingTotal}):`, ...(fullRoster.length ? fullRoster : ['Пока пусто — стань первым!']));
   if (slots.length) {
     lines.push('', `🎲 Игры: ${slots.map((slot: any) => slot.registered_count >= perSlot ? `${slot.slot_number}-я ✓` : `${slot.slot_number}-я ${slot.registered_count}/${perSlot}`).join(' · ')}`);
     const short = slots.find((slot: any) => slot.registered_count < perSlot && (!chosen || slot.slot_number >= chosen.slot_number));

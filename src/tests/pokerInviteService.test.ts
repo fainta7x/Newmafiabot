@@ -147,4 +147,26 @@ describe('poker invites and presence', () => {
     });
     expect(afterCooldown.target_player_id).toBe('bob');
   });
+
+  it('sends the invite through the VK community when the player has only VK', async () => {
+    const now = Date.parse('2026-10-07T12:00:00Z');
+    await db.run("UPDATE players SET telegram_user_id = NULL WHERE id = 'bob'");
+    const invite = await queuePokerInvite(db, {
+      senderPlayerId: 'alice', senderNickname: 'Алиса', targetPlayerId: 'bob', lobbyId: 'live-table', lobbyTitle: 'Вечерний стол', now,
+    });
+    expect(invite.channel).toBe('vk');
+    const row = await db.get<any>("SELECT vk_user_id,text,action_path,event_type FROM vk_message_outbox WHERE player_id='bob' LIMIT 1");
+    expect(row).toMatchObject({ vk_user_id: '42', event_type: 'poker_invite', action_path: '/player/poker/live-table' });
+    expect(row.text).toContain('Алиса зовёт тебя сыграть в покер');
+    const candidate = (await loadPokerInviteCandidates(db, 'alice', { vkLoader: async () => [] })).find((item) => item.player_id === 'bob');
+    expect(candidate).toMatchObject({ telegram_linked: false, vk_linked: true, can_invite: true });
+  });
+
+  it('refuses a player who has neither Telegram nor VK', async () => {
+    await db.run("UPDATE players SET telegram_user_id = NULL WHERE id = 'bob'");
+    await db.run("DELETE FROM player_external_identities WHERE player_id = 'bob'");
+    await expect(queuePokerInvite(db, {
+      senderPlayerId: 'alice', senderNickname: 'Алиса', targetPlayerId: 'bob', lobbyId: 'live-table', lobbyTitle: 'Вечерний стол',
+    })).rejects.toMatchObject({ code: 'no_channel' });
+  });
 });

@@ -11,6 +11,8 @@ on:
       - 'scripts/buildCosmeticsLab.mjs'
       - 'scripts/buildDendiPortraitLayers.mjs'
       - 'scripts/buildDendiWardrobePreview.mjs'
+      - 'scripts/buildDendiRigPilot.mjs'
+      - 'public/character-editor/**'
       - 'vite.config.ts'
       - 'package*.json'
       - '.github/workflows/ui-preview.yml'
@@ -45,6 +47,8 @@ jobs:
         run: node scripts/buildCosmeticsLab.mjs temp/ui-preview/fiery-autumn-standalone.html
       - name: Package original-avatar layered wardrobe review
         run: node scripts/buildDendiWardrobePreview.mjs temp/ui-preview/dendi-wardrobe.html
+      - name: Package playable Dendi rig editor
+        run: node scripts/buildDendiRigPilot.mjs temp/ui-preview/dendi-skin.html
       - name: Check mobile screens
         run: npx playwright test --config playwright-preview.config.mjs
         working-directory: e2e

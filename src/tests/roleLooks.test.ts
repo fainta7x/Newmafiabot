@@ -65,6 +65,20 @@ describe('four role looks',()=>{
     await saveRoleLook(db,'p','sheriff',{...input(),hatItemId:'hat'});
     expect((await db.get<any>('SELECT quantity FROM cosmetic_inventory WHERE item_id=?',['hat'])).quantity).toBe(1);
     expect((await readRoleLooks(db,'p')).layers).toHaveLength(2);
+    // Independent per-role equipment records mirror the existing UI/API.
+    expect(await db.all("SELECT role,slot,item_id FROM player_role_look_equipment WHERE player_id='p' ORDER BY role,slot")).toEqual([
+      { role: 'don', slot: 'portrait_hat', item_id: 'hat' },
+      { role: 'don', slot: 'portrait_jacket', item_id: 'jacket' },
+      { role: 'sheriff', slot: 'portrait_hat', item_id: 'hat' },
+    ]);
+    await saveRoleLook(db,'p','don',{...input('Без шляпы',1),jacketItemId:'jacket'});
+    expect(await db.all("SELECT slot,item_id FROM player_role_look_equipment WHERE player_id='p' AND role='don'")).toEqual([
+      { slot: 'portrait_jacket', item_id: 'jacket' },
+    ]);
+    await ensureCosmeticsSchema(db);
+    expect(await db.all("SELECT slot,item_id FROM player_role_look_equipment WHERE player_id='p' AND role='don'")).toEqual([
+      { slot: 'portrait_jacket', item_id: 'jacket' },
+    ]);
   });
   it('validates bounded RGBA PNGs and rejects wrong geometry, corruption and inflation overflow',()=>{
     expect(validatePortraitPng(png()).length).toBeGreaterThan(0);

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../lib/api.ts';
-import { PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, type DraftSet, type DraftWearableItem, type PortraitEquipmentSlot } from '../../lib/roleLooks.ts';
+import { PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, type DraftSet, type DraftWearableItem, type DraftAssetOption, type PortraitEquipmentSlot } from '../../lib/roleLooks.ts';
+import type { CosmeticRarity } from '../../lib/cosmeticAssets.ts';
 import RolePortrait from './RolePortrait.tsx';
 import './cosmeticSetStudio.css';
 
 export type CosmeticSetStudioClient = Pick<typeof api,
-  'getCosmeticDraftSets' | 'getCosmeticDraftItems' | 'createCosmeticDraftSet' | 'saveCosmeticDraftSetItems'>;
+  'getCosmeticDraftSets' | 'getCosmeticDraftItems' | 'getCosmeticDraftAssets' | 'createCosmeticDraftItem' | 'createCosmeticDraftSet' | 'saveCosmeticDraftSetItems'>;
 
 const rarityLabels: Record<string, string> = {
   common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий',
@@ -27,11 +28,15 @@ export default function CosmeticSetStudio({
   const [open, setOpen] = useState(initialOpen);
   const [sets, setSets] = useState<DraftSet[]>([]);
   const [catalog, setCatalog] = useState<DraftWearableItem[]>([]);
+  const [assets, setAssets] = useState<DraftAssetOption[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState('');
   const [selection, setSelection] = useState<Selection>({});
   const [newName, setNewName] = useState('');
-  const [newRarity, setNewRarity] = useState<'common' | 'rare' | 'legendary'>('common');
+  const [newRarity, setNewRarity] = useState<'' | 'common' | 'rare' | 'legendary'>('');
+  const [newAssetKey, setNewAssetKey] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [itemRarity, setItemRarity] = useState<'' | CosmeticRarity>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -40,9 +45,9 @@ export default function CosmeticSetStudio({
     if (!open) return;
     let cancelled = false;
     setLoaded(false); setError('');
-    Promise.all([client.getCosmeticDraftSets(), client.getCosmeticDraftItems()]).then(([foundSets, foundItems]) => {
+    Promise.all([client.getCosmeticDraftSets(), client.getCosmeticDraftItems(), client.getCosmeticDraftAssets()]).then(([foundSets, foundItems, foundAssets]) => {
       if (cancelled) return;
-      setSets(foundSets); setCatalog(foundItems);
+      setSets(foundSets); setCatalog(foundItems); setAssets(foundAssets);
       setActiveId(previous => foundSets.some(set => set.id === previous) ? previous : foundSets[0]?.id || '');
       setLoaded(true);
     }).catch(() => { if (!cancelled) { setLoaded(true); setError('Не удалось загрузить мастерскую. Проверьте права владельца и повторите.'); } });
@@ -88,20 +93,34 @@ export default function CosmeticSetStudio({
     } finally { setBusy(false); }
   };
   const create = async () => {
-    if (!newName.trim() || busy) return;
+    if (!newName.trim() || !newRarity || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
       // The technical key has no design semantics; title and rarity come from owner.
       const id = `wardrobe-set-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
       await client.createCosmeticDraftSet({ id, name: newName.trim(), rarity: newRarity, seasonId: null });
       const foundSets = await client.getCosmeticDraftSets();
-      setSets(foundSets); setActiveId(id); setNewName('');
+      setSets(foundSets); setActiveId(id); setNewName(''); setNewRarity('');
       setNotice('Новый черновик создан. Он не опубликован; сезон ещё не назначен.');
     } catch {
       setError('Не удалось создать черновик. Название и выбранная редкость сохранены в форме.');
     } finally { setBusy(false); }
   };
 
+  const createItem = async () => {
+    if (!newAssetKey || !itemName.trim() || !itemRarity || busy) return;
+    const asset = assets.find(a => a.key === newAssetKey);
+    if (!asset) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const id = `wardrobe-item-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      await client.createCosmeticDraftItem({id, name:itemName.trim(), rarity:itemRarity, slot:asset.slot, assetKey:asset.key, seasonId:null, published:false});
+      setCatalog(await client.getCosmeticDraftItems());
+      setNewAssetKey(''); setItemName(''); setItemRarity('');
+      setNotice('Предмет записан в черновой каталог. Рисунок не утверждён, выдача и публикация недоступны.');
+    } catch { setError('Не удалось создать черновой предмет. Проверьте название и выбранный эскиз.'); }
+    finally { setBusy(false); }
+  };
   return <details className="cosmetic-set-studio" open={initialOpen} onToggle={e => setOpen(e.currentTarget.open)}>
     <summary>Мастерская сетов · черновики <span>Раздельные вещи, независимые слоты, предварительная примерка</span></summary>
     {open && <div className="cosmetic-set-studio-body">
@@ -119,11 +138,34 @@ export default function CosmeticSetStudio({
         {allowCreate && <section className="cosmetic-set-studio-create" aria-label="Новый черновик">
           <label>Название будущего сета<input value={newName} maxLength={120} disabled={busy} placeholder="Пока без художественных названий" onChange={e => setNewName(e.target.value)} /></label>
           <label>Редкость коллекции<select value={newRarity} disabled={busy} onChange={e => setNewRarity(e.target.value as typeof newRarity)}>
-            <option value="common">Обычный</option><option value="rare">Редкий</option><option value="legendary">Легендарный</option>
+            <option value="">Выберите редкость</option><option value="common">Обычный</option><option value="rare">Редкий</option><option value="legendary">Легендарный</option>
           </select></label>
-          <button type="button" disabled={!newName.trim() || busy} onClick={() => void create()}>Создать черновик</button>
+          <button type="button" disabled={!newName.trim() || !newRarity || busy} onClick={() => void create()}>Создать черновик</button>
           <small>Черновик создаётся без сезона; выдача и публикация недоступны.</small>
         </section>}
+        {allowCreate && <details className="cosmetic-set-studio-add-item">
+          <summary>Добавить отдельную вещь в черновой каталог<span>Из существующих эскизов, с редкостью по вашему выбору</span></summary>
+          <div className="cosmetic-set-studio-item-creator">
+            <div className="cosmetic-set-studio-asset-options" role="group" aria-label="Исходные графические слои">
+              {assets.map(asset => <button type="button" key={asset.key} disabled={busy} aria-pressed={newAssetKey===asset.key}
+                onClick={()=>setNewAssetKey(asset.key)}>
+                <img src={asset.url} alt="" loading="lazy"/>
+                <small>{PORTRAIT_SLOT_LABELS[asset.slot]}</small>
+                <small>{asset.draft?'Эскиз · не выпущен':'Рисунок проверен'}</small>
+              </button>)}
+            </div>
+            {!assets.length && <p className="cosmetic-set-studio-muted">Пока нет подходящих графических слоёв в безопасном списке ассетов.</p>}
+            <label>Название вещи<input value={itemName} maxLength={120} disabled={busy} placeholder="Придумать и согласовать отдельно" onChange={e=>setItemName(e.target.value)}/></label>
+            <label>Редкость самой вещи<select value={itemRarity} disabled={busy} onChange={e=>setItemRarity(e.target.value as typeof itemRarity)}>
+              <option value="">Выберите редкость</option>
+              {Object.entries(rarityLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+            </select></label>
+            <button type="button" disabled={!newAssetKey||!itemName.trim()||!itemRarity||busy} onClick={()=>void createItem()}>
+              Сохранить черновую вещь
+            </button>
+            <small>Предмет останется неопубликованным. Эскиз не становится готовым магазинным ассетом.</small>
+          </div>
+        </details>}
         {active && <section className="cosmetic-set-studio-editor" aria-label="Состав выбранного сета">
           <div className="cosmetic-set-studio-preview">
             {portraitUrl ? <RolePortrait baseUrl={portraitUrl} background="autumn" layers={chosenLayers} /> :

@@ -43,6 +43,32 @@ export async function ensureCosmeticsSchema(db: DatabaseWrapper): Promise<void> 
       hat_item_id TEXT REFERENCES cosmetic_catalog(id), jacket_item_id TEXT REFERENCES cosmetic_catalog(id),
       revision INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, PRIMARY KEY(player_id,role)
     );
+    -- A set is a thematic grouping, never a stackable inventory item.
+    -- Its rarity is independent from the rarity of its constituent items.
+    CREATE TABLE IF NOT EXISTS cosmetic_sets (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      rarity TEXT NOT NULL CHECK(rarity IN ('common','uncommon','rare','epic','legendary','mythic')),
+      season_id TEXT REFERENCES cosmetic_seasons(id),
+      published INTEGER NOT NULL DEFAULT 0 CHECK(published IN (0,1)),
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS cosmetic_set_items (
+      set_id TEXT NOT NULL REFERENCES cosmetic_sets(id),
+      item_id TEXT NOT NULL REFERENCES cosmetic_catalog(id),
+      PRIMARY KEY(set_id,item_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cosmetic_set_items_item ON cosmetic_set_items(item_id);
+    -- Future multi-slot role equipment; old columns remain the public contract
+    -- until clients and broadcasts have migrated. No rewards are seeded.
+    CREATE TABLE IF NOT EXISTS player_role_look_equipment (
+      player_id TEXT NOT NULL REFERENCES players(id),
+      role TEXT NOT NULL CHECK(role IN ('civilian','mafia','don','sheriff')),
+      slot TEXT NOT NULL,
+      item_id TEXT NOT NULL REFERENCES cosmetic_catalog(id),
+      PRIMARY KEY(player_id,role,slot)
+    );
+    CREATE INDEX IF NOT EXISTS idx_role_look_equipment_item ON player_role_look_equipment(item_id);
     CREATE TABLE IF NOT EXISTS player_portrait_versions (
       version TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id),
       image_data BLOB NOT NULL, created_at TEXT NOT NULL, approved_by TEXT NOT NULL
@@ -56,4 +82,10 @@ export async function ensureCosmeticsSchema(db: DatabaseWrapper): Promise<void> 
       PRIMARY KEY(game_key,player_id,role)
     );
   `);
+  // Preserve existing wardrobes when upgrading an already populated database.
+  // This mirrors legacy slots only; new slots are not enabled by this migration.
+  await db.run(`INSERT OR IGNORE INTO player_role_look_equipment(player_id,role,slot,item_id)
+    SELECT player_id,role,'portrait_hat',hat_item_id FROM player_role_looks WHERE hat_item_id IS NOT NULL`);
+  await db.run(`INSERT OR IGNORE INTO player_role_look_equipment(player_id,role,slot,item_id)
+    SELECT player_id,role,'portrait_jacket',jacket_item_id FROM player_role_looks WHERE jacket_item_id IS NOT NULL`);
 }

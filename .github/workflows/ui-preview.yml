@@ -13,6 +13,7 @@ on:
       - 'scripts/buildDendiWardrobePreview.mjs'
       - 'scripts/buildDendiRigPilot.mjs'
       - 'scripts/exportDendiRigAssets.mjs'
+      - 'scripts/prepareDendiPremiumArt.py'
       - 'public/character-editor/**'
       - 'vite.config.ts'
       - 'package*.json'
@@ -52,6 +53,8 @@ jobs:
         run: node scripts/buildDendiRigPilot.mjs temp/ui-preview/dendi-skin.html
       - name: Export Dendi rig as independently removable PNG layers
         run: node scripts/exportDendiRigAssets.mjs temp/ui-preview/dendi-rig-assets
+      - name: Validate imported premium art script syntax
+        run: python3 -m py_compile scripts/prepareDendiPremiumArt.py
       - name: Check mobile screens
         run: npx playwright test --config playwright-preview.config.mjs
         working-directory: e2e

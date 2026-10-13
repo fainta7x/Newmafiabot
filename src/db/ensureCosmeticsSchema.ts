@@ -37,5 +37,23 @@ export async function ensureCosmeticsSchema(db: DatabaseWrapper): Promise<void> 
     );
     CREATE INDEX IF NOT EXISTS idx_cosmetic_catalog_season ON cosmetic_catalog(season_id,published);
     CREATE INDEX IF NOT EXISTS idx_cosmetic_events_player ON cosmetic_events(player_id,id);
+    CREATE TABLE IF NOT EXISTS player_role_looks (
+      player_id TEXT NOT NULL REFERENCES players(id), role TEXT NOT NULL CHECK(role IN ('civilian','mafia','don','sheriff')),
+      phrase TEXT NOT NULL DEFAULT '', background TEXT NOT NULL DEFAULT 'noir',
+      hat_item_id TEXT REFERENCES cosmetic_catalog(id), jacket_item_id TEXT REFERENCES cosmetic_catalog(id),
+      revision INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, PRIMARY KEY(player_id,role)
+    );
+    CREATE TABLE IF NOT EXISTS player_portrait_versions (
+      version TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id),
+      image_data BLOB NOT NULL, created_at TEXT NOT NULL, approved_by TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS player_portrait_current (
+      player_id TEXT PRIMARY KEY REFERENCES players(id), version TEXT NOT NULL REFERENCES player_portrait_versions(version)
+    );
+    CREATE TABLE IF NOT EXISTS game_role_look_snapshots (
+      game_key TEXT NOT NULL, player_id TEXT NOT NULL REFERENCES players(id),
+      role TEXT NOT NULL, look_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      PRIMARY KEY(game_key,player_id,role)
+    );
   `);
 }

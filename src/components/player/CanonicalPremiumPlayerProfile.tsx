@@ -9,6 +9,7 @@ import PlayerProfileCareerSections from './PlayerProfileCareerSections.tsx';
 import PlayerProfileStatsHero from './PlayerProfileStatsHero.tsx';
 import PlayerGoMafiaLink from './PlayerGoMafiaLink.tsx';
 import PlayerCosmeticsPreview from './PlayerCosmeticsPreview.tsx';
+import PlayerRoleLooksEditor from './PlayerRoleLooksEditor.tsx';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
 import PlayerEloJourney from './PlayerEloJourney.tsx';
 import StaffWorkStats from './StaffWorkStats.tsx';
@@ -236,6 +237,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         </>}
         <PlayerGoMafiaLink playerId={playerId} isSelf={isSelf} />
         {isSelf && <PlayerCosmeticsPreview nickname={p.nickname || 'Игрок'} />}
+        {isSelf && <PlayerRoleLooksEditor key={playerId} playerId={playerId} nickname={p.nickname || 'Игрок'} />}
          {isSelf&&<button type="button" onClick={()=>switchTab('learning')} data-testid="profile-learning-shortcut" className="flex min-h-[66px] items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/[.065] px-4 text-left">
            <GraduationCap className="h-5 w-5 shrink-0 text-amber-200/80" />
            <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-white">Обучение</strong><span className="mt-1 block text-xs text-white/55">Уроки, правила и тренажёры</span></span>

@@ -14,6 +14,7 @@ import {
   type CanonicalBroadcastGame,
 } from '../services/liveBroadcastService.ts';
 import { broadcastLobbyPlayerIds, loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
+import { attachRoleLookSnapshots, readPortraitBytes } from '../services/roleLooksService.ts';
 
 const gameRouter = Router();
 const publicRouter = Router();
@@ -197,7 +198,8 @@ gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrgan
     const receivedAt = new Date();
     const state = normalizeLiveBroadcastState(req.body?.state, game, receivedAt);
     if (!state) return res.status(400).json({ error: 'Некорректное состояние Live Game для трансляции' });
-    publishLiveBroadcastState(state, receivedAt.getTime());
+    const db = req.db || (await getDb());
+    publishLiveBroadcastState(await attachRoleLookSnapshots(db, state, `tournament:${tournamentId}:${gameId}`), receivedAt.getTime());
     return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить турнирную OBS-трансляцию' });
@@ -254,7 +256,8 @@ gameRouter.put('/:gameId/broadcast-state', requireOrganizerAuth, async (req: Aut
     const receivedAt = new Date();
     const state = normalizeLiveBroadcastState(req.body?.state, game, receivedAt);
     if (!state) return res.status(400).json({ error: 'Некорректное состояние Live Game для трансляции' });
-    publishLiveBroadcastState(state, receivedAt.getTime());
+    const db = req.db || (await getDb());
+    publishLiveBroadcastState(await attachRoleLookSnapshots(db, state, `club:${gameId}`), receivedAt.getTime());
     return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить OBS-трансляцию' });
@@ -291,6 +294,19 @@ publicRouter.get('/broadcast/:token/avatar/:playerId', async (req: Authenticated
       .some((player) => player.playerId === playerId) === true;
     const intermissionPlayers = livePlayer ? null : await getIntermissionAvatarPlayerIds(db);
     if (!livePlayer && !intermissionPlayers?.has(playerId)) return res.status(404).end();
+
+    // Versioned portraits are served only when actually frozen for a broadcast game.
+    if (req.query.portraitVersion) {
+      const version=String(req.query.portraitVersion), gameKey=String(req.query.gameKey||'');
+      if(!/^(club:\d+|tournament:[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+)$/.test(gameKey)) return res.status(404).end();
+      const snapshots=await db.all<any>('SELECT look_json FROM game_role_look_snapshots WHERE game_key=? AND player_id=?',[gameKey,playerId]);
+      if(!snapshots.some(row=>JSON.parse(row.look_json).portraitVersion===version)) return res.status(404).end();
+      const bytes=await readPortraitBytes(db,playerId,version);
+      if(!bytes) return res.status(404).end();
+      res.setHeader('Cache-Control','private, no-store');
+      res.setHeader('X-Content-Type-Options','nosniff');
+      return res.type('image/png').send(bytes);
+    }
 
     const avatar = await db.get<any>(
       'SELECT mime_type, image_data FROM player_avatars WHERE player_id = ? LIMIT 1',

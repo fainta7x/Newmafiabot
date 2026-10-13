@@ -1056,3 +1056,11 @@ body.live-broadcast-document #root {
 .live-broadcast-version-head { min-height: calc(30 * var(--u)); }
 .live-broadcast-version-row { min-height: calc(30 * var(--u)); }
 .live-broadcast-version-row > span { align-items: center; }
+
+/* Versioned wardrobe uses a fixed canvas; game facts and role emblems retain their existing positions. */
+.live-broadcast-avatar.has-role-portrait{position:relative}
+.live-broadcast-avatar.has-role-portrait img{object-fit:contain}
+.live-broadcast-avatar.has-role-portrait .live-broadcast-wardrobe-layer{position:absolute;inset:0;pointer-events:none}
+.live-broadcast-avatar.role-portrait-autumn{background:radial-gradient(ellipse at bottom,#76392c,#23191b 70%)}
+.live-broadcast-avatar.role-portrait-burgundy{background:linear-gradient(135deg,#532431,#21131c)}
+.live-broadcast-player-phrase{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:.8em;color:#d3b8a5;line-height:1.2}

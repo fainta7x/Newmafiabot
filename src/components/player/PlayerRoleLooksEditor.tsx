@@ -1,0 +1,78 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../../lib/api.ts';
+import { LOOK_ROLES, LOOK_ROLE_LABELS, plainPhrase, type LookRole, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
+import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import RolePortrait from './RolePortrait.tsx';
+import './roleLooks.css';
+
+const backgroundLabels = { noir: 'Нуар', autumn: 'Огненная осень', burgundy: 'Багряный' } as const;
+const errorText = (error: unknown) => {
+  const code=error instanceof Error ? error.message : '';
+  return ({ look_revision_conflict:'Образ изменён в другом окне. Обновите редактор перед сохранением.', portrait_preparation_required:'Для одежды сначала нужен подготовленный портрет.', item_not_owned_or_not_ready:'Этот предмет пока нельзя использовать.' } as Record<string,string>)[code] || 'Не удалось выполнить запрос. Попробуйте ещё раз.';
+};
+export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false }: { playerId:string; nickname:string; initialOpen?:boolean }) {
+  const [open,setOpen]=useState(initialOpen), [role,setRole]=useState<LookRole>('civilian');
+  const [state,setState]=useState<RoleLooksResponse|null>(null), [drafts,setDrafts]=useState<RoleLook[]>([]);
+  const [error,setError]=useState(''), [notice,setNotice]=useState(''), [saving,setSaving]=useState(false), [reload,setReload]=useState(0);
+  const loadedKey=useRef('');
+  const [portraitFile,setPortraitFile]=useState<File|null>(null), [identityConfirmed,setIdentityConfirmed]=useState(false);
+  useEffect(()=>{
+    if(!open) return;
+    const key=`${playerId}:${reload}`;
+    if(loadedKey.current===key)return;
+    let cancelled=false;
+    setState(null);setError('');setNotice('');
+    api.getRoleLooks().then(value=>{if(!cancelled){loadedKey.current=key;setState(value);setDrafts(value.looks);}}).catch(e=>{if(!cancelled)setError(errorText(e));});
+    return ()=>{cancelled=true;};
+  },[open,playerId,reload]);
+  const look=drafts.find(l=>l.role===role), saved=state?.looks.find(l=>l.role===role);
+  const dirty=look && saved && JSON.stringify(look)!==JSON.stringify(saved);
+  const update=(patch:Partial<RoleLook>)=>{setNotice('');setDrafts(previous=>previous.map(l=>l.role===role?{...l,...patch}:l));};
+  const save=async()=>{
+    if(!look||!saved||saving)return;
+    setSaving(true);setError('');setNotice('');
+    try {
+      const next=await api.saveRoleLook(role,{phrase:look.phrase,background:look.background,hatItemId:look.hatItemId,jacketItemId:look.jacketItemId},saved.revision);
+      setState(previous=>previous?{...previous,looks:previous.looks.map(l=>l.role===role?next:l)}:previous);
+      setDrafts(previous=>previous.map(l=>l.role===role?next:l));setNotice(`Образ «${LOOK_ROLE_LABELS[role]}» сохранён. В уже начатой трансляции остаётся зафиксированный образ.`);
+    }catch(e){setError(errorText(e));}finally{setSaving(false);}
+  };
+  const approve=async()=>{
+    if(!portraitFile||!identityConfirmed||saving)return;
+    if(portraitFile.size>1024*1024){setError('Портрет должен быть не больше 1 МБ.');return;}
+    setSaving(true);setError('');
+    try {
+      const dataUrl=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('read_error'));reader.readAsDataURL(portraitFile);});
+      const approved=await api.approvePlayerPortrait(playerId,dataUrl);
+      setState(previous=>previous?{...previous,portraitVersion:approved.version}:previous);
+      setNotice('Основа портрета сохранена. Старые игровые образы сохраняют прежнюю версию.');setPortraitFile(null);setIdentityConfirmed(false);
+    }catch{setError('Не удалось подтвердить портрет. Нужен PNG RGBA 512×640, до 1 МБ, без анимации.');}finally{setSaving(false);}
+  };
+  return <details className="role-looks-editor" open={initialOpen} onToggle={e=>setOpen(e.currentTarget.open)}>
+    <summary>Мои образы по ролям<span>Мирный · Мафия · Дон · Шериф</span></summary>
+    <div className="role-looks-body">
+      <p className="role-looks-explanation">Одно лицо, четыре оформления. Выбор здесь меняет внешний вид, а не вашу роль в игре.</p>
+      <div className="role-looks-tabs" role="group" aria-label="Образ по роли">{LOOK_ROLES.map(key=><button type="button" key={key} disabled={saving} aria-pressed={role===key} onClick={()=>{setRole(key);setNotice('');setError('');}}>{LOOK_ROLE_LABELS[key]}</button>)}</div>
+      {error&&<p role="alert">{error}</p>}
+      {!state&&!error&&<p role="status">Загружаем образы…</p>}
+      {look&&state&&<>
+        <div className="role-looks-preview" data-testid="role-look-preview">
+          <RolePortrait background={look.background} baseUrl={state.portraitVersion?`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`:null} hatUrl={state.layers.find(l=>l.itemId===look.hatItemId)?.url} jacketUrl={state.layers.find(l=>l.itemId===look.jacketItemId)?.url} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
+          <strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[role]}</span>{look.phrase&&<p className="role-looks-phrase">{look.phrase}</p>}
+        </div>
+        <label>Фраза<input maxLength={64} value={look.phrase} disabled={saving} onChange={e=>update({phrase:plainPhrase(e.target.value)})} placeholder="Ваша короткая фраза"/></label>
+        <label>Фон<select value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
+        {(['hatItemId','jacketItemId'] as const).map(field=>{
+          const slot=field==='hatItemId'?'portrait_hat':'portrait_jacket',items=state.layers.filter(l=>l.slot===slot);
+          return <label key={field}>{field==='hatItemId'?'Головной убор':'Пиджак'}<select value={look[field]||''} disabled={saving||!state.portraitVersion||!items.length} onChange={e=>update({[field]:e.target.value||null})}><option value="">Без дополнительного предмета</option>{items.map(l=><option key={l.itemId} value={l.itemId}>{l.name}</option>)}</select></label>;
+        })}
+        {!state.portraitVersion&&<p className="role-looks-explanation">Используется ваш текущий аватар. Для смены одежды нужна подготовленная основа портрета с сохранением лица; её подтверждает организатор.</p>}
+        {state.portraitVersion&&!state.layers.length&&<p className="role-looks-explanation">Основа подготовлена. Доступной одежды пока нет — здесь появятся полученные предметы выпущенной коллекции.</p>}
+        <button type="button" className="role-looks-save" disabled={!dirty||saving} onClick={()=>void save()}>{saving?'Сохраняем…':`Сохранить: ${LOOK_ROLE_LABELS[role]}`}</button>
+        {state.canApprovePortrait&&<details className="role-looks-preparation"><summary>Подготовка основы · для владельца</summary><p className="role-looks-explanation">Загрузите подготовленный прозрачный PNG 512×640: лицо и волосы без надписей и верхней одежды. Лицо — по центру, подбородок около y=340; шляпа занимает верх до y=180, пиджак начинается с y=350. Проверьте узнаваемость и посадку слоёв до выпуска предметов.</p><label>Основа портрета<input type="file" accept="image/png" disabled={saving} onChange={e=>{setPortraitFile(e.target.files?.[0]||null);setIdentityConfirmed(false);}}/></label><label className="role-looks-confirm"><input type="checkbox" checked={identityConfirmed} disabled={saving} onChange={e=>setIdentityConfirmed(e.target.checked)}/>Подтверждаю: это узнаваемый портрет этого игрока</label><button type="button" disabled={!portraitFile||!identityConfirmed||saving} onClick={()=>void approve()}>Подтвердить основу</button></details>}
+      </>}
+      {notice&&<p role="status">{notice}</p>}
+      {error&&<button type="button" disabled={saving} onClick={()=>setReload(n=>n+1)}>Обновить редактор</button>}
+    </div>
+  </details>;
+}

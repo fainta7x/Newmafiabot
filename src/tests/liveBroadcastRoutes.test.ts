@@ -5,6 +5,7 @@ import { createDatabaseConnection, type DatabaseWrapper } from '../db';
 import { buildLiveBroadcastState } from '../lib/liveBroadcast';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth';
 import { resetLiveBroadcastForTests } from '../server/services/liveBroadcastService';
+import { saveRoleLook } from '../server/services/roleLooksService.ts';
 
 describe('live broadcast routes', () => {
   let app: any;
@@ -105,6 +106,21 @@ describe('live broadcast routes', () => {
       nickname: `Подмена ${player.seat_number}`,
     })),
   })!;
+
+  it('publishes server-owned role appearance and freezes it for the game', async () => {
+    const input={phrase:'До игры',background:'autumn',hatItemId:null,jacketItemId:null,expectedRevision:0};
+    await saveRoleLook(db,'player-1','civilian',input);
+    const submitted=audienceState();
+    (submitted.players[0] as any).appearance={phrase:'Подмена',portraitVersion:'foreign',hatUrl:'https://example.com/foreign.svg'};
+    const config=await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie',cookie);
+    const token=config.body.overlay_path.split('/').pop();
+    expect((await request(app).put(`/api/games/${gameId}/broadcast-state`).set('Cookie',cookie).send({state:submitted})).status).toBe(202);
+    const first=await request(app).get(`/api/public/broadcast/${token}`);
+    expect(first.body.state.players[0].appearance).toMatchObject({phrase:'До игры',background:'autumn',portraitVersion:null,hatUrl:null,gameKey:`club:${gameId}`});
+    await saveRoleLook(db,'player-1','civilian',{...input,phrase:'После игры',expectedRevision:1});
+    await request(app).put(`/api/games/${gameId}/broadcast-state`).set('Cookie',cookie).send({state:submitted});
+    expect((await request(app).get(`/api/public/broadcast/${token}`)).body.state.players[0].appearance.phrase).toBe('До игры');
+  });
 
   it('returns one stable secret OBS URL only to an authorized host', async () => {
     const unauthorized = await request(app).get(`/api/games/${gameId}/broadcast-config`);

@@ -79,17 +79,21 @@ const PlayerStatusIcon = ({ player }: { player: LiveBroadcastPlayer }) => {
 
 const BroadcastAvatar = ({ token, player }: { token: string; player: LiveBroadcastPlayer }) => {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [player.playerId, token]);
+  useEffect(() => setFailed(false), [player.playerId, token, player.appearance?.portraitVersion]);
   const initial = player.nickname.trim().charAt(0).toLocaleUpperCase('ru-RU') || '?';
   return (
-    <span className="live-broadcast-avatar" aria-label={`Аватар: ${player.nickname}`}>
+    <span className={`live-broadcast-avatar ${player.appearance?.portraitVersion ? 'has-role-portrait' : ''} role-portrait-${player.appearance?.background || 'noir'}`} aria-label={`Аватар: ${player.nickname}`}>
       {!failed && player.playerId ? (
         <img
-          src={`/api/public/broadcast/${encodeURIComponent(token)}/avatar/${encodeURIComponent(player.playerId)}`}
+          src={`/api/public/broadcast/${encodeURIComponent(token)}/avatar/${encodeURIComponent(player.playerId)}${player.appearance?.portraitVersion ? `?gameKey=${encodeURIComponent(player.appearance.gameKey)}&portraitVersion=${encodeURIComponent(player.appearance.portraitVersion)}` : ''}`}
           alt=""
           onError={() => setFailed(true)}
         />
       ) : <span aria-hidden="true">{initial}</span>}
+      {!failed && player.appearance?.portraitVersion && <>
+        {player.appearance.jacketUrl && <img className="live-broadcast-wardrobe-layer" src={player.appearance.jacketUrl} alt="" />}
+        {player.appearance.hatUrl && <img className="live-broadcast-wardrobe-layer" src={player.appearance.hatUrl} alt="" />}
+      </>}
     </span>
   );
 };
@@ -390,7 +394,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                   <div className="live-broadcast-player-tags">
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
                   </div>
-                  <div className="live-broadcast-role">{ROLE_LABELS[kind]}</div>
+                  <div className="live-broadcast-role">{ROLE_LABELS[kind]}{player.appearance?.phrase && <span className="live-broadcast-player-phrase" title={player.appearance.phrase}>{player.appearance.phrase}</span>}</div>
                 </div>
               </div>
               <div className="live-broadcast-player-name">{player.nickname}</div>

@@ -19,6 +19,7 @@ export type LiveBroadcastPlayer = {
   minorTech: number;
   majorTech: number;
   ppk: boolean;
+  appearance?: import('./roleLooks.ts').BroadcastRoleLook;
 };
 
 export type LiveBroadcastNomination = {

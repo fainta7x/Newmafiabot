@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getAuthenticatedOrganizerActorId, getPlayerSessionId, requireClubOwner, requireOrganizerAuth } from '../auth.ts';
+import { getAuthenticatedOrganizerActorId, getPlayerSessionId, isClubOwner, requireClubOwner, requireOrganizerAuth } from '../auth.ts';
 import { activateCompendium, CosmeticsError, createCosmeticItem, createCosmeticSeason, dismantleCosmeticDuplicate, equipCosmetic, getCosmetics, grantCosmetic, operationInput } from '../services/cosmeticsService.ts';
+import { approvePortrait, readPortraitBytes, readRoleLooks, saveRoleLook } from '../services/roleLooksService.ts';
 
 const router = Router();
 const id = z.string().min(1).max(120).regex(/^[a-zA-Z0-9:_-]+$/);
@@ -25,6 +26,17 @@ const owner = (req: any): string => {
   return actorId;
 };
 router.get('/cosmetics', handle(req => getCosmetics(req.db, self(req))));
+router.get('/cosmetics/role-looks', handle(async req => ({ ...await readRoleLooks(req.db, self(req)), canApprovePortrait: isClubOwner(req) })));
+router.put('/cosmetics/role-looks/:role', handle(req => saveRoleLook(req.db, self(req), req.params.role, req.body)));
+router.get('/cosmetics/portrait/:version', async (req: any, res: any) => {
+  try {
+    const bytes = await readPortraitBytes(req.db, self(req), id.parse(req.params.version));
+    if (!bytes) return res.status(404).end();
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.type('image/png').send(bytes);
+  } catch (e) { return res.status(e instanceof CosmeticsError ? e.status : 400).end(); }
+});
 router.put('/cosmetics/equipment/:slot', handle(req => {
   const input = z.object({ itemId: id.nullable() }).strict().parse(req.body);
   return equipCosmetic(req.db, self(req), String(req.params.slot), input.itemId);
@@ -34,6 +46,7 @@ router.post('/cosmetics/duplicates/:itemId/dismantle', handle(req => {
   return dismantleCosmeticDuplicate(req.db, self(req), String(req.params.itemId), input.seasonId, input.requestId);
 }));
 router.use('/cosmetics/admin', requireOrganizerAuth, requireClubOwner);
+router.post('/cosmetics/admin/players/:playerId/portrait', handle(req => approvePortrait(req.db, id.parse(req.params.playerId), req.body, owner(req))));
 router.post('/cosmetics/admin/seasons', handle(req => { owner(req); return createCosmeticSeason(req.db, req.body); }));
 router.post('/cosmetics/admin/items', handle(req => { owner(req); return createCosmeticItem(req.db, req.body); }));
 router.post('/cosmetics/admin/players/:playerId/grants', handle(req => {

@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-13 · Role wardrobe integration: game identity and CI registry limitation
+
+During implementation, the tournament broadcaster was confirmed to expose a game number as state.gameId rather than a club games.id. Wardrobe snapshots therefore use server-built namespaced club:<id> / tournament:<tournamentId>:<gameId> keys; a regression checks collisions and immutability. This was corrected before publication. Earlier PR #891 CI 38370556605 failed while pulling the ECR base image with HTTP 429 (data limit exceeded); all test shards/web checks and UI preview passed. No Docker/workflow bypass was added.
+
+
 ## 2026-10-13 · PR #891 cosmetics sandbox schema — FIXED in branch
 
 Review found that signed test sessions switch to an isolated DB whose runtime initializer omitted the six cosmetics tables. Added ensureCosmeticsSchema to that initializer and a regression checking schema availability and inventory isolation. HTTP tests now use createApp with the production middleware stack rather than a standalone Express/cookie-parser fixture (also flagged by CodeQL). New-head CI/security results remain required; no blanket suppression was added.

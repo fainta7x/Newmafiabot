@@ -7,8 +7,24 @@
 .dgw-main{display:grid;grid-template-columns:minmax(0,1.23fr) minmax(315px,.77fr);gap:18px;align-items:start}.dgw-stage,.dgw-kit{border-radius:17px;border:1px solid #c597622c;background:#1b161d;overflow:hidden;min-width:0}
 .dgw-roles{display:flex;gap:7px;padding:14px 16px;background:#211923}.dgw-roles button{flex:1;min-width:0;background:#161318;border:1px solid #ffffff0e;border-radius:8px;font-size:12px;color:#b8a9aa;padding:10px 2px}
 .dgw-roles button[aria-pressed=true]{background:#66323e;border-color:#cda07186;color:#ffe1bd}
-.dgw-portrait-stage{min-height:540px;position:relative;display:grid;place-items:center;background:radial-gradient(ellipse 60% 61% at 50% 49%,#773d3c77,transparent 72%),#18141c;padding:0 12px;isolation:isolate}
-.dgw-halo{position:absolute;z-index:-1;width:min(70%,400px);height:78%;top:9%;border:1px solid #dbac7548;border-radius:50%;box-shadow:0 0 0 16px #d5a66e08,0 0 100px #d18b5119}
+/* This is an independent full-bleed portrait stage, not the JPG's old oval/background.
+ * Everything behind the alpha cutout is continuous across the panel.
+ */
+.dgw-portrait-stage{
+  min-height:540px;position:relative;display:grid;place-items:center;
+  padding:0 12px;isolation:isolate;overflow:hidden;
+  background:
+    radial-gradient(ellipse 95% 85% at 52% 38%,rgba(113,66,65,.30) 0%,rgba(61,38,49,.15) 45%,transparent 83%),
+    linear-gradient(132deg,#25202a 0%,#201920 43%,#15131b 77%,#15131a 100%);
+}
+/* Figure blends softly into the lower stage instead of ending as a hard
+ * horizontal rectangle. The alpha PNGs still remain independent layers.
+ */
+.dgw-portrait-stage .role-portrait{
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 85%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 85%,transparent 100%);
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+}
 .dgw-portrait-stage .role-portrait{aspect-ratio:4/5;width:min(100%,440px);height:auto;max-height:548px;overflow:visible;background:transparent}
 .dgw-portrait-stage .role-portrait .role-portrait-base,.dgw-portrait-stage .role-portrait .role-portrait-layer{object-fit:contain}
 .dgw-persona{position:absolute;bottom:18px;left:20px;z-index:7;text-shadow:0 2px 10px #0b090dcc}.dgw-persona strong{display:block;font:600 29px Georgia,serif}.dgw-persona small{color:#e8bd86;font-size:10px;text-transform:uppercase;letter-spacing:1.7px}
@@ -57,7 +73,7 @@
   .dgw-roles button{min-height:38px;padding:5px 2px}
   .dgw-portrait-stage{min-height:284px;height:284px}
   .dgw-portrait-stage .role-portrait{width:min(100%,226px);max-height:278px}
-  .dgw-halo{width:min(66%,235px);height:245px;top:19px;box-shadow:0 0 0 9px #d5a66e08}
+  
   .dgw-persona{bottom:8px;left:12px}
   .dgw-persona strong{font-size:19px}
   .dgw-persona small{font-size:8px}

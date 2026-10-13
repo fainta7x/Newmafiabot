@@ -94,3 +94,30 @@ for (const width of [360, 390, 1440]) {
     await expect(editor.getByRole('button', { name: /Багряный пиджак/ })).toHaveAttribute('aria-pressed', 'true');
   });
 }
+
+for (const width of [360, 390, 1440]) {
+  test(`five approved-quantity draft set slots are clickable at ${width}px`, async ({page}, testInfo) => {
+    await page.setViewportSize({width,height:900});
+    await page.goto('/e2e/cosmetics-lab.html');
+    const workshop=page.locator('.cosmetic-set-studio');
+    await expect(workshop).toBeVisible();
+    await expect(workshop.getByRole('group',{name:'Черновики сетов'}).getByRole('button')).toHaveCount(5);
+    await expect(workshop.getByRole('button',{name:/Сет 1/})).toContainText('Обычный');
+    await expect(workshop.getByRole('button',{name:/Сет 5/})).toContainText('Легендарный');
+    await workshop.getByRole('button',{name:/Медный лист · эскиз/}).click();
+    await workshop.getByRole('button',{name:/Багряный пиджак · эскиз/}).click();
+    await expect(workshop.getByAltText('Пиджак')).toBeVisible();
+    await expect(workshop.getByAltText('Головной убор')).toBeVisible();
+    await workshop.getByRole('button',{name:'Сохранить состав черновика'}).click();
+    await expect(workshop.getByRole('status')).toContainText('Состав черновика сохранён');
+    const first=workshop.getByRole('button',{name:/Сет 1/});
+    await expect(first).toContainText('2 шт.');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await workshop.screenshot({path:testInfo.outputPath(`draft-set-workshop-${width}.png`)});
+    await page.reload();
+    const restored=page.locator('.cosmetic-set-studio');
+    await expect(restored.getByRole('button',{name:/Сет 1/})).toContainText('2 шт.');
+    await expect(restored.getByRole('button',{name:/Медный лист · эскиз/})).toHaveAttribute('aria-pressed','true');
+    await expect(restored.getByRole('button',{name:/Багряный пиджак · эскиз/})).toHaveAttribute('aria-pressed','true');
+  });
+}

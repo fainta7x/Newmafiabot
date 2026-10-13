@@ -56,6 +56,11 @@ export default function CosmeticsLab({ portraitUrl, hatUrl='/cosmetics/autumn-fe
       {id:'lab-hat',name:'Медный лист · эскиз',slot:'portrait_hat',rarity:'rare',seasonId:null,published:false,url:hatUrl,draft:true},
       {id:'lab-jacket',name:'Багряный пиджак · эскиз',slot:'portrait_jacket',rarity:'epic',seasonId:null,published:false,url:jacketUrl,draft:true},
     ],
+    getCosmeticDraftAssets:async()=>[
+      {key:'autumn-fedora-v1',slot:'portrait_hat',url:hatUrl,draft:true},
+      {key:'autumn-jacket-v1',slot:'portrait_jacket',url:jacketUrl,draft:true},
+    ],
+    createCosmeticDraftItem:async()=>{throw new Error('lab_fixed_art');},
     createCosmeticDraftSet:async()=>{throw new Error('lab_fixed_quota');},
     saveCosmeticDraftSetItems:async(setId,itemIds)=>{
       if(itemIds.some(id=>id!=='lab-hat'&&id!=='lab-jacket')||new Set(itemIds).size!==itemIds.length)throw new Error('invalid_lab_items');

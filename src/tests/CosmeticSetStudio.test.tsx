@@ -63,3 +63,33 @@ it('try-on merges only owned released pieces, keeping slots from other sets',()=
   fireEvent.click(screen.getByRole('button',{name:'Примерить доступные: 1 из 2'}));
   expect(onTrySet).toHaveBeenCalledWith(set);
 });
+
+it('owner must choose both the source artwork and the individual item rarity to create a draft item',async()=>{
+  const createItem=vi.fn(async(input:Parameters<CosmeticSetStudioClient['createCosmeticDraftItem']>[0])=>({
+    ...input,url:'/cosmetics/autumn-fedora-v1.svg',draft:true,
+  }));
+  const client:CosmeticSetStudioClient={
+    getCosmeticDraftSets:async()=>[seed],
+    getCosmeticDraftItems:async()=>items,
+    getCosmeticDraftAssets:async()=>[
+      {key:'autumn-fedora-v1',slot:'portrait_hat',url:'/cosmetics/autumn-fedora-v1.svg',draft:true},
+    ],
+    createCosmeticDraftItem:createItem,
+    saveCosmeticDraftSetItems:async(setId)=>({setId,items:[]}),
+    createCosmeticDraftSet:async(input)=>({...seed,...input,items:[]}),
+  };
+  render(<CosmeticSetStudio client={client} portraitUrl="/cosmetics/lab-portrait.svg" initialOpen/>);
+  await screen.findByRole('button',{name:/Тестовая шляпа/});
+  fireEvent.click(screen.getByText('Добавить отдельную вещь в черновой каталог'));
+  const createButton=screen.getByRole('button',{name:'Сохранить черновую вещь'});
+  expect(createButton).toHaveProperty('disabled',true);
+  fireEvent.change(screen.getByLabelText('Название вещи'),{target:{value:'Выбранное владельцем название'}});
+  fireEvent.change(screen.getByLabelText('Редкость самой вещи'),{target:{value:'rare'}});
+  expect(createButton).toHaveProperty('disabled',true);
+  fireEvent.click(screen.getByRole('group',{name:'Исходные графические слои'}).getElementsByTagName('button')[0]);
+  expect(createButton).toHaveProperty('disabled',false);
+  fireEvent.click(createButton);
+  await waitFor(()=>expect(createItem).toHaveBeenCalledWith(expect.objectContaining({
+    name:'Выбранное владельцем название',rarity:'rare',slot:'portrait_hat',assetKey:'autumn-fedora-v1',published:false,seasonId:null,
+  })));
+});

@@ -51,7 +51,7 @@ for (const width of [360, 390, 1440]) {
     await editor.getByLabel('Фраза', { exact: true }).fill('Оченьдлиннаяфразабезпробелов'.repeat(2));
     await editor.getByLabel('Фон', { exact: true }).selectOption('autumn');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(editor.getByLabel('Головной убор')).toBeDisabled();
+    await expect(editor.getByRole('group', { name: 'Головной убор' })).toBeDisabled();
     await editor.screenshot({ path: testInfo.outputPath(`role-looks-editor-${width}.png`) });
   });
 }
@@ -63,8 +63,8 @@ for (const width of [360, 390, 1440]) {
     const editor = page.locator('.role-looks-editor');
     await editor.getByRole('button', { name: 'Дон', exact: true }).click();
     await editor.getByLabel('Фраза', { exact: true }).fill('Первая фраза');
-    await editor.getByLabel('Головной убор', { exact: true }).selectOption('lab-hat');
-    await editor.getByLabel('Пиджак', { exact: true }).selectOption('lab-jacket');
+    await editor.getByRole('button', { name: /Медный лист/ }).click();
+    await editor.getByRole('button', { name: /Багряный пиджак/ }).click();
     await editor.getByLabel('Фон', { exact: true }).selectOption('autumn');
     await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
     await expect(editor.getByRole('status')).toContainText('сохранён');
@@ -76,7 +76,7 @@ for (const width of [360, 390, 1440]) {
     for (const img of await broadcast.locator('img').all()) await expect.poll(() => img.evaluate(i => i.complete && i.naturalWidth > 0)).toBe(true);
     await page.getByRole('button', { name: 'Зафиксировать образ для тестовой игры' }).click();
     await editor.getByLabel('Фраза', { exact: true }).fill('Новая фраза');
-    await editor.getByLabel('Головной убор', { exact: true }).selectOption('');
+    await editor.getByRole('group', { name: 'Головной убор' }).getByRole('button', { name: 'Без предмета' }).click();
     await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
     await expect(broadcast).toContainText('Новая фраза');
     await expect(broadcast.getByAltText('Головной убор')).toHaveCount(0);
@@ -87,6 +87,6 @@ for (const width of [360, 390, 1440]) {
     await page.reload();
     await editor.getByRole('button', { name: 'Дон', exact: true }).click();
     await expect(editor.getByLabel('Фраза', { exact: true })).toHaveValue('Новая фраза');
-    await expect(editor.getByLabel('Пиджак', { exact: true })).toHaveValue('lab-jacket');
+    await expect(editor.getByRole('button', { name: /Багряный пиджак/ })).toHaveAttribute('aria-pressed', 'true');
   });
 }

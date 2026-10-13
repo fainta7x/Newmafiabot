@@ -4,6 +4,8 @@ This file answers **where a subsystem lives and what owns it**. It does not own 
 
 ## 1. Request flow
 
+Cosmetics/compendium owns independent additive tables (`ensureCosmeticsSchema`), a single transactional service (`cosmeticsService`), session-authenticated routes (`cosmeticsRoutes`), and a controlled asset manifest (`cosmeticAssets`). It does not own club token balances, Elo, game results or payment confirmation from a provider. Rendering integrations are future consumers of its equipment DTO; no current screen is replaced. Contract: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md).
+
 Typical web flow:
 
 `React UI -> src/lib/api.ts / fetch -> Express route -> service/DB wrapper -> storage`

@@ -9,6 +9,8 @@ import { ensureUiUsageSchema } from './server/services/uiUsageService.ts';
 import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
+import { ensureCosmeticsSchema } from './db/ensureCosmeticsSchema.ts';
+import cosmeticsRoutes from './server/routes/cosmeticsRoutes.ts';
 import { ensureCustomEventsSchema } from './db/ensureCustomEventsSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureEveningSlotsSchema } from './db/ensureEveningSlotsSchema.ts';
@@ -186,6 +188,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);
   await ensureCommerceSchema(db);
+  await ensureCosmeticsSchema(db);
   await ensurePlayerBettingSchema(db);
   await ensurePlayerConnectionsSchema(db);
   await ensureRatingPeriodsSchema(db);
@@ -278,6 +281,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerJudgingRoutes);
   app.use('/api/player', playerJudgeMusicRoutes);
   app.use('/api/player', musicLibraryRoutes);
+  app.use('/api/player', cosmeticsRoutes);
   app.use('/api/player', pokerRoutes);
   app.use('/api/player', pokerTournamentRoutes);
   app.use('/api/player', playerSelfRoutes);

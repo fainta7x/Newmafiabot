@@ -120,6 +120,14 @@ Important invariants:
 
 Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` plus payment/reconciliation regression tests.
 
+## Cosmetics / compendium foundation
+
+- Schema: `src/db/ensureCosmeticsSchema.ts`, ensured in `src/app.ts`.
+- Private self/owner API: `src/server/routes/cosmeticsRoutes.ts`, mounted at `/api/player/cosmetics`.
+- Catalog, grants, ownership, equipment, duplicate XP and audit: `src/server/services/cosmeticsService.ts`.
+- Controlled renderer assets: `src/lib/cosmeticAssets.ts`, `public/cosmetics/`; spec: `docs/COSMETICS_COMPENDIUM.md`.
+- Focused SQLite/authentication regression: `src/tests/cosmeticsFoundation.test.ts`. No UI rendering or random chest/payment implementation yet.
+
 ## Betting
 
 - UI bridge: `src/components/BettingLiveBridge.tsx`.

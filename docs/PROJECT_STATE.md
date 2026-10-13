@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## Cosmetic collection / seasonal compendium — owner approved, 2026-10-13
+
+Paid seasonal compendium; six rarities; lifetime cosmetics; duplicates dismantled only into XP; «gifts» clarified as effects, not item transfers. Owner authorizes backend foundation and asset preparation. Branch `feat/cosmetics-compendium-foundation-20261013`: additive catalog/inventory/equipment/season/membership/audit tables, private self APIs and owner-only issuance/manually recorded payment entitlements. Transactional retries preserve the final copy and separate XP from club wallet/Elo. No prices, chest odds, automatic activity XP, opening/purchases, archive acquisition or player-facing rendering are enabled. Three draft SVG studies and controlled asset keys are prepared. Local focused tests/TypeScript/lint are initial verification; PR CI, merge, deploy and runtime are separate pending states. Next: approve graphical surfaces and first collection; then activity/level/chest balance and pricing. Details: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md).
+
 ## GoMafia nominations — verification and correction (owner request, 2026-10-12)
 
 Latest main already includes nomination import (#878) and winner-rule confirmation (#880); the initial #852 implementation imported results/games, not nomination awards. Live source adapter checked all 13 Chagin tournaments / 164 games: **four nomination wins**, all in 2023 — best_don on 1 April (507), best_red / best_sheriff / MVP on 22 July (616). Four separate podium placements are not additional nomination wins. Second/third positions in nomination lists are not victories; `best_mafia` is the single «Лучший чёрный» category.

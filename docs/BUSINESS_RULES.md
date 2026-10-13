@@ -6,6 +6,10 @@ If implementation/tests conflict with this document, stop and investigate the co
 
 ## Authority
 
+### Seasonal compendium / cosmetics (owner, 2026-10-13)
+
+Paid and seasonal; prices, activity XP, levels and chest probabilities remain undecided. Six rarities: common/uncommon/rare/epic/legendary/mythic. Earned cosmetics persist permanently after the season; future archives may offer unearned old items. Duplicates may be dismantled only into compendium XP, never shards, club tokens or item transfers; the final copy remains. Cosmetics change graphics only. No physical player-entrance scenes or Mafia rules/results changes. «Cosmetic gifts» means effects, not inventory gifting. Foundation and open decisions: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md).
+
 For sports-Mafia rules in this project, the user’s explicitly approved rules are authoritative.
 
 When a future conversation introduces a new explicit rule, update this document in the same PR as the implementation when practical.

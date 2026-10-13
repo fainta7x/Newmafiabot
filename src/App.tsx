@@ -8,6 +8,7 @@ import BroadcastLobbyScreen from "./components/public/BroadcastLobbyScreen.tsx";
 import ObsBridgePage from "./components/public/ObsBridgePage.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
+import { PublicOffer } from "./components/public/PublicOffer.tsx";
 import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
@@ -139,7 +140,8 @@ export default function App() {
   const isBroadcastRoute = isRoutePrefix(pathname, '/broadcast');
   const isGuideRoute = isRoutePrefix(pathname, '/guide');
   const isObsBridgeRoute = isRoutePrefix(pathname, '/obs-bridge');
-  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute || isObsBridgeRoute;
+  const isOfferRoute = isRoutePrefix(pathname, '/offer');
+  const isPublicRoute = isOfferRoute || isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute || isGuideRoute || isObsBridgeRoute;
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
@@ -227,6 +229,8 @@ export default function App() {
     const token = parts[2] || '';
     return <PublicTournamentResults token={token} />;
   }
+
+  if (isOfferRoute) return <PublicOffer />;
 
   if (isLiveRoute) return <BigScreenLive />;
 

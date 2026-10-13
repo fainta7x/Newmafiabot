@@ -497,6 +497,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               {loginError ? <p className="text-center text-[12px] font-semibold text-danger">{loginError}</p> : null}
               <button type="submit" className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white">Войти</button>
             </form>
+            <p className="text-center text-[12px] text-text-secondary"><a href="/offer" className="underline underline-offset-2">Условия оплаты и контакты</a></p>
           </div>
         </div>
       ) : null}

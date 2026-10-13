@@ -13,6 +13,10 @@ Provider POST callbacks use only the isolated sandbox database, independently of
 
 Test confirmation does not mark even the sandbox evening paid, mutate production debts/tokens or claim a receipt. Existing real online_payment_available remains false. Real settlement and receipts remain a separate next step.
 
+## Store moderation page (2026-10-13)
+
+The provider's moderation requires, on a public page without login: services and prices, contacts, order rules, payment, delivery, refund path (no commission deduction), the NPD seller's full name and INN, and a personal data policy. All of it is `/offer` (`PublicOffer.tsx`, details in `legalInfo.ts`). Put `https://2la-noire-chagina7x.waw0.amvera.tech/offer` in the store's «Сайт/страница» fields. Prices/refund text must follow `BUSINESS_RULES.md`; change both together.
+
 ## Account setup and first configured test
 
 1. Confirm completed NPD registration and download the registration certificate.

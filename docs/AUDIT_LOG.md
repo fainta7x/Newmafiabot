@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-13 · Role editor select labels — FOUND in UI preview
+
+Three role-editor browser checks timed out selecting «Фон»: the implicit wrapping label included option text. Fix the accessible names explicitly for background/hat/jacket; keep the exact-name acceptance check. Earlier UI run 38375959838 had 85 passed and these three failures.
+
+
 ## 2026-10-13 · Role wardrobe integration: game identity and CI registry limitation
 
 During implementation, the tournament broadcaster was confirmed to expose a game number as state.gameId rather than a club games.id. Wardrobe snapshots therefore use server-built namespaced club:<id> / tournament:<tournamentId>:<gameId> keys; a regression checks collisions and immutability. This was corrected before publication. Earlier PR #891 CI 38370556605 failed while pulling the ECR base image with HTTP 429 (data limit exceeded); all test shards/web checks and UI preview passed. No Docker/workflow bypass was added.

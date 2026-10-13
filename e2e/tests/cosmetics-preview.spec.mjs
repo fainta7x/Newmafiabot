@@ -55,3 +55,38 @@ for (const width of [360, 390, 1440]) {
     await editor.screenshot({ path: testInfo.outputPath(`role-looks-editor-${width}.png`) });
   });
 }
+
+for (const width of [360, 390, 1440]) {
+  test(`clickable wardrobe lab previews clothing and freezes a game at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/e2e/cosmetics-lab.html');
+    const editor = page.locator('.role-looks-editor');
+    await editor.getByRole('button', { name: 'Дон', exact: true }).click();
+    await editor.getByLabel('Фраза', { exact: true }).fill('Первая фраза');
+    await editor.getByLabel('Головной убор', { exact: true }).selectOption('lab-hat');
+    await editor.getByLabel('Пиджак', { exact: true }).selectOption('lab-jacket');
+    await editor.getByLabel('Фон', { exact: true }).selectOption('autumn');
+    await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
+    await expect(editor.getByRole('status')).toContainText('сохранён');
+    await page.getByRole('group', { name: 'Роль на трансляции' }).getByRole('button', { name: 'Дон', exact: true }).click();
+    const broadcast = page.getByTestId('lab-broadcast-card');
+    await expect(broadcast).toContainText('Первая фраза');
+    await expect(broadcast.getByAltText('Пиджак')).toBeVisible();
+    await expect(broadcast.getByAltText('Головной убор')).toBeVisible();
+    for (const img of await broadcast.locator('img').all()) await expect.poll(() => img.evaluate(i => i.complete && i.naturalWidth > 0)).toBe(true);
+    await page.getByRole('button', { name: 'Зафиксировать образ для тестовой игры' }).click();
+    await editor.getByLabel('Фраза', { exact: true }).fill('Новая фраза');
+    await editor.getByLabel('Головной убор', { exact: true }).selectOption('');
+    await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
+    await expect(broadcast).toContainText('Новая фраза');
+    await expect(broadcast.getByAltText('Головной убор')).toHaveCount(0);
+    await expect(page.getByTestId('lab-frozen-card')).toContainText('Первая фраза');
+    await expect(page.getByTestId('lab-frozen-card').getByAltText('Головной убор')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`clickable-cosmetics-lab-${width}.png`), fullPage: true });
+    await page.reload();
+    await editor.getByRole('button', { name: 'Дон', exact: true }).click();
+    await expect(editor.getByLabel('Фраза', { exact: true })).toHaveValue('Новая фраза');
+    await expect(editor.getByLabel('Пиджак', { exact: true })).toHaveValue('lab-jacket');
+  });
+}

@@ -10,7 +10,8 @@ const errorText = (error: unknown) => {
   const code=error instanceof Error ? error.message : '';
   return ({ look_revision_conflict:'Образ изменён в другом окне. Обновите редактор перед сохранением.', portrait_preparation_required:'Для одежды сначала нужен подготовленный портрет.', item_not_owned_or_not_ready:'Этот предмет пока нельзя использовать.' } as Record<string,string>)[code] || 'Не удалось выполнить запрос. Попробуйте ещё раз.';
 };
-export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false }: { playerId:string; nickname:string; initialOpen?:boolean }) {
+export type RoleLooksClient = Pick<typeof api, 'getRoleLooks' | 'saveRoleLook' | 'approvePlayerPortrait'>;
+export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false, client=api, portraitUrl }: { playerId:string; nickname:string; initialOpen?:boolean; client?:RoleLooksClient; portraitUrl?:(version:string)=>string }) {
   const [open,setOpen]=useState(initialOpen), [role,setRole]=useState<LookRole>('civilian');
   const [state,setState]=useState<RoleLooksResponse|null>(null), [drafts,setDrafts]=useState<RoleLook[]>([]);
   const [error,setError]=useState(''), [notice,setNotice]=useState(''), [saving,setSaving]=useState(false), [reload,setReload]=useState(0);
@@ -22,9 +23,9 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
     if(loadedKey.current===key)return;
     let cancelled=false;
     setState(null);setError('');setNotice('');
-    api.getRoleLooks().then(value=>{if(!cancelled){loadedKey.current=key;setState(value);setDrafts(value.looks);}}).catch(e=>{if(!cancelled)setError(errorText(e));});
+    client.getRoleLooks().then(value=>{if(!cancelled){loadedKey.current=key;setState(value);setDrafts(value.looks);}}).catch(e=>{if(!cancelled)setError(errorText(e));});
     return ()=>{cancelled=true;};
-  },[open,playerId,reload]);
+  },[open,playerId,reload,client]);
   const look=drafts.find(l=>l.role===role), saved=state?.looks.find(l=>l.role===role);
   const dirty=look && saved && JSON.stringify(look)!==JSON.stringify(saved);
   const update=(patch:Partial<RoleLook>)=>{setNotice('');setDrafts(previous=>previous.map(l=>l.role===role?{...l,...patch}:l));};
@@ -32,7 +33,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
     if(!look||!saved||saving)return;
     setSaving(true);setError('');setNotice('');
     try {
-      const next=await api.saveRoleLook(role,{phrase:look.phrase,background:look.background,hatItemId:look.hatItemId,jacketItemId:look.jacketItemId},saved.revision);
+      const next=await client.saveRoleLook(role,{phrase:look.phrase,background:look.background,hatItemId:look.hatItemId,jacketItemId:look.jacketItemId},saved.revision);
       setState(previous=>previous?{...previous,looks:previous.looks.map(l=>l.role===role?next:l)}:previous);
       setDrafts(previous=>previous.map(l=>l.role===role?next:l));setNotice(`Образ «${LOOK_ROLE_LABELS[role]}» сохранён. В уже начатой трансляции остаётся зафиксированный образ.`);
     }catch(e){setError(errorText(e));}finally{setSaving(false);}
@@ -43,7 +44,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
     setSaving(true);setError('');
     try {
       const dataUrl=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('read_error'));reader.readAsDataURL(portraitFile);});
-      const approved=await api.approvePlayerPortrait(playerId,dataUrl);
+      const approved=await client.approvePlayerPortrait(playerId,dataUrl);
       setState(previous=>previous?{...previous,portraitVersion:approved.version}:previous);
       setNotice('Основа портрета сохранена. Старые игровые образы сохраняют прежнюю версию.');setPortraitFile(null);setIdentityConfirmed(false);
     }catch{setError('Не удалось подтвердить портрет. Нужен PNG RGBA 512×640, до 1 МБ, без анимации.');}finally{setSaving(false);}
@@ -57,14 +58,14 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
       {!state&&!error&&<p role="status">Загружаем образы…</p>}
       {look&&state&&<>
         <div className="role-looks-preview" data-testid="role-look-preview">
-          <RolePortrait background={look.background} baseUrl={state.portraitVersion?`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`:null} hatUrl={state.layers.find(l=>l.itemId===look.hatItemId)?.url} jacketUrl={state.layers.find(l=>l.itemId===look.jacketItemId)?.url} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
+          <RolePortrait background={look.background} baseUrl={state.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null} hatUrl={state.layers.find(l=>l.itemId===look.hatItemId)?.url} jacketUrl={state.layers.find(l=>l.itemId===look.jacketItemId)?.url} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
           <strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[role]}</span>{look.phrase&&<p className="role-looks-phrase">{look.phrase}</p>}
         </div>
         <label>Фраза<input maxLength={64} value={look.phrase} disabled={saving} onChange={e=>update({phrase:plainPhrase(e.target.value)})} placeholder="Ваша короткая фраза"/></label>
-        <label>Фон<select value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
+        <label>Фон<select aria-label="Фон" value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
         {(['hatItemId','jacketItemId'] as const).map(field=>{
           const slot=field==='hatItemId'?'portrait_hat':'portrait_jacket',items=state.layers.filter(l=>l.slot===slot);
-          return <label key={field}>{field==='hatItemId'?'Головной убор':'Пиджак'}<select value={look[field]||''} disabled={saving||!state.portraitVersion||!items.length} onChange={e=>update({[field]:e.target.value||null})}><option value="">Без дополнительного предмета</option>{items.map(l=><option key={l.itemId} value={l.itemId}>{l.name}</option>)}</select></label>;
+          return <label key={field}>{field==='hatItemId'?'Головной убор':'Пиджак'}<select aria-label={field==='hatItemId'?'Головной убор':'Пиджак'} value={look[field]||''} disabled={saving||!state.portraitVersion||!items.length} onChange={e=>update({[field]:e.target.value||null})}><option value="">Без дополнительного предмета</option>{items.map(l=><option key={l.itemId} value={l.itemId}>{l.name}</option>)}</select></label>;
         })}
         {!state.portraitVersion&&<p className="role-looks-explanation">Используется ваш текущий аватар. Для смены одежды нужна подготовленная основа портрета с сохранением лица; её подтверждает организатор.</p>}
         {state.portraitVersion&&!state.layers.length&&<p className="role-looks-explanation">Основа подготовлена. Доступной одежды пока нет — здесь появятся полученные предметы выпущенной коллекции.</p>}

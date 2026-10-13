@@ -24,6 +24,7 @@ const pages = [
   'e2e/live-reveal.html',
   'e2e/trophy-icons.html',
   'e2e/cosmetics.html',
+  'e2e/cosmetics-lab.html',
   'e2e/project-board.html',
   'e2e/live-broadcast-reveal.html',
   'e2e/crm-evenings.html',
@@ -61,6 +62,10 @@ await build({
 // checkpoints and other runtime files out of the isolated preview artifact.
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
 await cp(path.join(root, 'public/cosmetics'), path.join(output, 'cosmetics'), { recursive: true });
+// SVG images cannot fetch external faces when rendered through <img>; embed only this checked-in lab fixture.
+const labFace = (await readFile(path.join(root, 'public/player-avatars/dendi.jpg'))).toString('base64');
+const labPortrait = (await readFile(path.join(root, 'public/cosmetics/lab-portrait.svg'), 'utf8')).replace('/player-avatars/dendi.jpg', `data:image/jpeg;base64,${labFace}`);
+await writeFile(path.join(output, 'cosmetics/lab-portrait.svg'), labPortrait);
 const manifest = JSON.parse(await readFile(path.join(output, '.vite/manifest.json'), 'utf8'));
 const bootstrapAsset = manifest[bootstrapSource]?.file;
 if (!bootstrapAsset) throw new Error(`UI preview bootstrap asset missing from Vite manifest: ${bootstrapSource}`);

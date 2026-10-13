@@ -16,6 +16,13 @@ import {
 import { broadcastLobbyPlayerIds, loadBroadcastLobby } from '../services/broadcastLobbyService.ts';
 import { attachRoleLookSnapshots, readPortraitBytes } from '../services/roleLooksService.ts';
 
+// A failure to freeze the role looks must never stop the live broadcast state from being published (owner priority:
+// the OBS overlay keeps working with the plain state; the look is simply not attached that time).
+const withRoleLooks = async (db: any, state: any, gameKey: string) => {
+  try { return await attachRoleLookSnapshots(db, state, gameKey); }
+  catch (error) { console.warn('[BROADCAST] role looks not attached:', error instanceof Error ? error.message : String(error)); return state; }
+};
+
 const gameRouter = Router();
 const publicRouter = Router();
 
@@ -199,7 +206,7 @@ gameRouter.put('/tournament/:tournamentId/:gameId/broadcast-state', requireOrgan
     const state = normalizeLiveBroadcastState(req.body?.state, game, receivedAt);
     if (!state) return res.status(400).json({ error: 'Некорректное состояние Live Game для трансляции' });
     const db = req.db || (await getDb());
-    publishLiveBroadcastState(await attachRoleLookSnapshots(db, state, `tournament:${tournamentId}:${gameId}`), receivedAt.getTime());
+    publishLiveBroadcastState(await withRoleLooks(db, state, `tournament:${tournamentId}:${gameId}`), receivedAt.getTime());
     return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить турнирную OBS-трансляцию' });
@@ -257,7 +264,7 @@ gameRouter.put('/:gameId/broadcast-state', requireOrganizerAuth, async (req: Aut
     const state = normalizeLiveBroadcastState(req.body?.state, game, receivedAt);
     if (!state) return res.status(400).json({ error: 'Некорректное состояние Live Game для трансляции' });
     const db = req.db || (await getDb());
-    publishLiveBroadcastState(await attachRoleLookSnapshots(db, state, `club:${gameId}`), receivedAt.getTime());
+    publishLiveBroadcastState(await withRoleLooks(db, state, `club:${gameId}`), receivedAt.getTime());
     return res.status(202).json({ ok: true, received_at: receivedAt.toISOString() });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось обновить OBS-трансляцию' });

@@ -116,7 +116,7 @@ describe('cosmetics and compendium foundation', () => {
     await sandbox.run('INSERT INTO players(id,nickname,created_at,updated_at) VALUES(?,?,?,?)', ['p','Песочница',NOW,NOW]);
     await ensureIsolatedTestRuntimeSchema(sandbox);
     const tables = await sandbox.all<any>("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'cosmetic_%' OR name='compendium_memberships')");
-    expect(tables).toHaveLength(6);
+    expect(tables).toHaveLength(8);
     expect((await getCosmetics(sandbox, 'p')).inventory).toEqual([]);
     expect((await getCosmetics(live, 'p')).inventory[0].quantity).toBe(1);
   });

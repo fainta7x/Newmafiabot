@@ -732,6 +732,10 @@ export const api = {
   getRoleLooks: () => request<import('./roleLooks.ts').RoleLooksResponse>('/api/player/cosmetics/role-looks'),
   getCosmeticDraftSets: () => request<import('./roleLooks.ts').DraftSet[]>('/api/player/cosmetics/admin/sets'),
   getCosmeticDraftItems: () => request<import('./roleLooks.ts').DraftWearableItem[]>('/api/player/cosmetics/admin/wardrobe-items'),
+  getCosmeticDraftAssets: () => request<import('./roleLooks.ts').DraftAssetOption[]>('/api/player/cosmetics/admin/wardrobe-assets'),
+  createCosmeticDraftItem: (input: {id:string;name:string;rarity:import('./cosmeticAssets.ts').CosmeticRarity;slot:import('./roleLooks.ts').PortraitEquipmentSlot;assetKey:string;seasonId:null;published:false}) =>
+    request<import('./roleLooks.ts').DraftWearableItem>('/api/player/cosmetics/admin/items', {method:'POST',body:JSON.stringify(input)}),
+
   createCosmeticDraftSet: (input: { id: string; name: string; rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic'; seasonId: string | null }) =>
     request<import('./roleLooks.ts').DraftSet>('/api/player/cosmetics/admin/sets', { method: 'POST', body: JSON.stringify(input) }),
   saveCosmeticDraftSetItems: (setId: string, itemIds: string[]) =>

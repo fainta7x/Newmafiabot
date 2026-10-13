@@ -43,6 +43,15 @@ export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: 
  */
 export type WardrobeSetItem = LookLayer & { owned: boolean };
 export type WardrobeSet = { id: string; name: string; rarity: string; items: WardrobeSetItem[] };
+/** Only owner tools can see draft definitions and unapproved artwork. */
+export type DraftSet = {
+  id: string; name: string; rarity: string; seasonId: string | null;
+  published: boolean; items: Array<{ id: string; name: string; rarity: string; slot: PortraitEquipmentSlot; published: boolean }>;
+};
+export type DraftWearableItem = {
+  id: string; name: string; slot: PortraitEquipmentSlot; rarity: string;
+  seasonId: string | null; published: boolean; url: string; draft: boolean;
+};
 export type RoleLooksResponse = {
   looks: RoleLook[]; layers: LookLayer[]; portraitVersion: string | null;
   sets?: WardrobeSet[]; canApprovePortrait?: boolean;

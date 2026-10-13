@@ -730,6 +730,13 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   getRoleLooks: () => request<import('./roleLooks.ts').RoleLooksResponse>('/api/player/cosmetics/role-looks'),
+  getCosmeticDraftSets: () => request<import('./roleLooks.ts').DraftSet[]>('/api/player/cosmetics/admin/sets'),
+  getCosmeticDraftItems: () => request<import('./roleLooks.ts').DraftWearableItem[]>('/api/player/cosmetics/admin/wardrobe-items'),
+  createCosmeticDraftSet: (input: { id: string; name: string; rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic'; seasonId: string | null }) =>
+    request<import('./roleLooks.ts').DraftSet>('/api/player/cosmetics/admin/sets', { method: 'POST', body: JSON.stringify(input) }),
+  saveCosmeticDraftSetItems: (setId: string, itemIds: string[]) =>
+    request<{setId:string;items:unknown[]}>(`/api/player/cosmetics/admin/sets/${encodeURIComponent(setId)}/items`, { method: 'PUT', body: JSON.stringify({itemIds}) }),
+
   approvePlayerPortrait: (playerId: string, dataUrl: string) => request<{ version: string }>(`/api/player/cosmetics/admin/players/${encodeURIComponent(playerId)}/portrait`, { method: 'POST', body: JSON.stringify({ dataUrl, layout: 'bust-512x640-v1', identityConfirmed: true }) }),
   saveRoleLook: (role: import('./roleLooks.ts').LookRole, look: Omit<import('./roleLooks.ts').RoleLook, 'role' | 'revision'>, expectedRevision: number) => request<import('./roleLooks.ts').RoleLook>(`/api/player/cosmetics/role-looks/${role}`, { method: 'PUT', body: JSON.stringify({ ...look, expectedRevision }) }),
   // Auth

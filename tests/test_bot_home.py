@@ -327,3 +327,30 @@ def test_link_command_adds_the_organizer_address_for_admins_and_handles_missing_
     monkeypatch.setattr(config, "PLAYER_APP_URL", "")
     text, _ = _run_link(42)
     assert "не настроен" in text
+
+
+def test_faq_comes_from_the_crm_list_when_given():
+    entries = [{"id": "x1", "button": "🧩 Своё", "title": "🧩 Свой вопрос?", "answer": "Свой ответ."}]
+    _, markup = bot_home.faq_view(entries)
+    assert _texts(markup)[0] == ["🧩 Своё"]
+    text, _ = bot_home.faq_answer_view("x1", entries)
+    assert text.startswith("<b>🧩 Свой вопрос?</b>") and "Свой ответ." in text
+
+
+def test_builtin_faq_matches_the_seed_of_the_crm_list():
+    assert [item["id"] for item in bot_home.builtin_faq()] == ["signup", "price", "place", "novice", "friend", "pay", "tokens", "cancel"]
+
+
+def test_keyboard_is_one_short_row_for_everyone():
+    import bot_menu
+    for admin, judge in ((False, False), (True, True), (False, True)):
+        kb = bot_menu.main_menu_for_user(is_admin=admin, is_judge=judge)
+        assert [[b.text for b in row] for row in kb.keyboard] == [[bot_menu.APP_BUTTON_TEXT, bot_menu.MENU_BUTTON_TEXT]]
+
+
+def test_staff_view_offers_cabinet_status_and_back(monkeypatch):
+    import config
+    monkeypatch.setattr(config, "PLAYER_APP_URL", "https://app.example/player")
+    _, markup = bot_home.staff_view()
+    flat = [t for row in _texts(markup) for t in row]
+    assert "🗂 Кабинет организатора" in flat and "🩺 Состояние приложения" in flat and "⬅️ Назад" in flat

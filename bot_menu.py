@@ -34,31 +34,15 @@ def event_app_path(evening_id: str) -> str:
     return f"/player/events?event={safe_id}"
 
 
-def main_menu_for_user(*, is_admin: bool, is_judge: bool):
+def main_menu_for_user(*, is_admin: bool = False, is_judge: bool = False):
+    """One short row for everyone: the app and the menu card. Access, organizer and judge entries live inside the card
+    (owner, 2026-10-13: the big keyboard covered the card and repeated the same entry three times)."""
     builder = ReplyKeyboardBuilder()
     app_url = player_app_url()
-    if app_url:
-        builder.row(KeyboardButton(text=APP_BUTTON_TEXT, web_app=WebAppInfo(url=app_url)))
-    else:
-        builder.row(KeyboardButton(text=APP_BUTTON_TEXT))
-
     builder.row(
+        KeyboardButton(text=APP_BUTTON_TEXT, web_app=WebAppInfo(url=app_url)) if app_url else KeyboardButton(text=APP_BUTTON_TEXT),
         KeyboardButton(text=MENU_BUTTON_TEXT),
-        KeyboardButton(text=CLUB_ACCESS_BUTTON_TEXT),
     )
-
-    if is_admin:
-        builder.row(KeyboardButton(text="🛠 Админ-панель"))
-        builder.row(KeyboardButton(text=STATUS_BUTTON_TEXT))
-    elif is_judge:
-        # The old text button was retired with the legacy judge panel; open the app's judge section instead.
-        judge_url = player_app_url("/player/conduct")
-        builder.row(
-            KeyboardButton(text=JUDGE_BUTTON_TEXT, web_app=WebAppInfo(url=judge_url))
-            if judge_url
-            else KeyboardButton(text=JUDGE_BUTTON_TEXT)
-        )
-
     return builder.as_markup(
         resize_keyboard=True,
         is_persistent=True,
@@ -122,9 +106,4 @@ def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / и
 
 
 def start_text(first_name: str | None = None, *, is_organizer: bool = False) -> str:
-    organizer = "\n/crm — кабинет организатора" if is_organizer else ""
-    return (
-        "Сюда приходят анонсы вечеров, напоминания и результаты игр — отвечай прямо кнопками под ними.\n\n"
-        "Внизу экрана всегда есть «🎭 Открыть 2LA Noire» и «📋 Меню»."
-        f"{organizer}"
-    )
+    return "Анонсы вечеров и результаты игр придут сюда — отвечай кнопками под сообщениями. Всё остальное — в меню 👇"

@@ -1,3 +1,4 @@
+import { listBotFaq } from '../services/botFaqService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -24,6 +25,17 @@ const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'decline
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'mafia-webapp', api_version: '1' });
+});
+
+// The bot's «Частые вопросы» as the organizer wrote them in the CRM (switched-on ones, in order).
+router.get('/faq', async (req, res) => {
+  try {
+    const entries = await listBotFaq(req.db, true);
+    res.json({ entries: entries.map(({ id, button, title, answer }) => ({ id, button, title, answer })) });
+  } catch (error) {
+    console.error('[BOT FAQ]', error);
+    res.status(500).json({ error: 'Не удалось загрузить вопросы' });
+  }
 });
 
 router.get('/players/by-telegram/:telegramUserId/profile', async (req, res) => {

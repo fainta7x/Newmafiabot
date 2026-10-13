@@ -954,3 +954,12 @@ Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime veri
 - 23 (analytics layout): screenshots showed cards of different widths and heights in one grid and tiles whose «?» pushed the content. Fixed: the main card spans the full width, its four tiles are equal, cards of one row are equally tall, the «?» floats in the corner; the lists that need room span the full width.
 - 24 (who the «65 people» were): the owner wants it per player. The totals by surface (huge meaningless organizer numbers) are replaced by «Кто куда заходил»: one row per player — visits, last seen, screens opened in Russian (`getPlayersUsage`, `GET /api/ui-events/players`). The owner's own activity and organizers are not listed. History starts when events began to carry the player id.
 - 25 («Сейчас» tab): «Сегодня и ближайший вечер» and the debts count were removed from the analytics tab — they exist on «Сегодня» and «События»; the tab keeps «Сейчас в приложении» (owner only).
+
+### Owner's list of 2026-10-13 and what was done
+- **14 «Очистить выбор»** (`eveningSlotPlanningService.ts`): now «Нет ответа» (`unanswered`), «Не иду» stays if the player said it himself; the organizer's notice says «снял запись» (`organizerResponseNotificationService.ts`). Tests `clearSlotSelection.test.ts`.
+- **4 poker:** one shown card is marked «показана карта» at the seat (no chat message) and stays in the hand history (`shown` on the history entry). Tests `pokerShowCards.test.ts`, `PlayerPokerTable.test.tsx`.
+- **1 «Что нового»:** built editable from the CRM (`whats_new_entries`, `/api/whats-new`); first rows are drafts.
+- **2 «Оплата и поддержка», «Управление ставками»:** texts at least 12 px, plain wording («Онлайн-оплата пока выключена», no list of missing keys, no «тотализатор»). No structural change.
+- **3 «Проект»:** `PROJECT_BOARD_RU.md` rewritten to the real state (it listed finished work as open).
+- **15 «Игровой движок» / «Музыкальная база»:** «Игровой движок» is only shown when the app passes the engine callback, which the real app does not, so the row does not exist there. «Музыкальная база» opens the player app's conducting screen, whose only way back was the mode switch to the CRM home; now the screen has «Назад в CRM · Музыкальная база».
+- **17 bot FAQ:** friend answer extended; cafe hours are not written anywhere in the app — the question is for the cafe, not for the code.

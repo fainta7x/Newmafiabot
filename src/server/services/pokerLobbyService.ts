@@ -7,7 +7,7 @@ import { type PokerCard, advancePokerAnimation, applyPokerAction, createPokerHan
 export type PokerHistoryEntry = {
   id: string; number: number; at: number; small_blind: number; big_blind: number; board: PokerCard[]; pot: number;
   winner_ids: string[];
-  players: Array<{ id: string; nickname: string; seat: number; cards: PokerCard[]; revealed: boolean; net: number; label: string | null }>;
+  players: Array<{ id: string; nickname: string; seat: number; cards: Array<PokerCard | null>; revealed: boolean; net: number; label: string | null; /** Cards the player chose to show after the hand (indexes 0/1). */ shown?: number[] }>;
   actions: Array<{ street: string; player_id: string; player_name: string; type: string; amount: number }>;
 };
 export type PokerMoneyMode = 'club_tokens' | 'training' | 'tournament';
@@ -191,7 +191,11 @@ const recordFinishedHand = (lobby: PokerLobby) => {
 /** What one viewer may see of the history: own cards always, other cards only if shown at a showdown. */
 export const publicPokerHistory = (lobby: PokerLobby, viewerId: string) => (lobby.history || []).map((entry) => ({
   ...entry,
-  players: entry.players.map((player) => ({ ...player, cards: player.revealed || player.id === viewerId ? player.cards : [] })),
+  // Own cards always; others' only if opened at a showdown, shown completely, or — a single card shown by choice — only that one.
+  players: entry.players.map(({ shown, ...player }) => ({
+    ...player,
+    cards: player.revealed || player.id === viewerId ? player.cards : shown?.length ? player.cards.map((card, index) => (shown.includes(index) ? card : null)) : [],
+  })),
 }));
 
 /**
@@ -208,6 +212,10 @@ export const showPokerCards = (lobby: PokerLobby, playerId: string, requested: u
   if (!wanted.length) throw new Error('Выберите, какие карты показать.');
   const shown = [...new Set([...(hand.shown_cards?.[playerId] || []), ...wanted])].sort();
   hand.shown_cards = { ...(hand.shown_cards || {}), [playerId]: shown };
+  // A single shown card is kept in the history as well, so the others can see it there (owner, 2026-10-13).
+  const historyEntry = lobby.history?.find((item) => item.id === hand.id);
+  const historyOwner = historyEntry?.players.find((player) => player.id === playerId);
+  if (historyOwner) historyOwner.shown = shown;
   if (shown.length === 2) {
     // Both cards: the same as a showdown — the whole hand and its name are visible, in the history too.
     hand.revealed_ids = [...(hand.revealed_ids || []), playerId];

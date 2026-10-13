@@ -27,6 +27,8 @@ export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
 type Props = {
   data: PlayerMeResponse;
   canOpenAdmin?: boolean;
+  /** Opens an organizer CRM screen by path (for example back to «Ещё → Музыкальная база»). */
+  onOpenAdminAt?: (path: string) => void;
   /** «Проводит вечера»: shows the switch to the limited cabinet only. */
   canOpenEventHost?: boolean;
   onOpenAdmin?: () => void;
@@ -38,7 +40,7 @@ type Props = {
 const profileTabFromTarget = (target: string | null | undefined) => target?.startsWith('tab:') ? target.slice('tab:'.length) || null : null;
 const profilePlayerIdFromTarget = (target: string | null | undefined) => target?.startsWith('player:') ? target.slice('player:'.length) || null : null;
 
-export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpenEventHost = false, onOpenAdmin, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
+export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpenEventHost = false, onOpenAdmin, onOpenAdminAt, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
   const initialProfilePlayerId = profilePlayerIdFromTarget(initialTarget);
   const [section, setSection] = useState<PlayerCabinetSection>(() => initialProfilePlayerId ? 'club' : normalizePlayerCabinetSection(initialSection));
   const [player, setPlayer] = useState(data.player);
@@ -96,7 +98,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : section === 'settings' ? (
         <PlayerSettingsHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
-        <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
+        <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} onBackToCrm={canOpenAdmin && onOpenAdminAt ? () => onOpenAdminAt('/admin/more/music') : undefined} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
       ) : (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenMyGames={() => open('games')} onOpenGame={(gameKey) => open('games', gameKey)} onOpenRating={() => open('rating')} onOpenWallet={() => open('wallet')} onOpenLearning={() => open('profile', 'tab:learning')} />
       )}

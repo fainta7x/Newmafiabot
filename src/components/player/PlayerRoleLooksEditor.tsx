@@ -65,7 +65,21 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
         <label>Фон<select aria-label="Фон" value={look.background} disabled={saving} onChange={e=>update({background:e.target.value as RoleLook['background']})}>{Object.entries(backgroundLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
         {(['hatItemId','jacketItemId'] as const).map(field=>{
           const slot=field==='hatItemId'?'portrait_hat':'portrait_jacket',items=state.layers.filter(l=>l.slot===slot);
-          return <label key={field}>{field==='hatItemId'?'Головной убор':'Пиджак'}<select aria-label={field==='hatItemId'?'Головной убор':'Пиджак'} value={look[field]||''} disabled={saving||!state.portraitVersion||!items.length} onChange={e=>update({[field]:e.target.value||null})}><option value="">Без дополнительного предмета</option>{items.map(l=><option key={l.itemId} value={l.itemId}>{l.name}</option>)}</select></label>;
+          const label=field==='hatItemId'?'Головной убор':'Верхняя одежда';
+          const locked=!state.portraitVersion;
+          return <fieldset className="role-looks-inventory" key={field} disabled={saving||locked}>
+            <legend>{label}</legend>
+            <p className="role-looks-explanation">{locked?'Сначала подготовьте портрет игрока':items.length?'Примерьте вещь отдельно; она не меняет другие слоты.':'Полученные предметы появятся здесь после выпуска коллекции.'}</p>
+            <div className="role-looks-item-grid">
+              <button type="button" className="role-looks-item" aria-pressed={!look[field]} onClick={()=>update({[field]:null})}>
+                <span className="role-looks-item-empty" aria-hidden="true">∅</span><span>Без предмета</span>
+              </button>
+              {items.map(item=><button type="button" className="role-looks-item" key={item.itemId} aria-pressed={look[field]===item.itemId} onClick={()=>update({[field]:item.itemId})} title={item.name}>
+                <span className="role-looks-item-thumb"><img src={item.url} alt="" loading="lazy"/></span>
+                <span>{item.name}</span><small>{item.rarity}</small>
+              </button>)}
+            </div>
+          </fieldset>;
         })}
         {!state.portraitVersion&&<p className="role-looks-explanation">Используется ваш текущий аватар. Для смены одежды нужна подготовленная основа портрета с сохранением лица; её подтверждает организатор.</p>}
         {state.portraitVersion&&!state.layers.length&&<p className="role-looks-explanation">Основа подготовлена. Доступной одежды пока нет — здесь появятся полученные предметы выпущенной коллекции.</p>}

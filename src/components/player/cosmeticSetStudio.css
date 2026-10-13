@@ -1,0 +1,40 @@
+.cosmetic-set-studio{border:1px solid #a8754950;border-radius:15px;background:#17131b;color:#f0e2d3;min-width:0;overflow:hidden}
+.cosmetic-set-studio>summary{cursor:pointer;font-size:14px;font-weight:700;min-height:56px;padding:14px 16px;list-style:none}
+.cosmetic-set-studio>summary span{display:block;font-size:11px;color:#c7ab94;font-weight:400;margin-top:5px}
+.cosmetic-set-studio-body{padding:4px 14px 18px;display:grid;gap:15px;min-width:0}
+.cosmetic-set-studio-muted{color:#c6b2a5;font-size:12px;line-height:1.55;margin:0}
+.cosmetic-set-studio-body button{cursor:pointer;min-height:44px;border-radius:10px;border:1px solid #a8754950;background:#261c24;color:#f6dcc0;font-size:12px;padding:8px 10px;text-align:center;overflow-wrap:anywhere}
+.cosmetic-set-studio-body button:disabled{opacity:.5;cursor:not-allowed}
+.cosmetic-set-studio-body button[aria-pressed=true]{border-color:#e9bc7f;box-shadow:inset 0 0 0 1px #e9bc7f80;background:#59382e}
+.cosmetic-set-studio-body button:focus-visible,.cosmetic-set-studio-body input:focus-visible,.cosmetic-set-studio-body select:focus-visible{outline:2px solid #e9bc7f;outline-offset:2px}
+.cosmetic-set-studio-body label{font-size:12px;color:#d8c3b0;display:grid;gap:6px}
+.cosmetic-set-studio-body input,.cosmetic-set-studio-body select{width:100%;min-width:0;min-height:44px;color:#eee0d0;border:1px solid #a8754950;border-radius:9px;background:#261c24;padding:8px}
+.cosmetic-set-studio-body [role=alert]{color:#ffc2b6;font-size:12px;line-height:1.5}
+.cosmetic-set-studio-body [role=status]{color:#e9cf9f;font-size:12px;line-height:1.5}
+.cosmetic-set-studio-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;max-width:100%;min-width:0}
+.cosmetic-set-studio-tabs button{min-width:120px;max-width:170px;flex:0 0 auto;display:grid;gap:4px}
+.cosmetic-set-studio-tabs button>strong{font-size:12px;white-space:normal}
+.cosmetic-set-studio-tabs button>span{font-size:11px;color:#d1aa87}
+.cosmetic-set-studio-create{padding:12px;border:1px solid #a8754930;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,130px);gap:10px;align-items:end;min-width:0}
+.cosmetic-set-studio-create button,.cosmetic-set-studio-create small{grid-column:1/-1}
+.cosmetic-set-studio-create small,.cosmetic-set-studio-actions small{font-size:11px;color:#bda393;line-height:1.5}
+.cosmetic-set-studio-editor{display:grid;grid-template-columns:minmax(165px,.8fr) minmax(0,1.4fr);gap:16px;min-width:0}
+.cosmetic-set-studio-preview{display:flex;flex-direction:column;align-items:center;gap:7px;align-self:start;background:#110f15;border:1px solid #a875492d;padding:14px;border-radius:12px;min-width:0}
+.cosmetic-set-studio-preview>.role-portrait,.cosmetic-set-studio-no-base{aspect-ratio:4/5;width:min(100%,210px);height:auto;min-height:160px;border-radius:9px}
+.cosmetic-set-studio-no-base{display:grid;place-items:center;text-align:center;padding:12px;font-size:11px;line-height:1.5;color:#bda393;background:#29212a}
+.cosmetic-set-studio-preview>strong{font-size:14px;text-align:center;overflow-wrap:anywhere}
+.cosmetic-set-studio-preview>small{color:#d4aa87;font-size:11px;text-align:center;line-height:1.4}
+.cosmetic-set-studio-preview>.cosmetic-set-studio-draft-label{color:#f0b48f}
+.cosmetic-set-studio-slots{display:grid;gap:12px;min-width:0}
+.cosmetic-set-studio-slots fieldset{min-width:0;margin:0;border-radius:12px;padding:10px;border:1px solid #a8754940}
+.cosmetic-set-studio-slots legend{font-size:12px;font-weight:600;padding:0 6px;color:#ecd4b7}
+.cosmetic-set-studio-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;min-width:0}
+.cosmetic-set-studio-items button{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;min-height:80px}
+.cosmetic-set-studio-items button img{height:84px;max-width:100%;object-fit:contain}
+.cosmetic-set-studio-items button strong{font-size:11px;font-weight:500}
+.cosmetic-set-studio-items button small{color:#d3aa88;font-size:10px}
+.cosmetic-set-studio-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;grid-column:1/-1}
+.cosmetic-set-studio-actions button:first-child{background:#5a332c;border-color:#d39a63}
+.cosmetic-set-studio-refresh{justify-self:start}
+@media(max-width:760px){.cosmetic-set-studio-editor{grid-template-columns:minmax(0,1fr)}.cosmetic-set-studio-preview>.role-portrait,.cosmetic-set-studio-no-base{width:min(100%,184px)}}
+@media(max-width:390px){.cosmetic-set-studio-create{grid-template-columns:minmax(0,1fr)}.cosmetic-set-studio-items{grid-template-columns:repeat(2,minmax(0,1fr))}}

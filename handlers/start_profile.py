@@ -12,7 +12,6 @@ import keyboards
 import database
 import config
 from . import stats_utils
-from handlers.payment import payment_kb
 from handlers.booking import build_stats_text, get_next_friday
 from database import get_elo, get_user_by_nickname, get_user_by_id
 from pic_profile import create_profile_pic
@@ -228,45 +227,10 @@ async def show_players_for_user(message: Message):
     await message.answer(text, reply_markup=kb)
 
 
-@router.callback_query(F.data == "edit_nickname")
-async def change_nick_step1(call: CallbackQuery, state: FSMContext):
-    await call.message.answer("Введите ваш новый игровой ник (макс. 50 символов):")
-    await state.set_state(Form.waiting_for_nickname)
-    await call.answer()
 
 
-@router.message(Form.waiting_for_nickname)
-async def change_nick_step2(message: Message, state: FSMContext):
-    new_nick = (message.text or "").strip()[:50]
-    if not new_nick:
-        await message.answer("Ник не может быть пустым. Попробуйте снова.")
-        return
-    await database.update_nickname(message.from_user.id, new_nick)
-    await state.clear()
-
-    user_id = message.from_user.id
-    is_admin = user_id in config.ADMIN_IDS
-    is_judge = await _is_judge(user_id)
-    kb = _get_main_menu_for_user(is_admin, is_judge)
-
-    await message.answer(
-        f"✅ Ник изменён на: {new_nick}",
-        reply_markup=kb
-    )
 
 
-@router.callback_query(F.data == "profile_pay")
-async def profile_pay(call: CallbackQuery):
-    kb = payment_kb(call.from_user.id)
-    await call.message.answer(
-        f"💰 **Реквизиты для оплаты:**\n\n"
-        f"📞 Номер: `{config.PHONE}`\n"
-        f"🏦 Банк: {config.BANK}\n\n"
-        f"После перевода нажмите кнопку ниже.",
-        reply_markup=kb,
-        parse_mode="Markdown"
-    )
-    await call.answer()
 
 
 # ======================= ИНЛАЙН-ПОИСК ПРОФИЛЕЙ ДРУГИХ ИГРОКОВ =======================

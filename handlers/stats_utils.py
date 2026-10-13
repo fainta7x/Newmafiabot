@@ -330,46 +330,4 @@ def _format_roles_stats(roles_stats: List[Dict]) -> str:
 # 2. ИСТОРИЯ ИГР (ПО ВСЕМ / ПО ИГРОКУ)
 # =========================================================
 
-async def build_all_games_history_text(limit: int = 5) -> str:
-    games = await database.get_last_games(limit=limit)
-    if not games:
-        return "📜 История игр пока пуста."
 
-    lines: List[str] = ["📜 Последние игры:\n"]
-    for g in games:
-        gid = g["id"]
-        # Было: date_str = g["game_date"] or "-"
-        # Стало: получаем дату из базы и «красим» её для пользователя
-        raw_date = g["game_date"] or "-"
-        date_str = database.format_date_to_user(raw_date)
-
-        winner = g["winner_label"] or "Итог не указан"
-        protocol_text = g["protocol_text"] or ""
-
-        lines.append(f"Игра #{gid} — {date_str} — {winner}")
-        lines.append(protocol_text)
-        lines.append("")
-
-    return "\n".join(lines).strip()
-
-
-async def build_user_games_history_text(user_id: int, limit: int = 5) -> str:
-    games = await database.get_user_games(user_id, limit=limit)
-    if not games:
-        return "📜 У тебя пока нет игр в истории (по данным протоколов)."
-
-    lines: List[str] = ["📜 Твои игры:\n"]
-    for g in games:
-        gid = g["id"]
-        # То же самое: превращаем 2026-05-13 в 13.05.2026
-        raw_date = g["game_date"] or "-"
-        date_str = database.format_date_to_user(raw_date)
-
-        winner = g["winner_label"] or "Итог не указан"
-        protocol_text = g["protocol_text"] or ""
-
-        lines.append(f"Игра #{gid} — {date_str} — {winner}")
-        lines.append(protocol_text)
-        lines.append("")
-
-    return "\n".join(lines).strip()

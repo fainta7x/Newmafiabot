@@ -2,12 +2,11 @@ from datetime import datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
-from aiogram import Bot, F, Router
-from aiogram.types import CallbackQuery, Message
+from aiogram import F, Router
+from aiogram.types import CallbackQuery
 
 import bot_menu
-from bot_api import get_evening_participants, get_open_evenings, submit_evening_response
-from crm_evening_keyboard import crm_evening_select_kb
+from bot_api import get_evening_participants, get_open_evenings
 from handlers.telegram_evening_copy import private_event_text
 
 router = Router()
@@ -111,30 +110,6 @@ async def _load_open_evenings() -> list[dict] | None:
     return data if isinstance(data, list) else None
 
 
-@router.message(F.text == "🕵️ Записаться на игру", F.chat.type == "private")
-async def crm_book(message: Message):
-    """Compatibility entry point for old persistent Telegram keyboards."""
-    evenings = await _load_open_evenings()
-    if evenings is None:
-        await message.answer("Не удалось загрузить вечера. Попробуй чуть позже.")
-        return
-    if not evenings:
-        await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")
-        return
-    if len(evenings) == 1:
-        evening = evenings[0]
-        evening_id = str(evening.get("id") or "")
-        await message.answer(
-            _evening_prompt(evening),
-            parse_mode="HTML",
-            reply_markup=bot_menu.event_inline_keyboard(evening_id),
-        )
-        return
-
-    await message.answer(
-        "Сейчас открыто несколько вечеров. Выбери нужный:",
-        reply_markup=crm_evening_select_kb(evenings),
-    )
 
 
 @router.callback_query(F.data.startswith("evsel:"))
@@ -158,79 +133,5 @@ async def select_crm_evening(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("book_"))
-async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
-    """Keep buttons in already-published legacy messages functional."""
-    response_status = _LEGACY_BOOK_TO_RESPONSE.get(str(callback.data or ""))
-    if not response_status:
-        return
-
-    evenings = await _load_open_evenings()
-    if evenings is None:
-        await callback.answer("Кабинет организатора временно недоступен", show_alert=True)
-        return
-    if not evenings:
-        await callback.answer("Сейчас нет открытого вечера", show_alert=True)
-        return
-    if len(evenings) > 1:
-        if callback.message and callback.message.chat.type == "private":
-            await callback.message.answer(
-                "Открыто несколько вечеров. Сначала выбери нужный:",
-                reply_markup=crm_evening_select_kb(evenings),
-            )
-            await callback.answer()
-        else:
-            await callback.answer(
-                "Открыто несколько вечеров. Выбери нужный через бота в личных сообщениях.",
-                show_alert=True,
-            )
-        return
-
-    evening_id = str(evenings[0].get("id") or "")
-    result = await submit_evening_response(
-        evening_id=evening_id,
-        telegram_user_id=callback.from_user.id,
-        response_status=response_status,
-    )
-    if result.get("success"):
-        await callback.answer(f"✅ {_RESPONSE_LABELS[response_status]}")
-        try:
-            from handlers.crm_group_stats import refresh_crm_group_stats
-            await refresh_crm_group_stats(bot, evening_id)
-        except Exception as exc:
-            print(f"[CRM STATS] Legacy response saved, but group list refresh failed: {exc}")
-        return
-
-    error = result.get("error")
-    if error == "not_found":
-        text = "Твой Telegram пока не привязан к профилю игрока"
-    elif error == "closed":
-        text = "Этот вечер уже закрыт"
-    else:
-        text = "Не удалось сохранить ответ. Попробуй позже"
-    await callback.answer(text, show_alert=True)
 
 
-@router.message(F.text == "🧾 Список игроков", F.chat.type == "private")
-async def crm_players_list(message: Message):
-    """Compatibility entry point for old keyboards; new player navigation lives in the app."""
-    evenings = await _load_open_evenings()
-    if evenings is None:
-        await message.answer("Не удалось загрузить список. Попробуй чуть позже.")
-        return
-    if not evenings:
-        await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")
-        return
-
-    sent = False
-    for evening in evenings:
-        evening_id = str(evening.get("id") or "")
-        if not evening_id:
-            continue
-        text = await build_crm_evening_stats_text(evening_id)
-        if text:
-            await message.answer(text, parse_mode="HTML")
-            sent = True
-
-    if not sent:
-        await message.answer("Не удалось загрузить состав вечера.")

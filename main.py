@@ -14,19 +14,14 @@ import config
 import database as db
 from commands import setup_bot_commands
 from database import init_db
-from game import router as game_router  # игровой роутер
 from handlers import achievements
 from handlers import admin_crm
-from handlers import admin_judges
 from handlers import legacy_retired_actions
-from handlers import booking
 from handlers import crm_booking
 from handlers import crm_evening_response
-from handlers import payment
 from handlers import profile
 from handlers import registration
 from handlers import bot_home
-from handlers import shop
 from handlers import start_profile
 from handlers import telegram_admin_tools
 from handlers.crm_evening_announcement import send_crm_evening_announcement, send_crm_evening_reminders
@@ -218,7 +213,6 @@ def setup_handlers():
     """Register every aiogram router tree exactly once."""
     global dp, bot
     dp.update.outer_middleware(MyLoggerMiddleware())
-    payment.setup_payment_handlers(bot)
     admin.setup_admin_handlers(bot)
 
     ordered_routers = [
@@ -226,7 +220,6 @@ def setup_handlers():
         # router, including the old judge-management router backed by mafia_crm.db.
         legacy_retired_actions.router,
         admin_crm.router,
-        admin_judges.router,
         telegram_admin_tools.router,
         github_pr_router,
         admin.router,
@@ -234,13 +227,9 @@ def setup_handlers():
         bot_home.router,
         start_profile.router,
         profile.router,
-        payment.router,
         crm_evening_response.router,
         crm_booking.router,
-        booking.router,
-        game_router,
         achievements.router,
-        shop.router,
     ]
 
     roots = []

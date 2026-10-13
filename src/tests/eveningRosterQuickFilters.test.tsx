@@ -47,14 +47,16 @@ describe('Mounted evening lists', () => {
       participants: [
         { id: 'a', player_id: '1', nickname: 'Чагин', response_status: 'going', registration_status: 'going', attendance_status: 'pending' },
         { id: 'g', player_id: null, is_guest: true, plus_count: 1, nickname: 'Екатерина', response_status: 'going', registration_status: 'going', attendance_status: 'pending' },
-        { id: 'g1', player_id: null, is_guest: true, companion_of: 'g', plus_count: 0, nickname: 'Екатерина +1', response_status: 'going', registration_status: 'going', attendance_status: 'pending' },
         { id: 'h', player_id: null, is_guest: true, plus_count: 0, nickname: 'Денис', response_status: 'going', registration_status: 'going', attendance_status: 'attended' },
+        { id: 'g1', player_id: null, is_guest: true, companion_of: 'g', plus_count: 0, nickname: 'Екатерина +1', response_status: 'going', registration_status: 'going', attendance_status: 'pending' },
       ],
     } as unknown as Awaited<ReturnType<typeof api.getEvening>>);
     render(<EveningActiveRosterView eveningId="evening" />);
     await screen.findByText('Екатерина');
     expect(screen.getByText('Екатерина +1')).toBeTruthy();
     expect(screen.getByText('Идёт с гостем: Екатерина')).toBeTruthy();
+    const order = screen.getAllByTestId(/^evening-active-row-/).map((row) => row.getAttribute('data-testid'));
+    expect(order.indexOf('evening-active-row-g1')).toBe(order.indexOf('evening-active-row-g') + 1);
     expect(screen.getByRole('button', { name: '4 Все' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '3 Ожидаем' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '1 Пришли' })).toBeTruthy();

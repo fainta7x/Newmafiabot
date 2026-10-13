@@ -205,6 +205,8 @@ export interface PlayerAchievementProfile {
 }
 
 export interface PlayerDetails extends Player {
+  /** VK page id when the player signed in with VK. */
+  vk_user_id?: string | null;
   stats: any;
   futureBookings: EveningParticipant[];
   attendedEvenings: EveningParticipant[];

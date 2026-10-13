@@ -484,9 +484,13 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const gameProfile = await loadPlayerGameProfile(db, String(req.params.id));
     const achievements = await loadPlayerAchievementProfile(db, String(req.params.id));
     const staffStats = await loadPlayerStaffStats(db, String(req.params.id));
+    // The VK page id, so the organizer can open a dialog with the player from their own VK account.
+    const vkTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'player_external_identities'");
+    const vkIdentity = vkTable ? await db.get<any>("SELECT external_user_id FROM player_external_identities WHERE platform = 'vk' AND player_id = ? LIMIT 1", [String(req.params.id)]) : null;
 
     res.json({
       ...player,
+      vk_user_id: /^\d+$/.test(String(vkIdentity?.external_user_id || '')) ? String(vkIdentity.external_user_id) : null,
       staff_stats: staffStats,
       contact_status,
       engagement_stage,

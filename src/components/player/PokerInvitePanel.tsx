@@ -31,9 +31,9 @@ const statusFor = (candidate: Candidate, now = Date.now()) => {
       return { label: `VK · ${hours} ч назад`, tone: 'text-white/50', dot: 'bg-white/30' };
     }
   }
-  if (!candidate.telegram_linked) return { label: 'Нет Telegram для приглашения', tone: 'text-white/30', dot: 'bg-white/15' };
+  if (!candidate.telegram_linked && !candidate.vk_linked) return { label: 'Нет Telegram и ВК для приглашения', tone: 'text-white/30', dot: 'bg-white/15' };
   if (!candidate.personal_notifications_enabled) return { label: 'Личные уведомления выключены', tone: 'text-white/30', dot: 'bg-white/15' };
-  return { label: 'Можно позвать в Telegram', tone: 'text-white/45', dot: 'bg-white/20' };
+  return { label: candidate.telegram_linked ? 'Можно позвать в Telegram' : 'Можно позвать во ВКонтакте', tone: 'text-white/45', dot: 'bg-white/20' };
 };
 
 const cooldownLabel = (seconds: number) => {
@@ -63,7 +63,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setCandidates((current) => current.map((candidate) => candidate.invite_cooldown_seconds > 0
-        ? { ...candidate, invite_cooldown_seconds: Math.max(0, candidate.invite_cooldown_seconds - 1), can_invite: candidate.telegram_linked && candidate.personal_notifications_enabled && !candidate.at_table && candidate.invite_cooldown_seconds <= 1 }
+        ? { ...candidate, invite_cooldown_seconds: Math.max(0, candidate.invite_cooldown_seconds - 1), can_invite: (candidate.telegram_linked || candidate.vk_linked) && candidate.personal_notifications_enabled && !candidate.at_table && candidate.invite_cooldown_seconds <= 1 }
         : candidate));
     }, 1000);
     return () => window.clearInterval(timer);
@@ -93,7 +93,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
       const cooldown = Number(body?.invite?.cooldown_seconds || 120);
       setCandidates((current) => current.map((item) => item.player_id === candidate.player_id
         ? { ...item, invite_cooldown_seconds: cooldown, can_invite: false } : item));
-      setNotice(`${candidate.nickname}: приглашение отправлено в Telegram`);
+      setNotice(`${candidate.nickname}: приглашение отправлено ${body?.invite?.channel === 'vk' ? 'во ВКонтакте' : 'в Telegram'}`);
     } catch (error: any) {
       setNotice(error?.message || 'Не удалось отправить приглашение.');
     } finally {
@@ -106,7 +106,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-white">Кого позвать</h3>
-          <p className="mt-0.5 text-[10px] leading-4 text-white/40">Онлайн берём из приложения и VK. Приглашение приходит в Telegram.</p>
+          <p className="mt-0.5 text-[10px] leading-4 text-white/40">Онлайн берём из приложения и VK. Приглашение приходит в Telegram, а если его нет — во ВКонтакте от имени клуба.</p>
         </div>
         <button type="button" onClick={() => void load()} className="min-h-8 shrink-0 rounded-xl bg-white/[.06] px-2.5 text-[10px] text-white/55">Обновить</button>
       </div>
@@ -120,8 +120,8 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
           const disabled = busy === candidate.player_id || !candidate.can_invite || cooldown > 0;
           const buttonLabel = candidate.at_table
             ? 'За столом'
-            : !candidate.telegram_linked
-              ? 'Нет TG'
+            : !candidate.telegram_linked && !candidate.vk_linked
+              ? 'Нет связи'
               : !candidate.personal_notifications_enabled
                 ? 'Выкл.'
                 : cooldown > 0

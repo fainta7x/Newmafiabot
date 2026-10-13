@@ -95,7 +95,7 @@ export default function CosmeticsLab({ portraitUrl, hatUrl='/cosmetics/autumn-fe
     {frozen&&<><p className="cosmetics-lab-note">Теперь измените и сохраните этот образ слева: текущая карточка обновится, зафиксированная останется прежней.</p>{card(frozen,'Образ на момент игры')}</>}</section></div>
     <section className="cosmetics-lab-workshop" aria-label="Мастерская пяти сетов"><h2>3. Соберите черновики пяти сетов</h2>
       <p>Здесь нет придуманных костюмов: пять пустых коллекций по утверждённым редкостям. Два существующих эскиза служат только для проверки выбора слотов и примерки. Состав сохраняется локально и не связан с магазином.</p>
-      <CosmeticSetStudio client={studioClient} portraitUrl={portraitUrl} initialOpen allowCreate={false}/>
+      <CosmeticSetStudio key={resetKey} client={studioClient} portraitUrl={portraitUrl} initialOpen allowCreate={false}/>
     </section>
     <button type="button" className="cosmetics-lab-reset" onClick={()=>{try{localStorage.removeItem(storageKey);localStorage.removeItem(setStorageKey);}catch{}studioMemory.current=draftSetSeeds.map(set=>({...set,items:[]}));memory.current=initial();setSaved(initial());setFrozen(null);setResetKey(n=>n+1);}}>Сбросить тестовые настройки</button>
   </main>;

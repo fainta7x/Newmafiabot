@@ -39,6 +39,12 @@ export async function saveRoleLook(db: DatabaseWrapper, playerId: string, roleVa
     }
     const revision = previous.revision + 1, now = new Date().toISOString();
     await tx.run(`INSERT INTO player_role_looks(player_id,role,phrase,background,hat_item_id,jacket_item_id,revision,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(player_id,role) DO UPDATE SET phrase=excluded.phrase,background=excluded.background,hat_item_id=excluded.hat_item_id,jacket_item_id=excluded.jacket_item_id,revision=excluded.revision,updated_at=excluded.updated_at`, [playerId,role,s.phrase,s.background,s.hatItemId,s.jacketItemId,revision,now]);
+    // Keep the additive multi-slot store in sync with old clients.
+    // Legacy hat/jacket columns remain authoritative until the new editor is deployed.
+    await tx.run("DELETE FROM player_role_look_equipment WHERE player_id=? AND role=? AND slot IN ('portrait_hat','portrait_jacket')", [playerId, role]);
+    for (const [slot, id] of [['portrait_hat', s.hatItemId], ['portrait_jacket', s.jacketItemId]] as const) {
+      if (id) await tx.run('INSERT INTO player_role_look_equipment(player_id,role,slot,item_id) VALUES(?,?,?,?)', [playerId, role, slot, id]);
+    }
     const result: RoleLook = { role, phrase: s.phrase, background: s.background, hatItemId: s.hatItemId, jacketItemId: s.jacketItemId, revision };
     await tx.run('INSERT INTO cosmetic_events(player_id,request_id,operation,payload_json,result_json,actor_id,created_at) VALUES(?,?,?,?,?,?,?)', [playerId,randomUUID(),'save_role_look',JSON.stringify({ role, ...s }),JSON.stringify(result),playerId,now]);
     return result;

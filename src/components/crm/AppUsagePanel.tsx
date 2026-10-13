@@ -1,58 +1,46 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AnalyticsHeading, AnalyticsStatus, analyticsCard, useAnalyticsQuery } from './analyticsShared.tsx';
-import { type UiUsageRow, type UiUsageSummary } from '../../lib/api.ts';
-import { screenLabel as screenName, actionLabel } from '../../lib/screenLabels.ts';
+import { screenLabel as screenName } from '../../lib/screenLabels.ts';
 
-// Screen names are shared with «Сейчас в приложении» (src/lib/screenLabels.ts).
+type PlayerUsage = { player_id: string; nickname: string; visits: number; active_days: number; last_seen_at: string; screens: Array<{ name: string; visits: number }> };
+type PlayersUsage = { players: PlayerUsage[] };
 
+const lastSeen = (iso: string) => new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+const times = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? `${count} раз` : `${count} раз${count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? 'а' : ''}`);
 
-const SURFACE_LABELS = { player: 'Игроки', crm: 'Организаторы', public: 'Публичные' } as const;
-
-const screenLabel = (row: UiUsageRow) => screenName(row.name);
-
-
-
-/** Which screens and buttons people actually use — anonymous, from uiTelemetry. */
-export const AppUsagePanel: React.FC<{ period:string; active?:boolean }> = ({ period,active=true }) => {
-  const query=useAnalyticsQuery<UiUsageSummary>('/api/ui-events/summary?period='+encodeURIComponent(period),active);
-  const data=query.data;
-  const [surface,setSurface]=useState<'player'|'crm'>('player');
-
-  const screens = (data?.screens || []).filter((row) => row.surface === surface);
-  const actions = (data?.actions || []).filter((row) => row.surface === surface);
-  const maxPeople = Math.max(1, ...screens.map((row) => row.people));
+/**
+ * Where every player went (owner, 2026-10-13): one row per player — how many times he came, when he was last seen and the
+ * screens he opened, in plain Russian. The old totals by «surface» are gone: the organizers' numbers counted every session
+ * and were huge and meaningless.
+ */
+export const AppUsagePanel: React.FC<{ period: string; active?: boolean }> = ({ period, active = true }) => {
+  const query = useAnalyticsQuery<PlayersUsage>('/api/ui-events/players?period=' + encodeURIComponent(period), active);
+  const [filter, setFilter] = useState('');
+  const all = query.data?.players ?? [];
+  const players = useMemo(() => {
+    const needle = filter.trim().toLocaleLowerCase('ru-RU');
+    return all.filter((player) => !needle || player.nickname.toLocaleLowerCase('ru-RU').includes(needle));
+  }, [all, filter]);
 
   return (
     <section className={analyticsCard} data-testid="crm-app-usage">
-      <AnalyticsHeading title="Как пользуются приложением" help="usage" caption="За период · «чел.» — сколько разных людей заходило, «заходов» — сколько раз открывали экран · без имён" />
+      <AnalyticsHeading title="Кто куда заходил" help="usage" caption="Каждый игрок: сколько раз заходил и какие экраны открывал" />
       <AnalyticsStatus {...query} />
-      <div className="mt-3 grid grid-cols-2 gap-1 rounded-[12px] border border-border-soft bg-surface-2 p-1 text-[13px]">
-        {(['player', 'crm'] as const).map((value) => (
-          <button key={value} type="button" onClick={() => setSurface(value)} className={`min-h-11 rounded-[9px] font-bold ${surface === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>
-            {SURFACE_LABELS[value]}{data ? ` · ${data.people[value]} чел.` : ''}
-          </button>
+      <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Найти игрока по нику" aria-label="Найти игрока" className="mobile-field mt-3" />
+      {query.data && !all.length ? <p className="mt-3 rounded-[11px] bg-surface-2 p-3 text-[12px] text-text-secondary">За этот период данных нет. История по игрокам копится с момента, когда события начали записываться с именем.</p> : null}
+      {all.length > 0 ? <p className="mt-3 text-[12px] text-text-muted" data-testid="crm-app-usage-count">Игроков: {players.length}</p> : null}
+      <div className="mt-2 space-y-2">
+        {players.map((player) => (
+          <article key={player.player_id} data-testid="crm-app-usage-player" className="rounded-[14px] bg-surface-2 p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h4 className="min-w-0 truncate text-[14px] font-bold text-text-primary">{player.nickname}</h4>
+              <span className="shrink-0 text-[12px] text-text-secondary">заходил {times(player.visits)}</span>
+            </div>
+            <div className="mt-0.5 text-[11px] text-text-muted">последний раз {lastSeen(player.last_seen_at)} · дней в приложении: {player.active_days}</div>
+            {player.screens.length ? <div className="mt-2 flex flex-wrap gap-1.5">{player.screens.map((screen) => <span key={screen.name} className="inline-flex max-w-full items-center gap-1 rounded-full bg-surface-1 px-2.5 py-1 text-[12px] text-text-primary"><span className="truncate">{screenName(screen.name)}</span><b className="text-text-secondary">{screen.visits}</b></span>)}</div> : null}
+          </article>
         ))}
       </div>
-      {data && !screens.length ? <p className="mt-3 rounded-[11px] bg-surface-2 p-3 text-[12px] text-text-secondary">Данных пока нет — они начнут появляться, когда {surface === 'player' ? 'игроки' : 'организаторы'} откроют приложение после обновления.</p> : null}
-      {screens.length ? (
-        <div className="mt-3 space-y-1.5">
-          <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-text-muted">Экраны · людей и заходов</div>
-          {screens.slice(0, 15).map((row) => (
-            <div key={row.name} className="relative overflow-hidden rounded-[10px] bg-surface-2 px-3 py-2">
-              <div className="absolute inset-y-0 left-0 bg-accent/15" style={{ width: `${Math.round((row.people / maxPeople) * 100)}%` }} />
-              <div className="relative flex items-center justify-between gap-3 text-[12px]"><span className="min-w-0 truncate text-text-primary">{screenLabel(row)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} заходов</strong></div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {actions.length ? (
-        <div className="mt-4 space-y-1.5">
-          <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-text-muted">Нажатия · людей и заходов</div>
-          {actions.slice(0, 15).map((row) => (
-            <div key={row.name} className="flex items-center justify-between gap-3 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px]"><span className="min-w-0 truncate text-text-primary">{actionLabel(row.name)}</span><strong className="shrink-0">{row.people} чел. · {row.visits} заходов</strong></div>
-          ))}
-        </div>
-      ) : null}
     </section>
   );
 };

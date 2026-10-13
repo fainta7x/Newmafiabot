@@ -949,3 +949,8 @@ Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime veri
 - 4/6 stays as designed: the debts block and the «Дела» preview must not show the same debts twice, so only the evening shown in the debts block is hidden from the preview.
 - 24: «чел.» counts distinct people anonymously by design (`uiTelemetry` keeps no names); listing who they were would change that privacy rule, so it is not done without the owner's decision.
 - Still open: 16 (applications as tasks — they already show on «Сегодня»), 23 (analytics card layout), 25 (dictation unclear), 27/29, the player's cabinet and profile.
+
+### Owner answers on the open items (2026-10-13) and what was done
+- 23 (analytics layout): screenshots showed cards of different widths and heights in one grid and tiles whose «?» pushed the content. Fixed: the main card spans the full width, its four tiles are equal, cards of one row are equally tall, the «?» floats in the corner; the lists that need room span the full width.
+- 24 (who the «65 people» were): the owner wants it per player. The totals by surface (huge meaningless organizer numbers) are replaced by «Кто куда заходил»: one row per player — visits, last seen, screens opened in Russian (`getPlayersUsage`, `GET /api/ui-events/players`). The owner's own activity and organizers are not listed. History starts when events began to carry the player id.
+- 25 («Сейчас» tab): «Сегодня и ближайший вечер» and the debts count were removed from the analytics tab — they exist on «Сегодня» and «События»; the tab keeps «Сейчас в приложении» (owner only).

@@ -24,9 +24,11 @@
   .crm-more-menu > * { margin-block: 0; min-width: 0; }
   .crm-more-menu > header, .crm-more-menu > button { grid-column: 1 / -1; }
   .crm-more-menu > button { max-width: 480px; justify-self: center; }
+  /* Cards of one row are equally tall, the main card takes the full width (owner, 2026-10-13: «карточки разные ширины-длины в разнобой»). */
   [data-testid="crm-analytics"] > [role="tabpanel"]:not([hidden]) {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch;
   }
+  #analytics-panel-club > section:first-child, #analytics-panel-games > :first-child, #analytics-panel-now > *, #analytics-panel-club > details, #analytics-panel-club > section:nth-of-type(4), #analytics-panel-games > [data-testid="crm-app-usage"] { grid-column: 1 / -1; }
   [data-testid="crm-analytics"] > [role="tabpanel"] > * { min-width: 0; margin-block: 0; }
   #analytics-panel-finance > section { grid-column: 1 / -1; }
   .crm-premium-header { padding-inline: max(16px, calc((100% - 1120px) / 2)); }

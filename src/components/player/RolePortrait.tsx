@@ -3,8 +3,8 @@ import { PORTRAIT_BASE_ORDER, PORTRAIT_SLOT_LABELS, PORTRAIT_SLOT_ORDER, type Po
 import './roleLooks.css';
 
 /** Identical ordering for the in-profile editor, lab and spectator graphics. */
-export default function RolePortrait({ baseUrl, background, hatUrl, jacketUrl, layers, fallback, showGuides=false }: {
-  baseUrl?: string | null; background: string; hatUrl?: string | null; jacketUrl?: string | null;
+export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl, jacketUrl, layers, fallback, showGuides=false }: {
+  baseUrl?: string | null; bodyBaseUrl?: string | null; background: string; hatUrl?: string | null; jacketUrl?: string | null;
   layers?: PortraitLayer[]; fallback?: ReactNode; showGuides?: boolean;
 }) {
   const equipped: PortraitLayer[] = layers ?? [
@@ -19,6 +19,8 @@ export default function RolePortrait({ baseUrl, background, hatUrl, jacketUrl, l
   />;
   return <span className={`role-portrait role-portrait-${background}`}>
     {baseUrl ? <>
+      {/* An immutable baseline is not a removable owned wardrobe item. */}
+      {bodyBaseUrl && <img className="role-portrait-body-base" src={bodyBaseUrl} alt="" aria-hidden="true" />}
       {sorted.filter(l => PORTRAIT_SLOT_ORDER[l.slot] < PORTRAIT_BASE_ORDER).map(layerImage)}
       <img className="role-portrait-base" style={{zIndex: PORTRAIT_BASE_ORDER + 1}} src={baseUrl} alt="Портрет игрока" />
       {sorted.filter(l => PORTRAIT_SLOT_ORDER[l.slot] > PORTRAIT_BASE_ORDER).map(layerImage)}

@@ -19,7 +19,7 @@ import {
   Send,
   ShieldCheck,
   Settings2,
-  Sprout, GraduationCap, KanbanSquare, Sparkles } from 'lucide-react';
+  Sprout, GraduationCap, KanbanSquare, Sparkles, MessageCircleQuestion } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
@@ -34,6 +34,7 @@ import LearningProgressCRM from './LearningProgressCRM.tsx';
 import PlayerAccessBulkCRM from './PlayerAccessBulkCRM.tsx';
 import ProjectBoardCRM from './ProjectBoardCRM.tsx';
 import WhatsNewCRM from './WhatsNewCRM.tsx';
+import BotFaqCRM from './BotFaqCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -53,7 +54,7 @@ type MenuItem = { id: string; label: string; detail: string; icon: React.Compone
 
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки', betting: 'Управление ставками', commerce: 'Оплата и поддержка', telegram: 'Публикации и каналы',
-  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового',
+  system: 'Состояние системы', project: 'Проект', developer: '[TEST] Тестовый режим', music: 'Музыкальная база', tournaments: 'Турнирные вечера', development: 'Заявки новых игроков', learning: 'Обучение', access: 'Уровни и роли', whatsnew: 'Что нового', botfaq: 'Ответы бота',
 };
 
 const menuTone = (id: string) => {
@@ -99,6 +100,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'access' ? <PlayerAccessBulkCRM /> : null}
       {subscreen === 'project' ? <ProjectBoardCRM /> : null}
       {subscreen === 'whatsnew' ? <WhatsNewCRM /> : null}
+      {subscreen === 'botfaq' ? <BotFaqCRM /> : null}
     </div>;
   }
 
@@ -106,6 +108,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Дела', detail: 'Что нужно сделать и кому написать — по срочности', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'whatsnew', label: 'Что нового', detail: 'Записи для игроков на главной: пишете сами, публикуете когда готово', icon: Sparkles, onClick: () => setSubscreen('whatsnew') },
+    { id: 'botfaq', label: 'Ответы бота', detail: 'Частые вопросы в боте: меняйте тексты и порядок сами', icon: MessageCircleQuestion, onClick: () => setSubscreen('botfaq') },
     { id: 'telegram', label: 'Публикации и каналы', detail: 'Объявления, сводки и каналы клуба', icon: Send, onClick: () => setSubscreen('telegram') },
     { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),

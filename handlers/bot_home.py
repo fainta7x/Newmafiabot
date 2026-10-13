@@ -14,7 +14,8 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 import bot_menu
-from bot_api import get_open_evenings, get_player_home
+import config
+from bot_api import get_bot_faq, get_open_evenings, get_player_home
 from bot_telegram_api import get_telegram_destinations
 from handlers.telegram_evening_copy import club_links, event_base_text, venue_map_url
 
@@ -71,7 +72,6 @@ FAQ: tuple[tuple[str, str, str], ...] = (
 )
 GAME_EXAMPLE_URL = "https://www.youtube.com/@lebwamafia"  # «Мафия с Левшой»: how classic mafia is played
 
-_FAQ_BY_KEY = {key: (button, answer) for key, button, answer in FAQ}
 # The full question heads the answer; the buttons stay short so they fit two per row.
 _FAQ_TITLES = {
     "signup": "📝 Как записаться?", "price": "💳 Сколько стоит?", "place": "📍 Где и во сколько?",
@@ -360,8 +360,22 @@ def lineups_view(evenings: list[dict]) -> tuple[str, InlineKeyboardMarkup]:
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def faq_view() -> tuple[str, InlineKeyboardMarkup]:
-    rows = _pairs([InlineKeyboardButton(text=button, callback_data=f"home:faq:{key}") for key, button, _ in FAQ])
+def builtin_faq() -> list[dict]:
+    """The answers written in the code: used until the CRM list is reachable and as a safety net."""
+    return [{"id": key, "button": button, "title": _FAQ_TITLES.get(key, "❓ Вопрос"), "answer": answer} for key, button, answer in FAQ]
+
+
+async def load_faq() -> list[dict]:
+    """The organizer's list from the CRM (owner, 2026-10-13: answers are edited in the app, not in code)."""
+    result = await get_bot_faq()
+    entries = result.get("data") if result.get("success") else None
+    rows = [item for item in (entries or []) if isinstance(item, dict) and item.get("id") and item.get("button") and item.get("answer")]
+    return rows if entries is not None else builtin_faq()
+
+
+def faq_view(entries: list[dict] | None = None) -> tuple[str, InlineKeyboardMarkup]:
+    entries = builtin_faq() if entries is None else entries
+    rows = _pairs([InlineKeyboardButton(text=str(item["button"]), callback_data=f"home:faq:{item['id']}") for item in entries])
     contact = club_links().get("organizer_telegram")
     if contact:
         rows.append([InlineKeyboardButton(text="✉️ Написать организатору", url=contact)])
@@ -369,9 +383,11 @@ def faq_view() -> tuple[str, InlineKeyboardMarkup]:
     return "❓ <b>Частые вопросы</b>\n\nВыбери вопрос 👇", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def faq_answer_view(key: str) -> tuple[str, InlineKeyboardMarkup]:
-    _, answer = _FAQ_BY_KEY.get(key, ("❓ Вопрос", "Ответ не найден."))
-    title = _FAQ_TITLES.get(key, "❓ Вопрос")
+def faq_answer_view(key: str, entries: list[dict] | None = None) -> tuple[str, InlineKeyboardMarkup]:
+    entries = builtin_faq() if entries is None else entries
+    item = next((entry for entry in entries if str(entry.get("id")) == key), None)
+    answer = str(item["answer"]) if item else "Ответ не найден."
+    title = str(item.get("title") or item["button"]) if item else "❓ Вопрос"
     rows = []
     map_url = venue_map_url(None) if key == "place" else None
     if map_url:
@@ -440,8 +456,38 @@ async def _home_for(user_id: int, first_name: str | None) -> tuple[str, InlineKe
     home = result.get("data") if result.get("success") else None
     evenings = await _open_evenings() or []
     if audience_for(home) == "club":
-        return club_home(first_name, home, evenings)
-    return newcomer_home(first_name, evenings)
+        text, markup = club_home(first_name, home, evenings)
+    else:
+        text, markup = newcomer_home(first_name, evenings)
+    staff = await _staff_rows(user_id)
+    if staff:
+        markup = InlineKeyboardMarkup(inline_keyboard=[*markup.inline_keyboard, *staff])
+    return text, markup
+
+
+async def _staff_rows(user_id: int) -> list[list[InlineKeyboardButton]]:
+    """Organizer and judge entries live inside the card, not on the keyboard, so players never see them (owner, 2026-10-13)."""
+    if user_id in config.ADMIN_IDS:
+        return [[InlineKeyboardButton(text="🛠 Организатору", callback_data="home:staff")]]
+    from handlers.registration import _is_judge
+    if await _is_judge(user_id):
+        judge = _app_button(bot_menu.JUDGE_BUTTON_TEXT, "/player/conduct")
+        return [[judge]] if judge else []
+    return []
+
+
+def staff_view() -> tuple[str, InlineKeyboardMarkup]:
+    from handlers.admin_crm import _crm_url, _public_app_url
+    rows: list[list[InlineKeyboardButton]] = []
+    if _public_app_url():
+        rows.append([InlineKeyboardButton(text="🗂 Кабинет организатора", web_app=WebAppInfo(url=_crm_url()))])
+    judge = _app_button(bot_menu.JUDGE_BUTTON_TEXT, "/player/conduct")
+    rows += _pairs([judge, InlineKeyboardButton(text="🩺 Состояние приложения", callback_data="home:status")])
+    browser = bot_menu.browser_crm_button()
+    if browser:
+        rows.append([browser])
+    rows.append(_back())
+    return "🛠 <b>Организатору</b>\n\nКабинет откроется внутри Telegram. Состояние приложения — проверка, что сайт и бот работают.", InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _audience(user_id: int) -> str:
@@ -473,7 +519,7 @@ async def open_events(message: Message) -> None:
 
 @router.message(Command("faq"), F.chat.type == "private")
 async def open_faq(message: Message) -> None:
-    text, markup = faq_view()
+    text, markup = faq_view(await load_faq())
     await message.answer(text, parse_mode="HTML", reply_markup=markup)
 
 
@@ -531,7 +577,8 @@ async def home_callback(callback: CallbackQuery) -> None:
         markup = InlineKeyboardMarkup(inline_keyboard=[_back("lineups", "⬅️ К составам")])
         await _show(callback, text or "Не получилось загрузить состав. Попробуй чуть позже.", markup)
     elif section == "faq":
-        await _show(callback, *(faq_answer_view(arg) if arg else faq_view()))
+        faq = await load_faq()
+        await _show(callback, *(faq_answer_view(arg, faq) if arg else faq_view(faq)))
     elif section in ("learn", "rules"):  # «rules» came from cards sent before the regulations left the menu
         audience = await _audience(callback.from_user.id)
         await _show(callback, *learn_view("home" if audience == "newcomer" else "more"))
@@ -539,6 +586,18 @@ async def home_callback(callback: CallbackQuery) -> None:
         result = await get_telegram_destinations()
         rows = ((result.get("data") or {}).get("destinations") or []) if result.get("success") else []
         await _show(callback, *groups_view(rows))
+    elif section == "staff":
+        if callback.from_user.id not in config.ADMIN_IDS:
+            await callback.answer("Это только для организаторов.", show_alert=True)
+            return
+        await _show(callback, *staff_view())
+    elif section == "status":
+        if callback.from_user.id not in config.ADMIN_IDS:
+            await callback.answer("Это только для организаторов.", show_alert=True)
+            return
+        from status_check import check_application_status, format_status_message
+        await callback.message.answer(format_status_message(await check_application_status()), parse_mode="HTML")
+        await callback.answer()
     elif section == "access":
         from handlers.registration import _handle_club_access, _main_menu
         await _handle_club_access(callback.message, await _main_menu(callback.from_user.id), callback.from_user)

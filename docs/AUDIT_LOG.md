@@ -963,3 +963,11 @@ Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime veri
 - **3 «Проект»:** `PROJECT_BOARD_RU.md` rewritten to the real state (it listed finished work as open).
 - **15 «Игровой движок» / «Музыкальная база»:** «Игровой движок» is only shown when the app passes the engine callback, which the real app does not, so the row does not exist there. «Музыкальная база» opens the player app's conducting screen, whose only way back was the mode switch to the CRM home; now the screen has «Назад в CRM · Музыкальная база».
 - **17 bot FAQ:** friend answer extended; cafe hours are not written anywhere in the app — the question is for the cafe, not for the code.
+
+### Bot /start and menu audit (2026-10-13, owner screenshot)
+- **Fixed — three entries to the same thing:** «🎭 Открыть 2LA Noire» sat on the reply keyboard, on the home card and in Telegram's blue menu button. The keyboard row now carries only «🎭 Открыть 2LA Noire | 📋 Меню» (`bot_menu.main_menu_for_user`); the card keeps its button; the blue button stays.
+- **Fixed — a tall persistent keyboard covered the card and mixed roles:** «🎟 Доступ в клуб», «🛠 Админ-панель», «🩺 Проверить состояние приложения» and «⚖ Судейство» were keyboard buttons. Access was already under «Ещё → Группы»; organizers now get «🛠 Организатору» inside the card (cabinet, judging, app status, browser link), judges get «⚖ Судейство» inside the card (`bot_home._staff_rows`, `staff_view`). The old text buttons still work for players whose phone keeps the old keyboard.
+- **Fixed — long, noisy intro:** the first message after /start is one line (`bot_menu.start_text`); the `/crm` hint is gone.
+- **Fixed — answers only in code:** the bot's frequent questions are edited by the owner in the CRM (`bot_faq_entries`); the in-code list is only the seed and the safety net.
+- **Open (not touched):** the legacy `keyboards.py` menus used by `start_profile.py` for registered-player flows (profile editing) still show the old large keyboards inside those flows.
+

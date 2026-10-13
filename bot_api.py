@@ -416,3 +416,23 @@ async def get_player_home(telegram_user_id: int) -> dict[str, Any]:
     except Exception:
         logger.exception("[Backend API] Unexpected player home API failure")
         return {"success": False, "error": "unavailable"}
+
+
+async def get_bot_faq() -> dict[str, Any]:
+    """The «Частые вопросы» the organizer keeps in the CRM; the caller falls back to the built-in list on any failure."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/faq"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_base_headers()) as response:
+                data = await response.json() if response.status == 200 else None
+                if isinstance(data, dict) and isinstance(data.get("entries"), list):
+                    return {"success": True, "data": data["entries"]}
+                return {"success": False, "error": "unavailable", "status": response.status}
+    except (asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Unexpected FAQ API failure")
+        return {"success": False, "error": "unavailable"}

@@ -6,6 +6,7 @@ import { COSMETIC_ASSETS, type CosmeticAssetKey } from '../../lib/cosmeticAssets
 import { emptyRoleLook, LOOK_BACKGROUNDS, LOOK_ROLES, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_ORDER, lookRoleFromGame, plainPhrase, PORTRAIT_LAYOUT, type BroadcastRoleLook, type EquippedItems, type LookLayer, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
 import type { LiveBroadcastState } from '../../lib/liveBroadcast.ts';
 import { CosmeticsError } from './cosmeticsService.ts';
+import { listReleasedWardrobeSets } from './cosmeticSetsService.ts';
 
 const itemId = z.string().min(1).max(120).regex(/^[a-zA-Z0-9:_-]+$/).nullable();
 export const roleLookInput = z.object({
@@ -61,7 +62,7 @@ export async function readRoleLooks(db: DatabaseWrapper, playerId: string): Prom
     if (row.jacket_item_id && !items.portrait_jacket) items.portrait_jacket = row.jacket_item_id;
     return rowLook(row, items);
   });
-  return { looks, layers, portraitVersion: portrait?.version || null };
+  return { looks, layers, sets: await listReleasedWardrobeSets(db, playerId), portraitVersion: portrait?.version || null };
 }
 export async function saveRoleLook(db: DatabaseWrapper, playerId: string, roleValue: unknown, input: unknown) {
   const role = z.enum(LOOK_ROLES).parse(roleValue), s = roleLookInput.parse(input);

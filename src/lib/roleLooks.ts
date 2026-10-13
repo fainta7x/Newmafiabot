@@ -48,6 +48,9 @@ export type DraftSet = {
   id: string; name: string; rarity: string; seasonId: string | null;
   published: boolean; items: Array<{ id: string; name: string; rarity: string; slot: PortraitEquipmentSlot; published: boolean }>;
 };
+export type DraftAssetOption = {
+  key: string; slot: PortraitEquipmentSlot; url: string; draft: boolean;
+};
 export type DraftWearableItem = {
   id: string; name: string; slot: PortraitEquipmentSlot; rarity: string;
   seasonId: string | null; published: boolean; url: string; draft: boolean;

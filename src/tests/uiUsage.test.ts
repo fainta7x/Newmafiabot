@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { parseAnalyticsPeriod } from '../lib/analyticsPeriod.ts';
-import { getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../server/services/uiUsageService.ts';
+import { getPlayersUsage, getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../server/services/uiUsageService.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { normalizeScreenPath, surfaceForPath } from '../lib/uiTelemetry.ts';
 import { sanitizeUiActionName } from '../lib/uiUsageNames.ts';
@@ -153,5 +153,27 @@ describe('UI usage tracking', () => {
       expect(summary.actions.some((row) => row.name === 'poker-start')).toBe(false);
       expect(summary.people).toMatchObject({ player: 1, crm: 1 });
     });
+  });
+
+  it('lists where every player went — visits by 30-minute gaps, screens once per visit — without organizers or the owner', async () => {
+    const db = makeDb();
+    await db.run('CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT)');
+    await db.run("INSERT INTO players (id, nickname) VALUES ('p1', 'Аня'), ('p2', 'Боб')");
+    const now = new Date('2026-10-13T12:00:00Z');
+    await recordUiEvents(db, { sessionKey: 'tab-aaaa-1111', surface: 'player', role: 'player', playerId: 'p1', events: [
+      { kind: 'screen', name: '/player', at: '2026-10-13T08:00:00Z' },
+      { kind: 'screen', name: '/player/rating', at: '2026-10-13T08:02:00Z' },
+      { kind: 'screen', name: '/player/rating', at: '2026-10-13T08:05:00Z' },
+      { kind: 'screen', name: '/player', at: '2026-10-13T10:00:00Z' },
+    ] }, now);
+    await recordUiEvents(db, { sessionKey: 'tab-bbbb-2222', surface: 'player', role: 'player', playerId: 'p2', events: [{ kind: 'screen', name: '/player/events', at: '2026-10-13T09:00:00Z' }] }, now);
+    await recordUiEvents(db, { sessionKey: 'tab-cccc-3333', surface: 'crm', role: 'organizer', events: [{ kind: 'screen', name: '/admin', at: '2026-10-13T09:00:00Z' }] }, now);
+    await recordUiEvents(db, { sessionKey: 'tab-dddd-4444', surface: 'player', role: 'player', playerId: PRIMARY_ORGANIZER_PLAYER_ID, events: [{ kind: 'screen', name: '/player', at: '2026-10-13T09:00:00Z' }] }, now);
+
+    const { players } = await getPlayersUsage(db, 30, now);
+    expect(players.map((player) => player.nickname)).toEqual(['Аня', 'Боб']);
+    expect(players[0]).toMatchObject({ player_id: 'p1', visits: 2, active_days: 1, last_seen_at: '2026-10-13T10:00:00.000Z' });
+    expect(players[0].screens).toEqual([{ name: '/player', visits: 2 }, { name: '/player/rating', visits: 1 }]);
+    expect(players[1].screens).toEqual([{ name: '/player/events', visits: 1 }]);
   });
 });

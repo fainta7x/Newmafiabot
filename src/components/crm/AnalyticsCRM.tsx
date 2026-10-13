@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { parseAnalyticsPeriod, type AnalyticsRange } from '../../lib/analyticsPeriod.ts';
 import { analyticsSummary, formatShare } from '../../lib/analyticsFormat.ts';
-import type { loadClubOverview, loadClubFinance, loadClubNow } from '../../server/services/clubAnalyticsService.ts';
+import type { loadClubOverview, loadClubFinance } from '../../server/services/clubAnalyticsService.ts';
 import { useClubOwner } from './useClubOwner.ts';
 import { AnalyticsHeading, AnalyticsHelp, AnalyticsStatus, analyticsCard, analyticsInset, useAnalyticsQuery } from './analyticsShared.tsx';
 import { GameStatsPanel } from './GameStatsPanel.tsx';
@@ -24,21 +24,15 @@ const subtitle = (range: AnalyticsRange) => {
   return range.label + ' · с ' + date(range.since) + ' по ' + date(new Date(Date.parse(range.until)-1).toISOString());
 };
 function Metric({ label, value, help, basis='за период' }: { label:string; value:string; help:Parameters<typeof AnalyticsHelp>[0]['name']; basis?:string }) {
-  return <div className={analyticsInset}><div className="flex items-start justify-between gap-1"><span className="pt-2 text-xs text-text-secondary">{label}</span><AnalyticsHelp name={help} title={label} /></div><strong className="block text-2xl font-semibold tabular-nums">{value}</strong><p className="mt-1 text-xs text-text-muted">{basis}</p></div>;
+  // The «?» floats in the corner so every tile has the same height: label, number, basis — nothing else (owner, 2026-10-13).
+  return <div className={analyticsInset+' relative min-h-[104px]'}><span className="block pr-9 text-xs leading-4 text-text-secondary">{label}</span><span className="absolute right-0 top-0"><AnalyticsHelp name={help} title={label} /></span><strong className="mt-1.5 block text-2xl font-semibold tabular-nums">{value}</strong><p className="mt-1 text-xs text-text-muted">{basis}</p></div>;
 }
-export function AnalyticsCRM({ onOpenEvening }: { onOpenEvening?: (id: string) => void } = {}) {
-  // Opens the evening inside the CRM (no page reload); the href still works for «open in a new tab».
-  const openEvening = (id: string) => (event: React.MouseEvent) => {
-    if (!onOpenEvening || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-    event.preventDefault();
-    onOpenEvening(id);
-  };
+export function AnalyticsCRM() {
   const owner = useClubOwner() === true;
   const [tab,setTab] = useState<Tab>(savedTab);
   const [period,setPeriod] = useState('30d');
   const overview = useAnalyticsQuery<Awaited<ReturnType<typeof loadClubOverview>>>('/api/analytics/overview?period='+period);
   const finance = useAnalyticsQuery<Awaited<ReturnType<typeof loadClubFinance>>>('/api/analytics/finance?period='+period,owner && tab==='finance');
-  const now = useAnalyticsQuery<Awaited<ReturnType<typeof loadClubNow>>>('/api/analytics/now',tab==='now');
   const effectiveTab = tab==='finance' && !owner ? 'club' : tab;
   useEffect(()=>{ try { sessionStorage.setItem('club-analytics-tab',effectiveTab); } catch { /* optional memory */ } },[effectiveTab]);
   const data = overview.data;
@@ -59,7 +53,7 @@ export function AnalyticsCRM({ onOpenEvening }: { onOpenEvening?: (id: string) =
       <section className={analyticsCard}><AnalyticsHeading title="Как дела у клуба" caption={range.label+' · визиты участников клуба'} help="visits" />
         <AnalyticsStatus {...overview} />
         {data && <><p className="mt-3 text-sm leading-relaxed">{analyticsSummary(data,range.label)}</p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
             <Metric label="Новые игроки" value={String(number(data.newPlayers))} help="newPlayers" />
             <Metric label="Активные игроки" value={String(number(data.activePlayers))} help="activePlayers" />
             <Metric label="Визиты" value={String(number(data.totalAttended))} help="visits" />
@@ -88,14 +82,7 @@ export function AnalyticsCRM({ onOpenEvening }: { onOpenEvening?: (id: string) =
       </>}
     </div>
     <div id="analytics-panel-now" role="tabpanel" aria-labelledby="analytics-tab-now" hidden={effectiveTab!=='now'} className="space-y-4">
-      <section className={analyticsCard}><AnalyticsHeading title="Сегодня и ближайший вечер" caption="На сегодня · время Москвы" help="now" /><AnalyticsStatus {...now} />
-        {now.data && <><div className="mt-3 space-y-2">{now.data.today.map(evening=><a key={evening.id} href={'/admin/evenings/'+evening.id} onClick={openEvening(evening.id)} className={'block min-h-11 text-sm '+analyticsInset}>{evening.title} · {new Date(evening.starts_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})}</a>)}</div>
-          {!now.data.today.length && <p className="mt-3 text-xs text-text-secondary">Сегодня вечеров нет.</p>}
-          {now.data.next && <a className="mt-3 block min-h-11 rounded-xl bg-surface-2 p-3 text-sm" href={'/admin/evenings/'+now.data.next.id} onClick={openEvening(now.data.next.id)}>Ближайший: {now.data.next.title} · {new Date(now.data.next.starts_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Moscow'})}</a>}
-          {owner && <p className="mt-3 text-sm">Неоплаченных записей: {now.data.openDebtCount}</p>}
-        </>}
-      </section>
-      {owner && <OnlineNowPanel active={effectiveTab==='now'} />}
+      {owner ? <OnlineNowPanel active={effectiveTab==='now'} /> : <section className={analyticsCard}><p className="text-sm text-text-secondary">Кто сейчас в приложении, видит владелец клуба. Сегодняшний вечер и долги — на экране «Сегодня» и в «События».</p></section>}
     </div>
     {owner && <div id="analytics-panel-finance" role="tabpanel" aria-labelledby="analytics-tab-finance" hidden={effectiveTab!=='finance'} className="space-y-4">
       <section className={analyticsCard}><AnalyticsHeading title="Деньги по вечерам периода" help="finance" caption="Основа — дата начала завершённого или рассчитанного вечера" /><AnalyticsStatus {...finance} />

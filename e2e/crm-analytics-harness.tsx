@@ -23,6 +23,7 @@ globalThis.fetch=async(input:RequestInfo | URL)=>{
   if(url.pathname.endsWith('/presence')) return json({online:[{player_id:'p1',nickname:'Игрок клуба',screen:'/player/rating',on_screen_seconds:180}]});
   if(url.pathname.endsWith('/game-stats')) return json(buildClubGameStatistics([]));
   if(url.pathname.endsWith('/staff')) return json({label:parseAnalyticsPeriod(period).label,staff:[{player_id:'p1',nickname:'Организатор с длинным никнеймом',evenings:5,games:20}]});
+  if(url.pathname.endsWith('/ui-events/players')) return json({players:[{player_id:'p1',nickname:'Богдан',visits:14,active_days:6,last_seen_at:'2026-10-12T19:40:00.000Z',screens:[{name:'/player',visits:12},{name:'/player/poker',visits:9},{name:'/player/rating',visits:4},{name:'/player/school/trainer',visits:2}]},{player_id:'p2',nickname:'Пристань',visits:3,active_days:2,last_seen_at:'2026-10-11T10:05:00.000Z',screens:[{name:'/player/events',visits:3}]}]});
   if(url.pathname.endsWith('/summary')) return json({people:{player:18,crm:2},visits:{player:35,crm:8},screens:[{surface:'player',name:'/player/rating',people:12,visits:20}],actions:[{surface:'player',name:'player-nav-rating',people:8,visits:12}]});
   return json({});
 };

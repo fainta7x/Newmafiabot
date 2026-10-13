@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId, requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
-import { getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../services/uiUsageService.ts';
+import { getPlayersUsage, getUiUsageSummary, loadPlayerActivity, recordUiEvents } from '../services/uiUsageService.ts';
 import { loadPresence } from '../services/presenceService.ts';
 import { resolveAnalyticsRange } from '../services/clubAnalyticsService.ts';
 
@@ -29,6 +29,18 @@ router.get('/summary', requireOrganizerAuth, async (req, res) => {
   } catch (error) {
     console.error('[UI USAGE] summary failed', error);
     res.status(500).json({ error: 'Не удалось загрузить статистику использования' });
+  }
+});
+
+// Where every player went, for «Аналитика → Как пользуются» (organizers only).
+router.get('/players', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const period = req.query.period ? await resolveAnalyticsRange(db, String(req.query.period)) : Number(req.query.days) || 30;
+    res.json(await getPlayersUsage(db, period));
+  } catch (error) {
+    console.error('[UI USAGE] players failed', error);
+    res.status(500).json({ error: 'Не удалось загрузить, кто куда заходил' });
   }
 });
 

@@ -140,6 +140,54 @@ export async function getUiUsageSummary(db: DatabaseWrapper, period: number | An
 
 const clubDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
 
+export type PlayerUsageRow = {
+  player_id: string; nickname: string; visits: number; active_days: number; last_seen_at: string;
+  /** Screens in the order of how often the player came to them (a repeated screen inside one visit counts once). */
+  screens: Array<{ name: string; visits: number }>;
+};
+
+/**
+ * Where every player went (owner, 2026-10-13: «куда каждый игрок приходил»). Replaces the totals by «surface», whose CRM
+ * numbers counted every organizer session and were huge and meaningless. Only signed-in players with events that carry
+ * their id; the owner's own activity and organizers browsing the player app are left out, as in the summary. A visit is
+ * a run of events with no gap longer than 30 minutes.
+ */
+export async function getPlayersUsage(db: DatabaseWrapper, period: number | AnalyticsRange, now = new Date()): Promise<{ range: AnalyticsRange; players: PlayerUsageRow[] }> {
+  await ensureUiUsageSchema(db);
+  const safeDays = typeof period === 'number' ? Math.min(Math.max(Math.round(period) || 30, 1), RETENTION_DAYS) : RETENTION_DAYS;
+  const range = typeof period === 'number' ? parseAnalyticsPeriod(safeDays + 'd', now.getTime()) : period;
+  const retentionSince = new Date(now.getTime() - RETENTION_DAYS * 86_400_000).toISOString();
+  const since = typeof period === 'number' ? new Date(now.getTime() - safeDays * 86_400_000).toISOString() : (range.since > retentionSince ? range.since : retentionSince);
+  const rows = await db.all<{ player_id: string; created_at: string; kind: string; name: string; nickname: string | null }>(
+    `SELECT e.player_id, e.created_at, e.kind, e.name, p.nickname
+       FROM ui_usage_events e LEFT JOIN players p ON p.id = e.player_id
+      WHERE julianday(e.created_at) >= julianday(?) AND julianday(e.created_at) < julianday(?)
+        AND e.role = 'player' AND COALESCE(e.player_id, '') <> '' AND e.player_id <> ?
+      ORDER BY e.player_id, e.created_at, e.id LIMIT 200000`,
+    [since, range.until, PRIMARY_ORGANIZER_PLAYER_ID],
+  );
+  type Acc = { nickname: string; visits: number; days: Set<string>; last: string; lastMs: number; screens: Map<string, number>; seenInVisit: Set<string> };
+  const byPlayer = new Map<string, Acc>();
+  for (const row of rows) {
+    let acc = byPlayer.get(row.player_id);
+    if (!acc) { acc = { nickname: row.nickname || 'Игрок', visits: 0, days: new Set(), last: row.created_at, lastMs: 0, screens: new Map(), seenInVisit: new Set() }; byPlayer.set(row.player_id, acc); }
+    const at = Date.parse(row.created_at);
+    if (!acc.lastMs || at - acc.lastMs > VISIT_GAP_MS) { acc.visits += 1; acc.seenInVisit = new Set(); }
+    acc.lastMs = at;
+    acc.last = row.created_at;
+    acc.days.add(clubDay(row.created_at));
+    if (row.kind === 'screen' && !acc.seenInVisit.has(row.name)) {
+      acc.seenInVisit.add(row.name);
+      acc.screens.set(row.name, (acc.screens.get(row.name) || 0) + 1);
+    }
+  }
+  const players = [...byPlayer.entries()].map(([player_id, acc]): PlayerUsageRow => ({
+    player_id, nickname: acc.nickname, visits: acc.visits, active_days: acc.days.size, last_seen_at: acc.last,
+    screens: [...acc.screens.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([name, visits]) => ({ name, visits })),
+  })).sort((a, b) => b.last_seen_at.localeCompare(a.last_seen_at) || b.visits - a.visits);
+  return { range: { ...range, since }, players };
+}
+
 /**
  * One player's app activity for the CRM card: when he was last seen, how many visits (a visit = events with no gap longer
  * than 30 minutes), the days he came, the screens he opened, the buttons he pressed and the latest steps in order.

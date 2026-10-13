@@ -40,7 +40,7 @@ it('author can preview independent draft components and explicitly save without 
   expect(save).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Сохранить состав черновика'}));
   await waitFor(()=>expect(save).toHaveBeenCalledWith('set-one',['jacket','hat']));
-  expect(await screen.findByRole('status')).toHaveProperty('textContent',expect.stringContaining('Черновик'));
+  await waitFor(()=>expect(screen.getByRole('status').textContent).toContain('Состав черновика сохранён'));
   expect(sets[0].published).toBe(false);
 });
 it('try-on merges only owned released pieces, keeping slots from other sets',()=>{

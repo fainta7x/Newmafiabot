@@ -1,3 +1,4 @@
+import { inviteKindOfEvening, loadInvitePreferencesMap } from './playerInvitePreferencesService.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -152,8 +153,12 @@ const audience = async (db: Db, eveningId: string) => {
   const evening = await loadEvening(db, eveningId);
   if (!evening) return { evening: null, players: [] as any[] };
   const rows = await loadAudienceRows(db, eveningId);
+  // A player who switched off invitations for this kind of evening in «Приглашения» is not written to (owner, 2026-10-13).
+  const invitePrefs = await loadInvitePreferencesMap(db, rows.map((row: any) => String(row.id)));
+  const eveningKind = inviteKindOfEvening(evening.format);
+  const eligible = (row: any) => isCurrentlyEligible(row, evening) && !(invitePrefs.get(String(row.id))?.blocked_kinds || []).includes(eveningKind);
   const players = rows
-    .filter((row: any) => Boolean(row.tracked) || isCurrentlyEligible(row, evening))
+    .filter((row: any) => Boolean(row.tracked) || eligible(row))
     .map((row: any) => ({
       id: String(row.id),
       nickname: String(row.nickname || 'Игрок'),
@@ -173,7 +178,7 @@ const audience = async (db: Db, eveningId: string) => {
       last_reminder_message_id: row.last_reminder_message_id == null ? null : Number(row.last_reminder_message_id),
       last_reminder_error: row.last_reminder_error || null,
       last_reminder_campaign: Number(row.last_reminder_campaign || 0),
-      eligible_now: isCurrentlyEligible(row, evening),
+      eligible_now: eligible(row),
     }));
   return { evening, players };
 };

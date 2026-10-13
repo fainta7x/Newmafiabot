@@ -4,6 +4,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { normalizeCanonicalEveningResponse } from '../../lib/eveningDomain.ts';
 import { ensurePremiumPlayerConnectionsSchema } from './premiumPlayerConnectionsService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
+import { inviteKindOfEvening, loadInvitePreferencesMap } from './playerInvitePreferencesService.ts';
 
 export type InvitationEveningState = 'eligible' | 'registered' | 'reserve' | 'already_invited' | 'registration_closed' | 'sender_limit' | 'unavailable_format';
 export type InvitationContext = {
@@ -39,6 +40,8 @@ export async function loadInvitationContextsForRecipients(db: DatabaseWrapper, i
   const invitationMap = new Map(invitationRows.map((row:any) => [`${row.evening_id}:${row.recipient_player_id}`,row]));
   const senderCounts = eveningIds.length ? await db.all<any>(`SELECT evening_id,COUNT(DISTINCT recipient_player_id) AS total FROM player_evening_invitations WHERE inviter_player_id=? AND evening_id IN (${placeholders(eveningIds)}) GROUP BY evening_id`,[inviterPlayerId,...eveningIds]) : [];
   const countMap = new Map(senderCounts.map((row:any) => [String(row.evening_id),Number(row.total||0)]));
+  // Formats a recipient switched off in «Приглашения» are never offered (owner, 2026-10-13).
+  const invitePrefs = await loadInvitePreferencesMap(db, ids);
   for (const id of ids) {
     if (id === inviterPlayerId) { result.set(id,{can_invite:false,reason:'self',recipient_state:'self',evenings:[]}); continue; }
     const recipient = recipientMap.get(id);
@@ -52,7 +55,7 @@ export async function loadInvitationContextsForRecipients(db: DatabaseWrapper, i
       const registration = String(ep?.registration_status || '').trim().toLowerCase(), rawResponse = String(ep?.response_status || '').trim();
       const response = normalizeCanonicalEveningResponse(rawResponse || registration, ep?.arrival_status);
       let state: InvitationEveningState = 'eligible';
-      if (String(row.status) !== 'published') state='registration_closed'; else if (response === 'going' || response === 'late') state='registered'; else if (registration === 'reserve' || registration === 'waiting' || rawResponse.toLowerCase() === 'reserve') state='reserve'; else if (existing) state='already_invited'; else if (!playerLevelAllowsEveningFormat(recipient.game_level,row.format)) state='unavailable_format'; else if (Number(countMap.get(String(row.id))||0)>=5) state='sender_limit';
+      if (String(row.status) !== 'published') state='registration_closed'; else if (response === 'going' || response === 'late') state='registered'; else if (registration === 'reserve' || registration === 'waiting' || rawResponse.toLowerCase() === 'reserve') state='reserve'; else if (existing) state='already_invited'; else if (!playerLevelAllowsEveningFormat(recipient.game_level,row.format) || (invitePrefs.get(id)?.blocked_kinds || []).includes(inviteKindOfEvening(row.format))) state='unavailable_format'; else if (Number(countMap.get(String(row.id))||0)>=5) state='sender_limit';
       return { id:String(row.id),title:String(row.title||'Игровой вечер'),starts_at:row.starts_at||null,venue:row.venue||null,format:String(row.format||'CASUAL'),state,existing_invitation:existing };
     });
     const eligible = payload.some((item) => item.state==='eligible'), reason = eligible ? null : payload.length ? payload[0].state : 'no_active_evening';

@@ -1,6 +1,7 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
+import DirectContactButtons from './DirectContactButtons.tsx';
 
 type Suggestion = {
   player_id: string;
@@ -10,6 +11,7 @@ type Suggestion = {
   shared_games: number;
   same_team_games: number;
   opponent_games: number;
+  direct_contact?: { vk_url: string | null; telegram_url: string | null } | null;
   evening: {
     id: string;
     title: string;
@@ -102,6 +104,7 @@ export default function SmartFriendInviteSuggestions() {
             >
               {busyPlayerId === item.player_id ? 'Отправляем…' : `Позвать ${item.nickname}`}
             </button>
+            <DirectContactButtons className="mt-2" contact={item.direct_contact} text={`Зову тебя на «${item.evening.title}» · ${fmtDate(item.evening.starts_at)}. ${window.location.origin}/player/events/${encodeURIComponent(item.evening.id)}`} />
           </article>
         ))}
       </div>

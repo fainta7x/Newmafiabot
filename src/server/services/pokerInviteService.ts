@@ -4,6 +4,7 @@ import { ensurePokerInviteSchema } from '../../db/ensurePokerInviteSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensurePlayerProfileMergeSchema } from '../../db/ensurePlayerProfileMergeSchema.ts';
+import { loadDirectContacts, loadInvitePreferencesMap, isInviteBlocked } from './playerInvitePreferencesService.ts';
 import { loadPresence } from './presenceService.ts';
 import { loadPersonalNotificationPreference, queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 import { vkCommunityApi } from './vkCommunityApiService.ts';
@@ -37,7 +38,7 @@ const inviteTargetAvailable = (row: any) => Boolean(
 );
 
 export class PokerInviteError extends Error {
-  constructor(public code: 'cooldown' | 'no_channel' | 'notifications_disabled' | 'player_not_found', message: string, public retryAfterSeconds = 0) {
+  constructor(public code: 'cooldown' | 'no_channel' | 'invites_off' | 'notifications_disabled' | 'player_not_found', message: string, public retryAfterSeconds = 0) {
     super(message);
   }
 }
@@ -109,8 +110,14 @@ export async function loadPokerInviteCandidates(
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [senderPlayerId]);
 
+  // Players who switched off poker invitations in «Приглашения» are not offered at all; those who allowed direct contact
+  // get their VK / Telegram link so the sender can write from their own account.
+  const invitePrefs = await loadInvitePreferencesMap(db, players.map((row: any) => String(row.id)));
+  const invitable = players.filter((row: any) => !(invitePrefs.get(String(row.id))?.blocked_kinds || []).includes('POKER'));
+
+  const directContacts = await loadDirectContacts(db, invitable.map((row: any) => String(row.id)));
   const onlineInApp = new Set((await loadPresence(db, now)).map((item) => String(item.player_id)));
-  const vkIds = players.map((row: any) => String(row.vk_user_id || '')).filter(Boolean);
+  const vkIds = invitable.map((row: any) => String(row.vk_user_id || '')).filter(Boolean);
   const vk = await loadVkPresence(db, vkIds, now, options.vkLoader);
 
   const cutoff = new Date(now - POKER_INVITE_COOLDOWN_MS).toISOString();
@@ -122,7 +129,7 @@ export async function loadPokerInviteCandidates(
   `, [senderPlayerId, cutoff]);
   const lastInvite = new Map(recent.map((row: any) => [String(row.target_player_id), String(row.created_at)]));
 
-  const candidates = players.map((row: any) => {
+  const candidates = invitable.map((row: any) => {
     const vkId = String(row.vk_user_id || '');
     const vkState = vkId ? vk.byId.get(vkId) : null;
     const sentAt = lastInvite.get(String(row.id)) || null;
@@ -140,6 +147,7 @@ export async function loadPokerInviteCandidates(
       personal_notifications_enabled: Number(row.personal_enabled) !== 0,
       can_invite: Boolean(row.telegram_user_id || vkId) && Number(row.personal_enabled) !== 0 && cooldownSeconds === 0,
       invite_cooldown_seconds: cooldownSeconds,
+      direct_contact: directContacts.get(String(row.id)) || null,
     };
   });
 
@@ -173,6 +181,7 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   );
   if (!target) throw new PokerInviteError('player_not_found', 'Игрок не найден.');
   if (!inviteTargetAvailable(target)) throw new PokerInviteError('player_not_found', 'Игрок недоступен для приглашения.');
+  if (await isInviteBlocked(db, input.targetPlayerId, 'POKER')) throw new PokerInviteError('invites_off', 'Игрок не принимает приглашения в покер.');
   // Telegram first; a player who only has VK gets the invite from the club's VK community (owner, 2026-10-13).
   const routing = await resolvePersonalNotificationRouting(db, input.targetPlayerId);
   if (!routing.available_channels.length) throw new PokerInviteError('no_channel', 'У игрока не подключены ни Telegram, ни ВКонтакте.');

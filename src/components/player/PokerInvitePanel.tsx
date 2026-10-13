@@ -1,3 +1,4 @@
+import DirectContactButtons from './DirectContactButtons.tsx';
 import { useCallback, useEffect, useState } from 'react';
 
 type Candidate = {
@@ -14,6 +15,7 @@ type Candidate = {
   at_table_title?: string | null;
   can_invite: boolean;
   invite_cooldown_seconds: number;
+  direct_contact?: { vk_url: string | null; telegram_url: string | null } | null;
 };
 
 const statusFor = (candidate: Candidate, now = Date.now()) => {
@@ -128,7 +130,8 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
                 ? cooldownLabel(cooldown)
                 : busy === candidate.player_id ? '…' : 'Позвать';
           return (
-            <div key={candidate.player_id} className="flex min-h-12 items-center gap-2 rounded-xl bg-white/[.045] px-2.5 py-2">
+            <div key={candidate.player_id} className="rounded-xl bg-white/[.045] px-2.5 py-2">
+            <div className="flex min-h-12 items-center gap-2">
               <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} />
               <span className="min-w-0 flex-1">
                 <b className="block truncate text-xs text-white/90">{candidate.nickname}</b>
@@ -142,6 +145,8 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
               >
                 {buttonLabel}
               </button>
+            </div>
+            <DirectContactButtons className="mt-1 pb-1" contact={candidate.direct_contact} text={`Зову тебя сыграть в покер: ${typeof window !== 'undefined' ? window.location.origin : ''}/player/poker/${encodeURIComponent(lobbyId)}`} />
             </div>
           );
         }) : <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-white/35">Пока некого звать</div>}

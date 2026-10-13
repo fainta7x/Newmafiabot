@@ -53,6 +53,8 @@ it('previews inventory-owned garment and hat separately without changing the oth
   fireEvent.click(screen.getByRole('button',{name:'Весь образ'}));
   expect(screen.getByAltText('Головной убор')).toBeTruthy();
   expect(screen.getByAltText('Пиджак')).toBeTruthy();
+  expect(screen.getByAltText('Пиджак').compareDocumentPosition(screen.getByAltText('Портрет игрока')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByAltText('Портрет игрока').compareDocumentPosition(screen.getByAltText('Головной убор')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'Сохранить: Мирный'}));
   await waitFor(()=>expect(save).toHaveBeenCalledWith('civilian',expect.objectContaining({hatItemId:'hat-1',jacketItemId:'jacket-1'}),0));
 });

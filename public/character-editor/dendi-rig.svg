@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640" width="512" height="640" role="img" aria-label="Денди — составной персонаж">
+<defs>
+ <linearGradient id="skin" x1="15%" y1="3%" x2="90%" y2="94%"><stop stop-color="#fff0d5"/><stop offset=".35" stop-color="#f5c9a5"/><stop offset=".72" stop-color="#daa18b"/><stop offset="1" stop-color="#a36e6d"/></linearGradient>
+ <linearGradient id="hair" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#f1d6ad"/><stop offset=".27" stop-color="#ba895f"/><stop offset=".58" stop-color="#d8ac79"/><stop offset="1" stop-color="#56394a"/></linearGradient>
+ <linearGradient id="wine" x1="0%" y1="0%" x2="90%" y2="100%"><stop stop-color="#a65664"/><stop offset=".42" stop-color="#702e47"/><stop offset="1" stop-color="#2b1e31"/></linearGradient>
+ <linearGradient id="ink" x1="0%" y1="0%" x2="90%" y2="100%"><stop stop-color="#555463"/><stop offset=".4" stop-color="#282932"/><stop offset="1" stop-color="#14131b"/></linearGradient>
+ <linearGradient id="shirt" x1="0%" y1="0%" x2="78%" y2="100%"><stop stop-color="#fff8e9"/><stop offset=".65" stop-color="#e9d9c5"/><stop offset="1" stop-color="#af9c9d"/></linearGradient>
+ <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#f9db9a"/><stop offset=".45" stop-color="#b8834e"/><stop offset="1" stop-color="#77503c"/></linearGradient>
+ <radialGradient id="cheek"><stop stop-color="#ce7e83" stop-opacity=".34"/><stop offset="1" stop-color="#ce7e83" stop-opacity="0"/></radialGradient>
+ <pattern id="stripes" width="23" height="32" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)"><path d="M 5 -10 L 5 45" stroke="#dbaa8b" stroke-width="1.6" opacity=".64"/></pattern>
+</defs>
+<!-- Silhouette and back hair are immutable. Each removable item is a distinct group. -->
+<g id="core-body" data-base="body">
+ <path d="M 100 430 Q 150 392 203 390 L 309 390 Q 376 393 424 431 Q 475 497 493 640 L 19 640 Q 38 493 100 430" fill="#35323c" stroke="#1d1c27" stroke-width="9"/>
+ <path d="M 128 389 Q 99 327 107 236 Q 109 144 160 113 Q 185 75 254 82 Q 338 76 380 131 Q 417 192 404 296 Q 407 362 391 414 L 420 494 Q 408 553 372 560 L 139 558 Q 99 539 89 491 Z" fill="url(#hair)" stroke="#4b3640" stroke-width="10"/>
+ <path d="M 132 295 Q 114 374 126 437 Q 111 487 118 546 M 368 282 Q 394 378 378 430 Q 397 493 390 545" fill="none" stroke="#f1cf97" stroke-width="12" stroke-linecap="round" opacity=".44"/>
+ <path d="M 218 351 L 216 394 L 178 432 L 260 477 L 339 432 L 295 395 L 291 353 Z" fill="url(#skin)" stroke="#7e5359" stroke-width="5"/>
+ <path d="M 212 376 Q 258 413 300 379" fill="none" stroke="#a97470" stroke-width="7" opacity=".45"/>
+ <path d="M 142 436 L 219 395 L 257 449 L 302 395 L 377 436 L 385 640 L 129 640 Z" fill="url(#shirt)" stroke="#b1a2a0" stroke-width="5"/>
+ <path d="M 218 395 L 257 451 L 235 492 L 189 426 Z M 302 395 L 259 453 L 278 493 L 328 427 Z" fill="#fff9ef" stroke="#c5aeab" stroke-width="4"/>
+ <path d="M 256 448 L 262 638" stroke="#c0afaa" stroke-width="3"/>
+ <g fill="#bd9665" stroke="#7e6253" stroke-width="1.5"><circle cx="262" cy="497" r="5"/><circle cx="262" cy="545" r="5"/><circle cx="263" cy="596" r="5"/></g>
+</g>
+<g id="coat-wine" data-slot="outerwear" data-item="coat-wine">
+ <path d="M 148 421 Q 83 402 51 477 Q 19 537 7 640 L 226 640 L 243 503 L 205 405 Z M 362 421 Q 426 407 458 477 Q 486 538 502 640 L 285 640 L 275 498 L 309 405 Z" fill="url(#wine)" stroke="#301d2d" stroke-width="8"/>
+ <path d="M 148 421 Q 83 402 51 477 Q 19 537 7 640 L 226 640 L 243 503 L 205 405 Z M 362 421 Q 426 407 458 477 Q 486 538 502 640 L 285 640 L 275 498 L 309 405 Z" fill="url(#stripes)" opacity=".84"/>
+ <path d="M 203 403 L 254 469 L 230 556 L 174 481 L 141 456 Z M 311 404 L 260 468 L 281 552 L 342 481 L 368 455 Z" fill="#934054" stroke="#cf9a84" stroke-width="4"/>
+ <path d="M 142 455 L 189 490 L 170 514 L 220 586 M 369 456 L 321 491 L 348 518 L 296 592" fill="none" stroke="#e6ac8d" stroke-width="3.5"/>
+ <path d="M 37 595 Q 70 497 94 474 M 475 597 Q 451 503 417 472" fill="none" stroke="#e9a88e" stroke-width="7" opacity=".38"/>
+ <g fill="url(#gold)" stroke="#583641" stroke-width="2"><circle cx="203" cy="600" r="6"/><circle cx="199" cy="633" r="6"/><circle cx="309" cy="601" r="6"/><circle cx="315" cy="632" r="6"/></g>
+ <path d="M 358 547 L 386 528 L 398 563 L 356 576 Z" fill="#f7e8d0" stroke="#bdb0a3" stroke-width="2"/>
+</g>
+<g id="coat-ink" data-slot="outerwear" data-item="coat-ink" display="none">
+ <path d="M 148 421 Q 83 402 51 477 Q 19 537 7 640 L 226 640 L 243 503 L 205 405 Z M 362 421 Q 426 407 458 477 Q 486 538 502 640 L 285 640 L 275 498 L 309 405 Z" fill="url(#ink)" stroke="#13131b" stroke-width="8"/>
+ <path d="M 205 405 L 254 469 L 228 563 L 177 484 L 144 454 Z M 309 405 L 260 468 L 283 563 L 343 485 L 369 455 Z" fill="#494755" stroke="#8e7982" stroke-width="4"/>
+ <path d="M 143 454 L 187 488 L 168 515 L 219 588 M 371 454 L 322 491 L 344 515 L 295 589" fill="none" stroke="#aca6aa" stroke-width="3"/>
+ <path d="M 33 596 Q 67 498 93 475 M 479 595 Q 448 496 415 470" fill="none" stroke="#77717c" stroke-width="8" opacity=".47"/>
+ <g fill="#c2b49e"><circle cx="205" cy="603" r="5.5"/><circle cx="200" cy="633" r="5.5"/><circle cx="306" cy="604" r="5.5"/><circle cx="312" cy="633" r="5.5"/></g>
+ <path d="M 356 550 L 386 533 L 397 562 L 358 577 Z" fill="#e8e6df"/>
+</g>
+<g id="neck-bow" data-slot="neckwear" data-item="neck-bow">
+ <path d="M 256 433 L 211 411 Q 191 406 196 438 L 206 466 L 254 450 Z M 260 433 L 302 411 Q 322 405 323 434 L 309 467 L 260 450 Z" fill="url(#wine)" stroke="#411e32" stroke-width="5"/>
+ <path d="M 205 424 L 242 440 L 204 457 M 315 422 L 273 444 L 314 455" fill="none" stroke="#c97d88" stroke-width="3"/>
+ <rect x="248" y="424" width="22" height="34" rx="7" fill="#71304a" stroke="#b97679" stroke-width="3"/>
+</g>
+<g id="neck-tie" data-slot="neckwear" data-item="neck-tie" display="none">
+ <path d="M 242 421 L 270 421 L 284 443 L 259 465 L 235 445 Z" fill="#a14e5d" stroke="#402737" stroke-width="4"/>
+ <path d="M 259 465 L 271 468 L 285 566 L 258 602 L 232 566 L 247 467 Z" fill="url(#wine)" stroke="#442837" stroke-width="4"/>
+ <path d="M 257 481 L 257 587" fill="none" stroke="#d59b86" stroke-width="3" opacity=".7"/>
+</g>
+<g id="accessory-brooch" data-slot="accessory" data-item="accessory-brooch">
+ <circle cx="337" cy="506" r="18" fill="url(#gold)" stroke="#5b3a46" stroke-width="5"/>
+ <path d="M 337 490 L 350 506 L 337 523 L 324 506 Z" fill="#873652" stroke="#ffe3b9" stroke-width="2.5"/>
+ <circle cx="337" cy="506" r="5" fill="#fff2c7"/>
+</g>
+<g id="accessory-chain" data-slot="accessory" data-item="accessory-chain" display="none">
+ <path d="M 333 510 Q 362 565 414 525 Q 441 549 444 565" stroke="#e2b985" stroke-width="4" stroke-dasharray="4 4" stroke-linecap="round" fill="none"/>
+ <g fill="url(#gold)" stroke="#513b42" stroke-width="2"><circle cx="333" cy="510" r="8"/><circle cx="415" cy="526" r="6"/></g>
+</g>
+<!-- Permanent identity: NOT an equip slot, never hidden by switching clothes. -->
+<g id="face" data-base="identity">
+ <path d="M 179 195 Q 180 142 217 125 Q 270 108 316 139 Q 353 163 345 229 L 337 314 Q 325 362 279 388 Q 256 399 235 386 Q 186 358 177 308 Z" fill="url(#skin)" stroke="#77545b" stroke-width="5"/>
+ <path d="M 178 263 Q 155 246 159 277 Q 163 299 184 304 M 343 259 Q 364 251 358 281 Q 355 299 338 304" fill="url(#skin)" stroke="#a87978" stroke-width="3.5"/>
+ <ellipse cx="200" cy="302" rx="37" ry="31" fill="url(#cheek)"/><ellipse cx="313" cy="302" rx="37" ry="31" fill="url(#cheek)"/>
+ <path d="M 190 258 Q 215 242 239 259 Q 214 282 190 267 Z M 274 259 Q 301 240 323 256 Q 299 281 276 270 Z" fill="#f4f5ef" stroke="#534957" stroke-width="3"/>
+ <ellipse cx="214" cy="262" rx="10" ry="13" fill="#8ba9c5"/><ellipse cx="300" cy="262" rx="10" ry="13" fill="#8ba9c5"/>
+ <ellipse cx="214" cy="262" rx="5" ry="9" fill="#1e2932"/><ellipse cx="300" cy="262" rx="5" ry="9" fill="#1e2932"/>
+ <circle cx="218" cy="257" r="3" fill="#fff"/><circle cx="304" cy="257" r="3" fill="#fff"/>
+ <path d="M 190 248 Q 214 236 240 253 M 276 251 Q 300 237 325 250" fill="none" stroke="#3f3643" stroke-width="4" stroke-linecap="round"/>
+ <path d="M 189 237 Q 214 222 239 238 M 278 238 Q 304 221 325 239" fill="none" stroke="#74534e" stroke-width="7" stroke-linecap="round"/>
+ <path d="M 255 273 Q 244 300 246 311 Q 256 322 270 314" fill="none" stroke="#ae7c78" stroke-width="4" stroke-linecap="round"/>
+ <path d="M 240 313 L 248 316 M 263 316 L 272 312" stroke="#926869" fill="none" stroke-width="3"/>
+ <path d="M 224 345 Q 240 338 256 341 Q 278 335 291 345 Q 271 360 256 358 Q 239 359 224 345" fill="#b47d85" stroke="#7d535d" stroke-width="2.5"/>
+ <path d="M 225 347 Q 258 353 290 346" fill="none" stroke="#63444c" stroke-width="2"/>
+ <path d="M 178 226 C 157 193 157 149 198 123 Q 250 94 299 120 Q 344 141 343 216 L 330 229 Q 324 187 295 163 Q 265 180 224 174 Q 196 171 185 227 Z" fill="url(#hair)" stroke="#513b43" stroke-width="6"/>
+ <path d="M 174 202 Q 191 136 227 120 Q 282 103 325 169 M 205 139 Q 187 159 180 181" fill="none" stroke="#f7dfb0" stroke-width="6" opacity=".75"/>
+</g>
+<g id="hair-front" data-base="hair" >
+ <path d="M 178 183 C 139 228 144 263 151 302 C 140 360 139 382 145 425 C 123 466 107 520 126 577 C 157 535 180 496 183 443 C 180 400 171 372 179 322 Q 165 268 186 221 Z" fill="url(#hair)" stroke="#49333d" stroke-width="7"/>
+ <path d="M 333 176 C 373 221 365 277 358 318 C 373 358 373 394 371 425 Q 400 484 388 569 C 355 544 341 507 339 471 Q 346 418 339 381 Q 350 308 331 213 Z" fill="url(#hair)" stroke="#49333d" stroke-width="7"/>
+ <path d="M 165 236 Q 139 297 165 361 Q 173 449 132 543 M 344 232 Q 377 299 350 364 Q 346 447 384 540" fill="none" stroke="#f0d19f" stroke-width="9" stroke-linecap="round" opacity=".75"/>
+ <path d="M 152 301 Q 160 368 153 405 M 362 307 Q 355 367 371 413 M 158 453 Q 151 489 142 516" fill="none" stroke="#ffe0b0" stroke-width="3" opacity=".67"/>
+</g>
+<g id="hat-fedora" data-slot="hat" data-item="hat-fedora" display="none">
+ <path d="M 156 182 L 177 113 Q 181 89 211 85 L 297 85 Q 322 87 334 115 L 354 181 Z" fill="url(#wine)" stroke="#3f2435" stroke-width="7"/>
+ <path d="M 184 108 Q 231 131 255 120 Q 300 109 323 106" fill="none" stroke="#d48e8c" stroke-width="6" opacity=".7"/>
+ <path d="M 155 156 Q 254 176 350 156 L 355 187 Q 253 205 157 186 Z" fill="#241c27" stroke="#a97964" stroke-width="4"/>
+ <path d="M 110 193 Q 247 170 400 193 Q 423 201 400 214 Q 245 239 111 213 Q 92 205 110 193 Z" fill="url(#wine)" stroke="#2a1b2a" stroke-width="7"/>
+ <path d="M 120 196 Q 252 181 391 198" fill="none" stroke="#e8af8d" stroke-width="4"/>
+ <path d="M 324 159 L 335 144 L 340 157 L 354 155 L 348 171 L 356 180 L 337 178 L 323 183 L 324 168 Z" fill="url(#gold)" stroke="#674b46" stroke-width="2"/>
+</g>
+<g id="hat-ink" data-slot="hat" data-item="hat-ink" display="none">
+ <path d="M 159 179 L 182 115 Q 195 87 228 90 L 300 90 Q 328 96 335 124 L 348 180 Z" fill="url(#ink)" stroke="#25202a" stroke-width="7"/>
+ <path d="M 162 161 Q 262 175 347 159 L 351 186 Q 267 208 158 187 Z" fill="#622d40" stroke="#d29b83" stroke-width="4"/>
+ <path d="M 111 196 Q 250 174 394 198 Q 413 205 391 216 Q 260 232 122 213 Q 96 210 111 196 Z" fill="url(#ink)" stroke="#201c27" stroke-width="7"/>
+ <path d="M 115 197 Q 244 183 391 200" fill="none" stroke="#b9a3a8" stroke-width="4" opacity=".7"/>
+</g>
+</svg>

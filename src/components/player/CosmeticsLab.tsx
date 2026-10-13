@@ -13,7 +13,11 @@ function readSaved():RoleLook[]{
     return LOOK_ROLES.map(role=>{
       const row=value.find(l=>l?.role===role);
       if(!row)return emptyRoleLook(role);
-      return {role,phrase:plainPhrase(String(row.phrase||'')).slice(0,64),background:LOOK_BACKGROUNDS.includes(row.background)?row.background:'noir',hatItemId:row.hatItemId==='lab-hat'?'lab-hat':null,jacketItemId:row.jacketItemId==='lab-jacket'?'lab-jacket':null,revision:Number.isSafeInteger(row.revision)&&row.revision>=0?row.revision:0};
+      const hatItemId=row.hatItemId==='lab-hat'?'lab-hat':null;
+      const jacketItemId=row.jacketItemId==='lab-jacket'?'lab-jacket':null;
+      return {role,phrase:plainPhrase(String(row.phrase||'')).slice(0,64),background:LOOK_BACKGROUNDS.includes(row.background)?row.background:'noir',hatItemId,jacketItemId,
+        equippedItems:{...(hatItemId?{portrait_hat:hatItemId}:{}),...(jacketItemId?{portrait_jacket:jacketItemId}:{})},
+        revision:Number.isSafeInteger(row.revision)&&row.revision>=0?row.revision:0};
     });
   } catch {return initial();}
 }

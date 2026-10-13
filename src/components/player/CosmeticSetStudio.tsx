@@ -55,7 +55,7 @@ export default function CosmeticSetStudio({
   }, [client, open, reload]);
 
   const active = sets.find(set => set.id === activeId);
-  useEffect(() => { setSelection(active ? fromSet(active) : {}); setNotice(''); }, [active]);
+  useEffect(() => { setSelection(active ? fromSet(active) : {}); }, [active]);
   const eligible = useMemo(() => catalog.filter(item =>
     !active || !item.seasonId || item.seasonId === active.seasonId,
   ), [catalog, active]);

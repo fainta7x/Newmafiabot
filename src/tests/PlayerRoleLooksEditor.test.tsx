@@ -39,6 +39,16 @@ it('previews inventory-owned garment and hat separately without changing the oth
   fireEvent.click(screen.getByRole('button',{name:/Багряный сюртук/}));
   expect(screen.getByRole('button',{name:/Медный лист/}).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('button',{name:/Багряный сюртук/}).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button',{name:'Только шляпа'}));
+  expect(screen.getByRole('button',{name:'Только шляпа'}).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByAltText('Головной убор')).toBeTruthy();
+  expect(screen.queryByAltText('Пиджак')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Только одежда'}));
+  expect(screen.getByAltText('Пиджак')).toBeTruthy();
+  expect(screen.queryByAltText('Головной убор')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Весь образ'}));
+  expect(screen.getByAltText('Головной убор')).toBeTruthy();
+  expect(screen.getByAltText('Пиджак')).toBeTruthy();
   fireEvent.click(screen.getByRole('button',{name:'Сохранить: Мирный'}));
   await waitFor(()=>expect(save).toHaveBeenCalledWith('civilian',expect.objectContaining({hatItemId:'hat-1',jacketItemId:'jacket-1'}),0));
 });

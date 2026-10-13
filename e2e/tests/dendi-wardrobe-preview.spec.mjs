@@ -8,11 +8,20 @@ for (const width of [390, 1440]) {
     await expect(page.getByAltText('Портрет игрока')).toBeVisible();
     await expect(page.getByRole('button',{name:'Мирный'})).toHaveAttribute('aria-pressed','true');
     await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1); // original suit
-    await page.locator('.dgw-slot[title="Шляпа"]').click();
+    // The original JPG suit contains hands/bow tie/shirt: don't sell it as a
+    // removable jacket before these underlying pixels are reconstructed.
+    await page.locator('.dgw-slot[title="Нужен самостоятельный проверенный слой"]').first().click();
+    await expect(page.getByText(/Оригинальный пиджак пока неотделим/)).toBeVisible();
+    await expect(page.getByRole('button',{name:/Оригинальный костюм Денди/})).toHaveCount(0);
+    if(width===390){
+      const rect=await page.locator('.dgw-kit-head').boundingBox();
+      expect(rect?.y??Infinity).toBeLessThan(820);
+    }
+        await page.locator('.dgw-slot[title="Шляпа"]').click();
     await expect(page.getByRole('button',{name:/Черновая шляпа/})).toBeVisible();
     await page.getByRole('button',{name:/Черновая шляпа/}).click();
     await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(2);
-    await page.getByRole('button',{name:'Сохранить образ'}).click();
+    await page.getByRole('button',{name:'Запомнить примерку'}).click();
     await expect(page.getByRole('status')).toContainText('в этой примерке');
     await page.getByRole('button',{name:'Дон'}).click();
     await expect(page.locator('.dgw-portrait-stage .role-portrait-layer')).toHaveCount(1);

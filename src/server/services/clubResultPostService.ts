@@ -6,7 +6,7 @@ import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from 
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
+import { queueEveningVoteMessages, voteCallbackData } from './eveningVoteMessageService.ts';
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
 import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
@@ -416,13 +416,23 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   const attendees = Number((await db.get<any>("SELECT COUNT(*) AS n FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.n || 0);
   const deadline = votingDeadlineMs(evening);
   if (attendees < 2 || deadline <= Date.now()) return false;
-  const bot = await telegramBotUsername().catch(() => null);
   const title = String(evening.title || 'Игровой вечер');
   const base = appUrl('/player');
+  // The candidates are buttons right under the post (owner, 2026-10-13: «кнопки в боте» led nowhere): a tap is the vote.
+  const nominees = await db.all<any>(`
+    SELECT p.id, p.nickname FROM evening_participants ep JOIN players p ON p.id = ep.player_id
+     WHERE ep.evening_id = ? AND ep.attendance_status = 'attended' ORDER BY p.nickname COLLATE NOCASE ASC
+  `, [eveningId]);
+  const voteButtons = nominees.flatMap((nominee: any) => {
+    const data = voteCallbackData(eveningId, String(nominee.id));
+    const name = String(nominee.nickname || '').trim() || 'Игрок';
+    return data ? [{ text: name.length > 24 ? `${name.slice(0, 23)}…` : name, callback_data: data }] : [];
+  });
+  const voteRows: Array<typeof voteButtons> = [];
+  for (let index = 0; index < voteButtons.length; index += 2) voteRows.push(voteButtons.slice(index, index + 2));
   const telegramText = [
     `🏆 MVP вечера «${title}» — голосуем!`,
-    'Кто сыграл лучше всех? Голосовать могут те, кто был за столом: нажми на игрока — это 10 секунд.',
-    bot ? `Кнопки уже пришли тебе в личные сообщения от бота: https://t.me/${bot}` : 'Кнопки уже пришли тебе в личные сообщения от бота.',
+    'Кто сыграл лучше всех? Нажми на игрока под этим постом — это твой голос. Голосовать могут те, кто был за столом; за себя нельзя. Передумал — нажми на другого, голос заменится.',
     `⏳ Голосование до ${moscowDayTime(deadline)}.`,
   ].join('\n');
   const vkText = [
@@ -434,7 +444,7 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   let posted = false;
   const telegramKey = `vote-prompt:${eveningId}`;
   if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
-    const result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl);
+    const result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl, undefined, voteRows.length ? { inline_keyboard: voteRows } : undefined);
     await finish(db, telegramKey, result);
     posted = posted || result.ok;
   }
@@ -528,7 +538,7 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
 }
 
 /** A plain text message to a Telegram destination (the rating group, the entry channel), with the same error contract as `sendPhotos`. */
-export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML') {
+export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML', replyMarkup?: unknown) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>('SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1', [destinationId]).catch(() => null);
@@ -539,6 +549,7 @@ export async function sendText(db: DatabaseWrapper, destinationId: string, text:
   if (parseMode && text.length > 4000) return { ok: false, temporary: false, error: 'Сообщение слишком длинное для Telegram' };
   const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: parseMode ? text : text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
   if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
+  if (replyMarkup) body.reply_markup = replyMarkup;
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const payload: any = await response.json().catch(() => null);

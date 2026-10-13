@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthenticatedOrganizerActorId, getPlayerSessionId, isClubOwner, requireClubOwner, requireOrganizerAuth } from '../auth.ts';
 import { activateCompendium, CosmeticsError, createCosmeticItem, createCosmeticSeason, dismantleCosmeticDuplicate, equipCosmetic, getCosmetics, grantCosmetic, operationInput } from '../services/cosmeticsService.ts';
 import { approvePortrait, readPortraitBytes, readRoleLooks, saveRoleLook } from '../services/roleLooksService.ts';
+import { createDraftCosmeticSet, listCosmeticSets, replaceDraftCosmeticSetItems } from '../services/cosmeticSetsService.ts';
 
 const router = Router();
 const id = z.string().min(1).max(120).regex(/^[a-zA-Z0-9:_-]+$/);
@@ -49,6 +50,9 @@ router.use('/cosmetics/admin', requireOrganizerAuth, requireClubOwner);
 router.post('/cosmetics/admin/players/:playerId/portrait', handle(req => approvePortrait(req.db, id.parse(req.params.playerId), req.body, owner(req))));
 router.post('/cosmetics/admin/seasons', handle(req => { owner(req); return createCosmeticSeason(req.db, req.body); }));
 router.post('/cosmetics/admin/items', handle(req => { owner(req); return createCosmeticItem(req.db, req.body); }));
+router.get('/cosmetics/admin/sets', handle(req => { owner(req); return listCosmeticSets(req.db); }));
+router.post('/cosmetics/admin/sets', handle(req => { owner(req); return createDraftCosmeticSet(req.db, req.body); }));
+router.put('/cosmetics/admin/sets/:setId/items', handle(req => { owner(req); return replaceDraftCosmeticSetItems(req.db, String(req.params.setId), req.body); }));
 router.post('/cosmetics/admin/players/:playerId/grants', handle(req => {
   const input = operationInput.extend({ itemId: id }).parse(req.body);
   return grantCosmetic(req.db, String(req.params.playerId), input.itemId, input.requestId, owner(req));

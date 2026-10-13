@@ -3,29 +3,65 @@ import { inflateSync } from 'zlib';
 import { z } from 'zod';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { COSMETIC_ASSETS, type CosmeticAssetKey } from '../../lib/cosmeticAssets.ts';
-import { emptyRoleLook, LOOK_BACKGROUNDS, LOOK_ROLES, lookRoleFromGame, plainPhrase, PORTRAIT_LAYOUT, type BroadcastRoleLook, type LookLayer, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
+import { emptyRoleLook, LOOK_BACKGROUNDS, LOOK_ROLES, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_ORDER, lookRoleFromGame, plainPhrase, PORTRAIT_LAYOUT, type BroadcastRoleLook, type EquippedItems, type LookLayer, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
 import type { LiveBroadcastState } from '../../lib/liveBroadcast.ts';
 import { CosmeticsError } from './cosmeticsService.ts';
 
 const itemId = z.string().min(1).max(120).regex(/^[a-zA-Z0-9:_-]+$/).nullable();
 export const roleLookInput = z.object({
-  phrase: z.string().trim().max(64).refine(s => plainPhrase(s)===s, 'One plain-text line only'),
-  background: z.enum(LOOK_BACKGROUNDS), hatItemId: itemId, jacketItemId: itemId,
+  phrase: z.string().trim().max(64).refine(s => plainPhrase(s) === s, 'One plain-text line only'),
+  background: z.enum(LOOK_BACKGROUNDS),
+  hatItemId: itemId, jacketItemId: itemId,
+  // Optional for legacy clients. When provided, the map is the complete desired loadout.
+  equippedItems: z.partialRecord(z.enum(PORTRAIT_EQUIPMENT_SLOTS), itemId).optional(),
   expectedRevision: z.number().int().safe().nonnegative(),
-}).strict();
+}).strict().superRefine((s, ctx) => {
+  if (!s.equippedItems) return;
+  if ((s.equippedItems.portrait_hat || null) !== s.hatItemId || (s.equippedItems.portrait_jacket || null) !== s.jacketItemId) {
+    ctx.addIssue({ code: 'custom', message: 'Legacy slots differ from equippedItems' });
+  }
+});
 const required = (value: unknown, code: string, status = 409) => { if (!value) throw new CosmeticsError(code, status); };
 async function requirePlayer(db: DatabaseWrapper, id: string) { required(await db.get('SELECT id FROM players WHERE id=?', [id]), 'player_not_found', 404); }
-const rowLook = (row: any): RoleLook => ({ role: row.role, phrase: row.phrase, background: row.background, hatItemId: row.hat_item_id, jacketItemId: row.jacket_item_id, revision: row.revision });
+const rowLook = (row: any, items: EquippedItems): RoleLook => ({
+  role: row.role, phrase: row.phrase, background: row.background,
+  hatItemId: items.portrait_hat || null, jacketItemId: items.portrait_jacket || null,
+  equippedItems: items, revision: row.revision,
+});
 export async function readRoleLooks(db: DatabaseWrapper, playerId: string): Promise<RoleLooksResponse> {
   await requirePlayer(db, playerId);
   const rows = await db.all<any>('SELECT * FROM player_role_looks WHERE player_id=?', [playerId]);
-  const owned = await db.all<any>(`SELECT c.* FROM cosmetic_catalog c JOIN cosmetic_inventory i ON i.item_id=c.id WHERE i.player_id=? AND i.quantity>=1 AND c.published=1 AND c.slot IN ('portrait_hat','portrait_jacket')`, [playerId]);
+  const equipment = await db.all<any>(
+    'SELECT role,slot,item_id FROM player_role_look_equipment WHERE player_id=?',
+    [playerId],
+  );
+  const sqlSlots = PORTRAIT_EQUIPMENT_SLOTS.map(() => '?').join(',');
+  const owned = await db.all<any>(
+    `SELECT c.* FROM cosmetic_catalog c JOIN cosmetic_inventory i ON i.item_id=c.id
+     WHERE i.player_id=? AND i.quantity>=1 AND c.published=1 AND c.slot IN (${sqlSlots})`,
+    [playerId, ...PORTRAIT_EQUIPMENT_SLOTS],
+  );
   const layers: LookLayer[] = owned.flatMap(item => {
     const asset = COSMETIC_ASSETS[item.asset_key as CosmeticAssetKey];
-    return asset && !asset.draft && asset.slot === item.slot ? [{ itemId: item.id, name: item.name, slot: item.slot, url: asset.url, rarity: item.rarity }] : [];
+    return asset && !asset.draft && asset.slot === item.slot
+      ? [{ itemId: item.id, name: item.name, slot: item.slot as PortraitEquipmentSlot, url: asset.url, rarity: item.rarity }]
+      : [];
   });
   const portrait = await db.get<any>('SELECT version FROM player_portrait_current WHERE player_id=?', [playerId]);
-  return { looks: LOOK_ROLES.map(role => { const row = rows.find(r => r.role === role); return row ? rowLook(row) : emptyRoleLook(role); }), layers, portraitVersion: portrait?.version || null };
+  const looks = LOOK_ROLES.map(role => {
+    const row = rows.find(r => r.role === role);
+    if (!row) return emptyRoleLook(role);
+    const items: EquippedItems = {};
+    for (const slot of PORTRAIT_EQUIPMENT_SLOTS) {
+      const selected = equipment.find(e => e.role === role && e.slot === slot);
+      if (selected) items[slot] = selected.item_id;
+    }
+    // Compatibility for historical databases not yet mirrored.
+    if (row.hat_item_id && !items.portrait_hat) items.portrait_hat = row.hat_item_id;
+    if (row.jacket_item_id && !items.portrait_jacket) items.portrait_jacket = row.jacket_item_id;
+    return rowLook(row, items);
+  });
+  return { looks, layers, portraitVersion: portrait?.version || null };
 }
 export async function saveRoleLook(db: DatabaseWrapper, playerId: string, roleValue: unknown, input: unknown) {
   const role = z.enum(LOOK_ROLES).parse(roleValue), s = roleLookInput.parse(input);
@@ -33,19 +69,43 @@ export async function saveRoleLook(db: DatabaseWrapper, playerId: string, roleVa
     const state = await readRoleLooks(tx, playerId);
     const previous = state.looks.find(l => l.role === role)!;
     required(previous.revision === s.expectedRevision, 'look_revision_conflict');
-    if (s.hatItemId || s.jacketItemId) required(state.portraitVersion, 'portrait_preparation_required');
-    for (const [id, slot] of [[s.hatItemId, 'portrait_hat'], [s.jacketItemId, 'portrait_jacket']]) {
-      if (id) required(state.layers.some(l => l.itemId === id && l.slot === slot), 'item_not_owned_or_not_ready');
+
+    // Explicit new-client map replaces the entire loadout; old clients change only
+    // the two legacy slots, preserving all newer independent pieces.
+    const desired: EquippedItems = {};
+    if (s.equippedItems) {
+      for (const slot of PORTRAIT_EQUIPMENT_SLOTS) {
+        const id = s.equippedItems[slot];
+        if (id) desired[slot] = id;
+      }
+    } else {
+      Object.assign(desired, previous.equippedItems || {});
+      delete desired.portrait_hat;
+      delete desired.portrait_jacket;
+      if (s.hatItemId) desired.portrait_hat = s.hatItemId;
+      if (s.jacketItemId) desired.portrait_jacket = s.jacketItemId;
+    }
+    const selected = Object.entries(desired) as [PortraitEquipmentSlot, string][];
+    if (selected.length) required(state.portraitVersion, 'portrait_preparation_required');
+    for (const [slot, id] of selected) {
+      required(state.layers.some(l => l.itemId === id && l.slot === slot), 'item_not_owned_or_not_ready');
     }
     const revision = previous.revision + 1, now = new Date().toISOString();
-    await tx.run(`INSERT INTO player_role_looks(player_id,role,phrase,background,hat_item_id,jacket_item_id,revision,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(player_id,role) DO UPDATE SET phrase=excluded.phrase,background=excluded.background,hat_item_id=excluded.hat_item_id,jacket_item_id=excluded.jacket_item_id,revision=excluded.revision,updated_at=excluded.updated_at`, [playerId,role,s.phrase,s.background,s.hatItemId,s.jacketItemId,revision,now]);
-    // Keep the additive multi-slot store in sync with old clients.
-    // Legacy hat/jacket columns remain authoritative until the new editor is deployed.
-    await tx.run("DELETE FROM player_role_look_equipment WHERE player_id=? AND role=? AND slot IN ('portrait_hat','portrait_jacket')", [playerId, role]);
-    for (const [slot, id] of [['portrait_hat', s.hatItemId], ['portrait_jacket', s.jacketItemId]] as const) {
-      if (id) await tx.run('INSERT INTO player_role_look_equipment(player_id,role,slot,item_id) VALUES(?,?,?,?)', [playerId, role, slot, id]);
+    await tx.run(`INSERT INTO player_role_looks(player_id,role,phrase,background,hat_item_id,jacket_item_id,revision,updated_at)
+      VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(player_id,role)
+      DO UPDATE SET phrase=excluded.phrase,background=excluded.background,
+        hat_item_id=excluded.hat_item_id,jacket_item_id=excluded.jacket_item_id,
+        revision=excluded.revision,updated_at=excluded.updated_at`,
+      [playerId,role,s.phrase,s.background,desired.portrait_hat || null,desired.portrait_jacket || null,revision,now]);
+    await tx.run('DELETE FROM player_role_look_equipment WHERE player_id=? AND role=?', [playerId,role]);
+    for (const [slot, id] of selected) {
+      await tx.run('INSERT INTO player_role_look_equipment(player_id,role,slot,item_id) VALUES(?,?,?,?)', [playerId,role,slot,id]);
     }
-    const result: RoleLook = { role, phrase: s.phrase, background: s.background, hatItemId: s.hatItemId, jacketItemId: s.jacketItemId, revision };
+    const result: RoleLook = {
+      role, phrase: s.phrase, background: s.background,
+      hatItemId: desired.portrait_hat || null, jacketItemId: desired.portrait_jacket || null,
+      equippedItems: desired, revision,
+    };
     await tx.run('INSERT INTO cosmetic_events(player_id,request_id,operation,payload_json,result_json,actor_id,created_at) VALUES(?,?,?,?,?,?,?)', [playerId,randomUUID(),'save_role_look',JSON.stringify({ role, ...s }),JSON.stringify(result),playerId,now]);
     return result;
   });
@@ -106,7 +166,15 @@ export async function attachRoleLookSnapshots(db: DatabaseWrapper, state: LiveBr
       let row=await tx.get<any>('SELECT look_json FROM game_role_look_snapshots WHERE game_key=? AND player_id=? AND role=?',[gameKey,p.playerId,role]);
       if(!row) {
         const saved=await readRoleLooks(tx,p.playerId), look=saved.looks.find(l=>l.role===role)!;
-        const appearance: BroadcastRoleLook={...look,gameKey,portraitVersion:saved.portraitVersion,hatUrl:saved.layers.find(l=>l.itemId===look.hatItemId)?.url||null,jacketUrl:saved.layers.find(l=>l.itemId===look.jacketItemId)?.url||null};
+        const equippedLayers = saved.layers
+          .filter(l => (look.equippedItems || {})[l.slot] === l.itemId)
+          .sort((a,b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot])
+          .map(({slot,itemId,url}) => ({slot,itemId,url}));
+        const appearance: BroadcastRoleLook = {
+          ...look, gameKey, portraitVersion: saved.portraitVersion,
+          equippedLayers, hatUrl: equippedLayers.find(l => l.slot === 'portrait_hat')?.url || null,
+          jacketUrl: equippedLayers.find(l => l.slot === 'portrait_jacket')?.url || null,
+        };
         await tx.run('INSERT INTO game_role_look_snapshots(game_key,player_id,role,look_json,created_at) VALUES(?,?,?,?,?)',[gameKey,p.playerId,role,JSON.stringify(appearance),new Date().toISOString()]);
         row={look_json:JSON.stringify(appearance)};
       }

@@ -39,6 +39,10 @@ it('previews inventory-owned garment and hat separately without changing the oth
   fireEvent.click(screen.getByRole('button',{name:/Багряный сюртук/}));
   expect(screen.getByRole('button',{name:/Медный лист/}).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('button',{name:/Багряный сюртук/}).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('checkbox',{name:/Направляющие посадки/}));
+  expect(document.querySelector('.role-portrait-guides')).not.toBeNull();
+  fireEvent.click(screen.getByRole('checkbox',{name:/Направляющие посадки/}));
+  expect(document.querySelector('.role-portrait-guides')).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Только шляпа'}));
   expect(screen.getByRole('button',{name:'Только шляпа'}).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByAltText('Головной убор')).toBeTruthy();

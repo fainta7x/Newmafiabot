@@ -3,11 +3,11 @@ import RolePortrait from './RolePortrait.tsx';
 import { LOOK_ROLES, LOOK_ROLE_LABELS, type LookRole, type PortraitLayer } from '../../lib/roleLooks.ts';
 import './dendiWardrobePrototype.css';
 
-type TrialLook = { jacket: boolean; hat: boolean };
+type TrialLook = { hat: boolean };
 type TrialLooks = Record<LookRole, TrialLook>;
 const INITIAL = (): TrialLooks => ({
-  civilian: { jacket: true, hat: false }, mafia: { jacket: true, hat: false },
-  don: { jacket: true, hat: false }, sheriff: { jacket: true, hat: false },
+  civilian: { hat: false }, mafia: { hat: false },
+  don: { hat: false }, sheriff: { hat: false },
 });
 const PREVIEW_SLOTS = [
   { id: 'portrait_jacket', name: 'Пиджак', symbol: '♜', ready: false },
@@ -32,10 +32,9 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
   const [view, setView] = useState<'none' | 'source' | 'compare'>('none');
   const [notice, setNotice] = useState('');
   const current = drafts[role];
-  const layers = useMemo(() => [
-    ...(current.jacket ? [{ slot: 'portrait_jacket' as const, itemId: 'original-suit-draft', url: suitUrl }] : []),
-    ...(current.hat ? [{ slot: 'portrait_hat' as const, itemId: 'draft-hat', url: hatUrl }] : []),
-  ], [current, suitUrl, hatUrl]);
+  const layers = useMemo(() => current.hat
+    ? [{ slot: 'portrait_hat' as const, itemId: 'draft-hat', url: hatUrl }]
+    : [], [current.hat, hatUrl]);
   const update = (key: keyof TrialLook, value: boolean) => {
     setNotice('');
     setDrafts(prev => ({ ...prev, [role]: { ...prev[role], [key]: value } }));
@@ -47,10 +46,8 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
   const pieceUrl = hatUrl;
   const equipped = current.hat;
   const changed = current.hat !== saved[role].hat;
-  const portrait = (look: TrialLook): PortraitLayer[] => [
-    ...(look.jacket ? [{ slot: 'portrait_jacket' as const, itemId: 'original-suit-draft', url: suitUrl }] : []),
-    ...(look.hat ? [{ slot: 'portrait_hat' as const, itemId: 'draft-hat', url: hatUrl }] : []),
-  ];
+  const portrait = (look: TrialLook): PortraitLayer[] => look.hat
+    ? [{ slot: 'portrait_hat', itemId: 'draft-hat', url: hatUrl }] : [];
   return <div className="dendi-game-wardrobe">
     <header className="dgw-top">
       <div className="dgw-mark"><strong>2L</strong><span>2LA NOIRE<small>КЛУБ СПОРТИВНОЙ МАФИИ</small></span></div>
@@ -65,7 +62,7 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
         </nav>
         <div className="dgw-portrait-stage">
           <div className="dgw-halo" aria-hidden="true"/>
-          <RolePortrait background="noir" baseUrl={faceUrl} layers={layers}/>
+          <RolePortrait background="noir" baseUrl={faceUrl} bodyBaseUrl={suitUrl} layers={layers}/>
           <div className="dgw-persona"><strong>Денди</strong><small>{LOOK_ROLE_LABELS[role]}</small></div>
 
         </div>
@@ -102,7 +99,7 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
           </div> : <p className="dgw-no-pieces">{slot==='portrait_jacket'?'Оригинальный пиджак пока неотделим от рубашки, рук и бабочки. Снимать его как самостоятельный предмет нельзя.':'Для этого слота ещё нет корректно выделенного предмета. Пока доступна только проверка порядка слоёв.'}</p>}
         </div>
         <div className="dgw-controls">
-          <button type="button" className="dgw-reset" onClick={()=>{setDrafts(prev=>({...prev,[role]:{jacket:true,hat:false}}));setNotice('');}}>Сбросить</button>
+          <button type="button" className="dgw-reset" onClick={()=>{setDrafts(prev=>({...prev,[role]:{hat:false}}));setNotice('');}}>Сбросить</button>
           <button type="button" className="dgw-save" disabled={!changed}
             onClick={()=>{setSaved(prev=>({...prev,[role]:{...drafts[role]}}));setNotice('Сохранено в этой примерке. Игровой профиль не изменён.');}}>
               Запомнить примерку
@@ -121,7 +118,7 @@ export default function DendiWardrobePrototype({ faceUrl, suitUrl, hatUrl, sourc
         {view==='source'?<><img className="dgw-source" src={sourceUrl} alt="Оригинальная аватарка Денди"/>
           <p>Из исходного JPG отделены лицо/волосы и оригинальная одежда. Фон и надписи не входят в игровые слои. Края масок ещё проходят проверку.</p></>
           :<div className="dgw-four">{LOOK_ROLES.map(key=><div key={key}>
-            <RolePortrait background="noir" baseUrl={faceUrl} layers={portrait(drafts[key])}/>
+            <RolePortrait background="noir" baseUrl={faceUrl} bodyBaseUrl={suitUrl} layers={portrait(drafts[key])}/>
             <strong>{LOOK_ROLE_LABELS[key]}</strong></div>)}</div>}
       </div>
     </div>}

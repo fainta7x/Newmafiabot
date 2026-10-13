@@ -24,20 +24,22 @@ export default function VotePromptCard() {
 
   if (!pending) return null;
   return (
-    <section data-testid="vote-prompt-card" className={`rounded-[22px] border p-4 ${pending.voted ? 'border-white/10 bg-white/[0.04]' : 'border-amber-300/30 bg-amber-300/[0.08]'}`}>
-      <div className="flex items-start gap-3">
-        <span className="text-2xl" aria-hidden="true">🏆</span>
+    <section data-testid="vote-prompt-card" className={`rounded-[20px] border p-3 ${pending.voted ? 'border-white/10 bg-white/[0.04]' : 'border-amber-300/30 bg-amber-300/[0.08]'}`}>
+      <div className="flex items-center gap-3">
+        <span className="text-xl" aria-hidden="true">🏆</span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-bold">MVP вечера «{pending.title}»</h2>
-          {pending.voted
-            ? <p className="mt-1 text-[13px] leading-5 text-white/60">Ты проголосовал за {pending.my_vote_nickname || 'игрока'}. Можно передумать до {untilText(pending.deadline)}.</p>
-            : <p className="mt-1 text-[13px] leading-5 text-white/70">Кто сыграл лучше всех? Это 10 секунд. Голосуем до {untilText(pending.deadline)} · уже проголосовали {pending.voters} из {pending.attendees}.</p>}
+          <h2 className="truncate text-[14px] font-bold">MVP вечера «{pending.title}»</h2>
+          <p className="mt-0.5 text-[12px] leading-4 text-white/60">
+            {pending.voted
+              ? `Ты проголосовал за ${pending.my_vote_nickname || 'игрока'} · до ${untilText(pending.deadline)}`
+              : `Голосуем до ${untilText(pending.deadline)} · проголосовали ${pending.voters} из ${pending.attendees}`}
+          </p>
         </div>
+        <button type="button" data-testid="vote-prompt-toggle" onClick={() => { const next = !open; setOpen(next); if (!next) void load(); }}
+          className={`min-h-11 shrink-0 rounded-[12px] px-4 text-[13px] font-bold ${pending.voted ? 'border border-white/15 bg-white/[0.06] text-white' : 'bg-amber-300 text-black'}`}>
+          {open ? 'Свернуть' : pending.voted ? 'Изменить' : 'Голосовать'}
+        </button>
       </div>
-      <button type="button" data-testid="vote-prompt-toggle" onClick={() => { const next = !open; setOpen(next); if (!next) void load(); }}
-        className={`mt-3 min-h-12 w-full rounded-[14px] text-[14px] font-bold ${pending.voted ? 'border border-white/15 bg-white/[0.06] text-white' : 'bg-amber-300 text-black'}`}>
-        {open ? 'Свернуть' : pending.voted ? 'Изменить голос' : 'Голосовать'}
-      </button>
       {open ? <EveningVotingPanel eveningId={pending.evening_id} /> : null}
     </section>
   );

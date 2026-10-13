@@ -18,7 +18,7 @@ describe('«MVP вечера» card on the player home', () => {
   it('asks to vote, with how many already did, and opens the vote in place', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/voting/pending') ? { pending } : { error: 'x' }), { status: String(url).includes('/voting/pending') ? 200 : 403 })));
     render(<VotePromptCard />);
-    expect((await screen.findByTestId('vote-prompt-card')).textContent).toContain('уже проголосовали 2 из 9');
+    expect((await screen.findByTestId('vote-prompt-card')).textContent).toContain('проголосовали 2 из 9');
     expect(screen.getByTestId('vote-prompt-toggle').textContent).toBe('Голосовать');
     fireEvent.click(screen.getByTestId('vote-prompt-toggle'));
     expect(screen.getByTestId('vote-prompt-toggle').textContent).toBe('Свернуть');
@@ -28,6 +28,6 @@ describe('«MVP вечера» card on the player home', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ pending: { ...pending, voted: true, my_vote_nickname: 'Лиса' } }), { status: 200 })));
     render(<VotePromptCard />);
     expect((await screen.findByTestId('vote-prompt-card')).textContent).toContain('Ты проголосовал за Лиса');
-    expect(screen.getByTestId('vote-prompt-toggle').textContent).toBe('Изменить голос');
+    expect(screen.getByTestId('vote-prompt-toggle').textContent).toBe('Изменить');
   });
 });

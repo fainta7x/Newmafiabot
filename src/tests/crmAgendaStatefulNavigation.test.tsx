@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import OrganizerAgenda from '../components/crm/OrganizerAgenda.tsx';
@@ -32,7 +33,7 @@ describe('CRM «Дела» evening navigation', () => {
   it('uses the mounted OrganizerCRM navigation handler, not the URL-only helper', () => {
     // A direct URL push bypasses the mounted CRM section state in the app router.
     // Assert the parent wires its already-established stateful handler to «Дела».
-    const source = readFileSync(new URL('../components/OrganizerCRM.tsx', import.meta.url), 'utf8');
+    const source = readFileSync(resolve(process.cwd(), 'src/components/OrganizerCRM.tsx'), 'utf8');
     expect(source).toMatch(/<OrganizerAgenda mode="full" onOpenEveningSection=\{handleOpenEveningSection\}/);
     expect(source).not.toContain('onOpenEveningSection={navigateEveningSection}');
   });

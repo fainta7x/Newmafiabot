@@ -55,7 +55,7 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
     className={'relative overflow-hidden rounded-[24px] border bg-gradient-to-br p-4 ' + (red ? 'border-rose-200/15 from-rose-400/[.09] via-[#20161c] to-[#111216]' : 'border-violet-200/15 from-violet-400/[.09] via-[#1e1728] to-[#111216]')}>
     <div aria-hidden="true" className="absolute inset-x-0 top-10 h-[90px] bg-[radial-gradient(ellipse_at_center,rgba(213,194,148,.09),transparent_70%)]"/>
     <div className="relative flex items-center justify-between gap-1">
-      {members.map((member, index) => <button key={member.id} type="button"
+      {members.map((member) => <button key={member.id} type="button"
         aria-label={'Открыть профиль ' + member.name}
         onClick={() => openCanonicalPlayerProfile(member.id)}
         className="ds-focus-ring flex min-h-[100px] w-[38%] min-w-0 flex-col items-center justify-center gap-2 rounded-[18px] text-center transition active:scale-[.97]">

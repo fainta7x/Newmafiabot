@@ -44,13 +44,11 @@ const movementColor = (value: number | null) => (
 );
 
 function Avatar({ src, name, size = 40 }: { src?: string | null; name: string; size?: number }) {
-  return src ? (
-    <img src={src} alt="" style={{ width: size, height: size }} className="shrink-0 rounded-[14px] object-cover ring-1 ring-white/10" />
-  ) : (
-    <div style={{ width: size, height: size }} aria-hidden="true" className="grid shrink-0 place-items-center rounded-[14px] bg-white/[0.08] text-[13px] font-semibold text-white/70">
-      {name.slice(0, 1).toUpperCase()}
-    </div>
-  );
+  const [failed, setFailed] = useState(false);
+  return <span style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-[14px] bg-gradient-to-br from-white/[0.14] to-white/[0.035] text-[13px] font-semibold text-white/70 ring-1 ring-white/10" aria-hidden="true">
+    {name.trim().slice(0, 1).toUpperCase() || '?'}
+    {src && !failed && <img src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+  </span>;
 }
 
 function FormPlayerCard({ row, isSelf, ownContext = false }: { row: PowerEntry; isSelf: boolean; ownContext?: boolean }) {
@@ -181,7 +179,7 @@ export default function PlayerClubActivity() {
             )}
 
             {data.meta?.formula && (
-              <details className="mt-3 rounded-xl border border-white/[0.06] px-3">
+              <details open className="mt-3 rounded-xl border border-amber-200/10 bg-amber-200/[0.035] px-3">
                 <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/60">Как считается форма</summary>
                 <p className="pb-3 text-[11px] leading-5 text-white/55">{data.meta.formula}</p>
               </details>

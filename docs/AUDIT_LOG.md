@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet «Сообщество → Рейтинг → Elo» — useful mobile ranking, not a compressed table
+
+**Owner approval:** improve the *existing* Player Cabinet screens for native visual comprehension, comfort and a unified 2LA Noire card hierarchy, not only fix errors. Avoid repeating generic row-table layouts; keep original sources, facts, profile navigation and gameplay semantics. This is a presentation improvement, not a new ranking feature.
+
+**Mounted path:** `PlayerCabinetShell → PlayerCommunityHub → PlayerRatingHub → PlayerRatingTable`. `GET /api/rating` provides players with rank/place, name, avatar and Elo. Current design renders every person as a compact uniform 48px pseudo-table row (`place | avatar | nickname | raw Elo`) including the leaders, while own standing appears in an unrelated slim banner. The numeric column has no explanation per row; a long list is visually monotonous, with no distinction between the top 3 and other standings. An API error lacks an in-place retry.
+
+**Desired visual hierarchy:** own position shown as a recognizable compact identity panel; the top three are **distinctive but restrained** feature cards grounded in ranked `place`, with avatar/name, place, Elo and clear profile destination, while everybody else remains in a comfortable vertically stacked *player card list*, not a grid or data table. Accent palette restricted to existing amber/silver/bronze and dark-surface design system; no neon/glow/podium gamification, invented scores or artificial new ranks. Keep current `data-testid=rating-self-card` and `rating-self-row` contracts and exact profile opening function. Shorten labels, make ≥44px mobile touch targets, render truthful loading/empty/error and retry states. All ranked players must remain visible, including ties/absent top ranks.
+
+**Boundaries:** change only `src/components/player/PlayerRatingTable.tsx`, focused React tests and design/queue documentation. No Elo calculation, database, server API, wallet, cosmetics, avatar generator or account changes. Visual inspection at 360/390px in PR preview required before declaring complete.
+
+
 ## 2026-10-14 · Player Cabinet, screen 4: «Вечера → Мои игры» club-archive error survives recovery
 
 **Mounted path:** `PlayerCabinetShell → PlayerEveningsHub(games) → PlayerHistoryStatsView`. The player's own games load from canonical PlayerMe and work independently. The secondary disclosure «Все игры клуба» invokes `GET /api/player/games/all` only when expanded. The effect sets `allGamesError` after a failed request, but never clears it before another attempt or after success; the render branch prioritizes `allGamesError` over `allGames`. A transient outage can therefore leave the archive showing the old error after the next successful GET. The error panel contains **no retry control**.

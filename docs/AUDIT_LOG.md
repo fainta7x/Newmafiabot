@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet, screen 2: «Вечера → Скоро» stale calendar month and retry
+
+**Mounted source:** `PlayerCabinetShell → PlayerEveningsHub → PlayerEventsCalendar`, `src/components/player/PlayerEventsCalendar.tsx`. Month switch changes `monthKey` and invokes `load()`, but no cleanup, request ID or abort guard exists. A slow previous-month `GET /api/player/calendar?month=...` can complete after the latest GET and **replace current-month `events`, `noviceState` or the error flag**. The month title and list then disagree; the calendar's filters/nearest/highlight operate on false data. A network/API failure renders an error notice without an actionable retry; changing month is the only incidental retry.
+
+**Acceptance (read-only):** Ignore stale successes/errors/fallback onboarding fetches after switching months and after unmount; list, nearest card, filters and error state must reflect only the latest selected month. A visible `Повторить` loads the current month in-place while preserving the list/calendar selector. Keep deep link and onboarding writer behavior untouched; no change to event types, availability, slot capacity or RSVP rules. Rendered tests must resolve month B before A and verify B remains, and exercise failed GET→retry.
+
+**Scope:** `PlayerEventsCalendar.tsx` and focused React tests only, 360/390px UI preview before merge; no production changes claimed. First Player Home screen's separate PR #912 owns `PlayerHomeDashboard.tsx` and priority queue docs; rebase over it after merge without losing the Player Cabinet focus.
+
+
 ## 2026-10-14 · Player Cabinet, screen 1: «Главная» next-evening request can misreport failure as no events
 
 **Priority change:** Organizer CRM audit moves to the parked queue in `docs/PROJECT_STATE.md` at owner's request; the Player Cabinet is the active screen-by-screen usability/quality program. Keep CRM fixes already merged and PR #910 (unmerged/red CI) recorded rather than silently discarded.

@@ -165,35 +165,41 @@ export default function PlayerEventsCalendar({
   const [applicationMessage, setApplicationMessage] = useState('');
   const [focusFirstApplication, setFocusFirstApplication] = useState(false);
   const firstApplicationRef = useRef<HTMLElement | null>(null);
+  const calendarRequestSeq = useRef(0);
 
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const queryEventId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('event') : null;
   const requestedEventId = initialEventId || queryEventId;
 
   const load = async () => {
+    const requestId = ++calendarRequestSeq.current;
     setLoading(true);
     setError('');
     try {
       const body = await getJson<any>(`/api/player/calendar?month=${monthKey}`, 'Не удалось загрузить календарь');
+      if (requestId !== calendarRequestSeq.current) return;
       setEvents(Array.isArray(body.events) ? body.events : []);
       if (body?.novice_state?.player) {
         setNoviceState(body.novice_state);
       } else {
-        // Keep the onboarding CTA available even when an older runtime returns
-        // the calendar without the optional novice_state envelope.
+        // The fallback request is independent and can outlive a month change.
         const noviceResponse = await fetch('/api/player/novice', { credentials: 'include', cache: 'no-store' });
         const noviceBody = await noviceResponse.json().catch(() => ({}));
-        if (noviceResponse.ok && noviceBody?.player) setNoviceState(noviceBody);
+        if (requestId === calendarRequestSeq.current && noviceResponse.ok && noviceBody?.player) setNoviceState(noviceBody);
       }
     } catch (loadError: any) {
+      if (requestId !== calendarRequestSeq.current) return;
       setError(loadError?.message || 'Не удалось загрузить календарь');
       setEvents([]);
     } finally {
-      setLoading(false);
+      if (requestId === calendarRequestSeq.current) setLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, [monthKey]);
+  useEffect(() => {
+    void load();
+    return () => { calendarRequestSeq.current += 1; };
+  }, [monthKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -451,7 +457,10 @@ export default function PlayerEventsCalendar({
           ) : null}
         </section>
 
-        {error && <div className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-3 text-sm text-rose-100">{error}</div>}
+        {error && <div role="alert" data-testid="player-calendar-error" className="mt-3 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-3 text-sm text-rose-100">
+          <p>{error}</p>
+          <button type="button" onClick={() => void load()} className="min-h-11 w-full rounded-xl border border-rose-100/20 bg-white/[0.08] px-3 text-sm font-semibold text-white">Повторить</button>
+        </div>}
         {loading && <div className="mt-3 rounded-2xl bg-white/[0.035] p-4 text-sm text-white/50">Загрузка событий…</div>}
 
         {!loading && !error && view === 'list' && (

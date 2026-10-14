@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OrganizerCRM from '../components/OrganizerCRM.tsx';

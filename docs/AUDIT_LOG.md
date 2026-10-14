@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-14 · Owner screenshot 09:45: oversized head and unanchored hat (FIX CODED; exact-head mobile evidence pending)
+
+Evidence: `1000010666.jpg`, Fandorin in black jacket + hat. The face/base is an untransformed full-canvas image and the hat receives only scaleX; neither is connected to neck/temple landmarks. Garments fit horizontally but retain their old vertical anchors. The head dominates the torso and its lower neck is pasted above the collar. Owners: `RolePortrait.tsx`, `portraitMesh.ts`, `dendiWardrobePilot.ts`. Acceptance: a rigid two-landmark transform scales/positions the entire head, a shared neck target drives garment vertical anchors, hat contact points map onto transformed temple points and hair under the hat is occluded. Neck sits behind collar, front hair stays above shoulders. Inspect all three characters with both coats and hat before delivering. Existing role persistence and unrigged production portraits must remain unchanged.
+
+
 ## 2026-10-14 · Owner screenshots: feminine tailoring on every body (FIX CODED; browser evidence pending)
 
 Reproduction: choose Фандорин in the shared-clothes lab and equip the burgundy jacket. Screenshot 09:27 shows a male head on a bust-shaped, tightly cinched female jacket; horizontal width-only fitting preserves the wrong shading and darts. Owner: `public/character-editor/dendi-v2/{shirt-v2,jacket-burgundy-v2,jacket-black-v2}.png` and fixture fits in `src/lib/dendiWardrobePilot.ts`. Replace the shared garment master with straight-cut neutral construction, calibrate all three silhouettes and inspect rendered shirt/jacket compositions before delivery. Acceptance: no built-in breast shading/corset waist on Фандорин; same item assets fit all three heads.

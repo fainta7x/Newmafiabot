@@ -20,6 +20,13 @@ for(const width of [360,390,1440]){
     for(let y=320;y<640;y++)for(const x of [100,150,360,410])if(rgba[(y*512+x)*4+3])return false;
     return true;
    })).toBe(true);
+   await editor.getByRole('button',{name:/Медный лист/}).click();
+   const hat=preview.getByRole('img',{name:'Головной убор',exact:true});
+   await expect.poll(()=>hat.evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
+   const base=preview.getByAltText('Портрет игрока');
+   await expect(base).toHaveCSS('transform-origin','0px 0px');
+   expect(await base.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
+   expect(await hat.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
    await preview.screenshot({path:testInfo.outputPath(`outfit-${name}-${width}.png`)});
    const summary=editor.locator('.role-looks-compare>summary');
    expect(await summary.evaluate(el=>getComputedStyle(el).display)).toBe('block');

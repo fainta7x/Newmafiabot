@@ -58,3 +58,4 @@
 .role-portrait-mesh{position:absolute;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;overflow:visible}
 .role-portrait-mesh path{fill:none;stroke:#80ded2;stroke-width:.7;opacity:.65}
 .role-portrait-asset-error{position:absolute;inset:auto 4px 4px;z-index:9;background:#28171c;color:#ffb9b3;font-size:11px;padding:6px}
+.role-portrait-anchors line{stroke:#ffce85;stroke-width:2}.role-portrait-anchors circle{fill:#ffce85;stroke:#17161d;stroke-width:1}.role-portrait-anchors text{fill:#ffce85;font:12px system-ui,sans-serif;paint-order:stroke;stroke:#17161d;stroke-width:3px}

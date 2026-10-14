@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../lib/api.ts';
-import { PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, type DraftSet, type DraftWearableItem, type DraftAssetOption, type PortraitEquipmentSlot } from '../../lib/roleLooks.ts';
+import { PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, type DraftSet, type DraftWearableItem, type DraftAssetOption, type PortraitEquipmentSlot, type PortraitLayer } from '../../lib/roleLooks.ts';
 import type { CosmeticRarity } from '../../lib/cosmeticAssets.ts';
 import RolePortrait from './RolePortrait.tsx';
+import type {PortraitFit} from '../../lib/portraitMesh.ts';
 import './cosmeticSetStudio.css';
 
 export type CosmeticSetStudioClient = Pick<typeof api,
@@ -21,9 +22,9 @@ const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every(x
 
 /** Explicit author-only draft workbench. Neither a player shop nor an asset publisher. */
 export default function CosmeticSetStudio({
-  client = api, portraitUrl, initialOpen = false, allowCreate = true,
+  client = api, portraitUrl, initialOpen = false, allowCreate = true, portraitFit, portraitLayers,
 }: {
-  client?: CosmeticSetStudioClient; portraitUrl?: string | null; initialOpen?: boolean; allowCreate?: boolean;
+  client?: CosmeticSetStudioClient; portraitUrl?: string | null; initialOpen?: boolean; allowCreate?: boolean; portraitFit?:PortraitFit; portraitLayers?:PortraitLayer[];
 }) {
   const [open, setOpen] = useState(initialOpen);
   const [sets, setSets] = useState<DraftSet[]>([]);
@@ -63,7 +64,7 @@ export default function CosmeticSetStudio({
   const changed = Boolean(active && !sameIds(selected, active.items.map(item => item.id)));
   const chosenLayers = PORTRAIT_EQUIPMENT_SLOTS.flatMap(slot => {
     const item = eligible.find(item => item.id === selection[slot] && item.slot === slot);
-    return item ? [{ slot, itemId: item.id, url: item.url }] : [];
+    return item ? [portraitLayers?.find(l=>l.itemId===item.id&&l.slot===slot) || { slot, itemId: item.id, url: item.url }] : [];
   });
 
   const chooseSet = (id: string) => {
@@ -168,7 +169,7 @@ export default function CosmeticSetStudio({
         </details>}
         {active && <section className="cosmetic-set-studio-editor" aria-label="Состав выбранного сета">
           <div className="cosmetic-set-studio-preview">
-            {portraitUrl ? <RolePortrait baseUrl={portraitUrl} background="autumn" layers={chosenLayers} /> :
+            {portraitUrl ? <RolePortrait baseUrl={portraitUrl} fit={portraitFit} background="autumn" layers={chosenLayers} /> :
               <div className="cosmetic-set-studio-no-base">Для общей примерки нужно подготовить портрет. Предметы доступны по отдельности ниже.</div>}
             <strong>{active.name}</strong>
             <small>{rarityLabels[active.rarity] || active.rarity} · {selected.length} отдельных вещей</small>

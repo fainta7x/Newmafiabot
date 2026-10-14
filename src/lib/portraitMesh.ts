@@ -1,8 +1,9 @@
+import {rigGarmentY,type PortraitRig} from './portraitRig.ts';
 import type { PortraitEquipmentSlot } from './roleLooks.ts';
 
 /** The pilot owns fitting geometry, never a player's facial geometry. */
 export type BodyFit = { neck: number; shoulders: number; chest: number; waist: number };
-export type PortraitFit = { body: BodyFit; hatScale: number };
+export type PortraitFit = { body: BodyFit; hatScale: number; rig?:PortraitRig };
 export type MeshPoint = { x: number; y: number };
 export type MeshTriangle = { source: [MeshPoint, MeshPoint, MeshPoint]; target: [MeshPoint, MeshPoint, MeshPoint] };
 export const NEUTRAL_BODY_FIT: BodyFit = { neck: 0, shoulders: 0, chest: 0, waist: 0 };
@@ -15,7 +16,7 @@ export function normalizeBodyFit(value: Partial<BodyFit> | null | undefined, fal
 const XS=[0,64,112,160,200,232,256,280,312,352,400,448,512];
 const YS=[320,335,345,360,378,400,425,450,480,520,555,590,615,640];
 /** Common anchors keep a shirt, vest and coat seam at the same destination. */
-export function fitBodyPoint(point:MeshPoint, raw:BodyFit):MeshPoint {
+export function fitBodyPoint(point:MeshPoint, raw:BodyFit,rigged=false):MeshPoint {
   if(point.y<320)return {...point};
   const fit=normalizeBodyFit(raw);
   const anchors=[[320,fit.neck],[378,fit.neck],[410,fit.shoulders],[475,fit.chest],[570,fit.waist],[640,fit.waist]];
@@ -28,14 +29,14 @@ export function fitBodyPoint(point:MeshPoint, raw:BodyFit):MeshPoint {
       break;
     }
   }
-  return {x:256+(point.x-256)*(1+amount),y:point.y};
+  return {x:256+(point.x-256)*(1+amount),y:rigged?rigGarmentY(point.y):point.y};
 }
-export function createGarmentMesh(fit:BodyFit):MeshTriangle[] {
+export function createGarmentMesh(fit:BodyFit,rigged=false):MeshTriangle[] {
   const triangles:MeshTriangle[]=[];
   for(let row=0;row<YS.length-1;row++)for(let col=0;col<XS.length-1;col++){
     const a={x:XS[col],y:YS[row]},b={x:XS[col+1],y:YS[row]},c={x:XS[col],y:YS[row+1]},d={x:XS[col+1],y:YS[row+1]};
     for(const source of [[a,b,c],[b,d,c]] as [MeshPoint,MeshPoint,MeshPoint][])
-      triangles.push({source,target:source.map(p=>fitBodyPoint(p,fit)) as MeshTriangle['target']});
+      triangles.push({source,target:source.map(p=>fitBodyPoint(p,fit,rigged)) as MeshTriangle['target']});
   }
   return triangles;
 }
@@ -51,9 +52,9 @@ export function triangleMatrix(source:MeshTriangle['source'],target:MeshTriangle
 export function isMeshGarment(slot:PortraitEquipmentSlot){return slot==='portrait_shirt'||slot==='portrait_vest'||slot==='portrait_jacket';}
 
 /** Rasterize shared UV triangles without overlapping alpha or clip-antialias seams. */
-export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit):Uint8ClampedArray {
+export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit,rigged=false):Uint8ClampedArray {
   const width=512,height=640,result=new Uint8ClampedArray(width*height*4);
-  for(const triangle of createGarmentMesh(fit)){
+  for(const triangle of createGarmentMesh(fit,rigged)){
     const [p0,p1,p2]=triangle.target;
     const minX=Math.max(0,Math.floor(Math.min(p0.x,p1.x,p2.x))),maxX=Math.min(width-1,Math.ceil(Math.max(p0.x,p1.x,p2.x)));
     const minY=Math.max(0,Math.floor(Math.min(p0.y,p1.y,p2.y))),maxY=Math.min(height-1,Math.ceil(Math.max(p0.y,p1.y,p2.y)));
@@ -74,10 +75,10 @@ export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit):Uint8
   return result;
 }
 /** Draw into one transparent garment canvas; the portrait compositor owns layer order. */
-export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit,shirtUnderJacket=false){
+export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit,shirtUnderJacket=false,rigged=false){
   ctx.clearRect(0,0,512,640);ctx.drawImage(image,0,0,512,640);
   const source=ctx.getImageData(0,0,512,640),frame=ctx.createImageData(512,640);
-  frame.data.set(rasterizeGarmentMesh(source.data,fit));ctx.putImageData(frame,0,0);
+  frame.data.set(rasterizeGarmentMesh(source.data,fit,rigged));ctx.putImageData(frame,0,0);
   // This closed coat covers shirt sleeves/body; expose only the central shirt front.
   if(shirtUnderJacket){ctx.clearRect(0,0,176,640);ctx.clearRect(336,0,176,640);}
 }

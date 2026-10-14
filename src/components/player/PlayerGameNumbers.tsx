@@ -32,7 +32,7 @@ export default function PlayerGameNumbers({ stats, totalGames }: { stats: Player
   if (!tiles.length && !stats.actions) return null;
   return <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4" aria-label="Точность решений">
     <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Точность решений</div>
-    <div className="mt-0.5 text-[11px] text-white/20">Игры с сохранённой хронологией: {stats.games} из {Math.max(stats.games, totalGames ?? stats.games)} игр</div>
+    <div className="mt-0.5 text-[11px] text-white/20">По всем доступным журналам: {stats.games} из {Math.max(stats.games, totalGames ?? stats.games)} игр</div>
     <div className="mt-3 grid grid-cols-2 gap-2">{tiles.map((tile) => <Tile key={tile.title} {...tile} />)}</div>
     {stats.actions && <details data-testid="game-action-metrics" className="mt-4 border-t border-white/10 pt-2">
       <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Проверки и голосования</summary>

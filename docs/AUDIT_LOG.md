@@ -1,5 +1,15 @@
 # Audit log
 
+## 2026-10-14 · Screen 3: CRM «Ещё» scroll state and Back routing
+
+**Evidence:** mounted `OrganizerCRM.tsx` passes `onScreenChange` to `MoreCRM`; its callback calls `moveWindowScroll(0)` for **both** entering and leaving a nested screen. `openSecondaryTab` enters `tasks`/`analytics` at top, then the ordinary Back control calls `switchPrimaryTab('more')`, also resetting to top. Browser Back changes `routePathname` without invoking `onScreenChange`, so a callback-only fix cannot restore position.
+
+**Focused fix:** preserve `window.scrollY` only when leaving the main More menu to a nested screen, «Дела» or «Аналитика», then restore on actual route change back to `/admin/more`. One-shot restoration prevents unrelated primary-tab switches from reusing stale menu scroll. Entering an inner tool still starts at top. Preserve existing URLs, browser history and all tools; no app data/API changes.
+
+**Regression:** rendered shell test `src/tests/OrganizerMoreScrollReturn.test.tsx` simulates nested screen, both secondary tabs, browser Back and unrelated primary navigation; CI and 390px screenshots pending. No production phone or runtime access used.
+
+
+
 ## 2026-10-14 · Screen audit: organizer CRM «Ещё» menu (navigation and hierarchy)
 
 **Mounted owner:** `src/components/crm/MoreCRM.tsx` within `src/components/OrganizerCRM.tsx`; routing in `organizerRouting.ts`. Source reviewed against `docs/DESIGN_SYSTEM.md` (mobile CRM, actions first, rare controls secondary). No production screenshots or phone runtime checked during source audit.

@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-14 · Owner screenshot 10:04: visible cutout neck over collar (FIX CODED; shirt-only acceptance pending)
+
+New evidence disproves the previous acceptance: landmark coincidence did not remove the skin overhang. In `dendiWardrobePilot.ts` neck landmarks were measured at the exported head's bottom alpha boundary (y375), rather than the anatomical collar seat. `headClipPolygon` only removed a narrow central rectangle, leaving flared skin edges above the shirt foreground. Re-examine the actual alpha contours; calibrate the neck seat, mask the complete lower neck behind the shirt, and inspect shirt-only + hat on Fandorin at phone size. Do not assert closure based only on landmark math. fc89168a UI preview: 99 passed, 3 failed in workshop because getByAltText still expects an img after the renderer switched to canvas. Use the existing accessible img role and verify data-rendered, without changing production behavior. New correction uses a male-specific lower-neck contour (no clipping of female front hair) and an anatomical y360 seat rather than the y375 exported edge.
+
+
 ## 2026-10-14 · Owner screenshot 09:45: oversized head and unanchored hat (FIX CODED; exact-head mobile evidence pending)
 
 Evidence: `1000010666.jpg`, Fandorin in black jacket + hat. The face/base is an untransformed full-canvas image and the hat receives only scaleX; neither is connected to neck/temple landmarks. Garments fit horizontally but retain their old vertical anchors. The head dominates the torso and its lower neck is pasted above the collar. Owners: `RolePortrait.tsx`, `portraitMesh.ts`, `dendiWardrobePilot.ts`. Acceptance: a rigid two-landmark transform scales/positions the entire head, a shared neck target drives garment vertical anchors, hat contact points map onto transformed temple points and hair under the hat is occluded. Neck sits behind collar, front hair stays above shoulders. Inspect all three characters with both coats and hat before delivering. Existing role persistence and unrigged production portraits must remain unchanged.

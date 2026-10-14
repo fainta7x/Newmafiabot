@@ -8,6 +8,11 @@ for(const width of [360,390,1440]){
    await selector.getByRole('button',{name,exact:true}).click();
    const editor=active().locator('.role-looks-editor');
    await editor.getByRole('button',{name:'Дон',exact:true}).click();
+   const shirtStage=editor.getByTestId('role-look-preview');
+   await editor.getByRole('button',{name:/Медный лист/}).click();
+   await expect.poll(()=>shirtStage.getByRole('img',{name:'Головной убор',exact:true}).evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
+   await expect(shirtStage.locator('canvas.role-portrait-portrait_shirt')).toHaveAttribute('data-rendered','true');
+   await shirtStage.screenshot({path:testInfo.outputPath(`shirt-neck-${name}-${width}.png`)});
    await editor.getByRole('button',{name:/Багряный пиджак/}).click();
    const coat=editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true});
    await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v3/);await expect(coat).toHaveAttribute('data-rendered','true');
@@ -20,7 +25,6 @@ for(const width of [360,390,1440]){
     for(let y=320;y<640;y++)for(const x of [100,150,360,410])if(rgba[(y*512+x)*4+3])return false;
     return true;
    })).toBe(true);
-   await editor.getByRole('button',{name:/Медный лист/}).click();
    const hat=preview.getByRole('img',{name:'Головной убор',exact:true});
    await expect.poll(()=>hat.evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
    const base=preview.getByAltText('Портрет игрока');

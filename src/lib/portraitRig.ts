@@ -7,6 +7,8 @@ export type PortraitRig={
   targetNeck:AnchorPair;
   hatSeat:AnchorPair;
   neckCutY:number;
+  neckMask?:readonly [number,number];
+  neckContour?:readonly RigPoint[];
 };
 /** The inner brim contacts the two temples, rather than the top of the hair. */
 export const HAT_CONTACT:AnchorPair=[{x:184,y:129},{x:328,y:140}];
@@ -37,8 +39,8 @@ export function rigCssTransform(m:AnchorTransform){return `translate(${m[4]/512*
 /** Separate neck occlusion from front hair without editing the identity image. */
 export function headClipPolygon(rig:PortraitRig,hat:boolean,front:boolean):RigPoint[]{
   const top=hat?Math.min(rig.hatSeat[0].y,rig.hatSeat[1].y)-4:0;
-  if(!front)return [{x:0,y:top},{x:512,y:top},{x:512,y:640},{x:0,y:640}];
-  const left=Math.min(rig.neck[0].x,rig.neck[1].x),right=Math.max(rig.neck[0].x,rig.neck[1].x);
+  if(!front)return rig.neckContour?[{x:0,y:top},{x:512,y:top},...rig.neckContour]:[{x:0,y:top},{x:512,y:top},{x:512,y:640},{x:0,y:640}];
+  const [left,right]=rig.neckMask??[Math.min(rig.neck[0].x,rig.neck[1].x),Math.max(rig.neck[0].x,rig.neck[1].x)];
   return [{x:0,y:top},{x:512,y:top},{x:512,y:640},{x:right,y:640},{x:right,y:rig.neckCutY},{x:left,y:rig.neckCutY},{x:left,y:640},{x:0,y:640}];
 }
 export function rigCssClip(points:RigPoint[]){return `polygon(${points.map(p=>`${p.x/512*100}% ${p.y/640*100}%`).join(',')})`;}

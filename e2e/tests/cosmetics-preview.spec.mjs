@@ -112,7 +112,7 @@ for (const width of [360, 390, 1440]) {
     await expect(workshop.getByRole('button',{name:/Сет 5/})).toContainText('Легендарный');
     await workshop.getByRole('button',{name:/Медный лист · примерка/}).click();
     await workshop.getByRole('button',{name:/Багряный пиджак · примерка/}).click();
-    await expect(workshop.getByAltText('Пиджак')).toBeVisible();
+    await expect(workshop.getByRole('img',{name:'Пиджак',exact:true})).toHaveAttribute('data-rendered','true');
     await expect(workshop.getByAltText('Головной убор')).toBeVisible();
     await workshop.getByRole('button',{name:'Сохранить состав черновика'}).click();
     await expect(workshop.getByRole('status')).toContainText('Состав черновика сохранён');

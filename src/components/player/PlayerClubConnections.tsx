@@ -1,4 +1,5 @@
 import ClubConnectionStories from './ClubConnectionStories.tsx';
+import { WinOrbit } from './PlayerVisualScenes.tsx';
 import type { ClubConnectionStories as ClubStories } from '../../shared/clubConnectionStories.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -50,36 +51,31 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
     { id: duo.a_id, name: duo.a_name, avatar: duo.a_avatar_url },
     { id: duo.b_id, name: duo.b_name, avatar: duo.b_avatar_url },
   ];
-  return (
-    <article data-testid={`club-duo-${duo.a_id}-${duo.b_id}`} className={`rounded-[20px] border p-3 ${red ? 'border-rose-200/[0.10] bg-rose-300/[0.035]' : 'border-violet-300/[0.13] bg-violet-300/[0.035]'}`}>
-      <div className="grid grid-cols-2 gap-2">
-        {members.map((member) => (
-          <button
-            key={member.id}
-            type="button"
-            aria-label={`Открыть профиль ${member.name}`}
-            onClick={() => openCanonicalPlayerProfile(member.id)}
-            className="ds-focus-ring flex min-h-[60px] min-w-0 items-center gap-2 rounded-[15px] border border-white/[0.08] bg-white/[0.04] p-2 text-left transition-colors active:bg-white/[0.11]"
-          >
-            <Avatar src={member.avatar} name={member.name} size={36} />
-            <span className="min-w-0 line-clamp-2 break-words text-[12px] font-semibold leading-4 text-white/85">{member.name}</span>
-          </button>
-        ))}
+  return <article data-testid={'club-duo-' + duo.a_id + '-' + duo.b_id}
+    className={'relative overflow-hidden rounded-[24px] border bg-gradient-to-br p-4 ' + (red ? 'border-rose-200/15 from-rose-400/[.09] via-[#20161c] to-[#111216]' : 'border-violet-200/15 from-violet-400/[.09] via-[#1e1728] to-[#111216]')}>
+    <div aria-hidden="true" className="absolute inset-x-0 top-10 h-[90px] bg-[radial-gradient(ellipse_at_center,rgba(213,194,148,.09),transparent_70%)]"/>
+    <div className="relative flex items-center justify-between gap-1">
+      {members.map((member, index) => <button key={member.id} type="button"
+        aria-label={'Открыть профиль ' + member.name}
+        onClick={() => openCanonicalPlayerProfile(member.id)}
+        className="ds-focus-ring flex min-h-[100px] w-[38%] min-w-0 flex-col items-center justify-center gap-2 rounded-[18px] text-center transition active:scale-[.97]">
+        <Avatar src={member.avatar} name={member.name} size={52}/>
+        <span className="line-clamp-2 w-full break-words text-xs font-semibold text-white/85">{member.name}</span>
+      </button>)}
+      <div aria-hidden="true" className="pointer-events-none absolute left-[36%] right-[36%] top-8 flex items-center">
+        <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-amber-200/60"/>
+        <span className="px-1 text-lg text-amber-200/75">◇</span>
+        <span className="h-px flex-1 bg-gradient-to-r from-amber-200/60 to-white/15"/>
       </div>
-      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`Победы пары: ${duo.win_rate}%`}><div className={red ? "h-full rounded-full bg-rose-300" : "h-full rounded-full bg-violet-300"} style={{width: `${Math.max(0, Math.min(100, duo.win_rate))}%`}} /></div><div className="mt-2.5 grid grid-cols-3 gap-1.5">
-        {([
-          { value: duo.games, label: 'игр вместе' },
-          { value: duo.wins, label: 'побед' },
-          { value: `${duo.win_rate}%`, label: 'доля побед' },
-        ] as const).map((metric) => (
-          <div key={metric.label} className="min-w-0 rounded-xl bg-black/20 px-2 py-2 text-center">
-            <div className="text-[16px] font-semibold tabular-nums text-white/90">{metric.value}</div>
-            <div className="mt-0.5 text-[10px] leading-3 text-white/50">{metric.label}</div>
-          </div>
-        ))}
+    </div>
+    <div className="mt-1 flex items-center gap-3 border-t border-white/10 pt-3">
+      <div className="w-[105px] shrink-0"><WinOrbit percent={duo.win_rate} value={duo.win_rate + '%'} caption="доля побед" tone={red ? 'rose' : 'violet'}/></div>
+      <div className="min-w-0 flex-1 space-y-2">
+        <div><strong className="text-xl font-semibold tabular-nums text-white">{duo.games}</strong><span className="ml-2 text-xs text-white/55">игр вместе</span></div>
+        <div><strong className="text-xl font-semibold tabular-nums text-white">{duo.wins}</strong><span className="ml-2 text-xs text-white/55">побед</span></div>
       </div>
-    </article>
-  );
+    </div>
+  </article>;
 }
 export default function PlayerClubConnections() {
   const [clubView, setClubView] = useState<'best' | 'played'>('best');
@@ -123,7 +119,7 @@ export default function PlayerClubConnections() {
   return (
     <div className="player-connections-layout space-y-3">
       {data.club_stories && <ClubConnectionStories stories={data.club_stories} />}
-      <section data-testid="club-duos" className="rounded-[24px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.045] to-white/[0.02] p-4">
+      <section data-testid="club-duos" className="rounded-[30px] border border-amber-200/15 bg-gradient-to-br from-amber-200/[0.065] via-[#161519] to-[#101116] p-4 sm:p-6">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/60">Клуб</div>
         <h2 className="mt-1 text-lg font-semibold">Лучшие пары</h2>
         <p className="mt-1 text-xs leading-relaxed text-white/45">Кто чаще всего выигрывает вместе — отдельно за красных и за чёрных.</p>

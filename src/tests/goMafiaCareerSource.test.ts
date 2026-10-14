@@ -33,6 +33,19 @@ describe('source-backed public GoMafia career', () => {
       expect(enrichGoMafiaAppearance(appearance,{...data,tournament:{...data.tournament,is_hidden_result:'1'}},'1202').totalScore).toBeNull();
     }
   });
+  it('keeps published tournament size optional and never guesses it from the player place', () => {
+    const appearance = parseGoMafiaHistory(history1, ref).tournaments.find(t => t.tournamentId === '2765')!;
+    expect(enrichGoMafiaAppearance(appearance, cheaters, '1202').participantCount).toBeNull();
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 10 },
+    }, '1202').participantCount).toBe(10);
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 64 },
+    }, '1202').participantCount).toBe(64);
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 'invalid' },
+    }, '1202').participantCount).toBeNull();
+  });
   it('fails closed on ambiguous game rows and mismatched seats without copying current Elo', () => {
     const appearance=parseGoMafiaHistory(history1,ref).tournaments.find(t=>t.tournamentId==='2765')!;
     const duplicate=structuredClone(cheaters);

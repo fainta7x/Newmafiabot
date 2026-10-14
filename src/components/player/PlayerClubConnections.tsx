@@ -36,11 +36,12 @@ type RelationshipData = {
 };
 
 function Avatar({ src, name, size = 36 }: { src?: string | null; name: string; size?: number }) {
-  return src ? (
-    <img src={src} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover" />
-  ) : (
-    <div style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-xl bg-white/[0.06] text-xs font-semibold text-white/45">{name.slice(0, 1).toUpperCase()}</div>
-  );
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(src) && !failed;
+  return <span style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.14] to-white/[0.035] text-xs font-semibold text-white/65 ring-1 ring-white/10" aria-hidden="true">
+    {name.trim().slice(0, 1).toUpperCase() || '?'}
+    {showImage && <img src={src!} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+  </span>;
 }
 
 function DuoRow({ duo }: { duo: ClubDuo }) {
@@ -50,7 +51,7 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
     { id: duo.b_id, name: duo.b_name, avatar: duo.b_avatar_url },
   ];
   return (
-    <article data-testid={`club-duo-${duo.a_id}-${duo.b_id}`} className={`rounded-[20px] border p-3 ${red ? 'border-rose-200/[0.10] bg-rose-300/[0.035]' : 'border-white/[0.08] bg-black/20'}`}>
+    <article data-testid={`club-duo-${duo.a_id}-${duo.b_id}`} className={`rounded-[20px] border p-3 ${red ? 'border-rose-200/[0.10] bg-rose-300/[0.035]' : 'border-violet-300/[0.13] bg-violet-300/[0.035]'}`}>
       <div className="grid grid-cols-2 gap-2">
         {members.map((member) => (
           <button
@@ -65,7 +66,7 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
           </button>
         ))}
       </div>
-      <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`Победы пары: ${duo.win_rate}%`}><div className={red ? "h-full rounded-full bg-rose-300" : "h-full rounded-full bg-violet-300"} style={{width: `${Math.max(0, Math.min(100, duo.win_rate))}%`}} /></div><div className="mt-2.5 grid grid-cols-3 gap-1.5">
         {([
           { value: duo.games, label: 'игр вместе' },
           { value: duo.wins, label: 'побед' },

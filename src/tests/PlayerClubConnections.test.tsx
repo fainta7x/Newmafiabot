@@ -9,7 +9,7 @@ const duo = { a_id: 'a', a_name: 'Анна', b_id: 'b', b_name: 'Борис', te
 function setup(data: unknown) { vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data)))); render(<PlayerClubConnections />); }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); open.mockReset(); });
 it('makes club pairs primary, switches the list and opens canonical profiles', async () => {
-  setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] }, club_most_played: { red: [{ ...duo, a_name: 'Открыть профиль Вера', a_id: 'v' }], black: [] } });
+  setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] }, club_most_played: { red: [{ ...duo, a_name: 'Вера', a_id: 'v' }], black: [] } });
   const club = await screen.findByTestId('club-duos');
   expect(club.parentElement?.firstElementChild).toBe(club);
   fireEvent.click(within(club).getByRole('button', { name: 'Открыть профиль Анна' })); expect(open).toHaveBeenCalledWith('a');

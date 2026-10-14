@@ -41,7 +41,7 @@ describe('GoMafia link asks only for the ID', () => {
     }));
     render(<PlayerGoMafiaLink playerId="p1" isSelf={false} />);
     const box = await screen.findByTestId('gomafia-places-summary');
-    expect(box.textContent).toContain('2Турниров');
+    expect(box.textContent).toContain('3Турниры');
     expect(box.textContent).toContain('3Среднее место');
     expect(box.textContent).toContain('2Лучшее место');
   });

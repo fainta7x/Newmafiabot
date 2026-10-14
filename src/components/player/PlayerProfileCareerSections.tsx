@@ -6,6 +6,7 @@ import type { PlayerGameStatistics } from '../../lib/gameStatistics';
 
 type TeamSplit = { games: number; wins: number; win_rate: number };
 export type ProfileCareerStats = {
+  games?: number;
   win_rate?: number;
   current_streak?: number;
   best_streak?: number;
@@ -67,7 +68,7 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
       <div className={tile}><div className="text-lg font-semibold">{stats.zero_round_voted ?? 0}</div><div className="text-[11px] text-white/50">на нулевом круге</div></div>
     </section> : null}
 
-    <PlayerGameNumbers stats={gameStats} />
+    <PlayerGameNumbers stats={gameStats} totalGames={stats.games} />
     <PlayerNightShots shots={nightShots} />
     <PlayerReveals numbers={reveals} />
     <PlayerCircleExits numbers={circleExits} />

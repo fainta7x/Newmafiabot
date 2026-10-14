@@ -13,6 +13,8 @@ export interface CareerAppearance {
   dateEnd: string;
   location: string | null;
   place: number | null;
+  /** Published participant count, null when the source has not confirmed it. */
+  participantCount?: number | null;
   totalScore: number | null;
   scoreRetrievedAt: string | null;
   scoreStatus: 'available' | 'unavailable' | 'refresh_failed' | 'not_checked';
@@ -31,4 +33,10 @@ export interface GoMafiaCareer {
   historyTotal: number;
   registrationsStatus: 'unavailable';
   limitations: string[];
+}
+
+/** Unknown size is not quietly classified as a ten-person event. */
+export function classifyGoMafiaTournamentSize(count: number | null | undefined): 'large' | 'ten' | 'other' | 'unknown' {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return 'unknown';
+  return count > 10 ? 'large' : count === 10 ? 'ten' : 'other';
 }

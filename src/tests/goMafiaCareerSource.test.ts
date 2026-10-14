@@ -33,6 +33,19 @@ describe('source-backed public GoMafia career', () => {
       expect(enrichGoMafiaAppearance(appearance,{...data,tournament:{...data.tournament,is_hidden_result:'1'}},'1202').totalScore).toBeNull();
     }
   });
+  it('keeps published tournament size optional and never guesses it from the player place', () => {
+    const appearance = parseGoMafiaHistory(history1, ref).tournaments.find(t => t.tournamentId === '2765')!;
+    expect(enrichGoMafiaAppearance(appearance, cheaters, '1202').participantCount).toBeNull();
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 10 },
+    }, '1202').participantCount).toBe(10);
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 64 },
+    }, '1202').participantCount).toBe(64);
+    expect(enrichGoMafiaAppearance(appearance, {
+      ...cheaters, tournament: { ...cheaters.tournament, usersCount: 'invalid' },
+    }, '1202').participantCount).toBeNull();
+  });
   it('fails closed on ambiguous game rows and mismatched seats without copying current Elo', () => {
     const appearance=parseGoMafiaHistory(history1,ref).tournaments.find(t=>t.tournamentId==='2765')!;
     const duplicate=structuredClone(cheaters);
@@ -80,6 +93,25 @@ describe('source-backed public GoMafia career', () => {
     expect(july.nominationsStatus).toBe('available');
     expect(july.nominations).toEqual([{key:'best_red',rank:1},{key:'best_sheriff',rank:1},{key:'mvp',rank:1}]);
     expect(snapshot.career!.tournaments.flatMap(t=>t.nominations??[]).filter(n=>n.rank===1)).toHaveLength(4);
+  });
+  it('preserves the last confirmed tournament size through a temporary source outage', async () => {
+    const initialRead = vi.fn(async (path: string, params?: Record<string,string>) => {
+      if (path === '/stats/1202') return history1;
+      if (path.includes('page=2')) return history2;
+      if (params) return allStats;
+      if (path.endsWith('/2765')) return { ...cheaters, tournament: { ...cheaters.tournament, usersCount: 48 } };
+      throw new Error('unavailable');
+    });
+    const previous = await fetchPublicGoMafiaCareer(ref, initialRead);
+    expect(previous.career?.tournaments.find(t => t.tournamentId === '2765')?.participantCount).toBe(48);
+    const failedRead = vi.fn(async (path: string, params?: Record<string,string>) => {
+      if (path === '/stats/1202') return history1;
+      if (path.includes('page=2')) return history2;
+      if (params) return allStats;
+      throw new Error('temporary outage');
+    });
+    const updated = await fetchPublicGoMafiaCareer(ref, failedRead, previous);
+    expect(updated.career?.tournaments.find(t => t.tournamentId === '2765')?.participantCount).toBe(48);
   });
   it('fails incomplete pagination without marking a partial career current', async () => {
     const read = vi.fn(async(path: string)=>path.includes('page=2')?{...history2,history:[]}:history1);

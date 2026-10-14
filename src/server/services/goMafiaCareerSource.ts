@@ -69,7 +69,7 @@ export function parseGoMafiaHistory(data: any, ref: GoMafiaPlayerReference): { t
     if (new Set(games.map((g: FederationGame) => g.externalGameId)).size !== games.length) throw new Error('Duplicate GoMafia game number');
     return { tournamentId: tid, tournamentName: row.title.slice(0, 180), dateStart: start, dateEnd: end,
       location: [row.country_translate, row.city_translate].filter(v => typeof v === 'string').join(', ') || null,
-      place: place && Number.isInteger(place) && place > 0 ? place : null, totalScore: null, scoreRetrievedAt: null, scoreStatus: 'not_checked', eloDelta: number(row.elo), eloAfter: eloPoints.get(tid) ?? null,
+      place: place && Number.isInteger(place) && place > 0 ? place : null, participantCount: null, totalScore: null, scoreRetrievedAt: null, scoreStatus: 'not_checked', eloDelta: number(row.elo), eloAfter: eloPoints.get(tid) ?? null,
       nominations, nominationsStatus: nominations === undefined ? 'unavailable' : 'available',
       status: place && place > 0 ? 'results_published' : 'unknown', sourceUrl, games };
   });
@@ -88,6 +88,10 @@ export function nominationsOfPlayer(data: any, externalPlayerId: string): NonNul
 
 export function enrichGoMafiaAppearance(appearance: CareerAppearance, data: any, externalPlayerId: string): CareerAppearance {
   if (String(data?.tournament?.id) !== appearance.tournamentId) throw new Error('Tournament identity mismatch');
+  const reportedCount = number(data?.tournament?.usersCount);
+  // Never infer tournament size from the player's place or games; neither measures entrants.
+  const participantCount = reportedCount != null && Number.isInteger(reportedCount) && reportedCount > 0 ? reportedCount : null;
+  appearance = { ...appearance, participantCount };
   const unavailable = { ...appearance, totalScore: null, scoreStatus: 'unavailable' as const, scoreRetrievedAt: new Date().toISOString() };
   if (String(data.tournament.is_hidden_result) === '1') return { ...unavailable, nominations:[], nominationsStatus:'hidden', status:'unknown' };
   const nominationsAvailable = data.nominations && Object.keys(GOMAFIA_NOMINATIONS).every(key=>{
@@ -185,7 +189,11 @@ export async function fetchPublicGoMafiaCareer(ref: GoMafiaPlayerReference, read
   const ordered = [...appearances.values()].sort((a,b) => Number(previouslyScored.has(a.tournamentId)) - Number(previouslyScored.has(b.tournamentId)));
   for (const appearance of ordered) {
     try { tournaments.push(enrichGoMafiaAppearance(appearance, await request(`/tournament/${appearance.tournamentId}`), ref.externalPlayerId)); }
-    catch { tournaments.push({ ...appearance, scoreStatus: 'refresh_failed' }); missingScores++; }
+    catch {
+      const earlier = previous?.career?.tournaments.find(item => item.tournamentId === appearance.tournamentId);
+      tournaments.push({ ...appearance, participantCount: earlier?.participantCount ?? null, scoreStatus: 'refresh_failed' });
+      missingScores++;
+    }
   }
   snapshot.career = { tournaments: tournaments.sort((a,b)=>b.dateStart.localeCompare(a.dateStart)), yearlyStats,
     historyTotal: initial.total, registrationsStatus: 'unavailable', limitations: [

@@ -7,8 +7,6 @@ import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
  * game stays hidden, and a figure with nothing behind it shows «—».
  */
 
-/** «По 1 игре», «По 2 играм», «По 21 игре»: the case follows the last digits of the number. */
-const gamesDative = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игре' : 'играм');
 const percentText = (value: Share) => (value.percent === null ? '—' : `${value.percent}%`);
 
 function Tile({ title, value, hint, percent }: { title: string; value: string; hint: string; percent?: number | null }) {
@@ -22,7 +20,7 @@ function Tile({ title, value, hint, percent }: { title: string; value: string; h
   </div>;
 }
 
-export default function PlayerGameNumbers({ stats }: { stats: PlayerGameStatistics | null | undefined }) {
+export default function PlayerGameNumbers({ stats, totalGames }: { stats: PlayerGameStatistics | null | undefined; totalGames?: number }) {
   if (!stats || stats.games === 0) return null;
   const tiles: Array<{ title: string; value: string; hint: string; percent?: number | null }> = [];
   if (stats.votesAsRed.total > 0) tiles.push({ title: 'Голоса в чёрных', value: percentText(stats.votesAsRed), hint: `${stats.votesAsRed.count} из ${stats.votesAsRed.total} голосов за красных`, percent: stats.votesAsRed.percent });
@@ -34,7 +32,7 @@ export default function PlayerGameNumbers({ stats }: { stats: PlayerGameStatisti
   if (!tiles.length && !stats.actions) return null;
   return <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4" aria-label="Точность решений">
     <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30">Точность решений</div>
-    <div className="mt-0.5 text-[11px] text-white/20">По {stats.games} {gamesDative(stats.games)} с журналом ходов</div>
+    <div className="mt-0.5 text-[11px] text-white/20">По всем доступным журналам: {stats.games} из {Math.max(stats.games, totalGames ?? stats.games)} игр</div>
     <div className="mt-3 grid grid-cols-2 gap-2">{tiles.map((tile) => <Tile key={tile.title} {...tile} />)}</div>
     {stats.actions && <details data-testid="game-action-metrics" className="mt-4 border-t border-white/10 pt-2">
       <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">Проверки и голосования</summary>

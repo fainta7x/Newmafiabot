@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-14 · CRM «Дела» → нужный раздел вечера (navigation wiring)
+
+- **Confirmed by mounted source:** `OrganizerCRM.tsx` rendered the full `OrganizerAgenda` with `onOpenEveningSection={navigateEveningSection}`, a URL-only `pushState`/`popstate` helper. The same screen already owns `handleOpenEveningSection`, which synchronizes its mounted tab, evening ID and section with the browser path. The former wiring risked routing to the wrong section or retaining stale CRM state in the embedded application.
+- **Fixed in this scoped branch:** pass `handleOpenEveningSection` to the full «Дела» list, as «Сегодня» already does; remove the unused URL-only helper import from `OrganizerCRM`. Keep the fallback helper exported for standalone `CRMOverview` consumers.
+- **Regression:** `crmAgendaStatefulNavigation.test.tsx` checks parent wiring and clickable action dispatch for «Ответы», «Игры», «Состав». No change to RSVP, notifications, game engine, finances or persisted data. **PR CI / merge / Amvera runtime verification pending.**
+
 ## 2026-10-12 · Game page in the player app (owner: «ужасная страница, непонятная, не красивая, не информативная») — FIXED (rework)
 
 Before: `PlayerGameDetail.tsx` was a flat stack — «Итог игры» (winner + loose chips), «Как проходила игра» (votings and nights as separate lists, outcomes as raw words such as «eliminated»/«night»), «Игроки и баллы» (ten tall cards with every score part, fouls and Elo notes open at once). The viewer's own result was only a «вы» mark inside the list. After: result hero, «Ваша игра», «Главное в игре», rosters by team with collapsed details, one ordered story of the game with vote bars and plain results, judge's note. Checked at 360/390 px in a browser (no horizontal overflow, rows ≥ 44 px, screenshot reviewed). Not changed: data, API, scoring. Open: the replay screen and the Telegram result posts are separate surfaces and were not touched.

@@ -119,3 +119,40 @@ export function WinOrbit({ percent, value, caption, tone = 'amber' }: {
     </div>
   </div>;
 }
+
+
+/** Show the actual recorded ballot distribution; never fabricate individual voter choices. */
+export function VoteSplitScene({ candidates, eligible }: {
+  candidates: Array<{ seat: number; nickname: string; votes: number; team?: 'red' | 'black' | null }>;
+  eligible: number | null;
+}) {
+  const total = candidates.reduce((sum, item) => sum + Math.max(0, item.votes), 0);
+  const colors = ['bg-rose-300', 'bg-violet-300', 'bg-amber-200', 'bg-sky-300', 'bg-emerald-300'];
+  return <div data-testid="game-vote-graphic" className="mt-4 space-y-3">
+    <div className="flex items-end justify-between gap-2">
+      <div><div className="text-[10px] uppercase tracking-[.13em] text-white/45">Распределение голосов</div><div className="text-2xl font-semibold tabular-nums">{total}<span className="ml-1 text-xs font-normal text-white/45">голосов по кандидатам</span></div></div>
+      {eligible != null && <span className="text-[11px] text-white/45">могли голосовать: {eligible}</span>}
+    </div>
+    <div className="flex h-4 gap-[2px] overflow-hidden rounded-full bg-white/10" role="img" aria-label={'Распределено ' + total + ' голосов между ' + candidates.length + ' кандидатами'}>
+      {candidates.map((candidate, index) => <span key={candidate.seat} className={colors[index % colors.length]} style={{width: (total ? candidate.votes / total * 100 : 0) + '%'}}/>)}
+    </div>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {candidates.map((candidate, index) => {
+        const ratio = total ? candidate.votes / total * 100 : 0;
+        return <div key={candidate.seat} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#14151a] p-3" aria-label={'Кандидат ' + candidate.nickname + ': ' + candidate.votes + ' голосов'}>
+          <div className={'absolute left-0 top-0 h-full w-1 ' + colors[index % colors.length]} aria-hidden="true"/>
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-white/[.055] text-lg font-semibold text-white/85">{candidate.seat}</span>
+            <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white/85">{candidate.nickname}</div><div className="mt-1 text-[10px] text-white/45">место №{candidate.seat}</div></div>
+            <div className="text-right"><div className="text-2xl font-semibold tabular-nums text-white/90">{candidate.votes}</div><div className="text-[10px] tabular-nums text-white/45">{Math.round(ratio)}%</div></div>
+          </div>
+          <div aria-hidden="true" className="mt-3 flex min-h-[8px] flex-wrap gap-1">
+            {Array.from({length: Math.min(12, Math.max(0, Math.floor(candidate.votes)))}, (_, i) => <span key={i} className={'h-2 w-2 rounded-full ' + colors[index % colors.length]}/>)}
+            {candidate.votes > 12 && <span className="text-[10px] text-white/55">+{candidate.votes - 12}</span>}
+          </div>
+        </div>;
+      })}
+    </div>
+    {total === 0 && <p className="text-xs text-white/50">За выставленных кандидатов голоса не записаны.</p>}
+  </div>;
+}

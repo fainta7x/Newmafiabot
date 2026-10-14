@@ -138,10 +138,16 @@ describe('«Дела»', () => {
     // The answer work happens inside the evening (owner, 2026-10-01): the task only points there.
     expect(fill?.people).toBeUndefined();
     expect(fill?.action_label).toBe('Открыть ответы');
-    expect(fill?.action).toEqual({ type: 'evening', evening_id: 'fri', section: 'overview' });
+    expect(fill?.action).toEqual({ type: 'evening', evening_id: 'fri', section: 'participants' });
+    expect(fill?.why).toContain('«Ответы»');
+    expect(fill?.why).not.toContain('Личные приглашения');
     const thinking = agenda.items.find((item) => item.id === 'people:thinking:fri');
     expect(thinking?.title).toContain('Думают · 1');
     expect(thinking?.people).toBeUndefined();
+    expect(thinking?.action).toEqual({ type: 'evening', evening_id: 'fri', section: 'participants' });
+    expect(thinking?.action_label).toBe('Открыть ответы');
+    expect(thinking?.why).toContain('«Ответы»');
+    expect(thinking?.why).not.toContain('Личные приглашения');
   });
 
   it('asks every club player to fill the profile, not only those who came, and skips who stopped coming', async () => {

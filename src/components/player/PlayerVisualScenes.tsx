@@ -33,7 +33,7 @@ export function GameTableScene({ players, winner, selfId }: {
     <div className="absolute left-[30%] top-[33%] flex h-[35%] w-[40%] flex-col items-center justify-center text-center">
       <span className="text-[9px] font-semibold uppercase tracking-[.22em] text-amber-100/45">2LA NOIRE</span>
       <span aria-hidden="true" className="my-1 text-[30px] leading-none text-amber-200/45 sm:text-5xl">♠</span>
-      <span className="text-[11px] font-semibold text-white/85 sm:text-sm">{winner === 'red' ? 'Победа красных' : winner === 'black' ? 'Победа чёрных' : 'Итог не указан'}</span>
+      <span className="text-[11px] font-semibold text-white/85 sm:text-sm">{winner === 'red' ? 'Красные выиграли' : winner === 'black' ? 'Чёрные выиграли' : 'Итог не указан'}</span>
       <span className="mt-1 text-[9px] text-white/40">{seats.length} за столом</span>
     </div>
     {seats.map((p) => {

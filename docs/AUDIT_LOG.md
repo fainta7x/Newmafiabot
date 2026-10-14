@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet «Сообщество → Активность → Форма» — actionable and readable club form
+
+**Mounted path:** PlayerCommunityHub(activity=form) → PlayerClubActivity; GET /api/player/pulse returns highlights, current power ranking, viewer ID, per-player games/wins/win rate/streak/rank/score/movement, optional explanation. Current layout is a compressed quasi-table (rank | tiny avatar/name | wins/games | raw score + arrow). Its rows and highlight profiles are **not clickable**, despite canonical player IDs. The owner may be outside the first five and *invisible* before expanding the entire list. The movement label NEW is English, formula is low-contrast text shown only when all rows expanded, and error has no in-place retry.
+
+**Desired hierarchy:** retain five-row preview, full ranked order and exact original numbers. Each player becomes one >=76px touchable card with rank/avatar/name, wins out of games, percent/streak, explicit form score and movement. Keep own standing visible as a separate contextual card **only when outside preview**, without duplication after expanding. Highlights open canonical profiles; technical formula moves into an optional «Как считается форма» disclosure. Error/retry are truthful and guarded against stale results, genuine empty remains distinct.
+
+**Scope:** Only PlayerClubActivity.tsx, focused React tests, and audit/project-state docs. No change to /api/player/pulse, ranking calculations, payouts, consent/privacy or Elo. UI preview at 360/390px before merge. Connections are separate PR #919.
+
+
 ## 2026-10-14 · Player Cabinet «Сообщество → Связи» — pair identity and touch targets
 
 **Mounted owner:** `PlayerCabinetShell → PlayerCommunityHub → PlayerClubConnections`, with `ClubConnectionStories` for story segments and `DuoRow` for red/black club duo lists. Pairs already contain two canonical IDs, avatars, names, games, wins and win rate. In `DuoRow`, two separate **32px avatar buttons** repeat two **32px name controls**; on a 360px phone this creates four cramped competing actions that all open the same two profiles. The stats `4 игры вместе · 3 победы · 75%` form one dense line and obscure the meaning of the percentage. The `GET /api/player/relationships` failure shows a dead-end error with no retry.

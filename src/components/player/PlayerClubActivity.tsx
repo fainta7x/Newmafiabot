@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 type ClubHighlight = {
   player_id: string;
@@ -30,103 +32,160 @@ type ClubFormData = {
 };
 
 const movementLabel = (value: number | null) => {
-  if (value == null) return 'NEW';
-  if (value > 0) return `▲${value}`;
-  if (value < 0) return `▼${Math.abs(value)}`;
+  if (value == null) return 'новый';
+  if (value > 0) return '▲' + value;
+  if (value < 0) return '▼' + Math.abs(value);
   return '—';
 };
 
-function Avatar({ src, name, size = 36 }: { src?: string | null; name: string; size?: number }) {
+const movementColor = (value: number | null) => (
+  value != null && value > 0 ? 'text-emerald-300'
+    : value != null && value < 0 ? 'text-rose-300' : 'text-white/50'
+);
+
+function Avatar({ src, name, size = 40 }: { src?: string | null; name: string; size?: number }) {
   return src ? (
-    <img
-      src={src}
-      alt=""
-      onError={(event) => { event.currentTarget.style.display = 'none'; }}
-      style={{ width: size, height: size }}
-      className="shrink-0 rounded-xl object-cover"
-    />
+    <img src={src} alt="" style={{ width: size, height: size }} className="shrink-0 rounded-[14px] object-cover ring-1 ring-white/10" />
   ) : (
-    <div style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-xl bg-white/[0.06] text-xs font-semibold text-white/45">
+    <div style={{ width: size, height: size }} aria-hidden="true" className="grid shrink-0 place-items-center rounded-[14px] bg-white/[0.08] text-[13px] font-semibold text-white/70">
       {name.slice(0, 1).toUpperCase()}
     </div>
   );
 }
 
-/** «Активность → Форма»: who is in form now. The matches have their own tab (PlayerStoriesPanel). */
+function FormPlayerCard({ row, isSelf, ownContext = false }: { row: PowerEntry; isSelf: boolean; ownContext?: boolean }) {
+  return (
+    <button
+      type="button"
+      data-testid={ownContext ? 'player-form-own-position' : 'player-form-row-' + row.player_id}
+      onClick={() => openCanonicalPlayerProfile(row.player_id)}
+      aria-label={'Открыть профиль ' + row.nickname + ', место ' + row.place}
+      className={'ds-focus-ring flex min-h-[80px] w-full items-center gap-2 rounded-[20px] border px-2.5 py-3 text-left transition-colors active:bg-white/[0.12] ' +
+        (isSelf ? 'border-white/20 bg-white/[0.09]' : row.place <= 3 ? 'border-amber-200/[0.10] bg-amber-200/[0.035]' : 'border-white/[0.06] bg-black/20')}
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-[13px] font-semibold tabular-nums text-white/75">{row.place}</span>
+      <Avatar src={row.avatar_url} name={row.nickname} size={40} />
+      <span className="min-w-0 flex-1">
+        <span className="block line-clamp-2 break-words text-[13px] font-semibold leading-4 text-white/90">{row.nickname}{isSelf ? ' · я' : ''}</span>
+        <span className="mt-1 block text-[11px] leading-4 text-white/50">
+          Побед: {row.wins} из {row.games} игр · {row.win_rate}%
+          {row.streak >= 2 ? ' · серия ' + row.streak : ''}
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="block text-[17px] font-semibold tabular-nums text-white/90">{row.score}</span>
+        <span className="block text-[10px] leading-3 text-white/50">баллы формы</span>
+        <span className={'mt-1 block text-[11px] font-semibold tabular-nums ' + movementColor(row.movement)}>{movementLabel(row.movement)}</span>
+      </span>
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-white/35" />
+    </button>
+  );
+}
+
+/** «Активность → Форма»: current form, not the match results feed. */
 export default function PlayerClubActivity() {
   const [data, setData] = useState<ClubFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const requestSeq = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetch('/api/player/pulse', { credentials: 'include' })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить активность клуба');
-        if (!cancelled) setData(body as ClubFormData);
-      })
-      .catch((loadError: any) => { if (!cancelled) setError(loadError?.message || 'Не удалось загрузить активность клуба'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+  const loadForm = useCallback(async () => {
+    const requestId = ++requestSeq.current;
+    setLoading(true);
+    setError(null);
+    setData(null);
+    try {
+      const response = await fetch('/api/player/pulse', { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить активность клуба');
+      if (!Array.isArray(body?.power_ranking) || !Array.isArray(body?.highlights)) throw new Error('Не удалось загрузить активность клуба');
+      if (requestId === requestSeq.current) setData(body as ClubFormData);
+    } catch (loadError: any) {
+      if (requestId === requestSeq.current) setError(loadError?.message || 'Не удалось загрузить активность клуба');
+    } finally {
+      if (requestId === requestSeq.current) setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void loadForm();
+    return () => { requestSeq.current += 1; };
+  }, [loadForm]);
+
   const ranking = data ? (showAll ? data.power_ranking : data.power_ranking.slice(0, 5)) : [];
+  const ownRow = data?.power_ranking.find((row) => row.player_id === data.viewer_id) || null;
+  const ownOutsidePreview = !showAll && ownRow && !data?.power_ranking.slice(0, 5).some((row) => row.player_id === data.viewer_id);
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
-        <div className="flex items-end justify-between gap-3">
+    <div className="space-y-4" data-testid="player-club-form">
+      <section className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
+        <header className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Сейчас в клубе</div>
-            <h2 className="mt-1 text-lg font-semibold">Форма игроков</h2>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Сейчас в клубе</div>
+            <h2 className="mt-1 text-lg font-semibold text-white">Форма игроков</h2>
           </div>
-          {data && <div className="shrink-0 text-[11px] text-white/25">{data.players_with_form} в форме</div>}
-        </div>
+          {data && <div className="shrink-0 text-[11px] text-white/50">{data.players_with_form} в форме</div>}
+        </header>
 
-        {loading && <div className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-center text-xs text-white/35">Считаем активность…</div>}
-        {error && <div className="mt-4 rounded-2xl bg-rose-400/10 px-3 py-3 text-xs text-rose-200/70">{error}</div>}
+        {loading && <div className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-center text-[13px] text-white/50">Считаем активность…</div>}
+        {error && <div role="alert" data-testid="player-form-error" className="mt-4 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4">
+          <p className="text-[13px] leading-5 text-rose-100/80">{error}</p>
+          <button type="button" onClick={() => void loadForm()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button>
+        </div>}
 
         {data && (
           <>
             {data.highlights.length > 0 && (
               <div className="mt-4 space-y-2">
+                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.13em] text-white/50">Сейчас выделяются</h3>
                 {data.highlights.slice(0, 2).map((item) => (
-                  <div key={`${item.player_id}:${item.type}`} className="flex items-center gap-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.035] p-2.5">
+                  <button
+                    key={item.player_id + ':' + item.type}
+                    type="button"
+                    aria-label={'Открыть профиль ' + item.nickname}
+                    onClick={() => openCanonicalPlayerProfile(item.player_id)}
+                    className="ds-focus-ring flex min-h-[72px] w-full items-center gap-3 rounded-[20px] border border-amber-200/10 bg-amber-200/[0.035] p-3 text-left active:bg-amber-200/[0.09]"
+                  >
                     <Avatar src={item.avatar_url} name={item.nickname} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold">{item.nickname}</div>
-                      <div className="mt-0.5 text-[11px] text-amber-50/45">{item.text}</div>
-                    </div>
-                    <span className="text-base">{item.type === 'win_streak' ? '🔥' : '⚡'}</span>
-                  </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[13px] font-semibold text-white/90">{item.nickname}</span>
+                      <span className="mt-0.5 block text-[12px] leading-4 text-amber-50/60">{item.text}</span>
+                    </span>
+                    <span aria-hidden="true" className="text-base">{item.type === 'win_streak' ? '🔥' : '⚡'}</span>
+                  </button>
                 ))}
               </div>
             )}
 
-            <div className="mt-4 space-y-1.5">
-              {ranking.map((item) => (
-                <div key={item.player_id} className={`flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 ${item.player_id === data.viewer_id ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.04] bg-black/15'}`}>
-                  <div className="w-5 shrink-0 text-center text-xs font-black text-white/35">{item.place}</div>
-                  <Avatar src={item.avatar_url} name={item.nickname} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold">{item.nickname}{item.player_id === data.viewer_id ? ' · вы' : ''}</div>
-                    <div className="mt-0.5 text-[11px] text-white/30">{item.wins}/{item.games} побед · {item.win_rate}%{item.streak >= 2 ? ` · серия ${item.streak}` : ''}</div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-xs font-black">{item.score}</div>
-                    <div className={`text-[11px] font-semibold ${item.movement != null && item.movement > 0 ? 'text-emerald-300' : item.movement != null && item.movement < 0 ? 'text-rose-300' : 'text-white/25'}`}>{movementLabel(item.movement)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {!data.power_ranking.length && <p className="mt-4 text-xs text-white/35">Пока недостаточно завершённых игр для формы клуба.</p>}
-            {data.power_ranking.length > 5 && !showAll ? (
-              <button type="button" onClick={() => setShowAll(true)} className="mt-2 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех</button>
+            {ownOutsidePreview && ownRow ? (
+              <div className="mt-4 space-y-2" data-testid="player-form-own-preview">
+                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.13em] text-white/50">Моё место</h3>
+                <FormPlayerCard row={ownRow} isSelf ownContext />
+              </div>
             ) : null}
-            {showAll && data.meta?.formula && <p className="mt-3 text-[11px] leading-4 text-white/20">{data.meta.formula}</p>}
+
+            {ranking.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.13em] text-white/50">Рейтинг формы</h3>
+                {ranking.map((row) => <FormPlayerCard key={row.player_id} row={row} isSelf={row.player_id === data.viewer_id} />)}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-2xl bg-black/20 px-3 py-6 text-[13px] leading-5 text-white/50">Пока недостаточно завершённых игр для формы клуба.</p>
+            )}
+
+            {data.power_ranking.length > 5 && (
+              <button type="button" onClick={() => setShowAll((current) => !current)} className="mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[13px] font-semibold text-white/75">
+                {showAll ? 'Свернуть список' : 'Показать всех · ' + data.power_ranking.length}
+              </button>
+            )}
+
+            {data.meta?.formula && (
+              <details className="mt-3 rounded-xl border border-white/[0.06] px-3">
+                <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/60">Как считается форма</summary>
+                <p className="pb-3 text-[11px] leading-5 text-white/55">{data.meta.formula}</p>
+              </details>
+            )}
           </>
         )}
       </section>

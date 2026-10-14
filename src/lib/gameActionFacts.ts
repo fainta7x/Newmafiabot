@@ -30,7 +30,7 @@ export function gameActionFacts(game: StatGame, memo?: ActionFactsMemo): GameAct
   return facts;
 }
 
-/** Conservative evidence: final ballots once per day; zero day and every raise/leave chain are excluded. */
+/** Count confirmed vote phases in days where exactly one player was voted out; exclude zero round and multi-exits. */
 function computeGameActionFacts(game: StatGame) {
   const events = [...game.events].sort((a, b) => a.seq - b.seq);
   const uniqueSeats = new Set(game.seats.map(s => s.seat));
@@ -50,23 +50,26 @@ function computeGameActionFacts(game: StatGame) {
   let excluded = 0;
   for (const circle of circles) {
     if (!circle.votings.length) continue;
-    const chain = events.filter(e => e.round === circle.round && (e.phase === 'day_voting' || e.kind === 'vote_round_result'));
-    const tableDecision = chain.some(e => e.kind === 'table_vote' || (e.kind === 'voting_stage' && e.value === 'table_decision'))
-      || circle.votings.some(v => v.outcome === 'all_tied_eliminated' || v.tableVoters.length)
-      || game.votingRounds?.some(v => Number(v.day_number) === circle.round - 1 && v.table_leave_votes != null);
-    const last = circle.votings.at(-1)!;
-    if (circle.round <= 1 || tableDecision || last.outcome !== 'single_eliminated') { excluded += 1; continue; }
-    const result = chain.filter(e => e.kind === 'vote_round_result' && String(e.value).endsWith(':single_eliminated')).at(-1);
-    if (!result) continue;
-    const state = full ? atSeq.get(result.seq) || null : null;
-    const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;
-    const blacks = state ? [...state].filter(s => blackRole(roleOf(s))).length : 0;
-    const votes = new Map<number, number>();
-    for (const ballot of last.votes) for (const voter of ballot.voters) votes.set(voter, ballot.candidate);
+    // The whole day's voting is eligible if the day resulted in exactly one voted-out player.
+    // Never require the voter to have voted for that eliminated player: accuracy is about the target's role.
     const exits = circle.exits.filter(e => e.reason === 'voted_day');
-    const eliminated = exits.length === 1 ? exits[0].seat : null;
-    votings.push({ round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
-      critical: state ? isCriticalCircle(reds, blacks) : null });
+    const multipleExited = exits.length > 1 || circle.votings.some(v => v.outcome === 'all_tied_eliminated');
+    if (circle.round <= 1 || multipleExited || exits.length !== 1) { excluded += 1; continue; }
+    const eliminated = exits[0].seat;
+    for (const voting of circle.votings) {
+      // Count each completed voting phase's actual ballots, including ballots before a revote.
+      // Table raise/leave choices aren't role-targeting votes, and draft votes without a result aren't final.
+      if (voting.outcome === null || !voting.votes.length) continue;
+      const votes = new Map<number, number>();
+      for (const ballot of voting.votes) for (const voter of ballot.voters) votes.set(voter, ballot.candidate);
+      const result = events.find(e => e.round === circle.round && e.kind === 'vote_round_result'
+        && String(e.value).startsWith(`${voting.number}:`));
+      const state = full && result ? atSeq.get(result.seq) || null : null;
+      const reds = state ? [...state].filter(s => redRole(roleOf(s))).length : 0;
+      const blacks = state ? [...state].filter(s => blackRole(roleOf(s))).length : 0;
+      votings.push({ round: circle.round, votes, nominations: circle.nominations, eliminated, alive: state,
+        critical: state ? isCriticalCircle(reds, blacks) : null });
+    }
   }
   // A selection is confirmed only after leaving the corresponding night substep. Re-selections replace it.
   const checks: ActionCheck[] = [];

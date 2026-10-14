@@ -7,8 +7,6 @@ import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
  * game stays hidden, and a figure with nothing behind it shows «—».
  */
 
-/** «По 1 игре», «По 2 играм», «По 21 игре»: the case follows the last digits of the number. */
-const gamesDative = (count: number) => (count % 10 === 1 && count % 100 !== 11 ? 'игре' : 'играм');
 const percentText = (value: Share) => (value.percent === null ? '—' : `${value.percent}%`);
 
 function Tile({ title, value, hint, percent }: { title: string; value: string; hint: string; percent?: number | null }) {

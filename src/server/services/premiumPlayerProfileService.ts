@@ -238,6 +238,12 @@ const profileReveals = async (db: DatabaseWrapper, games: StatGame[], playerId: 
   };
 };
 
+/** Choose the active rating season, never an upcoming season merely because it has the latest end date. */
+const currentRatingSeason = <T extends { start: number; end: number }>(seasons: T[], now = Date.now()): T | null =>
+  seasons.find((season) => season.start <= now && now < season.end)
+  ?? [...seasons].filter((season) => season.start <= now).sort((a, b) => b.start - a.start)[0]
+  ?? null;
+
 export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: string, viewerId: string, organizer = false, filter: ProfileStatFilter = {}) {
   const player = await loadIdentity(db, playerId);
   const visibility = publicVisibility(player.profile_visibility_json);
@@ -255,8 +261,8 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   // One scope for every number of the statistics block: the chosen season (or all time) and the chosen evening format.
   const seasons = await loadRatingSeasons(db);
   // Recent form means the last ten completed games, never the last ten actions or journals.
-  // Season is the most recent configured rating season; explicit historical season keys remain supported.
-  const latestSeason = [...seasons].sort((a, b) => b.end - a.end)[0] || null;
+  // Current means active or most recent started rating season; future seasons must not hijack the selection.
+  const latestSeason = currentRatingSeason(seasons);
   const chosenSeason = filter.period === 'season' ? latestSeason : seasons.find((item) => item.key === filter.period) || null;
   const periodKey = filter.period === 'recent10' ? 'recent10' : filter.period === 'season' && chosenSeason ? 'season' : chosenSeason ? chosenSeason.key : 'all';
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format as EveningFormat : 'all';
@@ -270,7 +276,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     format: formatKey,
     seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label, games: games.filter((game) => inSeason(game, item)).length })).filter((item) => item.games > 0),
     formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key], games: periodGames.filter((game) => game.evening_format === key).length })).filter((item) => item.games > 0),
-    period_label: periodKey === 'recent10' ? 'Последние 10 игр' : chosenSeason ? chosenSeason.label : 'Вся карьера',
+    period_label: periodKey === 'recent10' ? 'Последние 10 игр' : chosenSeason ? `Рейтинговый сезон · ${chosenSeason.label}` : 'Вся карьера',
     format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
   };
   const recent = scoped.slice(0, 5);
@@ -346,7 +352,7 @@ type GameQuery = ProfileStatFilter & { role?: string; team?: string; result?: st
 const scopeProfileGames = async <T extends PlayerGameHistoryItem>(db: DatabaseWrapper, games: T[], filter: ProfileStatFilter): Promise<T[]> => {
   const seasons = filter.period && filter.period !== 'all' && filter.period !== 'recent10' ? await loadRatingSeasons(db) : [];
   const season = filter.period === 'season'
-    ? [...seasons].sort((a, b) => b.end - a.end)[0] || null
+    ? currentRatingSeason(seasons)
     : seasons.find((item) => item.key === filter.period) || null;
   const format = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format : null;
   const scoped = games.filter((game) => {

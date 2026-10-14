@@ -13,6 +13,8 @@ export interface TelegramMessageInput {
   chatId: string | number;
   text: string;
   replyMarkup?: Record<string, unknown> | null;
+  /** A picture sent with the text as its caption (the text must fit Telegram's 1024 characters). */
+  photoPng?: Buffer | null;
 }
 
 export interface TelegramDeliveryDiagnostics {
@@ -52,9 +54,9 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
   const now = nowIso();
   await db.run(`
     INSERT INTO telegram_message_outbox
-      (message_key, category, event_type, entity_id, player_id, chat_id, text, reply_markup_json,
+      (message_key, category, event_type, entity_id, player_id, chat_id, text, reply_markup_json, photo_png,
        status, retry_count, next_attempt_at, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)
     ON CONFLICT(message_key) DO UPDATE SET
       category = excluded.category,
       event_type = excluded.event_type,
@@ -63,6 +65,7 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
       chat_id = excluded.chat_id,
       text = excluded.text,
       reply_markup_json = excluded.reply_markup_json,
+      photo_png = CASE WHEN telegram_message_outbox.status = 'sent' THEN NULL ELSE excluded.photo_png END,
       updated_at = excluded.updated_at
   `, [
     key,
@@ -73,6 +76,7 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
     chatId,
     text,
     input.replyMarkup ? JSON.stringify(input.replyMarkup) : null,
+    input.photoPng && input.photoPng.length ? input.photoPng : null,
     now,
     now,
     now,
@@ -96,6 +100,23 @@ export async function sendTelegramMessage(
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'TELEGRAM_BOT_TOKEN is not configured' };
   try {
+    // A message with a picture goes as one photo with the text as its caption; a refused photo falls back to the text alone.
+    const photo = row.photo_png ? Buffer.from(row.photo_png) : null;
+    if (photo && photo.length && String(row.text).length <= 1000) {
+      const form = new FormData();
+      form.set('chat_id', String(row.chat_id));
+      form.set('caption', String(row.text));
+      form.set('parse_mode', 'HTML');
+      if (row.reply_markup_json) form.set('reply_markup', String(row.reply_markup_json));
+      form.set('photo', new Blob([new Uint8Array(photo)], { type: 'image/png' }), 'card.png');
+      const photoResponse = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form });
+      const photoPayload: any = await photoResponse.json().catch(() => null);
+      if (photoResponse.ok && photoPayload?.ok !== false) return { ok: true };
+      const retryable = photoResponse.status === 429 || photoResponse.status >= 500 || photoResponse.status === 408;
+      if (retryable) {
+        return { ok: false, temporary: true, error: String(photoPayload?.description || `Telegram HTTP ${photoResponse.status}`), retryAfterSeconds: Number(photoPayload?.parameters?.retry_after || 0) || null, ambiguous: photoResponse.status >= 500 };
+      }
+    }
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -158,7 +179,7 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
       await db.run(`
         UPDATE telegram_message_outbox
            SET status = 'sent', last_attempt_at = ?, next_attempt_at = NULL,
-               last_error = NULL, sent_at = ?, updated_at = ?
+               last_error = NULL, sent_at = ?, updated_at = ?, photo_png = NULL
          WHERE message_key = ? AND status <> 'sent'
       `, [attemptAt, attemptAt, attemptAt, key]);
       if (row.category === 'betting' && row.entity_id) {

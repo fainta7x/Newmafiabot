@@ -12,6 +12,7 @@ import {
   createEveningSchema,
   updateEveningSchema,
 } from '../validation.ts';
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
@@ -295,6 +296,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = req.db || (await getDb());
+    await ensureGuestPlayerPlaceholderSchema(db);
     const guestCount = `(SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.replaced_at IS NULL AND gp.${expectedSql})`;
     const regularCount = `(SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND ${expectedSql} AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id))`;
     const pricePerGame = `(SELECT price_per_game FROM evening_slot_settings s WHERE s.evening_id=e.id LIMIT 1)`;
@@ -373,7 +375,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req,res)=>{
   try {
     const data=addSingleParticipantSchema.parse(req.body); const db=req.db||(await getDb()); const evening=await ensureEditable(db,String(req.params.id));
     if(!data.player_id && data.nickname) {
-      const guest = await createGuestPlaceholder(db, { eveningId:String(req.params.id), displayName:data.nickname, tableId:data.table_id||null, responseStatus:data.response_status, amountDue:data.amount_due??evening.default_price, amountPaid:data.amount_paid, notes:data.notes });
+      const guest = await createGuestPlaceholder(db, { eveningId:String(req.params.id), displayName:data.nickname, tableId:data.table_id||null, responseStatus:data.response_status, amountDue:data.amount_due??evening.default_price, amountPaid:data.amount_paid, notes:data.notes, contactKind:data.contact_kind, contactValue:data.contact_value, plusCount:data.plus_count });
       await runCrmAutomations(db); return res.status(201).json(guest);
     }
     const playerId=data.player_id;

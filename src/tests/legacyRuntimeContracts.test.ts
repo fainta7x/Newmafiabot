@@ -104,12 +104,9 @@ describe('canonical runtime contracts', () => {
 
     const guardIndex = main.indexOf('legacy_retired_actions.router');
     expect(guardIndex).toBeLessThan(main.indexOf('admin_crm.router'));
-    expect(guardIndex).toBeLessThan(main.indexOf('admin_judges.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('admin.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('profile.router'));
-    expect(guardIndex).toBeLessThan(main.indexOf('payment.router'));
-    expect(guardIndex).toBeLessThan(main.indexOf('booking.router'));
-    expect(guardIndex).toBeLessThan(main.indexOf('shop.router'));
+    for (const retired of ['payment.router', 'shop.router', 'game_router']) expect(main).not.toContain(retired);
 
     expect(guard).toContain('"book_"');
     expect(guard).toContain('"pay_now"');
@@ -121,7 +118,7 @@ describe('canonical runtime contracts', () => {
     expect(guard).toContain('"admin_evenings_history"');
     expect(guard).toContain('"/shop"');
     expect(guard).toContain('"✏️ Редактировать"');
-    expect(guard).toContain('Эта старая кнопка отключена');
+    expect(guard).toContain('Эта кнопка устарела');
   });
 
   it('finalizes old Telegram evening posts instead of leaving active buttons behind', () => {
@@ -182,7 +179,8 @@ describe('canonical runtime contracts', () => {
     const main = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
     const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
 
-    expect(main.indexOf('legacy_retired_actions.router')).toBeLessThan(main.indexOf('admin_judges.router'));
+    // The old judge, payment, shop and game-engine routers were deleted (2026-10-13); only the interceptor remains.
+    expect(main).not.toContain('admin_judges.router');
     expect(guard).toContain('"⚖ Судьи"');
     expect(guard).toContain('"judge_list"');
     expect(guard).toContain('"judge_add"');

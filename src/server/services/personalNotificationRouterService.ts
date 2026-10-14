@@ -16,6 +16,8 @@ export type PersonalNotificationInput = {
   text: string;
   actionPath?: string | null;
   telegramReplyMarkup?: Record<string, unknown> | null;
+  /** A picture for the Telegram message (sent as the photo with the text as its caption); the VK fallback is text only. */
+  telegramPhotoPng?: Buffer | null;
 };
 export type PersonalNotificationRouting = {
   preferred_channel: PersonalNotificationPreference;
@@ -94,6 +96,7 @@ async function ensureExternalOutboxRow(
   db: DatabaseWrapper,
   delivery: any,
   telegramReplyMarkup?: Record<string, unknown> | null,
+  telegramPhotoPng?: Buffer | null,
 ) {
   const notificationKey = String(delivery.notification_key || '').trim();
   const playerId = String(delivery.player_id || '').trim();
@@ -112,6 +115,7 @@ async function ensureExternalOutboxRow(
       chatId: target,
       text: telegramTextWithAction(text, delivery.action_path, Boolean(telegramReplyMarkup)),
       replyMarkup: telegramReplyMarkup || null,
+      photoPng: telegramPhotoPng || null,
     });
     kickTelegramMessageOutbox(db);
   } else if (delivery.selected_channel === 'vk' && delivery.status === 'pending_channel') {
@@ -156,7 +160,7 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
       );
       const rerouted = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
       if (rerouted) {
-        await ensureExternalOutboxRow(db, rerouted, input.telegramReplyMarkup);
+        await ensureExternalOutboxRow(db, rerouted, input.telegramReplyMarkup, input.telegramPhotoPng);
         return { delivery: rerouted, created: false };
       }
     }
@@ -165,7 +169,7 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
     // A process can stop after the canonical delivery ledger is committed but before
     // the selected channel outbox row is materialized. Re-enqueue idempotently so a
     // producer retry heals that gap instead of leaving the notification stuck forever.
-    await ensureExternalOutboxRow(db, existing, input.telegramReplyMarkup);
+    await ensureExternalOutboxRow(db, existing, input.telegramReplyMarkup, input.telegramPhotoPng);
     return { delivery: existing, created: false };
   }
 
@@ -206,7 +210,7 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
   );
 
   const delivery = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
-  if (delivery) await ensureExternalOutboxRow(db, delivery, input.telegramReplyMarkup);
+  if (delivery) await ensureExternalOutboxRow(db, delivery, input.telegramReplyMarkup, input.telegramPhotoPng);
 
   return { delivery, created: true };
 }

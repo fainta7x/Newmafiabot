@@ -46,7 +46,7 @@ export const bulkAddParticipantsSchema = z.object({
 }).transform(normalizeParticipantResponse);
 
 export const addSingleParticipantSchema = z.object({
-  player_id: z.string().min(1).optional(), nickname: z.string().optional(), phone: z.string().optional(), table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),
+  player_id: z.string().min(1).optional(), nickname: z.string().optional(), phone: z.string().optional(), contact_kind: z.enum(['vk', 'telegram', 'phone']).optional(), contact_value: z.string().max(120).optional(), plus_count: z.number().int().min(0).max(10).optional(), table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),
   registration_status: legacyRegistrationStatusSchema.optional(), amount_due: z.number().int().min(0).optional(), amount_paid: z.number().int().min(0).default(0), notes: z.string().nullable().optional(),
 }).transform(normalizeParticipantResponse);
 
@@ -54,6 +54,7 @@ export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(), registration_status: legacyRegistrationStatusSchema.optional(), attendance_fact: eveningAttendanceFactSchema.optional(),
   attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(), arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(), payment_status: z.enum(['unpaid', 'partial', 'paid', 'waived']).optional(), amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).optional(), notes: z.string().nullable().optional(),
+  contact_kind: z.enum(['vk', 'telegram', 'phone']).nullable().optional(), contact_value: z.string().max(120).nullable().optional(), plus_count: z.number().int().min(0).max(10).optional(), nickname: z.string().trim().min(1).max(80).optional(),
 });
 
 const playerPhoneSchema = z.string().nullable().optional().refine((value) => {

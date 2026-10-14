@@ -1,3 +1,5 @@
+import { isNoviceLevel } from '../../lib/noviceRule.ts';
+import { syncPlayersWithOrganizerLevel } from '../services/noviceService.ts';
 import { Router } from 'express';
 import { PLAYER_VISIT_STATS_SQL } from '../services/playerVisitsService.ts';
 import { z } from 'zod';
@@ -85,6 +87,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       engagement_stage,
       never_attended,
       first_visit_only,
+      novice_level,
       inactive_days,
       has_open_tasks,
       search,
@@ -185,6 +188,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       // 6. First visit only filter (newcomers who haven't returned)
       if (first_visit_only === 'true' || first_visit_only === '1') {
         if (p.attendance_count !== 1) return false;
+      }
+
+      // 6b. «Новички» by the organizer's level (owner, 2026-10-13), not by visit counting.
+      if (novice_level === 'true' || novice_level === '1') {
+        if (!isNoviceLevel(p.game_level)) return false;
       }
 
       // 7. Inactive days filter
@@ -333,6 +341,7 @@ router.post('/access/bulk', requireOrganizerAuth, async (req: AuthenticatedReque
         updated += Number(result.changes || 0);
       }
     });
+    if (data.game_level) await syncPlayersWithOrganizerLevel(db, ids);
     const actorId = getAuthenticatedOrganizerActorId(req) || 'organizer:unknown-session';
     const accessErrors: string[] = [];
     for (const change of organizerChanges) {
@@ -484,9 +493,13 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const gameProfile = await loadPlayerGameProfile(db, String(req.params.id));
     const achievements = await loadPlayerAchievementProfile(db, String(req.params.id));
     const staffStats = await loadPlayerStaffStats(db, String(req.params.id));
+    // The VK page id, so the organizer can open a dialog with the player from their own VK account.
+    const vkTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'player_external_identities'");
+    const vkIdentity = vkTable ? await db.get<any>("SELECT external_user_id FROM player_external_identities WHERE platform = 'vk' AND player_id = ? LIMIT 1", [String(req.params.id)]) : null;
 
     res.json({
       ...player,
+      vk_user_id: /^\d+$/.test(String(vkIdentity?.external_user_id || '')) ? String(vkIdentity.external_user_id) : null,
       staff_stats: staffStats,
       contact_status,
       engagement_stage,

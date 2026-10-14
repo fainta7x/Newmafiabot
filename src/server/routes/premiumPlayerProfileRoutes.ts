@@ -1,3 +1,4 @@
+import { loadDirectContacts } from '../services/playerInvitePreferencesService.ts';
 import { ensureAdminDataSchema } from '../../db/ensureAdminDataSchema.ts';
 import { STORY_PATHS, STORY_IDS } from '../../lib/achievementStories.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
@@ -198,7 +199,9 @@ router.get('/friend-invite-suggestions', async (req, res) => {
   if (!viewerId) return;
   try {
     const limit = Number(req.query.limit || 4);
-    const suggestions = await loadSmartFriendInviteSuggestions(req.db, viewerId, limit);
+    const found = await loadSmartFriendInviteSuggestions(req.db, viewerId, limit);
+    const contacts = await loadDirectContacts(req.db, found.map((item: any) => String(item.player_id)));
+    const suggestions = found.map((item: any) => ({ ...item, direct_contact: contacts.get(String(item.player_id)) || null }));
     return res.json({ suggestions });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось подобрать друзей для приглашения' });
@@ -222,7 +225,8 @@ router.get('/profiles/:playerId/invitation-context', async (req, res) => {
   try {
     const recipientPlayerId = String(req.params.playerId);
     const context = await getHardenedEveningInvitationContext(req.db, viewerId, recipientPlayerId);
-    return res.json(context);
+    const contacts = await loadDirectContacts(req.db, [recipientPlayerId]);
+    return res.json({ ...context, direct_contact: contacts.get(recipientPlayerId) || null });
   } catch (error: any) {
     return res.status(400).json({ error: error?.message || 'Не удалось проверить приглашение' });
   }

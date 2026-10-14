@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerMusicSlots from './PlayerMusicSlots.tsx';
 import PlayerNotificationSettings from './PlayerNotificationSettings.tsx';
+import PlayerInviteSettings from './PlayerInviteSettings.tsx';
 import PlayerProfilePrivacySettings from './PlayerProfilePrivacySettings.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
@@ -14,11 +15,12 @@ export default function PlayerSettingsHub({ data, onPlayerChange }: { data: Play
       <div className="player-workspace player-settings-layout mx-auto w-full max-w-[430px] space-y-4">
         <header className="px-1 pt-1">
           <h1 className="text-2xl font-semibold">Настройки</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Мои данные, уведомления, кто видит профиль и музыка для вечера</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Мои данные, уведомления, приглашения, кто видит профиль и музыка для вечера</p>
         </header>
         <div className="player-settings-primary"><PlayerProfileSettings player={player} onPlayerChange={updatePlayer} /></div>
         <div className="player-settings-secondary space-y-4">
         <PlayerNotificationSettings nickname={player.nickname} />
+        <PlayerInviteSettings />
         <PlayerProfilePrivacySettings />
         <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
           <summary className="cursor-pointer font-semibold">Моя музыка для вечера</summary>

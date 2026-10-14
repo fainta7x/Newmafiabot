@@ -1,7 +1,11 @@
 import { DatabaseWrapper } from '../../db/index.ts';
 import crypto from 'crypto';
+import { registerGoingParticipantsForAllGames } from './eveningParticipantState.ts';
+import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
+import { decidedAboveNoviceSql, noviceLevelSql } from '../../lib/noviceRule.ts';
 
 export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Date()) {
+  await ensureInviteAudienceSchema(db);
   const nowIso = now.toISOString();
   const uuid = () => crypto.randomUUID();
   const addDays = (dateStr: string, days: number): string => {
@@ -11,12 +15,15 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
     return d.toISOString();
   };
 
+  // Only novices by the organizer's level are asked about their first game; a player set to club or tournament level
+  // already played elsewhere (owner, 2026-10-13).
   const firstTimers = await db.all(`
     SELECT p.id as player_id, ep.evening_id, ge.starts_at, ge.title as evening_title, p.nickname
     FROM players p
     JOIN evening_participants ep ON ep.player_id = p.id
     JOIN game_evenings ge ON ge.id = ep.evening_id
     WHERE ep.attendance_status = 'attended' AND ge.status = 'completed'
+      AND ${noviceLevelSql('p')}
       AND (
         SELECT COUNT(*)
         FROM evening_participants ep2
@@ -40,6 +47,22 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
       ft.player_id, ft.evening_id, nowIso, nowIso,
     ]);
   }
+
+  // Old «Иду» answers without games become «all games» too (owner, 2026-10-13).
+  await registerGoingParticipantsForAllGames(db).catch((error) => console.warn('[CRM AUTOMATION] games not registered:', error instanceof Error ? error.message : String(error)));
+
+  // Novice tasks of a player the organizer has since set to club or tournament level are no longer needed:
+  // the feedback question is cancelled, «Определить игровой уровень» is done (the level is decided).
+  await db.run(`
+    UPDATE organizer_tasks SET status='cancelled', updated_at=?
+     WHERE automation_key LIKE 'feedback-first-visit:%' AND status NOT IN ('done', 'cancelled')
+       AND player_id IN (SELECT p.id FROM players p WHERE ${decidedAboveNoviceSql('p')})
+  `, [nowIso]);
+  await db.run(`
+    UPDATE organizer_tasks SET status='done', completed_at=COALESCE(completed_at, ?), updated_at=?
+     WHERE automation_key LIKE 'verified-onboarding:new-player:%' AND status NOT IN ('done', 'cancelled')
+       AND player_id IN (SELECT p.id FROM players p WHERE ${decidedAboveNoviceSql('p')})
+  `, [nowIso, nowIso]);
 
   // Неответ на анонс, "подтверждение", обычное напоминание и повторное
   // приглашение не являются задачами организатора. Рассылка остаётся у бота.

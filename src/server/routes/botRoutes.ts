@@ -1,4 +1,6 @@
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
+import { decideEveningMvp } from '../services/eveningMvpService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -162,12 +164,15 @@ router.post('/players/link-telegram', async (req, res) => {
 router.get('/evenings/open', async (req, res) => {
   try {
     const db = req.db;
+    await ensureGuestPlayerPlaceholderSchema(db);
     const evenings = await db.all(
       `SELECT
          e.id, e.title, e.starts_at, e.ends_at, e.timezone, e.venue,
          e.format, e.status, e.capacity, e.default_price, e.notes,
-         (SELECT COUNT(*) FROM evening_participants ep
-           WHERE ep.evening_id = e.id AND ep.response_status IN ('going', 'late')) AS attending_count,
+         ((SELECT COUNT(*) FROM evening_participants ep
+           WHERE ep.evening_id = e.id AND ep.response_status IN ('going', 'late'))
+          + (SELECT COUNT(*) FROM guest_player_placeholders gp
+           WHERE gp.evening_id = e.id AND gp.replaced_at IS NULL AND gp.response_status IN ('going', 'late'))) AS attending_count,
          (SELECT COUNT(*) FROM evening_participants ep
            WHERE ep.evening_id = e.id AND ep.response_status = 'thinking') AS thinking_count,
          (SELECT COUNT(*) FROM evening_participants ep
@@ -224,8 +229,19 @@ router.get('/evenings/:eveningId/participants', async (req, res) => {
        ORDER BY ep.created_at ASC`,
       [req.params.eveningId],
     );
+    // Guests without a profile (leads) are in the lineup too, (the people they bring are rows of their own, «Иван +1»).
+    await ensureGuestPlayerPlaceholderSchema(db);
+    const guests = await db.all<any>(
+      `SELECT id, display_name AS nickname, response_status, registration_status, attendance_status, arrival_status,
+              payment_status, amount_due, amount_paid, registered_at, confirmed_at, updated_at
+         FROM guest_player_placeholders
+        WHERE evening_id = ? AND replaced_at IS NULL
+        ORDER BY created_at ASC`,
+      [req.params.eveningId],
+    );
+    const lineup = [...participants, ...guests.map((guest: any) => ({ ...guest, player_id: null, telegram_user_id: null, is_guest: true }))];
 
-    res.json({ evening, participants });
+    res.json({ evening, participants: lineup });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить состав вечера' });
   }
@@ -278,6 +294,26 @@ router.post('/evenings/:eveningId/vote', async (req, res) => {
     return res.json({ success: true, nominee: result.nominee.nickname, deadline: result.deadlineMs ? new Date(result.deadlineMs).toISOString() : null });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить голос' });
+  }
+});
+
+// The club owner's answer to «кого объявить MVP» when the vote and the tie-breaks left a tie (eveningMvpService).
+router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
+  try {
+    const db = req.db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const nominee = String(req.body?.nominee ?? '').trim();
+    if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
+    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
+    const result = await decideEveningMvp(db, String(req.params.eveningId), String(player.id), nominee);
+    if (!result.ok) {
+      const status = result.code === 'forbidden' ? 403 : result.code === 'bad_nominee' ? 400 : result.code === 'not_found' ? 404 : 409;
+      return res.status(status).json({ error: 'Решение не принято', code: result.code });
+    }
+    return res.json({ success: true, nominee: result.winner.nickname });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить решение' });
   }
 });
 

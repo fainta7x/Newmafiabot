@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import time
 
 from aiogram import Router, F
 from aiogram.filters import Command, CommandObject
@@ -13,11 +12,10 @@ import keyboards
 import database
 import config
 from . import stats_utils
-from handlers.payment import payment_kb
 from handlers.booking import build_stats_text, get_next_friday
 from database import get_elo, get_user_by_nickname, get_user_by_id
 from pic_profile import create_profile_pic
-from keyboards import profile_kb, stats_kb
+
 
 router = Router()
 
@@ -25,23 +23,6 @@ router = Router()
 class Form(StatesGroup):
     waiting_for_nickname = State()
     waiting_for_search = State()
-
-
-def _cleanup_old_files(prefix: str, keep: int = 10):
-    """Очищает старые файлы профиля"""
-    temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp")
-    os.makedirs(temp_dir, exist_ok=True)
-    try:
-        files = [
-            os.path.join(temp_dir, f)
-            for f in os.listdir(temp_dir)
-            if f.startswith(prefix) and f.endswith(".png")
-        ]
-        files.sort(key=os.path.getmtime)
-        for f in files[:-keep]:
-            os.remove(f)
-    except Exception:
-        pass
 
 
 async def _is_judge(user_id: int) -> bool:
@@ -137,60 +118,6 @@ REGULATIONS_TEXT = """
 """
 
 
-@router.message(F.text == "📋 РЕГЛАМЕНТ")
-async def show_regulations(message: Message):
-    """Показывает регламент начисления допов и штрафов"""
-    user_id = message.from_user.id
-    is_admin = user_id in config.ADMIN_IDS
-    is_judge = await _is_judge(user_id)
-    kb = _get_main_menu_for_user(is_admin, is_judge)
-
-    await message.answer(
-        REGULATIONS_TEXT,
-        parse_mode=None,
-        reply_markup=kb
-    )
-
-
-@router.message(Command("start"), F.chat.type == "private")
-async def start(m: Message, command: CommandObject):
-    await database.init_db()
-    await database.add_or_update_user(
-        m.from_user.id,
-        m.from_user.username,
-        m.from_user.full_name
-    )
-
-    user_id = m.from_user.id
-    is_admin = user_id in config.ADMIN_IDS
-    is_judge = await _is_judge(user_id)
-    kb = _get_main_menu_for_user(is_admin, is_judge)
-
-    args = (command.args or "").strip()
-
-    if args == "players":
-        date_str = get_next_friday()
-        text = await build_stats_text(date_str)
-
-        await m.answer(
-            text,
-            reply_markup=kb
-        )
-        return
-
-    # Проверка на команду /profile из deep link
-    if args.startswith("profile_"):
-        target_id = args.replace("profile_", "")
-        await show_other_profile(m, target_id)
-        return
-
-    date = get_next_friday()
-    await m.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 21:00",
-        reply_markup=kb
-    )
-
-
 # ======================= ПРОСМОТР ПРОФИЛЕЙ ДРУГИХ ИГРОКОВ =======================
 
 @router.message(Command("profile"), F.chat.type == "private")
@@ -279,100 +206,6 @@ async def show_other_profile(message: Message, target: str):
         await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
 
-@router.message(F.text == "🏠 В главное меню", F.chat.type == "private")
-async def back_to_main_menu(message: Message):
-    user_id = message.from_user.id
-    is_admin = user_id in config.ADMIN_IDS
-    is_judge = await _is_judge(user_id)
-    kb = _get_main_menu_for_user(is_admin, is_judge)
-
-    date = get_next_friday()
-    await message.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 21:00",
-        reply_markup=kb
-    )
-
-
-@router.message(F.text == "⚖ Панель судьи", F.chat.type == "private")
-async def open_judge_panel(message: Message):
-    """
-    Открывает ВНУТРЕННЮЮ панель судьи.
-    Доступно только для судей/админов.
-    """
-    user_id = message.from_user.id
-    if not await _is_judge(user_id):
-        await message.answer("⛔ Эта панель доступна только судьям.")
-        return
-
-    await message.answer(
-        "⚖ Панель судьи.\nЗдесь управление играми.",
-        reply_markup=keyboards.judge_menu()
-    )
-
-
-@router.message(F.text == "📊 Статистика", F.chat.type == "private")
-async def show_user_stats(message: Message):
-    """Показывает свою статистику с картинкой и кнопками"""
-    user_id = message.from_user.id
-    try:
-        stats_data = await stats_utils.build_user_stats_data(user_id)
-        nickname = stats_data.get("nickname") or message.from_user.full_name
-
-        elo = await get_elo(user_id)
-        stats_data["elo"] = elo
-
-        img_path = create_profile_pic(nickname, stats_data)
-        text = await stats_utils.build_user_stats_text(user_id)
-
-        text = f"🏆 **Рейтинг Эло: {elo}**\n\n{text}"
-
-        doc = FSInputFile(img_path)
-        timestamp = int(time.time())
-
-        await message.answer_document(
-            document=doc,
-            caption=f"{text}\n\n🕐 Обновлено: {timestamp}",
-            reply_markup=stats_kb(),  # <-- изменено
-            parse_mode=ParseMode.MARKDOWN
-        )
-        _cleanup_old_files("profile_", keep=10)
-    except Exception as e:
-        print(f"[STATS][ERROR] {e}")
-        text = await stats_utils.build_user_stats_text(user_id)
-        elo = await get_elo(user_id)
-        text = f"🏆 **Рейтинг Эло: {elo}**\n\n{text}"
-        await message.answer(text, reply_markup=stats_kb(), parse_mode=ParseMode.MARKDOWN)
-
-
-@router.message(F.text == "👤 Мой профиль", F.chat.type == "private")
-async def show_profile(message: Message):
-    """Показывает финансовую информацию (ник, долг)"""
-    user_id = message.from_user.id
-    profile_data = await database.get_user_profile(user_id)
-    if profile_data:
-        name, nick, debt, visit = profile_data
-
-        if not visit or visit == "-":
-            visit_text = "Ещё не был на вечерах"
-        else:
-            visit_text = visit
-
-        text = (
-            f"👤 **Ваш профиль:**\n\n"
-            f"Имя: {name}\n"
-            f"Игровой ник: {nick or 'Не указан'}\n"
-            f"Последний визит: {visit_text}\n"
-            f"Долг: {debt} руб."
-        )
-        await message.answer(
-            text,
-            reply_markup=keyboards.profile_kb(debt),
-            parse_mode="Markdown"
-        )
-    else:
-        await message.answer("Сначала нажмите /start, чтобы создать профиль.")
-
-
 @router.message(F.text == "🧾 Список игроков в записи", F.chat.type == "private")
 async def show_players_for_user(message: Message):
     """
@@ -394,45 +227,10 @@ async def show_players_for_user(message: Message):
     await message.answer(text, reply_markup=kb)
 
 
-@router.callback_query(F.data == "edit_nickname")
-async def change_nick_step1(call: CallbackQuery, state: FSMContext):
-    await call.message.answer("Введите ваш новый игровой ник (макс. 50 символов):")
-    await state.set_state(Form.waiting_for_nickname)
-    await call.answer()
 
 
-@router.message(Form.waiting_for_nickname)
-async def change_nick_step2(message: Message, state: FSMContext):
-    new_nick = (message.text or "").strip()[:50]
-    if not new_nick:
-        await message.answer("Ник не может быть пустым. Попробуйте снова.")
-        return
-    await database.update_nickname(message.from_user.id, new_nick)
-    await state.clear()
-
-    user_id = message.from_user.id
-    is_admin = user_id in config.ADMIN_IDS
-    is_judge = await _is_judge(user_id)
-    kb = _get_main_menu_for_user(is_admin, is_judge)
-
-    await message.answer(
-        f"✅ Ник изменён на: {new_nick}",
-        reply_markup=kb
-    )
 
 
-@router.callback_query(F.data == "profile_pay")
-async def profile_pay(call: CallbackQuery):
-    kb = payment_kb(call.from_user.id)
-    await call.message.answer(
-        f"💰 **Реквизиты для оплаты:**\n\n"
-        f"📞 Номер: `{config.PHONE}`\n"
-        f"🏦 Банк: {config.BANK}\n\n"
-        f"После перевода нажмите кнопку ниже.",
-        reply_markup=kb,
-        parse_mode="Markdown"
-    )
-    await call.answer()
 
 
 # ======================= ИНЛАЙН-ПОИСК ПРОФИЛЕЙ ДРУГИХ ИГРОКОВ =======================

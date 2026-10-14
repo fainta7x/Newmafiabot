@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {BODY_TEMPLATES,CANONICAL_EYE_SPAN,templateFit,templateLayerUrl,type BodyTemplateId} from '../lib/wardrobeTemplates.ts';
+import {BODY_TEMPLATES,CANONICAL_EYE_SPAN,CANONICAL_EYE_Y,CANONICAL_FACE_HEIGHT,templateFit,templateLayerUrl,type BodyTemplateId} from '../lib/wardrobeTemplates.ts';
 import {PREPARED_HEADS} from '../lib/dendiWardrobePilot.ts';
 import {resolvePortraitRig,transformRigPoint} from '../lib/portraitRig.ts';
 
@@ -7,9 +7,9 @@ it('normalizes every prepared face without player-specific head or hat scaling',
  for(const head of Object.values(PREPARED_HEADS)){
   const first=templateFit('straight-regular',head),placed=resolvePortraitRig(first.rig!);
   const eyes=head.eyes.map(p=>transformRigPoint(p,placed.head));
-  expect(eyes[0].y).toBeCloseTo(210);expect(eyes[1].y).toBeCloseTo(210);
+  expect(eyes[0].y).toBeCloseTo(CANONICAL_EYE_Y);expect(eyes[1].y).toBeCloseTo(CANONICAL_EYE_Y);
   expect(eyes[1].x-eyes[0].x).toBeLessThanOrEqual(CANONICAL_EYE_SPAN+.001);
-  expect(transformRigPoint(head.chin,placed.head).y).toBeLessThanOrEqual(328.001);
+  expect(transformRigPoint(head.chin,placed.head).y-CANONICAL_EYE_Y).toBeLessThanOrEqual(CANONICAL_FACE_HEIGHT+.001);
   head.neck.forEach((p,i)=>{
    const seat=transformRigPoint(p,placed.neck);
    expect(seat.x).toBeCloseTo(first.rig!.targetNeck[i].x);expect(seat.y).toBeCloseTo(400);

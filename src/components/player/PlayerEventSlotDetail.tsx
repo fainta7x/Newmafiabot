@@ -24,7 +24,7 @@ type Slot = {
   starts_at: string;
   price: number;
   registered_count: number;
-  participants: Array<{ id: string; nickname: string }>;
+  participants: Array<{ id: string; nickname: string; is_guest?: boolean }>;
 };
 
 type Plan = {
@@ -201,7 +201,7 @@ export default function PlayerEventSlotDetail({
                     </div>
                     {slot.participants.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {slot.participants.map((participant) => <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
+                        {slot.participants.map((participant) => participant.is_guest ? <span key={participant.id} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45">{participant.nickname}</span> : <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[11px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
                       </div>
                     )}
                   </button>

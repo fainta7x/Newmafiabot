@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-14 · Owner rejects overall proportions and Java's feminine silhouette (FIX CODED; mobile review pending)
+
+Owner explicitly rejects f6044077's visual output and requires self-review before delivery. The tiny male head/hat, long female neck and nearly straight torso remain visible in our own native sheet; earlier technical passes are not visual acceptance. The rejected `portraitMesh.ts:fitBodyPoint` scales every x at a row equally, so waist fitting moves sleeves/arms together with the torso instead of shaping a waist. `wardrobeTemplates.ts` has insufficient shoulder/chest/waist separation and an overly restrictive head frame. Scope: shared anatomy and garment fitting, not per-person clothing patches. First acceptance: inspect one Java assembly at full size and 360/390px, with an unmistakably feminine, natural silhouette, relaxed arms, coherent head/neck/shoulders and intact collar. Then check the same shared presets on the remaining identities and frozen views. Do not show another iteration as an improvement before that review. First native candidate was rejected internally for sleeve bulges and shirt armhole leaks. The corrected mesh preserves arm span, source-space V clipping removes the leaks, and short-hair jaw contours prevent a flat skin edge over the collar. Head frame increased and neck shortened as one shared contract. CI was absent because the branch conflicts with current main in AUDIT_LOG.md; integrate both audit additions without discarding either.
+
 ## 2026-10-14 · Template preview packaging (FOUND before mobile evidence)
 
 `scripts/buildUiPreview.mjs` disables publicDir and explicitly copies only dendi-v2, so the new templates-v1 assets are absent from the built mobile preview despite a successful build. Copy that draft asset directory and run the same wardrobe validator against the packaged preview root. Acceptance: all eleven referenced RGBA assets exist in temp/ui-preview before browser checks. Offline HTML already embeds them and is unaffected.
@@ -58,6 +62,72 @@ During implementation, the tournament broadcaster was confirmed to expose a game
 ## 2026-10-13 · PR #891 cosmetics sandbox schema — FIXED in branch
 
 Review found that signed test sessions switch to an isolated DB whose runtime initializer omitted the six cosmetics tables. Added ensureCosmeticsSchema to that initializer and a regression checking schema availability and inventory isolation. HTTP tests now use createApp with the production middleware stack rather than a standalone Express/cookie-parser fixture (also flagged by CodeQL). New-head CI/security results remain required; no blanket suppression was added.
+
+## 2026-10-14 · Screen 7: CRM player card hides pending task when next evening exists
+
+**Mounted evidence:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`, `src/components/crm/PlayersCRM.tsx` quick context directly before contact/task/communication actions. The component derives both `bookingEvening` (from the player's next available booking) and `nextTask` (from the player-detail response), but renders them using an exclusive `bookingEvening && booking ? ... : nextTask ? ... : null` conditional. When both facts exist, the visible card **silently hides the actual pending follow-up task**, even though it appears among the player's deeper task/history records.
+
+**Expected behavior:** expose *both* the next evening and closest open task in the top operational context when both are present, without expanding the history or changing the booking/priority calculation. When only one exists, preserve its current label/link; when neither exists, no empty card. Keep compact hierarchy and ≥44px click target for the event link only if converted into a large action (not in this scope).
+
+**Fix owner:** `PlayersCRM.tsx` display condition only, plus rendered React tests for both/single/empty cases and action destination. No API, profile, task, RSVP, payment or event lifecycle writes changed. Production phone/runtime remain separate verification.
+
+
+## 2026-10-14 · Screen 6: CRM «Игроки → Карточка → История» truncates the timeline
+
+**Reproduction (source-confirmed):** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM` displays a timeline assembled from activities, evening history, tasks and club/tournament games. Its disclosure label shows `unifiedTimeline.length`, but it always renders `unifiedTimeline.slice(0, 10)` with **no way to reach older entries**. Example: a player with 26 historical events sees a count of 26 but only 10 entries when expanded. This is a presentation loss, not an API limitation.
+
+**Expected:** The first 10 stay collapsed by default and easy to skim on mobile. When expanded, provide an obvious `Показать ещё` interaction, append older events ten at a time until all fetched entries are reachable, and show progress (shown/total). Reset expanded count for each new card/opening, so another player's history does not inherit an unnecessarily long view. Keep the full list collapsed by default in the work card, with no new API request or local-history mutation.
+
+**Implementation owner:** only `src/components/crm/PlayersCRM.tsx` and its rendered tests. The existing timeline ordering/content, business statuses, games, profile writes and finances must remain untouched. Mobile touch target >=44px. Tests must check 0/<=10, 26 records across increments, exhaustion, and reset on player switch.
+
+**Verification:** focused React regression + ordinary CI and UI preview on PR head; no production player data inspected.
+
+
+## 2026-10-14 · Screen 5: organizer CRM player work card — stale request and nested overlays
+
+**Mounted path:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`; although the legacy roster inside `PlayersCRM` is hidden in this mount, `PlayersCRM` is the active owner of the **player work-card MobileSheet** and its nested actions.
+
+**P1 finding — stale detail fetch:** `loadPlayerDetails(id)` updates `playerDetails` regardless of whether the card has since closed, another player ID was selected or a newer refresh completed. An older response can replace a newer player's nickname, contact information and actionable profile state; reopening/switching a player in a slow network is a factual mismatch, not just cosmetic. The list request already has a sequence guard; this detail request does not.
+
+**P1 finding — sheet state leaks across profiles:** `handleCloseCard()` cleared several edit/task/menu sheets, but omitted `showPublicProfile`, `showTokensSheet` and `confirmDeleteAvatar`. Their open flags survive close, and the next successful `playerDetails` update can reopen a previous nested overlay for another player. Scope includes resetting on change of selected player, not only root close.
+
+**Fix boundary:** invalidate obsolete detail requests on new load or card close and never publish their result/error; reset all nested-card action flags when card closes or switches player. Retain existing create/edit/write APIs and layout, including intentionally nested MobileSheets. Keep financial and avatar mutation logic unchanged.
+
+**Acceptance:** rendered React regression for A → B out-of-order requests (only B is shown), close/reopen with an old successful response (no ghost card), and nested overlay/confirmation flags reset on the next player. CI and mobile preview required for merge; production-runtime and actual phone verification not claimed.
+
+
+## 2026-10-14 · Screen 4: CRM «Игроки → База» profile-filter fallback
+
+**Confirmed mounted behaviour:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM` is the actual list, not the older standalone `PlayersCRM` list UI. `PlayersActivityCRM.loadProfileSummary()` used one `Promise.all()` for optional birthdays and essential profile completeness, swallowed all exceptions/HTTP failures, and left `profileMap={}` with no load/error state. Any active «Незаполненные / Без аватара / Без дня рождения / Нет контактов» filter then hid every person and rendered «Здесь пока никого», while the header claimed «0 человек». A failed birthdays request could also stop processing otherwise valid profile summary data.
+
+**Narrow fix:** keep a separate `loading|ready|error` state for profile completeness, handle the two GET responses independently, and when the profile filter's essential data is unavailable show truthful verification/loading or an actionable retry/reset state (not a fake empty database). Existing list filters, counts, segment semantics, player creation and profile writes are unchanged. Ordinary list/API failure with zero rows likewise no longer renders an additional contradictory «Здесь пока никого» panel.
+
+**Evidence:** rendered React regressions `src/tests/PlayersActivityProfileFilterErrors.test.tsx` cover failed summary → retry → restored filtered person, and failed optional birthdays with valid profile completeness. CI/phone runtime pending; no production player records read/changed.
+
+
+## 2026-10-14 · Screen 3: CRM «Ещё» scroll state and Back routing
+
+**Evidence:** mounted `OrganizerCRM.tsx` passes `onScreenChange` to `MoreCRM`; its callback calls `moveWindowScroll(0)` for **both** entering and leaving a nested screen. `openSecondaryTab` enters `tasks`/`analytics` at top, then the ordinary Back control calls `switchPrimaryTab('more')`, also resetting to top. Browser Back changes `routePathname` without invoking `onScreenChange`, so a callback-only fix cannot restore position.
+
+**Focused fix:** preserve `window.scrollY` only when leaving the main More menu to a nested screen, «Дела» or «Аналитика», then restore on actual route change back to `/admin/more`. One-shot restoration prevents unrelated primary-tab switches from reusing stale menu scroll. Entering an inner tool still starts at top. Preserve existing URLs, browser history and all tools; no app data/API changes.
+
+**Regression:** rendered shell test `src/tests/OrganizerMoreScrollReturn.test.tsx` simulates nested screen, both secondary tabs, browser Back and unrelated primary navigation; CI and 390px screenshots pending. No production phone or runtime access used.
+
+
+
+## 2026-10-14 · Screen audit: organizer CRM «Ещё» menu (navigation and hierarchy)
+
+**Mounted owner:** `src/components/crm/MoreCRM.tsx` within `src/components/OrganizerCRM.tsx`; routing in `organizerRouting.ts`. Source reviewed against `docs/DESIGN_SYSTEM.md` (mobile CRM, actions first, rare controls secondary). No production screenshots or phone runtime checked during source audit.
+
+- **P1 — publication tools mixed with conducting actions (confirmed in source):** «Каждый день» simultaneously held «Дела», «Музыкальная база», «Что нового», «Ответы бота» and «Публикации и каналы». Separate «Проведение и дела» and «Сообщения и публикации» with existing IDs/handlers preserved; no new API or content writer.
+- **P1 — novice guide hidden in maintenance (confirmed):** `guide` was under the collapsed «Служебное» despite being an ordinary player/novice support action. Move the existing `/guide` action into «Игроки и обучение»; rename from «Ссылка-памятка» to «Памятка для новичка» since the button opens the page rather than copying a link. Preserve the existing public page and URL.
+- **P2 — essential descriptions always cut after one line (confirmed):** `MenuRow` had `line-clamp-1`, hiding meaning of longer entries at mobile width. Allow at most two lines with a 64px minimum hit area, preserving hierarchy. Mobile screenshot review remains required.
+- **P2 — maintenance via direct deep link returns collapsed (confirmed by state initialization):** `adminOpen=false` even when the initial `activeScreen` is an admin-only deep link. Initialize disclosure open for those screens so Back exposes the section the organizer arrived from.
+- **P2 — noisy semantic colors and eager imports (deferred):** `menuTone` gives unrelated menu categories sky, green, amber and violet tones without status meaning, and many nested screens are statically imported. Evaluate neutral icon language and lazy-loading separately with bundle measurements and real 390px screenshots; not bundled into a classification change.
+- **P2 — secondary subpage / scrolling (deferred):** `OrganizerCRM` forces scroll to top on submenu entry and exit. Returning from a low menu item risks losing place; needs a focused mounted-shell mobile navigation test and preservation of Back history before altering the parent.
+- **Out of scope:** payment/Robokassa, skin editor, VIP, loot boxes and monetization. Existing related destinations are retained with no behavioural edits.
+
+**Checks:** new rendered menu navigation regression in `src/tests/MoreCRMNavigationUX.test.tsx`; full PR CI and UI preview for the exact SHA pending. This is a menu-structure pass, not a claim of live/mobile approval.
 
 
 ## 2026-10-12 · Game page in the player app (owner: «ужасная страница, непонятная, не красивая, не информативная») — FIXED (rework)
@@ -1029,5 +1099,36 @@ Everything above marked fixed is in `main`. Merged ≠ deployed ≠ runtime veri
 - **Fixed — a tall persistent keyboard covered the card and mixed roles:** «🎟 Доступ в клуб», «🛠 Админ-панель», «🩺 Проверить состояние приложения» and «⚖ Судейство» were keyboard buttons. Access was already under «Ещё → Группы»; organizers now get «🛠 Организатору» inside the card (cabinet, judging, app status, browser link), judges get «⚖ Судейство» inside the card (`bot_home._staff_rows`, `staff_view`). The old text buttons still work for players whose phone keeps the old keyboard.
 - **Fixed — long, noisy intro:** the first message after /start is one line (`bot_menu.start_text`); the `/crm` hint is gone.
 - **Fixed — answers only in code:** the bot's frequent questions are edited by the owner in the CRM (`bot_faq_entries`); the in-code list is only the seed and the safety net.
-- **Open (not touched):** the legacy `keyboards.py` menus used by `start_profile.py` for registered-player flows (profile editing) still show the old large keyboards inside those flows.
+- **Fixed (follow-up, owner asked why it was left):** the legacy handlers (`start_profile.py`, `booking.py`, `admin.py`) re-sent the old ten-button keyboard after any profile/payment/booking action, replacing the short one. `keyboards.main_menu*` now return the same one-row keyboard; the «нажми «🕵️ Записаться на игру»» hints in `booking.py` point to «📋 Меню». The old text buttons still have handlers for phones that keep the old keyboard.
+- **Fixed (full cleanup, owner: «все переделай»):** (1) retired-button replies (`legacy_retired_actions.py`) were jargon («legacy-бот», «legacy-базу»); now one plain sentence and the reply swaps the phone's old big keyboard for the short one. (2) The command list showed `/crm`, `/cabinet`, `/app` to every player; players now see start, events, faq, app, link, organizers additionally `/crm` and `/status` (per-chat scope in `commands.py`). (3) Removed dead handlers in `start_profile.py` that another router always answered first or that the retired-button router intercepts: `/start`, «📋 РЕГЛАМЕНТ», «🏠 В главное меню», «⚖ Панель судьи», «📊 Статистика», «👤 Мой профиль». (4) `/status` and the status button reply with the short keyboard.
+- **Still in the code, unreachable in practice (not deleted, listed so it is a decision, not a surprise):** the legacy organizer/game-engine handlers in `admin.py`, `game/admin_actions/*`, `handlers/profile.py`, `handlers/booking.py`, `handlers/payment.py` and the rest of `keyboards.py`. Their entry buttons are intercepted by `legacy_retired_actions.py`; deleting them is a separate, larger removal that should be checked against `mafia_crm.db` readers first.
 
+### Novice path audit (2026-10-13, owner: experienced/tournament players still got novice tasks and filters)
+Root cause: «новичок» was defined two ways — by the organizer's level (`game_level`: novice/club/tournament, used by «База» tabs and audiences) and by visit counting (one attended evening). Everything built on visit counting ignored the level the organizer set.
+- **Fixed** `crmAutomationService.ts`: «Спросить впечатления после первой игры» was created for anyone with exactly one attended evening; now only for novice level, and open ones of players later set to club/tournament are cancelled.
+- **Fixed** `organizerAgendaService.ts` (`noviceFeedbackItem`): «Спросить новичков о первом вечере» lists only novice-level players.
+- **Fixed** `crmRoutes.ts` (`newcomersAfterFirst`, «Сегодня» → «newcomer_followup»): novice level only.
+- **Fixed** `noviceService.ts` (`listPlayersAwaitingFirstDecision`, the level-decision queue on «Сегодня»): a player with club/tournament level is decided and is not listed even when `club_stage` is still `NEW`.
+- **Fixed** `playersRoutes.ts` (`/access/bulk`): setting club/tournament level now moves `club_stage` to `CLUB_PLAYER` and closes «Определить игровой уровень» and the feedback task (`syncPlayersWithOrganizerLevel`).
+- **Fixed** `PlayersCRM.tsx`: quick filter «Новички» uses the level (`novice_level`), not «one visit»; the engagement stage `newcomer` is labelled «Первый визит» so it is not read as the level.
+- One rule lives in `src/lib/noviceRule.ts`; tests in `src/tests/novicePathRule.test.ts`.
+- **Not changed (by design):** the engagement stage (`lead` / `newcomer` / `returning` …) stays a pure visit-count descriptor; novice evenings, free visits and invitations already follow the level.
+
+### Old bot code removed (2026-10-13, owner: «Да, удаляй, если они больше не нужны»)
+How it was proven: a script loaded the real router order of `main.py`, replaced every handler with a recorder and fed each handler its own trigger texts and callback data; a handler that never answered its own trigger because the interceptor `legacy_retired_actions.py` (or `admin_crm`) answers first is unreachable. 51 handlers are reachable (home card, `/events`, `/faq`, `/crm`, `/status`, club access, profile search, game archive buttons on old messages, achievements, rating pages, evening answers and votes, DB backup buttons of the admin menu); 168 were not.
+- **Deleted:** the whole legacy game engine in the bot (`game/admin_actions`, `game/day`, `game/night`, `game/edit_router.py`, `game/state.py`, `game/models.py`, `game/elo_calculator.py`), `handlers/admin_judges.py`, `handlers/payment.py`, `handlers/shop.py`, `handlers/bets.py`, and 185 unreachable handlers inside `admin.py`, `handlers/profile.py`, `handlers/booking.py`, `handlers/crm_booking.py`, `handlers/start_profile.py`; about 160 helper functions and classes that nothing referenced any more, and the unused imports.
+- **Kept:** `game/text.py` and `game/utils/endgame_pic.py` (used by the live game archive in `profile.py`), `handlers/booking.py` helpers used by `registration.py`/`start_profile.py`/`admin.py`, the registration flow (`finish_registration`), and `legacy_retired_actions.py`, which still answers old buttons with «Эта кнопка устарела».
+- **Check after the change:** the same 51 handlers still answer their triggers; `pytest` 88, `python3 -c "import main"`; the contract test `legacyRuntimeContracts.test.ts` was updated for the deleted routers.
+
+
+## 2026-10-14 · Screen-by-screen audit: CRM «Ещё → Дела» (pass 1)
+
+**Scope and evidence:** mounted \`OrganizerCRM.tsx\` renders \`OrganizerAgenda\`, \`CuratorTasksPanel\` and, behind «Свои задачи и выполненные», \`TasksCRM\`. The worklist is built by \`organizerAgendaService.ts\`, with separate curator and organizer-task sources. Audit reviewed action destinations, on-screen wording, load/error/empty states and UI hierarchy; no live-phone screenshots or production database were accessed.
+
+- **P1 — wrong action destination (confirmed):** \`fillItems()\` returns cards \`people:thinking:...\` and \`people:fill:...\` labelled «Открыть ответы», but their action targets evening section \`overview\` instead of \`participants\` (the merged unified «Ответы» list). Both \`why\` strings refer to removed «Личные приглашения» navigation. Fix in this pass: target \`participants\`, use the existing unified «Ответы» wording and assert both actions in the existing SQLite integration test. No eligibility/shortfall calculation changes.
+- **P1 — silent curator-task failures (confirmed):** \`CuratorTasksPanel.load()\` ignored HTTP non-200 and caught network errors without displaying anything; with \`data=null\`, the whole task panel disappeared. \`cancel()\` had \`try/finally\` without \`catch\`, leaving unhandled rejected mutations and no visible feedback. Fix in this pass: keep the screen visible with retry/error state and surface cancellation errors while retaining the task row.
+- **P2 — fractured information architecture (verified, not refactored):** one conceptual «Дела» screen still exposes three independent work sources (\`/api/crm/agenda\`, \`/api/tasks\`, \`/api/curator-tasks\`) with separate done/history rules and separate loading states. Evaluate a unified information hierarchy with the owner after this bugfix; **do not collapse stores or change curator/organizer task lifecycle as a cosmetic change**.
+- **P2 — snoozed items uninspectable (verified, deferred):** \`organizerAgendaService.loadAgenda()\` exposes only a \`snoozed\` count while excluding snoozed cards; currently there is no view to inspect/undo postponement before its expiry. Needs backend contract and organizer approval; do not pretend the count itself is a list.
+- **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
+
+**Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.

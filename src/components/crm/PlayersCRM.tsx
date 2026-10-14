@@ -64,6 +64,7 @@ interface PlayersCRMProps {
 
 type QuickFilter = 'all' | 'attention' | 'newcomers' | 'lapsed';
 type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
+const HISTORY_PAGE_SIZE = 10;
 
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
   { id: 'all', label: 'Все' },
@@ -101,6 +102,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const requestSeq = useRef(0);
+  const detailRequestSeq = useRef(0);
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [contactStatusFilter, setContactStatusFilter] = useState('');
@@ -111,6 +113,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [playerDetails, setPlayerDetails] = useState<PlayerDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
@@ -188,7 +191,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       if (debouncedSearch) params.search = debouncedSearch;
       if (contactStatusFilter) params.contact_status = contactStatusFilter;
       if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
-      if (activeQuickFilter === 'newcomers') params.first_visit_only = true;
+      if (activeQuickFilter === 'newcomers') params.novice_level = true;
       if (activeQuickFilter === 'lapsed') params.inactive_days = 30;
       if (advancedSegment === 'never') params.never_attended = true;
       if (advancedSegment === 'absent60') params.inactive_days = 60;
@@ -226,17 +229,34 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   };
 
   const loadPlayerDetails = async (id: string) => {
+    const requestId = ++detailRequestSeq.current;
     setLoadingDetails(true);
     setDetailError(null);
     try {
       const data = await api.getPlayer(id);
+      // A previous player/refresh may finish after this card has been replaced.
+      if (requestId !== detailRequestSeq.current) return;
       setPlayerDetails(data);
       initEditForm(data);
     } catch (err: any) {
-      setDetailError(err?.message || 'Не удалось загрузить профиль игрока');
+      if (requestId === detailRequestSeq.current) setDetailError(err?.message || 'Не удалось загрузить профиль игрока');
     } finally {
-      setLoadingDetails(false);
+      if (requestId === detailRequestSeq.current) setLoadingDetails(false);
     }
+  };
+
+  const resetPlayerCardOverlays = () => {
+    setHistoryVisibleCount(HISTORY_PAGE_SIZE);
+    setShowPlayerMenu(false);
+    setShowPublicProfile(false);
+    setShowTokensSheet(false);
+    setShowEditSheet(false);
+    setShowTaskSheet(false);
+    setShowCommSheet(false);
+    setShowInviteSheet(false);
+    setShowMergeSheet(false);
+    setShowMusicSheet(false);
+    setConfirmDeleteAvatar(false);
   };
 
   useEffect(() => {
@@ -245,6 +265,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setPlayerDetails(null);
     setProfileMessage(null);
     setProfileError(null);
+    resetPlayerCardOverlays();
     void loadPlayerDetails(selectedPlayerId);
   }, [selectedPlayerId]);
 
@@ -253,19 +274,20 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setPlayerDetails(null);
     setProfileMessage(null);
     setProfileError(null);
+    resetPlayerCardOverlays();
     void loadPlayerDetails(id);
   };
 
   const handleCloseCard = () => {
+    // Invalidate unresolved responses before allowing another profile to open.
+    detailRequestSeq.current += 1;
     setActivePlayerCardId(null);
     setPlayerDetails(null);
-    setShowPlayerMenu(false);
-    setShowEditSheet(false);
-    setShowTaskSheet(false);
-    setShowCommSheet(false);
-    setShowInviteSheet(false);
-    setShowMergeSheet(false);
-    setShowMusicSheet(false);
+    setLoadingDetails(false);
+    setDetailError(null);
+    setProfileMessage(null);
+    setProfileError(null);
+    resetPlayerCardOverlays();
     onClosePlayerCard?.();
   };
 
@@ -601,16 +623,22 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             {profileError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div> : null}
             {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
 
-            {bookingEvening && booking ? (
-              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">
-                Следующий вечер: <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="font-semibold text-text-primary underline decoration-border-soft underline-offset-2">{bookingEvening.title}</button> · {fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}
-              </p>
-            ) : nextTask ? (
-              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">Ближайшая задача: <strong className="text-text-primary">{nextTask.title}</strong> · {nextTask.due_at ? `срок ${fmtDate(nextTask.due_at, true)}` : 'без срока'}</p>
+            {(bookingEvening && booking) || nextTask ? (
+              <div data-testid="crm-player-next" className="space-y-1.5 px-0.5 text-[13px] leading-5 text-text-secondary">
+                {bookingEvening && booking ? (
+                  <p>
+                    Следующий вечер: <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="font-semibold text-text-primary underline decoration-border-soft underline-offset-2">{bookingEvening.title}</button> · {fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}
+                  </p>
+                ) : null}
+                {nextTask ? (
+                  <p>Ближайшая задача: <strong className="text-text-primary">{nextTask.title}</strong> · {nextTask.due_at ? `срок ${fmtDate(nextTask.due_at, true)}` : 'без срока'}</p>
+                ) : null}
+              </div>
             ) : null}
 
             <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">
               {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
+              {playerDetails.vk_user_id ? <a data-testid="crm-player-vk" href={`https://vk.com/im?sel=${playerDetails.vk_user_id}`} target="_blank" rel="noreferrer" className="col-span-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4" /> Написать во ВКонтакте от себя</a> : null}
               <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4 shrink-0" /> Создать задачу</button>
               <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4 shrink-0" /> Записать общение</button>
               <button type="button" data-testid="crm-player-tokens" onClick={() => setShowTokensSheet(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Coins className="h-4 w-4 shrink-0" /> Жетоны</button>
@@ -656,7 +684,21 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">
               <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><History className="h-4 w-4 text-accent" /> История <span className="ml-auto text-[11px] font-medium text-text-muted">{unifiedTimeline.length}</span><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
               <div className="overflow-hidden border-t border-border-soft">
-                {unifiedTimeline.slice(0, 10).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
+                {unifiedTimeline.slice(0, historyVisibleCount).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
+                {unifiedTimeline.length > HISTORY_PAGE_SIZE ? (
+                  <div className="space-y-2 border-t border-border-soft p-3 text-center">
+                    <p className="text-[11px] text-text-muted">Показано {Math.min(historyVisibleCount, unifiedTimeline.length)} из {unifiedTimeline.length}</p>
+                    {historyVisibleCount < unifiedTimeline.length ? (
+                      <button type="button" onClick={() => setHistoryVisibleCount((count) => count + HISTORY_PAGE_SIZE)} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] font-semibold text-text-primary">
+                        Показать ещё {Math.min(HISTORY_PAGE_SIZE, unifiedTimeline.length - historyVisibleCount)}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setHistoryVisibleCount(HISTORY_PAGE_SIZE)} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] font-semibold text-text-primary">
+                        Свернуть до последних {HISTORY_PAGE_SIZE}
+                      </button>
+                    )}
+                  </div>
+                ) : null}
                 {unifiedTimeline.length === 0 ? <div className="py-8 text-center text-[12px] text-text-muted">История пока пустая</div> : null}
               </div>
             </details>
@@ -756,7 +798,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" subtitle="Точные сегменты сохранены, но не занимают основной экран." widthClass="sm:max-w-md">
         <div className="space-y-4">
           <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
-          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
+          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Первый визит</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
           <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, itemLabel]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{itemLabel}</button>)}</div></div>
           <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить фильтры</button>
         </div>

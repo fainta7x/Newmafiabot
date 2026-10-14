@@ -115,3 +115,35 @@ export const castEveningVote = async (db: any, eveningId: string, voterId: strin
   `, [eveningId, voterId, EVENING_VOTE_CATEGORY, chosen.player_id, now, now]);
   return { ok: true, nominee: { player_id: chosen.player_id, nickname: chosen.nickname }, updatedAt: now, deadlineMs: context.deadlineMs };
 };
+
+export type PendingVote = { evening_id: string; title: string; deadline: string; voted: boolean; my_vote_nickname: string | null; voters: number; attendees: number };
+
+/**
+ * What the app shows on the player's home page (owner, 2026-10-13: the vote was hidden deep in «Клуб → Матчи»):
+ * the latest closed evening the player attended whose voting is still open, with whether they already voted.
+ */
+export const loadPendingVoteForPlayer = async (db: any, playerId: string): Promise<PendingVote | null> => {
+  await ensureEveningVoteSchema(db);
+  const rows = await db.all(`
+    SELECT e.id, e.title, e.starts_at, e.settled_at, e.updated_at
+      FROM game_evenings e
+      JOIN evening_participants ep ON ep.evening_id = e.id AND ep.player_id = ? AND ep.attendance_status = 'attended'
+     WHERE e.status = 'completed' OR e.settled_at IS NOT NULL
+     ORDER BY datetime(COALESCE(e.settled_at, e.updated_at, e.starts_at)) DESC
+     LIMIT 3
+  `, [playerId]);
+  for (const evening of rows) {
+    const base = new Date(String(evening.settled_at || evening.updated_at || evening.starts_at || '')).getTime();
+    const deadlineMs = Number.isFinite(base) ? base + EVENING_VOTING_WINDOW_MS : 0;
+    if (deadlineMs <= Date.now()) continue;
+    const attendees = Number((await db.get("SELECT COUNT(*) AS n FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [evening.id]))?.n || 0);
+    if (attendees < 2) continue;
+    const mine = await db.get(`
+      SELECT p.nickname FROM evening_player_votes v JOIN players p ON p.id = v.nominee_player_id
+       WHERE v.evening_id = ? AND v.voter_player_id = ? AND v.category = ? LIMIT 1
+    `, [evening.id, playerId, EVENING_VOTE_CATEGORY]);
+    const voters = Number((await db.get('SELECT COUNT(*) AS n FROM evening_player_votes WHERE evening_id = ? AND category = ?', [evening.id, EVENING_VOTE_CATEGORY]))?.n || 0);
+    return { evening_id: String(evening.id), title: String(evening.title || 'Игровой вечер'), deadline: new Date(deadlineMs).toISOString(), voted: Boolean(mine), my_vote_nickname: mine ? String(mine.nickname || '') : null, voters, attendees };
+  }
+  return null;
+};

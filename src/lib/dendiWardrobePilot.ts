@@ -17,7 +17,7 @@ export type WardrobePilotCharacter={id:string;name:string;baseUrl:string;sourceU
 export const PREPARED_HEADS:Record<string,PreparedHead>={
  dendi:{eyes:[{x:206,y:228},{x:306,y:228}],chin:{x:256,y:389},neck:[{x:200,y:480},{x:320,y:480}],hair:'long'},
  java:{eyes:[{x:205,y:263},{x:325,y:263}],chin:{x:265,y:435},neck:[{x:195,y:515},{x:330,y:515}],hair:'bob'},
- fandorin:{eyes:[{x:205,y:249},{x:304,y:249}],chin:{x:256,y:434},neck:[{x:180,y:516},{x:338,y:516}],hair:'short'},
+ fandorin:{eyes:[{x:205,y:249},{x:304,y:249}],chin:{x:254,y:418},neck:[{x:180,y:516},{x:338,y:516}],hair:'short',jaw:[{x:157,y:356},{x:173,y:385},{x:206,y:411},{x:254,y:418},{x:307,y:411},{x:341,y:380},{x:357,y:348}]},
 };
 /** Shared bust artwork; profiles are fitting examples, not real body measurements. */
 export const WARDROBE_PILOT_CHARACTERS:WardrobePilotCharacter[]=[

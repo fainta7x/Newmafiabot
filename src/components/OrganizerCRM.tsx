@@ -12,7 +12,6 @@ import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
 import OrganizerAgenda from './crm/OrganizerAgenda.tsx';
 import CuratorTasksPanel from './crm/CuratorTasksPanel.tsx';
-import { navigateEveningSection } from './crm/CRMOverview.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
 import {
@@ -61,6 +60,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [playerReturnContext, setPlayerReturnContext] = useState<OrganizerPlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
   const eveningListScrollRef = useRef(0);
+  // Preserve the location of a selected tool in the long «Ещё» menu.
+  const moreMenuScrollRef = useRef(0);
+  const restoreMoreMenuRef = useRef(false);
+  const previousRouteRef = useRef(parseOrganizerRoute(routePathname));
+
+  const rememberMoreMenuScroll = () => {
+    moreMenuScrollRef.current = typeof window !== 'undefined' ? window.scrollY : 0;
+    restoreMoreMenuRef.current = true;
+  };
 
   const [passwordInput, setPasswordInput] = useState('');
   const [currentTheme, setCurrentTheme] = useState<ThemeId>('noir-cherry');
@@ -106,11 +114,23 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   useEffect(() => {
     const route = parseOrganizerRoute(routePathname);
+    const previousRoute = previousRouteRef.current;
     setActiveTab(route.tab);
     setActiveEveningId(route.eveningId);
     setActiveEveningSection(route.eveningSection);
     setActivePlayerId(route.playerId);
     setActiveMoreScreen(route.moreScreen);
+
+    // Both the in-app Back button and browser Back re-enter the same menu route.
+    if (restoreMoreMenuRef.current && route.tab === 'more' && !route.moreScreen
+      && ((previousRoute.tab === 'more' && previousRoute.moreScreen !== null)
+        || previousRoute.tab === 'tasks' || previousRoute.tab === 'analytics')) {
+      restoreMoreMenuRef.current = false;
+      moveWindowScroll(moreMenuScrollRef.current);
+    } else if (!['more', 'tasks', 'analytics'].includes(route.tab)) {
+      restoreMoreMenuRef.current = false;
+    }
+    previousRouteRef.current = route;
   }, [routePathname]);
 
   useEffect(() => {
@@ -238,6 +258,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   // «Дела» shows the grouped list; «Свои задачи и выполненные» opens the old task list.
   const [showTaskList, setShowTaskList] = useState(false);
   const openSecondaryTab = (tab: 'tasks' | 'analytics') => {
+    if (activeTab === 'more' && activeMoreScreen === null) rememberMoreMenuScroll();
     setShowTaskList(false);
     setActivePlayerId(null);
     setPlayerReturnContext(null);
@@ -430,7 +451,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             {activeTab === 'tasks' ? (showTaskList ? <div className="space-y-3">
               <button type="button" onClick={() => setShowTaskList(false)} className="min-h-10 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-secondary">← Ко всем делам</button>
               <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
-            </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={navigateEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
+            </div> : <div className="space-y-3"><OrganizerAgenda mode="full" onOpenEveningSection={handleOpenEveningSection} onOpenPlayer={handleOpenPlayer} onCreateEvening={openCreateEvening} onOpenTaskList={() => setShowTaskList(true)} /><CuratorTasksPanel /></div>) : null}
             {activeTab === 'analytics' ? <AnalyticsCRM /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
@@ -444,9 +465,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onOpenPlayer={handleOpenPlayer}
                 activeScreen={activeMoreScreen}
                 onScreenChange={(screen) => {
+                  if (screen && activeMoreScreen === null) rememberMoreMenuScroll();
                   setActiveMoreScreen(screen);
                   navigateAdmin(organizerMorePath(screen), screen === null);
-                  moveWindowScroll(0);
+                  if (screen) moveWindowScroll(0);
                 }}
               />
             ) : null}
@@ -497,6 +519,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               {loginError ? <p className="text-center text-[12px] font-semibold text-danger">{loginError}</p> : null}
               <button type="submit" className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white">Войти</button>
             </form>
+            <p className="text-center text-[12px] text-text-secondary"><a href="/offer" className="underline underline-offset-2">Условия оплаты и контакты</a></p>
           </div>
         </div>
       ) : null}

@@ -21,6 +21,7 @@ type VkState = {
 
 type VkDraft = {
   message: string;
+  photo_url?: string | null;
   join_url: string;
   channel_url: string | null;
 };
@@ -87,9 +88,10 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       await load(true);
       const unconfirmed = Array.isArray(result?.results)
         && result.results.some((item: any) => item.reason === 'publication_requires_reconciliation' && item.destination !== confirmMissing);
+      const photoProblem = Array.isArray(result?.results) ? result.results.find((item: any) => item.photo_problem)?.photo_problem : null;
       setMessage(unconfirmed
         ? 'VK не подтвердил прошлую публикацию. Загляни в паблик, прежде чем публиковать снова.'
-        : 'Пост в паблике опубликован.');
+        : photoProblem ? `Пост в паблике опубликован, но без фото: ${photoProblem}.` : 'Пост в паблике опубликован.');
     } catch (err: any) {
       setError(err?.message || 'Не удалось опубликовать в VK');
     } finally { setBusy(null); }
@@ -147,6 +149,8 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[11px] leading-4 text-danger">{error}</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] leading-4 text-success">{message}</div> : null}
+
+      {draft?.photo_url ? <div className="mt-3 flex items-center gap-3 rounded-xl border border-border-soft bg-surface-1 p-2.5" data-testid="vk-post-photo"><img src={draft.photo_url} alt="Фото к посту" className="h-16 w-16 shrink-0 rounded-lg object-cover" /><div className="min-w-0 flex-1 text-[11px] leading-4 text-text-secondary">Фото, которое выйдет с постом. Для канала ВК скопируйте текст и сохраните это фото — канал публикуется вручную.</div><a href={draft.photo_url} download target="_blank" rel="noreferrer" className="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-surface-2 px-3 text-[11px] font-bold text-accent">Скачать</a></div> : draft && !draft.photo_url ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[11px] leading-4 text-warning" data-testid="vk-post-no-photo">Фото для поста нет: добавьте фото в «Ещё → Публикации и каналы → Фото для анонсов», и пост выйдет с картинкой.</div> : null}
 
       {draft && showDraft ? <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="mt-3 w-full resize-none rounded-lg border border-border-soft bg-surface-1 p-2 text-[11px] leading-4 text-text-primary" aria-label="Текст анонса" /> : null}
 

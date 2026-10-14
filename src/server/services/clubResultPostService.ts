@@ -6,8 +6,13 @@ import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from 
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
-import { queueEveningVoteMessages } from './eveningVoteMessageService.ts';
+import { queueEveningVoteMessages, voteCallbackData } from './eveningVoteMessageService.ts';
+import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { mvpDecisionCallbackData, mvpReasonText, resolveEveningMvp } from './eveningMvpService.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
+import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
@@ -52,7 +57,7 @@ export const clubResultDestination = (format: unknown) => {
 };
 
 /** One picture, or an album (the evening summary with the season table) in one message. */
-async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png') {
+async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[], caption: string, fetchImpl: typeof fetch, destinationId = clubResultDestination(format), mime = 'image/png', replyMarkup?: unknown) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>(
@@ -72,6 +77,7 @@ async function sendPhotos(db: DatabaseWrapper, format: unknown, photos: Buffer[]
     photos.forEach((photo, index) => form.set(`p${index}`, new Blob([new Uint8Array(photo)], { type: mime }), `result-${index}.png`));
   } else {
     form.set('caption', caption);
+    if (replyMarkup) form.set('reply_markup', JSON.stringify(replyMarkup));
     form.set('photo', new Blob([new Uint8Array(photos[0])], { type: mime }), mime === 'image/png' ? 'result.png' : 'photo.jpg');
   }
   try {
@@ -216,6 +222,31 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     if (new Date(String(evening.starts_at)).getTime() >= new Date(publicSince).getTime()
       && await postPublicEveningSummary(db, String(evening.id), fetchImpl)) posted += 1;
     await queueEveningPlayerCards(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] personal cards failed:', error));
+  }
+
+  // «MVP вечера»: a post of its own once the results are out, and one reminder for those who have not voted a day later.
+  const voting = await db.all<any>(`
+    SELECT e.id, COALESCE(e.settled_at, e.updated_at) AS closed_at FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  for (const evening of voting) {
+    if (await postVotePrompt(db, String(evening.id), fetchImpl)) posted += 1;
+    const closedAt = new Date(String(evening.closed_at)).getTime();
+    if (Number.isFinite(closedAt) && now - closedAt >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
+  }
+
+  // The result of the vote, when its window is over (and for a few days after: a missed run is caught up, a tie waits for the owner).
+  const voted = await db.all<any>(`
+    SELECT e.id FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) <= datetime(?)
+       AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  for (const evening of voted) {
+    if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
   }
 
   // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
@@ -383,6 +414,178 @@ export async function queueEveningPlayerCards(db: DatabaseWrapper, eveningId: st
   return queued;
 }
 
+const moscowDayTime = (ms: number) => new Date(ms).toLocaleString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+
+/** When voting for a closed evening ends (the same three days the app and the bot use). */
+const votingDeadlineMs = (evening: any) => {
+  const base = new Date(String(evening.settled_at || evening.updated_at || evening.starts_at || '')).getTime();
+  return Number.isFinite(base) ? base + EVENING_VOTING_WINDOW_MS : 0;
+};
+
+/**
+ * «MVP вечера» was hidden (owner, 2026-10-13: people did not vote): a post of its own in the evening's Telegram group and
+ * on the VK wall once the results are out, naming the deadline and where to vote. Each channel is claimed separately.
+ */
+export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const evening = await db.get<any>('SELECT id, title, format, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed') return false;
+  const attendees = Number((await db.get<any>("SELECT COUNT(*) AS n FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'", [eveningId]))?.n || 0);
+  const deadline = votingDeadlineMs(evening);
+  if (attendees < 2 || deadline <= Date.now()) return false;
+  const title = String(evening.title || 'Игровой вечер');
+  const base = appUrl('/player');
+  // The candidates are buttons right under the post (owner, 2026-10-13: «кнопки в боте» led nowhere): a tap is the vote.
+  const nominees = await db.all<any>(`
+    SELECT p.id, p.nickname FROM evening_participants ep JOIN players p ON p.id = ep.player_id
+     WHERE ep.evening_id = ? AND ep.attendance_status = 'attended' ORDER BY p.nickname COLLATE NOCASE ASC
+  `, [eveningId]);
+  const voteButtons = nominees.flatMap((nominee: any) => {
+    const data = voteCallbackData(eveningId, String(nominee.id));
+    const name = String(nominee.nickname || '').trim() || 'Игрок';
+    return data ? [{ text: name.length > 24 ? `${name.slice(0, 23)}…` : name, callback_data: data }] : [];
+  });
+  const voteRows: Array<typeof voteButtons> = [];
+  for (let index = 0; index < voteButtons.length; index += 2) voteRows.push(voteButtons.slice(index, index + 2));
+  const telegramText = [
+    `🏆 MVP вечера «${title}» — голосуем!`,
+    'Кто сыграл лучше всех? Нажми на игрока под этим постом — это твой голос. Голосовать могут те, кто был за столом; за себя нельзя. Передумал — нажми на другого, голос заменится.',
+    `⏳ Голосование до ${moscowDayTime(deadline)}.`,
+  ].join('\n');
+  const vkText = [
+    `🏆 MVP вечера «${title}» — голосуем!`,
+    'Кто сыграл лучше всех? Голосовать могут те, кто был за столом: откройте приложение клуба — на главной карточка «MVP вечера», это 10 секунд.',
+    base ? `👉 ${base}` : '',
+    `⏳ Голосование до ${moscowDayTime(deadline)}.`,
+  ].filter(Boolean).join('\n');
+  let posted = false;
+  // The card with the photo of every candidate (owner, 2026-10-14: the polls were only text); without it the text post still goes out.
+  const card = await buildMvpVoteCard(db, eveningId);
+  const voteMarkup = voteRows.length ? { inline_keyboard: voteRows } : undefined;
+  const telegramKey = `vote-prompt:${eveningId}`;
+  if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
+    let result = card ? await sendPhotos(db, evening.format, [card], telegramText, fetchImpl, undefined, 'image/png', voteMarkup) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
+    // A refused photo falls back to text; a temporary failure is retried by the claim, so the post is not duplicated.
+    if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), telegramText, fetchImpl, undefined, voteMarkup);
+    await finish(db, telegramKey, result);
+    posted = posted || result.ok;
+  }
+  const vkKey = `vote-prompt-vk:${eveningId}`;
+  if (await claim(db, vkKey, 'vote-prompt', eveningId, null)) {
+    const result = await sendVk(vkText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    posted = posted || result.status === 'published';
+  }
+  return posted;
+}
+
+const votesWord = (count: number) => {
+  const mod10 = count % 10; const mod100 = count % 100;
+  return mod10 === 1 && mod100 !== 11 ? 'голос' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'голоса' : 'голосов';
+};
+
+/**
+ * The result of the «MVP вечера» vote (owner, 2026-10-14: «нигде не выложился итог»). Once the voting window is over, one
+ * winner is announced in the group, on the VK wall and personally to everyone who was at the evening. A tie that neither the
+ * wins nor the Дон/Шериф wins separate goes to the owner as a question with a button per player; the result follows his answer.
+ * Nothing is posted for an evening nobody voted on.
+ */
+export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const evening = await db.get<any>('SELECT id, title, format, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed') return false;
+  const deadline = votingDeadlineMs(evening);
+  if (!deadline || deadline > Date.now()) return false;
+  const resolution = await resolveEveningMvp(db, eveningId);
+  if (resolution.status === 'none') return false;
+  const title = String(evening.title || 'Игровой вечер');
+
+  if (resolution.status === 'tie') {
+    const askKey = `mvp-ask:${eveningId}`;
+    if (!(await claim(db, askKey, 'mvp-ask', eveningId, null))) return false;
+    try {
+      const rows = resolution.candidates.flatMap((candidate) => {
+        const data = mvpDecisionCallbackData(eveningId, candidate.player_id);
+        return data ? [[{ text: `${candidate.nickname} · ${candidate.votes} ${votesWord(candidate.votes)}, побед ${candidate.wins}`.slice(0, 60), callback_data: data }]] : [];
+      });
+      const result = await queuePersonalNotification(db, {
+        notificationKey: askKey,
+        playerId: PRIMARY_ORGANIZER_PLAYER_ID,
+        eventType: 'evening_mvp_decision',
+        entityId: eveningId,
+        text: `🏆 «${title}»: MVP вечера не определился — голоса разделились поровну (по ${resolution.candidates[0].votes}), и победы тоже. Кого объявить MVP? Нажми на игрока.`,
+        telegramReplyMarkup: rows.length ? { inline_keyboard: rows } : null,
+      });
+      await finish(db, askKey, { ok: true });
+      return Boolean(result.created);
+    } catch (error: any) {
+      await finish(db, askKey, { ok: false, temporary: true, error: error?.message || String(error) });
+      return false;
+    }
+  }
+
+  const winner = resolution.winner;
+  const reason = mvpReasonText(resolution);
+  const headline = `🏆 MVP вечера «${title}» — ${winner.nickname}!`;
+  const body = [`Голосов: ${winner.votes} из ${resolution.total_votes}.`, reason, 'Поздравляем! 🖤'].filter(Boolean).join('\n');
+  const groupText = `${headline}\n${body}`;
+  let posted = false;
+
+  // The card with the winner's photo and the others who got votes; without it the text post still goes out.
+  const card = await buildMvpResultCard(db, eveningId, winner, resolution.total_votes, reason);
+
+  const telegramKey = `mvp-result:${eveningId}`;
+  if (await claim(db, telegramKey, 'mvp-result', eveningId, null)) {
+    let result = card ? await sendPhotos(db, evening.format, [card], groupText, fetchImpl) : { ok: false, temporary: false, error: 'no card' } as { ok: boolean; temporary?: boolean; error?: string };
+    if (!result.ok && !result.temporary) result = await sendText(db, clubResultDestination(evening.format), groupText, fetchImpl);
+    await finish(db, telegramKey, result);
+    posted = posted || result.ok;
+  }
+  const vkKey = `mvp-result-vk:${eveningId}`;
+  if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
+    const result = await sendVk(groupText, { db, eveningId, format: evening.format, ...(card ? { image: { bytes: card, mime: 'image/png' } } : {}) });
+    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    posted = posted || result.status === 'published';
+  }
+  const dmKey = `mvp-result-dm:${eveningId}`;
+  if (await claim(db, dmKey, 'mvp-result', eveningId, null)) {
+    try {
+      const attendees = await db.all<any>(
+        "SELECT DISTINCT player_id FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended' AND player_id IS NOT NULL",
+        [eveningId],
+      );
+      for (const attendee of attendees) {
+        const playerId = String(attendee.player_id);
+        const text = playerId === winner.player_id
+          ? `🏆 Ты — MVP вечера «${title}»! Голосов: ${winner.votes} из ${resolution.total_votes}. Поздравляем! 🖤`
+          : groupText;
+        await queuePersonalNotification(db, {
+          notificationKey: `mvp-result:${eveningId}:${playerId}`,
+          playerId, eventType: 'evening_mvp_result', entityId: eveningId, text, actionPath: '/player', telegramPhotoPng: card,
+        }).catch((error) => console.warn('[MVP RESULT] personal message failed:', error instanceof Error ? error.message : String(error)));
+      }
+      await finish(db, dmKey, { ok: true });
+    } catch (error: any) {
+      await finish(db, dmKey, { ok: false, temporary: true, error: error?.message || String(error) });
+    }
+  }
+  return posted;
+}
+
+/** One reminder, a day after the evening was closed, to attendees who have not voted yet. */
+export async function remindUnvotedPlayers(db: DatabaseWrapper, eveningId: string) {
+  const key = `vote-nudge:${eveningId}`;
+  const evening = await db.get<any>('SELECT id, title, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed' || votingDeadlineMs(evening) <= Date.now()) return 0;
+  if (!(await claim(db, key, 'vote-nudge', eveningId, null))) return 0;
+  try {
+    const queued = await queueEveningVoteMessages(db, eveningId, String(evening.title || 'Игровой вечер'), { nudge: true });
+    await finish(db, key, { ok: true });
+    return queued;
+  } catch (error: any) {
+    await finish(db, key, { ok: false, temporary: true, error: error?.message || String(error) });
+    return 0;
+  }
+}
+
 /** 36 hours before the start (owner, 2026-10-02) the tournament announcement goes to the rating group. */
 export const TOURNAMENT_ANNOUNCE_HOURS = 36;
 
@@ -448,7 +651,7 @@ export async function postTournamentGameBlank(db: DatabaseWrapper, tournamentGam
 }
 
 /** A plain text message to a Telegram destination (the rating group, the entry channel), with the same error contract as `sendPhotos`. */
-export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML') {
+export async function sendText(db: DatabaseWrapper, destinationId: string, text: string, fetchImpl: typeof fetch, parseMode?: 'HTML', replyMarkup?: unknown) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   if (!token) return { ok: false, temporary: true, error: 'Telegram-бот не настроен' };
   const destination = await db.get<any>('SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id = ? LIMIT 1', [destinationId]).catch(() => null);
@@ -459,6 +662,7 @@ export async function sendText(db: DatabaseWrapper, destinationId: string, text:
   if (parseMode && text.length > 4000) return { ok: false, temporary: false, error: 'Сообщение слишком длинное для Telegram' };
   const body: Record<string, unknown> = { chat_id: String(destination.chat_id), text: parseMode ? text : text.slice(0, 4000), disable_web_page_preview: true, ...(parseMode ? { parse_mode: parseMode } : {}) };
   if (destination.topic_id) body.message_thread_id = Number(destination.topic_id);
+  if (replyMarkup) body.reply_markup = replyMarkup;
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const payload: any = await response.json().catch(() => null);

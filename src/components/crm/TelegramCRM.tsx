@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnnouncementPhotosCard } from './AnnouncementPhotosCard.tsx';
+import { PostTemplatesCard } from './PostTemplatesCard.tsx';
 import { ClubDigestCard } from './ClubDigestCard.tsx';
 import { CheckCircle2, RefreshCw, Send, TestTube2 } from 'lucide-react';
 
@@ -201,6 +202,8 @@ export const TelegramCRM: React.FC = () => {
 
       {tab === 'publish' ? <div className="space-y-4">
       <AnnouncementPhotosCard />
+
+      <PostTemplatesCard />
 
       <ClubDigestCard />
 

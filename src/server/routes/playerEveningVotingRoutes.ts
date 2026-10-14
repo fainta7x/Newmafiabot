@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
-import { EVENING_VOTE_CATEGORY, castEveningVote, ensureEveningVoteSchema as ensureSchema, loadVotingContext } from '../services/eveningVotingService.ts';
+import { EVENING_VOTE_CATEGORY, castEveningVote, ensureEveningVoteSchema as ensureSchema, loadPendingVoteForPlayer, loadVotingContext } from '../services/eveningVotingService.ts';
 
 export { EVENING_VOTE_CATEGORY };
 
@@ -61,6 +61,17 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить голосование вечера' });
+  }
+});
+
+// The home page card «MVP вечера»: the voting that is open for this player right now, or nothing.
+router.get('/voting/pending', async (req, res) => {
+  const viewerId = requirePlayerId(req, res);
+  if (!viewerId) return;
+  try {
+    return res.json({ pending: await loadPendingVoteForPlayer(req.db, viewerId) });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить голосование' });
   }
 });
 

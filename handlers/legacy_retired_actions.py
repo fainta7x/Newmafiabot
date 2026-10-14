@@ -157,27 +157,19 @@ def _is_admin(user_id: int) -> bool:
 
 
 async def _send_player_app(message: Message) -> None:
-    keyboard = bot_menu.app_inline_keyboard()
-    if keyboard:
-        await message.answer(
-            "Эта старая кнопка больше не меняет клубные данные через legacy-бота. "
-            "Открой актуальный 2LA Noire — запись, профиль, рейтинг, кошелёк и магазин находятся там.",
-            reply_markup=keyboard,
-        )
-    else:
-        await message.answer("Эта старая функция отключена. Открой 2LA Noire из актуального главного меню.")
+    # The reply also swaps the phone's old big keyboard for the short one.
+    await message.answer(
+        "Эта кнопка устарела 🙂 Запись, профиль, рейтинг, жетоны и магазин теперь в приложении — "
+        "жми «🎭 Открыть 2LA Noire» внизу. Остальное — в «📋 Меню».",
+        reply_markup=bot_menu.main_menu_for_user(),
+    )
 
 
 async def _send_admin_crm(message: Message) -> None:
-    keyboard = bot_menu.app_inline_keyboard("/admin", text="🗂 Открыть кабинет организатора")
-    if keyboard:
-        await message.answer(
-            "Эта старая админ-функция больше не пишет в legacy-базу. "
-            "Используй кабинет организатора.",
-            reply_markup=keyboard,
-        )
-    else:
-        await message.answer("Эта старая админ-функция отключена. Используй /crm.")
+    await message.answer(
+        "Эта кнопка устарела. Кабинет организатора — в «📋 Меню» → «🛠 Организатору» или по команде /crm.",
+        reply_markup=bot_menu.main_menu_for_user(),
+    )
 
 
 @router.message(F.text.in_(_PLAYER_LEGACY_TEXTS), F.chat.type == "private")
@@ -194,7 +186,7 @@ async def retire_legacy_admin_menu(message: Message):
 
 @router.callback_query(F.data.startswith(_PLAYER_LEGACY_CALLBACK_PREFIXES))
 async def retire_legacy_player_callback(callback: CallbackQuery):
-    await callback.answer("Эта старая кнопка отключена. Открой актуальное приложение.", show_alert=True)
+    await callback.answer("Эта кнопка устарела. Открой приложение — там всё это есть.", show_alert=True)
     if callback.message:
         await _send_player_app(callback.message)
 
@@ -202,8 +194,8 @@ async def retire_legacy_player_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(_ADMIN_LEGACY_CALLBACK_PREFIXES))
 async def retire_legacy_admin_callback(callback: CallbackQuery):
     if not callback.from_user or not _is_admin(callback.from_user.id):
-        await callback.answer("Эта старая кнопка больше не используется.", show_alert=True)
+        await callback.answer("Эта кнопка устарела.", show_alert=True)
         return
-    await callback.answer("Старая функция отключена. Открой кабинет организатора.", show_alert=True)
+    await callback.answer("Эта кнопка устарела. Кабинет организатора — в «Меню».", show_alert=True)
     if callback.message:
         await _send_admin_crm(callback.message)

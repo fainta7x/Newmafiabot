@@ -1,3 +1,4 @@
+import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { escapeTelegramHtml } from './personalNotificationText.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -5,7 +6,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { canEditVkWallPosts, createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
-import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk, uploadVkWallPhotoBytes } from './announcementPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
@@ -76,6 +77,14 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     }
   }
   const coming = participants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item)));
+  // Guests without a profile (leads) come too; «+N» are the people they bring.
+  await ensureGuestPlayerPlaceholderSchema(db);
+  const guests = await db.all<any>(
+    "SELECT id, display_name AS nickname, response_status FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late') ORDER BY created_at",
+    [eveningId],
+  );
+  const guestLines = guests.map((guest: any) => `${String(guest.nickname || 'Гость')}${guest.response_status === 'late' ? ' (подойдёт позже)' : ''}`);
+  const comingTotal = coming.length + guests.length;
   const roster = coming.map((item: any, index: number) => {
     const from = firstGame.get(String(item.player_id));
     const note = getEveningResponse(item) === 'late' ? ' (подойдёт позже)' : from && chosen && from > chosen.slot_number ? ` (с ${from}-й игры)` : '';
@@ -90,7 +99,8 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     [eveningId],
   );
   if (judge?.nickname) lines.push(`🎙 Ведущий вечера: ${judge.nickname}`);
-  lines.push('', `👥 Состав (${coming.length}):`, ...(roster.length ? roster : ['Пока пусто — стань первым!']));
+  const fullRoster = [...roster, ...guestLines.map((line, index) => `${roster.length + index + 1}. ${line}`)];
+  lines.push('', `👥 Состав (${comingTotal}):`, ...(fullRoster.length ? fullRoster : ['Пока пусто — стань первым!']));
   if (slots.length) {
     lines.push('', `🎲 Игры: ${slots.map((slot: any) => slot.registered_count >= perSlot ? `${slot.slot_number}-я ✓` : `${slot.slot_number}-я ${slot.registered_count}/${perSlot}`).join(' · ')}`);
     const short = slots.find((slot: any) => slot.registered_count < perSlot && (!chosen || slot.slot_number >= chosen.slot_number));
@@ -151,7 +161,7 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
   }
 }
 
-export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown }) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string } }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
@@ -159,8 +169,12 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
     let attachments: string[] | undefined;
     if (photo && canEditVkWallPosts()) {
       try {
-        const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
-        if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+        // A picture made for this post (the MVP cards) goes instead of the club photo.
+        if (photo.image) attachments = [await uploadVkWallPhotoBytes(photo.image.bytes, photo.image.mime, groupId)];
+        else {
+          const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
+          if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+        }
       } catch (error) {
         console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
       }

@@ -30,7 +30,12 @@ export function fitBodyPoint(point:MeshPoint, raw:BodyFit,rigged=false):MeshPoin
       break;
     }
   }
-  return {x:256+(point.x-256)*(1+amount),y:rigged?rigGarmentY(point.y):point.y};
+  // Torso shaping must not pull the sleeves into the waist. Outside the torso,
+  // retain the shoulder/arm span; the lower bound keeps every UV interval positive.
+  const armWeight=rigged&&point.y>410?Math.max(0,Math.min(1,(Math.abs(point.x-256)-144)/48)):0;
+  const armScale=Math.max(1+fit.shoulders,.78*(1+amount));
+  const scale=(1+amount)*(1-armWeight)+armScale*armWeight;
+  return {x:256+(point.x-256)*scale,y:rigged?rigGarmentY(point.y):point.y};
 }
 export function createGarmentMesh(fit:BodyFit,rigged=false):MeshTriangle[] {
   const triangles:MeshTriangle[]=[];
@@ -77,11 +82,16 @@ export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit,rigged
 }
 /** Draw into one transparent garment canvas; the portrait compositor owns layer order. */
 export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit,shirtUnderJacket=false,rigged=false){
-  ctx.clearRect(0,0,512,640);ctx.drawImage(image,0,0,512,640);
+  ctx.clearRect(0,0,512,640);
+  ctx.save();
+  if(shirtUnderJacket){
+    // Keep only the shared neckline and V-front, before UV deformation. A
+    // destination-space rectangle leaks white cloth into a fitted coat's armholes.
+    ctx.beginPath();ctx.moveTo(128,280);ctx.lineTo(384,280);ctx.lineTo(322,410);ctx.lineTo(256,580);ctx.lineTo(190,410);ctx.closePath();ctx.clip();
+  }
+  ctx.drawImage(image,0,0,512,640);ctx.restore();
   const source=ctx.getImageData(0,0,512,640),frame=ctx.createImageData(512,640);
   // A shirt collar sits inside the coat's neck opening, rather than sharing its outer seam.
   const garmentFit=shirtUnderJacket?normalizeBodyFit({...fit,neck:fit.neck-.18}):fit;
   frame.data.set(rasterizeGarmentMesh(source.data,garmentFit,rigged));ctx.putImageData(frame,0,0);
-  // This closed coat covers shirt sleeves/body; expose only the central shirt front.
-  if(shirtUnderJacket){ctx.clearRect(0,0,128,640);ctx.clearRect(384,0,128,640);}
 }

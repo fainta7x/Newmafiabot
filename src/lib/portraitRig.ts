@@ -41,7 +41,7 @@ export function resolvePortraitRig(rig:PortraitRig){
     const top=transformRigPoint({x:(rig.neck[0].x+rig.neck[1].x)/2,y:rig.neckCutY},head).y;
     const seat=transformRigPoint(rig.neck[0],head).y;
     const stretch=(rig.targetNeck[0].y-top)/(seat-top);
-    if(stretch<.65||stretch>1.7)throw new Error('portrait_neck_outside_template');
+    if(!Number.isFinite(stretch)||stretch<.6||stretch>1.7)throw new Error('portrait_neck_outside_template');
     neck=[head[0],head[1]*stretch,head[2],head[3]*stretch,head[4],top+(head[5]-top)*stretch];
   }
   const hatSeat=rig.hatSeat.map(p=>transformRigPoint(p,head)) as unknown as AnchorPair;

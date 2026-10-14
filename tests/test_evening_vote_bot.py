@@ -86,3 +86,48 @@ def test_a_broken_button_is_refused_without_calling_the_server(monkeypatch):
     callback = FakeCallback("evv:only-one-part")
     asyncio.run(responses.handle_evening_vote(callback))
     assert callback.answers == [("Некорректная кнопка", True)]
+
+
+def test_a_vote_in_a_group_post_leaves_the_shared_keyboard_alone(monkeypatch):
+    async def vote(evening_id, telegram_user_id, nominee):
+        return {"success": True, "data": {"nominee": "Гамма"}}
+
+    monkeypatch.setattr(responses, "cast_evening_vote", vote)
+    callback = FakeCallback(f"evv:{EVENING}:cccc3333")
+    callback.message.chat = types.SimpleNamespace(type="supergroup")
+    asyncio.run(responses.handle_evening_vote(callback))
+    assert callback.answers == [("✅ Твой голос: Гамма", False)]
+    assert callback.message.edited == []
+
+
+def test_owner_decision_for_a_tie_is_confirmed_and_the_buttons_go_away(monkeypatch):
+    calls = []
+
+    async def decide(evening_id, telegram_user_id, nominee):
+        calls.append((evening_id, telegram_user_id, nominee))
+        return {"success": True, "data": {"nominee": "Бета"}}
+
+    class Msg:
+        def __init__(self):
+            self.edits = []
+
+        async def edit_text(self, text, reply_markup=None):
+            self.edits.append((text, reply_markup))
+
+    monkeypatch.setattr(responses, "decide_evening_mvp", decide)
+    callback = FakeCallback(f"mvw:{EVENING}:bbbb2222")
+    callback.message = Msg()
+    asyncio.run(responses.handle_evening_mvp_decision(callback))
+    assert calls == [(EVENING, 501, "bbbb2222")]
+    assert callback.answers == [("✅ MVP вечера: Бета", False)]
+    assert callback.message.edits and callback.message.edits[0][1] is None
+
+
+def test_owner_decision_refusal_is_shown(monkeypatch):
+    async def decide(evening_id, telegram_user_id, nominee):
+        return {"success": False, "error": "forbidden"}
+
+    monkeypatch.setattr(responses, "decide_evening_mvp", decide)
+    callback = FakeCallback(f"mvw:{EVENING}:bbbb2222")
+    asyncio.run(responses.handle_evening_mvp_decision(callback))
+    assert callback.answers == [("Выбирать MVP при равенстве может только организатор клуба.", True)]

@@ -182,9 +182,12 @@ describe('CRM player history expansion', () => {
     expect(history.textContent).toContain('Показано 20 из 26');
 
     rerender(<PlayersCRM {...props} selectedPlayerId="b" />);
-    await waitFor(() => expect(history.textContent).toContain('Показано 10 из 16'));
-    expect(history.textContent).toContain('Событие 10');
-    expect(history.textContent).not.toContain('Событие 11');
+    // Switching players unmounts the old work-card body while B loads.
+    // Re-query the live element rather than reading the detached history of A.
+    await waitFor(() => expect(screen.getByTestId('crm-player-history').textContent).toContain('Показано 10 из 16'));
+    const nextHistory = screen.getByTestId('crm-player-history');
+    expect(nextHistory.textContent).toContain('Событие 10');
+    expect(nextHistory.textContent).not.toContain('Событие 11');
     expect(screen.getByRole('button', { name: 'Показать ещё 6' })).toBeDefined();
   });
 });

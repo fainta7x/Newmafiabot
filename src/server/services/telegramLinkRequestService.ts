@@ -14,6 +14,13 @@ const hash = (code: string) => crypto.createHash('sha256').update(code).digest('
 const linkError = (code: string, message: string, statusCode = 400) => Object.assign(new Error(message), { code, statusCode });
 const CODE_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 
+/** Cuts trailing slashes with a loop (a regular expression on a header-derived value can run slowly on long strings). */
+export const stripTrailingSlashes = (value: string) => {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return value.slice(0, end);
+};
+
 export async function ensureTelegramLinkRequestSchema(db: DatabaseWrapper) {
   await db.exec(`CREATE TABLE IF NOT EXISTS telegram_link_requests (
     code_hash TEXT PRIMARY KEY,
@@ -37,7 +44,7 @@ export async function createTelegramLinkRequest(db: DatabaseWrapper, input: { te
     'INSERT INTO telegram_link_requests (code_hash, telegram_user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
     [hash(code), telegramUserId, now.toISOString(), new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString()],
   );
-  return { code, url: `${input.baseUrl.replace(/\/+$/, '')}/player?${TELEGRAM_LINK_QUERY}=${encodeURIComponent(code)}`, expires_at: new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString() };
+  return { code, url: `${stripTrailingSlashes(String(input.baseUrl || '').slice(0, 300))}/player?${TELEGRAM_LINK_QUERY}=${encodeURIComponent(code)}`, expires_at: new Date(now.getTime() + TELEGRAM_LINK_REQUEST_TTL_MS).toISOString() };
 }
 
 /** The signed-in player (proven by VK ID or any other sign-in) takes the Telegram account that asked for the link. */

@@ -83,3 +83,12 @@ describe('«Подтвердить через ВК» from the bot', () => {
     await expect(requestTelegramProfileLinkByNickname(db, { telegramUserId: 555003, nickname: 'Чагин' })).rejects.toMatchObject({ code: 'nickname_linked_elsewhere' });
   });
 });
+
+describe('base URL cleanup', () => {
+  it('cuts trailing slashes without a regular expression, also on a very long run of them', async () => {
+    const { stripTrailingSlashes } = await import('../server/services/telegramLinkRequestService.ts');
+    expect(stripTrailingSlashes('https://app.example///')).toBe('https://app.example');
+    expect(stripTrailingSlashes('https://app.example')).toBe('https://app.example');
+    expect(stripTrailingSlashes('/'.repeat(100000))).toBe('');
+  });
+});

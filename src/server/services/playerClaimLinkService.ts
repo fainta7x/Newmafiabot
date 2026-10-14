@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { stripTrailingSlashes } from './telegramLinkRequestService.ts';
 import { attachExternalIdentity, type OrganizerOnboardingPlatform } from './playerOnboardingOrganizerService.ts';
 
 /**
@@ -66,7 +67,7 @@ export async function createPlayerClaimLink(db: DatabaseWrapper, input: { player
     nickname: String(player.nickname),
     expires_at: expiresAt,
     telegram_url: bot ? `https://t.me/${bot}?start=${CLAIM_START_PREFIX}${code}` : null,
-    web_url: `${input.baseUrl.replace(/\/+$/, '')}/player?claim=${encodeURIComponent(code)}`,
+    web_url: `${stripTrailingSlashes(String(input.baseUrl || '').slice(0, 300))}/player?claim=${encodeURIComponent(code)}`,
   };
 }
 

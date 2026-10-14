@@ -68,7 +68,7 @@ function FormPlayerCard({ row, isSelf, ownContext = false }: { row: PowerEntry; 
       <span className="min-w-0 flex-1">
         <span className="block line-clamp-2 break-words text-[13px] font-semibold leading-4 text-white/90">{row.nickname}{isSelf ? ' · я' : ''}</span>
         <span className="mt-1 block text-[11px] leading-4 text-white/50">
-          {row.wins} из {row.games} побед · {row.win_rate}%
+          Побед: {row.wins} из {row.games} игр · {row.win_rate}%
           {row.streak >= 2 ? ' · серия ' + row.streak : ''}
         </span>
       </span>

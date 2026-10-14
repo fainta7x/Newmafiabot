@@ -126,7 +126,7 @@ Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` 
 - Private self/owner API: `src/server/routes/cosmeticsRoutes.ts`, mounted at `/api/player/cosmetics`.
 - Catalog, grants, ownership, equipment, duplicate XP and audit: `src/server/services/cosmeticsService.ts`.
 - Controlled renderer assets: `src/lib/cosmeticAssets.ts`, `public/cosmetics/`; spec: `docs/COSMETICS_COMPENDIUM.md`.
-- Owner-only fit check inside the own editor: `CosmeticsLab.tsx`, `src/lib/dendiWardrobePilot.ts`, `public/character-editor/dendi-v2/`; one silhouette, draft art. Universal body/mesh proposals: `COSMETIC_WARDROBE_ARCHITECTURE.md` §10–12.
+- Owner-only fit check inside the own editor: `CosmeticsLab.tsx`, `src/lib/dendiWardrobePilot.ts`, `public/character-editor/dendi-v2/`; three-character UV fitting via `portraitMesh.ts`/`MeshGarment.tsx`, draft art. Contracts and limits: `COSMETIC_WARDROBE_ARCHITECTURE.md` §10–12.
 - Role wardrobe: `src/lib/roleLooks.ts`, `src/server/services/roleLooksService.ts`, `src/components/player/PlayerRoleLooksEditor.tsx`, `RolePortrait.tsx`; actual role selection in `LiveBroadcastOverlay.tsx` and snapshot attachment in `liveBroadcastRoutes.ts`.
 - Focused tests: `src/tests/cosmeticsFoundation.test.ts`, `roleLooks.test.ts`, `PlayerRoleLooksEditor.test.tsx`; mobile evidence: `e2e/tests/cosmetics-preview.spec.mjs`. Chest/payment implementation remains absent.
 

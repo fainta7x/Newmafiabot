@@ -6,6 +6,7 @@ import RolePortrait from './RolePortrait.tsx';
 import WardrobeSetGallery, { tryOnOwnedSet } from './WardrobeSetGallery.tsx';
 import CosmeticSetStudio from './CosmeticSetStudio.tsx';
 import './roleLooks.css';
+import type { PortraitFit } from '../../lib/portraitMesh.ts';
 
 const CosmeticsLab = lazy(()=>import('./CosmeticsLab.tsx'));
 
@@ -15,7 +16,7 @@ const errorText = (error: unknown) => {
   return ({ look_revision_conflict:'Образ изменён в другом окне. Обновите редактор перед сохранением.', portrait_preparation_required:'Для одежды сначала нужен подготовленный портрет.', item_not_owned_or_not_ready:'Этот предмет пока нельзя использовать.' } as Record<string,string>)[code] || 'Не удалось выполнить запрос. Попробуйте ещё раз.';
 };
 export type RoleLooksClient = Pick<typeof api, 'getRoleLooks' | 'saveRoleLook' | 'approvePlayerPortrait'>;
-export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false, client=api, portraitUrl }: { playerId:string; nickname:string; initialOpen?:boolean; client?:RoleLooksClient; portraitUrl?:(version:string)=>string }) {
+export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=false, client=api, portraitUrl, portraitFit, showMesh=false, onPreviewLook }: { playerId:string; nickname:string; initialOpen?:boolean; client?:RoleLooksClient; portraitUrl?:(version:string)=>string; portraitFit?:PortraitFit; showMesh?:boolean; onPreviewLook?:(look:RoleLook)=>void }) {
   const [open,setOpen]=useState(initialOpen), [role,setRole]=useState<LookRole>('civilian');
   const [previewMode,setPreviewMode]=useState<'all'|'hat'|'jacket'>('all');
   const [showGuides,setShowGuides]=useState(false);
@@ -35,6 +36,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
     return ()=>{cancelled=true;};
   },[open,playerId,reload,client]);
   const look=drafts.find(l=>l.role===role), saved=state?.looks.find(l=>l.role===role);
+  useEffect(()=>{if(look)onPreviewLook?.(look);},[look,onPreviewLook]);
   const baseUrl=state?.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null;
   const layersFor=(draft:RoleLook)=>state?.layers.filter(l=>roleEquippedItems(draft)[l.slot]===l.itemId).map(l=>({slot:l.slot,itemId:l.itemId,url:l.url}))||[];
   const dirty=look && saved && JSON.stringify(look)!==JSON.stringify(saved);
@@ -84,7 +86,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
       {!state&&!error&&<p role="status">Загружаем образы…</p>}
       {look&&state&&<>
         <div className="role-looks-preview" data-testid="role-look-preview">
-          <RolePortrait showGuides={showGuides} background={look.background} baseUrl={baseUrl} layers={layersFor(look).filter(l=>previewMode==='all'||(previewMode==='hat'?l.slot==='portrait_hat':l.slot!=='portrait_hat'))} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
+          <RolePortrait showGuides={showGuides} fit={portraitFit} showMesh={showMesh} background={look.background} baseUrl={baseUrl} layers={layersFor(look).filter(l=>previewMode==='all'||(previewMode==='hat'?l.slot==='portrait_hat':l.slot!=='portrait_hat'))} fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="xl"/>}/>
           <strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[role]}</span>{look.phrase&&<p className="role-looks-phrase">{look.phrase}</p>}
         </div>
         <details className="role-looks-compare" onToggle={e=>setShowComparison(e.currentTarget.open)}>
@@ -93,7 +95,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
             {LOOK_ROLES.map(key=>{
               const compared=drafts.find(l=>l.role===key)!;
               return <button key={key} type="button" disabled={saving} aria-pressed={role===key} onClick={()=>setRole(key)}>
-                <RolePortrait background={compared.background} baseUrl={baseUrl} layers={layersFor(compared)}
+                <RolePortrait fit={portraitFit} background={compared.background} baseUrl={baseUrl} layers={layersFor(compared)}
                   fallback={<PlayerAvatar nickname={nickname} playerId={playerId} size="lg"/>}/>
                 <strong>{LOOK_ROLE_LABELS[key]}</strong>
                 <small>{Object.keys(roleEquippedItems(compared)).length} вещей</small>
@@ -134,7 +136,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
         <button type="button" className="role-looks-save" disabled={!dirty||saving} onClick={()=>void save()}>{saving?'Сохраняем…':`Сохранить: ${LOOK_ROLE_LABELS[role]}`}</button>
         {state.canApprovePortrait&&<CosmeticSetStudio portraitUrl={baseUrl}/>}
         {state.canApprovePortrait&&<details className="role-looks-pilot" onToggle={e=>setShowPilot(e.currentTarget.open)}>
-          <summary>Примерка на Денди<span>Рубашка, два пиджака и шляпа</span></summary>
+          <summary>Примерка на трёх персонажах<span>Общая одежда, разные фигуры и причёски</span></summary>
           <p className="role-looks-explanation">Проверьте посадку и четыре образа. Примерка сохраняется отдельно в этом браузере.</p>
           {showPilot&&<Suspense fallback={<p role="status">Открываем примерку…</p>}><CosmeticsLab/></Suspense>}
         </details>}

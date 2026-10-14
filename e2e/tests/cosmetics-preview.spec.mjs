@@ -64,7 +64,8 @@ for (const width of [360, 390, 1440]) {
   test(`clickable wardrobe lab previews clothing and freezes a game at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/e2e/cosmetics-lab.html');
-    const editor = page.locator('.role-looks-editor');
+    const active=page.locator('.cosmetics-lab-character-view:not([hidden])');
+    const editor = active.locator('.role-looks-editor');
     await editor.getByRole('button', { name: 'Дон', exact: true }).click();
     await editor.getByLabel('Фраза', { exact: true }).fill('Первая фраза');
     await editor.getByRole('button', { name: /Медный лист/ }).click();
@@ -73,10 +74,11 @@ for (const width of [360, 390, 1440]) {
     await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
     await expect(editor.getByRole('status')).toContainText('сохранён');
     await page.getByRole('group', { name: 'Роль на трансляции' }).getByRole('button', { name: 'Дон', exact: true }).click();
-    const broadcast = page.getByTestId('lab-broadcast-card');
+    const broadcast = active.getByTestId('lab-broadcast-card');
     await expect(broadcast).toContainText('Первая фраза');
-    await expect(broadcast.getByAltText('Пиджак')).toBeVisible();
+    await expect(broadcast.getByRole('img',{name:'Пиджак',exact:true})).toBeVisible();
     await expect(broadcast.getByAltText('Головной убор')).toBeVisible();
+    for (const canvas of await broadcast.locator('canvas').all())await expect(canvas).toHaveAttribute('data-rendered','true');
     for (const img of await broadcast.locator('img').all()) await expect.poll(() => img.evaluate(i => i.complete && i.naturalWidth > 0)).toBe(true);
     await page.getByRole('button', { name: 'Зафиксировать образ для тестовой игры' }).click();
     await editor.getByLabel('Фраза', { exact: true }).fill('Новая фраза');
@@ -84,8 +86,8 @@ for (const width of [360, 390, 1440]) {
     await editor.getByRole('button', { name: 'Сохранить: Дон', exact: true }).click();
     await expect(broadcast).toContainText('Новая фраза');
     await expect(broadcast.getByAltText('Головной убор')).toHaveCount(0);
-    await expect(page.getByTestId('lab-frozen-card')).toContainText('Первая фраза');
-    await expect(page.getByTestId('lab-frozen-card').getByAltText('Головной убор')).toBeVisible();
+    await expect(active.getByTestId('lab-frozen-card')).toContainText('Первая фраза');
+    await expect(active.getByTestId('lab-frozen-card').getByAltText('Головной убор')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`clickable-cosmetics-lab-${width}.png`), fullPage: true });
     await page.reload();
@@ -94,7 +96,7 @@ for (const width of [360, 390, 1440]) {
     await expect(editor.getByRole('button', { name: /Багряный пиджак/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(editor.getByRole('button', { name: /Белая рубашка/ })).toHaveAttribute('aria-pressed', 'true');
     await editor.getByRole('button', { name: /Чёрный пиджак/ }).click();
-    await expect(editor.getByTestId('role-look-preview').getByAltText('Пиджак')).toHaveAttribute('src', /jacket-black-v2/);
+    await expect(editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true})).toHaveAttribute('data-asset-url', /jacket-black-v2/);
     await expect(editor.getByTestId('role-look-preview').getByAltText('Портрет игрока')).toHaveAttribute('src', /base-v2/);
   });
 }
@@ -103,7 +105,7 @@ for (const width of [360, 390, 1440]) {
   test(`five approved-quantity draft set slots are clickable at ${width}px`, async ({page}, testInfo) => {
     await page.setViewportSize({width,height:900});
     await page.goto('/e2e/cosmetics-lab.html');
-    const workshop=page.locator('.cosmetic-set-studio');
+    const workshop=page.locator('.cosmetics-lab-character-view:not([hidden]) .cosmetic-set-studio');
     await expect(workshop).toBeVisible();
     await expect(workshop.getByRole('group',{name:'Черновики сетов'}).getByRole('button')).toHaveCount(5);
     await expect(workshop.getByRole('button',{name:/Сет 1/})).toContainText('Обычный');
@@ -119,7 +121,7 @@ for (const width of [360, 390, 1440]) {
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await workshop.screenshot({path:testInfo.outputPath(`draft-set-workshop-${width}.png`)});
     await page.reload();
-    const restored=page.locator('.cosmetic-set-studio');
+    const restored=page.locator('.cosmetics-lab-character-view:not([hidden]) .cosmetic-set-studio');
     await expect(restored.getByRole('button',{name:/Сет 1/})).toContainText('2 шт.');
     await expect(restored.getByRole('button',{name:/Медный лист · примерка/})).toHaveAttribute('aria-pressed','true');
     await expect(restored.getByRole('button',{name:/Багряный пиджак · примерка/})).toHaveAttribute('aria-pressed','true');

@@ -63,6 +63,8 @@ await build({
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
 await cp(path.join(root, 'public/cosmetics'), path.join(output, 'cosmetics'), { recursive: true });
 await cp(path.join(root, 'public/character-editor/dendi-v2'), path.join(output, 'character-editor/dendi-v2'), { recursive: true });
+await mkdir(path.join(output,'player-avatars'),{recursive:true});
+for(const file of ['dendi.jpg','java.jpg','fandorin.jpg'])await cp(path.join(root,'public/player-avatars',file),path.join(output,'player-avatars',file));
 // SVG images cannot fetch external faces when rendered through <img>; embed only this checked-in lab fixture.
 const labFace = (await readFile(path.join(root, 'public/player-avatars/dendi.jpg'))).toString('base64');
 const labPortrait = (await readFile(path.join(root, 'public/cosmetics/lab-portrait.svg'), 'utf8')).replace('/player-avatars/dendi.jpg', `data:image/jpeg;base64,${labFace}`);

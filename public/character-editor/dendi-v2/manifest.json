@@ -69,6 +69,40 @@
         "left": 72,
         "top": 38
       }
+    },
+    {
+      "file": "java-base-v1.png",
+      "sourceSHA256": "18bc7c71a4ab5e2e309e4b1c50a46bf0c4f4239a877cfcce065c7d61e92eb816",
+      "exportTransform": {
+        "width": 369,
+        "height": 461,
+        "left": 72,
+        "top": 44
+      }
+    },
+    {
+      "file": "fandorin-base-v1.png",
+      "sourceSHA256": "0f9a8fcb190d44762eac93d214c27c410ab8c229732bc27d5753e6f0a0777523",
+      "exportTransform": {
+        "width": 369,
+        "height": 461,
+        "left": 72,
+        "top": 60
+      }
     }
-  ]
+  ],
+  "characters": {
+    "dendi": {
+      "base": "base-v2.png",
+      "source": "public/player-avatars/dendi.jpg"
+    },
+    "java": {
+      "base": "java-base-v1.png",
+      "source": "public/player-avatars/java.jpg"
+    },
+    "fandorin": {
+      "base": "fandorin-base-v1.png",
+      "source": "public/player-avatars/fandorin.jpg"
+    }
+  }
 }

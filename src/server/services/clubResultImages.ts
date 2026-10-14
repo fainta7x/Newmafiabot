@@ -253,6 +253,79 @@ const FONT_FILES = ['Montserrat-Medium.ttf', 'Montserrat-SemiBold.ttf', 'Montser
   .map((name) => FONT_DIRS.map((dir) => path.join(dir, name)).find((file) => fs.existsSync(file)))
   .filter((file): file is string => Boolean(file));
 
+export type MvpCardPerson = { nickname: string; avatar: string | null; votes?: number };
+
+/**
+ * «MVP вечера» result card (owner, 2026-10-14: the posts had only text): the winner's photo in a gold ring, the name,
+ * the votes and, in a row below, the others who got votes.
+ */
+export function mvpResultSvg(card: { eveningTitle: string; dateLabel: string; winner: MvpCardPerson; totalVotes: number; reason: string; others: MvpCardPerson[] }) {
+  clipCounter = 0;
+  const others = card.others.slice(0, 4);
+  const height = others.length ? 1260 : 1040;
+  const cx = W / 2;
+  const ring = 290;
+  const cy = 500;
+  const votes = card.winner.votes ?? 0;
+  const votesWord = votes % 10 === 1 && votes % 100 !== 11 ? 'голос' : [2, 3, 4].includes(votes % 10) && ![12, 13, 14].includes(votes % 100) ? 'голоса' : 'голосов';
+  const otherSize = 92;
+  const gap = 36;
+  const rowWidth = others.length * otherSize + Math.max(0, others.length - 1) * gap;
+  const othersSvg = others.map((person, index) => {
+    const x = cx - rowWidth / 2 + index * (otherSize + gap);
+    return `${avatar(x, 950, otherSize, person.nickname, person.avatar)}
+      <text x="${x + otherSize / 2}" y="${950 + otherSize + 30}" text-anchor="middle" font-size="19" font-weight="600" fill="${C.mutedText}">${esc(clip(person.nickname, 11))}</text>
+      <text x="${x + otherSize / 2}" y="${950 + otherSize + 54}" text-anchor="middle" font-size="16" font-weight="600" fill="${C.subduedText}">${person.votes ?? 0}</text>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  <defs><radialGradient id="mvpGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${C.gold}" stop-opacity="0.34"/><stop offset="100%" stop-color="${C.gold}" stop-opacity="0"/></radialGradient></defs>
+  ${renderNoirExportBrandHeader('ИТОГИ ГОЛОСОВАНИЯ')}
+  <text x="${cx}" y="206" text-anchor="middle" font-size="30" font-weight="800" letter-spacing="9" fill="${C.gold}">MVP ВЕЧЕРА</text>
+  <text x="${cx}" y="252" text-anchor="middle" font-size="26" font-weight="500" fill="${C.mutedText}">${esc([clip(card.eveningTitle, 30), card.dateLabel].filter(Boolean).join(' · '))}</text>
+  <circle cx="${cx}" cy="${cy}" r="${ring + 120}" fill="url(#mvpGlow)"/>
+  <circle cx="${cx}" cy="${cy}" r="${ring / 2 + 14}" fill="none" stroke="${C.gold}" stroke-width="8"/>
+  ${avatar(cx - ring / 2, cy - ring / 2, ring, card.winner.nickname, card.winner.avatar)}
+  <text x="${cx}" y="${cy + ring / 2 + 100}" text-anchor="middle" font-size="68" font-weight="800" fill="${C.warmText}">${esc(clip(card.winner.nickname, 18))}</text>
+  <text x="${cx}" y="${cy + ring / 2 + 156}" text-anchor="middle" font-size="34" font-weight="700" fill="${C.gold}">${votes} ${votesWord} из ${card.totalVotes}</text>
+  ${card.reason ? `<text x="${cx}" y="${cy + ring / 2 + 204}" text-anchor="middle" font-size="22" font-weight="500" fill="${C.mutedText}">${esc(clip(card.reason, 62))}</text>` : ''}
+  ${others.length ? `<text x="${cx}" y="920" text-anchor="middle" font-size="18" font-weight="700" letter-spacing="3" fill="#D7A0AE">ЗА НИХ ТОЖЕ ГОЛОСОВАЛИ</text>${othersSvg}` : ''}
+  ${renderNoirExportFooter(W, height, 'MVP вечера — голосование игроков')}
+</svg>`;
+}
+
+/**
+ * The vote card: «Кто сыграл лучше всех?» with the photo of every player who can be chosen (up to twelve), and the deadline.
+ */
+export function mvpVoteSvg(card: { eveningTitle: string; dateLabel: string; deadlineLabel: string; candidates: MvpCardPerson[] }) {
+  clipCounter = 0;
+  const people = card.candidates.slice(0, 12);
+  const perRow = people.length <= 4 ? Math.max(1, people.length) : people.length <= 9 ? 3 : 4;
+  const rows = Math.max(1, Math.ceil(people.length / perRow));
+  const size = perRow <= 3 ? (rows >= 3 ? 170 : 200) : 150;
+  const cellW = (W - M * 2) / perRow;
+  const cellH = size + 78;
+  const top = 360;
+  const height = top + rows * cellH + 110 + NOIR_EXPORT_LAYOUT.footerHeight;
+  const grid = people.map((person, index) => {
+    const column = index % perRow; const row = Math.floor(index / perRow);
+    const x = M + column * cellW + cellW / 2;
+    const y = top + row * cellH;
+    return `${avatar(x - size / 2, y, size, person.nickname, person.avatar)}
+      <text x="${x}" y="${y + size + 44}" text-anchor="middle" font-size="${perRow <= 3 ? 28 : 24}" font-weight="700" fill="${C.warmText}">${esc(clip(person.nickname, perRow <= 3 ? 14 : 11))}</text>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
+  ${renderNoirExportBackground(W, height)}
+  ${renderNoirExportBrandHeader('ГОЛОСОВАНИЕ')}
+  <text x="${W / 2}" y="196" text-anchor="middle" font-size="30" font-weight="800" letter-spacing="9" fill="${C.gold}">MVP ВЕЧЕРА</text>
+  <text x="${W / 2}" y="262" text-anchor="middle" font-size="46" font-weight="800" fill="${C.warmText}">Кто сыграл лучше всех?</text>
+  <text x="${W / 2}" y="304" text-anchor="middle" font-size="24" font-weight="500" fill="${C.mutedText}">${esc([clip(card.eveningTitle, 30), card.dateLabel].filter(Boolean).join(' · '))}</text>
+  ${grid}
+  <text x="${W / 2}" y="${top + rows * cellH + 52}" text-anchor="middle" font-size="26" font-weight="700" fill="${C.gold}">${esc(card.deadlineLabel)}</text>
+  ${renderNoirExportFooter(W, height, 'нажми на игрока под постом — это твой голос')}
+</svg>`;
+}
+
 export function renderPng(svg: string): Buffer {
   const resvg = new Resvg(svg, {
     font: { fontFiles: FONT_FILES, loadSystemFonts: FONT_FILES.length === 0, defaultFontFamily: 'Montserrat', sansSerifFamily: 'Montserrat' },

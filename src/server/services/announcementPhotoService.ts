@@ -106,6 +106,29 @@ export async function loadAnnouncementPhoto(db: DatabaseWrapper, id: string) {
   return db.get<{ mime: string; bytes: Buffer }>('SELECT mime, bytes FROM announcement_photos WHERE id = ?', [id]);
 }
 
+/** Uploads a picture to the VK group's wall upload server and returns the `photo<owner>_<id>` attachment for a post. */
+export async function uploadVkWallPhotoBytes(bytes: Uint8Array | Buffer, mime: string, groupId: string, fetchImpl: typeof fetch = fetch): Promise<string> {
+  const normalizedGroupId = String(groupId || '').trim().replace(/^-/, '');
+  if (!/^\d+$/.test(normalizedGroupId)) throw new Error('Не удалось определить группу VK для фото');
+  const server = await vkApi<{ upload_url: string }>('photos.getWallUploadServer', { group_id: normalizedGroupId });
+  const form = new FormData();
+  form.set('photo', new Blob([new Uint8Array(bytes)], { type: mime }), mime === 'image/png' ? 'card.png' : 'announcement.jpg');
+  const uploadResponse = await fetchImpl(server.upload_url, { method: 'POST', body: form });
+  const uploaded: any = await uploadResponse.json().catch(() => null);
+  if (!uploadResponse.ok || !uploaded?.server || !uploaded?.photo || !uploaded?.hash) {
+    throw new Error('VK не принял фото для анонса');
+  }
+  const saved = await vkApi<Array<{ id: number; owner_id: number }>>('photos.saveWallPhoto', {
+    group_id: normalizedGroupId,
+    server: uploaded.server,
+    photo: uploaded.photo,
+    hash: uploaded.hash,
+  });
+  const item = saved?.[0];
+  if (!item?.id || !item?.owner_id) throw new Error('VK не вернул сохранённое фото');
+  return `photo${item.owner_id}_${item.id}`;
+}
+
 /** Upload once with the organizer's VK user token and reuse the saved wall-photo attachment. */
 export async function uploadAnnouncementPhotoToVk(
   db: DatabaseWrapper,
@@ -124,23 +147,7 @@ export async function uploadAnnouncementPhotoToVk(
 
   const photo = await loadAnnouncementPhoto(db, photoId);
   if (!photo?.bytes?.length) throw new Error('Фото для анонса не найдено');
-  const server = await vkApi<{ upload_url: string }>('photos.getWallUploadServer', { group_id: normalizedGroupId });
-  const form = new FormData();
-  form.set('photo', new Blob([new Uint8Array(photo.bytes)], { type: photo.mime }), 'announcement.jpg');
-  const uploadResponse = await fetchImpl(server.upload_url, { method: 'POST', body: form });
-  const uploaded: any = await uploadResponse.json().catch(() => null);
-  if (!uploadResponse.ok || !uploaded?.server || !uploaded?.photo || !uploaded?.hash) {
-    throw new Error('VK не принял фото для анонса');
-  }
-  const saved = await vkApi<Array<{ id: number; owner_id: number }>>('photos.saveWallPhoto', {
-    group_id: normalizedGroupId,
-    server: uploaded.server,
-    photo: uploaded.photo,
-    hash: uploaded.hash,
-  });
-  const item = saved?.[0];
-  if (!item?.id || !item?.owner_id) throw new Error('VK не вернул сохранённое фото');
-  const attachment = `photo${item.owner_id}_${item.id}`;
+  const attachment = await uploadVkWallPhotoBytes(photo.bytes, photo.mime, normalizedGroupId, fetchImpl);
   await db.run(
     `INSERT INTO vk_announcement_photo_uploads (photo_id, group_id, attachment, created_at)
      VALUES (?, ?, ?, ?) ON CONFLICT(photo_id, group_id) DO NOTHING`,

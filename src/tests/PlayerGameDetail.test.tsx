@@ -65,6 +65,20 @@ describe('reveals on the game page', () => {
   });
 });
 
+describe('visual game timeline', () => {
+  it('keeps all voting phases and shots in one chronological story', () => {
+    view();
+    const timeline = screen.getByTestId('game-story-timeline');
+    const items = within(timeline).getAllByRole('listitem');
+    expect(items).toHaveLength(detail.protocol.votes.length + detail.protocol.shots.length);
+    expect(timeline.textContent).toContain('Нулевой круг');
+    expect(timeline.textContent).toContain('переголосование');
+    expect(timeline.textContent).toContain('Ночь 1');
+    expect(timeline.textContent).toContain('Цель выстрела');
+    expect(timeline.textContent).toContain('#9 Знак');
+  });
+});
+
 describe('player game page', () => {
   it('opens with the result, the viewer’s own game and what mattered', () => {
     view();

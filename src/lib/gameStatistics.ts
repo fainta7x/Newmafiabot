@@ -156,12 +156,9 @@ export interface PlayerGameStatistics {
 
 export const buildPlayerGameStatistics = (games: StatGame[], playerId: string, memo?: StatMemo): PlayerGameStatistics => {
   const prepared = prepare(games, memo).filter(({ game }) => game.seats.some((item) => item.playerId === playerId));
-  let votes = 0; let votesForBlack = 0;
   let nominations = 0; let nominationsBlack = 0;
   let lhCount = 0; let lhBlackSum = 0; let lhWithBlack = 0;
   let firstKilledCount = 0; let firstKilledChances = 0;
-  let sheriffChecks = 0; let sheriffHits = 0;
-  let donChecks = 0; let donHits = 0;
 
   for (const { game, circles, roleOf } of prepared) {
     const mine = game.seats.find((item) => item.playerId === playerId)!;
@@ -169,14 +166,6 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string, m
     if (isRed(mine.role)) firstKilledChances += 1;
     for (const circle of circles) {
       if (isRed(mine.role)) {
-        for (const voting of circle.votings) {
-          if (circle.round <= 1 || voting !== circle.votings.at(-1) || voting.outcome !== 'single_eliminated' || circle.votings.some(v => v.tableVoters.length || v.outcome === 'all_tied_eliminated')) continue;
-          for (const { candidate, voters } of voting.votes) {
-            if (!voters.includes(seat)) continue;
-            votes += 1;
-            if (isBlack(roleOf(candidate))) votesForBlack += 1;
-          }
-        }
         for (const nomination of circle.nominations) {
           if (nomination.by !== seat) continue;
           nominations += 1;
@@ -189,24 +178,21 @@ export const buildPlayerGameStatistics = (games: StatGame[], playerId: string, m
         const blacks = move.seats.filter((target) => isBlack(roleOf(target))).length;
         lhCount += 1; lhBlackSum += blacks; if (blacks > 0) lhWithBlack += 1;
       }
-      if (mine.role === 'sheriff' && circle.sheriffCheck) { sheriffChecks += 1; if (isBlack(roleOf(circle.sheriffCheck.target))) sheriffHits += 1; }
-      if (mine.role === 'don' && circle.donCheck) { donChecks += 1; if (roleOf(circle.donCheck.target) === 'sheriff') donHits += 1; }
     }
   }
 
   const actions = playerActionMetrics(games, playerId, memo?.facts);
-  votes = actions.votes.red.red + actions.votes.red.black;
-  votesForBlack = actions.votes.red.black;
-  sheriffChecks = actions.checks.sheriff.red + actions.checks.sheriff.black; sheriffHits = actions.checks.sheriff.black;
-  donChecks = actions.checks.don.red + actions.checks.don.black; donHits = actions.checks.don.sheriff;
+  const redVotes = actions.votes.red.red + actions.votes.red.black;
+  const sheriffChecks = actions.checks.sheriff.red + actions.checks.sheriff.black;
+  const donChecks = actions.checks.don.red + actions.checks.don.black;
   return {
     actions,
     games: prepared.length,
-    votesAsRed: share(votesForBlack, votes),
+    votesAsRed: share(actions.votes.red.black, redVotes),
     nominationsAsRed: share(nominationsBlack, nominations),
     bestMove: { count: lhCount, averageBlack: average(lhBlackSum, lhCount), withBlack: share(lhWithBlack, lhCount) },
     firstKilled: share(firstKilledCount, firstKilledChances),
-    sheriffChecks: share(sheriffHits, sheriffChecks),
-    donChecks: share(donHits, donChecks),
+    sheriffChecks: share(actions.checks.sheriff.black, sheriffChecks),
+    donChecks: share(actions.checks.don.sheriff, donChecks),
   };
 };

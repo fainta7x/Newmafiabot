@@ -6,7 +6,7 @@ it('attaches both measured neck and hat contact landmarks for every character',(
  for(const c of WARDROBE_PILOT_CHARACTERS){
   const rig=c.fit.rig!,placed=resolvePortraitRig(rig);
   rig.neck.forEach((p,i)=>{
-   const mapped=transformRigPoint(p,placed.head);
+   const mapped=transformRigPoint(p,placed.neck);
    expect(mapped.x).toBeCloseTo(rig.targetNeck[i].x);expect(mapped.y).toBeCloseTo(rig.targetNeck[i].y);
    expect(rigGarmentY(400)).toBeCloseTo(mapped.y);
   });

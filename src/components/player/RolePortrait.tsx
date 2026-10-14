@@ -3,7 +3,8 @@ import { PORTRAIT_BASE_ORDER, PORTRAIT_SLOT_LABELS, PORTRAIT_SLOT_ORDER, type Po
 import './roleLooks.css';
 import MeshGarment from './MeshGarment.tsx';
 import { createGarmentMesh, isMeshGarment, type PortraitFit } from '../../lib/portraitMesh.ts';
-import {headClipPolygon,resolvePortraitRig,rigCssClip,rigCssTransform} from '../../lib/portraitRig.ts';
+import {anchorTransform,headClipPolygon,resolvePortraitRig,rigCssClip,rigCssTransform} from '../../lib/portraitRig.ts';
+import {templateLayerUrl} from '../../lib/wardrobeTemplates.ts';
 
 /** Identical ordering for the in-profile editor, lab and spectator graphics. */
 export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl, jacketUrl, layers, fallback, showGuides=false, fit, showMesh=false }: {
@@ -15,7 +16,8 @@ export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl,
     ...(jacketUrl ? [{ slot: 'portrait_jacket' as const, itemId: 'legacy-jacket', url: jacketUrl }] : []),
     ...(hatUrl ? [{ slot: 'portrait_hat' as const, itemId: 'legacy-hat', url: hatUrl }] : []),
   ];
-  const sorted = [...equipped].sort((a, b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot]);
+  const incompatible=equipped.filter(item=>!templateLayerUrl(item,fit?.templateId));
+  const sorted = equipped.filter(item=>!incompatible.includes(item)).map(item=>({...item,url:templateLayerUrl(item,fit?.templateId)!})).sort((a, b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot]);
   const rig=fit?.rig,placement=rig?resolvePortraitRig(rig):null;
   const hasHat=sorted.some(l=>l.slot==='portrait_hat');
   const headStyle=placement?{transform:rigCssTransform(placement.head),transformOrigin:'0 0'}:{};
@@ -24,13 +26,13 @@ export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl,
     slot={item.slot} order={PORTRAIT_SLOT_ORDER[item.slot]+1} fit={fit.body} rigged={!!rig} shirtUnderJacket={item.slot==='portrait_shirt'&&sorted.some(l=>l.slot==='portrait_jacket'&&l.shirtCoverage==='front-only')}/>:<img
     key={item.slot} className={`role-portrait-layer role-portrait-${item.slot}`}
     src={item.url} alt={item.slot === 'portrait_jacket' ? 'Пиджак' : PORTRAIT_SLOT_LABELS[item.slot]}
-    style={{ zIndex: PORTRAIT_SLOT_ORDER[item.slot] + 1, ...(fit&&item.slot==='portrait_hat'?(placement?{transform:rigCssTransform(placement.hat),transformOrigin:'0 0'}:{transform:`scaleX(${fit.hatScale})`,transformOrigin:'50% 20%'}):{}) }}
+    style={{ zIndex: PORTRAIT_SLOT_ORDER[item.slot] + 1, ...(item.attachment&&placement?.eyes?{transform:rigCssTransform(anchorTransform(item.attachment.source,placement.eyes)),transformOrigin:'0 0'}:fit&&item.slot==='portrait_hat'?(placement?{transform:rigCssTransform(placement.hat),transformOrigin:'0 0'}:{transform:`scaleX(${fit.hatScale})`,transformOrigin:'50% 20%'}):{}) }}
   />;
   return <span className={`role-portrait role-portrait-${background}${rig?' role-portrait-rigged':''}`}>
     {baseUrl ? <>
       {/* An immutable baseline is not a removable owned wardrobe item. */}
       {bodyBaseUrl && <img className="role-portrait-body-base" src={bodyBaseUrl} alt="" aria-hidden="true" />}
-      {rig&&placement&&<img className="role-portrait-body-base" src={baseUrl} alt="" aria-hidden="true" style={{...headStyle,clipPath:rigCssClip(headClipPolygon(rig,hasHat,false))}}/>}
+      {rig&&placement&&<img className="role-portrait-body-base" src={baseUrl} alt="" aria-hidden="true" style={{transform:rigCssTransform(placement.neck),transformOrigin:'0 0',clipPath:rigCssClip(headClipPolygon(rig,hasHat,false))}}/>}
       {sorted.filter(l => PORTRAIT_SLOT_ORDER[l.slot] < PORTRAIT_BASE_ORDER).map(layerImage)}
       <img className="role-portrait-base" style={{zIndex: PORTRAIT_BASE_ORDER + 1,...headStyle,...(rig?{clipPath:rigCssClip(headClipPolygon(rig,hasHat,true))}:{})}} src={baseUrl} alt="Портрет игрока" />
       {sorted.filter(l => PORTRAIT_SLOT_ORDER[l.slot] > PORTRAIT_BASE_ORDER).map(layerImage)}
@@ -45,5 +47,6 @@ export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl,
         </g>}
       </svg>}
     </> : fallback}
+    {!!incompatible.length&&<span className="role-portrait-asset-error" role="alert">Нет варианта вещи для выбранной фигуры</span>}
   </span>;
 }

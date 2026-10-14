@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "status": "draft-test-only",
+  "canvas": [
+    512,
+    640
+  ],
+  "bodyTemplateRegistry": "src/lib/wardrobeTemplates.ts",
+  "identityLandmarks": "src/lib/dendiWardrobePilot.ts:PREPARED_HEADS",
+  "artMethod": "built-in imagegen edits of v4 references",
+  "sources": [
+    {
+      "file": "shirt-curved.png",
+      "sourceSHA256": "416d36055ad094a9acb4d6f975b938e36a49401fbebca0c0ae84e09853a816ab",
+      "exportTransform": {
+        "sourceCanvas": [
+          1122,
+          1402
+        ],
+        "width": 512,
+        "height": 640,
+        "fit": "fill"
+      },
+      "exportSHA256": "d09174c0a5e8354d6040586ea5718c0dd16a7ec5ec61d962c6500e12c5e7499a"
+    },
+    {
+      "file": "jacket-burgundy-curved.png",
+      "sourceSHA256": "2ec66551f08ab9887c31672cf73918330c6ad4c66c330a2acf85d626278af8cb",
+      "exportTransform": {
+        "sourceCanvas": [
+          1122,
+          1402
+        ],
+        "width": 512,
+        "height": 640,
+        "fit": "fill"
+      },
+      "exportSHA256": "1984d92c059dbe48a5a3c985c18e953ababb1e083ad689f169218a66edb37d71"
+    },
+    {
+      "file": "jacket-black-curved.png",
+      "sourceSHA256": "4ab268dd8ce0b509680a95b639c942077f449a8a49bbc171e8b3e7881ec770ef",
+      "exportTransform": {
+        "sourceCanvas": [
+          1122,
+          1402
+        ],
+        "width": 512,
+        "height": 640,
+        "fit": "fill"
+      },
+      "exportSHA256": "472973e64c6c1436a46970186059a706eb37cedd69aaca189ddc53e9f15d1035"
+    },
+    {
+      "file": "fandorin-clean.png",
+      "sourceSHA256": "2b99246dc7bb6d999ff718ec58cf88fa3ebd182105eb2155286457297b7db58c",
+      "exportTransform": {
+        "sourceCanvas": [
+          1122,
+          1402
+        ],
+        "width": 512,
+        "height": 640,
+        "fit": "fill"
+      },
+      "exportSHA256": "de4ac75099b9b40c03644fa84c2a5df3abc7b88051f10b4bb9d4a34c3807a105"
+    },
+    {
+      "file": "glasses-square.png",
+      "sourceSHA256": "33acc63cd6abb6422a6cccc37a908d3c394b1218ec82a0181f9dac9f9115c8c2",
+      "exportTransform": {
+        "sourceCanvas": [
+          1122,
+          1402
+        ],
+        "width": 512,
+        "height": 640,
+        "fit": "fill"
+      },
+      "exportSHA256": "90e7cb40ef5c2d3b74241d10885ea631d4ebdcf963bcba120e36d8b749b8c8bc"
+    }
+  ]
+}

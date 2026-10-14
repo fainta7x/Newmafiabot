@@ -8,3 +8,7 @@
 @media(max-width:700px){.cosmetics-lab{padding:12px}.cosmetics-lab .role-looks-body{padding:0 10px 12px}.cosmetics-lab .role-looks-preview{padding:8px}.cosmetics-lab .role-looks-compare>summary{display:block;line-height:1.45}.cosmetics-lab .role-looks-compare>summary span{margin-top:6px}.cosmetics-lab-card{padding:12px}}
 
 .cosmetics-lab-character-thumb{display:block;width:64px;height:64px;overflow:hidden;border-radius:50%;background:radial-gradient(circle,#51404a,#211b24);border:1px solid #b58c6038}.cosmetics-lab-characters .cosmetics-lab-character-thumb img{width:64px;height:80px;transform:scale(1.7);transform-origin:50% 20%;object-fit:contain}.cosmetics-lab .role-looks-preview{background:transparent;padding:0;gap:8px}.cosmetics-lab .role-looks-preview>.role-portrait{border:1px solid #c2925e2b;border-radius:14px;box-shadow:0 14px 32px #0003}
+
+.cosmetics-lab-template{display:grid;gap:8px;margin:16px 0;padding:14px;border:1px solid #b58c6040;border-radius:14px;font-size:14px}.cosmetics-lab-template select{width:100%;min-height:44px;background:#251d28;color:#eadbd0;border:1px solid #b58c6060;border-radius:8px;padding:8px;font-size:14px}.cosmetics-lab-template span{font-size:12px;line-height:1.5;color:#bea69b}
+
+.cosmetics-lab-template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cosmetics-lab-template-grid>div{min-width:0;text-align:center}.cosmetics-lab-template-grid strong{display:block;font-size:12px;margin:8px 0;line-height:1.4}

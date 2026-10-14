@@ -1,3 +1,5 @@
+import type { AnchorPair } from './portraitRig.ts';
+import type { BodyFamily } from './wardrobeTemplates.ts';
 /** One recognizable portrait and four independent outfits. Role changes never alter game data. */
 export const LOOK_ROLES = ['civilian', 'mafia', 'don', 'sheriff'] as const;
 export type LookRole = typeof LOOK_ROLES[number];
@@ -11,7 +13,7 @@ export const PORTRAIT_LAYOUT = 'bust-512x640-v1' as const;
  */
 export const PORTRAIT_EQUIPMENT_SLOTS = [
   'portrait_shirt', 'portrait_vest', 'portrait_jacket',
-  'portrait_neckwear', 'portrait_accessory', 'portrait_hat',
+  'portrait_neckwear', 'portrait_accessory', 'portrait_eyewear', 'portrait_hat',
 ] as const;
 export type PortraitEquipmentSlot = typeof PORTRAIT_EQUIPMENT_SLOTS[number];
 export const PORTRAIT_SLOT_LABELS: Record<PortraitEquipmentSlot, string> = {
@@ -20,11 +22,12 @@ export const PORTRAIT_SLOT_LABELS: Record<PortraitEquipmentSlot, string> = {
   portrait_jacket: 'Верхняя одежда',
   portrait_neckwear: 'Галстук / шейный аксессуар',
   portrait_accessory: 'Украшение',
+  portrait_eyewear: 'Очки',
   portrait_hat: 'Головной убор',
 };
 export const PORTRAIT_SLOT_ORDER: Readonly<Record<PortraitEquipmentSlot, number>> = {
   portrait_shirt: 0, portrait_vest: 1, portrait_jacket: 2,
-  portrait_neckwear: 4, portrait_accessory: 5, portrait_hat: 6,
+  portrait_neckwear: 4, portrait_accessory: 5, portrait_eyewear:6, portrait_hat: 7,
 };
 export const PORTRAIT_BASE_ORDER = 3;
 
@@ -36,8 +39,10 @@ export type RoleLook = {
   equippedItems?: EquippedItems;
   revision: number;
 };
-export type LookLayer = { itemId: string; name: string; slot: PortraitEquipmentSlot; url: string; rarity: string; shirtCoverage?: 'front-only' };
-export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: string; shirtCoverage?: 'front-only' };
+export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: string; shirtCoverage?: 'front-only';
+  variants?:Partial<Record<BodyFamily,string>>; attachment?:{target:'eyes';source:AnchorPair};
+};
+export type LookLayer = PortraitLayer & {name:string;rarity:string};
 /** A released set is a collection, not a redeemable inventory item.
  * Player sees only published and reviewed components; ownership is individual.
  */

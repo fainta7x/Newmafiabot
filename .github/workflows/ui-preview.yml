@@ -9,6 +9,7 @@ on:
       - 'preview/**'
       - 'scripts/buildUiPreview.mjs'
       - 'scripts/buildCosmeticsLab.mjs'
+      - 'scripts/validateWardrobeTemplates.mjs'
       - 'scripts/buildDendiPortraitLayers.mjs'
       - 'scripts/buildDendiWardrobePreview.mjs'
       - 'scripts/buildDendiRigPilot.mjs'
@@ -45,6 +46,8 @@ jobs:
         working-directory: e2e
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
+      - name: Validate wardrobe shape variants and attachments
+        run: node scripts/validateWardrobeTemplates.mjs
       - name: Package standalone offline cosmetics lab
         run: node scripts/buildCosmeticsLab.mjs temp/ui-preview/fiery-autumn-standalone.html
       - name: Package original-avatar layered wardrobe review

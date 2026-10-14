@@ -4,7 +4,7 @@ This file answers **where a subsystem lives and what owns it**. It does not own 
 
 ## 1. Request flow
 
-Cosmetics/compendium owns independent additive tables (`ensureCosmeticsSchema`), a single transactional service (`cosmeticsService`), session-authenticated routes (`cosmeticsRoutes`), and a controlled asset manifest (`cosmeticAssets`). It does not own club token balances, Elo, game results or payment confirmation from a provider. RoleLooksService owns four per-player wardrobes, immutable approved portrait versions and per-game/per-role snapshots. The self profile editor and existing OBS overlay consume these DTOs; canonical game roles are unchanged. Club and tournament snapshot keys are namespaced. Contract: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md).
+Cosmetics/compendium owns independent additive tables (`ensureCosmeticsSchema`), a single transactional service (`cosmeticsService`), session-authenticated routes (`cosmeticsRoutes`), and a controlled asset manifest (`cosmeticAssets`). It does not own club token balances, Elo, game results or payment confirmation from a provider. RoleLooksService owns four per-player wardrobes, immutable approved portrait versions and per-game/per-role snapshots. The self profile editor and existing OBS overlay consume these DTOs; canonical game roles are unchanged. Club and tournament snapshot keys are namespaced. Contract: [COSMETICS_COMPENDIUM.md](COSMETICS_COMPENDIUM.md). Template fitting is owned by `wardrobeTemplates.ts` (body families, head/hair attachment policies), `portraitRig.ts` (rigid face/hat/eyewear and rear neck), and the existing `portraitMesh.ts` / `RolePortrait.tsx` renderer. Draft art contracts and production limits: `COSMETIC_WARDROBE_ARCHITECTURE.md` §14.
 
 Typical web flow:
 

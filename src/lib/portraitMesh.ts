@@ -1,9 +1,10 @@
 import {rigGarmentY,type PortraitRig} from './portraitRig.ts';
 import type { PortraitEquipmentSlot } from './roleLooks.ts';
+import type { BodyTemplateId } from './wardrobeTemplates.ts';
 
 /** The pilot owns fitting geometry, never a player's facial geometry. */
 export type BodyFit = { neck: number; shoulders: number; chest: number; waist: number };
-export type PortraitFit = { body: BodyFit; hatScale: number; rig?:PortraitRig };
+export type PortraitFit = { body: BodyFit; hatScale: number; rig?:PortraitRig; templateId?:BodyTemplateId };
 export type MeshPoint = { x: number; y: number };
 export type MeshTriangle = { source: [MeshPoint, MeshPoint, MeshPoint]; target: [MeshPoint, MeshPoint, MeshPoint] };
 export const NEUTRAL_BODY_FIT: BodyFit = { neck: 0, shoulders: 0, chest: 0, waist: 0 };

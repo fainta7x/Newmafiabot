@@ -868,3 +868,7 @@ New club stories also reject original protocols with any unidentifiable or uncla
 - **Places** in the final standings of a tournament: the **1st place is a cup**, the **2nd and 3rd places are medals**; they are carried into the profiles of the players who took them. The tournaments are the federation's (GoMafia) and the club's own past ones (Cup etc.).
 - **Nominations** are exactly these five: **Лучший мирный, Лучший дон, Лучший шериф, Лучший чёрный (GoMafia key `best_mafia`), MVP турнира.** Only the winner of each nomination gets the award. They are the same nominations the club already uses.
 - Awards only: nothing is recounted — no games, Elo, ratings or achievements change. Matching is by the exact federation ID (never by nickname).
+
+### 2026-10-14 · Основа гардероба и отдельные очки
+
+По запросу владельца вещи подготавливаются для повторно используемых шаблонов фигуры, а не для каждого человека. Узнаваемое лицо остаётся личностью игрока; выбранный крой и снимаемые аксессуары его не подменяют. Очки Фандорина — отдельный экипируемый предмет, не нарисованная часть лица. Четыре ролевых образа сохраняют независимый выбор очков. Этот запрос не выпускает черновые предметы, не меняет квоты коллекции, цены, выдачу или экономику.

@@ -3,6 +3,7 @@ import { api } from '../../lib/api.ts';
 import { LOOK_ROLES, LOOK_ROLE_LABELS, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, roleEquippedItems, plainPhrase, type LookRole, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse, type WardrobeSet } from '../../lib/roleLooks.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import RolePortrait from './RolePortrait.tsx';
+import {templateLayerUrl} from '../../lib/wardrobeTemplates.ts';
 import WardrobeSetGallery, { tryOnOwnedSet } from './WardrobeSetGallery.tsx';
 import CosmeticSetStudio from './CosmeticSetStudio.tsx';
 import './roleLooks.css';
@@ -122,7 +123,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
                 <span className="role-looks-item-empty" aria-hidden="true">∅</span><span>Без предмета</span>
               </button>
               {items.map(item=><button type="button" className="role-looks-item" key={item.itemId} aria-pressed={roleEquippedItems(look)[slot]===item.itemId} onClick={()=>updateSlot(slot,item.itemId)} title={item.name}>
-                <span className={`role-looks-item-thumb role-looks-thumb-${slot}`}><img src={item.url} alt="" loading="lazy"/></span>
+                <span className={`role-looks-item-thumb role-looks-thumb-${slot}`}><img src={templateLayerUrl(item,portraitFit?.templateId)||item.url} alt="" loading="lazy"/></span>
                 <span>{item.name}</span><small>{item.rarity}</small>
               </button>)}
             </div>

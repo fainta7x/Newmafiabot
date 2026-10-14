@@ -11,7 +11,7 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 
 vi.mock('../lib/cosmeticAssets.ts', async original => {
   const actual=await original<any>();
-  return {...actual,COSMETIC_ASSETS:{...actual.COSMETIC_ASSETS,'test-hat':{slot:'portrait_hat',url:'/cosmetics/test-hat.svg',draft:false},'test-jacket':{slot:'portrait_jacket',url:'/cosmetics/test-jacket.svg',draft:false},'test-shirt':{slot:'portrait_shirt',url:'/cosmetics/test-shirt.svg',draft:false},'test-vest':{slot:'portrait_vest',url:'/cosmetics/test-vest.svg',draft:false}}};
+  return {...actual,COSMETIC_ASSETS:{...actual.COSMETIC_ASSETS,'test-hat':{slot:'portrait_hat',url:'/cosmetics/test-hat.svg',draft:false},'test-jacket':{slot:'portrait_jacket',url:'/cosmetics/test-jacket.svg',draft:false},'test-shirt':{slot:'portrait_shirt',url:'/cosmetics/test-shirt.svg',draft:false},'test-vest':{slot:'portrait_vest',url:'/cosmetics/test-vest.svg',draft:false},'test-glasses':{slot:'portrait_eyewear',url:'/cosmetics/test-glasses.png',draft:false,attachment:{target:'eyes',source:[{x:163,y:308},{x:350,y:308}]}}}};
 });
 const opened: DatabaseWrapper[]=[];
 afterEach(()=>{while(opened.length)opened.pop()?.sqlite.close();});
@@ -123,6 +123,18 @@ describe('four role looks',()=>{
     expect((await attachRoleLookSnapshots(db,state,'club:9')).players[0].appearance).toEqual(first.players[0].appearance);
     expect((await readRoleLooks(db,'p')).looks.find(l=>l.role==='mafia')).toEqual(emptyRoleLook('mafia'));
     expect((await db.get<any>('SELECT quantity FROM cosmetic_inventory WHERE item_id=?',['shirt'])).quantity).toBe(1);
+  });
+  it('stores eyewear independently and retains its eye attachment in immutable snapshots',async()=>{
+    const db=await setup();await approve(db);
+    await db.run("INSERT INTO cosmetic_catalog(id,name,rarity,slot,asset_key,published,created_at) VALUES('glasses','Glasses','common','portrait_eyewear','test-glasses',1,'2026-10-14')");
+    await db.run("INSERT INTO cosmetic_inventory(player_id,item_id,quantity,acquired_at) VALUES('p','glasses',1,'2026-10-14')");
+    await saveRoleLook(db,'p','civilian',{...input(),equippedItems:{portrait_eyewear:'glasses'}});
+    const state={players:[{playerId:'p',role:'civilian'}]} as unknown as LiveBroadcastState;
+    const first=await attachRoleLookSnapshots(db,state,'club:41');
+    expect(first.players[0].appearance?.equippedLayers).toEqual([{slot:'portrait_eyewear',itemId:'glasses',url:'/cosmetics/test-glasses.png',attachment:{target:'eyes',source:[{x:163,y:308},{x:350,y:308}]}}]);
+    await saveRoleLook(db,'p','civilian',{...input('',1),equippedItems:{}});
+    expect((await readRoleLooks(db,'p')).looks.find(l=>l.role==='civilian')?.equippedItems).toEqual({});
+    expect((await attachRoleLookSnapshots(db,state,'club:41')).players[0].appearance).toEqual(first.players[0].appearance);
   });
   it('rejects unowned or mismatched multi-slot items, malformed slot keys, missing portrait and stale revisions',async()=>{
     const db=await setup();await extendedWardrobe(db);

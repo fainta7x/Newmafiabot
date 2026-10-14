@@ -8,9 +8,12 @@ const data=(mime,bytes)=>`data:${mime};base64,${Buffer.from(bytes).toString('bas
 const fixtureBundle=await build({entryPoints:[path.join(root,'src/lib/dendiWardrobePilot.ts')],bundle:true,write:false,format:'esm',platform:'node'});
 const {WARDROBE_PILOT_CHARACTERS,DENDI_PILOT_LAYERS}=await import(data('text/javascript',fixtureBundle.outputFiles[0].contents));
 const embed=async(url,mime)=>data(mime,await readFile(path.join(root,'public',url)));
-const characters=await Promise.all(WARDROBE_PILOT_CHARACTERS.map(async c=>({...c,baseUrl:await embed(c.baseUrl,'image/png'),sourceUrl:await embed(c.sourceUrl,'image/jpeg')})));
-const layers=await Promise.all(DENDI_PILOT_LAYERS.map(async l=>({...l,url:await embed(l.url,'image/png')})));
-const result=await build({stdin:{contents:`import {createRoot} from 'react-dom/client';import CosmeticsLab from './src/components/player/CosmeticsLab.tsx';createRoot(document.getElementById('root')).render(<CosmeticsLab characters={${JSON.stringify(characters)}} wearableLayers={${JSON.stringify(layers)}}/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'iife',platform:'browser',minify:true,jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},outfile:'lab.js'});
+const sources=new Map();
+for(const c of WARDROBE_PILOT_CHARACTERS){sources.set(c.baseUrl,'image/png');sources.set(c.sourceUrl,'image/jpeg');}
+for(const l of DENDI_PILOT_LAYERS)for(const url of [l.url,...Object.values(l.variants||{})])sources.set(url,'image/png');
+const embedded=Object.fromEntries(await Promise.all([...sources].map(async([url,mime])=>[url,await embed(url,mime)])));
+// Store each bitmap once, even when the default and straight variant share it.
+const result=await build({stdin:{contents:`import {createRoot} from 'react-dom/client';import CosmeticsLab from './src/components/player/CosmeticsLab.tsx';const assets=${JSON.stringify(embedded)};const characters=${JSON.stringify(WARDROBE_PILOT_CHARACTERS)}.map(c=>({...c,baseUrl:assets[c.baseUrl],sourceUrl:assets[c.sourceUrl]}));const layers=${JSON.stringify(DENDI_PILOT_LAYERS)}.map(l=>({...l,url:assets[l.url],...(l.variants?{variants:Object.fromEntries(Object.entries(l.variants).map(([family,url])=>[family,assets[url]]))}:{})}));createRoot(document.getElementById('root')).render(<CosmeticsLab characters={characters} wearableLayers={layers}/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'iife',platform:'browser',minify:true,jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},outfile:'lab.js'});
 const js=result.outputFiles.find(f=>f.path.endsWith('.js')).text.replace(/<\/script/gi,'<\\/script');
 const css=result.outputFiles.find(f=>f.path.endsWith('.css'))?.text||'';
 const output=process.argv[2]||path.join(root,'temp/fiery-autumn-test.html');

@@ -21,9 +21,9 @@ it('preserves the shirt and replacement jacket after reload while the frozen loo
   fireEvent.click(screen.getByRole('button',{name:'Зафиксировать образ для тестовой игры'}));
   fireEvent.click(editor.getByRole('button',{name:/Чёрный пиджак/}));
   fireEvent.click(editor.getByRole('button',{name:'Сохранить: Дон'}));
-  await waitFor(()=>expect(within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-broadcast-card]')! as HTMLElement).getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-black-v4'));
+  await waitFor(()=>expect(within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-broadcast-card]')! as HTMLElement).getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-black-curved'));
   const frozen=within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-frozen-card]')! as HTMLElement);
-  expect(frozen.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-v4');
+  expect(frozen.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-curved');
   expect(frozen.getByRole('img',{name:'Рубашка / основа одежды'})).toBeTruthy();
   expect(frozen.getByAltText('Портрет игрока').getAttribute('src')).toContain('base-v3.png');
   view.unmount();
@@ -34,6 +34,31 @@ it('preserves the shirt and replacement jacket after reload while the frozen loo
   fireEvent.click(reloaded.getByRole('button',{name:'Дон'}));
   expect(reloaded.getByRole('button',{name:/Чёрный пиджак/}).getAttribute('aria-pressed')).toBe('true');
   expect(reloaded.getByRole('button',{name:/Белая рубашка/}).getAttribute('aria-pressed')).toBe('true');
+});
+
+it('keeps glasses removable, selects garment shape by template and freezes the selected template',async()=>{
+ const view=render(<CosmeticsLab/>);
+ const active=()=>within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden])')! as HTMLElement);
+ const selector=screen.getByRole('group',{name:'Персонаж примерки'});
+ fireEvent.click(within(selector).getByRole('button',{name:'Фандорин'}));
+ const editor=within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) .role-looks-editor')! as HTMLElement);
+ await editor.findByLabelText('Фраза');
+ const preview=within(editor.getByTestId('role-look-preview'));
+ const face=preview.getByAltText('Портрет игрока').getAttribute('src');
+ expect(face).toContain('fandorin-clean.png');
+ fireEvent.click(editor.getByRole('button',{name:/Квадратные очки/}));
+ expect(preview.getByRole('img',{name:'Очки'})).toBeTruthy();
+ fireEvent.click(editor.getByRole('button',{name:/Багряный пиджак/}));
+ fireEvent.change(active().getByLabelText('Шаблон фигуры'),{target:{value:'curved-full'}});
+ expect(preview.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-curved');
+ fireEvent.click(editor.getByRole('button',{name:'Сохранить: Мирный'}));await editor.findByRole('status');
+ fireEvent.click(active().getByRole('button',{name:'Зафиксировать образ для тестовой игры'}));
+ fireEvent.change(active().getByLabelText('Шаблон фигуры'),{target:{value:'straight-broad'}});
+ expect(preview.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-v4');
+ expect(within(active().getByTestId('lab-frozen-card')).getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-curved');
+ fireEvent.click(within(editor.getByRole('group',{name:'Очки'})).getByRole('button',{name:'Без предмета'}));
+ expect(preview.queryByRole('img',{name:'Очки'})).toBeNull();
+ expect(preview.getByAltText('Портрет игрока').getAttribute('src')).toBe(face);
 });
 
 it('opens the owner fit check in the existing editor and never saves its fixture through the production API',async()=>{

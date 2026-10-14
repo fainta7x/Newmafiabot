@@ -3,7 +3,7 @@ import { inflateSync } from 'zlib';
 import { z } from 'zod';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { COSMETIC_ASSETS, type CosmeticAssetKey } from '../../lib/cosmeticAssets.ts';
-import { emptyRoleLook, LOOK_BACKGROUNDS, LOOK_ROLES, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_ORDER, lookRoleFromGame, plainPhrase, PORTRAIT_LAYOUT, type BroadcastRoleLook, type EquippedItems, type LookLayer, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
+import { emptyRoleLook, LOOK_BACKGROUNDS, LOOK_ROLES, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_ORDER, lookRoleFromGame, plainPhrase, PORTRAIT_LAYOUT, type BroadcastRoleLook, type EquippedItems, type LookLayer, type PortraitLayer, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse } from '../../lib/roleLooks.ts';
 import type { LiveBroadcastState } from '../../lib/liveBroadcast.ts';
 import { CosmeticsError } from './cosmeticsService.ts';
 import { listReleasedWardrobeSets } from './cosmeticSetsService.ts';
@@ -23,6 +23,9 @@ export const roleLookInput = z.object({
   }
 });
 const required = (value: unknown, code: string, status = 409) => { if (!value) throw new CosmeticsError(code, status); };
+function layerMetadata(asset:Pick<PortraitLayer,'url'|'attachment'|'variants'|'shirtCoverage'>){
+  return {...(asset.attachment?{attachment:asset.attachment}:{}),...(asset.variants?{variants:asset.variants}:{}),...(asset.shirtCoverage?{shirtCoverage:asset.shirtCoverage}:{})};
+}
 async function requirePlayer(db: DatabaseWrapper, id: string) { required(await db.get('SELECT id FROM players WHERE id=?', [id]), 'player_not_found', 404); }
 const rowLook = (row: any, items: EquippedItems): RoleLook => ({
   role: row.role, phrase: row.phrase, background: row.background,
@@ -45,7 +48,7 @@ export async function readRoleLooks(db: DatabaseWrapper, playerId: string): Prom
   const layers: LookLayer[] = owned.flatMap(item => {
     const asset = COSMETIC_ASSETS[item.asset_key as CosmeticAssetKey];
     return asset && !asset.draft && asset.slot === item.slot
-      ? [{ itemId: item.id, name: item.name, slot: item.slot as PortraitEquipmentSlot, url: asset.url, rarity: item.rarity }]
+      ? [{ itemId: item.id, name: item.name, slot: item.slot as PortraitEquipmentSlot, url: asset.url, rarity: item.rarity,...layerMetadata(asset) }]
       : [];
   });
   const portrait = await db.get<any>('SELECT version FROM player_portrait_current WHERE player_id=?', [playerId]);
@@ -170,7 +173,7 @@ export async function attachRoleLookSnapshots(db: DatabaseWrapper, state: LiveBr
         const equippedLayers = saved.layers
           .filter(l => (look.equippedItems || {})[l.slot] === l.itemId)
           .sort((a,b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot])
-          .map(({slot,itemId,url}) => ({slot,itemId,url}));
+          .map(layer => ({slot:layer.slot,itemId:layer.itemId,url:layer.url,...layerMetadata(layer)}));
         const appearance: BroadcastRoleLook = {
           ...look, gameKey, portraitVersion: saved.portraitVersion,
           equippedLayers, hatUrl: equippedLayers.find(l => l.slot === 'portrait_hat')?.url || null,

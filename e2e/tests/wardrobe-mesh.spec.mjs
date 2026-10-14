@@ -15,7 +15,7 @@ for(const width of [360,390,1440]){
    await shirtStage.screenshot({path:testInfo.outputPath(`shirt-neck-${name}-${width}.png`)});
    await editor.getByRole('button',{name:/Багряный пиджак/}).click();
    const coat=editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v4/);await expect(coat).toHaveAttribute('data-rendered','true');
+   await expect(coat).toHaveAttribute('data-asset-url',name==='Фандорин'?/jacket-burgundy-v4/:/jacket-burgundy-curved/);await expect(coat).toHaveAttribute('data-rendered','true');
    const preview=editor.getByTestId('role-look-preview');
    const shirt=preview.locator('canvas.role-portrait-portrait_shirt');
    await expect(shirt).toHaveAttribute('data-rendered','true');
@@ -33,16 +33,33 @@ for(const width of [360,390,1440]){
    expect(await hat.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
    await preview.screenshot({path:testInfo.outputPath(`outfit-${name}-${width}.png`)});
    if(name==='Джава'){
-    await editor.getByRole('button',{name:/Медный лист/}).click();
+    await expect(active().getByLabel('Шаблон фигуры')).toHaveValue('curved-slim');
+    await editor.getByRole('group',{name:'Головной убор',exact:true}).getByRole('button',{name:'Без предмета',exact:true}).click();
     await expect(preview.getByRole('img',{name:'Головной убор',exact:true})).toHaveCount(0);
     await preview.screenshot({path:testInfo.outputPath(`collar-burgundy-no-hat-${width}.png`)});
     await editor.getByRole('button',{name:/Чёрный пиджак/}).click();
-    await expect(coat).toHaveAttribute('data-asset-url',/jacket-black-v4/);
+    await expect(coat).toHaveAttribute('data-asset-url',/jacket-black-curved/);
     await expect(coat).toHaveAttribute('data-rendered','true');
     await preview.screenshot({path:testInfo.outputPath(`collar-black-no-hat-${width}.png`)});
     await editor.getByRole('button',{name:/Медный лист/}).click();
     await expect.poll(()=>preview.getByRole('img',{name:'Головной убор',exact:true}).evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
     await preview.screenshot({path:testInfo.outputPath(`collar-black-hat-${width}.png`)});
+    const slimPixels=await coat.evaluate(c=>c.toDataURL());
+    await active().getByLabel('Шаблон фигуры').selectOption('curved-full');
+    await expect.poll(()=>coat.evaluate(c=>c.toDataURL())).not.toBe(slimPixels);
+    await preview.screenshot({path:testInfo.outputPath(`java-curved-full-${width}.png`)});
+    await active().getByLabel('Шаблон фигуры').selectOption('curved-slim');
+   }
+   if(name==='Фандорин'){
+    const face=preview.getByAltText('Портрет игрока'),source=await face.getAttribute('src');
+    await expect(face).toHaveAttribute('src',/fandorin-clean/);
+    await editor.getByRole('button',{name:/Квадратные очки/}).click();
+    const glasses=preview.getByRole('img',{name:'Очки',exact:true});
+    await expect.poll(()=>glasses.evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
+    expect(await glasses.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
+    await preview.screenshot({path:testInfo.outputPath(`fandorin-glasses-${width}.png`)});
+    await editor.getByRole('group',{name:'Очки',exact:true}).getByRole('button',{name:'Без предмета',exact:true}).click();
+    await expect(glasses).toHaveCount(0);await expect(face).toHaveAttribute('src',source);
    }
    const summary=editor.locator('.role-looks-compare>summary');
    expect(await summary.evaluate(el=>getComputedStyle(el).display)).toBe('block');
@@ -54,10 +71,11 @@ for(const width of [360,390,1440]){
   const comparison=active().locator('.cosmetics-lab-cross-grid');await expect(comparison).toBeVisible();
   for(const id of ['dendi','java','fandorin']){
    const card=comparison.getByTestId(`shared-fit-${id}`),coat=card.getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v4/);
+   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',id==='fandorin'?/jacket-burgundy-v4/:/jacket-burgundy-curved/);
   }
   const pixels=await comparison.locator('canvas[aria-label="Пиджак"]').evaluateAll(nodes=>nodes.map(c=>c.toDataURL()));
-  expect(new Set(pixels).size).toBe(3);
+  // Identical template uses identical garment pixels regardless of player identity.
+  expect(pixels[0]).toBe(pixels[1]);expect(pixels[0]).not.toBe(pixels[2]);
   await active().getByText('Посадка одежды · Фандорин',{exact:true}).click();
   const editor=active().locator('.role-looks-editor'),face=editor.getByTestId('role-look-preview').getByAltText('Портрет игрока');
   const originalFace=await face.getAttribute('src');

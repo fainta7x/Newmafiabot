@@ -34,3 +34,9 @@ export interface GoMafiaCareer {
   registrationsStatus: 'unavailable';
   limitations: string[];
 }
+
+/** Unknown size is not quietly classified as a ten-person event. */
+export function classifyGoMafiaTournamentSize(count: number | null | undefined): 'large' | 'ten' | 'other' | 'unknown' {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return 'unknown';
+  return count > 10 ? 'large' : count === 10 ? 'ten' : 'other';
+}

@@ -1,7 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
-import { loadEveningPlayerResults, loadAvatars, dateLabel, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement, loadTournamentGameBlank } from './clubResultData.ts';
+import { loadEveningPlayerResults, loadEveningSummary, loadGameBlank, loadSeasonTable, loadSeasonTableForPeriod, loadTournamentAnnouncement, loadTournamentGameBlank } from './clubResultData.ts';
 import { queueTournamentGameSeatMessages, runTournamentFirstSeatMessages } from './tournamentSeatNotificationService.ts';
 import { appUrl, inviteFriendUrl } from './gameResultCardService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
@@ -12,7 +12,8 @@ import { mvpDecisionCallbackData, mvpReasonText, resolveEveningMvp } from './eve
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
-import { eveningSummarySvg, gameBlankSvg, mvpResultSvg, mvpVoteSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
+import { buildMvpResultCard, buildMvpVoteCard } from './mvpCardService.ts';
+import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
 
 /**
  * Club chat results (owner, 2026-10-01): after each completed game the bot posts the game blank,
@@ -458,14 +459,7 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
   ].filter(Boolean).join('\n');
   let posted = false;
   // The card with the photo of every candidate (owner, 2026-10-14: the polls were only text); without it the text post still goes out.
-  let card: Buffer | null = null;
-  try {
-    const avatars = await loadAvatars(db, nominees.map((nominee: any) => String(nominee.id)));
-    card = renderPng(mvpVoteSvg({
-      eveningTitle: title, dateLabel: dateLabel(evening.starts_at) || '', deadlineLabel: `Голосование до ${moscowDayTime(deadline)}`,
-      candidates: nominees.map((nominee: any) => ({ nickname: String(nominee.nickname || 'Игрок'), avatar: avatars.get(String(nominee.id)) || null })),
-    }));
-  } catch (error) { console.warn('[MVP VOTE] card failed, text post only:', error instanceof Error ? error.message : String(error)); }
+  const card = await buildMvpVoteCard(db, eveningId);
   const voteMarkup = voteRows.length ? { inline_keyboard: voteRows } : undefined;
   const telegramKey = `vote-prompt:${eveningId}`;
   if (await claim(db, telegramKey, 'vote-prompt', eveningId, null)) {
@@ -536,22 +530,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
   let posted = false;
 
   // The card with the winner's photo and the others who got votes; without it the text post still goes out.
-  let card: Buffer | null = null;
-  try {
-    const others = await db.all<any>(
-      `SELECT v.nominee_player_id AS player_id, p.nickname, COUNT(*) AS votes
-         FROM evening_player_votes v JOIN players p ON p.id = v.nominee_player_id
-        WHERE v.evening_id = ? AND v.category = 'best_player' AND v.nominee_player_id <> ?
-        GROUP BY v.nominee_player_id, p.nickname ORDER BY votes DESC, p.nickname COLLATE NOCASE LIMIT 4`,
-      [eveningId, winner.player_id],
-    );
-    const avatars = await loadAvatars(db, [winner.player_id, ...others.map((row: any) => String(row.player_id))]);
-    card = renderPng(mvpResultSvg({
-      eveningTitle: title, dateLabel: dateLabel(evening.starts_at) || '', totalVotes: resolution.total_votes, reason,
-      winner: { nickname: winner.nickname, avatar: avatars.get(winner.player_id) || null, votes: winner.votes },
-      others: others.map((row: any) => ({ nickname: String(row.nickname || 'Игрок'), avatar: avatars.get(String(row.player_id)) || null, votes: Number(row.votes || 0) })),
-    }));
-  } catch (error) { console.warn('[MVP RESULT] card failed, text post only:', error instanceof Error ? error.message : String(error)); }
+  const card = await buildMvpResultCard(db, eveningId, winner, resolution.total_votes, reason);
 
   const telegramKey = `mvp-result:${eveningId}`;
   if (await claim(db, telegramKey, 'mvp-result', eveningId, null)) {
@@ -580,7 +559,7 @@ export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetc
           : groupText;
         await queuePersonalNotification(db, {
           notificationKey: `mvp-result:${eveningId}:${playerId}`,
-          playerId, eventType: 'evening_mvp_result', entityId: eveningId, text, actionPath: '/player',
+          playerId, eventType: 'evening_mvp_result', entityId: eveningId, text, actionPath: '/player', telegramPhotoPng: card,
         }).catch((error) => console.warn('[MVP RESULT] personal message failed:', error instanceof Error ? error.message : String(error)));
       }
       await finish(db, dmKey, { ok: true });

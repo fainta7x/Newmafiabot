@@ -52,6 +52,9 @@ describe('result of the «MVP вечера» vote', () => {
     // Everyone who was at the evening gets it personally, the winner with a line of their own, once.
     const keys = (await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE event_type = 'evening_mvp_result'")).map((row) => row.notification_key).sort();
     expect(keys).toEqual(['mvp-result:e1:a', 'mvp-result:e1:b', 'mvp-result:e1:c', 'mvp-result:e1:d']);
+    // The Telegram messages carry the card, the picture of the winner.
+    const withPhoto = await db.all<any>("SELECT message_key FROM telegram_message_outbox WHERE event_type = 'evening_mvp_result' AND photo_png IS NOT NULL");
+    expect(withPhoto.length).toBe(4);
   });
 
   it('says nothing when nobody voted or the window is still open', async () => {

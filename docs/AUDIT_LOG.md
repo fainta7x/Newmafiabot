@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet, screen 4: «Вечера → Мои игры» club-archive error survives recovery
+
+**Mounted path:** `PlayerCabinetShell → PlayerEveningsHub(games) → PlayerHistoryStatsView`. The player's own games load from canonical PlayerMe and work independently. The secondary disclosure «Все игры клуба» invokes `GET /api/player/games/all` only when expanded. The effect sets `allGamesError` after a failed request, but never clears it before another attempt or after success; the render branch prioritizes `allGamesError` over `allGames`. A transient outage can therefore leave the archive showing the old error after the next successful GET. The error panel contains **no retry control**.
+
+**Expected:** when opening the club archive or pressing `Повторить`, reset the previous error and stale archive state; preserve the main `Мои игры` and selected-game protocol, and show the real empty state only on a successful empty result. Guard against old responses arriving after collapse/unmount or retry. Existing archive read endpoint and all game/protocol/Replay navigation stay unchanged.
+
+**Acceptance:** rendered regression: first GET rejects, error with accessible retry; second GET succeeds, archived game appears, old error disappears; success-empty remains empty. No writes of game data, profile, token or bankroll. CI and 390px preview before merge. Independent from screen 2 (#913) and screen 3 (#914); keep separate PR.
+
+
 ## 2026-10-14 · Player Cabinet, screen 3: «Вечера → Прошедшие» dead-end after GET failure
 
 **Mounted path:** `PlayerCabinetShell → PlayerEveningsHub (recaps) → PlayerEveningSummaries(embedded=true)`. `GET /api/player/evening-summaries` failure sets `error`; the returned full-screen error panel offers only `onBack` when supplied, but the mounted embedded caller provides **no `onBack`**, leaving the player with an error message and no in-section retry. Switching tabs away and back is the only implicit recovery. A successful zero-summaries response correctly renders «Итогов пока нет» and must stay distinct from request failure.

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
@@ -42,25 +42,29 @@ export default function PlayerGamesArchive({
   const [clubArchiveOpen, setClubArchiveOpen] = useState(false);
   const [allGames, setAllGames] = useState<AllGame[] | null>(null);
   const [allGamesError, setAllGamesError] = useState<string | null>(null);
+  const archiveRequestSeq = useRef(0);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [selectedGameDetail, setSelectedGameDetail] = useState<PlayerGameDetailData | null>(null);
   const [gameDetailLoading, setGameDetailLoading] = useState(false);
   const [gameDetailError, setGameDetailError] = useState<string | null>(null);
   const requested = useRef(0);
 
+  const loadClubArchive = useCallback(async () => {
+    const requestId = ++archiveRequestSeq.current;
+    setAllGames(null);
+    setAllGamesError(null);
+    try {
+      const body = await getJson<any>('/api/player/games/all', 'Не удалось загрузить все игры');
+      if (requestId === archiveRequestSeq.current) setAllGames(Array.isArray(body?.games) ? body.games : []);
+    } catch (error: any) {
+      if (requestId === archiveRequestSeq.current) setAllGamesError(error?.message || 'Не удалось загрузить все игры');
+    }
+  }, []);
+
   useEffect(() => {
-    if (!clubArchiveOpen) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const body = await getJson<any>('/api/player/games/all', 'Не удалось загрузить все игры');
-        if (!cancelled) setAllGames(Array.isArray(body?.games) ? body.games : []);
-      } catch (error: any) {
-        if (!cancelled) setAllGamesError(error?.message || 'Не удалось загрузить все игры');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [clubArchiveOpen]);
+    if (clubArchiveOpen) void loadClubArchive();
+    return () => { archiveRequestSeq.current += 1; };
+  }, [clubArchiveOpen, loadClubArchive]);
 
   const personalGames = data.games?.all ?? [];
   const finished = personalGames.filter((game) => game.status === 'completed' && typeof game.won === 'boolean');
@@ -160,7 +164,10 @@ export default function PlayerGamesArchive({
             </summary>
             <p className="mt-1 text-xs leading-5 text-white/45">Полный архив, включая игры других участников.</p>
             <div className="mt-3">
-              {allGamesError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGamesError}</p>
+              {allGamesError ? <div role="alert" data-testid="player-games-archive-error" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/60">
+                  <p>{allGamesError}</p>
+                  <button type="button" onClick={() => void loadClubArchive()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 font-semibold text-white">Повторить</button>
+                </div>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
                 : allGames.length ? <div className="player-archive-list space-y-2">{allGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);

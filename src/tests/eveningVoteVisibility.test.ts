@@ -54,10 +54,16 @@ describe('«MVP вечера» is no longer hidden', () => {
     await db.run("CREATE TABLE IF NOT EXISTS telegram_destinations (id TEXT PRIMARY KEY, chat_id TEXT, topic_id TEXT, active INTEGER DEFAULT 1, invite_url TEXT)").catch(() => undefined);
     await db.run("INSERT OR REPLACE INTO telegram_destinations (id, chat_id, active) VALUES ('club', '-100', 1)");
     const sent: any[] = [];
-    const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
+    const asSent = (body: any) => {
+      if (!(body instanceof FormData)) return JSON.parse(body);
+      const markup = body.get('reply_markup');
+      return { chat_id: String(body.get('chat_id')), text: String(body.get('caption') ?? ''), photo: body.get('photo') instanceof Blob, ...(markup ? { reply_markup: JSON.parse(String(markup)) } : {}) };
+    };
+    const fetchImpl = (async (_url: string, init: any) => { sent.push(asSent(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
     expect(await postVotePrompt(db, 'e1', fetchImpl)).toBe(true);
     expect(sent[0].text).toContain('MVP вечера «Пятница» — голосуем!');
     expect(sent[0].text).toContain('Голосование до');
+    expect(sent[0].photo).toBe(true); // the card with every candidate's photo
     expect(sent[0].text).toContain('Нажми на игрока под этим постом');
     const buttons = sent[0].reply_markup.inline_keyboard.flat();
     expect(buttons.length).toBe(3);

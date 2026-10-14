@@ -9,7 +9,12 @@ import { ensureClubResultPostSchema, postMvpResult } from '../server/services/cl
 let db: DatabaseWrapper;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 const sent: any[] = [];
-const fetchImpl = (async (_url: string, init: any) => { sent.push(JSON.parse(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
+const asSent = (body: any) => {
+  if (!(body instanceof FormData)) return JSON.parse(body);
+  const markup = body.get('reply_markup');
+  return { chat_id: String(body.get('chat_id')), text: String(body.get('caption') ?? ''), photo: body.get('photo') instanceof Blob, ...(markup ? { reply_markup: JSON.parse(String(markup)) } : {}) };
+};
+const fetchImpl = (async (_url: string, init: any) => { sent.push(asSent(init.body)); return new Response(JSON.stringify({ ok: true }), { status: 200 }); }) as unknown as typeof fetch;
 
 beforeEach(async () => {
   process.env.TELEGRAM_BOT_TOKEN = 'test-token';
@@ -39,6 +44,7 @@ describe('result of the «MVP вечера» vote', () => {
     await vote('a', 'b'); await vote('c', 'b'); await vote('d', 'a');
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(true);
     const group = sent.find((body) => body.chat_id === '-100500');
+    expect(group.photo).toBe(true); // the card with the winner's photo
     expect(group.text).toContain('MVP вечера «Пятница» — Игрок b!');
     expect(group.text).toContain('Голосов: 2 из 3.');
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(false);
@@ -46,6 +52,9 @@ describe('result of the «MVP вечера» vote', () => {
     // Everyone who was at the evening gets it personally, the winner with a line of their own, once.
     const keys = (await db.all<any>("SELECT notification_key FROM personal_notification_deliveries WHERE event_type = 'evening_mvp_result'")).map((row) => row.notification_key).sort();
     expect(keys).toEqual(['mvp-result:e1:a', 'mvp-result:e1:b', 'mvp-result:e1:c', 'mvp-result:e1:d']);
+    // The Telegram messages carry the card, the picture of the winner.
+    const withPhoto = await db.all<any>("SELECT message_key FROM telegram_message_outbox WHERE event_type = 'evening_mvp_result' AND photo_png IS NOT NULL");
+    expect(withPhoto.length).toBe(4);
   });
 
   it('says nothing when nobody voted or the window is still open', async () => {
@@ -68,5 +77,14 @@ describe('result of the «MVP вечера» vote', () => {
     expect(await postMvpResult(db, 'e1', fetchImpl)).toBe(true);
     expect(sent.find((body) => body.chat_id === '-100500').text).toContain('MVP вечера «Пятница» — Игрок d!');
     expect(sent.find((body) => body.chat_id === '-100500').text).toContain('решение организатора');
+  });
+});
+
+describe('MVP cards', () => {
+  it('render the result and the vote card as pictures, with and without photos', async () => {
+    const { mvpResultSvg, mvpVoteSvg, renderPng } = await import('../server/services/clubResultImages.ts');
+    const result = renderPng(mvpResultSvg({ eveningTitle: 'Пятница', dateLabel: '9 октября', totalVotes: 3, reason: '', winner: { nickname: 'Аня', avatar: null, votes: 2 }, others: [{ nickname: 'Борис', avatar: null, votes: 1 }] }));
+    const vote = renderPng(mvpVoteSvg({ eveningTitle: 'Пятница', dateLabel: '', deadlineLabel: 'Голосование до понедельника', candidates: [{ nickname: 'Аня', avatar: null }, { nickname: 'Борис', avatar: null }] }));
+    for (const png of [result, vote]) expect(png.subarray(0, 4).toString('hex')).toBe('89504e47');
   });
 });

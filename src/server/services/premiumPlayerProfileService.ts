@@ -276,7 +276,7 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
     format: formatKey,
     seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label, games: games.filter((game) => inSeason(game, item)).length })).filter((item) => item.games > 0),
     formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key], games: periodGames.filter((game) => game.evening_format === key).length })).filter((item) => item.games > 0),
-    period_label: periodKey === 'recent10' ? 'Последние 10 игр' : chosenSeason ? `Рейтинговый сезон · ${chosenSeason.label}` : 'Вся карьера',
+    period_label: periodKey === 'recent10' ? 'Последние 10 игр' : chosenSeason ? chosenSeason.label : 'Вся карьера',
     format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
   };
   const recent = scoped.slice(0, 5);

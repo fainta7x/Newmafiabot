@@ -125,3 +125,66 @@ describe('CRM player work card isolation', () => {
     await waitFor(() => expect(screen.queryByTestId('avatar-delete-confirm')).toBeNull());
   });
 });
+
+
+const withActivities = (id: string, nickname: string, count: number) => ({
+  ...player(id, nickname),
+  activities: Array.from({ length: count }, (_, index) => ({
+    id: `note-${index + 1}`,
+    occurred_at: new Date(Date.UTC(2026, 9, 14 - index)).toISOString(),
+    type: 'contact',
+    description: `Событие ${index + 1}`,
+  })),
+});
+
+describe('CRM player history expansion', () => {
+  it('shows all 26 fetched records in batches of ten without dropping older history', async () => {
+    vi.mocked(api.getPlayer).mockResolvedValue(withActivities('a', 'Анна', 26) as any);
+    render(<PlayersCRM {...props} selectedPlayerId="a" />);
+    const history = await screen.findByTestId('crm-player-history');
+    fireEvent.click(history.querySelector('summary')!);
+
+    expect(history.textContent).toContain('Событие 10');
+    expect(history.textContent).not.toContain('Событие 11');
+    expect(history.textContent).toContain('Показано 10 из 26');
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё 10' }));
+    expect(history.textContent).toContain('Событие 20');
+    expect(history.textContent).not.toContain('Событие 21');
+    expect(history.textContent).toContain('Показано 20 из 26');
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё 6' }));
+    expect(history.textContent).toContain('Событие 26');
+    expect(history.textContent).toContain('Показано 26 из 26');
+    expect(screen.queryByRole('button', { name: /Показать ещё/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть до последних 10' }));
+    expect(history.textContent).toContain('Событие 10');
+    expect(history.textContent).not.toContain('Событие 11');
+  });
+
+  it.each([0, 10])('keeps history with %i records simple and without load-more controls', async (count) => {
+    vi.mocked(api.getPlayer).mockResolvedValue(withActivities('a', 'Анна', count) as any);
+    render(<PlayersCRM {...props} selectedPlayerId="a" />);
+    const history = await screen.findByTestId('crm-player-history');
+    fireEvent.click(history.querySelector('summary')!);
+    if (count === 0) expect(history.textContent).toContain('История пока пустая');
+    else expect(history.textContent).toContain('Событие 10');
+    expect(history.textContent).not.toContain('Показано');
+    expect(history.querySelector('button')).toBeNull();
+  });
+
+  it('resets visible history when selecting a different player', async () => {
+    vi.mocked(api.getPlayer).mockImplementation(async (id) =>
+      withActivities(id, id === 'a' ? 'Анна' : 'Борис', id === 'a' ? 26 : 16) as any
+    );
+    const { rerender } = render(<PlayersCRM {...props} selectedPlayerId="a" />);
+    const history = await screen.findByTestId('crm-player-history');
+    fireEvent.click(history.querySelector('summary')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё 10' }));
+    expect(history.textContent).toContain('Показано 20 из 26');
+
+    rerender(<PlayersCRM {...props} selectedPlayerId="b" />);
+    await waitFor(() => expect(history.textContent).toContain('Показано 10 из 16'));
+    expect(history.textContent).toContain('Событие 10');
+    expect(history.textContent).not.toContain('Событие 11');
+    expect(screen.getByRole('button', { name: 'Показать ещё 6' })).toBeDefined();
+  });
+});

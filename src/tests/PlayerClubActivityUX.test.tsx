@@ -38,7 +38,7 @@ describe('ЛК «Сообщество → Активность → Форма»:
     expect(screen.queryByTestId('player-form-row-p6')).toBeNull();
     const first = screen.getByTestId('player-form-row-p1');
     expect(first.textContent).toContain('баллы формы');
-    expect(first.textContent).toContain('1 из 6 побед');
+    expect(first.textContent).toContain('Побед: 1 из 6 игр');
     fireEvent.click(first);
     expect(openCanonicalPlayerProfile).toHaveBeenCalledExactlyOnceWith('p1');
     fireEvent.click(own);

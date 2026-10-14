@@ -237,7 +237,8 @@ export async function requestTelegramProfileLinkByNickname(db: DatabaseWrapper, 
   if (matches.length === 0) throw onboardingError('nickname_not_found', 'Игрок с таким ником не найден.', 404);
   if (matches.length > 1) throw onboardingError('nickname_ambiguous', 'Найдено несколько профилей с таким ником. Нужна проверка организатора.', 409);
   const target = matches[0];
-  if (await profileHasAccount(db, target)) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
+  // A profile that signed up through VK (no Telegram yet) may be asked for too: the organizer decides (owner, 2026-10-14).
+  if (String(target.telegram_user_id || '').trim()) throw onboardingError('nickname_linked_elsewhere', LINKED_NICKNAME_MESSAGE, 409);
   const existing = await db.get<{ id: string; target_player_id: string }>(
     "SELECT id, target_player_id FROM player_onboarding_link_requests WHERE platform='telegram' AND external_user_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",
     [externalUserId],

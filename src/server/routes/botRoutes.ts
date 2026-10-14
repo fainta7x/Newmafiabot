@@ -1,5 +1,7 @@
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
+import { appUrl } from '../services/gameResultCardService.ts';
+import { createTelegramLinkRequest } from '../services/telegramLinkRequestService.ts';
 import { decideEveningMvp } from '../services/eveningMvpService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
@@ -317,6 +319,16 @@ router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
     return res.json({ success: true, nominee: result.winner.nickname });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить решение' });
+  }
+});
+
+// «Подтвердить через ВК»: a one-time link for the Telegram account that is typing the nickname of a VK-only profile.
+router.post('/telegram-link-request', async (req, res) => {
+  try {
+    const link = await createTelegramLinkRequest(req.db, { telegramUserId: req.body?.telegram_user_id, baseUrl: appUrl('') || `${req.protocol}://${req.get('host') || ''}` });
+    return res.json({ success: true, url: link.url, expires_at: link.expires_at });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось создать ссылку', code: error?.code });
   }
 });
 

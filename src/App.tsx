@@ -9,6 +9,7 @@ import ObsBridgePage from "./components/public/ObsBridgePage.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import { PublicOffer } from "./components/public/PublicOffer.tsx";
+import TelegramLinkRedeem from "./components/player/TelegramLinkRedeem.tsx";
 import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
@@ -286,6 +287,8 @@ export default function App() {
   };
 
   return (
+    <>
+    <TelegramLinkRedeem />
     <PlayerCabinetShell
       data={rootState.data}
       canOpenAdmin={rootState.canOpenAdmin}
@@ -296,5 +299,6 @@ export default function App() {
       initialTarget={initialTarget}
       onSectionChange={syncPlayerPath}
     />
+    </>
   );
 }

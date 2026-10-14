@@ -8,6 +8,7 @@ import {
 } from '../services/personalNotificationRouterService.ts';
 import { getVkPersonalDeliveryStatus } from '../services/vkMessageOutboxService.ts';
 import { createPlayerClaimLink } from '../services/playerClaimLinkService.ts';
+import { redeemTelegramLinkRequest } from '../services/telegramLinkRequestService.ts';
 
 import { INVITE_KIND_LABELS, INVITE_KINDS, loadInvitePreferences, saveInvitePreferences } from '../services/playerInvitePreferencesService.ts';
 
@@ -47,6 +48,17 @@ router.post('/telegram-link', async (req, res) => {
     return res.json({ telegram_url: link.telegram_url, expires_at: link.expires_at });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось создать ссылку для Telegram' });
+  }
+});
+
+// The other direction (owner, 2026-10-14): the person asked the bot for a link, signed in with VK ID, and the page redeems it.
+router.post('/telegram-link/redeem', async (req, res) => {
+  const playerId = requirePlayerId(req, res); if (!playerId) return;
+  try {
+    const result = await redeemTelegramLinkRequest(req.db, { code: req.body?.code, playerId });
+    return res.json({ success: true, nickname: result.nickname });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 400)).json({ error: String(error?.message || 'Не удалось привязать Telegram'), code: String(error?.code || 'link_failed') });
   }
 });
 

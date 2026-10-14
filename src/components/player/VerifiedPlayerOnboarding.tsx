@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hasTelegramLinkCode } from './TelegramLinkRedeem.tsx';
 import VkPlayerAccess from './VkPlayerAccess.tsx';
 
 type OnboardingStatus = {
@@ -141,6 +142,7 @@ export default function VerifiedPlayerOnboarding({ canOpenAdmin = false }: { can
           <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
           <h1 className="mt-3 text-2xl font-semibold">{claim?.nickname ? `Профиль «${claim.nickname}»` : 'Войти в кабинет игрока'}</h1>
           {claim?.nickname ? <p className="mt-2 rounded-2xl border border-emerald-200/15 bg-emerald-300/[0.06] px-3 py-3 text-sm leading-6 text-emerald-50/80" data-testid="claim-signin-hint">Организатор клуба приготовил профиль. Вход через VK кнопкой ниже — и профиль привяжется. В Telegram достаточно открыть ссылку из сообщения организатора.</p> : null}
+          {hasTelegramLinkCode() ? <p className="mt-2 rounded-2xl border border-sky-200/15 bg-sky-300/[0.06] px-3 py-3 text-sm leading-6 text-sky-50/80" data-testid="telegram-link-hint">Чтобы привязать Telegram, войдите через ВК — тем аккаунтом, которым вы регистрировались в клубе. После входа Telegram привяжется сам.</p> : null}
           {claim?.error ? <p className="mt-2 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{claim.error}</p> : null}
           <p className="mt-2 text-sm leading-6 text-white/50">
             Сначала нужно подтвердить аккаунт. Если связь с игровым профилем уже есть, кабинет откроется сразу. Новый ник понадобится только при создании нового профиля.

@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { replaceClubGameSeatIdentity } from './clubGameSeatIdentityRepair.ts';
+import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
+import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
 
 export const MAX_GUEST_PLUS = 10;
 export const normalizeGuestPlus = (value: unknown) => Math.min(MAX_GUEST_PLUS, Math.max(0, Math.trunc(Number(value) || 0)));
@@ -78,6 +80,18 @@ export async function syncGuestCompanions(db: DatabaseWrapper, hostId: string) {
   if (kept.length !== normalizeGuestPlus(host.plus_count)) await db.run('UPDATE guest_player_placeholders SET plus_count = ?, updated_at = ? WHERE id = ?', [kept.length, now, hostId]);
 }
 
+/** A guest (or «+N») changes the sign-ups, so the published announcement and the VK post are refreshed (they list the people signed up). */
+async function refreshAnnouncementsAfterGuestChange(db: DatabaseWrapper, eveningId: string) {
+  try {
+    const evening = await db.get<any>('SELECT status FROM game_evenings WHERE id = ?', [eveningId]);
+    if (String(evening?.status || '') !== 'published') return;
+    await enqueueTelegramEveningSync(db, eveningId);
+    kickVkLiveEveningSync(db);
+  } catch (error) {
+    console.warn('[GUEST] announcement refresh failed:', error instanceof Error ? error.message : String(error));
+  }
+}
+
 export async function listGuestPlaceholdersForEvening(db: DatabaseWrapper, eveningId: string) {
   await ensureGuestPlayerPlaceholderSchema(db);
   // Guests saved before «+N» became rows get their rows here, once.
@@ -124,6 +138,7 @@ export async function createGuestPlaceholder(db: DatabaseWrapper, input: {
     ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [id,input.eveningId,displayName,input.tableId || null,responseStatus,responseStatus,paymentStatus,due,paid,input.notes || null,now,responseStatus === 'going' || responseStatus === 'late' ? now : null,now,now,cleanContact.kind,cleanContact.value,normalizeGuestPlus(input.plusCount)]);
   await syncGuestCompanions(db, id);
+  await refreshAnnouncementsAfterGuestChange(db, input.eveningId);
   return serializeGuestPlaceholder(await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [id]));
 }
 
@@ -175,6 +190,7 @@ export async function updateGuestPlaceholder(db: DatabaseWrapper, guestId: strin
     await db.run('UPDATE guest_player_placeholders SET contact_kind = ?, contact_value = ?, updated_at = ? WHERE id = ?', [contact.kind, contact.value, new Date().toISOString(), guestId]);
   }
   if (patch.attendance_fact) await setGuestAttendance(db, guestId, patch.attendance_fact);
+  if (patch.response_status !== undefined || patch.plus_count !== undefined || patch.nickname !== undefined) await refreshAnnouncementsAfterGuestChange(db, String(current.evening_id));
   return serializeGuestPlaceholder(await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [guestId]));
 }
 

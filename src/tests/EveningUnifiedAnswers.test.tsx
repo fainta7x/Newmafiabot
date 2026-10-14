@@ -63,6 +63,34 @@ describe('one organizer response and delivery worklist', () => {
     expect(screen.queryByTestId('evening-answer-row-p-going')).toBeNull();
   });
 
+  it('lists a guest and the people they bring in the sign-ups, with all games', async () => {
+    setup();
+    vi.spyOn(api, 'getEvening').mockResolvedValue({
+      id: 'evening-1', status: 'published',
+      participants: [
+        { id: 'g1', player_id: null, is_guest: true, nickname: 'Екатерина', response_status: 'going', registration_status: 'going', contact_kind: 'vk', contact_value: 'kitten64' },
+        { id: 'g2', player_id: null, is_guest: true, companion_of: 'g1', nickname: 'Екатерина +1', response_status: 'going', registration_status: 'going' },
+      ],
+    } as any);
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes('/announcement-overview')) return Promise.resolve(new Response(JSON.stringify({ players: [], summary: { audience: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      if (u.includes('/slots')) return Promise.resolve(new Response(JSON.stringify({ slots: [
+        { id: 's1', slot_number: 1, starts_at: '2026-10-16T16:00:00Z', participants: [{ id: 'g1', nickname: 'Екатерина', whole_evening: true, is_guest: true }, { id: 'g2', nickname: 'Екатерина +1', whole_evening: true, is_guest: true }] },
+      ], event: { max_evening_price: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }));
+    render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Все$/ }));
+    const guest = await screen.findByTestId('evening-answer-row-guest:g1');
+    expect(within(guest).getByText('Идёт')).toBeDefined();
+    expect(within(guest).getByText('Гость · записан организатором')).toBeDefined();
+    expect(within(guest).getByText(/Игры: 1 /)).toBeDefined();
+    expect(within(guest).getByRole('link', { name: 'Написать Екатерина' }).getAttribute('href')).toBe('https://vk.com/kitten64');
+    expect(screen.getByTestId('evening-answer-row-guest:g2')).toBeDefined();
+    expect(within(guest).queryByRole('button', { name: /Игры/ })).toBeNull();
+  });
+
   it('explains who is in the list and why the announcement is not sent yet', async () => {
     setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);

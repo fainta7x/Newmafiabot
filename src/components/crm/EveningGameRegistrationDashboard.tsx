@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
 import { MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
+import { guestContactHref } from '../../lib/guestContact.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
@@ -41,6 +42,7 @@ type Row = {
   lastDeliveryError: string | null;
   reminderCount: number;
   eligibleNow: boolean;
+  isGuest: boolean;
 };
 
 const STATE_LABELS: Record<RegistrationState, string> = {
@@ -105,7 +107,10 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       const audiencePlayers: AudiencePlayer[] = Array.isArray(audienceBody?.players) ? audienceBody.players : [];
       const slots: Slot[] = Array.isArray(slotBody?.slots) ? slotBody.slots : [];
       const participants = (evening.participants || []) as EveningParticipant[];
-      const participantByPlayer = new Map(participants.map((participant) => [String(participant.player_id), participant]));
+      // A guest (lead) has no player id: its row is keyed `guest:<id>`, and its games are looked up by the guest id.
+      const isGuestParticipant = (participant: EveningParticipant) => Boolean((participant as any).is_guest);
+      const rowKeyOf = (participant: EveningParticipant) => isGuestParticipant(participant) ? `guest:${participant.id}` : String(participant.player_id);
+      const participantByPlayer = new Map(participants.map((participant) => [rowKeyOf(participant), participant]));
       const audienceByPlayer = new Map(audiencePlayers.map((player) => [String(player.id), player]));
       const slotByPlayer = new Map<string, Slot[]>();
       const wholeEveningIds = new Set<string>();
@@ -122,15 +127,17 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
 
       const candidateIds = new Set<string>();
       audiencePlayers.filter((player) => Boolean(player.eligible_now)).forEach((player) => candidateIds.add(String(player.id)));
-      participants.forEach((participant) => candidateIds.add(String(participant.player_id)));
+      participants.forEach((participant) => candidateIds.add(rowKeyOf(participant)));
 
       const nextRows: Row[] = Array.from(candidateIds).map((playerId) => {
         const participant = participantByPlayer.get(playerId) || null;
         const audience = audienceByPlayer.get(playerId);
         const responseStatus = participant ? getEveningResponse(participant) : String(audience?.response_status || 'unanswered');
-        const playerSlots = responseStatus === 'late' && wholeEveningIds.has(playerId)
+        const isGuest = Boolean(participant && isGuestParticipant(participant));
+        const slotKey = isGuest && participant ? String(participant.id) : playerId;
+        const playerSlots = responseStatus === 'late' && wholeEveningIds.has(slotKey)
           ? []
-          : (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
+          : (slotByPlayer.get(slotKey) || []).sort((a, b) => a.slot_number - b.slot_number);
         return {
           playerId,
           nickname: String(participant?.nickname || audience?.nickname || 'Игрок'),
@@ -145,6 +152,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           lastDeliveryError: audience?.last_error || null,
           reminderCount: Number(audience?.reminder_count || 0),
           eligibleNow: Boolean(audience?.eligible_now),
+          isGuest,
         };
       }).sort((a, b) => {
         const priority: Record<RegistrationState, number> = { unknown: 0, thinking: 1, games: 2, declined: 3 };
@@ -192,6 +200,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   }), [filter, rows, search]);
 
   const chatUrlFor = (row: Row) => {
+    if (row.isGuest) return guestContactHref((row.participant as any)?.contact_kind, (row.participant as any)?.contact_value);
     const username = String(row.telegramUsername || '').trim().replace(/^@/, '');
     if (username) return `https://t.me/${username}`;
     const userId = String(row.telegramUserId || '').trim();
@@ -210,6 +219,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   })();
 
   const deliveryLabel = (row: Row) => {
+    if (row.isGuest) return 'Гость · записан организатором';
     if (!row.eligibleNow) return 'Вне личной рассылки';
     if (row.firstSentAt) return `Анонс доставлен${row.reminderCount ? ` · напоминаний: ${row.reminderCount}` : ''}`;
     if (row.deliveryStatus === 'failed') return 'Анонс не доставлен';
@@ -388,7 +398,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
               <button type="button" aria-expanded={responseOpen} disabled={busy || readonly} onClick={() => { setEditingResponseId(responseOpen ? null : row.playerId); setEditingPlayerId(null); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${responseOpen ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Ответ {responseOpen ? '▴' : '▾'}</button>
-              <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button>
+              {!row.isGuest ? <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button> : null}
               {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-surface-1 px-2 text-[12px] font-semibold text-accent"><MessageCircle className="h-4 w-4" />Написать</a> : <span className="flex min-h-11 items-center justify-center rounded-[10px] bg-surface-1 px-2 text-center text-[11px] text-text-muted">Нет контакта</span>}
             </div>
             {responseOpen ? <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border-soft pt-3 sm:grid-cols-4" aria-label={`Ответ ${row.nickname}`}>

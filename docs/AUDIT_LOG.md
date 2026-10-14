@@ -1,5 +1,18 @@
 # Audit log
 
+## 2026-10-14 · Screen 5: organizer CRM player work card — stale request and nested overlays
+
+**Mounted path:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`; although the legacy roster inside `PlayersCRM` is hidden in this mount, `PlayersCRM` is the active owner of the **player work-card MobileSheet** and its nested actions.
+
+**P1 finding — stale detail fetch:** `loadPlayerDetails(id)` updates `playerDetails` regardless of whether the card has since closed, another player ID was selected or a newer refresh completed. An older response can replace a newer player's nickname, contact information and actionable profile state; reopening/switching a player in a slow network is a factual mismatch, not just cosmetic. The list request already has a sequence guard; this detail request does not.
+
+**P1 finding — sheet state leaks across profiles:** `handleCloseCard()` cleared several edit/task/menu sheets, but omitted `showPublicProfile`, `showTokensSheet` and `confirmDeleteAvatar`. Their open flags survive close, and the next successful `playerDetails` update can reopen a previous nested overlay for another player. Scope includes resetting on change of selected player, not only root close.
+
+**Fix boundary:** invalidate obsolete detail requests on new load or card close and never publish their result/error; reset all nested-card action flags when card closes or switches player. Retain existing create/edit/write APIs and layout, including intentionally nested MobileSheets. Keep financial and avatar mutation logic unchanged.
+
+**Acceptance:** rendered React regression for A → B out-of-order requests (only B is shown), close/reopen with an old successful response (no ghost card), and nested overlay/confirmation flags reset on the next player. CI and mobile preview required for merge; production-runtime and actual phone verification not claimed.
+
+
 ## 2026-10-14 · Screen 4: CRM «Игроки → База» profile-filter fallback
 
 **Confirmed mounted behaviour:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM` is the actual list, not the older standalone `PlayersCRM` list UI. `PlayersActivityCRM.loadProfileSummary()` used one `Promise.all()` for optional birthdays and essential profile completeness, swallowed all exceptions/HTTP failures, and left `profileMap={}` with no load/error state. Any active «Незаполненные / Без аватара / Без дня рождения / Нет контактов» filter then hid every person and rendered «Здесь пока никого», while the header claimed «0 человек». A failed birthdays request could also stop processing otherwise valid profile summary data.

@@ -472,7 +472,7 @@ export default function PlayerGameDetail({
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
                         </div>
-                        <div className="mt-3 flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 text-[13px] text-white/75"><span aria-hidden="true" className="text-xl text-violet-200/70">⌖</span><span>Цель выстрела — <b className="font-semibold text-white/90">{seatLabel(shot.target_seat)}</b></span></div>
+                        <div className="mt-3 flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 text-[13px] text-white/75"><span aria-hidden="true" className="text-xl text-violet-200/70">⌖</span><span>Мафия стреляла в <b className="font-semibold text-white/90">{seatLabel(shot.target_seat)}</b></span></div>
                       </li>
                     );
                   }

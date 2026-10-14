@@ -230,3 +230,7 @@ Cabinet desktop contract: all major cabinet sections share the profile's 1152px 
 ## Broadcast: reveals and the two versions (owner, 2026-10-12)
 
 The claimant of a reveal is coloured by his real role (the Don purple, the Sheriff gold); every announced check is coloured by the side it names — red for the one given as red, black for the one given as black. Not a rainbow of real roles next to each other, and not colourless either (both were rejected by the owner). Label «Вскрылся с:» sits above the checks so a narrow card never wraps it.
+
+## Seasonal portrait motion
+
+Owner feedback, 2026-10-14: the individually painted Fiery Autumn Dendi portrait is a promising direction, but the animated light pulse causes motion discomfort. Future accepted motion must avoid rhythmic whole-image brightness pulses, zoom/sway and face/body distortion. Prefer localized continuous fire, drifting embers and moving autumn leaves without covering the face or information. Keep a still fallback and honor reduced motion. The sample has not yet been corrected for this feedback; this documentation change does not claim that it has. Quality names/colours and the boundary between epic still and legendary animated portraits are owned by [BUSINESS_RULES.md](BUSINESS_RULES.md#seasonal-compendium--cosmetics-owner-revision-2026-10-14). Rarity colours must remain distinguishable from the actual role/team indicators.

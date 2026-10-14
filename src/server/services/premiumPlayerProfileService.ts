@@ -254,19 +254,23 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
   const games = [...profile.clubGames, ...profile.tournamentGames].filter(isCompleted).sort((a, b) => dateTime(b.date) - dateTime(a.date));
   // One scope for every number of the statistics block: the chosen season (or all time) and the chosen evening format.
   const seasons = await loadRatingSeasons(db);
-  const chosenSeason = seasons.find((item) => item.key === filter.period) || null;
-  const periodKey = chosenSeason ? chosenSeason.key : 'all';
+  // Recent form means the last ten completed games, never the last ten actions or journals.
+  // Season is the most recent configured rating season; explicit historical season keys remain supported.
+  const latestSeason = [...seasons].sort((a, b) => b.end - a.end)[0] || null;
+  const chosenSeason = filter.period === 'season' ? latestSeason : seasons.find((item) => item.key === filter.period) || null;
+  const periodKey = filter.period === 'recent10' ? 'recent10' : filter.period === 'season' && chosenSeason ? 'season' : chosenSeason ? chosenSeason.key : 'all';
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format as EveningFormat : 'all';
   const inSeason = (game: PlayerGameHistoryItem, season: { start: number; end: number }) => { const time = dateTime(game.date); return time >= season.start && time < season.end; };
   const periodGames = chosenSeason ? games.filter((game) => inSeason(game, chosenSeason)) : games;
-  const scoped = formatKey === 'all' ? periodGames : periodGames.filter((game) => game.evening_format === formatKey);
+  const formatGames = formatKey === 'all' ? periodGames : periodGames.filter((game) => game.evening_format === formatKey);
+  const scoped = periodKey === 'recent10' ? formatGames.slice(0, 10) : formatGames;
   const scopeActive = periodKey !== 'all' || formatKey !== 'all';
   const filters = {
     period: periodKey,
     format: formatKey,
     seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label, games: games.filter((game) => inSeason(game, item)).length })).filter((item) => item.games > 0),
     formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key], games: periodGames.filter((game) => game.evening_format === key).length })).filter((item) => item.games > 0),
-    period_label: chosenSeason ? chosenSeason.label : 'Всё время',
+    period_label: periodKey === 'recent10' ? 'Последние 10 игр' : chosenSeason ? chosenSeason.label : 'Вся карьера',
     format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
   };
   const recent = scoped.slice(0, 5);
@@ -340,12 +344,16 @@ export async function loadPremiumProfileSummary(db: DatabaseWrapper, playerId: s
 type GameQuery = ProfileStatFilter & { role?: string; team?: string; result?: string; from?: string; to?: string; limit?: number; offset?: number };
 /** The season and evening-format scope the overview already uses, applied to the «Игры», «Роли» and «Elo» tabs as well. */
 const scopeProfileGames = async <T extends PlayerGameHistoryItem>(db: DatabaseWrapper, games: T[], filter: ProfileStatFilter): Promise<T[]> => {
-  const season = filter.period && filter.period !== 'all' ? (await loadRatingSeasons(db)).find((item) => item.key === filter.period) || null : null;
+  const seasons = filter.period && filter.period !== 'all' && filter.period !== 'recent10' ? await loadRatingSeasons(db) : [];
+  const season = filter.period === 'season'
+    ? [...seasons].sort((a, b) => b.end - a.end)[0] || null
+    : seasons.find((item) => item.key === filter.period) || null;
   const format = (EVENING_FORMATS as readonly string[]).includes(String(filter.format)) ? filter.format : null;
-  return games.filter((game) => {
+  const scoped = games.filter((game) => {
     if (season) { const time = dateTime(game.date); if (time < season.start || time >= season.end) return false; }
     return !format || game.evening_format === format;
   });
+  return filter.period === 'recent10' ? scoped.slice(0, 10) : scoped;
 };
 
 export async function loadPremiumProfileGames(db: DatabaseWrapper, playerId: string, query: GameQuery) {

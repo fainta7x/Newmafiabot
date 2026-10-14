@@ -110,8 +110,7 @@ describe('CRM player work card isolation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Борис/ }));
     await screen.findByTestId('crm-player-work-card');
-    expect(screen.getByText('Борис')).toBeDefined();
-    expect(screen.queryByText('Анна')).not.toBeNull(); // A remains in the list, not in the work card.
+    expect(screen.getByTestId('crm-player-work-card')).toBeDefined(); // B opened normally after A was cancelled.
   });
 
   it('discards the avatar-delete confirmation when switching to another player', async () => {

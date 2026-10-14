@@ -32,6 +32,8 @@ it('shows six distinct club stories and switches accessible tabs without losing 
   expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
   expect(within(stories).getByText('Дон и мафия')).toBeTruthy();
   expect(within(stories).getByText('Шериф и мирный')).toBeTruthy();
+  expect(within(stories).getAllByTestId('connection-graph').length).toBeGreaterThan(0);
+  expect(within(stories).getAllByRole('img').length).toBeGreaterThan(0);
   fireEvent.click(within(stories).getByRole('button', { name: 'Соперники' }));
   expect(within(stories).getByText('Равные соперники')).toBeTruthy();
   expect(within(stories).getByText('Играют вместе и за красных, и за чёрных')).toBeTruthy();

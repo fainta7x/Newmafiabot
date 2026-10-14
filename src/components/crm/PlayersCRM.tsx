@@ -64,6 +64,7 @@ interface PlayersCRMProps {
 
 type QuickFilter = 'all' | 'attention' | 'newcomers' | 'lapsed';
 type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
+const HISTORY_PAGE_SIZE = 10;
 
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
   { id: 'all', label: 'Все' },
@@ -112,6 +113,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [playerDetails, setPlayerDetails] = useState<PlayerDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
@@ -244,6 +246,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   };
 
   const resetPlayerCardOverlays = () => {
+    setHistoryVisibleCount(HISTORY_PAGE_SIZE);
     setShowPlayerMenu(false);
     setShowPublicProfile(false);
     setShowTokensSheet(false);
@@ -676,7 +679,21 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">
               <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><History className="h-4 w-4 text-accent" /> История <span className="ml-auto text-[11px] font-medium text-text-muted">{unifiedTimeline.length}</span><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
               <div className="overflow-hidden border-t border-border-soft">
-                {unifiedTimeline.slice(0, 10).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
+                {unifiedTimeline.slice(0, historyVisibleCount).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
+                {unifiedTimeline.length > HISTORY_PAGE_SIZE ? (
+                  <div className="space-y-2 border-t border-border-soft p-3 text-center">
+                    <p className="text-[11px] text-text-muted">Показано {Math.min(historyVisibleCount, unifiedTimeline.length)} из {unifiedTimeline.length}</p>
+                    {historyVisibleCount < unifiedTimeline.length ? (
+                      <button type="button" onClick={() => setHistoryVisibleCount((count) => count + HISTORY_PAGE_SIZE)} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] font-semibold text-text-primary">
+                        Показать ещё {Math.min(HISTORY_PAGE_SIZE, unifiedTimeline.length - historyVisibleCount)}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setHistoryVisibleCount(HISTORY_PAGE_SIZE)} className="min-h-11 w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] font-semibold text-text-primary">
+                        Свернуть до последних {HISTORY_PAGE_SIZE}
+                      </button>
+                    )}
+                  </div>
+                ) : null}
                 {unifiedTimeline.length === 0 ? <div className="py-8 text-center text-[12px] text-text-muted">История пока пустая</div> : null}
               </div>
             </details>

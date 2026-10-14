@@ -198,6 +198,18 @@ export async function isNicknameClaimable(db: DatabaseWrapper, nickname: unknown
   return matches.length === 1 && !(await profileHasAccount(db, matches[0]));
 }
 
+/**
+ * A taken nickname of a profile that signed up through VK and has no Telegram yet (owner, 2026-10-14): it is the same
+ * person's profile as likely as not, so the bot tells them how to connect Telegram from the app (where they are signed
+ * in) instead of the dead-end «ник занят».
+ */
+export async function isNicknameVkOnlyProfile(db: DatabaseWrapper, nickname: unknown) {
+  const matches = await findPlayersByNickname(db, String(nickname || '').trim().replace(/\s+/g, ' '));
+  if (matches.length !== 1 || String(matches[0].telegram_user_id || '').trim()) return false;
+  await ensureVkIntegrationSchema(db);
+  return Boolean(await db.get("SELECT 1 AS present FROM player_external_identities WHERE platform='vk' AND player_id=? LIMIT 1", [matches[0].id]));
+}
+
 /** A verified Telegram/VK account opened the organizer's personal link: link it to that profile at once. */
 export async function completeClaimPlayerOnboarding(db: DatabaseWrapper, rawTokenInput: unknown, code: unknown) {
   const rawToken = String(rawTokenInput || '').trim();

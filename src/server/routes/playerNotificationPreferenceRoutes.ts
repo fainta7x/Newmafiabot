@@ -7,6 +7,7 @@ import {
   savePersonalNotificationPreference,
 } from '../services/personalNotificationRouterService.ts';
 import { getVkPersonalDeliveryStatus } from '../services/vkMessageOutboxService.ts';
+import { createPlayerClaimLink } from '../services/playerClaimLinkService.ts';
 
 import { INVITE_KIND_LABELS, INVITE_KINDS, loadInvitePreferences, saveInvitePreferences } from '../services/playerInvitePreferencesService.ts';
 
@@ -33,6 +34,21 @@ const payloadFor = async (db: any, playerId: string) => {
     },
   };
 };
+
+// «Связать Telegram» for a player who signed up through VK (owner, 2026-10-14): a personal one-time link to the bot, made inside
+// the signed-in session, links that Telegram account to this very profile. The session is the proof, no nickname is typed.
+router.post('/telegram-link', async (req, res) => {
+  const playerId = requirePlayerId(req, res); if (!playerId) return;
+  try {
+    const player = await req.db.get('SELECT telegram_user_id FROM players WHERE id = ?', [playerId]) as any;
+    if (String(player?.telegram_user_id || '').trim()) return res.status(409).json({ error: 'Telegram уже связан с этим профилем', code: 'already_linked' });
+    const link = await createPlayerClaimLink(req.db, { playerId, actorId: playerId, baseUrl: `${req.protocol}://${req.get('host') || ''}` });
+    if (!link.telegram_url) return res.status(503).json({ error: 'Бот пока недоступен, попробуйте позже', code: 'bot_unavailable' });
+    return res.json({ telegram_url: link.telegram_url, expires_at: link.expires_at });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось создать ссылку для Telegram' });
+  }
+});
 
 router.get('/notification-preferences', async (req, res) => {
   const playerId = requirePlayerId(req, res); if (!playerId) return;

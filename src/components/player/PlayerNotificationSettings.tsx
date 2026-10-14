@@ -57,6 +57,22 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
     }
   };
 
+  const linkTelegram = async () => {
+    if (busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/player/telegram-link', { method: 'POST', credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.telegram_url) throw new Error(body?.error || 'Не удалось открыть Telegram');
+      const url = String(body.telegram_url);
+      const telegram = (window as any).Telegram?.WebApp;
+      if (typeof telegram?.openTelegramLink === 'function') telegram.openTelegramLink(url);
+      else if (!window.open(url, '_blank', 'noopener')) window.location.assign(url);
+      setMessage('Откроется Telegram: нажмите «Старт» в боте — и профиль привяжется. Потом вернитесь сюда.');
+    } catch (e: any) { setError(e?.message || 'Не удалось открыть Telegram'); }
+    finally { setBusy(false); }
+  };
+
   const sendTest = async () => {
     if (busy) return;
     setBusy(true); setError(''); setMessage('');
@@ -72,9 +88,15 @@ export default function PlayerNotificationSettings({ nickname }: { nickname?: st
 
   if (!state) return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4 text-sm text-white/50">{error || 'Загружаем каналы уведомлений…'}</section>;
   const vkLinked = state.channel_status?.vk?.linked === true;
+  const telegramLinked = state.channel_status?.telegram?.linked === true;
   return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4" data-testid="player-notification-settings">
     <h2 className="font-semibold">Личные уведомления</h2>
     <p className="mt-1 text-sm text-white/50">Выбирается один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
+    {!telegramLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3" data-testid="telegram-not-linked">
+      <div className="text-sm font-medium">Telegram не связан с профилем</div>
+      <p className="mt-1 text-xs leading-5 text-white/45">Нажмите кнопку, в Telegram — «Старт» у бота: он привяжет этот Telegram к вашему профилю, заново регистрироваться не нужно.</p>
+      <button type="button" disabled={busy} onClick={()=>void linkTelegram()} className="mt-3 min-h-11 w-full rounded-xl bg-[#229ed9] px-3 text-sm font-semibold text-white disabled:opacity-40">Связать Telegram</button>
+    </div> : <div className="mt-4 rounded-xl bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">Telegram связан с этим игровым профилем</div>}
     {!vkLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3">
       <div className="text-sm font-medium">VK не связан с профилем</div>
       <p className="mt-1 text-xs leading-5 text-white/45">VK привязывается через VK ID — к профилю, в который выполнен вход.</p>

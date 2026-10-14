@@ -380,6 +380,15 @@ async def finish_registration(message: Message, state: FSMContext):
         return
 
     error = result.get("error")
+    if error == "nickname_taken" and (result.get("data") or {}).get("vk_only"):
+        # The profile was created through VK and has no Telegram yet: very likely this very person (owner, 2026-10-14).
+        await message.answer(
+            f"Игрок «{nickname}» уже есть в клубе — он зарегистрирован через ВКонтакте.\n\n"
+            "Если это ты, подключи Telegram там, где ты уже вошёл: открой приложение клуба в ВК → «Кабинет» → "
+            "«Настройки» → «Связать Telegram» и нажми кнопку — Telegram привяжется к твоему профилю.\n\n"
+            "Если это не ты — пришли другой ник одним сообщением."
+        )
+        return
     if error == "nickname_taken" and (result.get("data") or {}).get("claimable") is False:
         # The profile already has its own Telegram or VK: a different player, no request to the organizer.
         await message.answer(

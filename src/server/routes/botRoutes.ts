@@ -12,7 +12,7 @@ import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt,
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
 import { recordInviteLinkReferral } from '../services/premiumPlayerConnectionsService.ts';
-import { isNicknameClaimable, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
+import { isNicknameClaimable, isNicknameVkOnlyProfile, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
@@ -76,7 +76,10 @@ router.post('/players/register', async (req, res) => {
       const claimable = error.code === 'nickname_taken'
         ? await isNicknameClaimable(req.db, req.body?.nickname).catch(() => false)
         : undefined;
-      return res.status(error.status).json({ error: error.message, code: error.code, ...(claimable === undefined ? {} : { claimable }) });
+      const vkOnly = error.code === 'nickname_taken' && claimable === false
+        ? await isNicknameVkOnlyProfile(req.db, req.body?.nickname).catch(() => false)
+        : false;
+      return res.status(error.status).json({ error: error.message, code: error.code, ...(claimable === undefined ? {} : { claimable }), ...(vkOnly ? { vk_only: true } : {}) });
     }
     return res.status(500).json({ error: error?.message || 'Не удалось зарегистрировать игрока' });
   }

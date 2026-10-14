@@ -384,7 +384,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       ORDER BY p.nickname COLLATE NOCASE`,
     [eveningId, eveningId],
   );
-  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string; whole_evening?: boolean }>>();
+  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string; whole_evening?: boolean; is_guest?: boolean }>>();
   for (const person of peopleRows) {
     const slotId = String(person.slot_id);
     const group = peopleBySlot.get(slotId) || [];
@@ -401,6 +401,24 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       }
       peopleBySlot.set(slotId, group);
       slot.registered_count = Number(slot.registered_count || 0) + legacyWholeEveningRows.length;
+    }
+  }
+
+  // Guests (leads) and the people they bring are signed up by the organizer for «Иду»: every game, like the players'
+  // «Иду» (owner, 2026-10-14: guests must show in the sign-ups and in the posts after the announcement, not only in the roster).
+  const guestRows = await db.all<any>(
+    `SELECT id, display_name FROM guest_player_placeholders
+      WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late')
+      ORDER BY created_at ASC, id ASC`,
+    [eveningId],
+  ).catch(() => [] as any[]);
+  if (guestRows.length) {
+    for (const slot of rows) {
+      const slotId = String(slot.id);
+      const group = peopleBySlot.get(slotId) || [];
+      for (const guest of guestRows) group.push({ id: String(guest.id), nickname: String(guest.display_name || 'Гость'), whole_evening: true, is_guest: true });
+      peopleBySlot.set(slotId, group);
+      slot.registered_count = Number(slot.registered_count || 0) + guestRows.length;
     }
   }
 

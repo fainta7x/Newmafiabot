@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 
 type RatingPeriod = {
@@ -109,9 +109,12 @@ export const RatingPeriodsCRM: React.FC = () => {
   const [expanded, setExpanded] = useState(true);
   const [periods, setPeriods] = useState<RatingPeriod[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [evenings, setEvenings] = useState<PeriodEvening[]>([]);
-  const [games, setGames] = useState<PeriodGame[]>([]);
-  const [standings, setStandings] = useState<StandingsResponse | null>(null);
+  const [loadedEvenings, setEvenings] = useState<PeriodEvening[]>([]);
+  const [loadedGames, setGames] = useState<PeriodGame[]>([]);
+  const [loadedStandings, setStandings] = useState<StandingsResponse | null>(null);
+  const [loadedPeriodId, setLoadedPeriodId] = useState<string | null>(null);
+  const detailsRequestSeq = useRef(0);
+  const activePeriodRef = useRef<string | null>(null);
   const [showGames, setShowGames] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -123,6 +126,13 @@ export const RatingPeriodsCRM: React.FC = () => {
   const [endsAt, setEndsAt] = useState('');
 
   const selected = useMemo(() => periods.find((item) => item.id === selectedId) || null, [periods, selectedId]);
+  activePeriodRef.current = expanded ? selectedId : null;
+  // Never render a previous season's standings or inclusion controls under a new title,
+  // even for the first frame after changing the selected period.
+  const detailsCurrent = expanded && Boolean(selectedId) && loadedPeriodId === selectedId;
+  const evenings = detailsCurrent ? loadedEvenings : [];
+  const games = detailsCurrent ? loadedGames : [];
+  const standings = detailsCurrent ? loadedStandings : null;
 
   const loadPeriods = async () => {
     setLoading(true);
@@ -141,7 +151,9 @@ export const RatingPeriodsCRM: React.FC = () => {
   };
 
   const loadSelected = async (periodId: string) => {
+    const requestId = ++detailsRequestSeq.current;
     setDetailsLoading(true);
+    setLoadedPeriodId(null);
     setError(null);
     try {
       const [eveningData, gameData, standingsData] = await Promise.all([
@@ -149,13 +161,17 @@ export const RatingPeriodsCRM: React.FC = () => {
         apiJson<{ games: PeriodGame[] }>(`/api/rating-periods/${periodId}/games`),
         apiJson<StandingsResponse>(`/api/rating-periods/${periodId}/standings`),
       ]);
+      if (requestId !== detailsRequestSeq.current || activePeriodRef.current !== periodId) return;
       setEvenings(eveningData.evenings || []);
       setGames(gameData.games || []);
       setStandings(standingsData);
+      setLoadedPeriodId(periodId);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить расчёт сезона');
+      if (requestId === detailsRequestSeq.current && activePeriodRef.current === periodId) {
+        setError(err?.message || 'Не удалось загрузить расчёт сезона');
+      }
     } finally {
-      setDetailsLoading(false);
+      if (requestId === detailsRequestSeq.current) setDetailsLoading(false);
     }
   };
 
@@ -166,12 +182,16 @@ export const RatingPeriodsCRM: React.FC = () => {
 
   useEffect(() => {
     if (!expanded || !selectedId) {
+      detailsRequestSeq.current += 1;
+      setDetailsLoading(false);
+      setLoadedPeriodId(null);
       setEvenings([]);
       setGames([]);
       setStandings(null);
       return;
     }
     void loadSelected(selectedId);
+    return () => { detailsRequestSeq.current += 1; };
   }, [expanded, selectedId]);
 
   const createPeriod = async (event: React.FormEvent) => {
@@ -205,29 +225,31 @@ export const RatingPeriodsCRM: React.FC = () => {
 
   const setEveningOverride = async (eveningId: string, included: boolean | null) => {
     if (!selectedId) return;
+    const periodId = selectedId;
     setError(null);
     try {
-      await apiJson(`/api/rating-periods/${selectedId}/evenings/${eveningId}`, {
+      await apiJson(`/api/rating-periods/${periodId}/evenings/${eveningId}`, {
         method: 'PUT',
         body: JSON.stringify({ included }),
       });
-      await loadSelected(selectedId);
+      if (activePeriodRef.current === periodId) await loadSelected(periodId);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось изменить участие вечера');
+      if (activePeriodRef.current === periodId) setError(err?.message || 'Не удалось изменить участие вечера');
     }
   };
 
   const setGameOverride = async (gameId: number, included: boolean | null) => {
     if (!selectedId) return;
+    const periodId = selectedId;
     setError(null);
     try {
-      await apiJson(`/api/rating-periods/${selectedId}/games/${gameId}`, {
+      await apiJson(`/api/rating-periods/${periodId}/games/${gameId}`, {
         method: 'PUT',
         body: JSON.stringify({ included }),
       });
-      await loadSelected(selectedId);
+      if (activePeriodRef.current === periodId) await loadSelected(periodId);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось изменить участие игры');
+      if (activePeriodRef.current === periodId) setError(err?.message || 'Не удалось изменить участие игры');
     }
   };
 

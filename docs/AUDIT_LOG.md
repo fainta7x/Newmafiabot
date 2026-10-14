@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Screen 8: CRM «Игроки → Рейтинг» cross-season stale results
+
+**Mounted route:** `OrganizerCRM → PlayersHubCRM → RatingPeriodsCRM`. When switching `selectedId` between rating seasons A and B, `loadSelected(periodId)` starts three concurrent GETs (evenings, games and standings) with no request-ID or abort guard. A slow A response can arrive after B and overwrite all three projections, showing A's standings and override controls under B's title/ID. Loading B leaves A's old values visible in the meantime. Collapsing the rating section also allows in-flight GETs to refill cleared state.
+
+**Intended narrow fix:** invalidate obsolete detail requests on every season selection/collapse/unmount, publish a response or error only for the active request and clear prior season projections at the start of a new selection. On a manual evening/game override, refresh details only if the season has not changed while the PUT was in progress. Retain server rules, actual override payloads and form fields, and all existing ranking equations.
+
+**Evidence/acceptance:** React regression with out-of-order A/B GET completions; B must remain the sole displayed standings/season details; collapse while loading must not resurrect old data. Empty/error retry is a separate UX issue. Deletion uses `window.confirm` and 36px buttons and the create-season form precedes current standings; assess later after phone screenshots, do not bundle visual redesign into this race fix. No production data read or mutated.
+
+
 ## 2026-10-14 · Player Cabinet «Сообщество → Активность → Форма» — actionable and readable club form
 
 **Mounted path:** PlayerCommunityHub(activity=form) → PlayerClubActivity; GET /api/player/pulse returns highlights, current power ranking, viewer ID, per-player games/wins/win rate/streak/rank/score/movement, optional explanation. Current layout is a compressed quasi-table (rank | tiny avatar/name | wins/games | raw score + arrow). Its rows and highlight profiles are **not clickable**, despite canonical player IDs. The owner may be outside the first five and *invisible* before expanding the entire list. The movement label NEW is English, formula is low-contrast text shown only when all rows expanded, and error has no in-place retry.

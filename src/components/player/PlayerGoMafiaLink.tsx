@@ -21,6 +21,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const [message, setMessage] = useState('');
   const [career, setCareer] = useState<any>(null);
   const [year, setYear] = useState('all');
+  const [sizeGroup, setSizeGroup] = useState<'large' | 'ten' | 'other' | 'unknown'>('large');
   useEffect(() => {
     const abort = new AbortController();
     setLink(null);
@@ -54,9 +55,26 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const years = [...new Set<number>([...(career?.yearly_stats ?? []).map((s: any) => Number(s.year)), ...(career?.tournaments ?? []).map((t: any) => Number(t.dateStart?.slice(0,4)))])].filter(Number.isFinite).sort((a,b)=>b-a);
   const tournaments = (career?.tournaments ?? []).filter((t: any) => year === 'all' || t.dateStart?.startsWith(year));
   // Final standings of the selected year: how many tournaments, the average and the best place (smaller is better).
-  const places: number[] = tournaments.map((t: any) => Number(t.place)).filter((place: number) => Number.isInteger(place) && place > 0);
+  const sizeOf = (item: any): 'large' | 'ten' | 'other' | 'unknown' => {
+    const count = item.participantCount;
+    if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return 'unknown';
+    return count > 10 ? 'large' : count === 10 ? 'ten' : 'other';
+  };
+  const groups = [
+    { key: 'large' as const, title: 'Большие турниры', hint: 'Больше 10 участников' },
+    { key: 'ten' as const, title: 'Турниры на 10', hint: 'Ровно 10 участников' },
+    { key: 'other' as const, title: 'Малые турниры', hint: 'Меньше 10 участников' },
+    { key: 'unknown' as const, title: 'Размер не подтверждён', hint: 'Данных об участниках пока нет' },
+  ].map(group => ({ ...group, entries: tournaments.filter((item: any) => sizeOf(item) === group.key) }));
+  const visibleGroup = groups.find(group => group.key === sizeGroup) ?? groups[0];
+  const displayed = visibleGroup.entries;
+  const places: number[] = displayed.map((t: any) => Number(t.place)).filter((place: number) => Number.isInteger(place) && place > 0);
   const averagePlace = places.length ? places.reduce((sum, place) => sum + place, 0) / places.length : null;
   const bestPlace = places.length ? Math.min(...places) : null;
+  const playedGames = displayed.flatMap((t: any) => Array.isArray(t.games) ? t.games : []);
+  const resolvedGames = playedGames.filter((game: any) => game.result === 'win' || game.result === 'loss');
+  const wins = resolvedGames.filter((game: any) => game.result === 'win').length;
+  const winRate = resolvedGames.length ? Math.round(wins * 1000 / resolvedGames.length) / 10 : null;
   const statPeriod = typeof snap?.year === 'number' ? `За ${snap.year} год` : snap?.tournamentFilter === 'Все турниры' ? 'За всё время' : 'Период источника не определён';
   const save = async () => {
     setBusy(true);
@@ -121,18 +139,33 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     </div>}
     {year !== 'all' && !snap && <p className="mt-2 text-xs text-white/50">Статистика за {year} год пока недоступна. Турнирная история показана по опубликованным датам.</p>}
     {career?.syncing && <p role="status" className="mt-3 text-xs text-white/60">Автоматически обновляем спортивную карьеру…</p>}
-    {places.length > 0 && <div data-testid="gomafia-places-summary" className="mt-4 grid grid-cols-3 gap-2">
-      <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong className="text-lg">{places.length}</strong><div className="text-xs text-white/55">Турниров</div></div>
-      <div className="rounded-xl bg-white/[.06] p-2 text-center"><strong className="text-lg">{averagePlace == null ? '—' : averagePlace.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</strong><div className="text-xs text-white/55">Среднее место</div></div>
-      <div className="rounded-xl bg-amber-200/10 p-2 text-center"><strong className="text-lg text-amber-100">{bestPlace}</strong><div className="text-xs text-white/55">Лучшее место</div></div>
+    {tournaments.length > 0 && <div className="mt-5 space-y-3" data-testid="gomafia-size-breakdown">
+      <div><strong className="text-sm text-white">Турниры по размеру</strong><p className="mt-1 text-xs text-white/55">Группы не смешиваются в статистике. Учитывается только подтверждённое число участников.</p></div>
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Размер турнира">
+        {groups.map(group => <button key={group.key} type="button" onClick={() => setSizeGroup(group.key)} aria-pressed={sizeGroup === group.key} className={`min-h-[64px] rounded-xl border px-3 py-2 text-left transition-colors ${sizeGroup === group.key ? 'border-amber-200/50 bg-amber-200/10' : 'border-white/10 bg-white/[.035]'}`}>
+          <span className="block text-xs font-semibold text-white/90">{group.title}</span>
+          <span className="mt-1 block text-xs text-white/55">{group.entries.length} турн.</span>
+        </button>)}
+      </div>
+      <p className="text-xs text-white/45">{visibleGroup.hint}</p>
+      <div data-testid="gomafia-places-summary" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {[
+          ['Турниры', displayed.length], ['Игры', playedGames.length],
+          ['Винрейт', winRate == null ? '—' : winRate.toLocaleString('ru-RU') + '%'],
+          ['Среднее место', averagePlace == null ? '—' : averagePlace.toLocaleString('ru-RU', { maximumFractionDigits: 1 })],
+          ['Лучшее место', bestPlace ?? '—'],
+        ].map(([label, value]) => <div key={label} className="min-w-0 rounded-xl bg-white/[.06] p-3"><strong className="text-lg text-white">{value}</strong><div className="mt-1 text-xs text-white/55">{label}</div></div>)}
+      </div>
     </div>}
     {tournaments.length > 0 && <div data-testid="gomafia-tournament-appearances" className="mt-4 space-y-3">
-      <strong className="block text-sm">Турнирные выступления · {tournaments.length}</strong>
-      {tournaments.map((item: any) => <article key={item.tournamentId} className="rounded-xl bg-white/[.045] p-3">
+      <strong className="block text-sm">Турнирные выступления · {displayed.length}</strong>
+      {displayed.length === 0 && <p className="rounded-xl bg-white/[.04] p-4 text-xs text-white/60">В этой категории пока нет подтверждённых турниров.</p>}
+      {displayed.map((item: any) => <article key={item.tournamentId} className="rounded-xl bg-white/[.045] p-3">
         <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="block break-words text-sm font-medium text-amber-100">{item.tournamentName} ↗</a>
         <div className="mt-1 text-xs text-white/55">{item.dateStart} — {item.dateEnd} · {item.location}</div>
         <div className="mt-2 flex flex-wrap gap-2 text-xs text-white/80">
           <span>{({ registered: 'Регистрация', upcoming: 'Предстоящий турнир', completed: 'Турнир завершён', results_published: 'Результат опубликован', unknown: 'Статус не подтверждён' } as Record<string,string>)[item.status]}</span>
+          {item.participantCount != null && <span>Участников: {item.participantCount}</span>}
           {item.place != null && <span>Место: {item.place}</span>}
           <span>{item.totalScore == null ? 'Баллы недоступны' : stat(item.totalScore) + ' баллов'}</span>
           {item.eloDelta != null && <span>Δ Elo: {item.eloDelta > 0 ? '+' : ''}{stat(item.eloDelta)}</span>}

@@ -54,4 +54,14 @@ it('keeps anatomical lower neck behind the collar and long front hair above clot
  }
  const dendi=WARDROBE_PILOT_CHARACTERS[0].fit.rig!;
  expect(inside({x:100,y:480},headClipPolygon(dendi,false,true))).toBe(true);
+ const java=WARDROBE_PILOT_CHARACTERS.find(c=>c.id==='java')!.fit.rig!;
+ for(const hat of [false,true]){
+  const front=headClipPolygon(java,hat,true),back=headClipPolygon(java,hat,false);
+  // Measured skin flares beyond the old rectangular mask at both sides of the collar.
+  for(const skin of [{x:190,y:510},{x:357,y:510},{x:315,y:455}]){
+   expect(inside(skin,back)).toBe(true);expect(inside(skin,front)).toBe(false);
+  }
+  // Keep the chin and the two lower hair tips; widening a rectangle clips these tips.
+  for(const p of [{x:265,y:410},{x:140,y:460},{x:403,y:465}])expect(inside(p,front)).toBe(true);
+ }
 });

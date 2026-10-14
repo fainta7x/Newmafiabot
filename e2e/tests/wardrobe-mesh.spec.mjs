@@ -32,6 +32,18 @@ for(const width of [360,390,1440]){
    expect(await base.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
    expect(await hat.evaluate(i=>getComputedStyle(i).transform)).not.toBe('none');
    await preview.screenshot({path:testInfo.outputPath(`outfit-${name}-${width}.png`)});
+   if(name==='Джава'){
+    await editor.getByRole('button',{name:/Медный лист/}).click();
+    await expect(preview.getByRole('img',{name:'Головной убор',exact:true})).toHaveCount(0);
+    await preview.screenshot({path:testInfo.outputPath(`collar-burgundy-no-hat-${width}.png`)});
+    await editor.getByRole('button',{name:/Чёрный пиджак/}).click();
+    await expect(coat).toHaveAttribute('data-asset-url',/jacket-black-v4/);
+    await expect(coat).toHaveAttribute('data-rendered','true');
+    await preview.screenshot({path:testInfo.outputPath(`collar-black-no-hat-${width}.png`)});
+    await editor.getByRole('button',{name:/Медный лист/}).click();
+    await expect.poll(()=>preview.getByRole('img',{name:'Головной убор',exact:true}).evaluate(i=>i.complete&&i.naturalWidth===512)).toBe(true);
+    await preview.screenshot({path:testInfo.outputPath(`collar-black-hat-${width}.png`)});
+   }
    const summary=editor.locator('.role-looks-compare>summary');
    expect(await summary.evaluate(el=>getComputedStyle(el).display)).toBe('block');
    await editor.getByLabel('Фраза',{exact:true}).fill(`Образ: ${name}`);

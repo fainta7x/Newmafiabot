@@ -10,6 +10,8 @@ The shirt and both coats are SEPARATE assets referenced to that master, not a fl
 
 ## Composition contract
 
+Java's foreground cutout follows the flared neck/hair boundary rather than a rectangular notch. All skin below the chin stays behind the collar while both hair tips remain in front. Under a closed coat, the shirt uses an inset neck fit (−0.18 of the fitting width) so the shirt collar lies inside the coat opening instead of disappearing along an identical outer seam. Shirt-only fitting stays unchanged. The same garment texture and rule apply to every character.
+
 The v4 clothes already share the canonical bust pose; there is no vertical torso stretching. UV fitting adjusts collar/shoulder/chest widths for three example silhouettes. Closed coats expose the shirt front while covering its sleeves; the visible collar remains intact. Neck is behind the shirt/lapels, front hair stays above clothes, hair under the hat is masked. Profile data owns the measured landmarks. Geometry and mask implementations are `portraitRig.ts` / `portraitMesh.ts`.
 
 Old v1 fitting presets belonged to the discarded mannequin pose. The lab now uses v2 fitting storage; the four saved role outfits/item IDs and phrases are preserved. No production body-fit API or inventory grants were added. Future arbitrary poses and fully decomposed hairstyles remain outside this pilot; see `docs/COSMETIC_WARDROBE_ARCHITECTURE.md` §13.

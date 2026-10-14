@@ -78,7 +78,9 @@ export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit,rigged
 export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit,shirtUnderJacket=false,rigged=false){
   ctx.clearRect(0,0,512,640);ctx.drawImage(image,0,0,512,640);
   const source=ctx.getImageData(0,0,512,640),frame=ctx.createImageData(512,640);
-  frame.data.set(rasterizeGarmentMesh(source.data,fit,rigged));ctx.putImageData(frame,0,0);
+  // A shirt collar sits inside the coat's neck opening, rather than sharing its outer seam.
+  const garmentFit=shirtUnderJacket?normalizeBodyFit({...fit,neck:fit.neck-.18}):fit;
+  frame.data.set(rasterizeGarmentMesh(source.data,garmentFit,rigged));ctx.putImageData(frame,0,0);
   // This closed coat covers shirt sleeves/body; expose only the central shirt front.
   if(shirtUnderJacket){ctx.clearRect(0,0,128,640);ctx.clearRect(384,0,128,640);}
 }

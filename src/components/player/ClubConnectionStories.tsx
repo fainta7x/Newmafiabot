@@ -106,7 +106,7 @@ export default function ClubConnectionStories({ stories }: { stories: Stories })
       {view === 'circle' && <Feature title="Кто знает всех" description="Широта круга знакомств — число разных игроков, с которыми сидели за столом." tone="amber" empty={!stories.table_circles.length}>
         <div className="grid gap-3 sm:grid-cols-2">{stories.table_circles.map((person) =>
           <div key={person.player_id} className="rounded-[22px] border border-amber-200/10 bg-black/20 p-4">
-            <button type="button" onClick={() => openCanonicalPlayerProfile(person.player_id)}
+            <button type="button" aria-label={person.nickname} onClick={() => openCanonicalPlayerProfile(person.player_id)}
               className="flex min-h-12 w-full items-center gap-3 text-left">
               <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-amber-200/40 bg-amber-200/10 text-xl font-semibold text-amber-100">{person.nickname.slice(0,1)}</span>
               <span className="min-w-0 flex-1 truncate font-semibold text-white">{person.nickname}</span>

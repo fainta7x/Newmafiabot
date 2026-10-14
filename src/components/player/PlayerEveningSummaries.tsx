@@ -56,11 +56,13 @@ export default function PlayerEveningSummaries({
   onBack,
   initialEveningId,
   onOpenGame,
+  onEveningChange,
   embedded = false,
 }: {
   onBack?: () => void;
   initialEveningId?: string | null;
   onOpenGame?: (gameId: string, eveningId: string) => void;
+  onEveningChange?: (eveningId: string) => void;
   embedded?: boolean;
 }) {
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
@@ -106,7 +108,7 @@ export default function PlayerEveningSummaries({
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">{onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}<div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-100/40">История вечеров</div><h1 className="mt-1 text-2xl font-semibold">После финального стола</h1><p className="mt-1 text-xs leading-5 text-white/40">Счёт вечера, форма, Elo и клубные номинации — в одном финальном экране.</p></div></div>}
 
         {!summaries?.length ? <div className="rounded-3xl border border-white/[0.06] bg-white/[0.03] p-8 text-center"><div className="text-3xl">🎭</div><div className="mt-2 text-sm font-semibold">Итогов пока нет</div><p className="mt-1 text-xs text-white/30">Итоги появятся здесь после вечера, в котором было участие.</p></div> : <>
-          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => setSelectedId(summary.id)} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
+          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => { setSelectedId(summary.id); onEveningChange?.(summary.id); }} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
 
           {selected && <>
             <section data-testid="evening-result-art" className="relative overflow-hidden rounded-[32px] border border-amber-200/15 bg-[#111015] p-4 shadow-[0_22px_75px_rgba(0,0,0,.38)] sm:p-6">
@@ -155,7 +157,7 @@ export default function PlayerEveningSummaries({
                 </div>
                 {selected.player.elo_before != null && selected.player.elo_after != null && <div className="mt-3 border-t border-white/10 pt-3">
                   <div className="flex justify-between text-[11px] text-white/55"><span>Рейтинг за вечер</span><span className="tabular-nums">{Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</span></div>
-                  <div className="relative mt-2 h-2 rounded-full bg-white/10"><span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-400/50 to-emerald-300/80" style={{width: Math.min(100, Math.max(5, selected.player.elo_after / Math.max(selected.player.elo_before, selected.player.elo_after, 1) * 100)) + '%'}}/></div>
+                  <div aria-hidden="true" className="mt-2 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-sky-300"/><span className="h-px flex-1 bg-gradient-to-r from-sky-300/60 to-emerald-300/60"/><span className="h-2 w-2 rounded-full bg-emerald-300"/></div>
                 </div>}
               </div>
             </section>

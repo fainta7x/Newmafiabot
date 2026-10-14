@@ -28,11 +28,34 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Single planning document:** maintain the current development queue in this file. Other documentation describes rules, architecture, or operating procedures; Git history preserves completed and superseded plans. Before treating a queue item as unfinished, compare it with the latest `main` implementation.
 
-**Status date:** 2026-10-12
+**Status date:** 2026-10-14
+
+## UX priority switch — PLAYER CABINET FIRST (owner decision 2026-10-14)
+
+**Owner direction:** After numerous CRM fixes, its current usability is acceptable enough to pause the deep screen-by-screen CRM audit. **The Player Cabinet (личный кабинет игрока) is now the main UX/product-quality priority**: players' everyday experience has fallen behind the organizer CRM. This is a shift in engineering priority, *not* a claim that CRM is complete. Do not resume broad CRM polish by inertia or treat older CRM audit queue wording as active approval; return to it when the owner asks or a confirmed production-critical regression needs repair.
+
+**Remaining CRM queue (parked, do not discard):**
+1. Finish the already-open [PR #910](https://github.com/fainta7x/Newmafiabot/pull/910) for rating-period stale responses **only after fixing three failing rendered tests** in `src/tests/RatingPeriodsSeasonIsolation.test.tsx` and confirming full required CI/CodeQL/Gitleaks/mobile preview. At the time of this priority switch the PR is unmerged, CI red, no deployment verified.
+2. `События`: evening route, unified answers/attendance, games, management, closeout, tournaments; highest remaining CRM audit surface and highest operational impact.
+3. `Сегодня` and `Дела`: action ordering, duplicates, empty/error/cancel flows, navigation and real next step after work is done.
+4. `Аналитика`: four tabs and period selection, source accuracy and failure recovery, without changing finance/accounting rules.
+5. `Ещё` nested tools: novice applications, education, bulk access, announcements and bot FAQ, music, system screens; mobile action affordances and Back. Exclude editor/monetization/Robokassa already handled separately.
+6. `Игроки` remaining secondary behavior: rating inclusion controls, rarely used player-card actions and profiles/identity, only with narrowly proven bugs and appropriate safeguards.
+**Completed CRM work is owned by merged Git PRs; this queue lists the *remaining audit*, not six missing implemented modules.** `main` and an Amvera deployment are different states.
+
+**Player Cabinet audit — ACTIVE, ordered existing-product screens (owner-approved):**
+1. **Главная**: what's immediately useful, next evening/registration, onboarding, latest game, news, training; handle genuine empty/loading/error cases, actionable links and visual hierarchy at 360/390px. First confirmed P1 bug: `src/components/player/PlayerHomeDashboard.tsx` leaves next-evening card indefinitely at «Загрузка…» on non-2xx GET and treats a network failure as «Ближайших игровых вечеров пока нет», hiding actual uncertainty. Fix is read-only retry/error state, not new features or RSVP.
+2. **Вечера**: upcoming/past/my games, calendar/date/format, registration status and exact game-slot choices, cancel/change response, after-evening history and return.
+3. **Сообщество**: ratings, people/connections, tables, individual games, join/poker entry (audit wallet/bets separately, no mutation to token accounting).
+4. **Прогресс / профиль**: career (club vs GoMafia), Elo/stats/awards/achievements/learning, honest sources and timelines, deep-link/Back and privacy, mobile readability.
+5. **Верхняя панель / вспомогательные разделы**: settings, notifications, profile completeness, wallet navigation, live state and conduct access; focus on navigation, error/retry, and consistency. Money/Robokassa/VIP/skins/character editor remain separate or explicitly excluded.
+6. Cross-section pass **after** individual screens: consistency of navigation and back/refresh state, compact useful first viewport, no repeated controls, performance/load and real 360/390px preview. Fix only reproduced defects in scoped, tested PRs, not a blanket redesign.
+
+**Quality bar:** each screen audit names the mounted owner in `docs/FEATURE_MAP.md`, states actual/expected navigation, loading/error/empty/action behavior, distinguishes existing features from gaps, logs evidence in `docs/AUDIT_LOG.md` before changes; tests and CI plus mobile preview for implementation. Do not assume green CI means Amvera deployed or real Telegram-device verified.
 
 ## Existing-product UX audit and improvement — ACTIVE (owner approval 2026-10-12)
 
-**Owner focus 2026-10-14 — screen-by-screen, not end-to-end repetition:** Review one mounted app screen at a time for UX hierarchy, precise labels, actionable state, navigation, edge/error/empty states, duplication and architectural ownership. Fix confirmed defects in focused changes and log deeper restructuring before doing it; do not repeat full registration→evening→game flow audits. Separate chats own character/editor assets, Robokassa activation/payment integration, VIP, skins, loot boxes and all other monetization; avoid those here. First screen: CRM «Ещё → Дела» (see `docs/AUDIT_LOG.md`, 2026-10-14; source/destination and curator error fixes in an independent PR, verification pending).
+**Historical CRM phase (superseded by the Player Cabinet priority above, 2026-10-14) — screen-by-screen, not end-to-end repetition:** Review one mounted app screen at a time for UX hierarchy, precise labels, actionable state, navigation, edge/error/empty states, duplication and architectural ownership. Fix confirmed defects in focused changes and log deeper restructuring before doing it; do not repeat full registration→evening→game flow audits. Separate chats own character/editor assets, Robokassa activation/payment integration, VIP, skins, loot boxes and all other monetization; avoid those here. First screen: CRM «Ещё → Дела» (see `docs/AUDIT_LOG.md`, 2026-10-14; source/destination and curator error fixes in an independent PR, verification pending).
 
 **Screen 7 / CRM «Игроки → Карточка → Следующие действия» (2026-10-14):** Confirmed exclusive display conditional hid the next open follow-up task whenever the same player had a future evening. Scope is display-only: show both facts as separate compact lines, preserve current evening link, no task/RSVP/identity/payment write changes. Rendered React regression for both/one/neither. Pending PR/CI/preview and deploy; see `docs/AUDIT_LOG.md`.
 

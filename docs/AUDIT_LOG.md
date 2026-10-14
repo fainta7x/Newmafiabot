@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet, screen 3: «Вечера → Прошедшие» dead-end after GET failure
+
+**Mounted path:** `PlayerCabinetShell → PlayerEveningsHub (recaps) → PlayerEveningSummaries(embedded=true)`. `GET /api/player/evening-summaries` failure sets `error`; the returned full-screen error panel offers only `onBack` when supplied, but the mounted embedded caller provides **no `onBack`**, leaving the player with an error message and no in-section retry. Switching tabs away and back is the only implicit recovery. A successful zero-summaries response correctly renders «Итогов пока нет» and must stay distinct from request failure.
+
+**Expected:** render a clearly labelled min-44px `Повторить` action in both embedded and standalone error states; refetch the same GET and, on success, restore the selected evening/results without leaving the tab or altering URLs. Preserve optional back action if present. Use a request generation to prevent older responses from obscuring newer retries; keep all scores, awards, game links and backend schemas intact.
+
+**Verification:** rendered React tests for HTTP failure→success and genuine empty state in embedded mode; CI plus 390px preview required. Other player work in separate PR #913 covers the `Скоро` calendar, do not blend component changes.
+
+
 ## 2026-10-14 · Player Cabinet, screen 2: «Вечера → Скоро» stale calendar month and retry
 
 **Mounted source:** `PlayerCabinetShell → PlayerEveningsHub → PlayerEventsCalendar`, `src/components/player/PlayerEventsCalendar.tsx`. Month switch changes `monthKey` and invokes `load()`, but no cleanup, request ID or abort guard exists. A slow previous-month `GET /api/player/calendar?month=...` can complete after the latest GET and **replace current-month `events`, `noviceState` or the error flag**. The month title and list then disagree; the calendar's filters/nearest/highlight operate on false data. A network/API failure renders an error notice without an actionable retry; changing month is the only incidental retry.

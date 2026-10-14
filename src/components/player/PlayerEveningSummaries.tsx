@@ -1,6 +1,6 @@
 import { countGames } from '../../lib/russianPlural';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Award = {
   category: string;
@@ -62,22 +62,30 @@ export default function PlayerEveningSummaries({
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(initialEveningId || null);
+  const summaryRequestSeq = useRef(0);
+
+  const loadSummaries = useCallback(async () => {
+    const requestId = ++summaryRequestSeq.current;
+    setSummaries(null);
+    setError(null);
+    try {
+      const response = await fetch('/api/player/evening-summaries', { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить итоги вечеров');
+      if (requestId !== summaryRequestSeq.current) return;
+      const items = Array.isArray(body?.summaries) ? body.summaries as Summary[] : [];
+      setSummaries(items);
+      setSelectedId((current) => current && items.some((item) => item.id === current)
+        ? current : items[0]?.id || null);
+    } catch (err: any) {
+      if (requestId === summaryRequestSeq.current) setError(err?.message || 'Не удалось загрузить итоги вечеров');
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void fetch('/api/player/evening-summaries', { credentials: 'include' })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить итоги вечеров');
-        const items = Array.isArray(body?.summaries) ? body.summaries as Summary[] : [];
-        if (!cancelled) {
-          setSummaries(items);
-          setSelectedId((current) => current || items[0]?.id || null);
-        }
-      })
-      .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить итоги вечеров'); });
-    return () => { cancelled = true; };
-  }, []);
+    void loadSummaries();
+    return () => { summaryRequestSeq.current += 1; };
+  }, [loadSummaries]);
 
   useEffect(() => {
     if (initialEveningId) setSelectedId(initialEveningId);
@@ -86,7 +94,7 @@ export default function PlayerEveningSummaries({
   const selected = useMemo(() => summaries?.find((item) => item.id === selectedId) || null, [summaries, selectedId]);
 
   if (!summaries && !error) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] text-white`}><div className="text-center"><div className="text-3xl">🎬</div><div className="mt-2 text-xs text-white/30">Собираем итоги вечеров…</div></div></main>;
-  if (error) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div className="w-full max-w-[430px] rounded-3xl bg-rose-300/[0.05] p-5 text-center text-sm">{error}{onBack && <button type="button" onClick={onBack} className="mt-4 block w-full rounded-xl bg-white py-2 text-xs font-bold text-black">Назад</button>}</div></main>;
+  if (error) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div role="alert" data-testid="player-recaps-error" className="w-full max-w-[430px] rounded-3xl bg-rose-300/[0.05] p-5 text-center text-sm"><p>{error}</p><button type="button" onClick={() => void loadSummaries()} className="mt-4 min-h-11 w-full rounded-xl bg-white px-4 text-sm font-semibold text-black">Повторить</button>{onBack && <button type="button" onClick={onBack} className="mt-2 min-h-11 w-full rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">Назад</button>}</div></main>;
 
   return (
     <main className={`player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>

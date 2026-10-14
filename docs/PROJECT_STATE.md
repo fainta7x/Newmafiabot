@@ -51,6 +51,8 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 5. **Верхняя панель / вспомогательные разделы**: settings, notifications, profile completeness, wallet navigation, live state and conduct access; focus on navigation, error/retry, and consistency. Money/Robokassa/VIP/skins/character editor remain separate or explicitly excluded.
 6. Cross-section pass **after** individual screens: consistency of navigation and back/refresh state, compact useful first viewport, no repeated controls, performance/load and real 360/390px preview. Fix only reproduced defects in scoped, tested PRs, not a blanket redesign.
 
+**Screen 3 / ЛК «Вечера → Прошедшие» (2026-10-14):** Confirmed embedded recap error had no retry or mounted Back action; focused read-only retry and request-generation guard with regression for HTTP recovery, genuine empty results and optional standalone Back. PR and exact CI required before main/deploy; see `docs/AUDIT_LOG.md`.
+
 **Quality bar:** each screen audit names the mounted owner in `docs/FEATURE_MAP.md`, states actual/expected navigation, loading/error/empty/action behavior, distinguishes existing features from gaps, logs evidence in `docs/AUDIT_LOG.md` before changes; tests and CI plus mobile preview for implementation. Do not assume green CI means Amvera deployed or real Telegram-device verified.
 
 ## Existing-product UX audit and improvement — ACTIVE (owner approval 2026-10-12)

@@ -92,6 +92,12 @@ Player and public screens speak in plain words and avoid addressing the reader d
 - No rule-book or developer language on screens («минимум две совместные игры», «выборка», «серверный адаптер», «через журнал жетонов»). A threshold may be stated once, in plain words, only where it changes what the player sees.
 - «вы» is not used on player/public screens. Staff screens (organizer CRM, OBS setup pages) are written for the operator and are not covered by this rule.
 
+## Player Cabinet: data as mobile-native stories (owner, 2026-10-14)
+
+Screens are not administrative spreadsheets. When a player's existing data is mainly rows and numbers, first decide what the player needs to recognize or do: **my status → meaningful leaders/context → everyone else / deeper detail**. Use cards or concise list items with a clear name/avatar, one primary figure, its unit, and a distinct action to open the real profile/game. Keep secondary figures as small supporting details and long histories behind an intentional disclosure rather than a wide table or horizontal scrolling grid. Never discard players, tie places, verified statistics, time periods, filters or outgoing links just to obtain a clean screenshot.
+
+For Elo ratings, retain server ranks and values; first three *places* may use subtle amber/neutral/bronze emphasis, not an invented reward system or flashy podium art. The player's own standing may be a compact dedicated card at the top. Touch rows normally >=44px, preserve bottom safe areas, consistent Roboto typography, rounded 20–28px surfaces, subtle backgrounds and descriptive empty/loading/retry states. Use measured 360/390px evidence to reject cramped, clipped or overly ornamental results. Design system tokens and the current home/evenings chrome remain canonical: prefer gradual coherent improvements over replacing the entire cabinet with a new style.
+
 ## Organizer CRM contract
 
 Organizer CRM uses the same product language, but on mobile it must behave like a work tool rather than a dashboard catalogue.

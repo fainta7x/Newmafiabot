@@ -26,7 +26,7 @@ export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl,
     src={item.url} alt={item.slot === 'portrait_jacket' ? 'Пиджак' : PORTRAIT_SLOT_LABELS[item.slot]}
     style={{ zIndex: PORTRAIT_SLOT_ORDER[item.slot] + 1, ...(fit&&item.slot==='portrait_hat'?(placement?{transform:rigCssTransform(placement.hat),transformOrigin:'0 0'}:{transform:`scaleX(${fit.hatScale})`,transformOrigin:'50% 20%'}):{}) }}
   />;
-  return <span className={`role-portrait role-portrait-${background}`}>
+  return <span className={`role-portrait role-portrait-${background}${rig?' role-portrait-rigged':''}`}>
     {baseUrl ? <>
       {/* An immutable baseline is not a removable owned wardrobe item. */}
       {bodyBaseUrl && <img className="role-portrait-body-base" src={bodyBaseUrl} alt="" aria-hidden="true" />}

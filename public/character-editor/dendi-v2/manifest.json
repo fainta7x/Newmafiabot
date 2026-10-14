@@ -1,25 +1,91 @@
 {
-  "version": 3,
+  "version": 4,
   "status": "draft-test-only",
   "canvas": [
     512,
     640
   ],
-  "identitySource": "public/player-avatars/dendi.jpg",
-  "base": "base-v2.png",
+  "base": "base-v3.png",
+  "artDirectionMasterSHA256": "ace013ec0a6d674d032e42cccc42fd311bbf8f294aa9580b34b118a30dc4bb11",
   "slots": {
     "portrait_shirt": [
-      "shirt-v3.png"
+      "shirt-v4.png"
     ],
     "portrait_jacket": [
-      "jacket-burgundy-v3.png",
-      "jacket-black-v3.png"
+      "jacket-burgundy-v4.png",
+      "jacket-black-v4.png"
     ],
     "portrait_hat": [
       "hat-v2.png"
     ]
   },
   "sources": [
+    {
+      "file": "base-v3.png",
+      "sourceSHA256": "bf8bbd4155d7bb84513b7b3f7deab857819580127cb4f9276c89023d317e24e8",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
+    {
+      "file": "java-base-v2.png",
+      "sourceSHA256": "79a16213737c62f786a7d994d6321547aaba8eb3444b5bb0629350ef11c413ec",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
+    {
+      "file": "fandorin-base-v2.png",
+      "sourceSHA256": "863abc41b20398127c70d27dd213bd1e337412dd4dfdcc9f0280850f295d23fe",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
+    {
+      "file": "shirt-v4.png",
+      "sourceSHA256": "add5bfcc619e10397e67ee77bc76ce8aaf70b49a8ff3c35bcd6e8b0477e1b3e5",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
+    {
+      "file": "jacket-burgundy-v4.png",
+      "sourceSHA256": "181320f2842eeda54668106d5697968f60e15187a32c5a06651d413590d0bf9d",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
+    {
+      "file": "jacket-black-v4.png",
+      "sourceSHA256": "3b51a786b70e79ba3d643961d6999f0f70417995a68bdce0729c27bcc90151b1",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "fit": "contain",
+        "left": 0,
+        "top": 0
+      }
+    },
     {
       "file": "hat-v2.png",
       "sourceSHA256": "f6d564c7df1388bacc7f545fea3e383acfd98c137cf06ed5f7b65fb814217912",
@@ -29,82 +95,19 @@
         "left": 64,
         "top": -25
       }
-    },
-    {
-      "file": "base-v2.png",
-      "sourceSHA256": "5ce4cba6523c47b755b323d70f44d380700a64fd1ecccaf02a2ee2c9f3b28848",
-      "exportTransform": {
-        "width": 369,
-        "height": 461,
-        "left": 72,
-        "top": 38
-      }
-    },
-    {
-      "file": "java-base-v1.png",
-      "sourceSHA256": "18bc7c71a4ab5e2e309e4b1c50a46bf0c4f4239a877cfcce065c7d61e92eb816",
-      "exportTransform": {
-        "width": 369,
-        "height": 461,
-        "left": 72,
-        "top": 44
-      }
-    },
-    {
-      "file": "fandorin-base-v1.png",
-      "sourceSHA256": "0f9a8fcb190d44762eac93d214c27c410ab8c229732bc27d5753e6f0a0777523",
-      "exportTransform": {
-        "width": 369,
-        "height": 461,
-        "left": 72,
-        "top": 60
-      }
-    },
-    {
-      "file": "shirt-v3.png",
-      "sourceSHA256": "78016dbb027be9a0ccacc0ca69a1d7d369b2e5380b9d2c64fbc0b40aa954e3d6",
-      "exportTransform": {
-        "width": 512,
-        "height": 640,
-        "left": 0,
-        "top": 15
-      },
-      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
-    },
-    {
-      "file": "jacket-burgundy-v3.png",
-      "sourceSHA256": "ed443ff24c3c0e7d01913df77f6515a20862e55a2c1810703bded0a985e6762a",
-      "exportTransform": {
-        "width": 512,
-        "height": 640,
-        "left": 0,
-        "top": 72
-      },
-      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
-    },
-    {
-      "file": "jacket-black-v3.png",
-      "sourceSHA256": "6a59f00c66c052cb4483c576b50e6252fb58788f22322dc0abaebb3c12608423",
-      "exportTransform": {
-        "width": 512,
-        "height": 640,
-        "left": 0,
-        "top": 20
-      },
-      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
     }
   ],
   "characters": {
     "dendi": {
-      "base": "base-v2.png",
+      "base": "base-v3.png",
       "source": "public/player-avatars/dendi.jpg"
     },
     "java": {
-      "base": "java-base-v1.png",
+      "base": "java-base-v2.png",
       "source": "public/player-avatars/java.jpg"
     },
     "fandorin": {
-      "base": "fandorin-base-v1.png",
+      "base": "fandorin-base-v2.png",
       "source": "public/player-avatars/fandorin.jpg"
     }
   }

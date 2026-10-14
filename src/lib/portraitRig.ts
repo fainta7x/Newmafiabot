@@ -12,8 +12,9 @@ export type PortraitRig={
 };
 /** The inner brim contacts the two temples, rather than the top of the hair. */
 export const HAT_CONTACT:AnchorPair=[{x:184,y:129},{x:328,y:140}];
-export const RIG_NECK_Y=315;
-const GARMENT_ROWS=[[320,RIG_NECK_Y-25],[378,RIG_NECK_Y],[410,350],[475,430],[570,560],[640,640]] as const;
+export const RIG_NECK_Y=400;
+// The v4 artwork already shares a bust pose; preserve its painted anatomy vertically.
+const GARMENT_ROWS=[[280,280],[378,378],[400,RIG_NECK_Y],[410,410],[475,475],[570,570],[640,640]] as const;
 export function rigGarmentY(y:number){
   for(let i=1;i<GARMENT_ROWS.length;i++){
     const [a,b]=[GARMENT_ROWS[i-1],GARMENT_ROWS[i]];

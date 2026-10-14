@@ -51,12 +51,12 @@ export default function CosmeticsLab({portraitUrl,wearableLayers=DENDI_PILOT_LAY
   const [fits,setFits]=useState<Record<string,PortraitFit>>(()=>Object.fromEntries(characters.map(c=>[c.id,readFit(c)])));
   return <section className="cosmetics-lab" aria-label="Примерка гардероба Денди">
     <header><p>2LA NOIRE · ПРИМЕРКА</p><h1>Гардероб</h1><p>Одна одежда на разных персонажах.</p></header>
-    <div className="cosmetics-lab-characters" role="group" aria-label="Персонаж примерки">{characters.map(c=><button key={c.id} type="button" aria-pressed={selected===c.id} onClick={()=>setSelected(c.id)}><img src={c.baseUrl} alt=""/><strong>{c.name}</strong></button>)}</div>
+    <div className="cosmetics-lab-characters" role="group" aria-label="Персонаж примерки">{characters.map(c=><button key={c.id} type="button" aria-pressed={selected===c.id} onClick={()=>setSelected(c.id)}><span className="cosmetics-lab-character-thumb"><img src={c.baseUrl} alt=""/></span><strong>{c.name}</strong></button>)}</div>
     {characters.map(c=><div key={c.id} className="cosmetics-lab-character-view" hidden={selected!==c.id} data-character={c.id}><CharacterFitting character={{...c,baseUrl:portraitUrl||c.baseUrl}} characters={characters} wearableLayers={wearableLayers} fit={fits[c.id]} allFits={fits} setFit={update=>setFits(prev=>({...prev,[c.id]:typeof update==='function'?update(prev[c.id]):update}))}/></div>)}
   </section>;
 }
 function readFit(character:WardrobePilotCharacter):PortraitFit{
-  try{const found=JSON.parse(localStorage.getItem(`2la-fit-v1:${character.id}`)||'null');return {...character.fit,body:normalizeBodyFit(found?.body,character.fit.body)};}
+  try{const found=JSON.parse(localStorage.getItem(`2la-fit-v2:${character.id}`)||'null');return {...character.fit,body:normalizeBodyFit(found?.body,character.fit.body)};}
   catch{return {...character.fit,body:{...character.fit.body}};}
 }
 function CharacterFitting({character,characters,wearableLayers,fit,setFit,allFits}:{character:WardrobePilotCharacter;characters:WardrobePilotCharacter[];wearableLayers:LookLayer[];fit:PortraitFit;setFit:Dispatch<SetStateAction<PortraitFit>>;allFits:Record<string,PortraitFit>}){
@@ -101,7 +101,7 @@ function CharacterFitting({character,characters,wearableLayers,fit,setFit,allFit
   }));
   const current=saved.find(l=>l.role===role)!;
   const card=(look:RoleLook,label:string,cardFit=fit)=><div className="cosmetics-lab-card" data-testid={label==='Карточка трансляции'?'lab-broadcast-card':'lab-frozen-card'}><p>{label}</p><RolePortrait fit={cardFit} baseUrl={portraitUrl} background={look.background} layers={layers.filter(l=>roleEquippedItems(look)[l.slot]===l.itemId)}/><strong>{nickname}</strong><span>{LOOK_ROLE_LABELS[look.role]}</span><blockquote>{look.phrase||'Фраза ещё не задана'}</blockquote></div>;
-  const saveFit=()=>{try{localStorage.setItem(`2la-fit-v1:${character.id}`,JSON.stringify(fit));setFitNotice('Посадка сохранена для этого персонажа.');}catch{setDurable(false);setFitNotice('Посадка остаётся в этой открытой примерке.');}};
+  const saveFit=()=>{try{localStorage.setItem(`2la-fit-v2:${character.id}`,JSON.stringify(fit));setFitNotice('Посадка сохранена для этого персонажа.');}catch{setDurable(false);setFitNotice('Посадка остаётся в этой открытой примерке.');}};
   return <div className="cosmetics-lab-fitting">
     <div className="cosmetics-lab-note">Фигура и лицо выбранного персонажа, общие вещи и четыре независимых образа. Сохранение этой примерки — в этом браузере.</div>
     <details className="cosmetics-lab-fit-controls"><summary>Посадка одежды · {nickname}</summary><p>Тестовый силуэт можно настроить. Лицо и причёска остаются прежними.</p>
@@ -121,6 +121,6 @@ function CharacterFitting({character,characters,wearableLayers,fit,setFit,allFit
       <p>Здесь нет придуманных костюмов: пять пустых коллекций по утверждённым редкостям. Тестовые слои служат для проверки выбора слотов и примерки. Состав сохраняется локально и не связан с магазином.</p>
       <CosmeticSetStudio key={resetKey} client={studioClient} portraitUrl={portraitUrl} portraitFit={fit} portraitLayers={layers} initialOpen allowCreate={false}/>
     </section>
-    <button type="button" className="cosmetics-lab-reset" onClick={()=>{try{localStorage.removeItem(storageKey);localStorage.removeItem(setStorageKey);}catch{}studioMemory.current=draftSetSeeds.map(set=>({...set,items:[]}));try{localStorage.removeItem(`2la-fit-v1:${character.id}`);}catch{}setFit({...character.fit,body:{...character.fit.body}});memory.current=initial(layers);setSaved(initial(layers));setFrozen(null);setResetKey(n=>n+1);}}>Сбросить тестовые настройки</button>
+    <button type="button" className="cosmetics-lab-reset" onClick={()=>{try{localStorage.removeItem(storageKey);localStorage.removeItem(setStorageKey);}catch{}studioMemory.current=draftSetSeeds.map(set=>({...set,items:[]}));try{localStorage.removeItem(`2la-fit-v2:${character.id}`);}catch{}setFit({...character.fit,body:{...character.fit.body}});memory.current=initial(layers);setSaved(initial(layers));setFrozen(null);setResetKey(n=>n+1);}}>Сбросить тестовые настройки</button>
   </div>;
 }

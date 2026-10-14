@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-14 · Owner requests a coherent visual quality pass (IMPLEMENTED; exact-head visual evidence pending)
+
+Owner accepted the self-assessment that the current result is visually about 3/10 and authorized reworking it toward at least 7/10. The latest shirt+hat composition is technically connected but has mannequin shoulders, a small/recessed head, excessive torso emphasis and inconsistent face/fabric rendering. Scope: shared draft artwork, anatomical framing and existing fitting/editor presentation; same PR, no release or inventory approval. Acceptance: first establish one cohesive bust composition, reconstruct separate reusable garment layers in that style, validate all three identities with shirt/coat/hat combinations in the actual renderer and inspect fresh mobile screenshots. Mathematical landmark agreement alone does not satisfy this request.
+
+
 ## 2026-10-14 · Owner screenshot 10:04: visible cutout neck over collar (FIX CODED; shirt-only acceptance pending)
 
 New evidence disproves the previous acceptance: landmark coincidence did not remove the skin overhang. In `dendiWardrobePilot.ts` neck landmarks were measured at the exported head's bottom alpha boundary (y375), rather than the anatomical collar seat. `headClipPolygon` only removed a narrow central rectangle, leaving flared skin edges above the shirt foreground. Re-examine the actual alpha contours; calibrate the neck seat, mask the complete lower neck behind the shirt, and inspect shirt-only + hat on Fandorin at phone size. Do not assert closure based only on landmark math. fc89168a UI preview: 99 passed, 3 failed in workshop because getByAltText still expects an img after the renderer switched to canvas. Use the existing accessible img role and verify data-rendered, without changing production behavior. New correction uses a male-specific lower-neck contour (no clipping of female front hair) and an anatomical y360 seat rather than the y375 exported edge.

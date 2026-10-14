@@ -21,11 +21,11 @@ it('preserves the shirt and replacement jacket after reload while the frozen loo
   fireEvent.click(screen.getByRole('button',{name:'Зафиксировать образ для тестовой игры'}));
   fireEvent.click(editor.getByRole('button',{name:/Чёрный пиджак/}));
   fireEvent.click(editor.getByRole('button',{name:'Сохранить: Дон'}));
-  await waitFor(()=>expect(within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-broadcast-card]')! as HTMLElement).getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-black-v3'));
+  await waitFor(()=>expect(within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-broadcast-card]')! as HTMLElement).getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-black-v4'));
   const frozen=within(view.container.querySelector('.cosmetics-lab-character-view:not([hidden]) [data-testid=lab-frozen-card]')! as HTMLElement);
-  expect(frozen.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-v3');
+  expect(frozen.getByRole('img',{name:'Пиджак'}).getAttribute('data-asset-url')).toContain('jacket-burgundy-v4');
   expect(frozen.getByRole('img',{name:'Рубашка / основа одежды'})).toBeTruthy();
-  expect(frozen.getByAltText('Портрет игрока').getAttribute('src')).toContain('base-v2.png');
+  expect(frozen.getByAltText('Портрет игрока').getAttribute('src')).toContain('base-v3.png');
   view.unmount();
   const reload=render(<CosmeticsLab/>);
   const reloaded=within(reload.container.querySelector('.role-looks-editor')! as HTMLElement);

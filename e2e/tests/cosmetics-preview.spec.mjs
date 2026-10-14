@@ -96,8 +96,8 @@ for (const width of [360, 390, 1440]) {
     await expect(editor.getByRole('button', { name: /Багряный пиджак/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(editor.getByRole('button', { name: /Белая рубашка/ })).toHaveAttribute('aria-pressed', 'true');
     await editor.getByRole('button', { name: /Чёрный пиджак/ }).click();
-    await expect(editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true})).toHaveAttribute('data-asset-url', /jacket-black-v3/);
-    await expect(editor.getByTestId('role-look-preview').getByAltText('Портрет игрока')).toHaveAttribute('src', /base-v2/);
+    await expect(editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true})).toHaveAttribute('data-asset-url', /jacket-black-v4/);
+    await expect(editor.getByTestId('role-look-preview').getByAltText('Портрет игрока')).toHaveAttribute('src', /base-v3/);
   });
 }
 

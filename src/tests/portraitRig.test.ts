@@ -1,20 +1,21 @@
 import {expect,it} from 'vitest';
 import {anchorTransform,headClipPolygon,HAT_CONTACT,resolvePortraitRig,RIG_NECK_Y,rigGarmentY,transformRigPoint} from '../lib/portraitRig.ts';
 import {WARDROBE_PILOT_CHARACTERS} from '../lib/dendiWardrobePilot.ts';
-import {createGarmentMesh} from '../lib/portraitMesh.ts';
+import {createGarmentMesh,FIT_MIN,FIT_MAX} from '../lib/portraitMesh.ts';
 it('attaches both measured neck and hat contact landmarks for every character',()=>{
  for(const c of WARDROBE_PILOT_CHARACTERS){
   const rig=c.fit.rig!,placed=resolvePortraitRig(rig);
   rig.neck.forEach((p,i)=>{
    const mapped=transformRigPoint(p,placed.head);
    expect(mapped.x).toBeCloseTo(rig.targetNeck[i].x);expect(mapped.y).toBeCloseTo(rig.targetNeck[i].y);
-   expect(rigGarmentY(378)).toBeCloseTo(mapped.y);
+   expect(rigGarmentY(400)).toBeCloseTo(mapped.y);
   });
   HAT_CONTACT.forEach((p,i)=>{
    const hat=transformRigPoint(p,placed.hat),temple=transformRigPoint(rig.hatSeat[i],placed.head);
    expect(Math.hypot(hat.x-temple.x,hat.y-temple.y)).toBeLessThan(.001);
   });
-  expect(Math.hypot(placed.head[0],placed.head[1])).toBeCloseTo(.78);
+  expect(placed.head[0]).toBeCloseTo(placed.head[3]);
+  expect(placed.head[1]).toBeCloseTo(-placed.head[2]);
  }
 });
 it('preserves face proportions under rotation and scale',()=>{
@@ -26,17 +27,17 @@ it('preserves face proportions under rotation and scale',()=>{
  expect(()=>anchorTransform([{x:0,y:0},{x:0,y:0}],[{x:0,y:0},{x:1,y:1}])).toThrow();
 });
 it('fits collar and shoulders vertically without folding UV triangles at extreme widths',()=>{
- expect(rigGarmentY(378)).toBe(RIG_NECK_Y);
- expect(rigGarmentY(410)).toBe(350);expect(rigGarmentY(640)).toBe(640);
+ expect(rigGarmentY(400)).toBe(RIG_NECK_Y);
+ expect(rigGarmentY(410)).toBe(410);expect(rigGarmentY(640)).toBe(640);
  for(let bits=0;bits<16;bits++){
-  const values=Array.from({length:4},(_,i)=>bits&(1<<i)?.35:-.15);
+  const values=Array.from({length:4},(_,i)=>bits&(1<<i)?FIT_MAX:FIT_MIN);
   for(const t of createGarmentMesh({neck:values[0],shoulders:values[1],chest:values[2],waist:values[3]},true)){
    const [a,b,c]=t.target;expect((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)).toBeGreaterThan(0);
   }
  }
 });
 
-it('masks the exported male neck flares while retaining jaw and female front hair',()=>{
+it('keeps anatomical lower neck behind the collar and long front hair above clothes',()=>{
  const inside=(p:{x:number;y:number},poly:{x:number;y:number}[])=>{
   let result=false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
@@ -45,13 +46,12 @@ it('masks the exported male neck flares while retaining jaw and female front hai
   }
   return result;
  };
- const male=WARDROBE_PILOT_CHARACTERS.find(c=>c.id==='fandorin')!.fit.rig!;
- const rear=headClipPolygon(male,false,false),front=headClipPolygon(male,false,true);
- expect(inside({x:188,y:335},rear)).toBe(false);
- expect(inside({x:327,y:335},rear)).toBe(false);
- expect(inside({x:256,y:335},rear)).toBe(true);
- expect(inside({x:256,y:335},front)).toBe(false);
- expect(inside({x:256,y:310},front)).toBe(true);
+ for(const c of WARDROBE_PILOT_CHARACTERS){
+  const rig=c.fit.rig!,neck={x:(rig.neck[0].x+rig.neck[1].x)/2,y:rig.neck[0].y};
+  expect(inside(neck,headClipPolygon(rig,false,false))).toBe(true);
+  expect(inside(neck,headClipPolygon(rig,false,true))).toBe(false);
+  expect(inside({...neck,y:rig.neckCutY-30},headClipPolygon(rig,false,true))).toBe(true);
+ }
  const dendi=WARDROBE_PILOT_CHARACTERS[0].fit.rig!;
- expect(inside({x:175,y:400},headClipPolygon(dendi,false,true))).toBe(true);
+ expect(inside({x:100,y:480},headClipPolygon(dendi,false,true))).toBe(true);
 });

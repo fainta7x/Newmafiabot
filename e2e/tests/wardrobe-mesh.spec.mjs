@@ -15,14 +15,14 @@ for(const width of [360,390,1440]){
    await shirtStage.screenshot({path:testInfo.outputPath(`shirt-neck-${name}-${width}.png`)});
    await editor.getByRole('button',{name:/Багряный пиджак/}).click();
    const coat=editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v3/);await expect(coat).toHaveAttribute('data-rendered','true');
+   await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v4/);await expect(coat).toHaveAttribute('data-rendered','true');
    const preview=editor.getByTestId('role-look-preview');
    const shirt=preview.locator('canvas.role-portrait-portrait_shirt');
    await expect(shirt).toHaveAttribute('data-rendered','true');
    // A closed coat covers shirt sleeves, preventing white strips in armholes.
    expect(await shirt.evaluate(c=>{
     const rgba=c.getContext('2d').getImageData(0,0,512,640).data;
-    for(let y=320;y<640;y++)for(const x of [100,150,360,410])if(rgba[(y*512+x)*4+3])return false;
+    for(let y=320;y<640;y++)for(const x of [48,100,410,464])if(rgba[(y*512+x)*4+3])return false;
     return true;
    })).toBe(true);
    const hat=preview.getByRole('img',{name:'Головной убор',exact:true});
@@ -42,7 +42,7 @@ for(const width of [360,390,1440]){
   const comparison=active().locator('.cosmetics-lab-cross-grid');await expect(comparison).toBeVisible();
   for(const id of ['dendi','java','fandorin']){
    const card=comparison.getByTestId(`shared-fit-${id}`),coat=card.getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v3/);
+   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v4/);
   }
   const pixels=await comparison.locator('canvas[aria-label="Пиджак"]').evaluateAll(nodes=>nodes.map(c=>c.toDataURL()));
   expect(new Set(pixels).size).toBe(3);
@@ -56,6 +56,7 @@ for(const width of [360,390,1440]){
   await expect(face).toHaveAttribute('src',originalFace);
   await active().getByLabel('Показать сетку',{exact:true}).check();await expect(stage.getByRole('img',{name:'Сетка посадки одежды'})).toBeVisible();
   await active().getByRole('button',{name:'Сохранить посадку',exact:true}).click();
+  const savedWaist=await active().getByLabel('Талия',{exact:true}).inputValue();
   await active().getByRole('group',{name:'Роль на трансляции'}).getByRole('button',{name:'Дон',exact:true}).click();
   await active().getByRole('button',{name:'Зафиксировать образ для тестовой игры'}).click();
   const frozen=active().getByTestId('lab-frozen-card').getByRole('img',{name:'Пиджак',exact:true});await expect(frozen).toHaveAttribute('data-rendered','true');
@@ -67,7 +68,7 @@ for(const width of [360,390,1440]){
   await page.reload();await selector.getByRole('button',{name:'Фандорин',exact:true}).click();
   await active().locator('.role-looks-editor').getByRole('button',{name:'Дон',exact:true}).click();
   await expect(active().getByLabel('Фраза',{exact:true})).toHaveValue('Образ: Фандорин');
-  await expect(active().getByLabel('Талия',{exact:true})).toHaveValue('0.29');
+  await expect(active().getByLabel('Талия',{exact:true})).toHaveValue(savedWaist);
  });
 }
 test('offline package embeds three distinct portrait bases and renders fitted clothing',async({page})=>{

@@ -1,28 +1,15 @@
-# Dendi fitting fixture, v2
+# Shared wardrobe bust fixture · v4
 
-Draft art for one silhouette, not a released collection or an approved likeness.
-Generated with the built-in image tool. The central existing `public/player-avatars/dendi.jpg` is the identity reference. No source avatar was overwritten.
+Draft artwork, not released inventory or approved player likenesses. Original avatars are preserved. Existing identity references: `public/player-avatars/{dendi,java,fandorin}.jpg`; the prepared earlier heads were used as identity-preserving edit references. Built-in imagegen was used; source hashes and normalization are in manifest.json.
 
-Final prompt directions:
-- Base: preserve the central woman's facial features, blonde waves and frontal gaze; refined realistic painterly noir head/hair/neck only, genuinely transparent canvas, no outfit, hands, background or lettering.
-- Shirt: match the final aligned blazer and head; ivory fully buttoned shirt, opaque central collar opening, continuous torso and sleeves slightly inside blazer silhouette, preserve sleeve/torso separation, no face/hair/body.
-- Burgundy jacket: tailored pinstripe burgundy wool blazer, relaxed symmetrical sleeves, transparent neckline for a separate shirt, antique gold buttons; no hands, shirt, head, jewelry or background.
-- Black jacket: preserve the burgundy layer geometry; replace styling with matte midnight wool and pewter buttons, no gold stripes.
-- Hat: detailed burgundy felt fedora, restrained bronze leaf, positioned over the top of the fixed head, no face/hair or background.
+## Art direction and prompts
 
-Generated art is normalized/exported to the common 512x640 canvas. Source checksums and export transforms are in manifest.json. Alpha was retained; no checkerboard background, SVG face replacement or production inventory grant. Minor sleeve fitting differences remain subject to art review.
+The owner rejected the mannequin framing, buried neck and inconsistent face/fabric rendering. One complete Fandorin bust was first drawn as the composition/style master: preserve recognizable face, swept brown hair and square sunglasses; natural anatomical neck entering a relaxed open ivory collar; warm grey undershirt; sloping shoulders and relaxed upper arms; crop at upper chest, no hands; unified painted graphic-novel contours, warm frontal-left light and restrained fabric texture; transparent background.
 
-This fixture does not implement variable body proportions, hairBack/hairFront, hat hairstyle variants, a deformable mesh, or 3D. Architecture discussion and release limits are owned by `docs/COSMETIC_WARDROBE_ARCHITECTURE.md` sections 10–12.
+The shirt and both coats are SEPARATE assets referenced to that master, not a flattened costume. Shirt extraction retains cloth and grey undershirt, removes all skin/head. Burgundy and charcoal blazer prompts preserve the master's shoulder pose, chest crop, lighting, fabric volume and transparent inner V; no shirt/head/skin baked into either coat, no waist-length mannequin or corset tailoring. Head preparation preserves each identity, expression and hairstyle while matching the master's painted rendering and complete anatomical neck. Generated head exports recentered differently, so measured neck-seat and temple anchors normalize them by a uniform transform in `dendiWardrobePilot.ts`; no per-feature face warping. All six new assets use full-canvas 512×640 contain normalization with original alpha. The previous hat is reused with calibrated temple contact.
 
+## Composition contract
 
-## Three-character mesh test
+The v4 clothes already share the canonical bust pose; there is no vertical torso stretching. UV fitting adjusts collar/shoulder/chest widths for three example silhouettes. Closed coats expose the shirt front while covering its sleeves; the visible collar remains intact. Neck is behind the shirt/lapels, front hair stays above clothes, hair under the hat is masked. Profile data owns the measured landmarks. Geometry and mask implementations are `portraitRig.ts` / `portraitMesh.ts`.
 
-Two added head-only layers were generated with the built-in image tool. Identity references: the central figures from `java.jpg` and `fandorin.jpg`; Dendi's new head was a style/lighting reference only. Prompts: preserve Java's brown eyes, smiling mouth, side-part shoulder-length blonde hair; preserve Fandorin's broad face, short swept brown hair and dark square glasses. Render only recognizable head/hair/neck, frontal painterly noir, real alpha, no costume, hands, text or background. Match the canonical bust framing. Export transforms and source hashes are recorded in manifest.json. These drawings remain unapproved individual bases; no garments were redrawn for either person.
-
-The editor now supplies an explicit 2D fitting mesh for the same shirt/jacket texture on all three heads. Hair remains one fixed front layer per person; arbitrary hairstyle/hat compatibility is still a release limit. The corrupted Chagin file was not used or replaced.
-
-## Shared neutral garment correction · 2026-10-14
-
-Owner rejected the feminine torso on Fandorin in screenshots 09:26/09:27. Built-in imagegen edited the three existing garment masters: ivory straight-cut shirt, burgundy pinstripe jacket and charcoal jacket. Prompt constraints: flat chest, relaxed cylindrical torso, natural shoulders, no breast shading/princess darts/cinched waist/peplum; preserve separate transparent neck/V openings, front view and painterly cartoon style, no skin/head/hands or shirt baked into the coat. Full-canvas outputs were normalized to the shared collar/shoulder anchors (manifest records shifts). New v3 assets preserve old v2 URLs. Both closed coats declare `shirtCoverage: front-only`; this conceals inner shirt sleeves behind the coat without affecting shirt-only outfits or unmarked jackets.
-
-Visual review: nine compositions (three heads × shirt/burgundy/black) rendered with the actual UV algorithm and inspected, including neck joins, shoulder widths, straight waist and sleeve gaps. This is local artwork evidence, not mobile browser or owner approval. Draft-only; no seasonal approval or inventory grant.
+Old v1 fitting presets belonged to the discarded mannequin pose. The lab now uses v2 fitting storage; the four saved role outfits/item IDs and phrases are preserved. No production body-fit API or inventory grants were added. Future arbitrary poses and fully decomposed hairstyles remain outside this pilot; see `docs/COSMETIC_WARDROBE_ARCHITECTURE.md` §13.

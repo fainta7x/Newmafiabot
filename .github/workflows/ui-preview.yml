@@ -47,7 +47,7 @@ jobs:
       - name: Build isolated preview (no database or secrets)
         run: node scripts/buildUiPreview.mjs
       - name: Validate wardrobe shape variants and attachments
-        run: node scripts/validateWardrobeTemplates.mjs
+        run: node scripts/validateWardrobeTemplates.mjs temp/ui-preview
       - name: Package standalone offline cosmetics lab
         run: node scripts/buildCosmeticsLab.mjs temp/ui-preview/fiery-autumn-standalone.html
       - name: Package original-avatar layered wardrobe review

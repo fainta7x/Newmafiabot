@@ -3,6 +3,7 @@ import {build} from 'esbuild';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const assetRoot=process.argv[2]?path.resolve(root,process.argv[2]):path.join(root,'public');
 const compiled=await build({entryPoints:[path.join(root,'src/lib/dendiWardrobePilot.ts')],bundle:true,write:false,format:'esm',platform:'node'});
 const {WARDROBE_PILOT_CHARACTERS:characters,DENDI_PILOT_LAYERS:items}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].contents).toString('base64'));
 const urls=new Set(characters.map(c=>c.baseUrl));
@@ -18,7 +19,7 @@ for(const item of items){
 }
 for(const url of urls){
  if(!url.startsWith('/character-editor/')||url.includes('..'))throw new Error('Invalid asset URL');
- const data=await readFile(path.join(root,'public',url));
+ const data=await readFile(path.join(assetRoot,url));
  if(data.subarray(0,8).toString('hex')!=='89504e470d0a1a0a'||data.readUInt32BE(16)!==512||data.readUInt32BE(20)!==640||data[25]!==6)throw new Error(`Expected PNG RGBA 512×640: ${url}`);
 }
 console.log(`Wardrobe templates: ${characters.length} identities, ${items.length} independent items, ${urls.size} PNG RGBA assets validated.`);

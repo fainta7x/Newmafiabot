@@ -1,11 +1,5 @@
 # Audit log
 
-## 2026-10-14 · CRM «Дела» → нужный раздел вечера (navigation wiring)
-
-- **Confirmed by mounted source:** `OrganizerCRM.tsx` rendered the full `OrganizerAgenda` with `onOpenEveningSection={navigateEveningSection}`, a URL-only `pushState`/`popstate` helper. The same screen already owns `handleOpenEveningSection`, which synchronizes its mounted tab, evening ID and section with the browser path. The former wiring risked routing to the wrong section or retaining stale CRM state in the embedded application.
-- **Fixed in this scoped branch:** pass `handleOpenEveningSection` to the full «Дела» list, as «Сегодня» already does; remove the unused URL-only helper import from `OrganizerCRM`. Keep the fallback helper exported for standalone `CRMOverview` consumers.
-- **Regression:** `crmAgendaStatefulNavigation.test.tsx` checks parent wiring and clickable action dispatch for «Ответы», «Игры», «Состав». No change to RSVP, notifications, game engine, finances or persisted data. **PR CI / merge / Amvera runtime verification pending.**
-
 ## 2026-10-12 · Game page in the player app (owner: «ужасная страница, непонятная, не красивая, не информативная») — FIXED (rework)
 
 Before: `PlayerGameDetail.tsx` was a flat stack — «Итог игры» (winner + loose chips), «Как проходила игра» (votings and nights as separate lists, outcomes as raw words such as «eliminated»/«night»), «Игроки и баллы» (ten tall cards with every score part, fouls and Elo notes open at once). The viewer's own result was only a «вы» mark inside the list. After: result hero, «Ваша игра», «Главное в игре», rosters by team with collapsed details, one ordered story of the game with vote bars and plain results, judge's note. Checked at 360/390 px in a browser (no horizontal overflow, rows ≥ 44 px, screenshot reviewed). Not changed: data, API, scoring. Open: the replay screen and the Telegram result posts are separate surfaces and were not touched.
@@ -996,3 +990,21 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - **Kept:** `game/text.py` and `game/utils/endgame_pic.py` (used by the live game archive in `profile.py`), `handlers/booking.py` helpers used by `registration.py`/`start_profile.py`/`admin.py`, the registration flow (`finish_registration`), and `legacy_retired_actions.py`, which still answers old buttons with «Эта кнопка устарела».
 - **Check after the change:** the same 51 handlers still answer their triggers; `pytest` 88, `python3 -c "import main"`; the contract test `legacyRuntimeContracts.test.ts` was updated for the deleted routers.
 
+
+## 2026-10-14 · Screen-by-screen audit: CRM «Ещё → Дела» (pass 1)
+
+**Scope and evidence:** mounted \`OrganizerCRM.tsx\` renders \`OrganizerAgenda\`, \`CuratorTasksPanel\` and, behind «Свои задачи и выполненные», \`TasksCRM\`. The worklist is built by \`organizerAgendaService.ts\`, with separate curator and organizer-task sources. Audit reviewed action destinations, on-screen wording, load/error/empty states and UI hierarchy; no live-phone screenshots or production database were accessed.
+
+- **P1 — wrong action destination (confirmed):** \`fillItems()\` returns cards \`people:thinking:...\` and \`people:fill:...\` labelled «Открыть ответы», but their action targets evening section \`overview\` instead of \`participants\` (the merged unified «Ответы» list). Both \`why\` strings refer to removed «Личные приглашения» navigation. Fix in this pass: target \`participants\`, use the existing unified «Ответы» wording and assert both actions in the existing SQLite integration test. No eligibility/shortfall calculation changes.
+- **P1 — silent curator-task failures (confirmed):** \`CuratorTasksPanel.load()\` ignored HTTP non-200 and caught network errors without displaying anything; with \`data=null\`, the whole task panel disappeared. \`cancel()\` had \`try/finally\` without \`catch\`, leaving unhandled rejected mutations and no visible feedback. Fix in this pass: keep the screen visible with retry/error state and surface cancellation errors while retaining the task row.
+- **P2 — fractured information architecture (verified, not refactored):** one conceptual «Дела» screen still exposes three independent work sources (\`/api/crm/agenda\`, \`/api/tasks\`, \`/api/curator-tasks\`) with separate done/history rules and separate loading states. Evaluate a unified information hierarchy with the owner after this bugfix; **do not collapse stores or change curator/organizer task lifecycle as a cosmetic change**.
+- **P2 — snoozed items uninspectable (verified, deferred):** \`organizerAgendaService.loadAgenda()\` exposes only a \`snoozed\` count while excluding snoozed cards; currently there is no view to inspect/undo postponement before its expiry. Needs backend contract and organizer approval; do not pretend the count itself is a list.
+- **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
+
+**Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.
+
+## 2026-10-14 · CRM «Дела» → нужный раздел вечера (navigation wiring)
+
+- **Confirmed by mounted source:** `OrganizerCRM.tsx` rendered the full `OrganizerAgenda` with `onOpenEveningSection={navigateEveningSection}`, a URL-only `pushState`/`popstate` helper. The same screen already owns `handleOpenEveningSection`, which synchronizes its mounted tab, evening ID and section with the browser path. The former wiring risked routing to the wrong section or retaining stale CRM state in the embedded application.
+- **Fixed in this scoped branch:** pass `handleOpenEveningSection` to the full «Дела» list, as «Сегодня» already does; remove the unused URL-only helper import from `OrganizerCRM`. Keep the fallback helper exported for standalone `CRMOverview` consumers.
+- **Regression:** `crmAgendaStatefulNavigation.test.tsx` checks parent wiring and clickable action dispatch for «Ответы», «Игры», «Состав». No change to RSVP, notifications, game engine, finances or persisted data. **PR verification / merge / Amvera runtime verification are tracked separately.**

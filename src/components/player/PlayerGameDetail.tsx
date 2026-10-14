@@ -4,6 +4,7 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { GameTableScene, VoteSplitScene } from './PlayerVisualScenes.tsx';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -315,8 +316,11 @@ export default function PlayerGameDetail({
 
       {detail && (
         <>
-          <section data-testid="game-hero" className={`overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b ${winnerTone} to-transparent p-4`}>
-            <div className="flex items-start justify-between gap-3">
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="flex min-w-0 flex-col gap-4">
+          <section data-testid="game-hero" className={`relative min-h-[180px] overflow-hidden rounded-[30px] border border-amber-200/15 bg-gradient-to-br ${winnerTone} to-[#101116] p-5 sm:p-6`}>
+            <div aria-hidden="true" className="pointer-events-none absolute -right-7 -bottom-8 text-[160px] leading-none text-amber-200/[.055]">♠</div>
+            <div className="relative flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">2LA Noire · Игра №{detail.game.game_number}</div>
                 <h1 className="mt-1 text-xl font-semibold leading-6 text-white">{detail.game.title}</h1>
@@ -356,6 +360,10 @@ export default function PlayerGameDetail({
             </section>
           )}
 
+            </div>
+            <GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId} />
+          </div>
+
           <section aria-label="Ход игры в цифрах" className="grid grid-cols-3 gap-2">
             <div className="rounded-[20px] border border-white/10 bg-gradient-to-br from-white/[.08] to-black/25 p-3">
               <div className="text-[10px] uppercase tracking-wider text-white/45">Игроков</div>
@@ -388,7 +396,7 @@ export default function PlayerGameDetail({
             </Section>
           )}
 
-          <Section title="Составы и баллы" hint="Нажмите на игрока, чтобы увидеть, из чего сложились баллы.">
+          <Section title="Составы и баллы" hint="На схеме выше — места за столом. Здесь откройте участника, чтобы увидеть его действия и начисления.">
             <div className="grid gap-4 lg:grid-cols-2">
               {sides.map((side) => (
                 <div key={side.team}>
@@ -490,15 +498,7 @@ export default function PlayerGameDetail({
                         <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
                         {vote.eligible_voters != null ? <span className="shrink-0 text-[11px] text-white/35">голосуют {vote.eligible_voters}</span> : null}
                       </div>
-                      <div className="mt-3 space-y-2.5">
-                        {counts.map((item) => (
-                          <div key={item.seat} className="flex items-center gap-2 text-[12px]">
-                            <span className="w-24 shrink-0 truncate text-white/75 sm:w-44">{seatLabel(item.seat)}</span>
-                            <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]"><span className={`block h-full rounded-full ${item.votes === top && top > 0 ? "bg-rose-200/85" : "bg-white/35"}`} style={{ width: `${Math.round((item.votes / Math.max(1, counts.reduce((sum, current) => sum + current.votes, 0))) * 100)}%` }} /></span>
-                            <span className="w-5 shrink-0 text-right font-medium tabular-nums text-white/75">{item.votes}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} />
                       {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}
                     </li>
                   );

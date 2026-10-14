@@ -180,7 +180,7 @@ export default function PlayerClubActivity() {
 
             {data.meta?.formula && (
               <details open className="mt-3 rounded-xl border border-amber-200/10 bg-amber-200/[0.035] px-3">
-                <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/60">Как считается форма и рейтинг</summary>
+                <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium text-white/60">Как считается форма</summary>
                 <p className="pb-3 text-[11px] leading-5 text-white/55">{data.meta.formula}</p>
               </details>
             )}

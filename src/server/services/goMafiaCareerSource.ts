@@ -189,7 +189,11 @@ export async function fetchPublicGoMafiaCareer(ref: GoMafiaPlayerReference, read
   const ordered = [...appearances.values()].sort((a,b) => Number(previouslyScored.has(a.tournamentId)) - Number(previouslyScored.has(b.tournamentId)));
   for (const appearance of ordered) {
     try { tournaments.push(enrichGoMafiaAppearance(appearance, await request(`/tournament/${appearance.tournamentId}`), ref.externalPlayerId)); }
-    catch { tournaments.push({ ...appearance, scoreStatus: 'refresh_failed' }); missingScores++; }
+    catch {
+      const earlier = previous?.career?.tournaments.find(item => item.tournamentId === appearance.tournamentId);
+      tournaments.push({ ...appearance, participantCount: earlier?.participantCount ?? null, scoreStatus: 'refresh_failed' });
+      missingScores++;
+    }
   }
   snapshot.career = { tournaments: tournaments.sort((a,b)=>b.dateStart.localeCompare(a.dateStart)), yearlyStats,
     historyTotal: initial.total, registrationsStatus: 'unavailable', limitations: [

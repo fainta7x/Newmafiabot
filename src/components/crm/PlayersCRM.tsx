@@ -101,6 +101,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const requestSeq = useRef(0);
+  const detailRequestSeq = useRef(0);
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [contactStatusFilter, setContactStatusFilter] = useState('');
@@ -226,17 +227,33 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   };
 
   const loadPlayerDetails = async (id: string) => {
+    const requestId = ++detailRequestSeq.current;
     setLoadingDetails(true);
     setDetailError(null);
     try {
       const data = await api.getPlayer(id);
+      // A previous player/refresh may finish after this card has been replaced.
+      if (requestId !== detailRequestSeq.current) return;
       setPlayerDetails(data);
       initEditForm(data);
     } catch (err: any) {
-      setDetailError(err?.message || 'Не удалось загрузить профиль игрока');
+      if (requestId === detailRequestSeq.current) setDetailError(err?.message || 'Не удалось загрузить профиль игрока');
     } finally {
-      setLoadingDetails(false);
+      if (requestId === detailRequestSeq.current) setLoadingDetails(false);
     }
+  };
+
+  const resetPlayerCardOverlays = () => {
+    setShowPlayerMenu(false);
+    setShowPublicProfile(false);
+    setShowTokensSheet(false);
+    setShowEditSheet(false);
+    setShowTaskSheet(false);
+    setShowCommSheet(false);
+    setShowInviteSheet(false);
+    setShowMergeSheet(false);
+    setShowMusicSheet(false);
+    setConfirmDeleteAvatar(false);
   };
 
   useEffect(() => {
@@ -245,6 +262,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setPlayerDetails(null);
     setProfileMessage(null);
     setProfileError(null);
+    resetPlayerCardOverlays();
     void loadPlayerDetails(selectedPlayerId);
   }, [selectedPlayerId]);
 
@@ -253,19 +271,20 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setPlayerDetails(null);
     setProfileMessage(null);
     setProfileError(null);
+    resetPlayerCardOverlays();
     void loadPlayerDetails(id);
   };
 
   const handleCloseCard = () => {
+    // Invalidate unresolved responses before allowing another profile to open.
+    detailRequestSeq.current += 1;
     setActivePlayerCardId(null);
     setPlayerDetails(null);
-    setShowPlayerMenu(false);
-    setShowEditSheet(false);
-    setShowTaskSheet(false);
-    setShowCommSheet(false);
-    setShowInviteSheet(false);
-    setShowMergeSheet(false);
-    setShowMusicSheet(false);
+    setLoadingDetails(false);
+    setDetailError(null);
+    setProfileMessage(null);
+    setProfileError(null);
+    resetPlayerCardOverlays();
     onClosePlayerCard?.();
   };
 

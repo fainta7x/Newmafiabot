@@ -1,9 +1,5 @@
-import { countPlayers } from '../../lib/russianPlural';
 import { ChevronRight, Search, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import AsyncState from '../ui/AsyncState.tsx';
-import { Badge, type BadgeVariant } from '../ui/Badge.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card.tsx';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '../ui/Input.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { getJson } from '../../lib/requestJson.ts';
@@ -11,28 +7,35 @@ import { getJson } from '../../lib/requestJson.ts';
 type DirectoryPlayer = { id: string; nickname: string; elo: number; game_level: string; avatar_url: string | null };
 
 const gameLevelLabel = (level: string) => level === 'novice' ? 'Новичок' : level === 'tournament' ? 'Турнирный игрок' : 'Игрок клуба';
-const gameLevelVariant = (level: string): BadgeVariant => level === 'novice' ? 'warning' : level === 'tournament' ? 'accent' : 'neutral';
 
 function PlayerAvatar({ player }: { player: DirectoryPlayer }) {
-  if (player.avatar_url) return <img src={player.avatar_url} alt={player.nickname} className="h-12 w-12 shrink-0 rounded-[14px] object-cover ring-1 ring-[var(--ds-border-strong)]" />;
-  return <div aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-secondary text-base font-bold text-muted-foreground ring-1 ring-[var(--ds-border-strong)]">{player.nickname.slice(0, 1).toUpperCase()}</div>;
+  if (player.avatar_url) return <img src={player.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />;
+  return <div aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.09] text-base font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</div>;
 }
 
 export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   const [players, setPlayers] = useState<DirectoryPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const requestSeq = useRef(0);
+
+  const loadPlayers = useCallback(async () => {
+    const requestId = ++requestSeq.current;
+    setError(null);
+    setPlayers(null);
+    try {
+      const body = await getJson<any>('/api/player/players', 'Не удалось загрузить игроков');
+      if (!Array.isArray(body?.players)) throw new Error('Не удалось загрузить игроков');
+      if (requestId === requestSeq.current) setPlayers(body.players);
+    } catch (loadError: any) {
+      if (requestId === requestSeq.current) setError(loadError?.message || 'Не удалось загрузить игроков');
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const body = await getJson<any>('/api/player/players', 'Не удалось загрузить игроков');
-        if (!cancelled) setPlayers(Array.isArray(body?.players) ? body.players : []);
-      } catch (loadError: any) { if (!cancelled) setError(loadError?.message || 'Не удалось загрузить игроков'); }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    void loadPlayers();
+    return () => { requestSeq.current += 1; };
+  }, [loadPlayers]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
@@ -40,22 +43,64 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
     return (players || []).filter((item) => item.nickname.toLocaleLowerCase('ru-RU').includes(query));
   }, [players, search]);
 
-  return <Card data-testid="club-directory" className="overflow-hidden">
-    <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-3">
-      <div className="min-w-0"><CardTitle>Игроки клуба</CardTitle><CardDescription className="mt-1">Единый профиль: игры, роли, Elo и достижения.</CardDescription></div>
-      {players ? <Badge variant="neutral" aria-label={`${countPlayers(players.length)}`} className="shrink-0 tabular-nums">{players.length}</Badge> : null}
-    </CardHeader>
-    <CardContent className="px-3 pb-3">
-      <div className="relative"><label htmlFor="club-search" className="sr-only">Найти игрока</label><Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="pl-10" /></div>
-      {error ? <AsyncState kind="error" title="Не удалось загрузить игроков" description={error} compact className="mt-3" /> : players === null ? <AsyncState kind="loading" title="Загрузка игроков…" compact className="mt-3" /> : filtered.length ? (
-        <div className="player-directory-list mt-3 divide-y divide-border overflow-hidden rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)]">
-          {filtered.map((item) => <button key={item.id} data-testid={`club-player-${item.id}`} type="button" onClick={() => openCanonicalPlayerProfile(item.id)} className="ds-focus-ring group flex min-h-[76px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-ui-accent active:bg-ui-accent">
-            <PlayerAvatar player={item} />
-            <div className="min-w-0 flex-1"><div className="flex min-w-0 items-center gap-2"><span className="truncate text-sm font-bold text-foreground">{item.nickname}</span>{item.id === selfId ? <Badge variant="accent" className="shrink-0">Вы</Badge> : null}</div><div className="mt-1.5"><Badge variant={gameLevelVariant(item.game_level)}>{gameLevelLabel(item.game_level)}</Badge></div></div>
-            <div className="flex shrink-0 items-center gap-2"><div className="text-right"><div className="text-sm font-bold tabular-nums text-foreground">{item.elo}</div><div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-subtle-foreground)]">ELO</div></div><ChevronRight className="h-4 w-4 text-[var(--ds-subtle-foreground)] transition-transform group-active:translate-x-0.5" aria-hidden="true" /></div>
-          </button>)}
+  return (
+    <section data-testid="club-directory" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-3.5">
+      <div className="flex items-start justify-between gap-3 px-1">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-white">Игроки клуба</h2>
+          <p className="mt-1 text-[12px] leading-4 text-white/45">Профили, игры и достижения клуба</p>
         </div>
-      ) : <AsyncState kind="empty" title="Никого не нашли" description="Можно изменить запрос." icon={<UserRound className="h-5 w-5" />} compact className="mt-3" />}
-    </CardContent>
-  </Card>;
+        {players ? <span className="shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[12px] tabular-nums text-white/65" aria-label={`${players.length} игроков`}>{players.length}</span> : null}
+      </div>
+
+      <div className="relative mt-4">
+        <label htmlFor="club-search" className="sr-only">Найти игрока</label>
+        <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-white/45" />
+        <Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="pl-10" />
+      </div>
+
+      {error ? (
+        <div role="alert" data-testid="club-directory-error" className="mt-3 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4">
+          <p className="text-[13px] leading-5 text-rose-100/80">{error}</p>
+          <button type="button" onClick={() => void loadPlayers()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button>
+        </div>
+      ) : players === null ? (
+        <div className="mt-3 rounded-2xl bg-black/20 px-3 py-7 text-center text-[13px] text-white/50">Загружаем игроков…</div>
+      ) : filtered.length ? (
+        <div className="mt-3 space-y-2" aria-label="Список игроков">
+          {search.trim() ? <p className="px-1 pb-0.5 text-[12px] text-white/45">Найдено: {filtered.length}</p> : null}
+          {filtered.map((item) => {
+            const isSelf = item.id === selfId;
+            return (
+              <button
+                key={item.id}
+                data-testid={`club-player-${item.id}`}
+                type="button"
+                aria-label={`Открыть профиль ${item.nickname}, Elo ${Math.round(Number(item.elo || 0))}`}
+                onClick={() => openCanonicalPlayerProfile(item.id)}
+                className={`ds-focus-ring flex min-h-[80px] w-full items-center gap-3 rounded-[20px] border p-3 text-left transition-colors active:bg-white/[0.1] ${isSelf ? 'border-white/25 bg-white/[0.085]' : 'border-white/[0.07] bg-black/20 hover:bg-white/[0.055]'}`}
+              >
+                <PlayerAvatar player={item} />
+                <span className="min-w-0 flex-1">
+                  <span className="block line-clamp-2 break-words text-[15px] font-semibold leading-5 text-white">{item.nickname}</span>
+                  <span className="mt-1 block text-[12px] leading-4 text-white/50">{isSelf ? `Мой профиль · ${gameLevelLabel(item.game_level)}` : gameLevelLabel(item.game_level)}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-[17px] font-semibold tabular-nums leading-5 text-white">{Math.round(Number(item.elo || 0))}</span>
+                  <span className="mt-0.5 block text-[11px] text-white/45">Elo</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-white/35" aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col items-center rounded-2xl bg-black/20 px-4 py-7 text-center">
+          <UserRound aria-hidden="true" className="h-6 w-6 text-white/40" />
+          <p className="mt-2 text-sm font-semibold text-white/75">{players.length ? 'Никого не нашли' : 'Список игроков пока пуст'}</p>
+          <p className="mt-1 text-[12px] leading-4 text-white/45">{players.length ? 'Можно изменить поиск.' : 'Игроки появятся здесь, когда добавятся в клуб.'}</p>
+        </div>
+      )}
+    </section>
+  );
 }

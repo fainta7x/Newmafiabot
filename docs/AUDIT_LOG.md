@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet «Сообщество → Игроки клуба» — player identity and native profile cards
+
+**Mounted source:** `PlayerCommunityHub → PlayerClubDirectory` for the Community «Игроки» tab; `GET /api/player/players` supplies the player's nickname, avatar, game_level, Elo and canonical ID, and `openCanonicalPlayerProfile(item.id)` opens details. Present UI uses generic `Card/Badge` and one continuous bordered, divided list with densely compressed `avatar / nickname / level badge / raw Elo` rows. It looks like a CRM directory instead of the club's player space; level can be a more legible secondary caption, while Elo needs an explicit label and a profile-destination affordance. Network errors show an `AsyncState` with no in-place retry; successful search with no matches and actually empty club data have the same generic caption.
+
+**Expected design:** preserve all players and searchable nicknames and the canonical profile navigation. Replace tabular dividers with individual 76px+ dark 2LA Noire player cards, readable avatar/name and level, an unobtrusive Elo stat and an arrow; self card uses same layout with a subtle accent and a plain «Мой профиль» context. Search remains immediately accessible. Differentiate empty club vs no search matches vs loading vs failed GET, offer `Повторить` without losing query. No new membership data, sorting policy or server writers. 360/390px preview and focused tests for card click, search, empty/error/retry.
+
+
 ## 2026-10-14 · Player Cabinet «Сообщество → Рейтинг → Elo» — useful mobile ranking, not a compressed table
 
 **Owner approval:** improve the *existing* Player Cabinet screens for native visual comprehension, comfort and a unified 2LA Noire card hierarchy, not only fix errors. Avoid repeating generic row-table layouts; keep original sources, facts, profile navigation and gameplay semantics. This is a presentation improvement, not a new ranking feature.

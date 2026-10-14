@@ -1,5 +1,24 @@
 # Audit log
 
+## 2026-10-14 · Owner-approved holistic player cabinet audit and implementation plan
+
+**Approved scope / design contract** (implementation required, not just mockups): Audit calculation sources, denominators, completeness and explanatory copy for player voting (red/black, Don/Sheriff, critical days, all eligible voting phases and exclusions), checks, reveals, night shots, exits, nominations, best move, form, records and seasons. Compare profile, club analytics and other views against one canonical definition; preserve uncertain/missing journal coverage explicitly rather than inventing values. Audit the latest #924 change against persisted voting protocols and avoid confusing count of games with count of ballots. Keep federation GoMafia career separate.
+
+**Player cabinet UX direction**: stop stacking indistinguishable full-width text rectangles/tables. Favor compact scannable visual composition: differentiated cards, role illustrations/icons, accessible win-rate bars, Elo/form mini-graphs, timeline and match summaries, avatar-safe pairings, contextual explanations and intentional responsive grids. Align evening/result match representation in different sections; do not duplicate disconnected visual identities.
+
+**Screen-by-screen prioritized backlog**:
+1. Overview / Progress: desktop category controls must not stretch absurdly; compact 2-column desktop layout and short actionable summary; use charts/visual hierarchy, not tall homogeneous stacks; spotlight meaningful seasonal achievements and records; remove isolated bright-white invitation buttons.
+2. Games, evenings, match results: compact graphical match cards, role/team signal, result, delta, date and direct drilldown. Visually unify the activity match list and evening result list; eliminate raw table-like presentation.
+3. Indicators and roles: unified **career / current rating season / last 10 completed games** scope, explicit historical season options; distinguish **rating period** from **calendar/club season (e.g. autumn)** and label metrics unambiguously; graph role split, win rates, actions and completeness; make filters native and understandable.
+4. Community: preserve working place/rank and player list; possibly demote long directory, raise seasonal ranking.
+5. Connections: consistent avatar placeholders, balanced pairs and role distinctions, explain relationship criteria; avoid glaring white invite controls.
+6. Activity/form: explain calculation, denominator and time window; consistent match cards and seasonal context; visual progress.
+7. Archive/season/Hall of Fame: make current-season records and Hall of Fame discoverable, support historical records without burying key highlights.
+8. External sporting career: keep separate federation data, protect unknowns and avoid oversized single blocks.
+**Explicit exclusions**: do not redesign awards or learning/training yet. Do not remove pagination, availability/privacy gates, or overwrite data. All changes must pass targeted and full test/build/security checks before merge.
+
+**Implementation strategy**: ship small independent PRs with working screens + tests; phase 1 handles game/role card hierarchy, descriptive filters and desktop density, then subsequent stages audit analytic definitions and unify evening/activity/season/connection screens. This log is the authoritative tracker; mark completed items with PR numbers and do not claim the entire plan is finished until separately verified.
+
 ## 2026-10-14 · Player profiles: full-history indicators and GoMafia size split (owner correction)
 
 Owner requests removing arbitrary last-6/last-10 voting/other stat windows from overall measures, preserving the actual rating scope and game counting. Windowed indicators remain valid only when explicitly labeled as recent trends; backend sources and eligibility must be audited independently before changing calculations. Do not globally remove API safety limits, pagination or genuine ranking constraints.

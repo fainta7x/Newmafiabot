@@ -13,6 +13,8 @@ export interface CareerAppearance {
   dateEnd: string;
   location: string | null;
   place: number | null;
+  /** Published participant count, null when the source has not confirmed it. */
+  participantCount?: number | null;
   totalScore: number | null;
   scoreRetrievedAt: string | null;
   scoreStatus: 'available' | 'unavailable' | 'refresh_failed' | 'not_checked';

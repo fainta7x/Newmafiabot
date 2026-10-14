@@ -99,12 +99,12 @@ describe('CRM rating season request isolation', () => {
     selectB();
     await waitSeason('b');
     await settleSeason('b');
-    expect(screen.getByText('Игрок Б')).toBeDefined();
-    expect(screen.getByText('Вечер Б')).toBeDefined();
+    expect(await screen.findByText('Игрок Б')).toBeDefined();
+    expect(await screen.findByText('Вечер Б')).toBeDefined();
 
     await settleSeason('a');
-    expect(screen.getByText('Игрок Б')).toBeDefined();
-    expect(screen.getByText('Вечер Б')).toBeDefined();
+    expect(await screen.findByText('Игрок Б')).toBeDefined();
+    expect(await screen.findByText('Вечер Б')).toBeDefined();
     expect(screen.queryByText('Игрок А')).toBeNull();
     expect(screen.queryByText('Вечер А')).toBeNull();
   });
@@ -113,7 +113,7 @@ describe('CRM rating season request isolation', () => {
     mount();
     await waitSeason('a');
     await settleSeason('a');
-    expect(screen.getByText('Игрок А')).toBeDefined();
+    expect(await screen.findByText('Игрок А')).toBeDefined();
 
     selectB();
     await waitSeason('b');
@@ -127,7 +127,7 @@ describe('CRM rating season request isolation', () => {
     expect(screen.queryByText('Игрок А')).toBeNull();
     expect(screen.queryByText('Игрок Б')).toBeNull();
     await settleSeason('b');
-    expect(screen.getByText('Игрок Б')).toBeDefined();
+    expect(await screen.findByText('Игрок Б')).toBeDefined();
   });
 
   it('does not refresh old A after an A override completes under selected B', async () => {
@@ -142,7 +142,7 @@ describe('CRM rating season request isolation', () => {
     await waitSeason('b');
     await settleSeason('b');
     await act(async () => { take(putUrl, {}); await Promise.resolve(); });
-    expect(screen.getByText('Игрок Б')).toBeDefined();
+    expect(await screen.findByText('Игрок Б')).toBeDefined();
     expect(requests.filter((path) => seasonPaths('a').includes(path))).toHaveLength(3);
   });
 });

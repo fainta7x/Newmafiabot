@@ -460,19 +460,19 @@ export default function PlayerGameDetail({
           ) : null}
 
           {(story.length > 0 || detail.protocol.replacement) && (
-            <Section title="Ход игры" hint="Голосования и ночные выстрелы по порядку.">
-              <ol className="space-y-2.5 border-l border-white/10 pl-3">
+            <Section title="Хронология партии" hint="Как менялась игра: голосования, переголосования и ночные выстрелы. Шкалы показывают доли голосов среди выставленных кандидатов.">
+              <ol data-testid="game-story-timeline" className="relative space-y-3 border-l-2 border-amber-200/20 pl-4 sm:pl-6">
                 {story.map((entry) => {
                   if (entry.kind === 'night') {
                     const shot = entry.shot;
                     const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
                     return (
-                      <li key={entry.key} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                      <li key={entry.key} className="relative rounded-[22px] border border-violet-200/15 bg-gradient-to-br from-violet-200/[.075] via-[#18141e] to-[#101216] p-4 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-violet-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium text-white/80">Ночь {shot.night_number}</span>
+                          <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
                         </div>
-                        <div className="mt-1 text-[13px] text-white/60">Мафия стреляла в {seatLabel(shot.target_seat)}</div>
+                        <div className="mt-3 flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 text-[13px] text-white/75"><span aria-hidden="true" className="text-xl text-violet-200/70">⌖</span><span>Цель выстрела — <b className="font-semibold text-white/90">{seatLabel(shot.target_seat)}</b></span></div>
                       </li>
                     );
                   }
@@ -485,21 +485,21 @@ export default function PlayerGameDetail({
                     : vote.outcome === 'eliminated' ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
                     : vote.outcome ? vote.outcome.replaceAll('_', ' ') : null;
                   return (
-                    <li key={entry.key} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                    <li key={entry.key} className="relative rounded-[22px] border border-rose-200/15 bg-gradient-to-br from-rose-200/[.055] via-[#171316] to-[#101216] p-4 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-white/80">{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
+                        <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
                         {vote.eligible_voters != null ? <span className="shrink-0 text-[11px] text-white/35">голосуют {vote.eligible_voters}</span> : null}
                       </div>
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-3 space-y-2.5">
                         {counts.map((item) => (
                           <div key={item.seat} className="flex items-center gap-2 text-[12px]">
-                            <span className="w-28 shrink-0 truncate text-white/65">{seatLabel(item.seat)}</span>
-                            <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]"><span className="block h-full rounded-full bg-white/35" style={{ width: `${Math.round((item.votes / top) * 100)}%` }} /></span>
+                            <span className="w-24 shrink-0 truncate text-white/75 sm:w-44">{seatLabel(item.seat)}</span>
+                            <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]"><span className={`block h-full rounded-full ${item.votes === top && top > 0 ? "bg-rose-200/85" : "bg-white/35"}`} style={{ width: `${Math.round((item.votes / Math.max(1, counts.reduce((sum, current) => sum + current.votes, 0))) * 100)}%` }} /></span>
                             <span className="w-5 shrink-0 text-right font-medium tabular-nums text-white/75">{item.votes}</span>
                           </div>
                         ))}
                       </div>
-                      {result ? <div className="mt-2 text-[12px] text-white/50">{result}</div> : null}
+                      {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}
                     </li>
                   );
                 })}

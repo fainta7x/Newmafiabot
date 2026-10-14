@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-14 · Player profiles: full-history indicators and GoMafia size split (owner correction)
+
+Owner requests removing arbitrary last-6/last-10 voting/other stat windows from overall measures, preserving the actual rating scope and game counting. Windowed indicators remain valid only when explicitly labeled as recent trends; backend sources and eligibility must be audited independently before changing calculations. Do not globally remove API safety limits, pagination or genuine ranking constraints.
+
+GoMafia source currently stores all/federation year statistics and tournament appearance place without confirmed participant counts, so the previous average place mixed incomparable tournament sizes. First scoped implementation: record only source-reported positive integer tournament.usersCount (if present); distinguish >10, exactly 10, <10 and unknown; show group-specific games, win rate, and places, without assigning missing-size tournaments to either category. Existing all-time federation Elo and role statistics remain labeled aggregate and are not represented as group-specific. UI uses compact responsive cards instead of a standalone narrow score column. Validate data availability via real provider fixtures before claiming full historical coverage. Source-related assumptions and all unconfirmed tournaments remain visible, not silently discarded. No club ranking/Elo or awards changes.
+
 ## 2026-10-14 · Screen 8: CRM «Игроки → Рейтинг» cross-season stale results
 
 **Mounted route:** `OrganizerCRM → PlayersHubCRM → RatingPeriodsCRM`. When switching `selectedId` between rating seasons A and B, `loadSelected(periodId)` starts three concurrent GETs (evenings, games and standings) with no request-ID or abort guard. A slow A response can arrive after B and overwrite all three projections, showing A's standings and override controls under B's title/ID. Loading B leaves A's old values visible in the meantime. Collapsing the rating section also allows in-flight GETs to refill cleared state.

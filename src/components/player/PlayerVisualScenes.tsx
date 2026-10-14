@@ -63,8 +63,8 @@ export function GameTableScene({ players, winner, selfId }: {
       </button>;
     })}
     <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-5 text-[10px] text-white/65">
-      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-300"/>Красные</span>
-      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-300"/>Чёрные</span>
+      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-300"/>За красных</span>
+      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-300"/>За чёрных</span>
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-200"/>Вы</span>
     </figcaption>
   </figure>;

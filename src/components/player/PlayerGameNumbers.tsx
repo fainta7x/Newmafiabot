@@ -23,7 +23,7 @@ function Tile({ title, value, hint, percent }: { title: string; value: string; h
 export default function PlayerGameNumbers({ stats, totalGames }: { stats: PlayerGameStatistics | null | undefined; totalGames?: number }) {
   if (!stats || stats.games === 0) return null;
   const tiles: Array<{ title: string; value: string; hint: string; percent?: number | null }> = [];
-  if (stats.votesAsRed.total > 0) tiles.push({ title: 'Голоса в чёрных', value: percentText(stats.votesAsRed), hint: `${stats.votesAsRed.count} из ${stats.votesAsRed.total} голосов за красных`, percent: stats.votesAsRed.percent });
+  if (stats.votesAsRed.total > 0) tiles.push({ title: 'Голоса в чёрных', value: percentText(stats.votesAsRed), hint: `${stats.votesAsRed.count} из ${stats.votesAsRed.total} голосов при игре за красных`, percent: stats.votesAsRed.percent });
   if (stats.nominationsAsRed.total > 0) tiles.push({ title: 'Меткость выставлений', value: percentText(stats.nominationsAsRed), hint: `${stats.nominationsAsRed.count} из ${stats.nominationsAsRed.total} в чёрных`, percent: stats.nominationsAsRed.percent });
   if (stats.bestMove.count > 0) tiles.push({ title: 'Лучший ход', value: stats.bestMove.averageBlack === null ? '—' : `${stats.bestMove.averageBlack} из 3`, hint: `чёрных в среднем, ходов: ${stats.bestMove.count}` });
   if (stats.firstKilled.total > 0) tiles.push({ title: 'Первым убитым', value: `${stats.firstKilled.count}`, hint: `из ${stats.firstKilled.total} игр за красных` });

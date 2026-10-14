@@ -34,14 +34,14 @@ const seasonPaths = (id: string) => [
 
 const dataFor = (id: string) => [
   { evenings: [{
-    id: `eve-${id}`, title: `Вечер ${id.toUpperCase()}`,
+    id: `eve-${id}`, title: `Вечер ${id === 'a' ? 'А' : 'Б'}`,
     starts_at: '2026-10-18T18:00:00+03:00', format: 'RATING', status: 'completed',
     games_count: 1, auto_included: true, override_included: null, effective_included: true,
   }] },
   { games: [{
     id: id === 'a' ? 1 : 2, global_game_number: id === 'a' ? 11 : 22,
     game_date: '2026-10-18T18:00:00+03:00', winner_team: 'red',
-    evening_id: `eve-${id}`, evening_title: `Вечер ${id.toUpperCase()}`,
+    evening_id: `eve-${id}`, evening_title: `Вечер ${id === 'a' ? 'А' : 'Б'}`,
     starts_at: '2026-10-18T18:00:00+03:00', format: 'RATING',
     auto_included: true, evening_override_included: null, game_override_included: null,
     effective_included: true,
@@ -49,7 +49,7 @@ const dataFor = (id: string) => [
   {
     selected_games_count: 1, completed_games_count: 1, distance_games: 1,
     ci_threshold_b: 5, warnings: [], standings: [{
-      place: 1, player_id: `player-${id}`, nickname: `Игрок ${id.toUpperCase()}`,
+      place: 1, player_id: `player-${id}`, nickname: `Игрок ${id === 'a' ? 'А' : 'Б'}`,
       total_points: 8, additional_total: 0, wins: 1, don_wins: 0,
       sheriff_wins: 0, first_killed_count: 0, games_played: 1,
       ci_points: 0, tie_group_id: null,

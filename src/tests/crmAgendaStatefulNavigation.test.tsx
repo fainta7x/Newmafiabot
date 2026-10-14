@@ -57,6 +57,7 @@ describe('CRM «Дела» evening navigation', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(label) }));
-    expect(onOpenEveningSection).toHaveBeenCalledExactlyOnceWith('evening 1', section);
+    expect(onOpenEveningSection).toHaveBeenCalledTimes(1);
+    expect(onOpenEveningSection).toHaveBeenCalledWith('evening 1', section);
   });
 });

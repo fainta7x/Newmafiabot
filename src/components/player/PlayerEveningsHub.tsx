@@ -43,11 +43,11 @@ export default function PlayerEveningsHub({
 
   return (
     <div className="bg-[#090a0d] text-white" data-testid="player-evenings-hub">
-      <div className="player-workspace mx-auto w-full max-w-[430px] px-3 pt-3">
+      <div className="player-workspace mx-auto w-full max-w-5xl px-3 pt-3">
         <header className="px-1 pb-3 pt-1">
           <h1 className="text-2xl font-semibold">Вечера</h1>
         </header>
-        <SegmentedControl ariaLabel="Разделы вечеров" value={section} items={TABS} onValueChange={(next) => onOpen(next)} itemClassName="!px-1 text-[13px]" />
+        <SegmentedControl className="max-w-lg" ariaLabel="Разделы вечеров" value={section} items={TABS} onValueChange={(next) => onOpen(next)} itemClassName="!px-1 text-[13px]" />
       </div>
 
       {section === 'events' && !target ? <PlayerEveningLiveOverview onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenEvening={(id) => onOpen('events', id)} /> : null}
@@ -55,7 +55,7 @@ export default function PlayerEveningsHub({
       {section === 'events' ? (
         <PlayerEventsCalendar embedded initialEventId={target} onEventChange={(eventId) => onOpen('events', eventId)} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'events', eveningId)} onOpenPoker={onOpenPoker} />
       ) : section === 'recaps' ? (
-        <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'recaps', eveningId)} embedded />
+        <PlayerEveningSummaries initialEveningId={target} onOpenGame={(gameKey, eveningId) => openProtocol(gameKey, 'recaps', eveningId)} onEveningChange={(id) => onOpen('recaps', id)} embedded />
       ) : (
         <div className="player-games-v2">
           <PlayerHistoryStatsView data={data} initialGameKey={target} onGameChange={(gameKey) => onOpen('games', gameKey)} />

@@ -8,6 +8,8 @@ import { queuePersonalNotification } from './personalNotificationRouterService.t
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { queueEveningVoteMessages, voteCallbackData } from './eveningVoteMessageService.ts';
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
+import { mvpDecisionCallbackData, mvpReasonText, resolveEveningMvp } from './eveningMvpService.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { sendVk } from './eveningTodayPostService.ts';
 import { runEveningPaymentReminders } from './eveningPaymentReminderService.ts';
 import { eveningSummarySvg, gameBlankSvg, renderPng, seasonTableSvg, tournamentAnnounceSvg } from './clubResultImages.ts';
@@ -233,6 +235,18 @@ export async function runClubResultPosts(db: DatabaseWrapper, fetchImpl: typeof 
     if (Number.isFinite(closedAt) && now - closedAt >= 24 * 60 * 60 * 1000) await remindUnvotedPlayers(db, String(evening.id)).catch((error) => console.error('[CLUB RESULTS] vote reminder failed:', error));
   }
 
+  // The result of the vote, when its window is over (and for a few days after: a missed run is caught up, a tie waits for the owner).
+  const voted = await db.all<any>(`
+    SELECT e.id FROM game_evenings e
+     WHERE e.status = 'completed' AND datetime(e.starts_at) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) >= datetime(?)
+       AND datetime(COALESCE(e.settled_at, e.updated_at)) <= datetime(?)
+       AND EXISTS (SELECT 1 FROM club_result_posts p WHERE p.post_key = 'cards:' || e.id AND p.status = 'sent')
+  `, [publicSince, new Date(now - EVENING_VOTING_WINDOW_MS - CLOSED_WINDOW_MS).toISOString(), new Date(now - EVENING_VOTING_WINDOW_MS).toISOString()]).catch(() => []);
+  for (const evening of voted) {
+    if (await postMvpResult(db, String(evening.id), fetchImpl).catch((error) => { console.error('[CLUB RESULTS] MVP result failed:', error); return false; })) posted += 1;
+  }
+
   // The entry channel (owner, 2026-10-01): «Мы собрались» photos and a weekly season table.
   const gathered = await db.all<any>(`
     SELECT gp.evening_id FROM evening_gathered_posts gp JOIN game_evenings e ON e.id = gp.evening_id
@@ -453,6 +467,94 @@ export async function postVotePrompt(db: DatabaseWrapper, eveningId: string, fet
     const result = await sendVk(vkText, { db, eveningId, format: evening.format });
     await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
     posted = posted || result.status === 'published';
+  }
+  return posted;
+}
+
+const votesWord = (count: number) => {
+  const mod10 = count % 10; const mod100 = count % 100;
+  return mod10 === 1 && mod100 !== 11 ? 'голос' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'голоса' : 'голосов';
+};
+
+/**
+ * The result of the «MVP вечера» vote (owner, 2026-10-14: «нигде не выложился итог»). Once the voting window is over, one
+ * winner is announced in the group, on the VK wall and personally to everyone who was at the evening. A tie that neither the
+ * wins nor the Дон/Шериф wins separate goes to the owner as a question with a button per player; the result follows his answer.
+ * Nothing is posted for an evening nobody voted on.
+ */
+export async function postMvpResult(db: DatabaseWrapper, eveningId: string, fetchImpl: typeof fetch = fetch) {
+  const evening = await db.get<any>('SELECT id, title, format, status, starts_at, settled_at, updated_at FROM game_evenings WHERE id = ?', [eveningId]);
+  if (!evening || evening.status !== 'completed') return false;
+  const deadline = votingDeadlineMs(evening);
+  if (!deadline || deadline > Date.now()) return false;
+  const resolution = await resolveEveningMvp(db, eveningId);
+  if (resolution.status === 'none') return false;
+  const title = String(evening.title || 'Игровой вечер');
+
+  if (resolution.status === 'tie') {
+    const askKey = `mvp-ask:${eveningId}`;
+    if (!(await claim(db, askKey, 'mvp-ask', eveningId, null))) return false;
+    try {
+      const rows = resolution.candidates.flatMap((candidate) => {
+        const data = mvpDecisionCallbackData(eveningId, candidate.player_id);
+        return data ? [[{ text: `${candidate.nickname} · ${candidate.votes} ${votesWord(candidate.votes)}, побед ${candidate.wins}`.slice(0, 60), callback_data: data }]] : [];
+      });
+      const result = await queuePersonalNotification(db, {
+        notificationKey: askKey,
+        playerId: PRIMARY_ORGANIZER_PLAYER_ID,
+        eventType: 'evening_mvp_decision',
+        entityId: eveningId,
+        text: `🏆 «${title}»: MVP вечера не определился — голоса разделились поровну (по ${resolution.candidates[0].votes}), и победы тоже. Кого объявить MVP? Нажми на игрока.`,
+        telegramReplyMarkup: rows.length ? { inline_keyboard: rows } : null,
+      });
+      await finish(db, askKey, { ok: true });
+      return Boolean(result.created);
+    } catch (error: any) {
+      await finish(db, askKey, { ok: false, temporary: true, error: error?.message || String(error) });
+      return false;
+    }
+  }
+
+  const winner = resolution.winner;
+  const reason = mvpReasonText(resolution);
+  const headline = `🏆 MVP вечера «${title}» — ${winner.nickname}!`;
+  const body = [`Голосов: ${winner.votes} из ${resolution.total_votes}.`, reason, 'Поздравляем! 🖤'].filter(Boolean).join('\n');
+  const groupText = `${headline}\n${body}`;
+  let posted = false;
+
+  const telegramKey = `mvp-result:${eveningId}`;
+  if (await claim(db, telegramKey, 'mvp-result', eveningId, null)) {
+    const result = await sendText(db, clubResultDestination(evening.format), groupText, fetchImpl);
+    await finish(db, telegramKey, result);
+    posted = posted || result.ok;
+  }
+  const vkKey = `mvp-result-vk:${eveningId}`;
+  if (await claim(db, vkKey, 'mvp-result', eveningId, null)) {
+    const result = await sendVk(groupText, { db, eveningId, format: evening.format });
+    await finish(db, vkKey, { ok: result.status === 'published', temporary: true, error: result.error || undefined });
+    posted = posted || result.status === 'published';
+  }
+  const dmKey = `mvp-result-dm:${eveningId}`;
+  if (await claim(db, dmKey, 'mvp-result', eveningId, null)) {
+    try {
+      const attendees = await db.all<any>(
+        "SELECT DISTINCT player_id FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended' AND player_id IS NOT NULL",
+        [eveningId],
+      );
+      for (const attendee of attendees) {
+        const playerId = String(attendee.player_id);
+        const text = playerId === winner.player_id
+          ? `🏆 Ты — MVP вечера «${title}»! Голосов: ${winner.votes} из ${resolution.total_votes}. Поздравляем! 🖤`
+          : groupText;
+        await queuePersonalNotification(db, {
+          notificationKey: `mvp-result:${eveningId}:${playerId}`,
+          playerId, eventType: 'evening_mvp_result', entityId: eveningId, text, actionPath: '/player',
+        }).catch((error) => console.warn('[MVP RESULT] personal message failed:', error instanceof Error ? error.message : String(error)));
+      }
+      await finish(db, dmKey, { ok: true });
+    } catch (error: any) {
+      await finish(db, dmKey, { ok: false, temporary: true, error: error?.message || String(error) });
+    }
   }
   return posted;
 }

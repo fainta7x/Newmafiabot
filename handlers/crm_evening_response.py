@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 import bot_menu
 import config
 import database
-from bot_api import cast_evening_vote, get_evening_slots, schedule_evening_followup, submit_evening_response
+from bot_api import cast_evening_vote, decide_evening_mvp, get_evening_slots, schedule_evening_followup, submit_evening_response
 from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
@@ -354,3 +354,35 @@ async def handle_evening_vote(callback: CallbackQuery):
             print(f"[EVENING VOTE] Vote saved, but the keyboard was not updated: {exc}")
         return
     await callback.answer(_VOTE_ERRORS.get(result.get("error"), "Не удалось сохранить голос. Попробуй позже."), show_alert=True)
+
+
+_MVP_DECISION_ERRORS = {
+    "forbidden": "Выбирать MVP при равенстве может только организатор клуба.",
+    "not_tie": "Здесь выбирать уже не нужно — победитель определён.",
+    "bad_nominee": "Этого игрока нельзя выбрать.",
+    "not_found": "Вечер или игрок не найден.",
+}
+
+
+@router.callback_query(F.data.startswith("mvw:"))
+async def handle_evening_mvp_decision(callback: CallbackQuery):
+    """The owner taps a player under «Кого объявить MVP?» when the vote and the tie-breaks left a tie."""
+    try:
+        _, evening_id, nominee = callback.data.split(":", 2)
+    except (AttributeError, ValueError):
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    if not evening_id or not nominee:
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    result = await decide_evening_mvp(evening_id, callback.from_user.id, nominee)
+    if result.get("success"):
+        chosen = (result.get("data") or {}).get("nominee") or "игрок"
+        await callback.answer(f"✅ MVP вечера: {chosen}", show_alert=False)
+        try:
+            if callback.message:
+                await callback.message.edit_text(f"✅ MVP вечера выбран: {chosen}. Итог опубликуем в ближайшие минуты.", reply_markup=None)
+        except Exception as exc:
+            print(f"[EVENING MVP] Decision saved, but the message was not updated: {exc}")
+        return
+    await callback.answer(_MVP_DECISION_ERRORS.get(result.get("error"), "Не удалось сохранить выбор. Попробуй позже."), show_alert=True)

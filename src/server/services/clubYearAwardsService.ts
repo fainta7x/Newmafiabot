@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
+import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
+import { resolveEveningMvp } from './eveningMvpService.ts';
 
 /**
  * Club evening awards (owner, 2026-10-04, two titles since 2026-10-05): «MVP вечера» goes to the player the participants
@@ -23,32 +24,30 @@ export const moscowYear = (value: unknown): number | null => {
 
 export type EveningTitle = { evening_id: string; year: number; player_id: string; votes: number };
 
-/** Winners of every evening whose voting is closed: the nominee(s) with the most votes (a tie shares the title). */
+/**
+ * «MVP вечера» of every evening whose voting is closed: one player (owner, 2026-10-14) — the most votes, then more game wins
+ * of that evening, then more wins as Дон/Шериф, then the owner's decision. An evening still waiting for that decision has no title yet.
+ */
 export async function loadEveningTitles(db: DatabaseWrapper, now = Date.now()): Promise<EveningTitle[]> {
   const table = await db.get<any>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'evening_player_votes' LIMIT 1");
   if (!table) return [];
-  const rows = await db.all<any>(`
-    SELECT v.evening_id, v.nominee_player_id, COUNT(*) AS votes, e.starts_at, e.settled_at
+  const evenings = await db.all<any>(`
+    SELECT DISTINCT v.evening_id, e.starts_at, e.settled_at
       FROM evening_player_votes v
       JOIN game_evenings e ON e.id = v.evening_id
      WHERE v.category = ? AND (e.status = 'completed' OR e.settled_at IS NOT NULL)
-     GROUP BY v.evening_id, v.nominee_player_id
   `, [VOTE_CATEGORY]);
-  const byEvening = new Map<string, any[]>();
-  for (const row of rows) {
-    const base = new Date(String(row.settled_at || row.starts_at || '')).getTime();
+  const titles: EveningTitle[] = [];
+  let loaded: Promise<CompletedGameSnapshot[]> | null = null;
+  const snapshots = () => (loaded ||= loadCompletedGameSnapshots(db));
+  for (const evening of evenings) {
+    const base = new Date(String(evening.settled_at || evening.starts_at || '')).getTime();
     // Still open: the result can change, so it is not a title yet.
     if (!Number.isFinite(base) || base + EVENING_VOTING_WINDOW_MS > now) continue;
-    byEvening.set(String(row.evening_id), [...(byEvening.get(String(row.evening_id)) || []), row]);
-  }
-  const titles: EveningTitle[] = [];
-  for (const [eveningId, candidates] of byEvening) {
-    const best = Math.max(...candidates.map((row) => Number(row.votes || 0)));
-    const year = moscowYear(candidates[0].starts_at || candidates[0].settled_at);
-    if (!year || best < 1) continue;
-    for (const row of candidates) {
-      if (Number(row.votes || 0) === best) titles.push({ evening_id: eveningId, year, player_id: String(row.nominee_player_id), votes: best });
-    }
+    const year = moscowYear(evening.starts_at || evening.settled_at);
+    if (!year) continue;
+    const resolution = await resolveEveningMvp(db, String(evening.evening_id), snapshots);
+    if (resolution.status === 'winner') titles.push({ evening_id: String(evening.evening_id), year, player_id: resolution.winner.player_id, votes: resolution.winner.votes });
   }
   return titles;
 }

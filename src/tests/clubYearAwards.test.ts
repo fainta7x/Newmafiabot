@@ -25,7 +25,7 @@ const vote = (db: DatabaseWrapper, eveningId: string, voter: string, nominee: st
 );
 
 describe('club evening titles and yearly awards', () => {
-  it('gives the title to the most voted player of an evening whose voting is closed, ties share it', async () => {
+  it('gives the title to the most voted player of an evening whose voting is closed; an unresolved tie has no title yet', async () => {
     const db = await setup();
     await evening(db, 'e1', '2026-03-06T17:00:00Z');
     await vote(db, 'e1', 'v1', 'a'); await vote(db, 'e1', 'v2', 'a'); await vote(db, 'e1', 'v3', 'b');
@@ -33,7 +33,8 @@ describe('club evening titles and yearly awards', () => {
     await vote(db, 'e2', 'v1', 'c'); await vote(db, 'e2', 'v2', 'd');
     const titles = await loadEveningTitles(db, new Date('2026-06-01T00:00:00Z').getTime());
     expect(titles.filter((item) => item.evening_id === 'e1').map((item) => item.player_id)).toEqual(['a']);
-    expect(titles.filter((item) => item.evening_id === 'e2').map((item) => item.player_id).sort()).toEqual(['c', 'd']);
+    // One vote each and no games to separate them: the owner has to decide, so there is no title yet.
+    expect(titles.filter((item) => item.evening_id === 'e2')).toEqual([]);
   });
 
   it('does not count an evening whose voting is still open, nor the retired role categories', async () => {
@@ -85,12 +86,16 @@ describe('club evening titles and yearly awards', () => {
     ]);
   });
 
-  it('names every tied winner of the evening summary, and only after the voting is closed', async () => {
+  it('names one winner in the evening summary: a tie waits for the owner, and nothing is official before the voting is closed', async () => {
     const db = await setup();
     await evening(db, 'closed', '2026-03-06T17:00:00Z');
     await vote(db, 'closed', 'v1', 'a'); await vote(db, 'closed', 'v2', 'b'); await vote(db, 'closed', 'v3', 'a'); await vote(db, 'closed', 'a', 'b');
+    // A tie with nothing to separate it has no title until the owner decides.
+    expect(await buildAwards(db, 'closed', new Map(), true)).toEqual([]);
+    await db.run("CREATE TABLE IF NOT EXISTS evening_mvp_decisions (evening_id TEXT PRIMARY KEY, winner_player_id TEXT NOT NULL, decided_by TEXT, decided_at TEXT NOT NULL)");
+    await db.run("INSERT INTO evening_mvp_decisions (evening_id, winner_player_id, decided_by, decided_at) VALUES ('closed','b','owner','2026-03-10')");
     const awards = await buildAwards(db, 'closed', new Map(), true);
-    expect(awards.map((award: any) => award.player_id).sort()).toEqual(['a', 'b']);
+    expect(awards.map((award: any) => award.player_id)).toEqual(['b']);
     expect(awards.every((award: any) => award.votes === 2 && award.label === 'MVP вечера')).toBe(true);
 
     const justNow = new Date(Date.now() - 3_600_000).toISOString();

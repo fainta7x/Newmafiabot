@@ -35,7 +35,7 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
     {season ? <section data-testid="profile-season" className="rounded-2xl border border-sky-200/10 bg-sky-200/[0.035] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/50">Текущий сезон</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/50">Текущий рейтинговый сезон</div>
           <div className="mt-1 truncate text-lg font-semibold">{season.label}</div>
           <div className="mt-1 text-xs text-white/45">{season.games ? `${season.wins} побед из ${season.games} · ${season.win_rate}%` : 'В этом сезоне игр пока нет'}</div>
         </div>

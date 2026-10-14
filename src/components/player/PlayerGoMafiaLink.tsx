@@ -1,4 +1,4 @@
-import { GOMAFIA_NOMINATIONS, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
+import { GOMAFIA_NOMINATIONS, classifyGoMafiaTournamentSize, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
 import { useEffect, useState } from 'react';
 
 type Linked = {
@@ -55,17 +55,12 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const years = [...new Set<number>([...(career?.yearly_stats ?? []).map((s: any) => Number(s.year)), ...(career?.tournaments ?? []).map((t: any) => Number(t.dateStart?.slice(0,4)))])].filter(Number.isFinite).sort((a,b)=>b-a);
   const tournaments = (career?.tournaments ?? []).filter((t: any) => year === 'all' || t.dateStart?.startsWith(year));
   // Final standings of the selected year: how many tournaments, the average and the best place (smaller is better).
-  const sizeOf = (item: any): 'large' | 'ten' | 'other' | 'unknown' => {
-    const count = item.participantCount;
-    if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return 'unknown';
-    return count > 10 ? 'large' : count === 10 ? 'ten' : 'other';
-  };
   const groups = [
     { key: 'large' as const, title: 'Большие турниры', hint: 'Больше 10 участников' },
     { key: 'ten' as const, title: 'Турниры на 10', hint: 'Ровно 10 участников' },
     { key: 'other' as const, title: 'Малые турниры', hint: 'Меньше 10 участников' },
     { key: 'unknown' as const, title: 'Размер не подтверждён', hint: 'Данных об участниках пока нет' },
-  ].map(group => ({ ...group, entries: tournaments.filter((item: any) => sizeOf(item) === group.key) }));
+  ].map(group => ({ ...group, entries: tournaments.filter((item: any) => classifyGoMafiaTournamentSize(item.participantCount) === group.key) }));
   const visibleGroup = groups.find(group => group.key === sizeGroup) ?? groups[0];
   const displayed = visibleGroup.entries;
   const places: number[] = displayed.map((t: any) => Number(t.place)).filter((place: number) => Number.isInteger(place) && place > 0);

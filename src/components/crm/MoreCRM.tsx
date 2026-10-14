@@ -68,15 +68,15 @@ const menuTone = (id: string) => {
 };
 
 const MenuRow = ({ id, label, detail, icon: Icon, onClick }: MenuItem) => (
-  <button data-testid={`crm-more-${id}`} type="button" onClick={onClick} className="flex min-h-[60px] w-full items-center gap-3 rounded-[16px] px-2.5 text-left active:bg-white/[0.055] sm:min-h-[64px] sm:px-3">
+  <button data-testid={`crm-more-${id}`} type="button" onClick={onClick} className="flex min-h-[64px] w-full items-center gap-3 rounded-[16px] px-2.5 text-left active:bg-white/[0.055] sm:min-h-[64px] sm:px-3">
     <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border ${menuTone(id)}`}><Icon className="h-[18px] w-[18px]" /></span>
-    <span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">{label}</strong><span className="mt-0.5 block line-clamp-1 text-[12px] leading-4 text-white/70">{detail}</span></span>
+    <span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">{label}</strong><span className="mt-0.5 block line-clamp-2 text-[12px] leading-4 text-white/70">{detail}</span></span>
     <ChevronRight className="h-5 w-5 shrink-0 text-white/25" />
   </button>
 );
 
 export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, onOpenTheme, onOpenGameEngine, evenings = [], onLogout, onOpenPlayerMusic, onOpenPlayer, activeScreen, onScreenChange }) => {
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(() => ['data', 'project', 'system', 'developer'].includes(activeScreen || ''));
   const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
   const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
   const setSubscreen = (screen: Subscreen) => { if (activeScreen === undefined) setLocalSubscreen(screen); onScreenChange?.(screen); };
@@ -107,16 +107,19 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   // Grouped by the organizer's task, plain names (owner walk-through, 2026-10-12).
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Дела', detail: 'Что нужно сделать и кому написать — по срочности', icon: ClipboardList, onClick: onOpenTasks },
-    { id: 'whatsnew', label: 'Что нового', detail: 'Записи для игроков на главной: пишете сами, публикуете когда готово', icon: Sparkles, onClick: () => setSubscreen('whatsnew') },
-    { id: 'botfaq', label: 'Ответы бота', detail: 'Частые вопросы в боте: меняйте тексты и порядок сами', icon: MessageCircleQuestion, onClick: () => setSubscreen('botfaq') },
-    { id: 'telegram', label: 'Публикации и каналы', detail: 'Объявления, сводки и каналы клуба', icon: Send, onClick: () => setSubscreen('telegram') },
-    { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
+    { id: 'music', label: 'Музыкальная база', detail: 'Музыка для ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
+  ];
+  const publicationItems: MenuItem[] = [
+    { id: 'telegram', label: 'Публикации и каналы', detail: 'Объявления, сводки и каналы клуба', icon: Send, onClick: () => setSubscreen('telegram') },
+    { id: 'whatsnew', label: 'Что нового', detail: 'Записи на главной странице игроков', icon: Sparkles, onClick: () => setSubscreen('whatsnew') },
+    { id: 'botfaq', label: 'Ответы бота', detail: 'Вопросы игроков и тексты ответов в Telegram', icon: MessageCircleQuestion, onClick: () => setSubscreen('botfaq') },
   ];
   const peopleItems: MenuItem[] = [
     { id: 'development', label: 'Заявки новых игроков', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
     { id: 'learning', label: 'Обучение', detail: 'Кто какие экзамены тренажёра сдал', icon: GraduationCap, onClick: () => setSubscreen('learning') },
     { id: 'access', label: 'Уровни и роли', detail: 'Уровень, роль в клубе и ведение игр — сразу нескольким игрокам', icon: ShieldCheck, onClick: () => setSubscreen('access') },
+    { id: 'guide', label: 'Памятка для новичка', detail: 'Открыть правила, чтобы отправить ссылку игроку', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
   ];
   const moneyItems: MenuItem[] = [
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
@@ -128,17 +131,15 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
     { id: 'project', label: 'Проект', detail: 'Что ждёт вас, дорожная карта и все PR', icon: KanbanSquare, onClick: () => setSubscreen('project') },
     { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
-    // Public page (no sign-in) to send a novice before the first evening; «Ссылка другу» there copies it.
-    { id: 'guide', label: 'Ссылка-памятка для новичка', detail: 'Открывает страницу с правилами; её можно отправить игроку', icon: BookOpen, onClick: () => { window.open('/guide', '_blank', 'noopener'); } },
     { id: 'developer', label: '[TEST] Тестовый режим', detail: 'Изолированные тестовые сценарии', icon: FlaskConical, onClick: () => setSubscreen('developer') },
   ];
   const group = (title: string, rows: MenuItem[], className: string) => <section className={`${className} space-y-1.5`}><div className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">{title}</div><div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5">{rows.map((item) => <MenuRow key={item.id} {...item} />)}</div></section>;
 
   return <div className="crm-more-menu mx-auto w-full max-w-xl space-y-4">
-    <header className="px-1 pt-0.5"><h2 data-crm-duplicate-primary-title="true" className="text-[22px] font-semibold text-white">Ещё</h2><p className="mt-1 text-[13px] leading-5 text-white/70">Разделы по задачам. Редкие настройки и обслуживание скрыты в самом низу.</p></header>
-    <div className="crm-more-daily space-y-4">{group('Каждый день', dailyItems, 'crm-more-everyday')}{group('Люди и обучение', peopleItems, 'crm-more-people')}</div>
-    <div className="crm-more-secondary space-y-4">{group('Деньги и отчёты', moneyItems, 'crm-more-reports')}
-    <section className="crm-more-admin rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5"><button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((value) => !value)} className="flex min-h-[56px] w-full items-center gap-3 rounded-[15px] px-2.5 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.05] text-white/70"><Settings2 className="h-[18px] w-[18px]" /></span><span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">Служебное</strong><span className="mt-0.5 block text-[12px] text-white/65">Состояние системы, оформление, ачивки и магазин, дорожная карта проекта, тесты</span></span>{adminOpen ? <ChevronUp className="h-5 w-5 text-white/30" /> : <ChevronDown className="h-5 w-5 text-white/30" />}</button>{adminOpen ? <div data-testid="crm-more-service-tools" className="mt-1 border-t border-white/[0.07] pt-1">{adminItems.map((item) => <MenuRow key={item.id} {...item} />)}</div> : null}</section>
+    <header className="px-1 pt-0.5"><h2 data-crm-duplicate-primary-title="true" className="text-[22px] font-semibold text-white">Ещё</h2><p className="mt-1 text-[13px] leading-5 text-white/70">Рабочие инструменты, связь с игроками и настройки клуба.</p></header>
+    <div className="crm-more-daily space-y-4">{group('Проведение и дела', dailyItems, 'crm-more-everyday')}{group('Сообщения и публикации', publicationItems, 'crm-more-publications')}{group('Игроки и обучение', peopleItems, 'crm-more-people')}</div>
+    <div className="crm-more-secondary space-y-4">{group('Отчёты и финансы', moneyItems, 'crm-more-reports')}
+    <section className="crm-more-admin rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5"><button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((value) => !value)} className="flex min-h-[56px] w-full items-center gap-3 rounded-[15px] px-2.5 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.05] text-white/70"><Settings2 className="h-[18px] w-[18px]" /></span><span className="min-w-0 flex-1"><strong className="block text-[14px] font-semibold text-white">Служебное</strong><span className="mt-0.5 block text-[12px] text-white/65">Система, оформление, проект, данные и тесты</span></span>{adminOpen ? <ChevronUp className="h-5 w-5 text-white/30" /> : <ChevronDown className="h-5 w-5 text-white/30" />}</button>{adminOpen ? <div data-testid="crm-more-service-tools" className="mt-1 border-t border-white/[0.07] pt-1">{adminItems.map((item) => <MenuRow key={item.id} {...item} />)}</div> : null}</section>
     </div>
     <button type="button" onClick={() => void onLogout()} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border border-rose-300/15 bg-rose-300/[0.06] px-4 text-[14px] font-semibold text-rose-100/75"><LogOut className="h-[17px] w-[17px]" /> Выйти из кабинета организатора</button>
   </div>;

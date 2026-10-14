@@ -58,8 +58,10 @@ function computeGameActionFacts(game: StatGame) {
     const eliminated = exits[0].seat;
     for (const voting of circle.votings) {
       // Count each completed voting phase's actual ballots, including ballots before a revote.
-      // Table raise/leave choices aren't role-targeting votes, and draft votes without a result aren't final.
-      if (voting.outcome === null || !voting.votes.length) continue;
+      // Count recorded role-targeting ballots regardless of the presence of a round-result marker.
+      // The sole voted-day exit, not a special result value, establishes the day's eligibility.
+      // Table raise/leave choices aren't role-targeting ballots.
+      if (!voting.votes.length) continue;
       const votes = new Map<number, number>();
       for (const ballot of voting.votes) for (const voter of ballot.voters) votes.set(voter, ballot.candidate);
       const result = events.find(e => e.round === circle.round && e.kind === 'vote_round_result'

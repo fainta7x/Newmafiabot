@@ -44,8 +44,11 @@ const isPercentRecord = (label: string) => {
 };
 
 function Avatar({ src, name, size = 34 }: { src?: string | null; name: string; size?: number }) {
-  if (src) return <img src={src} alt={name} style={{ width: size, height: size }} className="shrink-0 rounded-xl object-cover ring-1 ring-white/10" />;
-  return <div style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-xl bg-white/[0.07] text-[11px] font-semibold text-white/55">{name.slice(0, 1).toUpperCase()}</div>;
+  const [failed, setFailed] = useState(false);
+  return <span aria-hidden="true" style={{ width: size, height: size }} className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-amber-200/20 to-white/[0.04] text-[11px] font-semibold text-white/75 ring-1 ring-white/10">
+    {name.trim().slice(0, 1).toUpperCase() || '?'}
+    {src && !failed && <img src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+  </span>;
 }
 
 function RankingRows({ rows, viewerId, limit = 10 }: { rows: RankingEntry[]; viewerId: string; limit?: number }) {
@@ -66,11 +69,15 @@ function RankingRows({ rows, viewerId, limit = 10 }: { rows: RankingEntry[]; vie
   );
 }
 
-function RecordCard({ record }: { record: RecordEntry }) {
-  return <button type="button" onClick={() => openCanonicalPlayerProfile(record.player_id)} className="w-full rounded-2xl bg-black/20 p-3 text-left">
-    <div className="flex items-center gap-2"><Avatar src={record.avatar_url} name={record.nickname} size={30} /><div className="min-w-0 truncate text-[11px] font-semibold">{record.nickname}</div></div>
-    <div className="mt-2 text-xl font-black">{record.value}{isPercentRecord(record.label) ? '%' : ''}</div>
-    <div className="mt-0.5 text-[11px] leading-3 text-white/25">{record.label}</div>
+function RecordCard({ record, featured = false }: { record: RecordEntry; featured?: boolean }) {
+  const percent = isPercentRecord(record.label);
+  const value = Number(record.value);
+  return <button type="button" onClick={() => openCanonicalPlayerProfile(record.player_id)} aria-label={`${record.label}: ${record.nickname}, ${record.value}${percent ? '%' : ''}`}
+    className={`relative flex min-h-[132px] w-full flex-col justify-between overflow-hidden rounded-[20px] border p-3 text-left transition active:bg-white/10 ${featured ? 'border-amber-200/20 bg-gradient-to-br from-amber-200/[.10] via-[#211b15] to-[#111216]' : 'border-white/10 bg-gradient-to-br from-white/[.06] to-[#111216]'}`}>
+    <span className="text-[10px] font-semibold uppercase tracking-[.08em] text-white/55">{record.label}</span>
+    <span className="mt-2 text-[28px] font-semibold tabular-nums leading-none text-amber-100">{record.value}{percent ? '%' : ''}</span>
+    {percent && Number.isFinite(value) && <span className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-amber-200/80" style={{width: `${Math.max(0, Math.min(100, value))}%`}} /></span>}
+    <span className="mt-3 flex min-w-0 items-center gap-2"><Avatar src={record.avatar_url} name={record.nickname} size={28} /><span className="min-w-0 truncate text-xs font-medium text-white/85">{record.nickname}</span></span>
   </button>;
 }
 
@@ -138,7 +145,7 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
         {data.hall_of_fame?.length > 0 ? (
           <section className="rounded-[24px] border border-amber-200/10 bg-amber-200/[0.03] p-3">
             <div className="text-[11px] uppercase tracking-[0.13em] text-amber-100/40">🏛 Зал славы · рекорды всей истории клуба</div>
-            <div className="mt-3 grid grid-cols-2 gap-1.5">{data.hall_of_fame.map((record) => <RecordCard key={record.label} record={record} />)}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">{data.hall_of_fame.map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
           </section>
         ) : null}
       </div>
@@ -167,10 +174,19 @@ export default function PlayerSeasonsPanel({ part }: { part: 'season' | 'history
           {!topOpen && data.season.ranking.length > 5 ? <button type="button" onClick={() => setTopOpen(true)} className="mt-1 min-h-11 w-full rounded-xl text-xs font-semibold text-white/55">Показать всех · {data.season.ranking.length}</button> : null}</div>
       </section>
 
+      {data.hall_of_fame?.length > 0 && <section aria-label="Зал славы клуба" className="overflow-hidden rounded-[24px] border border-amber-200/15 bg-gradient-to-br from-amber-200/[.095] via-[#1b1614] to-[#101216] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-100/55">История клуба</div><h2 className="mt-1 text-lg font-semibold">🏛 Зал славы</h2></div>
+          <span className="rounded-full border border-amber-200/20 px-3 py-1 text-[10px] text-amber-100/65">Вся история</span>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-white/50">Абсолютные рекорды клуба. Полный список — во вкладке «Архив».</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">{data.hall_of_fame.slice(0, 2).map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
+      </section>}
+
       {data.season_records?.length > 0 && (
         <section className="rounded-[24px] border border-emerald-200/10 bg-emerald-200/[0.025] p-3">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100/40">Рекорды текущего сезона</div>
-          <div className="mt-3 grid grid-cols-2 gap-2">{data.season_records.map((record) => <RecordCard key={record.label} record={record} />)}</div>
+          <div className="mt-3 grid grid-cols-2 gap-2">{data.season_records.map((record) => <RecordCard key={record.label} record={record} featured />)}</div>
         </section>
       )}
 

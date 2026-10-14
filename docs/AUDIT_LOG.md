@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Screen 7: CRM player card hides pending task when next evening exists
+
+**Mounted evidence:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`, `src/components/crm/PlayersCRM.tsx` quick context directly before contact/task/communication actions. The component derives both `bookingEvening` (from the player's next available booking) and `nextTask` (from the player-detail response), but renders them using an exclusive `bookingEvening && booking ? ... : nextTask ? ... : null` conditional. When both facts exist, the visible card **silently hides the actual pending follow-up task**, even though it appears among the player's deeper task/history records.
+
+**Expected behavior:** expose *both* the next evening and closest open task in the top operational context when both are present, without expanding the history or changing the booking/priority calculation. When only one exists, preserve its current label/link; when neither exists, no empty card. Keep compact hierarchy and ≥44px click target for the event link only if converted into a large action (not in this scope).
+
+**Fix owner:** `PlayersCRM.tsx` display condition only, plus rendered React tests for both/single/empty cases and action destination. No API, profile, task, RSVP, payment or event lifecycle writes changed. Production phone/runtime remain separate verification.
+
+
 ## 2026-10-14 · Screen 6: CRM «Игроки → Карточка → История» truncates the timeline
 
 **Reproduction (source-confirmed):** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM` displays a timeline assembled from activities, evening history, tasks and club/tournament games. Its disclosure label shows `unifiedTimeline.length`, but it always renders `unifiedTimeline.slice(0, 10)` with **no way to reach older entries**. Example: a player with 26 historical events sees a count of 26 but only 10 entries when expanded. This is a presentation loss, not an API limitation.

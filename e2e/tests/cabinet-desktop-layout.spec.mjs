@@ -82,7 +82,7 @@ for (const width of [390, 1024, 1366, 1440]) {
         await page.getByRole('button', { name: 'Самые сыгранные', exact: true }).click();
         await expect(duos.getByText('Ночной игрок', { exact: true })).toBeVisible();
         await shot('connections-most-played');
-        const firstPair = duos.getByRole('button', { name: 'Новая пара', exact: true });
+        const firstPair = duos.getByRole('button', { name: 'Открыть профиль Новая пара', exact: true });
         await firstPair.evaluate(button => button.scrollIntoView({ block: 'center' }));
         const firstBox = await firstPair.boundingBox();
         const firstFooter = await nav.boundingBox();

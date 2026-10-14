@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
@@ -184,9 +184,11 @@ function RoleChip({ role }: { role: DetailPlayer['role'] }) {
 }
 
 function Avatar({ player }: { player: DetailPlayer }) {
-  return player.avatar_url
-    ? <img src={player.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
-    : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>;
+  const [failed, setFailed] = useState(false);
+  return <span aria-hidden="true" className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
+    {player.nickname.trim().slice(0, 1).toUpperCase() || '?'}
+    {player.avatar_url && !failed && <img src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+  </span>;
 }
 
 export default function PlayerGameDetail({
@@ -354,11 +356,29 @@ export default function PlayerGameDetail({
             </section>
           )}
 
+          <section aria-label="Ход игры в цифрах" className="grid grid-cols-3 gap-2">
+            <div className="rounded-[20px] border border-white/10 bg-gradient-to-br from-white/[.08] to-black/25 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-white/45">Игроков</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.players.length}</div>
+              <div className="mt-1 text-[10px] text-white/45">за столом</div>
+            </div>
+            <div className="rounded-[20px] border border-rose-200/15 bg-gradient-to-br from-rose-300/[.09] to-black/25 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-white/45">Голосования</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.protocol.votes.length}</div>
+              <div className="mt-1 text-[10px] text-white/45">в протоколе</div>
+            </div>
+            <div className="rounded-[20px] border border-violet-200/15 bg-gradient-to-br from-violet-300/[.09] to-black/25 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-white/45">Ночи</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.protocol.shots.length}</div>
+              <div className="mt-1 text-[10px] text-white/45">выстрелов</div>
+            </div>
+          </section>
+
           {keyMoments.length > 0 && (
             <Section title="Главное в игре">
-              <ul className="space-y-2">
+              <ul className="grid gap-2 sm:grid-cols-2">
                 {keyMoments.map((moment, index) => (
-                  <li key={`${moment.label}:${index}`} className="rounded-2xl bg-black/20 px-3 py-2.5">
+                  <li key={`${moment.label}:${index}`} className="rounded-[20px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[.07] to-black/25 px-3 py-3">
                     <div className="text-[11px] text-white/40">{moment.label}</div>
                     <div className="mt-0.5 text-sm font-medium text-white/90">{moment.value}</div>
                     {moment.extra ? <div className="mt-0.5 text-[12px] text-white/50">{moment.extra}</div> : null}
@@ -369,7 +389,7 @@ export default function PlayerGameDetail({
           )}
 
           <Section title="Составы и баллы" hint="Нажмите на игрока, чтобы увидеть, из чего сложились баллы.">
-            <div className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
               {sides.map((side) => (
                 <div key={side.team}>
                   <div className="mb-2 flex items-center gap-2">
@@ -377,7 +397,7 @@ export default function PlayerGameDetail({
                     <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
                     {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
                   </div>
-                  <div className="space-y-2">{side.players.map(renderPlayer)}</div>
+                  <div className="grid gap-2">{side.players.map(renderPlayer)}</div>
                 </div>
               ))}
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}

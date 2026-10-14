@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet, screen 1: «Главная» next-evening request can misreport failure as no events
+
+**Priority change:** Organizer CRM audit moves to the parked queue in `docs/PROJECT_STATE.md` at owner's request; the Player Cabinet is the active screen-by-screen usability/quality program. Keep CRM fixes already merged and PR #910 (unmerged/red CI) recorded rather than silently discarded.
+
+**Real mounted path:** `PlayerCabinetShell → PlayerHomeDashboard`, with the `player-home-next` card and `onOpenEvents(nextEvening.id)` link. On mount `GET /api/player/evenings` feeds the next-evening card. State `evenings === null` displays «Загрузка…». If GET returns non-2xx, the hook returns without updating `evenings`: this card shows «Загрузка…» **forever**. If `fetch` throws (offline/network), code sets `evenings=[]`, producing «Ближайших игровых вечеров пока нет» although no valid result arrived. On a successful empty array, the true empty state must remain unchanged.
+
+**Expected/acceptance:** Keep an explicit `loading|ready|error` state for this read. On failure show a factual «Не удалось загрузить вечера» with a 44px+ «Повторить» action; retry the same endpoint without leaving the home screen. On successful empty response keep the original empty copy; successful nonempty response keeps exact existing next-evening order and navigation. Ensure only the latest request can update the card (avoid a late old response overriding a retry); no new API or registration/RSVP writes.
+
+**Boundary:** only `src/components/player/PlayerHomeDashboard.tsx` and targeted rendered tests for this card. No redesign before 390px preview. Player/organizer separation remains in `docs/PROJECT_STATE.md`.
+
+
 ## 2026-10-14 · Screen 7: CRM player card hides pending task when next evening exists
 
 **Mounted evidence:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`, `src/components/crm/PlayersCRM.tsx` quick context directly before contact/task/communication actions. The component derives both `bookingEvening` (from the player's next available booking) and `nextTask` (from the player-detail response), but renders them using an exclusive `bookingEvening && booking ? ... : nextTask ? ... : null` conditional. When both facts exist, the visible card **silently hides the actual pending follow-up task**, even though it appears among the player's deeper task/history records.

@@ -460,7 +460,7 @@ export default function PlayerGameDetail({
           ) : null}
 
           {(story.length > 0 || detail.protocol.replacement) && (
-            <Section title="Хронология партии" hint="Как менялась игра: голосования, переголосования и ночные выстрелы. Шкалы показывают доли голосов среди выставленных кандидатов.">
+            <Section title="Ход игры" hint="Хронология партии: голосования, переголосования и ночные выстрелы. Шкалы показывают доли голосов среди выставленных кандидатов.">
               <ol data-testid="game-story-timeline" className="relative space-y-3 border-l-2 border-amber-200/20 pl-4 sm:pl-6">
                 {story.map((entry) => {
                   if (entry.kind === 'night') {

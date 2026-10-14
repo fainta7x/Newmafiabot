@@ -24,7 +24,7 @@ async function openArchive() {
   if (!details) throw new Error('Club archive disclosure not mounted');
   await act(async () => {
     details.open = true;
-    fireEvent.toggle(details);
+    fireEvent(details, new Event('toggle'));
   });
 }
 
@@ -73,7 +73,7 @@ describe('ЛК «Вечера → Мои игры» secondary archive retry', ()
     await openArchive();
     await screen.findByTestId('player-games-archive-error');
     const details = screen.getByText('Все игры клуба').closest('details')!;
-    await act(async () => { details.open = false; fireEvent.toggle(details); });
+    await act(async () => { details.open = false; fireEvent(details, new Event('toggle')); });
     await openArchive();
     await screen.findByText('Первая партия');
     expect(screen.queryByTestId('player-games-archive-error')).toBeNull();

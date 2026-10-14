@@ -1,5 +1,16 @@
 # Audit log
 
+## 2026-10-14 · Screen 6: CRM «Игроки → Карточка → История» truncates the timeline
+
+**Reproduction (source-confirmed):** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM` displays a timeline assembled from activities, evening history, tasks and club/tournament games. Its disclosure label shows `unifiedTimeline.length`, but it always renders `unifiedTimeline.slice(0, 10)` with **no way to reach older entries**. Example: a player with 26 historical events sees a count of 26 but only 10 entries when expanded. This is a presentation loss, not an API limitation.
+
+**Expected:** The first 10 stay collapsed by default and easy to skim on mobile. When expanded, provide an obvious `Показать ещё` interaction, append older events ten at a time until all fetched entries are reachable, and show progress (shown/total). Reset expanded count for each new card/opening, so another player's history does not inherit an unnecessarily long view. Keep the full list collapsed by default in the work card, with no new API request or local-history mutation.
+
+**Implementation owner:** only `src/components/crm/PlayersCRM.tsx` and its rendered tests. The existing timeline ordering/content, business statuses, games, profile writes and finances must remain untouched. Mobile touch target >=44px. Tests must check 0/<=10, 26 records across increments, exhaustion, and reset on player switch.
+
+**Verification:** focused React regression + ordinary CI and UI preview on PR head; no production player data inspected.
+
+
 ## 2026-10-14 · Screen 5: organizer CRM player work card — stale request and nested overlays
 
 **Mounted path:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`; although the legacy roster inside `PlayersCRM` is hidden in this mount, `PlayersCRM` is the active owner of the **player work-card MobileSheet** and its nested actions.

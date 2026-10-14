@@ -4,6 +4,11 @@ for (const width of [360,390]) {
   await page.setViewportSize({width,height:844});await page.goto('/e2e/gomafia-career.html');
   const panel=page.getByTestId('player-gomafia-link');
   await expect(panel.getByText('Турнирные выступления · 13',{exact:true})).toBeVisible();
+  await expect(panel.getByTestId('gomafia-size-breakdown')).toBeVisible();
+  await panel.getByRole('button',{name:/Большие турниры/}).click();
+  await expect(panel.getByText('В этой категории пока нет подтверждённых турниров.')).toBeVisible();
+  await panel.getByRole('button',{name:/Размер не подтверждён/}).click();
+  await expect(panel.getByText('Турнирные выступления · 13',{exact:true})).toBeVisible();
   await expect(panel.getByText('164',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`gomafia-all-${width}.png`),fullPage:true});

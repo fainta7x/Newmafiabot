@@ -1132,3 +1132,7 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
 
 **Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.
+
+## 2026-10-14 · Wardrobe mobile evidence: obsolete garment assertion
+
+Before fix: UI preview run 38571358124 on 549ae2d6 rendered the curved-family black coat for default Dendi, but cosmetics-preview.spec.mjs:99 still expected jacket-black-v4. This caused the same assertion failure at 360/390/1440 px; the other 99 browser checks passed, including the template wardrobe matrix. Update this expectation to jacket-black-curved, retaining the rendered garment and persistence checks. Renderer and artwork are unchanged in this follow-up.

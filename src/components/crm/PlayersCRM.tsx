@@ -623,12 +623,17 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             {profileError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div> : null}
             {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
 
-            {bookingEvening && booking ? (
-              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">
-                Следующий вечер: <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="font-semibold text-text-primary underline decoration-border-soft underline-offset-2">{bookingEvening.title}</button> · {fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}
-              </p>
-            ) : nextTask ? (
-              <p data-testid="crm-player-next" className="px-0.5 text-[13px] leading-5 text-text-secondary">Ближайшая задача: <strong className="text-text-primary">{nextTask.title}</strong> · {nextTask.due_at ? `срок ${fmtDate(nextTask.due_at, true)}` : 'без срока'}</p>
+            {(bookingEvening && booking) || nextTask ? (
+              <div data-testid="crm-player-next" className="space-y-1.5 px-0.5 text-[13px] leading-5 text-text-secondary">
+                {bookingEvening && booking ? (
+                  <p>
+                    Следующий вечер: <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="font-semibold text-text-primary underline decoration-border-soft underline-offset-2">{bookingEvening.title}</button> · {fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}
+                  </p>
+                ) : null}
+                {nextTask ? (
+                  <p>Ближайшая задача: <strong className="text-text-primary">{nextTask.title}</strong> · {nextTask.due_at ? `срок ${fmtDate(nextTask.due_at, true)}` : 'без срока'}</p>
+                ) : null}
+              </div>
             ) : null}
 
             <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">

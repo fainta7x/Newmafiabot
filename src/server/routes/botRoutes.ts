@@ -1,5 +1,6 @@
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
+import { decideEveningMvp } from '../services/eveningMvpService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
@@ -293,6 +294,26 @@ router.post('/evenings/:eveningId/vote', async (req, res) => {
     return res.json({ success: true, nominee: result.nominee.nickname, deadline: result.deadlineMs ? new Date(result.deadlineMs).toISOString() : null });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить голос' });
+  }
+});
+
+// The club owner's answer to «кого объявить MVP» when the vote and the tie-breaks left a tie (eveningMvpService).
+router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
+  try {
+    const db = req.db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const nominee = String(req.body?.nominee ?? '').trim();
+    if (!telegramUserId || !nominee) return res.status(400).json({ error: 'Некорректный запрос' });
+    const player = await db.get('SELECT id FROM players WHERE telegram_user_id = ?', [telegramUserId]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден', code: 'not_found' });
+    const result = await decideEveningMvp(db, String(req.params.eveningId), String(player.id), nominee);
+    if (!result.ok) {
+      const status = result.code === 'forbidden' ? 403 : result.code === 'bad_nominee' ? 400 : result.code === 'not_found' ? 404 : 409;
+      return res.status(status).json({ error: 'Решение не принято', code: result.code });
+    }
+    return res.json({ success: true, nominee: result.winner.nickname });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось сохранить решение' });
   }
 });
 

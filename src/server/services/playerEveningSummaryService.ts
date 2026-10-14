@@ -1,3 +1,4 @@
+import { resolveEveningMvp } from './eveningMvpService.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from './playerEloHistoryService.ts';
 import { EVENING_VOTING_WINDOW_MS } from './clubYearAwardsService.ts';
@@ -107,21 +108,18 @@ export const buildAwards = async (
   const baseMs = new Date(String(evening?.settled_at || evening?.starts_at || '')).getTime();
   if (!Number.isFinite(baseMs) || baseMs + EVENING_VOTING_WINDOW_MS > Date.now()) return [];
 
-  // Every nominee with the most votes gets it (a tie shares the title).
-  const best = Math.max(...rows.map((row: any) => Number(row.votes || 0)));
-  return rows
-    .filter((row: any) => String(row.category) === 'best_player' && Number(row.votes || 0) === best && best > 0)
-    .map((row: any) => {
-      const playerId = String(row.nominee_player_id);
-      return {
-        category: 'best_player' as const,
-        label: categoryLabel('best_player'),
-        player_id: playerId,
-        nickname: nicknames.get(playerId) || 'Игрок',
-        avatar_url: avatarUrl(playerId),
-        votes: Number(row.votes || 0),
-      };
-    });
+  // One winner (owner, 2026-10-14): see resolveEveningMvp; an evening waiting for the owner's decision has no title yet.
+  const resolution = await resolveEveningMvp(db, eveningId);
+  if (resolution.status !== 'winner') return [];
+  const playerId = resolution.winner.player_id;
+  return [{
+    category: 'best_player' as const,
+    label: categoryLabel('best_player'),
+    player_id: playerId,
+    nickname: nicknames.get(playerId) || resolution.winner.nickname,
+    avatar_url: avatarUrl(playerId),
+    votes: resolution.winner.votes,
+  }];
 };
 
 export async function loadPlayerEveningSummaries(

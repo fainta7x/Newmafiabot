@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Screen 4: CRM «Игроки → База» profile-filter fallback
+
+**Confirmed mounted behaviour:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM` is the actual list, not the older standalone `PlayersCRM` list UI. `PlayersActivityCRM.loadProfileSummary()` used one `Promise.all()` for optional birthdays and essential profile completeness, swallowed all exceptions/HTTP failures, and left `profileMap={}` with no load/error state. Any active «Незаполненные / Без аватара / Без дня рождения / Нет контактов» filter then hid every person and rendered «Здесь пока никого», while the header claimed «0 человек». A failed birthdays request could also stop processing otherwise valid profile summary data.
+
+**Narrow fix:** keep a separate `loading|ready|error` state for profile completeness, handle the two GET responses independently, and when the profile filter's essential data is unavailable show truthful verification/loading or an actionable retry/reset state (not a fake empty database). Existing list filters, counts, segment semantics, player creation and profile writes are unchanged. Ordinary list/API failure with zero rows likewise no longer renders an additional contradictory «Здесь пока никого» panel.
+
+**Evidence:** rendered React regressions `src/tests/PlayersActivityProfileFilterErrors.test.tsx` cover failed summary → retry → restored filtered person, and failed optional birthdays with valid profile completeness. CI/phone runtime pending; no production player records read/changed.
+
+
 ## 2026-10-14 · Screen 3: CRM «Ещё» scroll state and Back routing
 
 **Evidence:** mounted `OrganizerCRM.tsx` passes `onScreenChange` to `MoreCRM`; its callback calls `moveWindowScroll(0)` for **both** entering and leaving a nested screen. `openSecondaryTab` enters `tasks`/`analytics` at top, then the ordinary Back control calls `switchPrimaryTab('more')`, also resetting to top. Browser Back changes `routePathname` without invoking `onScreenChange`, so a callback-only fix cannot restore position.

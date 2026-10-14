@@ -84,6 +84,33 @@ describe('statistics of one player', () => {
     expect(buildPlayerGameStatistics(games(), 'p6').votesAsRed).toMatchObject({ count: 0, total: 0, percent: null });
   });
 
+  it('counts each ballot phase when one person exits, regardless of who the player voted for', () => {
+    seq = 0;
+    const events = [
+      ev(1, 'vote', { seat: 1, target: 2, value: 1 }),
+      ev(1, 'vote_round_result', { value: '1:single_eliminated' }),
+      ev(1, 'exit', { seat: 2, value: 'voted_zero_round' }),
+      ev(2, 'vote', { seat: 1, target: 5, value: 1 }),
+      ev(2, 'vote_round_result', { value: '1:tie_revote' }),
+      ev(2, 'vote', { seat: 1, target: 3, value: 2 }),
+      ev(2, 'vote_round_result', { value: '2:single_eliminated' }),
+      ev(2, 'exit', { seat: 8, value: 'voted_day' }),
+    ];
+    // The actual eliminated person was black (#8), but this player's first ballot
+    // was for black #5 and second for red #3. Both ballot phases count.
+    expect(buildPlayerGameStatistics([game('vote-phases', 'red', events)], 'p1').votesAsRed)
+      .toMatchObject({ count: 1, total: 2, percent: 50 });
+
+    seq = 0;
+    const multi = [
+      ev(2, 'vote', { seat: 1, target: 5, value: 1 }),
+      ev(2, 'vote_round_result', { value: '1:all_tied_eliminated' }),
+      ev(2, 'exit', { seat: 5, value: 'voted_day' }),
+      ev(2, 'exit', { seat: 8, value: 'voted_day' }),
+    ];
+    expect(buildPlayerGameStatistics([game('multi-exit', 'red', multi)], 'p1').votesAsRed.total).toBe(0);
+  });
+
   it('counts the best move, the first-killed night and the sheriff and don checks', () => {
     const killed = buildPlayerGameStatistics(games(), 'p7');
     expect(killed.firstKilled).toMatchObject({ count: 1, total: 1 });

@@ -21,7 +21,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
   const [message, setMessage] = useState('');
   const [career, setCareer] = useState<any>(null);
   const [year, setYear] = useState('all');
-  const [sizeGroup, setSizeGroup] = useState<'large' | 'ten' | 'other' | 'unknown'>('large');
+  const [sizeGroup, setSizeGroup] = useState<'large' | 'ten' | 'other' | 'unknown' | null>(null);
   useEffect(() => {
     const abort = new AbortController();
     setLink(null);
@@ -61,7 +61,8 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     { key: 'other' as const, title: 'Малые турниры', hint: 'Меньше 10 участников' },
     { key: 'unknown' as const, title: 'Размер не подтверждён', hint: 'Данных об участниках пока нет' },
   ].map(group => ({ ...group, entries: tournaments.filter((item: any) => classifyGoMafiaTournamentSize(item.participantCount) === group.key) }));
-  const visibleGroup = groups.find(group => group.key === sizeGroup) ?? groups[0];
+  const activeSizeGroup = sizeGroup ?? groups.find(group => group.entries.length > 0)?.key ?? 'unknown';
+  const visibleGroup = groups.find(group => group.key === activeSizeGroup) ?? groups[0];
   const displayed = visibleGroup.entries;
   const places: number[] = displayed.map((t: any) => Number(t.place)).filter((place: number) => Number.isInteger(place) && place > 0);
   const averagePlace = places.length ? places.reduce((sum, place) => sum + place, 0) / places.length : null;
@@ -137,7 +138,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
     {tournaments.length > 0 && <div className="mt-5 space-y-3" data-testid="gomafia-size-breakdown">
       <div><strong className="text-sm text-white">Турниры по размеру</strong><p className="mt-1 text-xs text-white/55">Группы не смешиваются в статистике. Учитывается только подтверждённое число участников.</p></div>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label="Размер турнира">
-        {groups.map(group => <button key={group.key} type="button" onClick={() => setSizeGroup(group.key)} aria-pressed={sizeGroup === group.key} className={`min-h-[64px] rounded-xl border px-3 py-2 text-left transition-colors ${sizeGroup === group.key ? 'border-amber-200/50 bg-amber-200/10' : 'border-white/10 bg-white/[.035]'}`}>
+        {groups.map(group => <button key={group.key} type="button" onClick={() => setSizeGroup(group.key)} aria-pressed={activeSizeGroup === group.key} className={`min-h-[64px] rounded-xl border px-3 py-2 text-left transition-colors ${activeSizeGroup === group.key ? 'border-amber-200/50 bg-amber-200/10' : 'border-white/10 bg-white/[.035]'}`}>
           <span className="block text-xs font-semibold text-white/90">{group.title}</span>
           <span className="mt-1 block text-xs text-white/55">{group.entries.length} турн.</span>
         </button>)}

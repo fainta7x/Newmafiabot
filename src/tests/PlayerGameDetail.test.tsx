@@ -74,7 +74,7 @@ describe('visual game timeline', () => {
     expect(timeline.textContent).toContain('Нулевой круг');
     expect(timeline.textContent).toContain('переголосование');
     expect(timeline.textContent).toContain('Ночь 1');
-    expect(timeline.textContent).toContain('Цель выстрела');
+    expect(timeline.textContent).toContain('Мафия стреляла в');
     expect(timeline.textContent).toContain('#9 Знак');
   });
 });

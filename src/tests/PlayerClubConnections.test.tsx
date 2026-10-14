@@ -5,7 +5,7 @@ import { clubStoriesFixture } from '../../e2e/club-connection-stories.fixture.ts
 import PlayerClubConnections from '../components/player/PlayerClubConnections.tsx';
 const open = vi.hoisted(() => vi.fn());
 vi.mock('../components/player/playerProfileNavigation.ts', () => ({ openCanonicalPlayerProfile: open }));
-const duo = { a_id: 'a', a_name: 'Открыть профиль Анна', b_id: 'b', b_name: 'Борис', team: 'red', games: 4, wins: 3, win_rate: 75, a_avatar_url: '', b_avatar_url: '' };
+const duo = { a_id: 'a', a_name: 'Анна', b_id: 'b', b_name: 'Борис', team: 'red', games: 4, wins: 3, win_rate: 75, a_avatar_url: '', b_avatar_url: '' };
 function setup(data: unknown) { vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data)))); render(<PlayerClubConnections />); }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); open.mockReset(); });
 it('makes club pairs primary, switches the list and opens canonical profiles', async () => {

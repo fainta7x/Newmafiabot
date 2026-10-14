@@ -91,9 +91,18 @@ describe('premium player profile API', () => {
 
     const all = await get();
     expect(all.stats).toMatchObject({ games: 3, wins: 2 });
-    expect(all.filters).toMatchObject({ period: 'all', format: 'all', period_label: 'Всё время', format_label: 'Все форматы' });
+    expect(all.filters).toMatchObject({ period: 'all', format: 'all', period_label: 'Вся карьера', format_label: 'Все форматы' });
     expect(all.filters.seasons.map((item: any) => [item.label, item.games])).toEqual([['Осень 2026', 2], ['Весна 2026', 1]]);
     expect(all.filters.formats.map((item: any) => [item.key, item.games])).toEqual([['CASUAL', 1], ['RATING', 2]]);
+
+    const latest = await get('?period=season');
+    expect(latest.filters.period).toBe('season');
+    expect(latest.filters.period_label).toBe('Осень 2026');
+    expect(latest.stats).toMatchObject({ games: 2, wins: 1 });
+
+    const lastTen = await get('?period=recent10');
+    expect(lastTen.filters).toMatchObject({ period: 'recent10', period_label: 'Последние 10 игр' });
+    expect(lastTen.stats).toMatchObject({ games: 3, wins: 2 });
 
     const autumn = await get('?period=period:autumn');
     expect(autumn.stats).toMatchObject({ games: 2, wins: 1, current_streak: 0, best_streak: 1 });
@@ -114,6 +123,8 @@ describe('premium player profile API', () => {
     // The «Игры» and «Роли» tabs use the same season and format.
     const tab = async (name: string, query: string) => (await request(app).get(`/api/player/profiles/p1/${name}${query}`).set('Cookie', p1Cookie)).body;
     expect((await tab('games', '')).total).toBe(3);
+    expect((await tab('games', '?period=recent10')).total).toBe(3);
+    expect((await tab('roles', '?period=season')).overall.games).toBe(2);
     expect((await tab('games', '?period=period:autumn&format=CASUAL')).total).toBe(1);
     expect((await tab('games', '?format=RATING')).total).toBe(2);
     expect((await tab('roles', '?period=period:autumn')).overall).toMatchObject({ games: 2, wins: 1 });

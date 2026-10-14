@@ -25,12 +25,24 @@ export default function CuratorTasksPanel() {
   const [due, setDue] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       const response = await fetch('/api/curator-tasks', { credentials: 'include', cache: 'no-store' });
-      if (response.ok) setData(await response.json());
-    } catch { /* the panel is optional */ }
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(body?.open) || !Array.isArray(body?.closed) || !Array.isArray(body?.curators)) {
+        throw new Error(body?.error || 'Не удалось загрузить задачи кураторов');
+      }
+      setData(body as Payload);
+      setLoadError('');
+    } catch (loadFailure: any) {
+      setLoadError(loadFailure?.message || 'Не удалось загрузить задачи кураторов');
+    } finally {
+      setLoading(false);
+    }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -47,10 +59,28 @@ export default function CuratorTasksPanel() {
   const cancel = async (task: Task) => {
     if (busy || !window.confirm(`Отменить задачу «${task.title}»?`)) return;
     setBusy(task.id);
-    try { await send(`/api/curator-tasks/${encodeURIComponent(task.id)}/cancel`); await load(); } finally { setBusy(''); }
+    setListError('');
+    try {
+      await send(`/api/curator-tasks/${encodeURIComponent(task.id)}/cancel`);
+      await load();
+    } catch (cancelFailure: any) {
+      setListError(cancelFailure?.message || 'Не удалось отменить задачу');
+    } finally {
+      setBusy('');
+    }
   };
 
-  if (!data) return null;
+  if (!data) return (
+    <section data-testid="curator-tasks" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
+      <h3 className="text-[15px] font-bold text-text-primary">Задачи кураторов</h3>
+      {loading ? <p className="mt-2 text-[12px] text-text-muted">Загружаем задачи кураторов…</p> : (
+        <div className="mt-2 space-y-2">
+          <p role="alert" className="text-[12px] text-danger">{loadError || 'Не удалось загрузить задачи кураторов'}</p>
+          <button type="button" onClick={() => void load()} className="min-h-11 rounded-[10px] border border-border-soft px-3 text-[12px] font-semibold text-text-primary">Повторить</button>
+        </div>
+      )}
+    </section>
+  );
   const overdue = (task: Task) => Boolean(task.due_at && new Date(task.due_at).getTime() < Date.now());
   return (
     <section data-testid="curator-tasks" className="rounded-[18px] border border-border-soft bg-surface-1 p-3">
@@ -63,6 +93,11 @@ export default function CuratorTasksPanel() {
         <button type="button" disabled={!data.curators.length} onClick={() => { setError(''); setCuratorId(data.curators[0]?.id || ''); setOpen(true); }}
           className="flex min-h-10 shrink-0 items-center gap-1 rounded-[10px] bg-accent px-3 text-[12px] font-bold text-white disabled:opacity-40"><Plus className="h-4 w-4" />Задача</button>
       </div>
+      {loadError ? <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">
+        <span className="min-w-0 flex-1">{loadError}</span>
+        <button type="button" onClick={() => void load()} className="min-h-11 font-semibold underline">Повторить</button>
+      </div> : null}
+      {listError ? <p role="alert" className="mt-3 rounded-[10px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{listError}</p> : null}
       {!data.curators.length ? <p className="mt-3 text-[12px] text-text-muted">Кураторов пока нет — отметьте направление в статусе игрока («Куратор направления»).</p> : null}
       {data.open.length ? <div className="mt-3 space-y-1.5">
         {data.open.map((task) => (

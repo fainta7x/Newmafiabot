@@ -281,9 +281,9 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
       items.push({
         id: `people:thinking:${eveningId}`, group: 'now', rank: 16, kind: 'thinking',
         title: `Думают · ${thinking.length} · ${eveningLabel(evening)}`,
-        why: 'Ответили «Думаю». Короткое личное сообщение — главный способ превратить «думаю» в «иду». Список — внутри вечера, «Личные приглашения» → «Думают».',
+        why: 'Ответили «Думаю». Уточнить планы можно в едином списке «Ответы» внутри вечера — там же доступны личные сообщения.',
         // The answer work happens inside the evening (owner, 2026-10-01): the task only points there.
-        action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть ответы',
+        action: { type: 'evening', evening_id: eveningId, section: 'participants' }, action_label: 'Открыть ответы',
       });
     }
     const shortfall = await loadEveningShortfall(db, eveningId);
@@ -297,9 +297,9 @@ async function fillItems(db: DatabaseWrapper, now: number): Promise<Array<Agenda
     items.push({
       id: `people:fill:${eveningId}`, group: 'now', rank: 15, kind: 'fill',
       title: `Добор: ${shortfall.confirmed} из ${shortfall.minimum} · ${eveningLabel(evening)}`,
-      why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных — список внутри вечера, «Личные приглашения» → «Ждём ответа». Через час до начала вечер с недобором предложит отменить.`,
+      why: `До вечера меньше ${FILL_DAYS} дней, а «Иду» меньше минимума. Позови тех, кто ещё не ответил: сначала постоянных — открой «Ответы» внутри вечера. Через час до начала вечер с недобором предложит отменить.`,
       people_total: invite.length,
-      action: { type: 'evening', evening_id: eveningId, section: 'overview' }, action_label: 'Открыть ответы',
+      action: { type: 'evening', evening_id: eveningId, section: 'participants' }, action_label: 'Открыть ответы',
     });
   }
   return items;

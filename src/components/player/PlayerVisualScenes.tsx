@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useId, type CSSProperties } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 export type VisualPlayer = {
@@ -75,19 +75,20 @@ export function ConnectionGraph({ members, roles = [], tone = 'violet' }: {
   roles?: string[];
   tone?: 'violet' | 'rose' | 'amber';
 }) {
+  const gradientId = useId().replaceAll(':', '-');
   const display = members.slice(0, 3);
   const triple = display.length >= 3;
   const spots = triple ? [{ x: 18, y: 38 }, { x: 50, y: 65 }, { x: 82, y: 38 }] : [{ x: 26, y: 49 }, { x: 74, y: 49 }];
   const stroke = tone === 'rose' ? '#f4a9ad' : tone === 'amber' ? '#e7c47c' : '#b9a0ef';
   return <div data-testid="connection-graph" className="relative h-[172px] overflow-hidden rounded-[20px] bg-[radial-gradient(ellipse_at_center,rgba(213,194,148,.09),transparent_70%)]">
     <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 360 172" preserveAspectRatio="none">
-      <defs><linearGradient id="connection-line" x1="0" y1="0" x2="1" y2="1"><stop stopColor={stroke} stopOpacity=".8"/><stop offset="1" stopColor={stroke} stopOpacity=".2"/></linearGradient></defs>
+      <defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop stopColor={stroke} stopOpacity=".8"/><stop offset="1" stopColor={stroke} stopOpacity=".2"/></linearGradient></defs>
       {spots.slice(0, display.length).flatMap((spot, i) => spots.slice(i + 1, display.length).map((to, k) =>
         <path key={i + ':' + k} d={'M' + spot.x * 3.6 + ' ' + spot.y * 1.72 + ' Q180 84 ' + to.x * 3.6 + ' ' + to.y * 1.72}
-          fill="none" stroke="url(#connection-line)" strokeWidth="2" strokeDasharray={tone === 'rose' ? '5 4' : undefined} />))}
+          fill="none" stroke={'url(#' + gradientId + ')'} strokeWidth="2" strokeDasharray={tone === 'rose' ? '5 4' : undefined} />))}
       <circle cx="180" cy="86" r="40" fill="none" stroke={stroke} strokeOpacity=".14" strokeDasharray="2 7"/>
     </svg>
-    {display.map((member, i) => <button key={member.player_id} type="button"
+    {display.map((member, i) => <button key={member.player_id} type="button" aria-label={member.nickname}
       onClick={() => openCanonicalPlayerProfile(member.player_id)}
       style={{left: spots[i].x + '%', top: spots[i].y + '%', transform: 'translate(-50%, -50%)'}}
       className="ds-focus-ring absolute flex w-[32%] min-w-0 flex-col items-center gap-1 text-center">

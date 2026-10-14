@@ -103,7 +103,7 @@ export default function PlayerGamesArchive({
 
   return (
     <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="player-workspace mx-auto flex w-full max-w-[430px] flex-col gap-3">
+      <div className="player-workspace mx-auto flex w-full max-w-5xl flex-col gap-3">
         {selectedGameKey ? (
           <>
             <PlayerGameDetail
@@ -140,15 +140,15 @@ export default function PlayerGamesArchive({
                   ))}</div>
                   <p className="mt-1.5 text-[11px] text-white/45">Зелёный — победа, красный — поражение. Слева — последняя.</p>
                 </div> : null}
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {personalGames.map((game) => (
-                    <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="flex min-h-16 w-full items-start justify-between gap-3 rounded-2xl border border-white/[0.07] bg-black/20 p-3 text-left active:bg-white/[0.06]">
+                    <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className={`flex min-h-[118px] w-full flex-col justify-between gap-3 rounded-[22px] border p-4 text-left transition active:scale-[.99] ${game.won === true ? "border-emerald-200/15 bg-gradient-to-br from-emerald-950/30 via-[#15191a] to-[#101216]" : game.won === false ? "border-rose-200/15 bg-gradient-to-br from-rose-950/25 via-[#191316] to-[#101216]" : "border-white/10 bg-white/[.035]"}`}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">{game.title || 'Игра'}{game.game_number ? ` · №${game.game_number}` : ''}</span>
                         <span className="mt-1 block text-xs text-white/50">{[formatDate(game.date), game.role ? getPlayerGameRoleLabel(game.role) : null, game.seat_number ? `место №${game.seat_number}` : null].filter(Boolean).join(' · ')}</span>
                         {(game.best_move || game.first_killed) ? <span className="mt-1.5 block text-[11px] text-amber-200/80">{[game.best_move ? 'Лучший ход' : null, game.first_killed ? 'Убит первым' : null].filter(Boolean).join(' · ')}</span> : null}
                       </span>
-                      <span className="shrink-0 text-right">
+                      <span className="flex w-full items-center justify-between gap-3 border-t border-white/10 pt-2 text-left">
                         <span className={`block text-xs font-semibold ${game.won === true ? 'text-emerald-300' : game.won === false ? 'text-rose-300' : 'text-white/50'}`}>{game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Без результата'}</span>
                         <span className="mt-2 block text-[11px] text-white/45">Подробнее ›</span>
                       </span>
@@ -169,9 +169,9 @@ export default function PlayerGamesArchive({
                   <button type="button" onClick={() => void loadClubArchive()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 font-semibold text-white">Повторить</button>
                 </div>
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
-                : allGames.length ? <div className="player-archive-list space-y-2">{allGames.map((game) => {
+                : allGames.length ? <div className="player-archive-list grid gap-3 sm:grid-cols-2">{allGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);
-                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">
+                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-[22px] border border-white/10 bg-gradient-to-br from-white/[0.055] to-black/30 p-4 text-left transition active:bg-white/[0.08]">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span></div>
                     <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="text-white/65">{winnerLabel(game.winner_team)}</span><span className="min-w-0 truncate text-right text-white/30">{game.judge_name ? `судья ${game.judge_name} · ` : ''}Подробнее ›</span></div>
                   </button>;

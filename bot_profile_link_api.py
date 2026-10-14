@@ -174,3 +174,9 @@ async def claim_profile_by_link(telegram_user_id: int, code: str) -> dict[str, A
 async def request_profile_link(telegram_user_id: int, nickname: str) -> dict[str, Any]:
     """«Это мой профиль» after a taken nickname: an organizer request."""
     return await _post_profile_api("/api/bot/players/link-request", {"telegram_user_id": int(telegram_user_id), "nickname": nickname})
+
+
+async def create_telegram_link_request(telegram_user_id: int) -> dict[str, Any]:
+    """«Подтвердить через ВК»: a one-time app link; signing in there with VK ID attaches this Telegram to the VK profile."""
+    return await _post_profile_api("/api/bot/telegram-link-request", {"telegram_user_id": int(telegram_user_id)})
+

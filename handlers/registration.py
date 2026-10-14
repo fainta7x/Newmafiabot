@@ -9,6 +9,7 @@ import config
 import database
 from bot_profile_link_api import (
     claim_profile_by_link,
+    create_telegram_link_request,
     get_canonical_profile,
     link_legacy_profile,
     register_canonical_profile,
@@ -380,6 +381,25 @@ async def finish_registration(message: Message, state: FSMContext):
         return
 
     error = result.get("error")
+    if error == "nickname_taken" and (result.get("data") or {}).get("vk_only"):
+        # The profile was created through VK and has no Telegram yet: very likely this very person (owner, 2026-10-14).
+        # Two ways in, both from the bot: confirm through VK ID by a one-time link (automatic), or ask the organizer.
+        await state.set_state(None)
+        await state.update_data(taken_nickname=nickname)
+        rows = []
+        link = await create_telegram_link_request(message.from_user.id)
+        url = str((link.get("data") or {}).get("url") or "") if link.get("success") else ""
+        if url:
+            rows.append([InlineKeyboardButton(text="🔗 Подтвердить через ВКонтакте", url=url)])
+        rows.append([InlineKeyboardButton(text="📨 Запрос организатору", callback_data="profile_claim:yes")])
+        rows.append([InlineKeyboardButton(text="Это не я — другой ник", callback_data="profile_claim:no")])
+        await message.answer(
+            f"Игрок «{nickname}» уже есть в клубе — он зарегистрирован через ВКонтакте. Это твой профиль?\n\n"
+            "• «Подтвердить через ВКонтакте» — откроется вход через ВК ID, и Telegram привяжется сам.\n"
+            "• «Запрос организатору» — организатор подтвердит привязку вручную.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        )
+        return
     if error == "nickname_taken" and (result.get("data") or {}).get("claimable") is False:
         # The profile already has its own Telegram or VK: a different player, no request to the organizer.
         await message.answer(

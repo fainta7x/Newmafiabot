@@ -1,5 +1,5 @@
 import type { LiveGameEvent } from '../shared/liveGameEvents';
-import { playerActionMetrics, type ActionFactsMemo, type PlayerActionMetrics } from './gameActionFacts';
+import { gameActionFacts, playerActionMetrics, type ActionFactsMemo, type PlayerActionMetrics } from './gameActionFacts';
 import type { VotingRound } from '../shared/tournamentVoting';
 import { winRatePercent } from '../shared/stats';
 import { buildGameAnalysis, type AnalysisCircle } from './liveGameAnalysis';
@@ -103,10 +103,14 @@ export const buildClubGameStatistics = (games: StatGame[]): ClubGameStatistics =
     }
     const zero = circles.find((circle) => circle.zeroRoundVoted);
     if (zero?.zeroRoundVoted) { zeroGames += 1; if (isBlack(roleOf(zero.zeroRoundVoted))) zeroBlack += 1; }
+    // Club and individual check accuracy must use the same confirmed night actions.
+    // A selected target without moving past the night substep is only a draft.
+    for (const check of gameActionFacts(game).checks) {
+      if (check.kind === 'sheriff') { sheriffChecks += 1; if (isBlack(roleOf(check.target))) sheriffFoundBlack += 1; }
+      else { donChecks += 1; if (roleOf(check.target) === 'sheriff') donFoundSheriff += 1; }
+    }
     for (const circle of circles) {
       if (circle.shot) shots += 1;
-      if (circle.sheriffCheck) { sheriffChecks += 1; if (isBlack(roleOf(circle.sheriffCheck.target))) sheriffFoundBlack += 1; }
-      if (circle.donCheck) { donChecks += 1; if (roleOf(circle.donCheck.target) === 'sheriff') donFoundSheriff += 1; }
       for (const move of circle.bestMoves) {
         if (!move.seat || !move.seats.length) continue;
         const blacks = move.seats.filter((seat) => isBlack(roleOf(seat))).length;

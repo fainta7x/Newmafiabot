@@ -55,6 +55,37 @@ describe('club statistics across games', () => {
     expect(stats.byLength).toEqual([{ days: 2, label: '2', games: 1, redWins: expect.objectContaining({ count: 1, total: 1, percent: 100 }) }]);
   });
 
+  it('uses only confirmed night checks in both club and player accuracy', () => {
+    seq = 0;
+    const unconfirmed = [
+      ev(2, 'sheriff_check', { phase: 'night', target: 5 }),
+      ev(2, 'don_check', { phase: 'night', target: 3 }),
+    ];
+    const draft = game('draft-check', 'red', unconfirmed);
+    expect(buildClubGameStatistics([draft]).nights).toMatchObject({
+      sheriffChecks: { count: 0, total: 0, percent: null },
+      donChecks: { count: 0, total: 0, percent: null },
+    });
+    expect(buildPlayerGameStatistics([draft], 'p3').sheriffChecks.total).toBe(0);
+    expect(buildPlayerGameStatistics([draft], 'p5').donChecks.total).toBe(0);
+
+    seq = 0;
+    const confirmed = [
+      ev(2, 'sheriff_check', { phase: 'night', target: 1 }),
+      ev(2, 'sheriff_check', { phase: 'night', target: 5 }),
+      ev(2, 'don_check', { phase: 'night', target: 4 }),
+      ev(2, 'don_check', { phase: 'night', target: 3 }),
+      ev(2, 'night_step', { phase: 'night', value: 'morning' }),
+    ];
+    const actual = game('confirmed-check', 'red', confirmed);
+    expect(buildClubGameStatistics([actual]).nights).toMatchObject({
+      sheriffChecks: { count: 1, total: 1, percent: 100 },
+      donChecks: { count: 1, total: 1, percent: 100 },
+    });
+    expect(buildPlayerGameStatistics([actual], 'p3').sheriffChecks).toMatchObject({ count: 1, total: 1 });
+    expect(buildPlayerGameStatistics([actual], 'p5').donChecks).toMatchObject({ count: 1, total: 1 });
+  });
+
   it('leaves out games without a chronology but still counts them in the total', () => {
     const stats = buildClubGameStatistics([game('g1', 'red', events()), game('old', 'black', [])]);
     expect(stats.games).toBe(1);

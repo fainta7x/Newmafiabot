@@ -34,6 +34,7 @@ const byLastVisit = (left: Player, right: Player) => {
 export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings, onOpenEvening, selectedPlayerId, onClosePlayerCard, onCrmChanged }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [profileMap, setProfileMap] = useState<Record<string, Completeness>>({});
+  const [profileSummaryState, setProfileSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -63,20 +64,27 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   }, [advancedSegment, contactStatusFilter, debouncedSearch]);
 
   const loadProfileSummary = useCallback(async () => {
+    setProfileSummaryState('loading');
+    // Birthdays are optional. Their failure must not masquerade as missing profile data.
+    const [summaryResult, birthdaysResult] = await Promise.allSettled([
+      fetch('/api/players/profile-integrity/summary', { credentials: 'include' }),
+      fetch('/api/players/profile-integrity/birthdays?window=30', { credentials: 'include' }),
+    ]);
     try {
-      const [summaryResponse, birthdaysResponse] = await Promise.all([
-        fetch('/api/players/profile-integrity/summary', { credentials: 'include' }),
-        fetch('/api/players/profile-integrity/birthdays?window=30', { credentials: 'include' }),
-      ]);
-      const summaryBody = await summaryResponse.json().catch(() => ({}));
-      const birthdayBody = await birthdaysResponse.json().catch(() => ({}));
-      if (summaryResponse.ok) {
-        const next: Record<string, Completeness> = {};
-        for (const item of Array.isArray(summaryBody?.players) ? summaryBody.players : []) if (item?.id && item?.profile_completeness) next[String(item.id)] = item.profile_completeness;
-        setProfileMap(next);
-      }
-      if (birthdaysResponse.ok) setBirthdays(Array.isArray(birthdayBody?.birthdays) ? birthdayBody.birthdays : []);
-    } catch {}
+      if (summaryResult.status !== 'fulfilled' || !summaryResult.value.ok) throw new Error('Profile summary unavailable');
+      const body = await summaryResult.value.json();
+      if (!Array.isArray(body?.players)) throw new Error('Invalid profile summary');
+      const next: Record<string, Completeness> = {};
+      for (const item of body.players) if (item?.id && item?.profile_completeness) next[String(item.id)] = item.profile_completeness;
+      setProfileMap(next);
+      setProfileSummaryState('ready');
+    } catch {
+      setProfileSummaryState('error');
+    }
+    if (birthdaysResult.status === 'fulfilled' && birthdaysResult.value.ok) {
+      const birthdayBody = await birthdaysResult.value.json().catch(() => ({}));
+      setBirthdays(Array.isArray(birthdayBody?.birthdays) ? birthdayBody.birthdays : []);
+    }
   }, []);
 
   const loadPlayers = useCallback(async () => {
@@ -114,6 +122,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
   const selectedCardPlayerId = selectedPlayerId || localPlayerId;
   const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
   const segmentCaption = debouncedSearch ? 'поиск по всей базе' : QUICK_FILTERS.find((item) => item.id === activeQuickFilter)?.caption || '';
+  const profileFilterUnavailable = Boolean(profileFilter) && profileSummaryState !== 'ready';
 
   const handleCreatePlayer = async (event: React.FormEvent) => {
     event.preventDefault(); if (!newNickname.trim() || addSaving) return; setAddSaving(true); setAddError(null);
@@ -128,7 +137,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
 
   return (
     <div className="min-w-0 space-y-3.5 sm:space-y-4">
-      <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2><p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : `${filteredPlayers.length} человек · ${segmentCaption}`}</p></div><button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button></div>
+      <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2><p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : profileFilterUnavailable ? (profileSummaryState === 'loading' ? 'Проверяем заполненность профилей…' : 'Не удалось проверить заполненность профилей') : `${filteredPlayers.length} человек · ${segmentCaption}`}</p></div><button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button></div>
 
       {birthdays.length ? <section data-testid="crm-upcoming-birthdays" className="rounded-[16px] border border-warning/20 bg-warning-soft p-3"><div className="flex items-center gap-2 text-[12px] font-semibold text-warning"><Cake className="h-4 w-4" /> Ближайшие дни рождения</div><div className="mt-2 flex flex-wrap gap-1.5">{birthdays.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => setLocalPlayerId(item.id)} className="min-h-[36px] rounded-full bg-black/10 px-3 text-[11px] font-semibold text-text-primary">{item.nickname} · {item.days_until === 0 ? 'сегодня' : `${item.days_until} дн.`}</button>)}</div></section> : null}
 
@@ -138,7 +147,19 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings
       <p className="-mt-1 px-0.5 text-[11px] leading-4 text-text-muted">Вкладки — по статусам, которые вы ставите в карточке игрока. Визит — отметка «пришёл» или место за столом в игре. Зелёные TG и VK — игрок вошёл через бота или VK.</p>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
-      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : filteredPlayers.length === 0 ? <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">Здесь пока никого</p><p className="mx-auto mt-1 max-w-[260px] text-[12px] text-text-muted">Статус игрока меняется в его карточке, в блоке «Статус игрока».</p></div> : (
+      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : listError && !players.length ? null : profileFilterUnavailable ? (
+        <div data-testid="crm-profile-filter-unavailable" className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+          {profileSummaryState === 'loading' ? <p className="text-[13px] text-text-secondary">Проверяем заполненность профилей…</p> : (
+            <div role="alert" className="space-y-3">
+              <p className="text-[13px] text-text-secondary">Не удалось проверить заполненность профилей. Это не означает, что подходящих игроков нет.</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void loadProfileSummary()} className="min-h-11 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]">Повторить проверку</button>
+                <button type="button" onClick={() => setProfileFilter('')} className="min-h-11 rounded-[12px] border border-border-soft px-3 text-[12px] font-semibold text-text-primary">Показать без фильтра</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : filteredPlayers.length === 0 ? <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">Здесь пока никого</p><p className="mx-auto mt-1 max-w-[260px] text-[12px] text-text-muted">Статус игрока меняется в его карточке, в блоке «Статус игрока».</p></div> : (
         <div data-testid="crm-active-player-list" className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
           {filteredPlayers.map((player, index) => {
             const visits = Number(player.attendance_count || 0); const visitText = player.days_since_last_visit == null ? 'Нет визитов' : player.days_since_last_visit === 0 ? 'Был сегодня' : `Был ${player.days_since_last_visit} дн. назад`; const taskText = Number(player.open_tasks_count || 0) > 0 ? ` · задач ${player.open_tasks_count}` : ''; const segment = getPlayerStatusSegment(player); const completion = profileMap[player.id];

@@ -17,7 +17,7 @@ export default function RolePortrait({ baseUrl, bodyBaseUrl, background, hatUrl,
   const sorted = [...equipped].sort((a, b) => PORTRAIT_SLOT_ORDER[a.slot] - PORTRAIT_SLOT_ORDER[b.slot]);
   const layerImage = (item: PortraitLayer) => fit&&isMeshGarment(item.slot)?<MeshGarment key={item.slot}
     url={item.url} label={item.slot==='portrait_jacket'?'Пиджак':PORTRAIT_SLOT_LABELS[item.slot]}
-    slot={item.slot} order={PORTRAIT_SLOT_ORDER[item.slot]+1} fit={fit.body}/>:<img
+    slot={item.slot} order={PORTRAIT_SLOT_ORDER[item.slot]+1} fit={fit.body} shirtUnderJacket={item.slot==='portrait_shirt'&&sorted.some(l=>l.slot==='portrait_jacket'&&l.shirtCoverage==='front-only')}/>:<img
     key={item.slot} className={`role-portrait-layer role-portrait-${item.slot}`}
     src={item.url} alt={item.slot === 'portrait_jacket' ? 'Пиджак' : PORTRAIT_SLOT_LABELS[item.slot]}
     style={{ zIndex: PORTRAIT_SLOT_ORDER[item.slot] + 1, ...(fit&&item.slot==='portrait_hat'?{transform:`scaleX(${fit.hatScale})`,transformOrigin:'50% 20%'}:{}) }}

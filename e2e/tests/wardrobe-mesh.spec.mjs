@@ -10,7 +10,19 @@ for(const width of [360,390,1440]){
    await editor.getByRole('button',{name:'Дон',exact:true}).click();
    await editor.getByRole('button',{name:/Багряный пиджак/}).click();
    const coat=editor.getByTestId('role-look-preview').getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v2/);await expect(coat).toHaveAttribute('data-rendered','true');
+   await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v3/);await expect(coat).toHaveAttribute('data-rendered','true');
+   const preview=editor.getByTestId('role-look-preview');
+   const shirt=preview.locator('canvas.role-portrait-portrait_shirt');
+   await expect(shirt).toHaveAttribute('data-rendered','true');
+   // A closed coat covers shirt sleeves, preventing white strips in armholes.
+   expect(await shirt.evaluate(c=>{
+    const rgba=c.getContext('2d').getImageData(0,0,512,640).data;
+    for(let y=320;y<640;y++)for(const x of [100,150,360,410])if(rgba[(y*512+x)*4+3])return false;
+    return true;
+   })).toBe(true);
+   await preview.screenshot({path:testInfo.outputPath(`outfit-${name}-${width}.png`)});
+   const summary=editor.locator('.role-looks-compare>summary');
+   expect(await summary.evaluate(el=>getComputedStyle(el).display)).toBe('block');
    await editor.getByLabel('Фраза',{exact:true}).fill(`Образ: ${name}`);
    await editor.getByRole('button',{name:'Сохранить: Дон',exact:true}).click();
    await expect(editor.getByRole('status')).toContainText('сохранён');
@@ -19,7 +31,7 @@ for(const width of [360,390,1440]){
   const comparison=active().locator('.cosmetics-lab-cross-grid');await expect(comparison).toBeVisible();
   for(const id of ['dendi','java','fandorin']){
    const card=comparison.getByTestId(`shared-fit-${id}`),coat=card.getByRole('img',{name:'Пиджак',exact:true});
-   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v2/);
+   await expect(coat).toHaveAttribute('data-rendered','true');await expect(coat).toHaveAttribute('data-asset-url',/jacket-burgundy-v3/);
   }
   const pixels=await comparison.locator('canvas[aria-label="Пиджак"]').evaluateAll(nodes=>nodes.map(c=>c.toDataURL()));
   expect(new Set(pixels).size).toBe(3);

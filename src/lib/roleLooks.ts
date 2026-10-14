@@ -36,8 +36,8 @@ export type RoleLook = {
   equippedItems?: EquippedItems;
   revision: number;
 };
-export type LookLayer = { itemId: string; name: string; slot: PortraitEquipmentSlot; url: string; rarity: string };
-export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: string };
+export type LookLayer = { itemId: string; name: string; slot: PortraitEquipmentSlot; url: string; rarity: string; shirtCoverage?: 'front-only' };
+export type PortraitLayer = { slot: PortraitEquipmentSlot; itemId: string; url: string; shirtCoverage?: 'front-only' };
 /** A released set is a collection, not a redeemable inventory item.
  * Player sees only published and reviewed components; ownership is individual.
  */

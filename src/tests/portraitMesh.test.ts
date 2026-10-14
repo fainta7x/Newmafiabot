@@ -19,11 +19,11 @@ it('keeps UV triangles continuous and unflipped at all allowed fitting extremes'
 });
 it('preserves RGBA exactly at neutral fit and leaves no seams in an opaque fitted garment',()=>{
  const source=new Uint8ClampedArray(512*640*4);
- for(let y=345;y<640;y++)for(let x=0;x<512;x++){const n=(y*512+x)*4;source[n]=x%255;source[n+1]=y%255;source[n+2]=180;source[n+3]=255;}
+ for(let y=320;y<640;y++)for(let x=0;x<512;x++){const n=(y*512+x)*4;source[n]=x%255;source[n+1]=y%255;source[n+2]=180;source[n+3]=255;}
  expect(rasterizeGarmentMesh(source,NEUTRAL_BODY_FIT)).toEqual(source);
  const fitted=rasterizeGarmentMesh(source,{neck:0.1,shoulders:0.2,chest:0.15,waist:0.3});
- for(let y=346;y<640;y++)for(let x=1;x<511;x++)expect(fitted[(y*512+x)*4+3]).toBe(255);
- expect(fitted.slice(0,345*512*4).some(Boolean)).toBe(false);
+ for(let y=321;y<640;y++)for(let x=1;x<511;x++)expect(fitted[(y*512+x)*4+3]).toBe(255);
+ expect(fitted.slice(0,320*512*4).some(Boolean)).toBe(false);
 });
 it('rejects nonfinite fitting and bounds untrusted saved values',()=>{
  expect(normalizeBodyFit({neck:Infinity,shoulders:NaN,chest:99,waist:-99})).toEqual({neck:0,shoulders:0,chest:FIT_MAX,waist:FIT_MIN});

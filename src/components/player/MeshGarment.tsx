@@ -12,7 +12,7 @@ function loadTexture(url:string){
 }
 
 /** Real UV triangles, rendered only when an asset/fit changes; no animation loop. */
-export default function MeshGarment({url,label,slot,order,fit}:{url:string;label:string;slot:string;order:number;fit:BodyFit}){
+export default function MeshGarment({url,label,slot,order,fit,shirtUnderJacket=false}:{url:string;label:string;slot:string;order:number;fit:BodyFit;shirtUnderJacket?:boolean}){
   const ref=useRef<HTMLCanvasElement>(null);
   const [error,setError]=useState(false);
   const {neck,shoulders,chest,waist}=fit;
@@ -23,18 +23,18 @@ export default function MeshGarment({url,label,slot,order,fit}:{url:string;label
     const ctx=canvas.getContext('2d');
     loadTexture(url).then(image=>{
       if(cancelled||!ctx)return;
-      const key=JSON.stringify([neck,shoulders,chest,waist]);
+      const key=JSON.stringify([neck,shoulders,chest,waist,shirtUnderJacket]);
       const cached=frames.get(image)?.get(key);
       if(cached){const frame=ctx.createImageData(512,640);frame.data.set(cached);ctx.putImageData(frame,0,0);}
       else{
-        drawGarmentMesh(ctx,image,{neck,shoulders,chest,waist});
+        drawGarmentMesh(ctx,image,{neck,shoulders,chest,waist},shirtUnderJacket);
         if(frameCount>=12){for(const [owner,entries] of frames){if(entries.size){entries.delete(entries.keys().next().value!);frameCount--;if(!entries.size)frames.delete(owner);break;}}}
         const entries=frames.get(image)||new Map<string,Uint8ClampedArray>();entries.set(key,ctx.getImageData(0,0,512,640).data);frames.set(image,entries);frameCount++;
       }
       canvas.dataset.rendered='true';setError(false);
     }).catch(()=>{if(!cancelled){ctx?.clearRect(0,0,512,640);setError(true);}});
     return ()=>{cancelled=true;};
-  },[url,neck,shoulders,chest,waist]);
+  },[url,neck,shoulders,chest,waist,shirtUnderJacket]);
   return <>
     <canvas ref={ref} width={512} height={640} role="img" aria-label={label} data-asset-url={url}
       className={`role-portrait-layer role-portrait-${slot}`} style={{zIndex:order}}/>

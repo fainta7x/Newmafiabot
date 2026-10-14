@@ -13,12 +13,12 @@ export function normalizeBodyFit(value: Partial<BodyFit> | null | undefined, fal
   return {neck:clamp(value?.neck,fallback.neck),shoulders:clamp(value?.shoulders,fallback.shoulders),chest:clamp(value?.chest,fallback.chest),waist:clamp(value?.waist,fallback.waist)};
 }
 const XS=[0,64,112,160,200,232,256,280,312,352,400,448,512];
-const YS=[345,360,378,400,425,450,480,520,555,590,615,640];
+const YS=[320,335,345,360,378,400,425,450,480,520,555,590,615,640];
 /** Common anchors keep a shirt, vest and coat seam at the same destination. */
 export function fitBodyPoint(point:MeshPoint, raw:BodyFit):MeshPoint {
-  if(point.y<345)return {...point};
+  if(point.y<320)return {...point};
   const fit=normalizeBodyFit(raw);
-  const anchors=[[345,fit.neck],[378,fit.neck],[410,fit.shoulders],[475,fit.chest],[570,fit.waist],[640,fit.waist]];
+  const anchors=[[320,fit.neck],[378,fit.neck],[410,fit.shoulders],[475,fit.chest],[570,fit.waist],[640,fit.waist]];
   let amount=fit.waist;
   for(let i=1;i<anchors.length;i++){
     if(point.y<=anchors[i][0]){
@@ -74,8 +74,10 @@ export function rasterizeGarmentMesh(source:Uint8ClampedArray,fit:BodyFit):Uint8
   return result;
 }
 /** Draw into one transparent garment canvas; the portrait compositor owns layer order. */
-export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit){
+export function drawGarmentMesh(ctx:CanvasRenderingContext2D,image:CanvasImageSource,fit:BodyFit,shirtUnderJacket=false){
   ctx.clearRect(0,0,512,640);ctx.drawImage(image,0,0,512,640);
   const source=ctx.getImageData(0,0,512,640),frame=ctx.createImageData(512,640);
   frame.data.set(rasterizeGarmentMesh(source.data,fit));ctx.putImageData(frame,0,0);
+  // This closed coat covers shirt sleeves/body; expose only the central shirt front.
+  if(shirtUnderJacket){ctx.clearRect(0,0,176,640);ctx.clearRect(336,0,176,640);}
 }

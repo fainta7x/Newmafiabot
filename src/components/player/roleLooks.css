@@ -36,7 +36,7 @@
 
 /* Expandable four-role comparison; photos and draft selection remain independent. */
 .role-looks-compare{min-width:0;border:1px solid #b47b4c35;border-radius:12px;background:#1b1720;padding:0}
-.role-looks-compare>summary{min-height:48px;padding:12px;cursor:pointer;color:#f2d7b8;font-size:12px;font-weight:650;list-style:none}
+.role-looks-compare>summary{display:block;min-height:48px;padding:12px;cursor:pointer;color:#f2d7b8;font-size:12px;font-weight:650;list-style:none}
 .role-looks-compare>summary span{font-size:11px;color:#bfaaa0;font-weight:400;display:block;margin-top:4px;line-height:1.4}
 .role-looks-compare-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px;min-width:0}
 .role-looks-body .role-looks-compare-grid>button{min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:10px;border:1px solid #b47b4c40;background:#231a23;line-height:1.3}

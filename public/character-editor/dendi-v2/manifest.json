@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "status": "draft-test-only",
   "canvas": [
     512,
@@ -9,47 +9,17 @@
   "base": "base-v2.png",
   "slots": {
     "portrait_shirt": [
-      "shirt-v2.png"
+      "shirt-v3.png"
     ],
     "portrait_jacket": [
-      "jacket-burgundy-v2.png",
-      "jacket-black-v2.png"
+      "jacket-burgundy-v3.png",
+      "jacket-black-v3.png"
     ],
     "portrait_hat": [
       "hat-v2.png"
     ]
   },
   "sources": [
-    {
-      "file": "shirt-v2.png",
-      "sourceSHA256": "97271453a83ea9e895f42906262eb9eb4fc2ff039acff2eb7c6e891cf7a7da01",
-      "exportTransform": {
-        "width": 480,
-        "height": 640,
-        "left": 16,
-        "top": 18
-      }
-    },
-    {
-      "file": "jacket-burgundy-v2.png",
-      "sourceSHA256": "806512b51d3facb4b7a19dd299039563d4e8ebce1e628053131d97dc4c3022bf",
-      "exportTransform": {
-        "width": 512,
-        "height": 640,
-        "left": 0,
-        "top": 94
-      }
-    },
-    {
-      "file": "jacket-black-v2.png",
-      "sourceSHA256": "1e5590d5c536a7647227aeaf6460db6f00b0e7f19a2f445f292223f11609a16e",
-      "exportTransform": {
-        "width": 512,
-        "height": 640,
-        "left": 0,
-        "top": 94
-      }
-    },
     {
       "file": "hat-v2.png",
       "sourceSHA256": "f6d564c7df1388bacc7f545fea3e383acfd98c137cf06ed5f7b65fb814217912",
@@ -89,6 +59,39 @@
         "left": 72,
         "top": 60
       }
+    },
+    {
+      "file": "shirt-v3.png",
+      "sourceSHA256": "78016dbb027be9a0ccacc0ca69a1d7d369b2e5380b9d2c64fbc0b40aa954e3d6",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "left": 0,
+        "top": 15
+      },
+      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
+    },
+    {
+      "file": "jacket-burgundy-v3.png",
+      "sourceSHA256": "ed443ff24c3c0e7d01913df77f6515a20862e55a2c1810703bded0a985e6762a",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "left": 0,
+        "top": 72
+      },
+      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
+    },
+    {
+      "file": "jacket-black-v3.png",
+      "sourceSHA256": "6a59f00c66c052cb4483c576b50e6252fb58788f22322dc0abaebb3c12608423",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "left": 0,
+        "top": 20
+      },
+      "construction": "straight-cut neutral torso; closed jackets expose only shirt front"
     }
   ],
   "characters": {

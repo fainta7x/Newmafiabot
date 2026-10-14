@@ -3,11 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const data=(mime,bytes)=>`data:${mime};base64,${bytes.toString('base64')}`;
-const presets=[['dendi','Денди','base-v2.png',{neck:0,shoulders:0,chest:0,waist:0},1],['java','Джава','java-base-v1.png',{neck:0.03,shoulders:0.08,chest:0.13,waist:0.17},1.03],['fandorin','Фандорин','fandorin-base-v1.png',{neck:0.26,shoulders:0.26,chest:0.18,waist:0.3},1.12]];
-const characters=await Promise.all(presets.map(async([id,name,file,body,hatScale])=>({id,name,baseUrl:data('image/png',await readFile(path.join(root,'public/character-editor/dendi-v2',file))),sourceUrl:data('image/jpeg',await readFile(path.join(root,'public/player-avatars',`${id}.jpg`))),fit:{body,hatScale}})));
-const fixtureNames=[['lab-shirt','Белая рубашка · примерка','portrait_shirt','shirt-v2.png'],['lab-jacket','Багряный пиджак · примерка','portrait_jacket','jacket-burgundy-v2.png'],['lab-jacket-black','Чёрный пиджак · примерка','portrait_jacket','jacket-black-v2.png'],['lab-hat','Медный лист · примерка','portrait_hat','hat-v2.png']];
-const layers=await Promise.all(fixtureNames.map(async([itemId,name,slot,file])=>({itemId,name,slot,rarity:'draft',url:data('image/png',await readFile(path.join(root,'public/character-editor/dendi-v2',file)))})));
+const data=(mime,bytes)=>`data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
+// Embed the actual editor fixtures; duplicated profiles made offline previews drift.
+const fixtureBundle=await build({entryPoints:[path.join(root,'src/lib/dendiWardrobePilot.ts')],bundle:true,write:false,format:'esm',platform:'node'});
+const {WARDROBE_PILOT_CHARACTERS,DENDI_PILOT_LAYERS}=await import(data('text/javascript',fixtureBundle.outputFiles[0].contents));
+const embed=async(url,mime)=>data(mime,await readFile(path.join(root,'public',url)));
+const characters=await Promise.all(WARDROBE_PILOT_CHARACTERS.map(async c=>({...c,baseUrl:await embed(c.baseUrl,'image/png'),sourceUrl:await embed(c.sourceUrl,'image/jpeg')})));
+const layers=await Promise.all(DENDI_PILOT_LAYERS.map(async l=>({...l,url:await embed(l.url,'image/png')})));
 const result=await build({stdin:{contents:`import {createRoot} from 'react-dom/client';import CosmeticsLab from './src/components/player/CosmeticsLab.tsx';createRoot(document.getElementById('root')).render(<CosmeticsLab characters={${JSON.stringify(characters)}} wearableLayers={${JSON.stringify(layers)}}/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'iife',platform:'browser',minify:true,jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},outfile:'lab.js'});
 const js=result.outputFiles.find(f=>f.path.endsWith('.js')).text.replace(/<\/script/gi,'<\\/script');
 const css=result.outputFiles.find(f=>f.path.endsWith('.css'))?.text||'';

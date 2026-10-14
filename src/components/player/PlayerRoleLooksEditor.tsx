@@ -38,7 +38,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
   const look=drafts.find(l=>l.role===role), saved=state?.looks.find(l=>l.role===role);
   useEffect(()=>{if(look)onPreviewLook?.(look);},[look,onPreviewLook]);
   const baseUrl=state?.portraitVersion?(portraitUrl?.(state.portraitVersion)||`/api/player/cosmetics/portrait/${encodeURIComponent(state.portraitVersion)}`):null;
-  const layersFor=(draft:RoleLook)=>state?.layers.filter(l=>roleEquippedItems(draft)[l.slot]===l.itemId).map(l=>({slot:l.slot,itemId:l.itemId,url:l.url}))||[];
+  const layersFor=(draft:RoleLook)=>state?.layers.filter(l=>roleEquippedItems(draft)[l.slot]===l.itemId).map(l=>({...l}))||[];
   const dirty=look && saved && JSON.stringify(look)!==JSON.stringify(saved);
   const update=(patch:Partial<RoleLook>)=>{setNotice('');setDrafts(previous=>previous.map(l=>l.role===role?{...l,...patch}:l));};
   const updateSlot=(slot:PortraitEquipmentSlot,itemId:string|null)=>{

@@ -32,4 +32,10 @@ export async function ensureTelegramDirectMessageSchema(db: DatabaseWrapper): Pr
     CREATE INDEX IF NOT EXISTS idx_telegram_message_outbox_player
       ON telegram_message_outbox(player_id, created_at DESC);
   `);
+  // A picture sent with the message (the MVP cards, owner 2026-10-14); cleared once the message is delivered.
+  const columns = await db.all<any>('PRAGMA table_info(telegram_message_outbox)');
+  if (!columns.some((item: any) => item.name === 'photo_png')) {
+    try { await db.exec('ALTER TABLE telegram_message_outbox ADD COLUMN photo_png BLOB'); }
+    catch (error: any) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
+  }
 }

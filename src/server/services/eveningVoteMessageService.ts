@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
+import { buildMvpVoteCard } from './mvpCardService.ts';
 
 /**
  * The «MVP вечера» vote as buttons in the bot (owner, 2026-10-05): after an evening is closed every attendee who is
@@ -40,6 +41,8 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
      ORDER BY p.nickname COLLATE NOCASE ASC
   `, [eveningId]);
   if (attendees.length < 2) return 0;
+  // One picture with every candidate's photo goes with each Telegram message; a failed picture means text and buttons only.
+  const card = await buildMvpVoteCard(db, eveningId);
   let queued = 0;
   for (const voter of attendees) {
     if (voted.has(String(voter.id))) continue;
@@ -74,6 +77,7 @@ export async function queueEveningVoteMessages(db: DatabaseWrapper, eveningId: s
       entityId: eveningId,
       text: `${nudge ? '⏰ Ты ещё не проголосовал.\n' : ''}🏆 «${title}»: кто сыграл лучше всех?\nНажми на игрока — это твой голос за «Игрока вечера». Передумал? Нажми на другого, голос заменится. Голосование открыто 3 дня.`,
       telegramReplyMarkup: { inline_keyboard: rows },
+      telegramPhotoPng: card,
     });
     if (result.created) queued += 1;
   }

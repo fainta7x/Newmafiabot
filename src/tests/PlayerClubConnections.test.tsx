@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { clubStoriesFixture } from '../../e2e/club-connection-stories.fixture.ts';
 import PlayerClubConnections from '../components/player/PlayerClubConnections.tsx';
@@ -12,10 +12,10 @@ it('makes club pairs primary, switches the list and opens canonical profiles', a
   setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] }, club_most_played: { red: [{ ...duo, a_name: 'Вера', a_id: 'v' }], black: [] } });
   const club = await screen.findByTestId('club-duos');
   expect(club.parentElement?.firstElementChild).toBe(club);
-  fireEvent.click(within(club).getByRole('button', { name: 'Анна' })); expect(open).toHaveBeenCalledWith('a');
+  fireEvent.click(within(club).getByRole('button', { name: 'Открыть профиль Анна' })); expect(open).toHaveBeenCalledWith('a');
   fireEvent.click(screen.getByRole('button', { name: 'Самые сыгранные' }));
-  expect(within(club).getByRole('button', { name: 'Вера' })).toBeTruthy();
-  expect(within(club).queryByRole('button', { name: 'Анна' })).toBeNull();
+  expect(within(club).getByRole('button', { name: 'Открыть профиль Вера' })).toBeTruthy();
+  expect(within(club).queryByRole('button', { name: 'Открыть профиль Анна' })).toBeNull();
 });
 it('labels single-game pairs as too early to judge and keeps personal lists out of the club view', async () => {
   setup({ teammates: [], club_duos: { red: [], black: [] }, club_first_games: { red: [{ ...duo, games: 1, wins: 1, win_rate: 100 }], black: [] }, rivals: [{ player_id: 'r', nickname: 'Личный соперник', games: 3, wins: 1, win_rate: 33, avatar_url: '' }] });
@@ -41,4 +41,41 @@ it('shows six distinct club stories and switches accessible tabs without losing 
   fireEvent.click(within(stories).getByRole('button', { name: 'Богданчик' }));
   expect(open).toHaveBeenCalledWith('p2');
   expect(within(stories).getByText(/Что здесь считается/)).toBeTruthy();
+});
+
+
+it('shows each duo as two usable profile actions and three explicit game statistics', async () => {
+  setup({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] } });
+  const card = await screen.findByTestId('club-duo-a-b');
+  const actions = within(card).getAllByRole('button');
+  expect(actions).toHaveLength(2);
+  expect(actions.map((action) => action.getAttribute('aria-label'))).toEqual([
+    'Открыть профиль Анна',
+    'Открыть профиль Борис',
+  ]);
+  expect(within(card).getByText('4')).toBeTruthy();
+  expect(within(card).getByText('3')).toBeTruthy();
+  expect(within(card).getByText('75%')).toBeTruthy();
+  expect(within(card).getByText('игр вместе')).toBeTruthy();
+  expect(within(card).getByText('доля побед')).toBeTruthy();
+  fireEvent.click(actions[1]);
+  expect(open).toHaveBeenCalledWith('b');
+});
+
+it('offers a real retry for failed connections while preserving the pairs view', async () => {
+  let requests = 0;
+  const fetchMock = vi.fn(async () => {
+    requests += 1;
+    return requests === 1
+      ? new Response(JSON.stringify({ error: 'Временно недоступно' }), { status: 503 })
+      : new Response(JSON.stringify({ rivals: [], teammates: [], club_duos: { red: [duo], black: [] } }));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  render(<PlayerClubConnections />);
+  const error = await screen.findByTestId('player-connections-error');
+  expect(error.textContent).toContain('Временно недоступно');
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+  await waitFor(() => expect(screen.getByTestId('club-duo-a-b')).toBeTruthy());
+  expect(screen.queryByTestId('player-connections-error')).toBeNull();
+  expect(requests).toBe(2);
 });

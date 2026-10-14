@@ -72,7 +72,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   case '/api/player/profile-completeness': return json({ completeness: { percentage: 100, complete: true, missing_fields: [], important_missing_fields: [], next_missing_field: null, fields: {} } });
   case '/api/player/music-library/player-slots': return json({ slots: [{ slot: 1, entry: null }, { slot: 2, entry: null }] });
   case '/api/player/profile-settings': return json({ player: data.player });
-  case '/api/player/notification-preferences': return json({ preferred_channel: 'auto', personal_enabled: true, available_channels: ['telegram'], effective_channel: 'telegram' });
+  case '/api/player/notification-preferences': return json({ preferred_channel: 'auto', personal_enabled: true, available_channels: ['telegram'], effective_channel: 'telegram', channel_status: { telegram: { linked: true, available: true }, vk: { linked: false, available: false } } });
   case '/api/player/invite-preferences': return json({ blocked_kinds: ['POKER'], allow_direct_contact: false, kinds: [{ kind: 'NOVICE', label: 'Вечера для новичков' }, { kind: 'CASUAL', label: 'Клубные вечера' }, { kind: 'RATING', label: 'Рейтинговые вечера' }, { kind: 'TOURNAMENT', label: 'Турниры' }, { kind: 'POKER', label: 'Покер за столом' }] });
   case '/api/player/voting/pending': return json({ pending: { evening_id: 'past-1', title: 'Вечер клуба', deadline: new Date(Date.now() + 2 * 86400000).toISOString(), voted: false, my_vote_nickname: null, voters: 3, attendees: 10 } });
   case '/api/player/privacy-settings': return json({ visibility: { real_name: false, birthday_day_month: true, birth_year: false, telegram_username: false, phone: false, game_statistics: true, connections: true } });

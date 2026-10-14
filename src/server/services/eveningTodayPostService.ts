@@ -6,7 +6,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 import { telegramBotUsername } from './playerClaimLinkService.ts';
 import { canEditVkWallPosts, createVkWallPost, getVkDestinations } from './vkPublishingService.ts';
-import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk } from './announcementPhotoService.ts';
+import { announcementCoverUrl, pickAnnouncementPhotoId, uploadAnnouncementPhotoToVk, uploadVkWallPhotoBytes } from './announcementPhotoService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 import { loadEveningShortfall } from './eveningShortfallService.ts';
@@ -161,7 +161,7 @@ export async function sendTelegram(db: DatabaseWrapper, evening: any, text: stri
   }
 }
 
-export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown }) {
+export async function sendVk(text: string, photo?: { db: DatabaseWrapper; eveningId: string; format: unknown; image?: { bytes: Buffer; mime: string } }) {
   const groupId = getVkDestinations().find((destination) => destination.key === 'public' && destination.supported)?.groupId;
   if (!groupId) return { status: 'failed', error: 'Группа ВК не настроена', url: null };
   try {
@@ -169,8 +169,12 @@ export async function sendVk(text: string, photo?: { db: DatabaseWrapper; evenin
     let attachments: string[] | undefined;
     if (photo && canEditVkWallPosts()) {
       try {
-        const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
-        if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+        // A picture made for this post (the MVP cards) goes instead of the club photo.
+        if (photo.image) attachments = [await uploadVkWallPhotoBytes(photo.image.bytes, photo.image.mime, groupId)];
+        else {
+          const photoId = await pickAnnouncementPhotoId(photo.db, photo.eveningId, photo.format);
+          if (photoId) attachments = [await uploadAnnouncementPhotoToVk(photo.db, photoId, groupId)];
+        }
       } catch (error) {
         console.warn('[VK TODAY POST] Photo upload failed; the text post goes out:', error instanceof Error ? error.message : String(error));
       }

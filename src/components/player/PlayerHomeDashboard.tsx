@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WhatsNewCard from './WhatsNewCard.tsx';
 import VotePromptCard from './VotePromptCard.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -83,6 +83,8 @@ export default function PlayerHomeDashboard({
   onOpenLearning?: () => void;
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
+  const [eveningsError, setEveningsError] = useState(false);
+  const eveningRequestSeq = useRef(0);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [novice, setNovice] = useState<NoviceState | null>(null);
   const [debt, setDebt] = useState(0);
@@ -112,20 +114,26 @@ export default function PlayerHomeDashboard({
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch('/api/player/evenings', { credentials: 'include' });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) return;
-        if (!cancelled) setEvenings(Array.isArray(body?.evenings) ? body.evenings : []);
-      } catch {
-        if (!cancelled) setEvenings([]);
-      }
-    })();
-    return () => { cancelled = true; };
+  const loadEvenings = useCallback(async () => {
+    const requestId = ++eveningRequestSeq.current;
+    setEvenings(null);
+    setEveningsError(false);
+    try {
+      const response = await fetch('/api/player/evenings', { credentials: 'include' });
+      if (!response.ok) throw new Error('Evenings request failed');
+      const body = await response.json();
+      if (!Array.isArray(body?.evenings)) throw new Error('Invalid evenings response');
+      if (requestId === eveningRequestSeq.current) setEvenings(body.evenings);
+    } catch {
+      // An unavailable schedule is not evidence that the club has no evenings.
+      if (requestId === eveningRequestSeq.current) setEveningsError(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadEvenings();
+    return () => { eveningRequestSeq.current += 1; };
+  }, [loadEvenings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,7 +226,14 @@ export default function PlayerHomeDashboard({
 
         <section data-testid="player-home-next" className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Следующий вечер</div>
-          {evenings === null ? (
+          {eveningsError ? (
+            <div role="alert" data-testid="player-home-evenings-error" className="mt-3 space-y-3 rounded-2xl bg-black/20 px-3 py-4">
+              <p className="text-sm leading-5 text-white/65">Не удалось загрузить расписание вечеров.</p>
+              <button type="button" onClick={() => void loadEvenings()} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.08] px-3 text-sm font-semibold text-white">
+                Повторить
+              </button>
+            </div>
+          ) : evenings === null ? (
             <div className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/50">Загрузка…</div>
           ) : nextEvening ? (
             <div className="mt-3">

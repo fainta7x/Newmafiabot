@@ -1,5 +1,7 @@
 import { ensureGuestPlayerPlaceholderSchema } from '../../db/ensureGuestPlayerPlaceholderSchema.ts';
 import { listBotFaq } from '../services/botFaqService.ts';
+import { appUrl } from '../services/gameResultCardService.ts';
+import { createTelegramLinkRequest } from '../services/telegramLinkRequestService.ts';
 import { decideEveningMvp } from '../services/eveningMvpService.ts';
 import { castEveningVote } from '../services/eveningVotingService.ts';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +14,7 @@ import { RSVP_FOLLOWUP_OPTIONS, ensureEveningRsvpFollowupSchema, rsvpFollowupAt,
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import { redeemPlayerClaimLink } from '../services/playerClaimLinkService.ts';
 import { recordInviteLinkReferral } from '../services/premiumPlayerConnectionsService.ts';
-import { isNicknameClaimable, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
+import { isNicknameClaimable, isNicknameVkOnlyProfile, requestTelegramProfileLinkByNickname } from '../services/playerOnboardingService.ts';
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
@@ -76,7 +78,10 @@ router.post('/players/register', async (req, res) => {
       const claimable = error.code === 'nickname_taken'
         ? await isNicknameClaimable(req.db, req.body?.nickname).catch(() => false)
         : undefined;
-      return res.status(error.status).json({ error: error.message, code: error.code, ...(claimable === undefined ? {} : { claimable }) });
+      const vkOnly = error.code === 'nickname_taken' && claimable === false
+        ? await isNicknameVkOnlyProfile(req.db, req.body?.nickname).catch(() => false)
+        : false;
+      return res.status(error.status).json({ error: error.message, code: error.code, ...(claimable === undefined ? {} : { claimable }), ...(vkOnly ? { vk_only: true } : {}) });
     }
     return res.status(500).json({ error: error?.message || 'Не удалось зарегистрировать игрока' });
   }
@@ -314,6 +319,16 @@ router.post('/evenings/:eveningId/mvp-decision', async (req, res) => {
     return res.json({ success: true, nominee: result.winner.nickname });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить решение' });
+  }
+});
+
+// «Подтвердить через ВК»: a one-time link for the Telegram account that is typing the nickname of a VK-only profile.
+router.post('/telegram-link-request', async (req, res) => {
+  try {
+    const link = await createTelegramLinkRequest(req.db, { telegramUserId: req.body?.telegram_user_id, baseUrl: appUrl('') || `${req.protocol}://${req.get('host') || ''}` });
+    return res.json({ success: true, url: link.url, expires_at: link.expires_at });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось создать ссылку', code: error?.code });
   }
 });
 

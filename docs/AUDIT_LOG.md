@@ -9,6 +9,80 @@
 **Evidence/acceptance:** React regression with out-of-order A/B GET completions; B must remain the sole displayed standings/season details; collapse while loading must not resurrect old data. Empty/error retry is a separate UX issue. Deletion uses `window.confirm` and 36px buttons and the create-season form precedes current standings; assess later after phone screenshots, do not bundle visual redesign into this race fix. No production data read or mutated.
 
 
+## 2026-10-14 · Player Cabinet «Сообщество → Активность → Форма» — actionable and readable club form
+
+**Mounted path:** PlayerCommunityHub(activity=form) → PlayerClubActivity; GET /api/player/pulse returns highlights, current power ranking, viewer ID, per-player games/wins/win rate/streak/rank/score/movement, optional explanation. Current layout is a compressed quasi-table (rank | tiny avatar/name | wins/games | raw score + arrow). Its rows and highlight profiles are **not clickable**, despite canonical player IDs. The owner may be outside the first five and *invisible* before expanding the entire list. The movement label NEW is English, formula is low-contrast text shown only when all rows expanded, and error has no in-place retry.
+
+**Desired hierarchy:** retain five-row preview, full ranked order and exact original numbers. Each player becomes one >=76px touchable card with rank/avatar/name, wins out of games, percent/streak, explicit form score and movement. Keep own standing visible as a separate contextual card **only when outside preview**, without duplication after expanding. Highlights open canonical profiles; technical formula moves into an optional «Как считается форма» disclosure. Error/retry are truthful and guarded against stale results, genuine empty remains distinct.
+
+**Scope:** Only PlayerClubActivity.tsx, focused React tests, and audit/project-state docs. No change to /api/player/pulse, ranking calculations, payouts, consent/privacy or Elo. UI preview at 360/390px before merge. Connections are separate PR #919.
+
+
+## 2026-10-14 · Player Cabinet «Сообщество → Связи» — pair identity and touch targets
+
+**Mounted owner:** `PlayerCabinetShell → PlayerCommunityHub → PlayerClubConnections`, with `ClubConnectionStories` for story segments and `DuoRow` for red/black club duo lists. Pairs already contain two canonical IDs, avatars, names, games, wins and win rate. In `DuoRow`, two separate **32px avatar buttons** repeat two **32px name controls**; on a 360px phone this creates four cramped competing actions that all open the same two profiles. The stats `4 игры вместе · 3 победы · 75%` form one dense line and obscure the meaning of the percentage. The `GET /api/player/relationships` failure shows a dead-end error with no retry.
+
+**Owner-approved treatment:** preserve entire pairs/stories, red-vs-black grouping, selection «По результатам / Самые сыгранные», single-game evidence disclosure, the six story categories, genuine stats and canonical profile routes. Make each person **one** distinct comfortably tappable (>=44px) identity card with avatar/name, name/profile accessible label, and a separate short 3-metric summary `игр вместе / побед / побед` in a restrained dark-surface pair card; no invented rankings, avatars, new API, or fake score. Keep normal club accent colors subtle. Add `Повторить` for GET failure without navigating away, and distinguish real no-pairs states. Regression covers switching lists, separate profile actions, content and error recovery. Keep other Community tabs out of this PR.
+
+**Not in scope:** rule thresholds, backend relationship computation, profile privacy, league tournaments, monetization, ClubConnectionStories information architecture, and the player activity feed (next screen).
+
+
+## 2026-10-14 · Player Cabinet «Сообщество → Игроки клуба» — player identity and native profile cards
+
+**Mounted source:** `PlayerCommunityHub → PlayerClubDirectory` for the Community «Игроки» tab; `GET /api/player/players` supplies the player's nickname, avatar, game_level, Elo and canonical ID, and `openCanonicalPlayerProfile(item.id)` opens details. Present UI uses generic `Card/Badge` and one continuous bordered, divided list with densely compressed `avatar / nickname / level badge / raw Elo` rows. It looks like a CRM directory instead of the club's player space; level can be a more legible secondary caption, while Elo needs an explicit label and a profile-destination affordance. Network errors show an `AsyncState` with no in-place retry; successful search with no matches and actually empty club data have the same generic caption.
+
+**Expected design:** preserve all players and searchable nicknames and the canonical profile navigation. Replace tabular dividers with individual 76px+ dark 2LA Noire player cards, readable avatar/name and level, an unobtrusive Elo stat and an arrow; self card uses same layout with a subtle accent and a plain «Мой профиль» context. Search remains immediately accessible. Differentiate empty club vs no search matches vs loading vs failed GET, offer `Повторить` without losing query. No new membership data, sorting policy or server writers. 360/390px preview and focused tests for card click, search, empty/error/retry.
+
+
+## 2026-10-14 · Player Cabinet «Сообщество → Рейтинг → Elo» — useful mobile ranking, not a compressed table
+
+**Owner approval:** improve the *existing* Player Cabinet screens for native visual comprehension, comfort and a unified 2LA Noire card hierarchy, not only fix errors. Avoid repeating generic row-table layouts; keep original sources, facts, profile navigation and gameplay semantics. This is a presentation improvement, not a new ranking feature.
+
+**Mounted path:** `PlayerCabinetShell → PlayerCommunityHub → PlayerRatingHub → PlayerRatingTable`. `GET /api/rating` provides players with rank/place, name, avatar and Elo. Current design renders every person as a compact uniform 48px pseudo-table row (`place | avatar | nickname | raw Elo`) including the leaders, while own standing appears in an unrelated slim banner. The numeric column has no explanation per row; a long list is visually monotonous, with no distinction between the top 3 and other standings. An API error lacks an in-place retry.
+
+**Desired visual hierarchy:** own position shown as a recognizable compact identity panel; the top three are **distinctive but restrained** feature cards grounded in ranked `place`, with avatar/name, place, Elo and clear profile destination, while everybody else remains in a comfortable vertically stacked *player card list*, not a grid or data table. Accent palette restricted to existing amber/silver/bronze and dark-surface design system; no neon/glow/podium gamification, invented scores or artificial new ranks. Keep current `data-testid=rating-self-card` and `rating-self-row` contracts and exact profile opening function. Shorten labels, make ≥44px mobile touch targets, render truthful loading/empty/error and retry states. All ranked players must remain visible, including ties/absent top ranks.
+
+**Boundaries:** change only `src/components/player/PlayerRatingTable.tsx`, focused React tests and design/queue documentation. No Elo calculation, database, server API, wallet, cosmetics, avatar generator or account changes. Visual inspection at 360/390px in PR preview required before declaring complete.
+
+
+## 2026-10-14 · Player Cabinet, screen 4: «Вечера → Мои игры» club-archive error survives recovery
+
+**Mounted path:** `PlayerCabinetShell → PlayerEveningsHub(games) → PlayerHistoryStatsView`. The player's own games load from canonical PlayerMe and work independently. The secondary disclosure «Все игры клуба» invokes `GET /api/player/games/all` only when expanded. The effect sets `allGamesError` after a failed request, but never clears it before another attempt or after success; the render branch prioritizes `allGamesError` over `allGames`. A transient outage can therefore leave the archive showing the old error after the next successful GET. The error panel contains **no retry control**.
+
+**Expected:** when opening the club archive or pressing `Повторить`, reset the previous error and stale archive state; preserve the main `Мои игры` and selected-game protocol, and show the real empty state only on a successful empty result. Guard against old responses arriving after collapse/unmount or retry. Existing archive read endpoint and all game/protocol/Replay navigation stay unchanged.
+
+**Acceptance:** rendered regression: first GET rejects, error with accessible retry; second GET succeeds, archived game appears, old error disappears; success-empty remains empty. No writes of game data, profile, token or bankroll. CI and 390px preview before merge. Independent from screen 2 (#913) and screen 3 (#914); keep separate PR.
+
+
+## 2026-10-14 · Player Cabinet, screen 3: «Вечера → Прошедшие» dead-end after GET failure
+
+**Mounted path:** `PlayerCabinetShell → PlayerEveningsHub (recaps) → PlayerEveningSummaries(embedded=true)`. `GET /api/player/evening-summaries` failure sets `error`; the returned full-screen error panel offers only `onBack` when supplied, but the mounted embedded caller provides **no `onBack`**, leaving the player with an error message and no in-section retry. Switching tabs away and back is the only implicit recovery. A successful zero-summaries response correctly renders «Итогов пока нет» and must stay distinct from request failure.
+
+**Expected:** render a clearly labelled min-44px `Повторить` action in both embedded and standalone error states; refetch the same GET and, on success, restore the selected evening/results without leaving the tab or altering URLs. Preserve optional back action if present. Use a request generation to prevent older responses from obscuring newer retries; keep all scores, awards, game links and backend schemas intact.
+
+**Verification:** rendered React tests for HTTP failure→success and genuine empty state in embedded mode; CI plus 390px preview required. Other player work in separate PR #913 covers the `Скоро` calendar, do not blend component changes.
+
+
+## 2026-10-14 · Player Cabinet, screen 2: «Вечера → Скоро» stale calendar month and retry
+
+**Mounted source:** `PlayerCabinetShell → PlayerEveningsHub → PlayerEventsCalendar`, `src/components/player/PlayerEventsCalendar.tsx`. Month switch changes `monthKey` and invokes `load()`, but no cleanup, request ID or abort guard exists. A slow previous-month `GET /api/player/calendar?month=...` can complete after the latest GET and **replace current-month `events`, `noviceState` or the error flag**. The month title and list then disagree; the calendar's filters/nearest/highlight operate on false data. A network/API failure renders an error notice without an actionable retry; changing month is the only incidental retry.
+
+**Acceptance (read-only):** Ignore stale successes/errors/fallback onboarding fetches after switching months and after unmount; list, nearest card, filters and error state must reflect only the latest selected month. A visible `Повторить` loads the current month in-place while preserving the list/calendar selector. Keep deep link and onboarding writer behavior untouched; no change to event types, availability, slot capacity or RSVP rules. Rendered tests must resolve month B before A and verify B remains, and exercise failed GET→retry.
+
+**Scope:** `PlayerEventsCalendar.tsx` and focused React tests only, 360/390px UI preview before merge; no production changes claimed. First Player Home screen's separate PR #912 owns `PlayerHomeDashboard.tsx` and priority queue docs; rebase over it after merge without losing the Player Cabinet focus.
+
+
+## 2026-10-14 · Player Cabinet, screen 1: «Главная» next-evening request can misreport failure as no events
+
+**Priority change:** Organizer CRM audit moves to the parked queue in `docs/PROJECT_STATE.md` at owner's request; the Player Cabinet is the active screen-by-screen usability/quality program. Keep CRM fixes already merged and PR #910 (unmerged/red CI) recorded rather than silently discarded.
+
+**Real mounted path:** `PlayerCabinetShell → PlayerHomeDashboard`, with the `player-home-next` card and `onOpenEvents(nextEvening.id)` link. On mount `GET /api/player/evenings` feeds the next-evening card. State `evenings === null` displays «Загрузка…». If GET returns non-2xx, the hook returns without updating `evenings`: this card shows «Загрузка…» **forever**. If `fetch` throws (offline/network), code sets `evenings=[]`, producing «Ближайших игровых вечеров пока нет» although no valid result arrived. On a successful empty array, the true empty state must remain unchanged.
+
+**Expected/acceptance:** Keep an explicit `loading|ready|error` state for this read. On failure show a factual «Не удалось загрузить вечера» with a 44px+ «Повторить» action; retry the same endpoint without leaving the home screen. On successful empty response keep the original empty copy; successful nonempty response keeps exact existing next-evening order and navigation. Ensure only the latest request can update the card (avoid a late old response overriding a retry); no new API or registration/RSVP writes.
+
+**Boundary:** only `src/components/player/PlayerHomeDashboard.tsx` and targeted rendered tests for this card. No redesign before 390px preview. Player/organizer separation remains in `docs/PROJECT_STATE.md`.
+
+
 ## 2026-10-14 · Screen 7: CRM player card hides pending task when next evening exists
 
 **Mounted evidence:** `OrganizerCRM → PlayersHubCRM → PlayersActivityCRM → PlayersCRM`, `src/components/crm/PlayersCRM.tsx` quick context directly before contact/task/communication actions. The component derives both `bookingEvening` (from the player's next available booking) and `nextTask` (from the player-detail response), but renders them using an exclusive `bookingEvening && booking ? ... : nextTask ? ... : null` conditional. When both facts exist, the visible card **silently hides the actual pending follow-up task**, even though it appears among the player's deeper task/history records.

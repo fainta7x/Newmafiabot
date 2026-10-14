@@ -14,18 +14,18 @@ const exit = (seat:number,value='killed'):Partial<LiveGameEvent> => ({kind:'exit
 describe('approved action metrics', () => {
   it.each([[4,3],[3,2],[3,1],[2,1],[4,2]])('critical red=%i black=%i', (r,b) => expect(isCriticalCircle(r,b)).toBe(true));
   it.each([[7,3],[4,0],[1,1],[5,1]])('not critical red=%i black=%i',(r,b) => expect(isCriticalCircle(r,b)).toBe(false));
-  it('excludes zero circle, raise and leave even with zero raised hands; keeps only final revote', () => {
+  it('excludes zero and multi-exit circles, but counts both vote phases before a single exit', () => {
     const zero = make([vote(1,3),result(),exit(3,'voted_zero_round')]); zero.events.forEach(e => e.round=1);
     const leave = make([vote(1,3),result('1:tie_revote'),vote(1,2,2),{kind:'voting_stage',value:'table_decision'},result('2:no_elimination')]);
     const raise = make([vote(1,3),result('1:all_tied_eliminated'),exit(3,'voted_day')]);
     const revote = make([vote(1,3),result('1:tie_revote'),vote(1,2,2),result('2:single_eliminated'),exit(2,'voted_day')]);
     [zero,leave,raise,revote].forEach((g,i) => g.id=`g${i}`);
-    expect(playerActionMetrics([zero,leave,raise,revote], 'p1').votes.red).toEqual({red:0,black:1,sheriff:0,unknown:0});
+    expect(playerActionMetrics([zero,leave,raise,revote], 'p1').votes.red).toEqual({red:1,black:1,sheriff:1,unknown:0});
   });
-  it('recognizes a table decision recorded only in the authoritative zero-hand protocol', () => {
+  it('does not discard a targeting ballot solely because the protocol includes table-leave choices', () => {
     const g = make([vote(1,3),result(),exit(3,'voted_day')]);
     g.votingRounds=[{round_number:1,day_number:1,nominated_seats:[2,3],vote_counts:{2:2,3:2},table_leave_votes:0}];
-    expect(gameActionFacts(g).votings).toHaveLength(0);
+    expect(gameActionFacts(g).votings).toHaveLength(1);
   });
   it('uses composition before elimination; sheriff is a subset of red; black actions separate', () => {
     const g = make([exit(4),exit(6),exit(7),exit(9),exit(10),exit(8),exit(5),vote(1,3),vote(2,1),result(),exit(3,'voted_day')]);

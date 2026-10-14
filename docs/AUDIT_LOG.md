@@ -1,5 +1,20 @@
 # Audit log
 
+## 2026-10-14 · Screen audit: organizer CRM «Ещё» menu (navigation and hierarchy)
+
+**Mounted owner:** `src/components/crm/MoreCRM.tsx` within `src/components/OrganizerCRM.tsx`; routing in `organizerRouting.ts`. Source reviewed against `docs/DESIGN_SYSTEM.md` (mobile CRM, actions first, rare controls secondary). No production screenshots or phone runtime checked during source audit.
+
+- **P1 — publication tools mixed with conducting actions (confirmed in source):** «Каждый день» simultaneously held «Дела», «Музыкальная база», «Что нового», «Ответы бота» and «Публикации и каналы». Separate «Проведение и дела» and «Сообщения и публикации» with existing IDs/handlers preserved; no new API or content writer.
+- **P1 — novice guide hidden in maintenance (confirmed):** `guide` was under the collapsed «Служебное» despite being an ordinary player/novice support action. Move the existing `/guide` action into «Игроки и обучение»; rename from «Ссылка-памятка» to «Памятка для новичка» since the button opens the page rather than copying a link. Preserve the existing public page and URL.
+- **P2 — essential descriptions always cut after one line (confirmed):** `MenuRow` had `line-clamp-1`, hiding meaning of longer entries at mobile width. Allow at most two lines with a 64px minimum hit area, preserving hierarchy. Mobile screenshot review remains required.
+- **P2 — maintenance via direct deep link returns collapsed (confirmed by state initialization):** `adminOpen=false` even when the initial `activeScreen` is an admin-only deep link. Initialize disclosure open for those screens so Back exposes the section the organizer arrived from.
+- **P2 — noisy semantic colors and eager imports (deferred):** `menuTone` gives unrelated menu categories sky, green, amber and violet tones without status meaning, and many nested screens are statically imported. Evaluate neutral icon language and lazy-loading separately with bundle measurements and real 390px screenshots; not bundled into a classification change.
+- **P2 — secondary subpage / scrolling (deferred):** `OrganizerCRM` forces scroll to top on submenu entry and exit. Returning from a low menu item risks losing place; needs a focused mounted-shell mobile navigation test and preservation of Back history before altering the parent.
+- **Out of scope:** payment/Robokassa, skin editor, VIP, loot boxes and monetization. Existing related destinations are retained with no behavioural edits.
+
+**Checks:** new rendered menu navigation regression in `src/tests/MoreCRMNavigationUX.test.tsx`; full PR CI and UI preview for the exact SHA pending. This is a menu-structure pass, not a claim of live/mobile approval.
+
+
 ## 2026-10-12 · Game page in the player app (owner: «ужасная страница, непонятная, не красивая, не информативная») — FIXED (rework)
 
 Before: `PlayerGameDetail.tsx` was a flat stack — «Итог игры» (winner + loose chips), «Как проходила игра» (votings and nights as separate lists, outcomes as raw words such as «eliminated»/«night»), «Игроки и баллы» (ten tall cards with every score part, fouls and Elo notes open at once). The viewer's own result was only a «вы» mark inside the list. After: result hero, «Ваша игра», «Главное в игре», rosters by team with collapsed details, one ordered story of the game with vote bars and plain results, judge's note. Checked at 360/390 px in a browser (no horizontal overflow, rows ≥ 44 px, screenshot reviewed). Not changed: data, API, scoring. Open: the replay screen and the Telegram result posts are separate surfaces and were not touched.

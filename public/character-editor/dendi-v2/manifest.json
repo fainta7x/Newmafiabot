@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "status": "draft-test-only",
+  "canvas": [
+    512,
+    640
+  ],
+  "identitySource": "public/player-avatars/dendi.jpg",
+  "base": "base-v2.png",
+  "slots": {
+    "portrait_shirt": [
+      "shirt-v2.png"
+    ],
+    "portrait_jacket": [
+      "jacket-burgundy-v2.png",
+      "jacket-black-v2.png"
+    ],
+    "portrait_hat": [
+      "hat-v2.png"
+    ]
+  },
+  "sources": [
+    {
+      "file": "shirt-v2.png",
+      "sourceSHA256": "97271453a83ea9e895f42906262eb9eb4fc2ff039acff2eb7c6e891cf7a7da01",
+      "exportTransform": {
+        "width": 480,
+        "height": 640,
+        "left": 16,
+        "top": 18
+      }
+    },
+    {
+      "file": "jacket-burgundy-v2.png",
+      "sourceSHA256": "806512b51d3facb4b7a19dd299039563d4e8ebce1e628053131d97dc4c3022bf",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "left": 0,
+        "top": 94
+      }
+    },
+    {
+      "file": "jacket-black-v2.png",
+      "sourceSHA256": "1e5590d5c536a7647227aeaf6460db6f00b0e7f19a2f445f292223f11609a16e",
+      "exportTransform": {
+        "width": 512,
+        "height": 640,
+        "left": 0,
+        "top": 94
+      }
+    },
+    {
+      "file": "hat-v2.png",
+      "sourceSHA256": "f6d564c7df1388bacc7f545fea3e383acfd98c137cf06ed5f7b65fb814217912",
+      "exportTransform": {
+        "width": 384,
+        "height": 480,
+        "left": 64,
+        "top": -25
+      }
+    },
+    {
+      "file": "base-v2.png",
+      "sourceSHA256": "5ce4cba6523c47b755b323d70f44d380700a64fd1ecccaf02a2ee2c9f3b28848",
+      "exportTransform": {
+        "width": 369,
+        "height": 461,
+        "left": 72,
+        "top": 38
+      }
+    }
+  ]
+}

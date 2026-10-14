@@ -1,5 +1,11 @@
 # Audit log
 
+## 2026-10-14 · PR #891 character editor — CORRECTED IN BRANCH, browser/CI pending
+
+Reproduction: open the wardrobe lab, equip/remove the jacket. Expected: one unchanged face and a clean, independently removable garment. Actual: `lab-portrait.svg` embeds the whole original JPG costume; the garment under the opaque image cannot replace it. `CosmeticsLab.tsx` also advertises the rejected vector rig as the next working editor. `prepareDendiPremiumArt.py` correctly excludes new jackets because their sleeves do not match the portrait's raised/crossed hands, but its PNG output is not consumed by the React editor. The screenshot's premium portrait is a separate offline page, not proof of integration.
+
+Acceptance: use the existing `PlayerRoleLooksEditor`/`RolePortrait` with a fixed transparent face/hair base and compatible full-canvas garment layers; removing/replacing garments must preserve face pixels, independent role saves and frozen game previews. Inspect 360/390 px composition. No production catalog grants or automatic art approval. Correction: separate fixed transparent PNG base and garment layers consumed by the real editor; generic multi-slot persistence now survives reload and frozen previews. An initial shirt had an open-neck gap and escaped the blazer silhouette; corrected the shirt from the aligned blazer reference. Small lower-sleeve fit differences still need owner art review. Universal body templates and front/back hair remain separate planned architecture, not proven by this single fixture.
+
 ## 2026-10-13 · Role editor select labels — FOUND in UI preview
 
 Three role-editor browser checks timed out selecting «Фон»: the implicit wrapping label included option text. Fix the accessible names explicitly for background/hat/jacket; keep the exact-name acceptance check. Earlier UI run 38375959838 had 85 passed and these three failures.

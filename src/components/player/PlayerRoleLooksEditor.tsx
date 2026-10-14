@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { LOOK_ROLES, LOOK_ROLE_LABELS, PORTRAIT_EQUIPMENT_SLOTS, PORTRAIT_SLOT_LABELS, roleEquippedItems, plainPhrase, type LookRole, type PortraitEquipmentSlot, type RoleLook, type RoleLooksResponse, type WardrobeSet } from '../../lib/roleLooks.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
@@ -6,6 +6,8 @@ import RolePortrait from './RolePortrait.tsx';
 import WardrobeSetGallery, { tryOnOwnedSet } from './WardrobeSetGallery.tsx';
 import CosmeticSetStudio from './CosmeticSetStudio.tsx';
 import './roleLooks.css';
+
+const CosmeticsLab = lazy(()=>import('./CosmeticsLab.tsx'));
 
 const backgroundLabels = { noir: 'Нуар', autumn: 'Огненная осень', burgundy: 'Багряный' } as const;
 const errorText = (error: unknown) => {
@@ -18,6 +20,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
   const [previewMode,setPreviewMode]=useState<'all'|'hat'|'jacket'>('all');
   const [showGuides,setShowGuides]=useState(false);
   const [showComparison,setShowComparison]=useState(false);
+  const [showPilot,setShowPilot]=useState(false);
   const [state,setState]=useState<RoleLooksResponse|null>(null), [drafts,setDrafts]=useState<RoleLook[]>([]);
   const [error,setError]=useState(''), [notice,setNotice]=useState(''), [saving,setSaving]=useState(false), [reload,setReload]=useState(0);
   const loadedKey=useRef('');
@@ -117,7 +120,7 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
                 <span className="role-looks-item-empty" aria-hidden="true">∅</span><span>Без предмета</span>
               </button>
               {items.map(item=><button type="button" className="role-looks-item" key={item.itemId} aria-pressed={roleEquippedItems(look)[slot]===item.itemId} onClick={()=>updateSlot(slot,item.itemId)} title={item.name}>
-                <span className="role-looks-item-thumb"><img src={item.url} alt="" loading="lazy"/></span>
+                <span className={`role-looks-item-thumb role-looks-thumb-${slot}`}><img src={item.url} alt="" loading="lazy"/></span>
                 <span>{item.name}</span><small>{item.rarity}</small>
               </button>)}
             </div>
@@ -130,6 +133,11 @@ export default function PlayerRoleLooksEditor({ playerId, nickname, initialOpen=
         {state.portraitVersion&&!state.layers.length&&<p className="role-looks-explanation">Основа подготовлена. Доступной одежды пока нет — здесь появятся полученные предметы выпущенной коллекции.</p>}
         <button type="button" className="role-looks-save" disabled={!dirty||saving} onClick={()=>void save()}>{saving?'Сохраняем…':`Сохранить: ${LOOK_ROLE_LABELS[role]}`}</button>
         {state.canApprovePortrait&&<CosmeticSetStudio portraitUrl={baseUrl}/>}
+        {state.canApprovePortrait&&<details className="role-looks-pilot" onToggle={e=>setShowPilot(e.currentTarget.open)}>
+          <summary>Примерка на Денди<span>Рубашка, два пиджака и шляпа</span></summary>
+          <p className="role-looks-explanation">Проверьте посадку и четыре образа. Примерка сохраняется отдельно в этом браузере.</p>
+          {showPilot&&<Suspense fallback={<p role="status">Открываем примерку…</p>}><CosmeticsLab/></Suspense>}
+        </details>}
         {state.canApprovePortrait&&<details className="role-looks-preparation"><summary>Подготовка основы · для владельца</summary><p className="role-looks-explanation">Загрузите подготовленный прозрачный PNG 512×640: лицо и волосы без надписей и верхней одежды. Лицо — по центру, подбородок около y=340; шляпа занимает верх до y=180, пиджак начинается с y=350. Проверьте узнаваемость и посадку слоёв до выпуска предметов.</p><label>Основа портрета<input type="file" accept="image/png" disabled={saving} onChange={e=>{setPortraitFile(e.target.files?.[0]||null);setIdentityConfirmed(false);}}/></label><label className="role-looks-confirm"><input type="checkbox" checked={identityConfirmed} disabled={saving} onChange={e=>setIdentityConfirmed(e.target.checked)}/>Подтверждаю: это узнаваемый портрет этого игрока</label><button type="button" disabled={!portraitFile||!identityConfirmed||saving} onClick={()=>void approve()}>Подтвердить основу</button></details>}
       </>}
       {notice&&<p role="status">{notice}</p>}

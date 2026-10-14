@@ -92,6 +92,10 @@ for (const width of [360, 390, 1440]) {
     await editor.getByRole('button', { name: 'Дон', exact: true }).click();
     await expect(editor.getByLabel('Фраза', { exact: true })).toHaveValue('Новая фраза');
     await expect(editor.getByRole('button', { name: /Багряный пиджак/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(editor.getByRole('button', { name: /Белая рубашка/ })).toHaveAttribute('aria-pressed', 'true');
+    await editor.getByRole('button', { name: /Чёрный пиджак/ }).click();
+    await expect(editor.getByTestId('role-look-preview').getByAltText('Пиджак')).toHaveAttribute('src', /jacket-black-v2/);
+    await expect(editor.getByTestId('role-look-preview').getByAltText('Портрет игрока')).toHaveAttribute('src', /base-v2/);
   });
 }
 
@@ -104,8 +108,8 @@ for (const width of [360, 390, 1440]) {
     await expect(workshop.getByRole('group',{name:'Черновики сетов'}).getByRole('button')).toHaveCount(5);
     await expect(workshop.getByRole('button',{name:/Сет 1/})).toContainText('Обычный');
     await expect(workshop.getByRole('button',{name:/Сет 5/})).toContainText('Легендарный');
-    await workshop.getByRole('button',{name:/Медный лист · эскиз/}).click();
-    await workshop.getByRole('button',{name:/Багряный пиджак · эскиз/}).click();
+    await workshop.getByRole('button',{name:/Медный лист · примерка/}).click();
+    await workshop.getByRole('button',{name:/Багряный пиджак · примерка/}).click();
     await expect(workshop.getByAltText('Пиджак')).toBeVisible();
     await expect(workshop.getByAltText('Головной убор')).toBeVisible();
     await workshop.getByRole('button',{name:'Сохранить состав черновика'}).click();
@@ -117,7 +121,7 @@ for (const width of [360, 390, 1440]) {
     await page.reload();
     const restored=page.locator('.cosmetic-set-studio');
     await expect(restored.getByRole('button',{name:/Сет 1/})).toContainText('2 шт.');
-    await expect(restored.getByRole('button',{name:/Медный лист · эскиз/})).toHaveAttribute('aria-pressed','true');
-    await expect(restored.getByRole('button',{name:/Багряный пиджак · эскиз/})).toHaveAttribute('aria-pressed','true');
+    await expect(restored.getByRole('button',{name:/Медный лист · примерка/})).toHaveAttribute('aria-pressed','true');
+    await expect(restored.getByRole('button',{name:/Багряный пиджак · примерка/})).toHaveAttribute('aria-pressed','true');
   });
 }

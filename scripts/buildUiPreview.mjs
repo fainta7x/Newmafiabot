@@ -62,6 +62,7 @@ await build({
 // checkpoints and other runtime files out of the isolated preview artifact.
 await cp(path.join(root, 'public/assets/poker'), path.join(output, 'assets/poker'), { recursive: true });
 await cp(path.join(root, 'public/cosmetics'), path.join(output, 'cosmetics'), { recursive: true });
+await cp(path.join(root, 'public/character-editor/dendi-v2'), path.join(output, 'character-editor/dendi-v2'), { recursive: true });
 // SVG images cannot fetch external faces when rendered through <img>; embed only this checked-in lab fixture.
 const labFace = (await readFile(path.join(root, 'public/player-avatars/dendi.jpg'))).toString('base64');
 const labPortrait = (await readFile(path.join(root, 'public/cosmetics/lab-portrait.svg'), 'utf8')).replace('/player-avatars/dendi.jpg', `data:image/jpeg;base64,${labFace}`);

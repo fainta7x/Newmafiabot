@@ -32,15 +32,16 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
       <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Лучший результат</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.best_streak || '—'}</div><div className="text-[11px] text-white/50">рекорд серии</div></div>
     </section>
 
-    {season ? <section data-testid="profile-season" className="rounded-2xl border border-sky-200/10 bg-sky-200/[0.035] p-4">
+    {season ? <section data-testid="profile-season" className="overflow-hidden rounded-[24px] border border-sky-200/10 bg-gradient-to-br from-sky-200/[0.075] via-[#111820] to-[#111216] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/50">Текущий рейтинговый сезон</div>
           <div className="mt-1 truncate text-lg font-semibold">{season.label}</div>
-          <div className="mt-1 text-xs text-white/45">{season.games ? `${season.wins} побед из ${season.games} · ${season.win_rate}%` : 'В этом сезоне игр пока нет'}</div>
+          <div className="mt-1 text-xs text-white/55">{season.games ? `${season.wins} побед из ${season.games} · ${season.win_rate}%` : 'В этом рейтинговом сезоне игр пока нет'}</div>
         </div>
         {season.place ? <div className="shrink-0 rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-semibold">#{season.place}</div><div className="text-[11px] text-white/40">из {season.total_players}</div></div> : null}
       </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`Победы в рейтинговом сезоне: ${season.win_rate}%`}><div className="h-full rounded-full bg-sky-300/80" style={{width: `${Math.min(100, Math.max(0, season.games ? season.win_rate : 0))}%`}} /></div>
     </section> : null}
 
     {stats.red && stats.black ? <section aria-label="Красные и чёрные" className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3">
@@ -48,7 +49,7 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
       <div className="grid grid-cols-2 gap-2">
         {([
           { label: 'За красных', stat: stats.red, color: 'bg-rose-300', border: 'border-rose-200/10' },
-          { label: 'За чёрных', stat: stats.black, color: 'bg-white/70', border: 'border-white/10' },
+          { label: 'За чёрных', stat: stats.black, color: 'bg-violet-300', border: 'border-violet-200/10' },
         ]).map(({ label, stat, color, border }) => (
           <div key={label} className={`min-w-0 rounded-2xl border ${border} bg-black/15 p-3`}>
             <div className="text-[11px] text-white/55">{label}</div>

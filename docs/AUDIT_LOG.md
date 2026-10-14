@@ -1,5 +1,14 @@
 # Audit log
 
+## 2026-10-14 · Player Cabinet «Сообщество → Связи» — pair identity and touch targets
+
+**Mounted owner:** `PlayerCabinetShell → PlayerCommunityHub → PlayerClubConnections`, with `ClubConnectionStories` for story segments and `DuoRow` for red/black club duo lists. Pairs already contain two canonical IDs, avatars, names, games, wins and win rate. In `DuoRow`, two separate **32px avatar buttons** repeat two **32px name controls**; on a 360px phone this creates four cramped competing actions that all open the same two profiles. The stats `4 игры вместе · 3 победы · 75%` form one dense line and obscure the meaning of the percentage. The `GET /api/player/relationships` failure shows a dead-end error with no retry.
+
+**Owner-approved treatment:** preserve entire pairs/stories, red-vs-black grouping, selection «По результатам / Самые сыгранные», single-game evidence disclosure, the six story categories, genuine stats and canonical profile routes. Make each person **one** distinct comfortably tappable (>=44px) identity card with avatar/name, name/profile accessible label, and a separate short 3-metric summary `игр вместе / побед / побед` in a restrained dark-surface pair card; no invented rankings, avatars, new API, or fake score. Keep normal club accent colors subtle. Add `Повторить` for GET failure without navigating away, and distinguish real no-pairs states. Regression covers switching lists, separate profile actions, content and error recovery. Keep other Community tabs out of this PR.
+
+**Not in scope:** rule thresholds, backend relationship computation, profile privacy, league tournaments, monetization, ClubConnectionStories information architecture, and the player activity feed (next screen).
+
+
 ## 2026-10-14 · Player Cabinet «Сообщество → Игроки клуба» — player identity and native profile cards
 
 **Mounted source:** `PlayerCommunityHub → PlayerClubDirectory` for the Community «Игроки» tab; `GET /api/player/players` supplies the player's nickname, avatar, game_level, Elo and canonical ID, and `openCanonicalPlayerProfile(item.id)` opens details. Present UI uses generic `Card/Badge` and one continuous bordered, divided list with densely compressed `avatar / nickname / level badge / raw Elo` rows. It looks like a CRM directory instead of the club's player space; level can be a more legible secondary caption, while Elo needs an explicit label and a profile-destination affordance. Network errors show an `AsyncState` with no in-place retry; successful search with no matches and actually empty club data have the same generic caption.

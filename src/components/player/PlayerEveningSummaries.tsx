@@ -1,6 +1,7 @@
 import { countGames } from '../../lib/russianPlural';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { WinOrbit } from './PlayerVisualScenes.tsx';
 
 type Award = {
   category: string;
@@ -55,11 +56,13 @@ export default function PlayerEveningSummaries({
   onBack,
   initialEveningId,
   onOpenGame,
+  onEveningChange,
   embedded = false,
 }: {
   onBack?: () => void;
   initialEveningId?: string | null;
   onOpenGame?: (gameId: string, eveningId: string) => void;
+  onEveningChange?: (eveningId: string) => void;
   embedded?: boolean;
 }) {
   const [summaries, setSummaries] = useState<Summary[] | null>(null);
@@ -105,19 +108,59 @@ export default function PlayerEveningSummaries({
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">{onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}<div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-100/40">История вечеров</div><h1 className="mt-1 text-2xl font-semibold">После финального стола</h1><p className="mt-1 text-xs leading-5 text-white/40">Счёт вечера, форма, Elo и клубные номинации — в одном финальном экране.</p></div></div>}
 
         {!summaries?.length ? <div className="rounded-3xl border border-white/[0.06] bg-white/[0.03] p-8 text-center"><div className="text-3xl">🎭</div><div className="mt-2 text-sm font-semibold">Итогов пока нет</div><p className="mt-1 text-xs text-white/30">Итоги появятся здесь после вечера, в котором было участие.</p></div> : <>
-          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => setSelectedId(summary.id)} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
+          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => { setSelectedId(summary.id); onEveningChange?.(summary.id); }} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
 
           {selected && <>
-            <section className="overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-violet-300/[0.08] via-white/[0.035] to-rose-300/[0.04] p-5 text-center">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/30">{dateText(selected.starts_at)}{selected.venue ? ` · ${selected.venue}` : ''}</div>
-              <h2 className="mt-2 text-xl font-black">{selected.title}</h2>
-              <div className="mt-5 flex items-end justify-center gap-5"><div><div className="text-[11px] text-rose-200/45">КРАСНЫЕ</div><div className="mt-1 text-5xl font-black text-rose-200">{selected.red_wins}</div></div><div className="pb-2 text-xl font-black text-white/20">:</div><div><div className="text-[11px] text-white/35">ЧЁРНЫЕ</div><div className="mt-1 text-5xl font-black">{selected.black_wins}</div></div></div>
-              <div className="mt-3 text-[11px] text-white/50">{countGames(selected.games)} завершено</div><div className="mx-auto mt-4 flex h-2 max-w-md overflow-hidden rounded-full bg-white/10" role="img" aria-label={`Победы команд: красные ${selected.red_wins}, чёрные ${selected.black_wins}`}><div className="h-full bg-rose-300" style={{width: `${selected.games ? selected.red_wins / selected.games * 100 : 0}%`}}/><div className="h-full bg-violet-300" style={{width: `${selected.games ? selected.black_wins / selected.games * 100 : 0}%`}}/></div>
+            <section data-testid="evening-result-art" className="relative overflow-hidden rounded-[32px] border border-amber-200/15 bg-[#111015] p-4 shadow-[0_22px_75px_rgba(0,0,0,.38)] sm:p-6">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[280px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(217,178,116,.17),transparent_70%)]"/>
+              <div aria-hidden="true" className="pointer-events-none absolute -right-8 top-0 text-[170px] leading-none text-amber-100/[.055]">♛</div>
+              <div className="relative">
+                <div className="text-[10px] font-semibold uppercase tracking-[.22em] text-amber-200/60">2LA NOIRE · Хроника вечера</div>
+                <div className="mt-2 text-xs text-white/55">{dateText(selected.starts_at)}{selected.venue ? ' · ' + selected.venue : ''}</div>
+                <h2 className="mt-1 max-w-2xl text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">{selected.title}</h2>
+                <div className="mt-6 grid items-center gap-4 md:grid-cols-[1fr_180px_1fr]">
+                  <div className="relative overflow-hidden rounded-[24px] border border-rose-200/15 bg-gradient-to-br from-[#492733] to-[#20161c] px-4 py-5 text-center">
+                    <div aria-hidden="true" className="absolute -right-2 top-0 text-[90px] leading-none text-white/[.06]">◆</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-rose-200/65">КРАСНЫЕ</div>
+                    <div className="mt-3 text-[64px] font-semibold tabular-nums leading-none text-rose-100">{selected.red_wins}</div>
+                    <div className="mt-3 text-[11px] text-rose-100/55">побед за вечер</div>
+                  </div>
+                  <div className="relative flex flex-col items-center justify-center">
+                    <svg aria-hidden="true" viewBox="0 0 180 85" className="w-full max-w-[180px]"><path d="M4 43 Q90 -8 176 43 Q90 94 4 43" stroke="#e8d2a2" strokeOpacity=".22" fill="none"/><path d="M18 43 H73 M107 43 H162" stroke="#e8d2a2" strokeOpacity=".4" strokeDasharray="3 5"/><text x="90" y="52" textAnchor="middle" fill="#d8bd7f" fontSize="25" fontWeight="600">VS</text></svg>
+                    <div className="text-center text-[11px] text-white/50">{countGames(selected.games)} завершено</div>
+                  </div>
+                  <div className="relative overflow-hidden rounded-[24px] border border-violet-200/15 bg-gradient-to-br from-[#322741] to-[#17141f] px-4 py-5 text-center">
+                    <div aria-hidden="true" className="absolute -right-2 top-0 text-[90px] leading-none text-white/[.06]">♠</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-violet-200/65">ЧЁРНЫЕ</div>
+                    <div className="mt-3 text-[64px] font-semibold tabular-nums leading-none text-violet-100">{selected.black_wins}</div>
+                    <div className="mt-3 text-[11px] text-violet-100/55">побед за вечер</div>
+                  </div>
+                </div>
+                <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-white/10" role="img" aria-label={'Победы команд: красные ' + selected.red_wins + ', чёрные ' + selected.black_wins}>
+                  <span className="bg-gradient-to-r from-rose-500 to-rose-200" style={{width: (selected.games ? selected.red_wins / selected.games * 100 : 0) + '%'}}/>
+                  <span className="bg-gradient-to-r from-violet-200 to-violet-500" style={{width: (selected.games ? selected.black_wins / selected.games * 100 : 0) + '%'}}/>
+                </div>
+              </div>
             </section>
 
-            <section aria-label="Личные результаты за вечер" className="grid grid-cols-3 gap-2 text-center"><div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3"><div className="text-xl font-black">{selected.player.games}</div><div className="mt-1 text-[11px] text-white/25">игр</div></div><div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3"><div className="text-xl font-black">{selected.player.win_rate}%</div><div className="mt-1 text-[11px] text-white/25">побед</div></div><div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3"><div className={`text-xl font-black ${selected.player.elo_delta > 0 ? 'text-emerald-300' : selected.player.elo_delta < 0 ? 'text-rose-300' : 'text-white/55'}`}>{signed(selected.player.elo_delta)}</div><div className="mt-1 text-[11px] text-white/25">Elo</div></div></section>
-
-            {selected.player.elo_before != null && selected.player.elo_after != null && <section className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.03] px-4 py-3"><div className="flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-[0.14em] text-amber-100/35">Рейтинг за вечер</div><div className="mt-1 text-sm font-semibold">{Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</div></div><div className={`text-xl font-black ${selected.player.elo_delta > 0 ? 'text-emerald-300' : selected.player.elo_delta < 0 ? 'text-rose-300' : 'text-white/45'}`}>{signed(selected.player.elo_delta)}</div></div></section>}
+            <section aria-label="Личные результаты за вечер" className="grid gap-3 overflow-hidden rounded-[28px] border border-sky-200/10 bg-gradient-to-br from-[#1b2525] via-[#14191c] to-[#101116] p-4 sm:grid-cols-[160px_1fr] sm:p-5">
+              <div className="flex items-center justify-center">
+                <WinOrbit percent={selected.player.win_rate} value={selected.player.win_rate + '%'} caption="ваших побед" tone="emerald"/>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[.17em] text-sky-200/60">Личный итог</div>
+                <h3 className="mt-1 text-lg font-semibold text-white">Ваш вечер за столом</h3>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-black/25 p-2"><div className="text-xl font-semibold tabular-nums">{selected.player.games}</div><div className="mt-1 text-[10px] text-white/45">игр</div></div>
+                  <div className="rounded-xl bg-black/25 p-2"><div className="text-xl font-semibold tabular-nums text-emerald-200">{selected.player.wins}</div><div className="mt-1 text-[10px] text-white/45">побед</div></div>
+                  <div className="rounded-xl bg-black/25 p-2"><div className={'text-xl font-semibold tabular-nums ' + (selected.player.elo_delta > 0 ? 'text-emerald-200' : selected.player.elo_delta < 0 ? 'text-rose-200' : 'text-white/70')}>{signed(selected.player.elo_delta)}</div><div className="mt-1 text-[10px] text-white/45">Elo</div></div>
+                </div>
+                {selected.player.elo_before != null && selected.player.elo_after != null && <div className="mt-3 border-t border-white/10 pt-3">
+                  <div className="flex justify-between text-[11px] text-white/55"><span>Рейтинг за вечер</span><span className="tabular-nums">{Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</span></div>
+                  <div aria-hidden="true" className="mt-2 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-sky-300"/><span className="h-px flex-1 bg-gradient-to-r from-sky-300/60 to-emerald-300/60"/><span className="h-2 w-2 rounded-full bg-emerald-300"/></div>
+                </div>}
+              </div>
+            </section>
 
             {selected.facts.length > 0 && <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">Что запомнить</div><div className="mt-3 space-y-2">{selected.facts.map((fact) => <div key={fact} className="flex gap-2 text-xs leading-5 text-white/55"><span className="text-amber-200/55">✦</span><span>{fact}</span></div>)}</div></section>}
 
@@ -127,7 +170,7 @@ export default function PlayerEveningSummaries({
 
             {selected.player.roles.length > 0 && <div className="flex flex-wrap gap-1.5 px-1">{selected.player.roles.map((role) => <span key={role} className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-white/35">{roleLabel(role)}</span>)}</div>}
 
-            {onOpenGame && selected.game_ids.length > 0 && <section className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Протоколы игр вечера</div><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="flex min-h-[84px] flex-col justify-between rounded-[18px] border border-violet-200/15 bg-gradient-to-br from-violet-300/[.08] via-[#181421] to-black/25 px-3 py-3 text-left text-xs font-semibold text-white/85 transition active:bg-white/10"><span className="text-[10px] uppercase tracking-[.12em] text-white/40">Матч · {index+1}</span><span>Игра №{index + 1} ↗</span></button>)}</div></section>}
+            {onOpenGame && selected.game_ids.length > 0 && <section className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Протоколы игр вечера</div><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="group relative flex min-h-[128px] flex-col justify-between overflow-hidden rounded-[20px] border border-violet-200/15 bg-gradient-to-br from-[#332542] via-[#17131f] to-[#101216] px-3 py-3 text-left text-xs font-semibold text-white/85 transition active:scale-[.98]"><span aria-hidden="true" className="pointer-events-none absolute -right-2 top-0 text-[86px] text-violet-100/[.075]">♠</span><span className="relative text-[10px] uppercase tracking-[.12em] text-white/55">Матч · {index+1}</span><span className="relative text-sm">Игра №{index + 1} ↗</span></button>)}</div></section>}
           </>}
         </>}
       </div>

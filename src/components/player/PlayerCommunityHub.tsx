@@ -60,7 +60,7 @@ export default function PlayerCommunityHub({
 
   return (
     <main className="player-workspace-page min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white" data-testid="player-community-hub">
-      <div className="player-workspace mx-auto w-full max-w-[430px] space-y-3 px-3">
+      <div className={"player-workspace mx-auto w-full space-y-3 px-3 transition-[max-width] " + (view === "connections" ? "max-w-6xl" : "max-w-[430px]")}>
         <header className="px-1 pt-1">
           <h1 className="text-2xl font-semibold">Сообщество</h1>
         </header>
@@ -70,7 +70,7 @@ export default function PlayerCommunityHub({
             type="button"
             data-testid="player-club-poker"
             onClick={onOpenPoker}
-            className="ds-focus-ring relative flex min-h-[84px] w-full items-center overflow-hidden rounded-2xl border border-amber-200/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_42%] text-left shadow-[0_14px_34px_rgba(0,0,0,.45)]"
+            className="ds-focus-ring relative flex min-h-[84px] w-full max-w-[430px] items-center overflow-hidden rounded-2xl border border-amber-200/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_42%] text-left shadow-[0_14px_34px_rgba(0,0,0,.45)]"
           >
             <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,7,8,.94)_0%,rgba(6,7,8,.72)_58%,rgba(6,7,8,.25)_100%)]" aria-hidden="true" />
             <span className="relative flex-1 px-4 py-3">
@@ -83,6 +83,7 @@ export default function PlayerCommunityHub({
         ) : null}
 
         <SegmentedControl
+          className="max-w-[430px]"
           ariaLabel="Разделы сообщества"
           value={view}
           items={NAV}

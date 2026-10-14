@@ -3,7 +3,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
-import { countGames, countWins } from '../../lib/russianPlural.ts';
+import { countGames } from '../../lib/russianPlural.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import { getJson } from '../../lib/requestJson.ts';
@@ -123,40 +123,60 @@ export default function PlayerGamesArchive({
           </>
         ) : (
           <>
-          <section data-testid="player-my-games" className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-            <h2 className="text-lg font-semibold">Мои игры</h2>
-            <p className="mt-1 text-xs leading-5 text-white/55">Твои роли, места за столом и результаты. Нажми на игру, чтобы открыть протокол.</p>
-            {personalGames.length ? (
-              <>
-                <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
-                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{countGames(personalGames.length)}</b></span>
-                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-emerald-300">{countWins(wins)}</b></span>
-                  <span className="rounded-xl bg-white/[0.055] px-3 py-2"><b className="text-white">{finished.length ? Math.round(wins / finished.length * 100) : 0}%</b> побед</span>
+          <section data-testid="player-my-games" className="relative overflow-hidden rounded-[30px] border border-amber-200/10 bg-[#111115] p-4 sm:p-6">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-8 top-0 text-[170px] leading-none text-amber-200/[.035]">♠</div>
+            <div className="relative">
+              <div className="text-[10px] font-semibold uppercase tracking-[.18em] text-amber-200/55">2LA Noire · Архив матчей</div>
+              <h2 className="mt-1 text-2xl font-semibold">Мои игры</h2>
+              <p className="mt-1 max-w-xl text-xs leading-5 text-white/50">История твоих партий. Каждый постер — отдельный матч с ролью, исходом и протоколом.</p>
+            </div>
+            {personalGames.length ? <>
+              <div className="relative mt-5 grid items-center gap-4 rounded-[24px] border border-amber-200/10 bg-gradient-to-r from-amber-200/[.085] via-[#1a1818] to-[#121318] p-4 sm:grid-cols-[1fr_1.1fr]">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div><div className="text-2xl font-semibold tabular-nums text-white">{personalGames.length}</div><div className="mt-1 text-[10px] text-white/45">матчей</div></div>
+                  <div><div className="text-2xl font-semibold tabular-nums text-emerald-200">{wins}</div><div className="mt-1 text-[10px] text-white/45">побед</div></div>
+                  <div><div className="text-2xl font-semibold tabular-nums text-amber-100">{finished.length ? Math.round(wins / finished.length * 100) : 0}%</div><div className="mt-1 text-[10px] text-white/45">побед в завершённых</div></div>
                 </div>
-                {finished.length ? <div className="mt-3" aria-label="Результаты последних игр">
-                  <div className="mb-2 text-[11px] uppercase tracking-wider text-white/45">Последние {Math.min(finished.length, 8)} игр</div>
-                  <div className="grid grid-cols-8 gap-1.5">{finished.slice(0, 8).map((game) => (
-                    <span key={game.id} title={game.won ? 'Победа' : 'Поражение'} aria-label={game.won ? 'Победа' : 'Поражение'} className={`h-2.5 rounded-full ${game.won ? 'bg-emerald-400/85' : 'bg-rose-400/80'}`} />
-                  ))}</div>
-                  <p className="mt-1.5 text-[11px] text-white/45">Зелёный — победа, красный — поражение. Слева — последняя.</p>
-                </div> : null}
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {personalGames.map((game) => (
-                    <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className={`flex min-h-[118px] w-full flex-col justify-between gap-3 rounded-[22px] border p-4 text-left transition active:scale-[.99] ${game.won === true ? "border-emerald-200/15 bg-gradient-to-br from-emerald-950/30 via-[#15191a] to-[#101216]" : game.won === false ? "border-rose-200/15 bg-gradient-to-br from-rose-950/25 via-[#191316] to-[#101216]" : "border-white/10 bg-white/[.035]"}`}>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{game.title || 'Игра'}{game.game_number ? ` · №${game.game_number}` : ''}</span>
-                        <span className="mt-1 block text-xs text-white/50">{[formatDate(game.date), game.role ? getPlayerGameRoleLabel(game.role) : null, game.seat_number ? `место №${game.seat_number}` : null].filter(Boolean).join(' · ')}</span>
-                        {(game.best_move || game.first_killed) ? <span className="mt-1.5 block text-[11px] text-amber-200/80">{[game.best_move ? 'Лучший ход' : null, game.first_killed ? 'Убит первым' : null].filter(Boolean).join(' · ')}</span> : null}
-                      </span>
-                      <span className="flex w-full items-center justify-between gap-3 border-t border-white/10 pt-2 text-left">
-                        <span className={`block text-xs font-semibold ${game.won === true ? 'text-emerald-300' : game.won === false ? 'text-rose-300' : 'text-white/50'}`}>{game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Без результата'}</span>
-                        <span className="mt-2 block text-[11px] text-white/45">Подробнее ›</span>
-                      </span>
-                    </button>
-                  ))}
+                <div aria-label="Результаты последних игр">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">Последние {Math.min(finished.length, 8)} игр</div>
+                  {finished.length ? <div className="flex h-[62px] items-end gap-1.5 overflow-hidden rounded-xl border-b border-white/15 pb-1.5">
+                    {finished.slice(0, 8).map((game, i) =>
+                      <span key={game.id} title={game.won ? 'Победа' : 'Поражение'} aria-label={game.won ? 'Победа' : 'Поражение'}
+                        className={'relative min-w-0 flex-1 rounded-t-md ' + (game.won ? 'bg-gradient-to-t from-emerald-400/35 to-emerald-300' : 'bg-gradient-to-t from-rose-500/30 to-rose-300')}
+                        style={{height: game.won ? '100%' : '34%'}}><span className="sr-only">{i + 1}</span></span>)}
+                  </div> : <p className="text-xs text-white/45">Завершённых игр пока нет</p>}
+                  <p className="mt-1.5 text-[10px] text-white/45">Зелёный — победа, красный — поражение. Слева — последняя.</p>
                 </div>
-              </>
-            ) : <p className="mt-4 rounded-2xl bg-black/20 px-4 py-5 text-sm text-white/60">Ты ещё не играл. После первой завершённой игры здесь появятся результаты и роли.</p>}
+              </div>
+              <div className="mt-5 mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-[.16em] text-white/65">Каталог партий</h3><span className="text-[10px] text-white/40">{countGames(personalGames.length)}</span></div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {personalGames.map((game) => {
+                  const role = game.role ? getPlayerGameRoleLabel(game.role) : null;
+                  const red = game.role === 'citizen' || game.role === 'sheriff';
+                  const black = game.role === 'mafia' || game.role === 'don';
+                  const emblem = game.role === 'don' ? '♛' : game.role === 'sheriff' ? '✦' : game.role === 'mafia' ? '♠' : '◆';
+                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }}
+                    className={'group relative flex min-h-[230px] min-w-0 flex-col justify-between overflow-hidden rounded-[24px] border p-4 text-left shadow-[0_12px_30px_rgba(0,0,0,.18)] transition-transform enabled:active:scale-[.98] ' +
+                      (black ? 'border-violet-200/15 bg-gradient-to-br from-[#352541] via-[#17131e] to-[#111217]' : red ? 'border-rose-200/15 bg-gradient-to-br from-[#472932] via-[#22161a] to-[#111217]' : 'border-amber-200/10 bg-gradient-to-br from-[#2c2826] to-[#111217]')}>
+                    <span aria-hidden="true" className="pointer-events-none absolute -right-4 top-3 text-[155px] leading-none text-white/[.07] transition-transform group-hover:scale-105">{emblem}</span>
+                    <span className="relative z-10 flex items-start justify-between gap-3">
+                      <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1 text-[10px] font-semibold text-white/70">№{game.game_number || '—'}</span>
+                      <span className={'rounded-full px-2.5 py-1 text-[10px] font-semibold ' + (game.won === true ? 'bg-emerald-300/15 text-emerald-200' : game.won === false ? 'bg-rose-300/15 text-rose-200' : 'bg-white/10 text-white/60')}>{game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Без результата'}</span>
+                    </span>
+                    <span className="relative z-10 flex min-w-0 flex-col items-start gap-2">
+                      <span className="text-[10px] uppercase tracking-widest text-amber-200/55">{formatDate(game.date)}</span>
+                      <span className="line-clamp-2 text-lg font-semibold leading-6 text-white">{game.title || 'Игра'}</span>
+                      <span className="flex flex-wrap items-center gap-2 text-[11px] text-white/60">
+                        {role && <span className="rounded-full border border-white/15 px-2 py-1">{role}</span>}
+                        {game.seat_number ? <span>Место №{game.seat_number}</span> : null}
+                      </span>
+                      {(game.best_move || game.first_killed) && <span className="text-[10px] font-medium text-amber-200/80">{[game.best_move ? '✦ Лучший ход' : null, game.first_killed ? 'Убит первым' : null].filter(Boolean).join(' · ')}</span>}
+                    </span>
+                    <span className="relative z-10 mt-4 flex items-center justify-between border-t border-white/15 pt-3 text-xs font-semibold text-white/65"><span>Протокол матча</span><span className="text-base text-amber-100/70">↗</span></span>
+                  </button>;
+                })}
+              </div>
+            </> : <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-5 text-sm text-white/60">Ты ещё не играл. После первой завершённой игры здесь появятся результаты и роли.</p>}
           </section>
           <details className="rounded-3xl border border-white/10 bg-white/[0.025] p-4" onToggle={(event) => setClubArchiveOpen(event.currentTarget.open)}>
             <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-white/70">

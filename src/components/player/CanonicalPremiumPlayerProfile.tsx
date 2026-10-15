@@ -142,6 +142,10 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     return ()=>controller.abort();
   },[period]);
 
+  useEffect(()=>{
+    setOffset(0);
+  },[role,team,result,period,from,to,activePeriod?.starts_at,activePeriod?.ends_at]);
+
   const gameQuery=useMemo(()=>{
     const q=new URLSearchParams({limit:'15',offset:String(offset)});
     if(role)q.set('role',role);
@@ -220,7 +224,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
         {(activeGroup==='games'?[['games','Игры'],['roles','Роли'],['elo','Elo']]:[['awards','Витрина'],['history','История клуба']]).map(([key,label])=>
           <button key={key} type="button" data-track={`profile-tab-${key}`}
             aria-current={tab===key?'page':undefined} onClick={()=>switchTab(key as Tab)}
-            className={`min-h-9 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}
+            className={`min-h-11 rounded-lg px-3 text-xs font-medium ${tab===key?'bg-amber-200/15 text-amber-100 ring-1 ring-amber-200/25':'bg-white/[.045] text-white/65'}`}>{label}</button>)}
       </nav>}
     </div>}
     <main className="profile-content mx-auto w-full max-w-5xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)] lg:px-8">

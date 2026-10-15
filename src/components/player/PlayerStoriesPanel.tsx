@@ -79,9 +79,11 @@ function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => 
   const [detail, setDetail] = useState<PlayerGameDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setDetail(null);
     setLoading(true);
     setError(null);
     void fetch(`/api/player/games/${encodeURIComponent(gameKey)}`, { credentials: 'include' })
@@ -93,7 +95,7 @@ function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => 
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить игру'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [gameKey]);
+  }, [gameKey, retry]);
 
   const mvp = useMemo(() => detail?.players.slice().sort((a, b) => b.score.total_points - a.score.total_points || a.seat_number - b.seat_number)[0] || null, [detail]);
 
@@ -106,7 +108,7 @@ function MatchSpotlight({ gameKey, onClose }: { gameKey: string; onClose: () => 
         </div>
 
         {loading && <div className="mt-4 rounded-2xl bg-white/[0.04] px-3 py-8 text-center text-xs text-white/35">Собираем карточку матча…</div>}
-        {error && <div className="mt-4 rounded-2xl bg-rose-400/10 px-3 py-4 text-xs text-rose-200/70">{error}</div>}
+        {error && <div role="alert" className="mt-4 space-y-3 rounded-2xl bg-rose-400/10 px-3 py-4 text-sm text-rose-200/80"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>}
 
         {detail && <>
           <div className={`mt-4 rounded-[24px] border p-5 text-center ${detail.game.winner_team === 'red' ? 'border-rose-300/15 bg-rose-400/[0.06]' : 'border-white/10 bg-white/[0.045]'}`}>
@@ -148,10 +150,12 @@ export default function PlayerStoriesPanel() {
   const [error, setError] = useState<string | null>(null);
   const [selectedEveningId, setSelectedEveningId] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     void fetch('/api/player/stories', { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
@@ -164,12 +168,12 @@ export default function PlayerStoriesPanel() {
       .catch((err: any) => { if (!cancelled) setError(err?.message || 'Не удалось загрузить ленту клуба'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [retry]);
 
   const selectedEvening = data?.evenings.find((evening) => evening.id === selectedEveningId) || data?.latest_evening || null;
 
   if (loading) return <div className="rounded-2xl bg-white/[0.04] px-3 py-8 text-center text-xs text-white/35">Собираем историю клуба…</div>;
-  if (error) return <div className="rounded-2xl bg-rose-400/10 px-3 py-4 text-xs text-rose-200/70">{error}</div>;
+  if (error) return <div role="alert" className="space-y-3 rounded-2xl bg-rose-400/10 px-3 py-4 text-sm text-rose-200/80"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>;
   if (!data || !data.recent_games.length) return <div className="rounded-2xl bg-white/[0.04] px-4 py-8 text-center"><div className="text-2xl">📖</div><div className="mt-2 text-sm font-semibold">История только начинается</div><p className="mt-1 text-xs text-white/35">После завершённых игр здесь появятся матчи и итоги вечеров.</p></div>;
 
   return <>

@@ -4,7 +4,7 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
-import { GameTableScene, VoteSplitScene } from './PlayerVisualScenes.tsx';
+import { GameTableScene, VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
 
 export type PlayerGameEloChange = {
@@ -462,7 +462,7 @@ export default function PlayerGameDetail({
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
                         </div>
-                        <div className="mt-3 flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 text-[13px] text-white/75"><span aria-hidden="true" className="text-xl text-violet-200/70">⌖</span><span>Мафия стреляла в <b className="font-semibold text-white/90">{seatLabel(shot.target_seat)}</b></span></div>
+                        <NightShotScene target={seatLabel(shot.target_seat)} seat={shot.target_seat} result={shot.result} />
                       </li>
                     );
                   }

@@ -1,3 +1,4 @@
+import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningPublishingPaused } from './eveningPublishingPause.ts';
@@ -349,7 +350,7 @@ export async function postWeeklySeasonTables(db: DatabaseWrapper, fetchImpl: typ
   }
 }
 
-const ROLE_LABELS: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
+const ROLE_LABELS: Record<string, string> = GAME_ROLE_LABELS;
 const plural = (count: number, one: string, few: string, many: string) => {
   const tens = count % 100; const ones = count % 10;
   if (tens >= 11 && tens <= 14) return many;

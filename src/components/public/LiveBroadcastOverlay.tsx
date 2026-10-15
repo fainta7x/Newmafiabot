@@ -1,35 +1,22 @@
+import { getGameRoleDefinition, UNKNOWN_GAME_ROLE_LABEL, normalizeGameRole, type GameRole } from '../../shared/gameRoles.ts';
+import { GameRoleIcon, GAME_ROLE_CSS_VARIABLES } from '../ui/GameRole.tsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { revealVersions } from '../../lib/revealStats.ts';
-import { Ban, Crosshair, Hand, Heart, Radio, Skull, Star, UserRoundX } from 'lucide-react';
+import { Ban, Crosshair, Hand, Radio, Skull, Star, UserRoundX } from 'lucide-react';
 import { DEFAULT_LIVE_BROADCAST_LAYOUT, type LiveBroadcastEnvelope, type LiveBroadcastPlayer, type LiveBroadcastState, type LiveBroadcastTimelineEntry } from '../../lib/liveBroadcast';
-import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
+import { MafiaHatIcon } from '../LiveGameEngine/Icons';
 import './liveBroadcastOverlay.css';
 
 type LiveBroadcastOverlayProps = {
   token: string;
 };
 
-type RoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff';
-
-const roleKind = (role: string | undefined): RoleKind => {
-  if (role === 'Дон' || role === 'don') return 'don';
-  if (role === 'Мафия' || role === 'mafia') return 'mafia';
-  if (role === 'Шериф' || role === 'sheriff') return 'sheriff';
-  return 'citizen';
-};
+type RoleKind = GameRole | 'unknown';
+const roleKind = (role: string | undefined): RoleKind => normalizeGameRole(role) ?? 'unknown';
 
 const OUT_WORDS: Record<string, string> = { killed: 'Убит', voted: 'Заголосован', removed: 'Удалён', ppk: 'Удалён', out: 'Выбыл' };
 
-const ROLE_LABELS: Record<RoleKind, string> = { citizen: 'Мирный', mafia: 'Мафия', don: 'Дон', sheriff: 'Шериф' };
-
-/** The same role icons as the Live Game seats; colours follow the owner's palette (2026-10-01). */
-const RoleIcon = ({ kind }: { kind: RoleKind }) => {
-  if (kind === 'don') return <MafiaHatIcon className="live-broadcast-role-icon" />;
-  if (kind === 'mafia') return <PistolIcon className="live-broadcast-role-icon" />;
-  if (kind === 'sheriff') return <Star className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
-  return <Heart className="live-broadcast-role-icon" fill="currentColor" aria-hidden="true" />;
-};
-
+const RoleIcon = ({ kind }: { kind: RoleKind }) => <GameRoleIcon role={kind} className="live-broadcast-role-icon" surface="light" />;
 
 const DAY_NOTES: Record<string, string> = {
   voted: 'Ушёл',
@@ -218,7 +205,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   return (
     <main
       className={`live-broadcast-canvas phase-${state.phaseKey} ${visibleTimeline.length ? 'has-timeline' : ''} ${layout.showTop ? '' : 'hide-top'} ${layout.showTimeline ? '' : 'hide-timeline'} ${layout.showPlayers ? '' : 'hide-players'}`}
-      style={{ '--s-top': layout.top / 100, '--s-timeline': layout.timeline / 100, '--s-players': layout.players / 100 } as React.CSSProperties}
+      style={{ ...GAME_ROLE_CSS_VARIABLES, '--s-top': layout.top / 100, '--s-timeline': layout.timeline / 100, '--s-players': layout.players / 100 } as React.CSSProperties}
     >
       <header className="live-broadcast-header">
         <div className="live-broadcast-brand-mark">2LA</div>
@@ -383,14 +370,14 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                   <BroadcastAvatar token={token} player={player} />
                   <div className="live-broadcast-seat-number">{player.seat}</div>
                   {/* Role emblem as on club streams (owner reference, 2026-10-01): the badge colour tells the role. */}
-                  <div className={`live-broadcast-emblem is-${kind}`} title={ROLE_LABELS[kind]}><RoleIcon kind={kind} /></div>
+                  <div className={`live-broadcast-emblem is-${kind}`} title={(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}><RoleIcon kind={kind} /></div>
                   {!player.alive ? <div className={`live-broadcast-out-ribbon is-${player.statusKind}`}><span>{OUT_WORDS[player.statusKind] || 'Выбыл'}</span></div> : null}
                 </div>
                 <div className="live-broadcast-player-text">
                   <div className="live-broadcast-player-tags">
                     {speaking ? <div className="live-broadcast-speaking-tag">говорит</div> : null}
                   </div>
-                  <div className="live-broadcast-role">{ROLE_LABELS[kind]}</div>
+                  <div className="live-broadcast-role">{(getGameRoleDefinition(kind)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</div>
                 </div>
               </div>
               <div className="live-broadcast-player-name">{player.nickname}</div>

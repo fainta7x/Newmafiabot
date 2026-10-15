@@ -1,8 +1,10 @@
+import { getGameRoleDefinition, type GameRole } from '../../shared/gameRoles.ts';
 import { useState, type ReactNode } from 'react';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import { countGames } from '../../lib/russianPlural.ts';
 import type { ClubConnectionStories as Stories, ConnectionMember, ConnectionSample } from '../../shared/clubConnectionStories.ts';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import { ResultTrack, RoleMark } from './PlayerGameGraphics.tsx';
 
 const signature = (members: ConnectionMember[]) => members.map((person) => person.player_id).join(':');
 const percent = (value: number) => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
@@ -19,18 +21,22 @@ function Feature({ title, description, empty, children, tone = 'violet' }: {
   </article>;
 }
 
-function Members({ members, roles = [] }: { members: ConnectionMember[]; roles?: string[] }) {
-  return <div className="flex flex-wrap gap-x-3">{members.map((member, i) => <button key={member.player_id} type="button" aria-label={member.nickname}
+function Members({ members, roles = [] }: { members: ConnectionMember[]; roles?: GameRole[] }) {
+  return <div className="relative grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(1, members.length)}, minmax(0, 1fr))` }}>
+    {members.length > 1 && <span aria-hidden="true" className="absolute left-[15%] right-[15%] top-6 h-px bg-gradient-to-r from-violet-200/15 via-white/30 to-violet-200/15" />}
+    {members.map((member, i) => <button key={member.player_id} type="button" aria-label={member.nickname}
     onClick={() => openCanonicalPlayerProfile(member.player_id)}
-    className="ds-focus-ring flex min-h-11 min-w-0 items-center gap-1.5 rounded-lg text-left text-sm font-semibold text-white/90">
-    <span className="break-words">{member.nickname}</span>{roles[i] && <span className="text-xs font-normal text-white/50">{roles[i]}</span>}
+    className="ds-focus-ring relative flex min-h-11 min-w-0 flex-col items-center gap-1.5 rounded-xl text-center text-white/90">
+    {roles[i] ? <RoleMark role={roles[i]} /> : <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full border border-amber-200/25 bg-[#29251d] text-lg font-semibold text-amber-100">{member.nickname.trim().slice(0, 1)}</span>}
+    <span className="break-words text-xs font-semibold leading-4">{member.nickname}</span>{roles[i] && <span className="text-xs text-white/50">{getGameRoleDefinition(roles[i])?.label}</span>}
   </button>)}</div>;
 }
 
-function Scene({ members, sample, roles }: { members: ConnectionMember[]; sample: ConnectionSample; roles?: string[]; tone?: 'rose' | 'violet' | 'amber' }) {
-  return <div className="py-2">
+function Scene({ members, sample, roles }: { members: ConnectionMember[]; sample: ConnectionSample; roles?: GameRole[]; tone?: 'rose' | 'violet' | 'amber' }) {
+  return <div className="py-3">
     <Members members={members} roles={roles}/>
-    <p className="text-xs leading-5 text-white/60">{countGames(sample.games)} вместе · {sample.wins} побед ({sample.win_rate}%) · {sample.events} вечеров и турниров</p>
+    <div className="mt-3"><ResultTrack value={sample.win_rate} tone={roles?.includes('sheriff') ? 'rose' : 'violet'} /></div>
+    <p className="mt-2 text-xs leading-5 text-white/60">{countGames(sample.games)} вместе · {sample.wins} побед ({sample.win_rate}%) · {sample.events} вечеров и турниров</p>
   </div>;
 }
 
@@ -66,13 +72,13 @@ export default function ClubConnectionStories({ stories }: { stories: Stories })
     <div data-testid={'club-stories-' + view} className={'relative mt-4 grid gap-5 ' + (view === 'teams' ? 'lg:grid-cols-3' : view === 'opposition' ? 'lg:grid-cols-2' : 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]')}>
       {view === 'teams' && <>
         <Feature title="Чёрные тройки" description="Дон и две мафии, игравшие вместе." tone="violet" empty={!stories.black_trios.length}>
-          {stories.black_trios.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['Дон', 'Мафия', 'Мафия']}/>)}
+          {stories.black_trios.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['don', 'mafia', 'mafia']}/>)}
         </Feature>
         <Feature title="Дон и мафия" description="Напарники по чёрной команде." tone="violet" empty={!stories.don_mafia.length}>
-          {stories.don_mafia.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['Дон', 'Мафия']}/>)}
+          {stories.don_mafia.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['don', 'mafia']}/>)}
         </Feature>
         <Feature title="Шериф и мирный" description="Сыгранные сочетания красной команды." tone="rose" empty={!stories.sheriff_citizen.length}>
-          {stories.sheriff_citizen.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['Шериф', 'Мирный']} tone="rose"/>)}
+          {stories.sheriff_citizen.map((group) => <Scene key={signature(group.members)} members={group.members} sample={group} roles={['sheriff', 'citizen']} tone="rose"/>)}
         </Feature>
       </>}
       {view === 'opposition' && <>

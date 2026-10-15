@@ -84,6 +84,8 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
       }
       if (label === 'Игры' || label === 'Роли') {
         const list = profile.locator(label === 'Игры' ? '.profile-game-list' : '.profile-role-list');
+        // The request effect can start after the no-loading-text check. Never capture an empty list.
+        await expect(list.locator(':scope > article')).toHaveCount(label === 'Игры' ? 3 : 4);
         const rows = await list.locator(':scope > article').all();
         for (const row of rows) expect((await row.boundingBox()).width).toBeGreaterThan((await list.boundingBox()).width - 40);
       }

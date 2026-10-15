@@ -1,16 +1,11 @@
+import { GameRoleBadge } from '../ui/GameRole.tsx';
 import React from 'react';
 import { type PlayerGameHistoryItem } from '../../lib/api.ts';
 import { formatPlayerGameDate } from '../../lib/playerGameDate.ts';
 
 const fmtDate = formatPlayerGameDate;
 
-const roleInfo = (role: PlayerGameHistoryItem['role']) => {
-  if (role === 'don') return { label: 'Дон', icon: '🎩', className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' };
-  if (role === 'mafia') return { label: 'Мафия', icon: '🔫', className: 'border-rose-500/30 bg-rose-500/10 text-rose-300' };
-  if (role === 'sheriff') return { label: 'Шериф', icon: '⭐', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' };
-  if (role === 'citizen') return { label: 'Мирный', icon: '❤️', className: 'border-sky-500/30 bg-sky-500/10 text-sky-300' };
-  return { label: 'Роль не указана', icon: '•', className: 'border-border-soft bg-surface-1 text-text-secondary' };
-};
+
 
 const exitLabel = (value: string | null) => {
   if (value === 'killed') return 'Убит ночью';
@@ -28,7 +23,6 @@ interface PlayerGameCardProps {
 }
 
 export const PlayerGameCard: React.FC<PlayerGameCardProps> = ({ game }) => {
-  const role = roleInfo(game.role);
   const technicalFouls = game.minor_technical_fouls + game.major_technical_fouls;
 
   return (
@@ -59,9 +53,7 @@ export const PlayerGameCard: React.FC<PlayerGameCardProps> = ({ game }) => {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded-[12px] bg-surface-1 p-2.5">
           <span className="block text-[10px] text-text-muted">Роль</span>
-          <span className={`mt-1 inline-flex rounded-lg border px-2 py-1 text-[11px] font-bold ${role.className}`}>
-            {role.icon} {role.label}
-          </span>
+          <span className="mt-1 inline-flex"><GameRoleBadge role={game.role} /></span>
         </div>
         <div className="rounded-[12px] bg-surface-1 p-2.5">
           <span className="block text-[10px] text-text-muted">Место</span>

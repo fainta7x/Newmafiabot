@@ -1,4 +1,5 @@
 import { countGames } from '../../lib/russianPlural';
+import { RoleMark, TeamResultGraphic } from './PlayerGameGraphics.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -115,11 +116,7 @@ export default function PlayerEveningSummaries({
                 <p className="text-xs text-white/55">{dateText(selected.starts_at)}{selected.venue ? ' · ' + selected.venue : ''}</p>
                 <h2 className="mt-1 text-xl font-semibold">{selected.title}</h2>
               </header>
-              <div className="my-4 flex items-center justify-between gap-3" aria-label="Счёт команд за вечер">
-                <span className="text-sm text-rose-200">Красные</span>
-                <strong className="text-3xl font-semibold tabular-nums"><span className="text-rose-200">{selected.red_wins}</span><span className="px-2 text-white/40">:</span><span className="text-violet-200">{selected.black_wins}</span></strong>
-                <span className="text-sm text-violet-200">Чёрные</span>
-              </div>
+              <TeamResultGraphic red={selected.red_wins} black={selected.black_wins} />
               <p className="text-center text-xs text-white/50">{countGames(selected.games)} завершено</p>
               <div aria-label="Личные результаты за вечер" className="mt-4 border-t border-white/10 pt-4">
                 <h3 className="text-sm font-semibold">Мой результат</h3>
@@ -129,7 +126,7 @@ export default function PlayerEveningSummaries({
                   <div><dt className="text-xs text-white/55">Изменение Elo</dt><dd className={'mt-1 text-xl font-semibold tabular-nums ' + (selected.player.elo_delta > 0 ? 'text-emerald-200' : selected.player.elo_delta < 0 ? 'text-rose-200' : 'text-white/70')}>{signed(selected.player.elo_delta)}</dd></div>
                 </dl>
                 {selected.player.elo_before != null && selected.player.elo_after != null && <p className="mt-3 text-xs text-white/55">Elo за вечер: {Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</p>}
-                {selected.player.roles.length > 0 && <p className="mt-2 text-xs leading-5 text-white/55">{selected.player.roles.map(roleLabel).join(' · ')}</p>}
+                {selected.player.roles.length > 0 && <div className="mt-3 flex flex-wrap gap-4">{selected.player.roles.map(role => <div key={role} className="flex items-center gap-2"><RoleMark role={role} /><span className="text-xs text-white/70">{roleLabel(role)}</span></div>)}</div>}
               </div>
               {onOpenGame && selected.game_ids.length > 0 && <div className="mt-4 border-t border-white/10 pt-3">
                 <h3 className="text-sm font-semibold">Протоколы игр вечера</h3>

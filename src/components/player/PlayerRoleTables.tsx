@@ -1,3 +1,5 @@
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { useEffect, useRef, useState } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
@@ -37,9 +39,9 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
 
   return <section data-testid="role-tables" className="mt-4 border-t border-white/10 pt-3">
     <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Роль">
-      {(data?.roles || [{ key: 'don', label: 'Дон' }, { key: 'mafia', label: 'Мафия' }, { key: 'sheriff', label: 'Шериф' }, { key: 'citizen', label: 'Мирный' }]).map((item) => (
+      {(data?.roles || (['don', 'mafia', 'sheriff', 'citizen'] as GameRole[]).map(key => ({ key, label: GAME_ROLES[key].label }))).map((item) => (
         <button key={item.key} type="button" role="tab" aria-selected={role === item.key} data-testid={`role-tab-${item.key}`} onClick={() => setRole(item.key)}
-          className={`min-h-11 rounded-xl px-1 text-[12px] font-semibold ${role === item.key ? 'bg-white text-black' : 'bg-white/[0.07] text-white/70'}`}>{item.label}</button>
+          className={`min-h-11 rounded-xl px-1 text-[12px] font-semibold ${role === item.key ? 'bg-white text-black' : 'bg-white/[0.07] text-white/70'}`}>{getPlayerGameRoleLabel(item.key) ?? item.label}</button>
       ))}
     </div>
     {data && !loading && !error ? <p className="mt-3 px-1 text-xs leading-5 text-white/55">{data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p> : null}

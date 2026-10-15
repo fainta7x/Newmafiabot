@@ -212,6 +212,8 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 
 ## Visual verification rule
 
+**Owner clarification, 2026-10-15:** compact does not mean text-only. Keep a visible game identity through the existing Live Game role icons, small role/seat graphics, linked player identities and factual team/result comparisons. A single career win-rate graphic may anchor the unified summary. Use one compact visual composition per task/group rather than either a chart/poster for every metric or a wall of text. Do not revive oversized posters, decorative network canvases or duplicate data displays.
+
 For every visual PR:
 
 1. use focused browser evidence while iterating;
@@ -219,6 +221,7 @@ For every visual PR:
 3. inspect fresh screenshots after CI;
 4. explicitly check clipping, overlap, identity loss, hierarchy, phase colour, viewport overflow and action target geometry;
 5. fix visible bugs before starting the next stage.
+6. send the owner actual **before → after** screenshots with the visual-change handoff (owner request, 2026-10-15), with both sides labeled. Use the same route, fixture/data, viewport, scroll position and disclosure state where available; identify any unavoidable difference. Review the images before sending, retain their source revisions and provide accessible images/files rather than only CI links. Screenshots are evidence: never synthesize or retouch app content to make the change look better. Capture the baseline before future visual edits so the comparison is reproducible.
 
 **Green Playwright is execution evidence, not visual approval.**
 
@@ -238,3 +241,7 @@ Cabinet desktop contract: all major cabinet sections share the profile's 1152px 
 ## Broadcast: reveals and the two versions (owner, 2026-10-12)
 
 The claimant of a reveal is coloured by his real role (the Don purple, the Sheriff gold); every announced check is coloured by the side it names — red for the one given as red, black for the one given as black. Not a rainbow of real roles next to each other, and not colourless either (both were rejected by the owner). Label «Вскрылся с:» sits above the checks so a narrow card never wraps it.
+
+### Shared role presentation
+
+Use the canonical role registry and `GameRoleIcon` / `GameRoleMark` / `GameRoleBadge` documented in `ARCHITECTURE.md`. Names, team, icon and palette have one owner. Screens choose inline/card size and contrast surface, not another role meaning or local colour dictionary. Never reveal a hidden role to decorate a screen.

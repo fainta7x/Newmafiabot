@@ -6,18 +6,20 @@ import PremiumProfileConnections from './PremiumProfileConnections.tsx';
 import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
 import PlayerProfileCareerSections from './PlayerProfileCareerSections.tsx';
 import PlayerProfileStatsHero from './PlayerProfileStatsHero.tsx';
+import { RoleMark } from './PlayerGameGraphics.tsx';
 import PlayerGoMafiaLink from './PlayerGoMafiaLink.tsx';
 import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
 import PlayerEloJourney from './PlayerEloJourney.tsx';
 import StaffWorkStats from './StaffWorkStats.tsx';
 import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
-import { ROLE_LABELS, type TournamentRole } from '../../lib/tournamentRoleValidation.ts';
+import { GAME_ROLES, GAME_ROLE_KEYS } from '../../shared/gameRoles.ts';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 
 type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections' | 'learning';
 type Period = { starts_at?: string; ends_at?: string; title?: string };
 const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'],['roles','Роли'],['elo','Elo'],['awards','Награды'],['history','История клуба'],['connections','Связи']];
-const ROLE_OPTIONS = [['','Все роли'],['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']] as const;
+const ROLE_OPTIONS: Array<readonly [string, string]> = [['', 'Все роли'], ...GAME_ROLE_KEYS.map(key => [key, GAME_ROLES[key].label] as const)];
 const TEAM_OPTIONS = [['','Все команды'],['red','Красные'],['black','Чёрные']] as const;
 const RESULT_OPTIONS = [['','Любой результат'],['win','Победа'],['loss','Поражение']] as const;
 const json = async (url:string, signal?:AbortSignal) => {
@@ -26,7 +28,7 @@ const json = async (url:string, signal?:AbortSignal) => {
   if(!r.ok) throw new Error(b.error||'Ошибка загрузки');
   return b;
 };
-const roleLabel = (role:any) => ROLE_LABELS[String(role||'') as TournamentRole] || null;
+const roleLabel = (role:any) => getPlayerGameRoleLabel(role);
 const fmt = (v:any) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—';
 const deltaText = (value: unknown) => {
   const delta=Math.round(Number(value));
@@ -250,13 +252,13 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
           <label className="text-xs text-white/50">Результат<select aria-label="Результат" value={result} onChange={e=>setResult(e.target.value)} className="mobile-field mt-1 w-full text-sm">{RESULT_OPTIONS.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></label>
         </div></details>
         {error?<div className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>:null}
-        <div className="profile-game-list divide-y divide-white/[.07] overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]">{games.map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const meta=[roleLabel(g.role),teamLabel(g.team)].filter(Boolean).join(' · ');return <article key={g.id||g.game_id} className="min-w-0 p-4"><div className="flex justify-between gap-3"><b className="min-w-0 truncate">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</b><span className="shrink-0 text-xs text-white/50">{fmt(g.played_at||g.date)}</span></div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-white/60"><span className="min-w-0">{[meta,g.won===true?'победа':g.won===false?'поражение':null].filter(Boolean).join(' · ')}</span>{g.elo_delta!=null&&<span className={`shrink-0 font-semibold ${Number(g.elo_delta)>0?'text-emerald-300':Number(g.elo_delta)<0?'text-red-300':'text-white/40'}`}>Elo {deltaText(g.elo_delta)}</span>}</div>{gameChips(g).length>0&&<div className="mt-2 flex flex-wrap gap-1.5">{gameChips(g).map((chip)=><span key={chip} className="rounded-full bg-white/[.07] px-2 py-1 text-[11px] text-white/60">{chip}</span>)}</div>}{(g.table_name||g.judge_name)&&<div className="mt-2 text-[11px] text-white/35">{[g.table_name,g.judge_name?`судья ${g.judge_name}`:null].filter(Boolean).join(' · ')}</div>}{link&&<a {...link} className="mt-2 inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-semibold text-sky-200/70 hover:bg-white/5">Открыть игру ›</a>}</article>})}</div>
+        <div className="profile-game-list divide-y divide-white/[.07] overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]">{games.map((g:any)=>{const link=gameLinkProps(g.id||g.game_id);const meta=[roleLabel(g.role),teamLabel(g.team)].filter(Boolean).join(' · ');return <article key={g.id||g.game_id} className="min-w-0 p-4"><div className="flex items-center gap-3"><RoleMark role={g.role} /><div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><b className="min-w-0 truncate">{g.title||'Игра'}{g.game_number?` · №${g.game_number}`:''}</b><span className="shrink-0 text-xs text-white/50">{fmt(g.played_at||g.date)}</span></div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-white/60"><span className="min-w-0">{[meta,g.won===true?'победа':g.won===false?'поражение':null].filter(Boolean).join(' · ')}</span>{g.elo_delta!=null&&<span className={`shrink-0 font-semibold ${Number(g.elo_delta)>0?'text-emerald-300':Number(g.elo_delta)<0?'text-red-300':'text-white/40'}`}>Elo {deltaText(g.elo_delta)}</span>}</div></div></div>{gameChips(g).length>0&&<div className="mt-2 flex flex-wrap gap-1.5">{gameChips(g).map((chip)=><span key={chip} className="rounded-full bg-white/[.07] px-2 py-1 text-[11px] text-white/60">{chip}</span>)}</div>}{(g.table_name||g.judge_name)&&<div className="mt-2 text-[11px] text-white/35">{[g.table_name,g.judge_name?`судья ${g.judge_name}`:null].filter(Boolean).join(' · ')}</div>}{link&&<a {...link} className="mt-2 inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-semibold text-sky-200/70 hover:bg-white/5">Открыть игру ›</a>}</article>})}</div>
         {!loading&&games.length===0?<div className="rounded-2xl border border-white/10 p-5 text-center text-sm text-white/45">По выбранным фильтрам игр нет.</div>:null}
         {total>15&&<div className="flex justify-between"><button disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-15))} className="min-h-11 rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Назад</button><button disabled={offset+15>=total} onClick={()=>setOffset(offset+15)} className="min-h-11 rounded-xl bg-white/10 px-4 py-2 text-sm disabled:opacity-30">Дальше</button></div>}
       </>}
       {!settings&&(tab==='roles'||(tab==='elo'&&!isSelf))&&error?<div className="rounded-xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">{error}</div>:null}
       {!settings&&tab==='roles'&&scopeSelector}
-      {!settings&&tab==='roles'&&!error&&<section className="profile-role-list divide-y divide-white/[.07] rounded-3xl border border-white/10 bg-white/[.035] px-4" aria-label="Ролевая статистика">{(data?.roles||data?.items||[]).map((r:any)=>{const played=Number(r.games??r.total??0);const rate=played?Math.max(0,Math.min(100,Number(r.win_rate)||0)):0;const dark=r.role==='mafia'||r.role==='don';return <article key={r.role} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3"><div><h3 className="text-sm font-semibold">{r.label||roleLabel(r.role)||r.role}</h3><p className="mt-1 text-xs text-white/55">{dark?'Чёрная команда':'Красная команда'} · {played?countGames(played):'Нет игр'}</p></div><p className="text-right text-lg font-semibold tabular-nums">{played?`${rate}%`:'—'}<span className="block text-xs font-normal text-white/55">побед</span></p><div aria-hidden="true" className="col-span-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full '+(dark?'bg-violet-300':'bg-rose-300')} style={{width:`${rate}%`}}/></div></article>})}</section>}
+      {!settings&&tab==='roles'&&!error&&<section className="profile-role-list divide-y divide-white/[.07] rounded-3xl border border-white/10 bg-white/[.035] px-4" aria-label="Ролевая статистика">{(data?.roles||data?.items||[]).map((r:any)=>{const played=Number(r.games??r.total??0);const rate=played?Math.max(0,Math.min(100,Number(r.win_rate)||0)):0;const dark=r.role==='mafia'||r.role==='don';return <article key={r.role} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3"><div className="flex items-center gap-3"><RoleMark role={r.role} /><div><h3 className="text-sm font-semibold">{roleLabel(r.role)||r.label||r.role}</h3><p className="mt-1 text-xs text-white/55">{dark?'Чёрная команда':'Красная команда'} · {played?countGames(played):'Нет игр'}</p></div></div><p className="text-right text-lg font-semibold tabular-nums">{played?`${rate}%`:'—'}<span className="block text-xs font-normal text-white/55">побед</span></p><div aria-hidden="true" className="col-span-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full '+(dark?'bg-violet-300':'bg-rose-300')} style={{width:`${rate}%`}}/></div></article>})}</section>}
 
       {!settings&&tab==='elo'&&isSelf&&<>{scopeSelector}<PlayerEloJourney embedded period={statPeriod} format={statFormat} onOpenGame={openPlayerGame}/></>}
       {!settings&&tab==='elo'&&!isSelf&&scopeSelector}

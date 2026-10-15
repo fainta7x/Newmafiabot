@@ -33,10 +33,6 @@ body.live-broadcast-document #root {
   --red: #ff4d6a;
   --gold: #e8b65a;
   /* Role palette (owner, 2026-10-01): мирный red, мафия black, дон purple, шериф yellow. */
-  --role-citizen: #e5384f;
-  --role-mafia: #050506;
-  --role-don: #8b5cf6;
-  --role-sheriff: #facc15;
   position: relative;
   width: 100vw;
   height: 100vh;
@@ -923,10 +919,10 @@ body.live-broadcast-document #root {
 }
 
 .live-broadcast-emblem .live-broadcast-role-icon { width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
-.live-broadcast-emblem.is-citizen { background: #fff; color: #f43f6e; }
+.live-broadcast-emblem.is-citizen { background: #fff; color: var(--role-citizen); }
 .live-broadcast-emblem.is-mafia { background: #fff; color: #0b0b0e; }
-.live-broadcast-emblem.is-don { background: #8b5cf6; color: #0b0b0e; }
-.live-broadcast-emblem.is-sheriff { background: #facc15; color: #0b0b0e; }
+.live-broadcast-emblem.is-don { background: var(--role-don); color: #0b0b0e; }
+.live-broadcast-emblem.is-sheriff { background: var(--role-sheriff); color: #0b0b0e; }
 
 .live-broadcast-out-ribbon {
   position: absolute;

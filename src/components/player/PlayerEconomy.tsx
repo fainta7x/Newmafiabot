@@ -1,3 +1,4 @@
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
 import { getJson } from '../../lib/requestJson.ts';
@@ -133,12 +134,7 @@ const betStatusLabel = (status: string) => {
   return 'ожидает результата';
 };
 
-const roleLabel = (role: BettingPlayer['role']) => {
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Мирный';
-};
+const roleLabel = (role: BettingPlayer['role']) => getPlayerGameRoleLabel(role) ?? 'Роль не указана';
 
 const makeRequestId = () => {
   if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();

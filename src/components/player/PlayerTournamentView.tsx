@@ -1,3 +1,4 @@
+import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, EyeOff, Trophy } from 'lucide-react';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
@@ -16,7 +17,6 @@ type ViewData = {
 type Section = 'roster' | 'games' | 'results';
 
 const PHASE_LABEL: Record<Phase, string> = { registration: 'Идёт регистрация', registration_closed: 'Регистрация закрыта', live: 'Турнир идёт', finished: 'Завершён' };
-const ROLE_LABEL: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
 const GAME_STATUS: Record<string, string> = { planned: 'Ожидает', active: 'Идёт', completed: 'Завершена' };
 const WINNER: Record<string, string> = { red: 'Победили красные', black: 'Победили чёрные' };
 const POLL_MS = 15_000;
@@ -137,7 +137,7 @@ export default function PlayerTournamentView({ tournamentId, onBack }: { tournam
                           <li key={seat.seat} className={`flex min-h-10 items-center gap-3 rounded-lg px-2.5 ${seat.is_me ? 'bg-violet-400/15' : 'bg-white/[0.03]'}`}>
                             <span className="w-5 text-[12px] font-bold text-white/40">{seat.seat}</span>
                             <span className="min-w-0 flex-1 truncate text-[13px]">{seat.nickname}</span>
-                            {seat.role ? <span className={`text-[12px] font-semibold ${seat.role === 'mafia' || seat.role === 'don' ? 'text-rose-200' : 'text-sky-200'}`}>{ROLE_LABEL[seat.role] || seat.role}</span> : null}
+                            {seat.role ? <GameRoleBadge role={seat.role} /> : null}
                           </li>
                         ))}
                       </ul>

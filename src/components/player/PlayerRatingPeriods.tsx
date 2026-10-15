@@ -1,3 +1,4 @@
+import { getGameRoleDefinition, normalizeGameRole } from '../../shared/gameRoles.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
@@ -83,14 +84,7 @@ const scoreNumber = (value: number) => {
 
 const signedScore = (value: number) => `${value > 0 ? '+' : ''}${scoreNumber(value)}`;
 
-const roleLabel = (role: string | null) => {
-  const normalized = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(normalized)) return 'Мирный';
-  if (['sheriff', 'шериф'].includes(normalized)) return 'Шериф';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный'].includes(normalized)) return 'Мафия';
-  if (['don', 'дон'].includes(normalized)) return 'Дон';
-  return role || 'Роль не указана';
-};
+const roleLabel = (role: string | null) => getGameRoleDefinition(normalizeGameRole(role))?.label ?? role ?? 'Роль не указана';
 
 const periodTypeLabel = (type: string) => String(type).toUpperCase() === 'NOVICE' ? 'Новички' : 'Рейтинговый';
 

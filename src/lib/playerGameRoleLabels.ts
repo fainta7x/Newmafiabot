@@ -3,9 +3,6 @@
  * existing fallback without inventing a player role.
  */
 export const getPlayerGameRoleLabel = (role: string | null | undefined): string | null => {
-  if (role === 'citizen') return 'Мирный';
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return null;
+  return getGameRoleDefinition(role)?.label ?? null;
 };
+import { getGameRoleDefinition } from '../shared/gameRoles.ts';

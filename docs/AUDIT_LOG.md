@@ -1191,3 +1191,11 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `CanonicalPremiumPlayerProfile.tsx`: game archive's current offset survives role/team/result/date filter changes, yielding a false empty list even if filtered matches exist on page one. **fixed:** reset pagination to the first page when selection changes.
 - `CanonicalPremiumPlayerProfile.tsx`: secondary career/awards tabs were 36px high below recommended Telegram finger target. **fixed:** 44px controls; route and grouping unchanged.
 - No backend statistics, Elo, badges, awards, game records or privacy calculations changed. CI/mobile visual checks remain necessary before merge.
+
+### Extended career visual pass (same PR, owner requested larger cohesive changes)
+
+- `PlayerProfileStatsHero.tsx`: upgraded the career overview visual hierarchy with one cohesive gold/dark surface and stronger win-rate hero, preserving all values from the scoped server summary.
+- `PlayerProfileCareerSections.tsx`: career streak and game highlights get readable large-number cards with shared surface geometry; no arithmetic changes.
+- `PlayerGameNumbers.tsx`: the decision-accuracy cards now emphasize actual percentages and observations at phone size; source stats and explanatory denominator remain intact.
+- `PremiumProfileShowcase.tsx`: failure to fetch medals/achievements/timeline no longer traps the user in an error-only panel; in-place retry uses the existing request nonce.
+- Still to verify in CI and UI preview; no deployment or production runtime claim.

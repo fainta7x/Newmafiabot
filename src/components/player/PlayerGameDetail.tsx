@@ -174,8 +174,8 @@ const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">{title}</h2>
-      {hint ? <p className="mt-1 text-[12px] leading-4 text-white/35">{hint}</p> : null}
+      <h2 className="text-sm font-semibold text-white/85">{title}</h2>
+      {hint ? <p className="mt-1 text-xs leading-5 text-white/55">{hint}</p> : null}
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -428,7 +428,6 @@ export default function PlayerGameDetail({
                     <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
-                        {vote.eligible_voters != null ? <span className="shrink-0 text-[11px] text-white/35">голосуют {vote.eligible_voters}</span> : null}
                       </div>
                       <VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} />
                       {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}

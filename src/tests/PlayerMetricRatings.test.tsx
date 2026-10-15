@@ -47,6 +47,23 @@ describe('rankings by figure', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Сбой');
   });
 
+  it('keeps the filter options while a new ranking loads', async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const pending = new Promise<Response>((resolve) => { resolveRequest = resolve; });
+    let call = 0;
+    vi.stubGlobal('fetch', vi.fn(() => (++call === 1
+      ? respond(body('wins', [row(1, 'a', 'Анна', 9, '9')]))
+      : pending)));
+    render(<PlayerMetricRatings />);
+    expect(await screen.findByTestId('metric-row-a')).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Период рейтинга'), { target: { value: 'period:autumn' } });
+    expect(screen.getByLabelText('Период рейтинга')).toBeDefined();
+    expect(screen.getByRole('option', { name: 'Осень 2026' })).toBeDefined();
+    expect(screen.queryByTestId('metric-row-a')).toBeNull();
+    resolveRequest?.(new Response(JSON.stringify(body('wins', [row(1, 'b', 'Борис', 4, '4')])), { status: 200 }));
+    expect(await screen.findByTestId('metric-row-b')).toBeDefined();
+  });
+
   it('shows a pair ranking as «victim — when this player is in the black team»', async () => {
     vi.stubGlobal('fetch', vi.fn(() => respond(body('night_pairs', [{ ...row(1, 'a', 'Богданчик', 4, '4'), partner_nickname: 'Иван', sample_text: 'из 9 общих игр' }]))));
     render(<PlayerMetricRatings />);

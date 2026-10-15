@@ -18,7 +18,8 @@ export function GameTableScene({ players, winner, selfId }: {
   selfId: string;
 }) {
   const seats = players.filter((player) => player.seat_number >= 1 && player.seat_number <= 10);
-  return <figure data-testid="game-table-scene" className="relative mx-auto aspect-[1.15] w-full max-w-[560px] overflow-hidden rounded-2xl border border-white/10 bg-[#101013]">
+  return <figure data-testid="game-table-scene" className="mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-white/10 bg-[#101013]">
+    <div className="relative aspect-[1.15]">
     <div className="pointer-events-none absolute inset-0 opacity-60" style={{background: 'radial-gradient(ellipse at 50% 50%,rgba(159,120,57,.18),transparent 65%),radial-gradient(ellipse at 65% 10%,rgba(147,92,126,.11),transparent 45%)'}} />
     <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 460 400" preserveAspectRatio="xMidYMid meet">
       <defs>
@@ -39,7 +40,7 @@ export function GameTableScene({ players, winner, selfId }: {
       const angle = (p.seat_number - 1) * Math.PI / 5;
       const style: CSSProperties = {
         left: (50 + 42 * Math.sin(angle)) + '%',
-        top: (50 - 43 * Math.cos(angle)) + '%',
+        top: (50 - 39 * Math.cos(angle)) + '%',
         transform: 'translate(-50%, -50%)',
       };
       const isSelf = Boolean(p.player_id) && p.player_id === selfId;
@@ -51,7 +52,7 @@ export function GameTableScene({ players, winner, selfId }: {
         aria-label={'Место ' + p.seat_number + ': ' + p.nickname + (p.player_id ? ', открыть профиль' : '')}
         onClick={() => p.player_id && openCanonicalPlayerProfile(p.player_id)}
         style={style}
-        className={'absolute z-10 flex h-[13%] w-[14%] min-w-0 flex-col items-center justify-center rounded-[15px] border shadow-[0_6px_18px_rgba(0,0,0,.5)] transition-transform enabled:active:scale-95 ' +
+        className={'absolute z-10 flex h-[13%] min-h-11 w-[14%] min-w-11 flex-col items-center justify-center rounded-[15px] border shadow-[0_6px_18px_rgba(0,0,0,.5)] transition-transform enabled:active:scale-95 ' +
           (isSelf ? 'border-amber-200/75 bg-[#594528] text-amber-50 ring-2 ring-amber-200/40' :
             p.team === 'black' ? 'border-violet-200/55 bg-[#33273f] text-violet-100' :
             p.team === 'red' ? 'border-rose-200/55 bg-[#492a31] text-rose-100' :
@@ -61,7 +62,8 @@ export function GameTableScene({ players, winner, selfId }: {
         <span className="text-base font-bold sm:text-xl">{initials(p.nickname)}</span>
       </button>;
     })}
-    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-5 text-[10px] text-white/65">
+    </div>
+    <figcaption className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-white/10 px-3 py-2 text-xs text-white/65">
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-300"/>За красных</span>
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-300"/>За чёрных</span>
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-200"/>Моё место</span>

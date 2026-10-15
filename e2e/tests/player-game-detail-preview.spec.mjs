@@ -14,6 +14,19 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   const heights = await page.locator('summary:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
   expect(heights.length).toBe(11);
   expect(heights.every((height) => height >= 44)).toBe(true);
+  const seating = page.getByTestId('game-table-scene');
+  await expect(seating).not.toBeVisible();
+  await page.getByText('Места за столом', { exact: true }).click();
+  await expect(seating).toBeVisible();
+  await expect(seating.getByRole('button')).toHaveCount(10);
+  for (const button of await seating.getByRole('button').all()) {
+    const box = await button.boundingBox();
+    const frame = await seating.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(frame.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
+  }
   await page.getByTestId('game-player-3').locator('summary').click();
   await expect(page.getByTestId('game-player-3')).toContainText('Из чего баллы');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

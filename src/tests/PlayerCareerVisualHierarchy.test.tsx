@@ -24,12 +24,15 @@ const decisionStats = {
 describe('player detailed career visual hierarchy', () => {
   it('keeps original numbers and shows visual win rates for red/black without duplicating overall win rate', () => {
     render(<PlayerProfileCareerSections stats={career} season={null} gameStats={decisionStats as any} />);
-    expect(screen.getByRole('img', { name: 'За красных: 75% побед' })).toBeDefined();
-    expect(screen.getByRole('img', { name: 'За чёрных: 37.5% побед' })).toBeDefined();
-    expect(screen.getByText('побед подряд')).toBeDefined();
-    expect(screen.getByText('рекорд серии')).toBeDefined();
+    expect(screen.getByText('За красных').parentElement?.textContent).toContain('75%');
+    expect(screen.getByText('За красных').parentElement?.textContent).toContain('9 из 12 игр');
+    expect(screen.getByText('За чёрных').parentElement?.textContent).toContain('37.5%');
+    expect(screen.getByText('За чёрных').parentElement?.textContent).toContain('3 из 8 игр');
+    expect(screen.getByText('Побед подряд сейчас')).toBeDefined();
+    expect(screen.getByText('Рекорд серии')).toBeDefined();
     expect(screen.getByText('Голоса в чёрных')).toBeDefined();
-    expect(screen.getByRole('img', { name: 'Голоса в чёрных: 80%' })).toBeDefined();
+    expect(screen.getByText('Голоса в чёрных').parentElement?.parentElement?.textContent).toContain('80%');
+    expect(screen.getByText('Голоса в чёрных').parentElement?.parentElement?.textContent).toContain('4 из 5 голосов');
     expect(screen.getByText('Лучший ход')).toBeDefined();
     expect(screen.getByText('Проверки Дона')).toBeDefined();
     expect(screen.getByText('Точность решений')).toBeDefined();
@@ -40,6 +43,8 @@ describe('player detailed career visual hierarchy', () => {
       season={{ label: 'Осень 2026', games: 4, wins: 2, win_rate: 50, place: 3, total_players: 18 }} />);
     expect(screen.getByText('Осень 2026')).toBeDefined();
     expect(screen.getByText('#3')).toBeDefined();
-    expect(screen.getByRole('img', { name: 'За красных: 0% побед' })).toBeDefined();
+    expect(screen.getByText('За красных').parentElement?.textContent).toContain('—');
+    expect(screen.getByText('За красных').parentElement?.textContent).toContain('0 из 0 игр');
+    expect(screen.getByText('За красных').parentElement?.textContent).not.toContain('0%');
   });
 });

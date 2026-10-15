@@ -18,6 +18,10 @@ Findings before implementation:
 
 **Acceptance:** retain all real results, role/seat labels, profile/game links, privacy gates, filters and denominators. Inspect 360/390px screenshots, full-row actions >=44px, overflow and Back. Keep useful optional seating map, one ballot comparison, Elo trend and team/role comparisons. No server/DB mutation.
 
+**First CI result (853234d):** web/build, container, Python, CodeQL/Gitleaks and four test shards passed. Shard 1 exposed two obsolete `PlayerCareerVisualHierarchy` assertions requiring the now-removed graphic roles. Updated them to verify team percentages, true denominators, voting counts and unavailable empty-team rate; preserved every factual assertion. Mobile preview still running; no claim of visual approval.
+
+**Follow-up source finding:** optional seating-map buttons inherited a 13% height (about 34px inside a 360px page) and overlapped the bottom legend. Give seats 44px minimum targets, reserve the legend outside the map and verify all ten real profile actions after disclosure. Status: fixed in implementation, browser evidence pending. Removed repeated eligible-voter text from the timeline header.
+
 **Integrated existing UX fixes:** retained filter options while ratings reload, removed stale rows during loading/error and added retry in indicator/role tables (functional scope of #940). Elo retains its chart, gains retry and real protocol access with 44px controls. No participation thresholds or calculations changed.
 
 **Local validation:** TypeScript, full ESLint, release data-safety audit, 42 rendered React checks and 19 smoke checks passed; isolated preview build passed. These are local results; exact-head GitHub CI and mobile screenshots are still required. Existing tests for removed orbits/posters now assert the actual labelled values and real navigation. Added a four-role history fixture and 360/390px whole-page density/action checks.

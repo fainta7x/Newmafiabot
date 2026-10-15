@@ -21,18 +21,18 @@ export default function PlayerProfileStatsHero({ games, wins, winRate, elo, seas
     : knownWins ? Math.min(100, Math.max(0, won / played * 100)) : null;
   const percent = rate === null ? '—' : `${Math.round(rate)}%`;
 
-  return <section data-testid="profile-key-stats" aria-label="Игровые показатели" className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3.5">
+  return <section data-testid="profile-key-stats" aria-label="Игровые показатели" className="overflow-hidden rounded-[28px] border border-amber-200/15 bg-gradient-to-br from-[#282017] via-[#17181b] to-[#111216] p-4">
     <div className="flex items-center gap-3.5">
-      <div className="grid h-[108px] w-[108px] shrink-0 place-items-center rounded-full p-[8px]"
+      <div className="grid h-[116px] w-[116px] shrink-0 place-items-center rounded-full p-[8px]"
         role="img" aria-label={`Процент побед: ${percent}`}
         style={{ background: `conic-gradient(#ddac65 ${rate ?? 0}%, rgba(255,255,255,.10) 0)` }}>
         <div className="grid h-full w-full place-content-center rounded-full bg-[#111216] text-center">
-          <strong className="text-[22px] font-semibold tabular-nums leading-none text-white">{percent}</strong>
+          <strong className="text-[26px] font-semibold tabular-nums leading-none text-white">{percent}</strong>
           <span className="mt-1 text-[10px] text-white/45">винрейт</span>
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-white/35">Игровая карьера</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-amber-100/55">Игровая карьера</div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="min-w-0 rounded-xl bg-black/20 px-2.5 py-2">
             <div className="text-xl font-semibold tabular-nums text-white">{games ?? '—'}</div>

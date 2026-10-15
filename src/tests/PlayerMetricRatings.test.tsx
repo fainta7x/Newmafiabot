@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import PlayerMetricRatings from '../components/player/PlayerMetricRatings.tsx';
 
 const body = (metricKey: string, rows: any[], extra: Record<string, unknown> = {}) => ({
-  metric: { key: metricKey, label: metricKey === 'elo_gain' ? 'Прирост Elo' : metricKey === 'win_rate' ? 'Винрейт' : 'Победы', group: 'Победы', unit: metricKey === 'elo_gain' ? 'elo' : 'count', hint: 'Подсказка', min_games: metricKey === 'win_rate' ? 5 : null },
+  metric: { key: metricKey, label: metricKey === 'elo_gain' ? 'Прирост Elo' : metricKey === 'win_rate' ? 'Винрейт' : 'Победы', group: 'Победы', unit: metricKey === 'elo_gain' ? 'elo' : 'count', hint: 'Подсказка', min_games: null, min_sample: null },
   metrics: [{ key: 'wins', label: 'Победы', group: 'Победы' }, { key: 'win_rate', label: 'Винрейт', group: 'Победы' }, { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo' }],
   filters: { period: 'all', format: 'all', period_label: 'Всё время', format_label: 'Все форматы', seasons: [{ key: 'period:autumn', label: 'Осень 2026' }], formats: [{ key: 'RATING', label: 'Рейтинговый' }] },
   games_in_scope: 12, total: rows.length, rows, me: null, ...extra,
@@ -37,10 +37,10 @@ describe('rankings by figure', () => {
     await waitFor(() => expect(fetcher.mock.calls.some(([url]) => String(url).includes('metric=elo_gain&period=period%3Aautumn&format=RATING'))).toBe(true));
   });
 
-  it('explains an empty ranking behind a minimum of games and shows an error', async () => {
+  it('explains a no-observations ranking and shows an error', async () => {
     vi.stubGlobal('fetch', vi.fn(() => respond(body('win_rate', []))));
     render(<PlayerMetricRatings />);
-    expect(await screen.findByText('Пока ни у кого нет 5 игр в этом выборе.')).toBeDefined();
+    expect(await screen.findByText('По этому показателю пока нет подтверждённых данных за выбранный период.')).toBeDefined();
     cleanup();
     vi.stubGlobal('fetch', vi.fn(() => respond({ error: 'Сбой' }, 500)));
     render(<PlayerMetricRatings />);

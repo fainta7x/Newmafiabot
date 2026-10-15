@@ -3,6 +3,7 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
+import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { GameTableScene, VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
@@ -182,12 +183,12 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 function RoleChip({ role }: { role: DetailPlayer['role'] }) {
-  return <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_CHIP[role || ''] || 'bg-white/[0.07] text-white/55'}`}>{roleLabel(role)}</span>;
+  return <GameRoleBadge role={role} />;
 }
 
 function Avatar({ player }: { player: DetailPlayer }) {
   const [failed, setFailed] = useState(false);
-  return <span aria-hidden="true" className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
+  return <span aria-hidden="true" className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-white/15 to-white/[.035] text-sm font-semibold text-white/70 ring-1 ring-white/10">
     {player.nickname.trim().slice(0, 1).toUpperCase() || '?'}
     {player.avatar_url && !failed && <img src={player.avatar_url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
   </span>;
@@ -238,21 +239,21 @@ export default function PlayerGameDetail({
     ].filter(Boolean) as Array<{ label: string; value: number }>;
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
-      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
-        <summary className="grid min-h-[60px] min-w-0 cursor-pointer list-none grid-cols-[20px_40px_minmax(0,1fr)_auto_12px] items-center gap-2 px-2.5 py-2">
-          <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full border-b border-white/[0.07] ${isSelf ? 'bg-sky-200/[0.07]' : ''}`}>
+        <summary className="grid min-h-10 min-w-0 cursor-pointer list-none grid-cols-[14px_28px_minmax(0,1fr)_auto_10px] items-center gap-1 px-1 py-1.5 sm:gap-2">
+          <div className="w-4 shrink-0 text-center text-[10px] font-semibold text-white/35">{item.seat_number}</div>
           <Avatar player={item} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-[11px] font-semibold text-sky-100/70">вы</span> : null}</div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <div className="truncate text-[11px] font-semibold text-white sm:text-xs">{item.nickname}{isSelf ? <span className="ml-1.5 text-[11px] font-semibold text-sky-100/70">вы</span> : null}</div>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               <RoleChip role={item.role} />
-              {exit ? <span className="truncate text-[11px] text-white/40">{exit}</span> : null}
+              {exit ? <span className="hidden truncate text-[10px] text-white/40 sm:inline">{exit}</span> : null}
               {marks.map((mark) => <span key={mark} className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[10px] text-white/55">{mark}</span>)}
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <div className={`text-base font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
-            {detail?.game.elo_affected && item.elo_delta != null ? <div className={`text-[11px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta)}</div> : <div className="text-[11px] text-white/25">баллы</div>}
+            <div className={`text-xs font-semibold tabular-nums sm:text-sm ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
+            {detail?.game.elo_affected && item.elo_delta != null ? <div className={`text-[10px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta)}</div> : <div className="text-[11px] text-white/25">баллы</div>}
           </div>
           <span className="shrink-0 text-white/30 transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
@@ -308,61 +309,59 @@ export default function PlayerGameDetail({
 
   return (
     <>
-      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/65">
-        ← Назад к играм
-      </button>
+      <button type="button" onClick={onBack} className="min-h-9 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← К играм</button>
 
       {loading && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игры…</p>}
       {error && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/55">{error}</p>}
 
       {detail && (
         <>
-          <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035] p-4">
-            <header data-testid="game-hero">
-              <p className="text-xs text-white/55">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</p>
-              <h1 className="mt-1 text-xl font-semibold">{detail.game.title}</h1>
-              <p className="mt-3 text-base font-semibold">{winnerLabel(detail.game.winner_team)}</p>
-              <p className="mt-1 text-xs text-white/55">{endReasonLabel(detail.protocol.end_reason)}</p>
-              {(detail.game.table_name || detail.game.judge_name) && <p className="mt-2 text-xs text-white/55">{[detail.game.table_name, detail.game.judge_name ? `судья ${detail.game.judge_name}` : null].filter(Boolean).join(' · ')}</p>}
-            </header>
-            {me && <div data-testid="game-mine" className="mt-4 border-t border-white/10 pt-3">
-              <h2 className="text-sm font-semibold">Мой результат</h2>
-              <div className="mt-2 flex items-center gap-3"><Avatar player={me}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><RoleChip role={me.role}/><span className={'text-sm font-semibold '+(me.won?'text-emerald-200':'text-rose-200')}>{me.won?'Победа':'Поражение'}</span></div><p className="mt-1 text-xs text-white/55">Место за столом {me.seat_number}{exitLabel(me.exit_type)?` · ${exitLabel(me.exit_type)}`:''}</p></div><div className="shrink-0 text-right"><p className={'text-xl font-semibold tabular-nums '+pointsTone(me.score.total_points)}>{signedScore(me.score.total_points)}</p><p className="text-xs text-white/55">{detail.game.elo_affected&&me.elo_delta!=null?formatEloDelta(me.elo_delta):'баллов за игру'}</p></div></div>
+          <section className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2.5" data-testid="game-hero">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0"><div className="text-[11px] text-white/45">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</div>
+                <h1 className="truncate text-sm font-semibold sm:text-base">{detail.game.title}</h1></div>
+              <strong className={`text-sm ${detail.game.winner_team === 'red' ? 'text-rose-300' : detail.game.winner_team === 'black' ? 'text-violet-200' : 'text-white/75'}`}>{winnerLabel(detail.game.winner_team)}</strong>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/45">
+              <span>{endReasonLabel(detail.protocol.end_reason)}</span>
+              {detail.game.table_name && <span>{detail.game.table_name}</span>}
+              {detail.game.judge_name && <span>Судья {detail.game.judge_name}</span>}
+              <span>{detail.players.length} игроков · {detail.protocol.votes.length} голосований · {detail.protocol.shots.length} выстрелов</span>
+            </div>
+            {me && <div data-testid="game-mine" className="mt-2 flex items-center gap-2 border-t border-white/10 pt-2">
+              <span className="text-[11px] text-white/45">Моя игра</span><RoleChip role={me.role}/>
+              <span className={`text-xs font-semibold ${me.won ? 'text-emerald-200' : 'text-rose-200'}`}>{me.won ? 'Победа' : 'Поражение'}</span>
+              <span className="ml-auto text-xs font-semibold tabular-nums">{signedScore(me.score.total_points)}</span>
+              {detail.game.elo_affected && me.elo_delta != null && <span className={`text-[11px] tabular-nums ${pointsTone(me.elo_delta)}`}>{formatEloDelta(me.elo_delta)}</span>}
             </div>}
-            <p aria-label="Ход игры в цифрах" className="mt-3 text-xs leading-5 text-white/55">Игроков: {detail.players.length} · голосований: {detail.protocol.votes.length} · ночных выстрелов: {detail.protocol.shots.length}</p>
           </section>
 
-          {keyMoments.length > 0 && (
-            <Section title="Главное в игре">
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {keyMoments.map((moment, index) => (
-                  <li key={`${moment.label}:${index}`} className="border-b border-white/[.07] py-2">
-                    <div className="text-[11px] text-white/40">{moment.label}</div>
-                    <div className="mt-0.5 text-sm font-medium text-white/90">{moment.value}</div>
-                    {moment.extra ? <div className="mt-0.5 text-[12px] text-white/50">{moment.extra}</div> : null}
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+          {keyMoments.length > 0 && <div aria-label="Главное в игре" className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 sm:grid-cols-4">
+            {keyMoments.map((moment, index) => <div key={`${moment.label}:${index}`} className="min-w-0">
+              <div className="truncate text-[10px] text-white/40">{moment.label}</div>
+              <div className="truncate text-xs font-medium text-white/90" title={moment.value}>{moment.value}</div>
+              {moment.extra && <div className="truncate text-[10px] text-white/40" title={moment.extra}>{moment.extra}</div>}
+            </div>)}
+          </div>}
 
-          <Section title="Составы и баллы" hint="Участники, их роли, действия и начисления.">
-            <details className="mb-3 border-b border-white/10 pb-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm text-white/70">Места за столом<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
-            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+          <section aria-label="Составы и баллы" className="min-w-0 rounded-2xl border border-white/10 bg-white/[.03] px-2 py-2 sm:px-3">
+            <details className="mb-2 border-b border-white/10"><summary className="flex min-h-8 cursor-pointer items-center justify-between text-xs text-white/50">Схема стола<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
+            <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
               {sides.map((side) => (
                 <div key={side.team} className="min-w-0">
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-1 flex items-center gap-1.5">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
                     <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
                     {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
                   </div>
-                  <div className="grid min-w-0 grid-cols-1 gap-2">{side.players.map(renderPlayer)}</div>
+                  <div className="min-w-0">{side.players.map(renderPlayer)}</div>
                 </div>
               ))}
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
             </div>
-          </Section>
+          </section>
 
+          <details className="group rounded-2xl border border-white/10 bg-white/[.025] px-3 py-1.5"><summary className="flex min-h-9 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
               <ul data-testid="game-reveals" className="grid gap-3 lg:grid-cols-2">
@@ -444,6 +443,7 @@ export default function PlayerGameDetail({
               <p className="rounded-2xl bg-black/20 px-3 py-3 text-sm leading-5 text-white/65">{detail.protocol.judge_notes}</p>
             </Section>
           )}
+          </div></details>
         </>
       )}
     </>

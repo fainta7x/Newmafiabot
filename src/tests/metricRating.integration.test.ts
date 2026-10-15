@@ -73,10 +73,17 @@ describe('rankings by one figure of the statistics', () => {
     expect((await get('?metric=best_moves')).rows[0]).toMatchObject({ nickname: 'Вера', value: 1 });
   });
 
-  it('keeps percentage rankings behind a minimum number of games', async () => {
+  it('lists percentages from the first real game, without minimum cutoffs', async () => {
     const rate = await get('?metric=win_rate');
-    expect(rate.metric.min_games).toBe(5);
-    expect(rate.rows).toEqual([]);
+    expect(rate.metric).toMatchObject({ min_games: null, min_sample: null });
+    expect(rate.rows.map((row: any) => [row.nickname, row.games, row.value])).toEqual([
+      ['Вера', 2, 100], ['Анна', 3, 66.7],
+    ]);
+    const red = await get('?metric=red_win_rate');
+    expect(red.rows.map((row: any) => [row.nickname, row.games])).toEqual([['Вера', 2], ['Анна', 3]]);
+    const black = await get('?metric=black_win_rate', 'p2');
+    expect(black.rows.map((row: any) => [row.nickname, row.games])).toEqual([['Борис', 3]]);
+    expect(black.rows.find((row: any) => row.nickname === 'Анна')).toBeUndefined(); // No red player's zero-denominator rate.
   });
 
   it('uses only the Elo gain or loss over the chosen games, never the rating itself', async () => {
@@ -110,11 +117,11 @@ describe('rankings by one figure of the statistics', () => {
     expect((await get('?metric=elo_gain&period=period:spring')).rows.some((row: any) => row.nickname.startsWith('Игрок e'))).toBe(false);
   });
 
-  it('ranks accuracy figures from the move chronology, behind a minimum sample', async () => {
-    // One game with a chronology: seat 1 (Анна, citizen) nominates the black seat 2 three times and the red seat 3 twice.
+  it('ranks chronology accuracy even for a single observed action', async () => {
+    // One game, one confirmed nomination must enter the ranking without an arbitrary sample cutoff.
     const date = '2026-09-24T18:00:00.000Z';
     await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES ('evA','Журнал','${date}','completed','RATING','${date}','${date}')`);
-    const targets = [2, 2, 2, 3, 3];
+    const targets = [2];
     const events = [
       { seq: 1, at: date, round: 1, phase: 'setup', kind: 'game_start' },
       ...targets.map((target, i) => ({ seq: i + 2, at: date, round: i + 2, phase: 'day_voting', kind: 'nomination', seat: target, by: 1 })),
@@ -127,9 +134,9 @@ describe('rankings by one figure of the statistics', () => {
     await db.run(`INSERT INTO games(id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at) VALUES (70,'evA',70,?,'red','Red',?,'[]',?)`, [date, JSON.stringify(payload), date]);
 
     const nominations = await get('?metric=nominations_accuracy');
-    expect(nominations.metric).toMatchObject({ key: 'nominations_accuracy', unit: 'percent', group: 'Меткость', min_sample: { minimum: 5, word: 'выставлений' } });
+    expect(nominations.metric).toMatchObject({ key: 'nominations_accuracy', unit: 'percent', group: 'Меткость', min_sample: null });
     expect(nominations.rows).toHaveLength(1);
-    expect(nominations.rows[0]).toMatchObject({ nickname: 'Анна', value: 60, value_text: '60%', games: 5, sample_text: '5 выставлений' });
+    expect(nominations.rows[0]).toMatchObject({ nickname: 'Анна', value: 100, value_text: '100%', games: 1, sample_text: '1 выставление' });
     // Not enough votes / checks anywhere: an empty ranking instead of a meaningless one.
     expect((await get('?metric=votes_accuracy')).rows).toEqual([]);
     expect((await get('?metric=sheriff_checks')).rows).toEqual([]);
@@ -165,13 +172,13 @@ describe('rankings by one figure of the statistics', () => {
     }
     // p2 hid the statistics: he is visible to himself only.
     const own = await get('?metric=black_misses', 'p2');
-    expect(own.metric).toMatchObject({ key: 'black_misses', group: 'Отстрелы', min_sample: { minimum: 5, word: 'ночей' } });
+    expect(own.metric).toMatchObject({ key: 'black_misses', group: 'Отстрелы', min_sample: null });
     expect(own.rows[0]).toMatchObject({ nickname: 'Борис', value: 4, sample_text: '6 ночей', is_me: true });
     expect((await get('?metric=black_misses')).rows.map((row: any) => row.nickname)).not.toContain('Борис');
-    expect((await get('?metric=black_miss_rate', 'p2')).rows).toEqual([]); // 6 nights are fewer than the 10 needed for a rate
+    expect((await get('?metric=black_miss_rate', 'p2')).rows[0]).toMatchObject({ nickname: 'Борис', value: 66.7, sample_text: '6 ночей' });
 
     const shot = await get('?metric=times_shot');
-    expect(shot.rows).toEqual([]); // 3 games as a red player are fewer than the 5 needed
+    expect(shot.rows.find((row: any) => row.nickname === 'Анна')).toMatchObject({ value: 2, games: 3, sample_text: '3 игры' });
     // Pairs need the victim and the black player to be visible: p2 hid the statistics, so for others there is no pair.
     expect((await get('?metric=night_pairs')).rows).toEqual([]);
     await db.run(`UPDATE players SET profile_visibility_json='{}' WHERE id='p2'`);
@@ -202,7 +209,7 @@ describe('rankings by one figure of the statistics', () => {
     expect((await request(app).get('/api/rating/roles')).status).toBe(401);
   });
 
-  it('ranks the federation (GoMafia) places of verified players: smaller average place first, from two tournaments', async () => {
+  it('ranks federation places with even one completed tournament', async () => {
     const { ensureGoMafiaSchema } = await import('../db/ensureGoMafiaSchema.ts');
     await ensureGoMafiaSchema(db);
     const link = async (player: string, external: string, places: Array<number | null>, status = 'verified') => {
@@ -212,10 +219,12 @@ describe('rankings by one figure of the statistics', () => {
     };
     await link('p1', '11', [4, 2, 6]);       // average 4, best 2, three tournaments
     await link('p3', '33', [1, 9]);          // average 5, best 1
-    await link('p2', '22', [3]);             // only one tournament: not listed (and hid the statistics anyway)
+    await link('p2', '22', [3]);             // one tournament: visible to player himself, not others (privacy).
     const avg = await get('?metric=fed_avg_place');
     expect(avg.metric).toMatchObject({ key: 'fed_avg_place', group: 'Федерация' });
     expect(avg.rows.map((row: any) => [row.nickname, row.value_text, row.games])).toEqual([['Анна', '4,0', 3], ['Вера', '5,0', 2]]);
+    const one = await get('?metric=fed_avg_place', 'p2');
+    expect(one.rows.find((row: any) => row.nickname === 'Борис')).toMatchObject({ value: 3, games: 1, sample_text: '1 турнир' });
     const best = await get('?metric=fed_best_place');
     expect(best.rows.map((row: any) => [row.nickname, row.value])).toEqual([['Вера', 1], ['Анна', 2]]);
     const count = await get('?metric=fed_tournaments');

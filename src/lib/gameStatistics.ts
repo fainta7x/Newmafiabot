@@ -1,3 +1,4 @@
+import type { GameRole } from '../shared/gameRoles.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
 import { gameActionFacts, playerActionMetrics, type ActionFactsMemo, type PlayerActionMetrics } from './gameActionFacts';
 import type { VotingRound } from '../shared/tournamentVoting';
@@ -10,7 +11,7 @@ import { buildGameAnalysis, type AnalysisCircle } from './liveGameAnalysis';
  * chronology (the events the Live Game engine wrote), so it covers games saved after the chronology shipped.
  */
 
-export type StatRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
+export type StatRole = GameRole;
 
 export interface StatGame {
   id: string;

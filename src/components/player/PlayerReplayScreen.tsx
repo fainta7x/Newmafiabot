@@ -1,3 +1,4 @@
+import { GameRoleIcon } from '../ui/GameRole.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import AsyncState from '../ui/AsyncState.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
@@ -40,7 +41,6 @@ type SpeechClip = {
 type SpeechView = 'chronological' | 'rounds';
 
 const roleLabel = (role: string | null) => getPlayerGameRoleLabel(role) ?? '—';
-const roleIcon = (role: string | null) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : role === 'don' ? '🎩' : '🎭';
 const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'reveal' ? '🎭' : type === 'finish' ? '🏁' : '•';
 const durationLabel = (seconds: number) => {
   const rounded = Math.max(0, Math.round(seconds || 0));
@@ -151,7 +151,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
       <section className="mt-3 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-4 text-center"><div className="text-[11px] uppercase tracking-[0.15em] text-white/25">{data.game?.title}</div><h1 className="mt-1 text-2xl font-black">Игра №{data.game?.number || '—'}</h1><div className={`mt-3 text-lg font-black ${data.game?.winner_team === 'red' ? 'text-rose-300' : 'text-white'}`}>{data.game?.winner_team === 'red' ? '🔴 Победа красных' : data.game?.winner_team === 'black' ? '⚫ Победа чёрных' : 'Игра завершена'}</div></section>
 
-      {data.players?.length ? <section className="mt-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">Раскрытый состав</div><div className="mt-2 grid grid-cols-2 gap-1.5">{data.players.map((player) => <div key={`${player.seat_number}:${player.nickname}`} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-[11px] font-black">{player.seat_number}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{player.nickname}</div><div className="text-[11px] text-white/25">{roleIcon(player.role)} {roleLabel(player.role)}</div></div></div>)}</div></section> : null}
+      {data.players?.length ? <section className="mt-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">Раскрытый состав</div><div className="mt-2 grid grid-cols-2 gap-1.5">{data.players.map((player) => <div key={`${player.seat_number}:${player.nickname}`} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-[11px] font-black">{player.seat_number}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{player.nickname}</div><div className="flex items-center gap-1 text-[11px] text-white/65"><GameRoleIcon role={player.role} className="h-3.5 w-3.5" /> {roleLabel(player.role)}</div></div></div>)}</div></section> : null}
 
       <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4">
         <div className="flex items-center justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">Хронология</div><div className="mt-1 text-xs text-white/35">Шаг {Math.min(step + 1, data.events.length)} из {data.events.length}</div></div><button type="button" disabled={data.events.length < 2} onClick={() => setPlaying((value) => !value)} className="min-h-10 rounded-xl bg-white px-3 text-[11px] font-bold text-black disabled:opacity-40">{playing ? 'Пауза' : step >= data.events.length - 1 ? 'С начала ▶' : 'Авто ▶'}</button></div>

@@ -47,6 +47,7 @@ Each editable product fact should have one owner. Secondary surfaces may summari
 
 | Entity / action | Canonical owner |
 | --- | --- |
+| Sporting Mafia role identity, names, team, icon token and palette | `src/shared/gameRoles.ts`; UI: `src/components/ui/GameRole.tsx` |
 | Player self identity/avatar/two personal music slots | Player profile |
 | Club roster record/access/roles/organizer notes/service corrections | CRM `Игроки` |
 | Staff/judge music library | Player conduct/music workspace |
@@ -388,3 +389,7 @@ Old open PRs and old roadmaps are not architecture truth. Compare them with curr
 ## Rule: a request that waits for an organizer (owner, 2026-10-12)
 
 Any flow where a player asks for something an organizer must confirm (a GoMafia link, a level, a registration answer…) needs three things, built together: (1) a Telegram notice through `enqueueOrganizerNotification` (idempotent `messageKey`, a failed notice must not fail the player's action); (2) an item in «Порядок в клубе» (`clubOrderService.ts`) that stays until the request is resolved; (3) no extra step when the person asking is already an organizer (his own request is confirmed at once). The first user of the rule is the GoMafia link (`goMafiaRoutes.ts`, `PUT /gomafia/me`).
+
+### Sporting role presentation
+
+`GameRole` has four stable keys: citizen, sheriff, mafia, don. `gameRoles.ts` owns names, team, icon token and palette. `GameRoleIcon`, `GameRoleMark` and `GameRoleBadge` render this metadata. Existing `TournamentRole`, `PhysicalRole`, `StatRole` and label exports are compatibility names for the same identity. The player API adapter accepts canonical keys only: missing roles and team-only colours do not infer a role. Judge-engine names are decoded at the presentation boundary; legacy assignment normalization and visibility guards keep their behavior. Light/dark foregrounds provide contrast within one role palette.

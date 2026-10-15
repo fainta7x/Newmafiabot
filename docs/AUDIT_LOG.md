@@ -2,7 +2,9 @@
 
 ## 2026-10-15 — restore compact game graphics after owner review
 
-- OPEN — owner screenshots show that #947 overcorrected toward text-only surfaces in `PlayerEveningSummaries`, `ClubConnectionStories`, game-history rows and `PlayerProfileStatsHero`. Preserve the grouped page composition while restoring factual team comparisons, linked role/identity graphics and a single overall win-rate visual. Reuse the real Live Game role icons; no giant posters, invented results or isolated chart per metric. Acceptance: unchanged values/actions and actual 360/390px before/after evidence.
+- IMPLEMENTED, exact-head browser/CI pending — role presentation had several owners: `tournamentRoleValidation.ts` and `playerGameRoleLabels.ts` duplicate names; cabinet pages add local dictionaries; the table, broadcast and the new `RoleMark` choose icons/colours independently. Establish one shared role registry and reusable UI, retain existing validation exports as compatibility adapters, and migrate the actual player/table/broadcast consumers without changing role assignment or visibility.
+
+- IMPLEMENTED, exact-head browser/CI pending — owner screenshots show that #947 overcorrected toward text-only surfaces in `PlayerEveningSummaries`, `ClubConnectionStories`, game-history rows and `PlayerProfileStatsHero`. Preserve the grouped page composition while restoring factual team comparisons, linked role/identity graphics and a single overall win-rate visual. Reuse the real Live Game role icons; no giant posters, invented results or isolated chart per metric. Acceptance: unchanged values/actions and actual 360/390px before/after evidence.
 
 ## 2026-10-15 — before/after screenshot delivery
 

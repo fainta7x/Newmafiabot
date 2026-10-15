@@ -1,25 +1,11 @@
-export type TournamentRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
+import { GAME_ROLES, GAME_ROLE_KEYS, GAME_ROLE_LABELS, normalizeGameRole, type GameRole } from '../shared/gameRoles.ts';
+export type TournamentRole = GameRole;
 
-export const ROLE_LIMITS: Record<TournamentRole, number> = {
-  citizen: 6,
-  sheriff: 1,
-  mafia: 2,
-  don: 1,
-};
+export const ROLE_LIMITS = Object.fromEntries(GAME_ROLE_KEYS.map(key => [key, GAME_ROLES[key].standardCount])) as Record<TournamentRole, number>;
 
-export const ROLE_LABELS: Record<TournamentRole, string> = {
-  citizen: 'Мирный',
-  sheriff: 'Шериф',
-  mafia: 'Мафия',
-  don: 'Дон',
-};
+export const ROLE_LABELS = GAME_ROLE_LABELS;
 
-export const ROLE_GENITIVE_LABELS: Record<TournamentRole, string> = {
-  citizen: 'Мирного',
-  sheriff: 'Шерифа',
-  mafia: 'Мафию',
-  don: 'Дона',
-};
+export const ROLE_GENITIVE_LABELS = Object.fromEntries(GAME_ROLE_KEYS.map(key => [key, GAME_ROLES[key].genitive])) as Record<TournamentRole, string>;
 
 export interface SeatRoleInput {
   seat_number: number;
@@ -27,12 +13,12 @@ export interface SeatRoleInput {
 }
 
 export function normalizeRoleValue(role: string | null | undefined): TournamentRole | null {
-  if (!role) return null;
-  const lower = role.trim().toLowerCase();
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(lower)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(lower)) return 'sheriff';
-  if (['mafia', 'мафия', 'black', 'черный'].includes(lower)) return 'mafia';
-  if (['don', 'дон'].includes(lower)) return 'don';
+  const canonical = normalizeGameRole(role);
+  if (canonical) return canonical;
+  // Compatibility only: historic assignment inputs used team colours as role aliases.
+  const lower = role?.trim().toLowerCase();
+  if (lower === 'red' || lower === 'красный') return 'citizen';
+  if (lower === 'black' || lower === 'черный') return 'mafia';
   return null;
 }
 

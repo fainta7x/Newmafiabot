@@ -1,3 +1,4 @@
+import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import { useEffect, useState, type ReactNode } from 'react';
 import { countGames, countWins } from '../../lib/russianPlural';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
@@ -15,7 +16,7 @@ type Teamwork = {
   never_played: Array<Person & { recent_games: number }>;
 };
 
-const ROLE_LABEL: Record<string, string> = { don: 'дон', mafia: 'мафия', sheriff: 'шериф', citizen: 'мирный' };
+const ROLE_LABEL: Record<string, string> = GAME_ROLE_LABELS;
 const NEXT_STEP: Record<Stage, string> = { acquaintance: 'напарники', teammates: 'связка', tandem: '' };
 
 function Avatar({ person }: { person: Person }) {

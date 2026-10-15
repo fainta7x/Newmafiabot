@@ -13,12 +13,13 @@ import PlayerEloJourney from './PlayerEloJourney.tsx';
 import StaffWorkStats from './StaffWorkStats.tsx';
 import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
-import { ROLE_LABELS, type TournamentRole } from '../../lib/tournamentRoleValidation.ts';
+import { GAME_ROLES, GAME_ROLE_KEYS } from '../../shared/gameRoles.ts';
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 
 type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections' | 'learning';
 type Period = { starts_at?: string; ends_at?: string; title?: string };
 const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'],['roles','Роли'],['elo','Elo'],['awards','Награды'],['history','История клуба'],['connections','Связи']];
-const ROLE_OPTIONS = [['','Все роли'],['citizen','Мирный'],['sheriff','Шериф'],['mafia','Мафия'],['don','Дон']] as const;
+const ROLE_OPTIONS: Array<readonly [string, string]> = [['', 'Все роли'], ...GAME_ROLE_KEYS.map(key => [key, GAME_ROLES[key].label] as const)];
 const TEAM_OPTIONS = [['','Все команды'],['red','Красные'],['black','Чёрные']] as const;
 const RESULT_OPTIONS = [['','Любой результат'],['win','Победа'],['loss','Поражение']] as const;
 const json = async (url:string, signal?:AbortSignal) => {
@@ -27,7 +28,7 @@ const json = async (url:string, signal?:AbortSignal) => {
   if(!r.ok) throw new Error(b.error||'Ошибка загрузки');
   return b;
 };
-const roleLabel = (role:any) => ROLE_LABELS[String(role||'') as TournamentRole] || null;
+const roleLabel = (role:any) => getPlayerGameRoleLabel(role);
 const fmt = (v:any) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—';
 const deltaText = (value: unknown) => {
   const delta=Math.round(Number(value));

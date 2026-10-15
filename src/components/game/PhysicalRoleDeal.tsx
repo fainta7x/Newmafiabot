@@ -1,9 +1,10 @@
+import { GAME_ROLES, GAME_ROLE_KEYS, type GameRole } from '../../shared/gameRoles.ts';
 import { useEffect, useMemo, useState } from 'react';
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 import { isSupportedTableSize, tableRoleCounts } from '../../lib/tableComposition.ts';
 import { JUDGE_TRAINING_ROLE_LABELS, trainingRolePlacementAllowed } from '../../lib/judgeTrainingSetup.ts';
 
-export type PhysicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
+export type PhysicalRole = GameRole;
 
 type Seat = {
   seat_number: number;
@@ -20,34 +21,8 @@ type Props = {
   trainingRoles?: Record<number, PhysicalRole>;
 };
 
-const ROLE_META: Record<PhysicalRole, { label: string; marker: string; active: string; countTone: string }> = {
-  citizen: {
-    label: 'Мирный',
-    marker: 'bg-rose-400',
-    active: 'border-rose-300/35 bg-rose-300/[0.10] text-rose-100',
-    countTone: 'text-rose-200/80',
-  },
-  sheriff: {
-    label: 'Шериф',
-    marker: 'bg-amber-300',
-    active: 'border-amber-300/35 bg-amber-300/[0.10] text-amber-100',
-    countTone: 'text-amber-200/80',
-  },
-  mafia: {
-    label: 'Мафия',
-    marker: 'bg-white/55',
-    active: 'border-white/20 bg-white/[0.08] text-white',
-    countTone: 'text-white/68',
-  },
-  don: {
-    label: 'Дон',
-    marker: 'bg-violet-300',
-    active: 'border-violet-300/35 bg-violet-300/[0.10] text-violet-100',
-    countTone: 'text-violet-200/80',
-  },
-};
-
-const ROLES = Object.keys(ROLE_META) as PhysicalRole[];
+const ROLE_META = GAME_ROLES;
+const ROLES = GAME_ROLE_KEYS;
 
 export default function PhysicalRoleDeal({
   seats,
@@ -157,7 +132,7 @@ export default function PhysicalRoleDeal({
               const meta = ROLE_META[role];
               return (
                 <div key={role} className="rounded-[14px] border border-white/[0.06] bg-black/15 px-2 py-2.5 text-center">
-                  <span className={`mx-auto block h-2 w-2 rounded-full ${meta.marker}`} />
+                  <span className="mx-auto block h-2 w-2 rounded-full" style={{ backgroundColor: meta.foreground }} />
                   <div className="mt-1.5 text-[10px] font-semibold text-white/48">{meta.label}</div>
                   <div className="mt-0.5 text-[13px] font-semibold text-white/82">{limits[role]}</div>
                 </div>
@@ -215,10 +190,10 @@ export default function PhysicalRoleDeal({
               return (
                 <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${meta.marker}`} />
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
                     <span className="text-[10px] font-semibold text-white/38">{meta.label}</span>
                   </div>
-                  <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : meta.countTone}`}>{counts[role]}/{limits[role]}</div>
+                  <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : ''}`} style={done ? undefined : { color: meta.foreground }}>{counts[role]}/{limits[role]}</div>
                 </div>
               );
             })}
@@ -258,10 +233,11 @@ export default function PhysicalRoleDeal({
                     type="button"
                     disabled={unavailable}
                     onClick={() => chooseRole(role)}
-                    className={`min-h-[64px] rounded-[16px] border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? meta.active : 'border-white/[0.08] bg-black/20 text-white/62 active:bg-white/[0.055]'}`}
+                    style={selected ? { borderColor: meta.foreground + '60', backgroundColor: meta.accent + '18', color: meta.foreground } : undefined}
+                    className={`min-h-[64px] rounded-[16px] border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? 'border-white/25 bg-white/[.06]' : 'border-white/[0.08] bg-black/20 text-white/62 active:bg-white/[0.055]'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${meta.marker}`} />
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.foreground }} />
                       <span className="text-[10px] font-semibold text-white/26">{counts[role]}/{limits[role]}</span>
                     </div>
                     <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
@@ -286,7 +262,7 @@ export default function PhysicalRoleDeal({
                   className={`min-h-[52px] min-w-0 rounded-[11px] border px-1 py-1.5 text-center ${index === activeIndex ? 'border-white/22 bg-white/[0.08]' : role ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.055] bg-black/15'}`}
                 >
                   <div className="text-[10px] font-semibold text-white/72">{seat.seat_number}</div>
-                  <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${meta?.marker || 'bg-white/12'}`} />
+                  <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta?.foreground ?? 'rgba(255,255,255,.12)' }} />
                   <div className="mt-1 truncate text-[10px] text-white/24">{seat.nickname}</div>
                 </button>
               );

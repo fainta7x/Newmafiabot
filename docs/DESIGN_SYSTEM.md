@@ -241,3 +241,7 @@ Cabinet desktop contract: all major cabinet sections share the profile's 1152px 
 ## Broadcast: reveals and the two versions (owner, 2026-10-12)
 
 The claimant of a reveal is coloured by his real role (the Don purple, the Sheriff gold); every announced check is coloured by the side it names — red for the one given as red, black for the one given as black. Not a rainbow of real roles next to each other, and not colourless either (both were rejected by the owner). Label «Вскрылся с:» sits above the checks so a narrow card never wraps it.
+
+### Shared role presentation
+
+Use the canonical role registry and `GameRoleIcon` / `GameRoleMark` / `GameRoleBadge` documented in `ARCHITECTURE.md`. Names, team, icon and palette have one owner. Screens choose inline/card size and contrast surface, not another role meaning or local colour dictionary. Never reveal a hidden role to decorate a screen.

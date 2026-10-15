@@ -1,15 +1,6 @@
-import { CircleHelp, Heart, Star } from 'lucide-react';
-import { MafiaHatIcon, PistolIcon } from '../LiveGameEngine/Icons';
-
-/** The actual role marks used by the game and broadcast, in a compact card silhouette. */
-export function RoleMark({ role }: { role?: string | null }) {
-  const kind = ({ 'Мирный': 'citizen', 'Мирный житель': 'citizen', 'Шериф': 'sheriff', 'Мафия': 'mafia', 'Дон': 'don' } as Record<string, string>)[role || ''] || role;
-  const tone = kind === 'citizen' ? 'border-sky-200/25 bg-sky-200/[.07] text-sky-200' : kind === 'sheriff' ? 'border-amber-200/30 bg-amber-200/[.08] text-amber-200' : kind === 'don' ? 'border-violet-200/30 bg-violet-200/[.08] text-violet-200' : 'border-white/20 bg-white/[.06] text-slate-200';
-  return <span aria-hidden="true" className={'relative grid h-12 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,.08)] ' + tone}>
-    <span className="absolute inset-x-1 top-1 h-px bg-current opacity-15" />
-    {kind === 'don' ? <MafiaHatIcon className="h-7 w-7" /> : kind === 'mafia' ? <PistolIcon className="h-7 w-7" /> : kind === 'sheriff' ? <Star className="h-6 w-6" fill="currentColor" /> : kind === 'citizen' ? <Heart className="h-6 w-6" fill="currentColor" /> : <CircleHelp className="h-5 w-5 opacity-50" />}
-  </span>;
-}
+import { Heart } from 'lucide-react';
+import { PistolIcon } from '../LiveGameEngine/Icons';
+export { GameRoleMark as RoleMark } from '../ui/GameRole.tsx';
 
 export function ResultTrack({ value, tone = 'amber' }: { value: number; tone?: 'amber' | 'violet' | 'rose' }) {
   const width = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;

@@ -27,7 +27,7 @@ function Members({ members, roles = [] }: { members: ConnectionMember[]; roles?:
     onClick={() => openCanonicalPlayerProfile(member.player_id)}
     className="ds-focus-ring relative flex min-h-11 min-w-0 flex-col items-center gap-1.5 rounded-xl text-center text-white/90">
     {roles[i] ? <RoleMark role={roles[i]} /> : <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full border border-amber-200/25 bg-[#29251d] text-lg font-semibold text-amber-100">{member.nickname.trim().slice(0, 1)}</span>}
-    <span className="line-clamp-2 break-words text-xs font-semibold leading-4">{member.nickname}</span>{roles[i] && <span className="text-xs text-white/50">{roles[i]}</span>}
+    <span className="break-words text-xs font-semibold leading-4">{member.nickname}</span>{roles[i] && <span className="text-xs text-white/50">{roles[i]}</span>}
   </button>)}</div>;
 }
 

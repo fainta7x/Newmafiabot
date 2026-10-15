@@ -1,3 +1,4 @@
+import { GAME_ROLE_LABELS } from '../shared/gameRoles.ts';
 import type { PhysicalRole } from '../components/game/PhysicalRoleDeal.tsx';
 
 export const TRAINING_PEOPLE = Array.from({ length: 10 }, (_, index) => 'Игрок ' + (index + 1));
@@ -32,12 +33,7 @@ export const JUDGE_TRAINING_ROLES: Record<number, PhysicalRole> = {
   10: 'citizen',
 };
 
-export const JUDGE_TRAINING_ROLE_LABELS: Record<PhysicalRole, string> = {
-  citizen: 'Мирный',
-  sheriff: 'Шериф',
-  mafia: 'Мафия',
-  don: 'Дон',
-};
+export const JUDGE_TRAINING_ROLE_LABELS: Record<PhysicalRole, string> = GAME_ROLE_LABELS;
 
 export const trainingRolePlacementAllowed = (targets: Record<number, PhysicalRole>, seat: number, role: PhysicalRole) =>
   targets[seat] === role;

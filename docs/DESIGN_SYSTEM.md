@@ -219,6 +219,7 @@ For every visual PR:
 3. inspect fresh screenshots after CI;
 4. explicitly check clipping, overlap, identity loss, hierarchy, phase colour, viewport overflow and action target geometry;
 5. fix visible bugs before starting the next stage.
+6. send the owner actual **before → after** screenshots with the visual-change handoff (owner request, 2026-10-15), with both sides labeled. Use the same route, fixture/data, viewport, scroll position and disclosure state where available; identify any unavoidable difference. Review the images before sending, retain their source revisions and provide accessible images/files rather than only CI links. Screenshots are evidence: never synthesize or retouch app content to make the change look better. Capture the baseline before future visual edits so the comparison is reproducible.
 
 **Green Playwright is execution evidence, not visual approval.**
 

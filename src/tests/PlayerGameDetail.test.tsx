@@ -90,7 +90,7 @@ describe('player game page', () => {
     expect(hero.textContent).toContain('Обычное завершение');
     expect(hero.textContent).toContain('Основной стол · судья Точка');
     const mine = screen.getByTestId('game-mine');
-    expect(mine.textContent).toContain('Ваша игра');
+    expect(mine.textContent).toContain('Мой результат');
     expect(mine.textContent).toContain('Победа');
     expect(mine.textContent).toContain('+12 Elo');
     expect(screen.getByText('Главное в игре')).toBeDefined();

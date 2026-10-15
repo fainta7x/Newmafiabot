@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 export type VisualPlayer = {
@@ -10,7 +10,6 @@ export type VisualPlayer = {
 };
 
 const initials = (name: string) => name.trim().slice(0, 1).toUpperCase() || '?';
-const clamp = (n: number) => Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
 
 /** Interactive seating diagram. Seat identity and team come from the game protocol; no generated positions imply moves. */
 export function GameTableScene({ players, winner, selfId }: {
@@ -19,7 +18,8 @@ export function GameTableScene({ players, winner, selfId }: {
   selfId: string;
 }) {
   const seats = players.filter((player) => player.seat_number >= 1 && player.seat_number <= 10);
-  return <figure data-testid="game-table-scene" className="relative mx-auto aspect-[1.15] w-full max-w-[560px] overflow-hidden rounded-[32px] border border-amber-200/15 bg-[#101013] shadow-[0_25px_80px_rgba(0,0,0,.35)]">
+  return <figure data-testid="game-table-scene" className="mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-white/10 bg-[#101013]">
+    <div className="relative aspect-[1.15]">
     <div className="pointer-events-none absolute inset-0 opacity-60" style={{background: 'radial-gradient(ellipse at 50% 50%,rgba(159,120,57,.18),transparent 65%),radial-gradient(ellipse at 65% 10%,rgba(147,92,126,.11),transparent 45%)'}} />
     <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 460 400" preserveAspectRatio="xMidYMid meet">
       <defs>
@@ -40,7 +40,7 @@ export function GameTableScene({ players, winner, selfId }: {
       const angle = (p.seat_number - 1) * Math.PI / 5;
       const style: CSSProperties = {
         left: (50 + 42 * Math.sin(angle)) + '%',
-        top: (50 - 43 * Math.cos(angle)) + '%',
+        top: (50 - 39 * Math.cos(angle)) + '%',
         transform: 'translate(-50%, -50%)',
       };
       const isSelf = Boolean(p.player_id) && p.player_id === selfId;
@@ -52,7 +52,7 @@ export function GameTableScene({ players, winner, selfId }: {
         aria-label={'Место ' + p.seat_number + ': ' + p.nickname + (p.player_id ? ', открыть профиль' : '')}
         onClick={() => p.player_id && openCanonicalPlayerProfile(p.player_id)}
         style={style}
-        className={'absolute z-10 flex h-[13%] w-[14%] min-w-0 flex-col items-center justify-center rounded-[15px] border shadow-[0_6px_18px_rgba(0,0,0,.5)] transition-transform enabled:active:scale-95 ' +
+        className={'absolute z-10 flex h-[13%] min-h-11 w-[14%] min-w-11 flex-col items-center justify-center rounded-[15px] border shadow-[0_6px_18px_rgba(0,0,0,.5)] transition-transform enabled:active:scale-95 ' +
           (isSelf ? 'border-amber-200/75 bg-[#594528] text-amber-50 ring-2 ring-amber-200/40' :
             p.team === 'black' ? 'border-violet-200/55 bg-[#33273f] text-violet-100' :
             p.team === 'red' ? 'border-rose-200/55 bg-[#492a31] text-rose-100' :
@@ -62,129 +62,32 @@ export function GameTableScene({ players, winner, selfId }: {
         <span className="text-base font-bold sm:text-xl">{initials(p.nickname)}</span>
       </button>;
     })}
-    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-5 text-[10px] text-white/65">
+    </div>
+    <figcaption className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-white/10 px-3 py-2 text-xs text-white/65">
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-300"/>За красных</span>
       <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-300"/>За чёрных</span>
-      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-200"/>Вы</span>
+      <span><i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-200"/>Моё место</span>
     </figcaption>
   </figure>;
 }
 
-export function ConnectionGraph({ members, roles = [], tone = 'violet' }: {
-  members: Array<{ player_id: string; nickname: string }>;
-  roles?: string[];
-  tone?: 'violet' | 'rose' | 'amber';
-}) {
-  const gradientId = useId().replaceAll(':', '-');
-  const display = members.slice(0, 3);
-  const triple = display.length >= 3;
-  const spots = triple ? [{ x: 18, y: 38 }, { x: 50, y: 65 }, { x: 82, y: 38 }] : [{ x: 26, y: 49 }, { x: 74, y: 49 }];
-  const stroke = tone === 'rose' ? '#f4a9ad' : tone === 'amber' ? '#e7c47c' : '#b9a0ef';
-  return <div data-testid="connection-graph" className="relative h-[172px] overflow-hidden rounded-[20px] bg-[radial-gradient(ellipse_at_center,rgba(213,194,148,.09),transparent_70%)]">
-    <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 360 172" preserveAspectRatio="none">
-      <defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop stopColor={stroke} stopOpacity=".8"/><stop offset="1" stopColor={stroke} stopOpacity=".2"/></linearGradient></defs>
-      {spots.slice(0, display.length).flatMap((spot, i) => spots.slice(i + 1, display.length).map((to, k) =>
-        <path key={i + ':' + k} d={'M' + spot.x * 3.6 + ' ' + spot.y * 1.72 + ' Q180 84 ' + to.x * 3.6 + ' ' + to.y * 1.72}
-          fill="none" stroke={'url(#' + gradientId + ')'} strokeWidth="2" strokeDasharray={tone === 'rose' ? '5 4' : undefined} />))}
-      <circle cx="180" cy="86" r="40" fill="none" stroke={stroke} strokeOpacity=".14" strokeDasharray="2 7"/>
-    </svg>
-    {display.map((member, i) => <button key={member.player_id} type="button" aria-label={member.nickname}
-      onClick={() => openCanonicalPlayerProfile(member.player_id)}
-      style={{left: spots[i].x + '%', top: spots[i].y + '%', transform: 'translate(-50%, -50%)'}}
-      className="ds-focus-ring absolute flex w-[32%] min-w-0 flex-col items-center gap-1 text-center">
-      <span className="grid h-12 w-12 place-items-center rounded-full border-2 bg-[#232128] text-lg font-bold text-white shadow-[0_5px_24px_rgba(0,0,0,.65)]" style={{borderColor: stroke}}>
-        {initials(member.nickname)}
-      </span>
-      <span className="w-full truncate text-[11px] font-semibold text-white/90">{member.nickname}</span>
-      {roles[i] && <span className="text-[9px] text-white/55">{roles[i]}</span>}
-    </button>)}
-    {display.length === 0 && <span className="absolute inset-0 grid place-items-center text-xs text-white/45">Нет данных для схемы</span>}
-  </div>;
-}
-
-export function WinOrbit({ percent, value, caption, tone = 'amber' }: {
-  percent: number; value?: string; caption: string; tone?: 'amber' | 'rose' | 'violet' | 'emerald';
-}) {
-  const color = { amber: '#e7c47c', rose: '#f4a9ad', violet: '#b9a0ef', emerald: '#84d9bc' }[tone];
-  const progress = clamp(percent);
-  return <div className="relative mx-auto aspect-square w-[116px] max-w-full" role="img" aria-label={caption + ': ' + progress + '%'}>
-    <svg aria-hidden="true" viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-      <circle cx="60" cy="60" r="49" stroke="#ffffff" strokeOpacity=".10" strokeWidth="7" fill="none"/>
-      <circle cx="60" cy="60" r="49" stroke={color} strokeWidth="7" strokeLinecap="round" strokeDasharray={String(progress * 3.07876) + ' 307.876'} fill="none"/>
-      <circle cx="60" cy="60" r="39" fill="#0f1013" fillOpacity=".5"/>
-    </svg>
-    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-      <span className="text-[23px] font-semibold tabular-nums text-white">{value ?? String(Math.round(progress)) + '%'}</span>
-      <span className="mt-1 px-2 text-[10px] text-white/55">{caption}</span>
-    </div>
-  </div>;
-}
-
-
-/** Show the actual recorded ballot distribution; never fabricate individual voter choices. */
+/** Actual aggregate counts; one comparable bar per candidate, no invented voter identities. */
 export function VoteSplitScene({ candidates, eligible }: {
   candidates: Array<{ seat: number; nickname: string; votes: number; team?: 'red' | 'black' | null }>;
   eligible: number | null;
 }) {
   const total = candidates.reduce((sum, item) => sum + Math.max(0, item.votes), 0);
-  const colors = ['bg-rose-300', 'bg-violet-300', 'bg-amber-200', 'bg-sky-300', 'bg-emerald-300'];
-  return <div data-testid="game-vote-graphic" className="mt-4 space-y-3">
-    <div className="flex items-end justify-between gap-2">
-      <div><div className="text-[10px] uppercase tracking-[.13em] text-white/45">Распределение голосов</div><div className="text-2xl font-semibold tabular-nums">{total}<span className="ml-1 text-xs font-normal text-white/45">голосов по кандидатам</span></div></div>
-      {eligible != null && <span className="text-[11px] text-white/45">могли голосовать: {eligible}</span>}
-    </div>
-    <div className="flex h-4 gap-[2px] overflow-hidden rounded-full bg-white/10" role="img" aria-label={'Распределено ' + total + ' голосов между ' + candidates.length + ' кандидатами'}>
-      {candidates.map((candidate, index) => <span key={candidate.seat} className={colors[index % colors.length]} style={{width: (total ? candidate.votes / total * 100 : 0) + '%'}}/>)}
-    </div>
-    <div className="grid gap-2 sm:grid-cols-2">
-      {candidates.map((candidate, index) => {
-        const ratio = total ? candidate.votes / total * 100 : 0;
-        return <div key={candidate.seat} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#14151a] p-3" aria-label={'Кандидат ' + candidate.nickname + ': ' + candidate.votes + ' голосов'}>
-          <div className={'absolute left-0 top-0 h-full w-1 ' + colors[index % colors.length]} aria-hidden="true"/>
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-white/[.055] text-lg font-semibold text-white/85">{candidate.seat}</span>
-            <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white/85">{candidate.nickname}</div><div className="mt-1 text-[10px] text-white/45">место №{candidate.seat}</div></div>
-            <div className="text-right"><div className="text-2xl font-semibold tabular-nums text-white/90">{candidate.votes}</div><div className="text-[10px] tabular-nums text-white/45">{Math.round(ratio)}%</div></div>
-          </div>
-          <div aria-hidden="true" className="mt-3 flex min-h-[8px] flex-wrap gap-1">
-            {Array.from({length: Math.min(12, Math.max(0, Math.floor(candidate.votes)))}, (_, i) => <span key={i} className={'h-2 w-2 rounded-full ' + colors[index % colors.length]}/>)}
-            {candidate.votes > 12 && <span className="text-[10px] text-white/55">+{candidate.votes - 12}</span>}
-          </div>
-        </div>;
-      })}
-    </div>
-    {total === 0 && <p className="text-xs text-white/50">За выставленных кандидатов голоса не записаны.</p>}
+  return <div data-testid="game-vote-graphic" className="mt-3 space-y-3">
+    {eligible != null && <p className="text-xs text-white/55">Могли голосовать: {eligible}</p>}
+    {candidates.map(candidate => <div key={candidate.seat} aria-label={'Кандидат ' + candidate.nickname + ': ' + candidate.votes + ' голосов'}>
+      <div className="flex items-baseline justify-between gap-3 text-sm"><span className="min-w-0 break-words"><span className="text-white/50">№{candidate.seat}</span> {candidate.nickname}</span><strong className="shrink-0 tabular-nums">{candidate.votes}</strong></div>
+      {candidates.length > 1 && <div aria-hidden="true" className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white/65" style={{width: `${total ? Math.max(0,candidate.votes) / total * 100 : 0}%`}}/></div>}
+    </div>)}
+    {total === 0 && <p className="text-xs text-white/55">За выставленных кандидатов голоса не записаны.</p>}
   </div>;
 }
 
-/** Cinematic presentation of a recorded shot, without inferring any other night action. */
+/** A recorded night action is a fact in the chronology, not an illustrated landscape. */
 export function NightShotScene({ target, seat, result }: { target: string; seat: number; result: 'killed' | 'miss' | string | null }) {
-  const killed = result === 'killed';
-  return <div data-testid="game-night-graphic" className="relative mt-3 min-h-[155px] overflow-hidden rounded-[24px] border border-violet-200/10 bg-[#100f1a] p-4">
-    <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 400 170" preserveAspectRatio="xMidYMid slice">
-      <defs><linearGradient id="night-stage" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#302542"/><stop offset="1" stopColor="#0c1019"/></linearGradient></defs>
-      <rect width="400" height="170" fill="url(#night-stage)"/>
-      <circle cx="330" cy="30" r="38" fill="#e3def1" opacity=".14"/>
-      <circle cx="345" cy="20" r="36" fill="#181523"/>
-      <path d="M0 135 L32 121 L55 141 L87 111 L121 135 L150 102 L190 135 L225 108 L262 135 L293 114 L329 135 L360 110 L400 136 V170 H0Z" fill="#100d19" opacity=".9"/>
-      <path d="M120 96 C170 40 220 44 286 95" fill="none" stroke="#ccbde5" strokeOpacity=".42" strokeWidth="2" strokeDasharray="3 7"/>
-      <circle cx="120" cy="96" r="7" fill="#c3b5db" fillOpacity=".8"/>
-      <circle cx="286" cy="95" r="10" fill="none" stroke={killed ? '#f3adb5' : '#bcb4dc'} strokeWidth="2" strokeOpacity=".7"/>
-      <path d="M279 95 H293 M286 88 V102" stroke={killed ? '#f3adb5' : '#bcb4dc'} strokeWidth="1.5"/>
-    </svg>
-    <div className="relative flex items-center justify-between gap-2">
-      <span className="rounded-full border border-violet-200/15 bg-black/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.12em] text-violet-100/70">Ночной выстрел</span>
-      <span className={'rounded-full px-2.5 py-1 text-[10px] font-semibold ' + (killed ? 'bg-rose-300/15 text-rose-200' : 'bg-violet-300/15 text-violet-200')}>
-        {killed ? 'Попадание' : result === 'miss' ? 'Промах' : 'Итог в протоколе'}
-      </span>
-    </div>
-    <div className="relative mt-5 flex items-center gap-3">
-      <div className={'grid h-14 w-14 shrink-0 place-items-center rounded-full border-2 bg-black/50 text-2xl font-semibold ' +
-        (killed ? 'border-rose-300/70 text-rose-100' : 'border-violet-300/70 text-violet-100')}>{seat}</div>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-white/85">Мафия стреляла в {target}</p>
-        <p className="mt-1 text-[11px] text-white/55">Цель — место №{seat}</p>
-      </div>
-    </div>
-  </div>;
+  return <p data-testid="game-night-graphic" className="mt-2 text-sm leading-5 text-white/75">Мафия стреляла в {target} · место №{seat}. {result === 'killed' ? 'Попадание' : result === 'miss' ? 'Промах' : 'Итог в протоколе'}.</p>;
 }

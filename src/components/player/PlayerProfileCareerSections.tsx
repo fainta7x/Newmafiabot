@@ -25,50 +25,33 @@ export type ProfileSeason = { label: string; games: number; wins: number; win_ra
  */
 export default function PlayerProfileCareerSections({ stats, season, gameStats, nightShots, reveals, circleExits }: { stats: ProfileCareerStats; season: ProfileSeason; gameStats?: PlayerGameStatistics | null; nightShots?: NightShots; reveals?: RevealNumbers; circleExits?: CircleExitNumbers }) {
   if (!stats) return null;
-  const tile = 'rounded-2xl border border-white/10 bg-white/[.04] p-3';
   return <>
-    <section className="grid grid-cols-2 gap-2" aria-label="Серии побед">
-      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Сейчас</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.current_streak || '—'}</div><div className="text-[11px] text-white/50">побед подряд</div></div>
-      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Лучший результат</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.best_streak || '—'}</div><div className="text-[11px] text-white/50">рекорд серии</div></div>
+    <section aria-label="Результаты и команды" className="space-y-4 pb-3">
+      <dl aria-label="Серии побед" className="grid grid-cols-2 gap-3">
+        <div><dt className="text-xs text-white/55">Побед подряд сейчас</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{stats.current_streak ?? '—'}</dd></div>
+        <div><dt className="text-xs text-white/55">Рекорд серии</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{stats.best_streak ?? '—'}</dd></div>
+      </dl>
+      {season && <div data-testid="profile-season" className="flex items-start justify-between gap-3 border-t border-white/10 pt-3">
+        <div className="min-w-0"><p className="text-xs text-white/55">Текущий рейтинговый сезон</p><h3 className="mt-1 break-words text-sm font-semibold">{season.label}</h3><p className="mt-1 text-xs text-white/60">{season.games ? `${season.wins} побед из ${season.games} · ${season.win_rate}%` : 'В этом рейтинговом сезоне игр пока нет'}</p></div>
+        {season.place ? <p className="shrink-0 text-right text-lg font-semibold">#{season.place}<span className="block text-xs font-normal text-white/55">из {season.total_players}</span></p> : null}
+      </div>}
+      {stats.red && stats.black && <div aria-label="Красные и чёрные" className="border-t border-white/10 pt-3">
+        <h3 className="text-sm font-semibold">Победы по командам</h3>
+        <div className="mt-3 grid grid-cols-2 gap-4">{[
+          { label: 'За красных', stat: stats.red, color: 'bg-rose-300' },
+          { label: 'За чёрных', stat: stats.black, color: 'bg-violet-300' },
+        ].map(({label,stat,color}) => <div key={label} className="min-w-0">
+          <div className="text-xs text-white/65">{label}</div><p className="mt-1 text-xl font-semibold tabular-nums">{stat.games ? `${stat.win_rate}%` : '—'}</p>
+          <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={'h-full rounded-full ' + color} style={{width: `${stat.games ? Math.min(100,Math.max(0,stat.win_rate)) : 0}%`}}/></div>
+          <p className="mt-2 text-xs text-white/55">{stat.wins} из {stat.games} игр</p>
+        </div>)}</div>
+      </div>}
+      {[stats.first_killed,stats.best_moves,stats.zero_round_voted].some(value => value != null) && <dl aria-label="ПУ, ЛХ и нулевой круг" className="grid grid-cols-3 gap-3 border-t border-white/10 pt-3">
+        <div><dt className="text-xs text-white/55">ПУ — первым убит</dt><dd className="mt-1 text-lg font-semibold">{stats.first_killed ?? '—'}</dd></div>
+        <div><dt className="text-xs text-white/55">ЛХ — лучший ход</dt><dd className="mt-1 text-lg font-semibold">{stats.best_moves ?? '—'}</dd></div>
+        <div><dt className="text-xs text-white/55">На нулевом круге</dt><dd className="mt-1 text-lg font-semibold">{stats.zero_round_voted ?? '—'}</dd></div>
+      </dl>}
     </section>
-
-    {season ? <section data-testid="profile-season" className="overflow-hidden rounded-[24px] border border-sky-200/10 bg-gradient-to-br from-sky-200/[0.075] via-[#111820] to-[#111216] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100/50">Текущий рейтинговый сезон</div>
-          <div className="mt-1 truncate text-lg font-semibold">{season.label}</div>
-          <div className="mt-1 text-xs text-white/55">{season.games ? `${season.wins} побед из ${season.games} · ${season.win_rate}%` : 'В этом рейтинговом сезоне игр пока нет'}</div>
-        </div>
-        {season.place ? <div className="shrink-0 rounded-2xl bg-black/20 px-3 py-2 text-center"><div className="text-xl font-semibold">#{season.place}</div><div className="text-[11px] text-white/40">из {season.total_players}</div></div> : null}
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`Победы в рейтинговом сезоне: ${season.win_rate}%`}><div className="h-full rounded-full bg-sky-300/80" style={{width: `${Math.min(100, Math.max(0, season.games ? season.win_rate : 0))}%`}} /></div>
-    </section> : null}
-
-    {stats.red && stats.black ? <section aria-label="Красные и чёрные" className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3">
-      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">Победы по командам</div>
-      <div className="grid grid-cols-2 gap-2">
-        {([
-          { label: 'За красных', stat: stats.red, color: 'bg-rose-300', border: 'border-rose-200/10' },
-          { label: 'За чёрных', stat: stats.black, color: 'bg-violet-300', border: 'border-violet-200/10' },
-        ]).map(({ label, stat, color, border }) => (
-          <div key={label} className={`min-w-0 rounded-2xl border ${border} bg-black/15 p-3`}>
-            <div className="text-[11px] text-white/55">{label}</div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums">{stat.games ? `${stat.win_rate}%` : '—'}</div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`${label}: ${stat.games ? stat.win_rate : 0}% побед`}>
-              <div className={`h-full rounded-full ${color}`} style={{ width: `${stat.games ? Math.min(100, Math.max(0, stat.win_rate)) : 0}%` }} />
-            </div>
-            <div className="mt-2 text-[11px] text-white/45">{stat.wins} из {stat.games} игр</div>
-          </div>
-        ))}
-      </div>
-    </section> : null}
-
-    {(stats.first_killed || stats.best_moves || stats.zero_round_voted) ? <section className="grid grid-cols-3 gap-2" aria-label="ПУ, ЛХ и нулевой круг">
-      <div className={tile}><div className="text-lg font-semibold">{stats.first_killed ?? 0}</div><div className="text-[11px] text-white/50">ПУ — первым убит</div></div>
-      <div className={tile}><div className="text-lg font-semibold">{stats.best_moves ?? 0}</div><div className="text-[11px] text-white/50">ЛХ — лучший ход</div></div>
-      <div className={tile}><div className="text-lg font-semibold">{stats.zero_round_voted ?? 0}</div><div className="text-[11px] text-white/50">на нулевом круге</div></div>
-    </section> : null}
-
     <PlayerGameNumbers stats={gameStats} totalGames={stats.games} />
     <PlayerNightShots shots={nightShots} />
     <PlayerReveals numbers={reveals} />

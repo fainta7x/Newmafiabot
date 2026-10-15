@@ -39,7 +39,7 @@ export function usePlayerProfileCompleteness() {
 export function PlayerProfileCompletionCard({ compact = false }: { compact?: boolean }) {
   const { data, loading } = usePlayerProfileCompleteness();
   if (loading && !data) return <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-white/45">Проверяем профиль…</div>;
-  if (!data) return null;
+  if (!data || data.complete) return null;
   const next = data.next_missing_field ? data.fields[data.next_missing_field] : null;
   return (
     <section data-testid="profile-completion-card" className={`rounded-[24px] border ${data.complete ? 'border-emerald-400/20 bg-emerald-400/[0.07]' : 'border-amber-300/20 bg-amber-300/[0.07]'} ${compact ? 'p-3' : 'p-4'}`}>
@@ -48,9 +48,9 @@ export function PlayerProfileCompletionCard({ compact = false }: { compact?: boo
           <div className="text-sm font-semibold text-white">Профиль заполнен на {data.percentage}%</div>
           {next ? <p className="mt-1 text-sm leading-5 text-white/60">Следующий шаг: {next.label.toLowerCase()}</p> : <p className="mt-1 text-sm text-white/60">Основные данные заполнены.</p>}
         </div>
-        <strong className="shrink-0 text-xl tabular-nums text-white">{data.percentage}%</strong>
+
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white transition-[width]" style={{ width: `${data.percentage}%` }} /></div>
+      {!compact && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white transition-[width]" style={{ width: `${data.percentage}%` }} /></div>}
       {!compact && data.missing_fields.length ? <div className="mt-3 flex flex-wrap gap-1.5">{data.missing_fields.map((key) => <span key={key} className="rounded-full bg-black/20 px-2.5 py-1 text-xs text-white/60">{data.fields[key]?.label || key}</span>)}</div> : null}
     </section>
   );

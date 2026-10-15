@@ -1184,3 +1184,7 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerRoleTables.tsx`: same stale table/error behaviour when role or shared scope changes. **fixed in PR:** clear and retry, retain guarded responses and role controls.
 - `PlayerMetricRatings.tsx`: visible explanatory copy exposes developer-like minimum-threshold wording rather than useful sample meaning. **fixed in PR:** show sample size and actual metric hint without an eligibility claim.
 - Backend `metricRatingService.ts`: reviewed no-minimum-observation behaviour, scoped denominators, server ranks, personal row outside top 30, and federation separation; no statistical formula changed. Follow-up visual screenshots at 360/390 CSS px and required CI pending.
+
+## 2026-10-15 · Player metric rating: graphical hierarchy
+
+- `PlayerMetricRatings.tsx`: compact list rows show names, raw figures, and sample in one cramped line, making large results and comparison hard to scan at 360px. **addressed in stacked visual PR:** each existing player becomes a finger-sized card with rank, avatar, unit/number, sample, partner context where relevant, and a proportional bar. Bars are relative to the largest absolute value currently returned (top 30 plus self), not an additional ranking or fabricated score. Negative Elo is differentiated. Existing row profile navigation, rank ties, figures, filters, and samples are preserved. Screenshot/CI evidence still required before merge.

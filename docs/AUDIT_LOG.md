@@ -1184,3 +1184,7 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerRatingPeriods.tsx`: a failed period-list or period-detail GET ends in text-only dead ends. **fixed in PR:** scoped retry for each request without resetting selected season.
 - `PlayerTournamentResults.tsx`: failed `/api/player/tournaments` GET has no in-place retry. **fixed in PR:** retry and neutral loading/error reset, preserve tournament navigation.
 - Scope: UI fetch/recovery only; rating calculation, minimum participation rules, Elo, club points, GoMafia and production database untouched. Mobile/CI evidence required before merge.
+
+## 2026-10-15 · Player Cabinet «Прогресс» initial profile load
+
+- `CanonicalPremiumPlayerProfile.tsx`: failure of the primary summary request made the whole profile render a terminal unclickable error, blocking career, games, roles, Elo, awards and history until the user left and returned. **fixed:** explicit retry of primary profile summary, with current player identity, request-generation guards and abort cleanup retained. No server rules or statistics modified. CI and mobile preview required before merge.

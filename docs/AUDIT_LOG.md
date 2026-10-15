@@ -1,5 +1,10 @@
 # Audit log
 
+## 2026-10-15 — before/after screenshot delivery
+
+- FIXED IN TEST, fresh browser evidence pending — `e2e/tests/desktop-workspaces.spec.mjs`: the role-tab screenshot can run before the role response renders. Final #947 evidence at 390/700/1024/1366px contains only an empty role-list border, whereas 1440px contains all four fixture roles. The no-loading-text check may pass before the effect starts, and iterating an empty row array passes vacuously. Now require all four role rows (or all three game rows) from the existing fixture before checking geometry and taking a screenshot. No product layout change.
+
+
 ## 2026-10-15 · Cabinet information density (owner correction)
 
 **Reproduction:** at 390px, open Evenings → My games, Connections or a past evening. A game poster reserves 230px; a known pair repeats a 172px diagram and 116px win-rate orbit; an evening shows separate score panels, VS artwork, a duplicate score bar and another orbit. Expected: scan results and reach the protocol without decorative scrolling. Owner: mounted presentation, not APIs/calculations.

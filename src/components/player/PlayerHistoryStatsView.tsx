@@ -191,9 +191,24 @@ export default function PlayerGamesArchive({
                 : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p>
                 : allGames.length ? <div className="player-archive-list grid gap-3 sm:grid-cols-2">{allGames.map((game) => {
                   const normalizedFormat = normalizeEveningFormat(game.format);
-                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }} className="w-full rounded-[22px] border border-white/10 bg-gradient-to-br from-white/[0.055] to-black/30 p-4 text-left transition active:bg-white/[0.08]">
-                    <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[11px] text-white/55">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span></div>
-                    <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="text-white/65">{winnerLabel(game.winner_team)}</span><span className="min-w-0 truncate text-right text-white/30">{game.judge_name ? `судья ${game.judge_name} · ` : ''}Подробнее ›</span></div>
+                  return <button key={game.id} type="button" onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }}
+                    className={'group relative flex min-h-[195px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-[24px] border p-4 text-left shadow-[0_12px_30px_rgba(0,0,0,.2)] transition-transform active:scale-[.98] ' +
+                      (game.winner_team === 'red' ? 'border-rose-200/15 bg-gradient-to-br from-[#42252e] via-[#20161d] to-[#101116]' :
+                      game.winner_team === 'black' ? 'border-violet-200/15 bg-gradient-to-br from-[#30233d] via-[#1d1726] to-[#101116]' :
+                      'border-amber-200/10 bg-gradient-to-br from-[#292321] via-[#1b191a] to-[#101116]')}>
+                    <span aria-hidden="true" className="pointer-events-none absolute -right-4 top-0 text-[135px] leading-none text-white/[.065]">{game.winner_team === 'black' ? '♠' : game.winner_team === 'red' ? '◆' : '♛'}</span>
+                    <span className="relative flex items-center justify-between gap-2">
+                      <span className="rounded-full border border-white/15 bg-black/20 px-2.5 py-1 text-[10px] font-semibold text-white/75">№{game.game_number || '—'}</span>
+                      <span className="rounded-full border border-white/10 bg-white/[.07] px-2.5 py-1 text-[10px] text-white/75">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span>
+                    </span>
+                    <span className="relative flex min-w-0 flex-col gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/60">{formatDate(game.date)}</span>
+                      <span className="line-clamp-2 text-base font-semibold leading-6 text-white">{game.title}</span>
+                      <span className={'text-xs font-semibold ' + (game.winner_team === 'red' ? 'text-rose-200' : game.winner_team === 'black' ? 'text-violet-200' : 'text-white/60')}>{winnerLabel(game.winner_team)}</span>
+                    </span>
+                    <span className="relative flex items-center justify-between gap-2 border-t border-white/15 pt-3 text-[11px] text-white/65">
+                      <span className="truncate">{game.judge_name ? 'Судья ' + game.judge_name : 'Полный протокол'}</span><span className="shrink-0 font-semibold text-amber-200/75">Подробнее ↗</span>
+                    </span>
                   </button>;
                 })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Завершённых игр пока нет.</p>}
             </div>

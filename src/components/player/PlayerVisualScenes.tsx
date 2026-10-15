@@ -156,3 +156,35 @@ export function VoteSplitScene({ candidates, eligible }: {
     {total === 0 && <p className="text-xs text-white/50">За выставленных кандидатов голоса не записаны.</p>}
   </div>;
 }
+
+/** Cinematic presentation of a recorded shot, without inferring any other night action. */
+export function NightShotScene({ target, seat, result }: { target: string; seat: number; result: 'killed' | 'miss' | string | null }) {
+  const killed = result === 'killed';
+  return <div data-testid="game-night-graphic" className="relative mt-3 min-h-[155px] overflow-hidden rounded-[24px] border border-violet-200/10 bg-[#100f1a] p-4">
+    <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 400 170" preserveAspectRatio="xMidYMid slice">
+      <defs><linearGradient id="night-stage" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#302542"/><stop offset="1" stopColor="#0c1019"/></linearGradient></defs>
+      <rect width="400" height="170" fill="url(#night-stage)"/>
+      <circle cx="330" cy="30" r="38" fill="#e3def1" opacity=".14"/>
+      <circle cx="345" cy="20" r="36" fill="#181523"/>
+      <path d="M0 135 L32 121 L55 141 L87 111 L121 135 L150 102 L190 135 L225 108 L262 135 L293 114 L329 135 L360 110 L400 136 V170 H0Z" fill="#100d19" opacity=".9"/>
+      <path d="M120 96 C170 40 220 44 286 95" fill="none" stroke="#ccbde5" strokeOpacity=".42" strokeWidth="2" strokeDasharray="3 7"/>
+      <circle cx="120" cy="96" r="7" fill="#c3b5db" fillOpacity=".8"/>
+      <circle cx="286" cy="95" r="10" fill="none" stroke={killed ? '#f3adb5' : '#bcb4dc'} strokeWidth="2" strokeOpacity=".7"/>
+      <path d="M279 95 H293 M286 88 V102" stroke={killed ? '#f3adb5' : '#bcb4dc'} strokeWidth="1.5"/>
+    </svg>
+    <div className="relative flex items-center justify-between gap-2">
+      <span className="rounded-full border border-violet-200/15 bg-black/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.12em] text-violet-100/70">Ночной выстрел</span>
+      <span className={'rounded-full px-2.5 py-1 text-[10px] font-semibold ' + (killed ? 'bg-rose-300/15 text-rose-200' : 'bg-violet-300/15 text-violet-200')}>
+        {killed ? 'Попадание' : result === 'miss' ? 'Промах' : 'Итог в протоколе'}
+      </span>
+    </div>
+    <div className="relative mt-5 flex items-center gap-3">
+      <div className={'grid h-14 w-14 shrink-0 place-items-center rounded-full border-2 bg-black/50 text-2xl font-semibold ' +
+        (killed ? 'border-rose-300/70 text-rose-100' : 'border-violet-300/70 text-violet-100')}>{seat}</div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-white/85">Мафия стреляла в {target}</p>
+        <p className="mt-1 text-[11px] text-white/55">Цель — место №{seat}</p>
+      </div>
+    </div>
+  </div>;
+}

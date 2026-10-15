@@ -24,3 +24,11 @@ Owner-approved implementation contract. The player cabinet must not be modernize
 
 ## Next acceptance pass
 Use a real phone and desktop with an evening containing multiple matches, a revote, both teams and a reveal. Verify scroll density, relation diagrams, nested navigation/back, actual voting percentages, profile links, unknown and missing data.
+
+## 15 October — final detail layers
+- Night shots now use a separate graphical scene with the recorded victim seat and shot result, but never reconstruct non-recorded actions.
+- Sheriff claims are an explicit graphical split between **announced** checks and known true player roles; unrecorded roles are never branded false.
+- Competing Sheriff versions are shown side-by-side as the table dispute with role-grounded correctness only.
+- Club-wide game archive is a visual poster gallery, not an orphaned rectangular list after the personal games.
+- Past-evening memorable facts and community-voted recognitions use the same cinematic hierarchy as the evening scoreboard; the recorded numbers and nominations are unchanged.
+- The separate ranking-metrics audit removes arbitrary minimum participation cutoffs. A statistic still requires one observed action or defined denominator and surfaces the sample count.

@@ -1,5 +1,3 @@
-import { Fragment } from 'react';
-
 export type AnnouncedCheck = {
   target: number;
   nickname: string;
@@ -26,7 +24,7 @@ export function RevealStatementScene({ candidate }: { candidate: RevealCandidate
       <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-amber-200/30 bg-amber-200/[.1] text-2xl font-semibold text-amber-100">{candidate.claimant}</div>
       <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold uppercase tracking-[.15em] text-amber-200/60">Заявил роль шерифа</div>
         <div className="mt-1 truncate text-sm font-semibold text-white/90">{candidate.label}</div></div>
-      <span aria-hidden="true" className="text-2xl text-amber-200/50">⇢</span>
+      <span className="shrink-0 text-right text-[10px] text-white/50">{candidate.role === "sheriff" ? "Настоящий шериф" : candidate.role === "mafia" || candidate.role === "don" ? "Чёрная команда" : candidate.role === "citizen" ? "Мирный" : "Роль не записана"}</span>
     </div>
     <div className="relative ml-5 border-l-2 border-dashed border-amber-200/20 pl-4">
       {candidate.checks.length ? candidate.checks.map((check, index) => {
@@ -59,7 +57,7 @@ export function VersionDuelScene({ versions }: { versions: Array<{
     <h3 className="mt-1 text-lg font-semibold text-white/90">Две версии стола</h3>
     <p className="mt-2 text-xs leading-5 text-white/50">Если шериф он, то чёрные те, кого он назвал, и тот, кто вскрылся против него. Верна ровно одна версия, когда обе роли известны.</p>
     <div className="relative mt-4 grid gap-3 sm:grid-cols-2">
-      {versions.map((v, index) => <Fragment key={v.claimant}>
+      {versions.map((v, index) => <div key={v.claimant} className="min-w-0">
         <article className={'relative overflow-hidden rounded-[24px] border p-4 ' +
           (v.state === 'verified' ? 'border-emerald-200/25 bg-gradient-to-br from-emerald-300/[.11] to-[#141c1a]' :
            v.state === 'false' ? 'border-rose-200/20 bg-gradient-to-br from-rose-300/[.08] to-[#1d1519]' :
@@ -77,7 +75,7 @@ export function VersionDuelScene({ versions }: { versions: Array<{
             <span key={n} className="grid h-7 w-7 place-items-center rounded-full border border-violet-200/30 bg-violet-200/10 text-xs text-violet-100">{n}</span>)}
           </div>
         </article>
-      </Fragment>)}
+      </div>)}
       {versions.length === 2 && <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200/30 bg-[#151318] px-3 py-2 text-xs font-bold text-amber-100 sm:block">VS</div>}
     </div>
   </div>;

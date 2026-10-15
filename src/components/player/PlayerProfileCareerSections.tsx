@@ -25,10 +25,10 @@ export type ProfileSeason = { label: string; games: number; wins: number; win_ra
  */
 export default function PlayerProfileCareerSections({ stats, season, gameStats, nightShots, reveals, circleExits }: { stats: ProfileCareerStats; season: ProfileSeason; gameStats?: PlayerGameStatistics | null; nightShots?: NightShots; reveals?: RevealNumbers; circleExits?: CircleExitNumbers }) {
   if (!stats) return null;
-  const tile = 'rounded-2xl border border-white/10 bg-white/[.04] p-3';
+  const tile = 'relative overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br from-white/[.075] to-white/[.025] p-4';
   return <>
     <section className="grid grid-cols-2 gap-2" aria-label="Серии побед">
-      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Сейчас</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.current_streak ?? '—'}</div><div className="text-[11px] text-white/50">побед подряд</div></div>
+      <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Сейчас</div><div className="mt-3 text-3xl font-semibold tabular-nums">{stats.current_streak ?? '—'}</div><div className="mt-1 text-[11px] text-white/50">побед подряд</div></div>
       <div className={tile}><div className="text-[10px] uppercase tracking-wider text-white/40">Лучший результат</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats.best_streak ?? '—'}</div><div className="text-[11px] text-white/50">рекорд серии</div></div>
     </section>
 
@@ -64,7 +64,7 @@ export default function PlayerProfileCareerSections({ stats, season, gameStats, 
     </section> : null}
 
     {(stats.first_killed != null || stats.best_moves != null || stats.zero_round_voted != null) ? <section className="grid grid-cols-3 gap-2" aria-label="ПУ, ЛХ и нулевой круг">
-      <div className={tile}><div className="text-lg font-semibold">{stats.first_killed ?? 0}</div><div className="text-[11px] text-white/50">ПУ — первым убит</div></div>
+      <div className={tile}><div className="text-2xl font-semibold tabular-nums">{stats.first_killed ?? 0}</div><div className="text-[11px] text-white/50">ПУ — первым убит</div></div>
       <div className={tile}><div className="text-lg font-semibold">{stats.best_moves ?? 0}</div><div className="text-[11px] text-white/50">ЛХ — лучший ход</div></div>
       <div className={tile}><div className="text-lg font-semibold">{stats.zero_round_voted ?? 0}</div><div className="text-[11px] text-white/50">на нулевом круге</div></div>
     </section> : null}

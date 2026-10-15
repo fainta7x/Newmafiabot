@@ -16,11 +16,12 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
   const [data, setData] = useState<RoleTable | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const generation = useRef(0);
 
   useEffect(() => {
     const current = ++generation.current;
-    setLoading(true); setError('');
+    setLoading(true); setData(null); setError('');
     const query = new URLSearchParams({ role });
     if (period !== 'all') query.set('period', period);
     if (format !== 'all') query.set('format', format);
@@ -31,7 +32,7 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
     }).catch((reason: any) => {
       if (current === generation.current) setError(reason?.message || 'Не удалось загрузить таблицу по ролям');
     }).finally(() => { if (current === generation.current) setLoading(false); });
-  }, [role, period, format]);
+  }, [role, period, format, retry]);
 
   return <section data-testid="role-tables" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
     <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Роль">
@@ -41,7 +42,7 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
       ))}
     </div>
     {data ? <p className="mt-3 px-1 text-[11px] leading-4 text-white/40">{data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p> : null}
-    {error ? <div role="alert" className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4 text-sm text-rose-100/75">{error}</div>
+    {error ? <div role="alert" className="mt-3 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
       : !data ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю таблицу…</div>
       : data.rows.length ? <div className={`mt-2 space-y-1.5 ${loading ? 'opacity-60' : ''}`}>
         {data.rows.map((row, index) => <button key={row.player_id} type="button" data-testid={`role-row-${row.player_id}`} onClick={() => openCanonicalPlayerProfile(row.player_id)}

@@ -45,6 +45,7 @@ describe('reveals on the game page', () => {
     expect(box.textContent).toContain('назвал красным');
     // seat 5 is the Don announced red, seat 1 a red announced black: two untruths; seat 3 (Sheriff announced red) is true
     expect(within(box).getAllByText('неправда')).toHaveLength(2);
+    expect(within(box).getByTestId('game-reveal-claim-2')).toBeDefined();
   });
 
   it('shows the two competing versions of the table and which one was true', () => {
@@ -75,6 +76,7 @@ describe('visual game timeline', () => {
     expect(timeline.textContent).toContain('переголосование');
     expect(timeline.textContent).toContain('Ночь 1');
     expect(timeline.textContent).toContain('Мафия стреляла в');
+    expect(within(timeline).getAllByTestId('game-night-graphic')).toHaveLength(detail.protocol.shots.length);
     expect(timeline.textContent).toContain('#9 Знак');
   });
 });

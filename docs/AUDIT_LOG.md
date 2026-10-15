@@ -1190,3 +1190,10 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerStoriesPanel.tsx`: a failed GET `/api/player/stories` replaced the entire history with a dead-end error; no in-place retry. **fixed:** show actionable retry, reset error on request, preserve cancellation guard.
 - `PlayerStoriesPanel.tsx` `MatchSpotlight`: failed `/api/player/games/:key` within the in-page game sheet offered only close, not reload. **fixed:** in-sheet retry for the same game, reset stale detail before retry, retain cancellation guard and current game navigation.
 - Entire match feed, voting panel, evening scores, game chronology, cards and score computations unchanged. Browser/CI evidence required before merging.
+
+## 2026-10-15 · Progress connected journey: games, Elo, awards and history
+
+- `PlayerEloJourney.tsx`: failed Elo GET forced the player to leave the section; in-place retry added, stale payload cleared when filters change, chart height and legibility improved, event cards enlarged, accessible game-navigation target improved.
+- `CanonicalPremiumPlayerProfile.tsx`: own Elo event detail did not supply `onOpenGame`, so the existing game-protocol action did not appear for own career. Wired canonical `openPlayerGame` and enlarged archive game cards and details link.
+- `PremiumProfileShowcase.tsx`: awards and club timeline were flat and visually indistinct. Pinned honours now use a shared trophy surface, card geometry and timeline rail; no awards invented or reorder of underlying timeline data.
+- This is a cohesive visual + navigation update, not a change to Elo math, game outcomes, awards and achievement eligibility or account privileges. CI, screenshots and potential overlap with #945 must be reviewed before merging.

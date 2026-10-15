@@ -1,5 +1,12 @@
 # Audit log
 
+## 2026-10-15 — reconcile and finish open PRs
+
+- OPEN #949, `PlayerGameDetail.tsx`: a two-column phone roster keeps the old five-column row contents, so role/name/score compete for ~156px; 40px summaries miss the 44px target. Compact the row itself, keep full identity/exit/marks in its disclosure and verify child bounds at 360/390px.
+- OPEN #949: key moments are truncated behind hover-only titles; disclose full wrapping facts on touch. Main overview should show result and both team rosters, with history available on demand. Update stale test labels without removing value/action coverage.
+- OPEN #945, `PremiumProfileShowcase.tsx`: failed showcase GET has no retry; section changes do not invalidate the light pinned response. Port only this functional remainder into #949. Zero-value stats/filter reset from #945 and Elo retry/protocol links from #946 already exist in main; their older graphic layouts are superseded.
+- REVIEWED #940/#942: functional loading/retry changes are already in main; old rating presentation is superseded. Close both. #941 owns valid art direction but needs canonical DESIGN_SYSTEM/PROJECT_STATE ownership. Preserve #891's later approved concept in those owners/BUSINESS_RULES before archiving its rejected wardrobe prototype; do not merge the prototype runtime.
+
 ## 2026-10-15 — restore compact game graphics after owner review
 
 - IMPLEMENTED, exact-head browser/CI pending — role presentation had several owners: `tournamentRoleValidation.ts` and `playerGameRoleLabels.ts` duplicate names; cabinet pages add local dictionaries; the table, broadcast and the new `RoleMark` choose icons/colours independently. The final search also found duplicate name maps in club result images/posts, the premium-profile service, GoMafia rows and betting CRM; these now read the same shared labels. Establish one shared role registry and reusable UI, retain existing validation exports as compatibility adapters, and migrate the actual player/table/broadcast consumers without changing role assignment or visibility.
@@ -1229,3 +1236,8 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerStoriesPanel.tsx`: a failed GET `/api/player/stories` replaced the entire history with a dead-end error; no in-place retry. **fixed:** show actionable retry, reset error on request, preserve cancellation guard.
 - `PlayerStoriesPanel.tsx` `MatchSpotlight`: failed `/api/player/games/:key` within the in-page game sheet offered only close, not reload. **fixed:** in-sheet retry for the same game, reset stale detail before retry, retain cancellation guard and current game navigation.
 - Entire match feed, voting panel, evening scores, game chronology, cards and score computations unchanged. Browser/CI evidence required before merging.
+
+## 2026-10-15 — art PR ownership reconciliation
+
+- #941: likeness/key-art criteria existed only in a standalone document and current queue omitted the work. Preserve them in DESIGN_SYSTEM, point the workflow document to that owner, and record current/pending work in PROJECT_STATE.
+- #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.

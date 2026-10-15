@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PlayerGameDetail, { type PlayerGameDetailData } from '../components/player/PlayerGameDetail.tsx';
 
@@ -69,6 +69,7 @@ describe('reveals on the game page', () => {
 describe('visual game timeline', () => {
   it('keeps all voting phases and shots in one chronological story', () => {
     view();
+    fireEvent.click(screen.getByTestId('game-full-protocol').querySelector('summary')!);
     const timeline = screen.getByTestId('game-story-timeline');
     const items = within(timeline).getAllByRole('listitem');
     expect(items).toHaveLength(detail.protocol.votes.length + detail.protocol.shots.length);
@@ -88,12 +89,15 @@ describe('player game page', () => {
     expect(hero.textContent).toContain('Игра №11');
     expect(hero.textContent).toContain('Победа красных');
     expect(hero.textContent).toContain('Обычное завершение');
-    expect(hero.textContent).toContain('Основной стол · судья Точка');
+    expect(hero.textContent).toContain('Основной стол');
+    expect(hero.textContent).toContain('Судья Точка');
     const mine = screen.getByTestId('game-mine');
-    expect(mine.textContent).toContain('Мой результат');
+    expect(mine.textContent).toContain('Моя игра');
     expect(mine.textContent).toContain('Победа');
     expect(mine.textContent).toContain('+12 Elo');
     expect(screen.getByText('Главное в игре')).toBeDefined();
+    expect((screen.getByTestId('game-full-protocol') as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(screen.getByTestId('game-key-moments').querySelector('summary')!);
     expect(screen.getAllByText('#9 Знак', { selector: 'div' })).toHaveLength(2); // the first killed and the best move
     expect(screen.getByText('назвал чёрными #2, #3, #5 · угадал 2 из 3')).toBeDefined();
   });
@@ -107,12 +111,15 @@ describe('player game page', () => {
     expect(row.tagName).toBe('DETAILS');
     expect((row as HTMLDetailsElement).open).toBe(false);
     expect(within(row).getByText('+1,5')).toBeDefined();
+    fireEvent.click(row.querySelector('summary')!);
+    expect((row as HTMLDetailsElement).open).toBe(true);
     expect(within(row).getByText('судья +0,5')).toBeDefined();
     expect(within(screen.getByTestId('game-player-9')).getByText('вы')).toBeDefined();
   });
 
   it('tells the game in order: zero circle, first night, first day, second night', () => {
     view();
+    fireEvent.click(screen.getByTestId('game-full-protocol').querySelector('summary')!);
     const story = screen.getByText('Ход игры').closest('section')!;
     const titles = within(story).getAllByRole('listitem').map((item) => item.textContent || '');
     expect(titles[0]).toContain('Нулевой круг');

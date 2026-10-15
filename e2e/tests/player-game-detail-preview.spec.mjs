@@ -2,17 +2,24 @@ import { test, expect } from '@playwright/test';
 
 // The page of one finished game: result first, the viewer's own game, what mattered, rosters by team, then the story.
 for (const width of [360, 390]) test(`game page reads top to bottom at ${width}px`, async ({ page }, testInfo) => {
-  await page.setViewportSize({ width, height: 800 });
+  await page.setViewportSize({ width, height: 713 });
   await page.goto('/e2e/player-game-detail.html');
   await expect(page.getByTestId('game-hero')).toContainText('Победа красных');
-  await expect(page.getByTestId('game-mine')).toContainText('Мой результат');
+  await expect(page.getByTestId('game-mine')).toContainText('Моя игра');
   await expect(page.getByText('Главное в игре')).toBeVisible();
   await expect(page.getByText('Составы и баллы')).toBeVisible();
+  const roster = page.getByRole('region', { name: 'Составы и баллы', exact: true });
+  await expect(page.locator('[data-testid^="game-player-"]')).toHaveCount(10);
+  expect((await roster.boundingBox()).y + (await roster.boundingBox()).height).toBeLessThanOrEqual(713);
+  await page.screenshot({ path: testInfo.outputPath(`game-overview-${width}.png`) });
+  await page.getByTestId('game-key-moments').locator(':scope > summary').click();
+  await expect(page.getByText('Знак с очень длинным ником игрока', { exact: false }).first()).toBeVisible();
+  await page.getByTestId('game-full-protocol').locator(':scope > summary').click();
   await expect(page.getByText('Ход игры')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // Every row is a touch target; opening one shows where the points came from.
   const heights = await page.locator('summary:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
-  expect(heights.length).toBe(11);
+  expect(heights.length).toBeGreaterThanOrEqual(13);
   expect(heights.every((height) => height >= 44)).toBe(true);
   const seating = page.getByTestId('game-table-scene');
   await expect(seating).not.toBeVisible();

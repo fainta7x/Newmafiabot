@@ -1,3 +1,4 @@
+import { getGameRoleDefinition, UNKNOWN_GAME_ROLE_LABEL } from '../../shared/gameRoles.ts';
 import React, { useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
@@ -231,24 +232,20 @@ export default function PlayerGameDetail({
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
       <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full border-b border-white/[0.07] ${isSelf ? 'bg-sky-200/[0.07]' : ''}`}>
-        <summary className="grid min-h-10 min-w-0 cursor-pointer list-none grid-cols-[14px_28px_minmax(0,1fr)_auto_10px] items-center gap-1 px-1 py-1.5 sm:gap-2">
-          <div className="w-4 shrink-0 text-center text-[10px] font-semibold text-white/35">{item.seat_number}</div>
-          <Avatar player={item} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-semibold text-white sm:text-xs">{item.nickname}{isSelf ? <span className="ml-1.5 text-[11px] font-semibold text-sky-100/70">вы</span> : null}</div>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-              <RoleChip role={item.role} />
-              {exit ? <span className="hidden truncate text-[10px] text-white/40 sm:inline">{exit}</span> : null}
-              {marks.map((mark) => <span key={mark} className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[10px] text-white/55">{mark}</span>)}
-            </div>
+        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}, ${signedScore(item.score.total_points)} балла`} className="grid min-h-11 min-w-0 cursor-pointer list-none grid-cols-[14px_minmax(0,1fr)_34px] items-center gap-1 px-1 py-1.5">
+          <span className="text-center text-xs font-semibold text-white/45">{item.seat_number}</span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1"><span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{item.nickname}</span><span aria-hidden="true" className="text-white/35 transition group-open:rotate-180">⌄</span></div>
+            <div className="mt-0.5"><RoleChip role={item.role} /></div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className={`text-xs font-semibold tabular-nums sm:text-sm ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
-            {detail?.game.elo_affected && item.elo_delta != null ? <div className={`text-[10px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta)}</div> : <div className="text-[11px] text-white/25">баллы</div>}
+          <div className="min-w-0 text-right">
+            <div className={`text-xs font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>
+            {detail?.game.elo_affected && item.elo_delta != null ? <div aria-label={`Изменение Elo: ${formatEloDelta(item.elo_delta)}`} className={`whitespace-nowrap text-[10px] tabular-nums ${pointsTone(item.elo_delta)}`}>{formatEloDelta(item.elo_delta).replace(/\s*Elo$/, '')}</div> : <div className="text-[10px] text-white/35">баллы</div>}
           </div>
-          <span className="shrink-0 text-white/30 transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
-        <div className="space-y-2 border-t border-white/[0.06] px-3 pb-3 pt-2.5 text-[12px] text-white/55">
+        <div className="space-y-2 border-t border-white/[0.06] px-2 pb-3 pt-2.5 text-xs text-white/65">
+          <div className="flex min-w-0 items-center gap-2"><Avatar player={item} /><div className="min-w-0 break-words"><p className="font-semibold text-white">{item.nickname}{isSelf ? <span className="ml-1.5 text-sky-100/70">вы</span> : null}</p><p>Место №{item.seat_number} · {(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}</p></div></div>
+          {(exit || marks.length > 0) && <p className="break-words">{[exit, ...marks].filter(Boolean).join(' · ')}</p>}
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-white/30">Из чего баллы</div>
             {parts.length ? <div className="mt-1.5 flex flex-wrap gap-1.5">{parts.map((part) => <span key={`${part.label}:${part.value}`} className={`rounded-full px-2 py-1 text-[11px] ${part.value > 0 ? 'bg-emerald-400/10 text-emerald-200/80' : 'bg-rose-400/10 text-rose-200/80'}`}>{part.label} {signedScore(part.value)}</span>)}</div> : <div className="mt-1 text-white/35">Дополнительных начислений нет.</div>}
@@ -269,7 +266,7 @@ export default function PlayerGameDetail({
             </div>
           ) : null}
           {item.removal_reason || item.notes ? <div className="leading-5 text-white/40">{item.removal_reason ? <div>Причина удаления: {item.removal_reason}</div> : null}{item.notes ? <div>{item.notes}</div> : null}</div> : null}
-          {item.player_id ? <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id!)} className="min-h-9 rounded-xl bg-white/[0.07] px-3 text-[12px] text-white/70">Открыть профиль игрока</button> : null}
+          {item.player_id ? <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id!)} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-[12px] text-white/70">Открыть профиль игрока</button> : null}
           <div className="border-t border-white/[0.06] pt-2 text-[11px] text-white/35">
             {detail?.game.elo_affected && item.elo_delta != null
               ? `Elo: ${formatEloDelta(item.elo_delta)}${item.elo_before != null && item.elo_after != null ? ` · было ${shortNumber(item.elo_before)}, стало ${shortNumber(item.elo_after)}` : ''}`
@@ -300,7 +297,7 @@ export default function PlayerGameDetail({
 
   return (
     <>
-      <button type="button" onClick={onBack} className="min-h-9 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← К играм</button>
+      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-lg bg-white/[0.05] px-3 text-xs text-white/65">← К играм</button>
 
       {loading && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игры…</p>}
       {error && <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/55">{error}</p>}
@@ -310,7 +307,7 @@ export default function PlayerGameDetail({
           <section className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2.5" data-testid="game-hero">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <div className="min-w-0"><div className="text-[11px] text-white/45">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</div>
-                <h1 className="truncate text-sm font-semibold sm:text-base">{detail.game.title}</h1></div>
+                <h1 className="break-words text-sm font-semibold sm:text-base">{detail.game.title}</h1></div>
               <strong className={`text-sm ${detail.game.winner_team === 'red' ? 'text-rose-300' : detail.game.winner_team === 'black' ? 'text-violet-200' : 'text-white/75'}`}>{winnerLabel(detail.game.winner_team)}</strong>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/45">
@@ -327,23 +324,27 @@ export default function PlayerGameDetail({
             </div>}
           </section>
 
-          {keyMoments.length > 0 && <div aria-label="Главное в игре" className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 sm:grid-cols-4">
-            {keyMoments.map((moment, index) => <div key={`${moment.label}:${index}`} className="min-w-0">
-              <div className="truncate text-[10px] text-white/40">{moment.label}</div>
-              <div className="truncate text-xs font-medium text-white/90" title={moment.value}>{moment.value}</div>
-              {moment.extra && <div className="truncate text-[10px] text-white/40" title={moment.extra}>{moment.extra}</div>}
-            </div>)}
-          </div>}
+          {keyMoments.length > 0 && <details data-testid="game-key-moments" className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3">
+            <summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/80">Главное в игре<span aria-hidden="true" className="text-white/40">ПУ · ЛХ ▾</span></summary>
+            <div className="grid grid-cols-2 gap-3 pb-3">
+              {keyMoments.map((moment, index) => <div key={`${moment.label}:${index}`} className="min-w-0">
+                <div className="text-xs text-white/50">{moment.label}</div>
+                <div className="break-words text-xs font-medium text-white/90">{moment.value}</div>
+                {moment.extra && <div className="mt-1 break-words text-xs text-white/60">{moment.extra}</div>}
+              </div>)}
+            </div>
+          </details>}
 
           <section aria-label="Составы и баллы" className="min-w-0 rounded-2xl border border-white/10 bg-white/[.03] px-2 py-2 sm:px-3">
-            <details className="mb-2 border-b border-white/10"><summary className="flex min-h-8 cursor-pointer items-center justify-between text-xs text-white/50">Схема стола<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
+            <details className="mb-2 border-b border-white/10"><summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-xs text-white/70"><h2 className="font-semibold">Составы и баллы</h2><span>Схема стола ▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
             <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
               {sides.map((side) => (
                 <div key={side.team} className="min-w-0">
-                  <div className="mb-1 flex items-center gap-1.5">
+                  <div className="mb-1 flex min-h-6 flex-wrap items-center gap-1.5">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
-                    <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
-                    {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
+                    <h3 className="text-xs font-semibold text-white/80">{side.title}</h3>
+                    {detail.game.winner_team === side.team ? <span className="text-xs text-emerald-200"><span aria-hidden="true">✓</span><span className="sr-only">победили</span></span> : null}
+                    <span className="ml-auto text-right text-[10px] text-white/45">баллы{detail.game.elo_affected ? ' / Elo' : ''}</span>
                   </div>
                   <div className="min-w-0">{side.players.map(renderPlayer)}</div>
                 </div>
@@ -352,7 +353,7 @@ export default function PlayerGameDetail({
             </div>
           </section>
 
-          <details className="group rounded-2xl border border-white/10 bg-white/[.025] px-3 py-1.5"><summary className="flex min-h-9 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
+          <details data-testid="game-full-protocol" className="group rounded-2xl border border-white/10 bg-white/[.025] px-3"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
               <ul data-testid="game-reveals" className="grid gap-3 lg:grid-cols-2">

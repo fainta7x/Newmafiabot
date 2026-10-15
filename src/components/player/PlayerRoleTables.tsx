@@ -16,6 +16,7 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
   const [data, setData] = useState<RoleTable | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const generation = useRef(0);
 
   useEffect(() => {
@@ -31,21 +32,22 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
     }).catch((reason: any) => {
       if (current === generation.current) setError(reason?.message || 'Не удалось загрузить таблицу по ролям');
     }).finally(() => { if (current === generation.current) setLoading(false); });
-  }, [role, period, format]);
+    return () => { generation.current += 1; };
+  }, [role, period, format, retry]);
 
-  return <section data-testid="role-tables" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
+  return <section data-testid="role-tables" className="mt-4 border-t border-white/10 pt-3">
     <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Роль">
       {(data?.roles || [{ key: 'don', label: 'Дон' }, { key: 'mafia', label: 'Мафия' }, { key: 'sheriff', label: 'Шериф' }, { key: 'citizen', label: 'Мирный' }]).map((item) => (
         <button key={item.key} type="button" role="tab" aria-selected={role === item.key} data-testid={`role-tab-${item.key}`} onClick={() => setRole(item.key)}
           className={`min-h-11 rounded-xl px-1 text-[12px] font-semibold ${role === item.key ? 'bg-white text-black' : 'bg-white/[0.07] text-white/70'}`}>{item.label}</button>
       ))}
     </div>
-    {data ? <p className="mt-3 px-1 text-[11px] leading-4 text-white/40">{data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p> : null}
-    {error ? <div role="alert" className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4 text-sm text-rose-100/75">{error}</div>
-      : !data ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю таблицу…</div>
-      : data.rows.length ? <div className={`mt-2 space-y-1.5 ${loading ? 'opacity-60' : ''}`}>
+    {data && !loading && !error ? <p className="mt-3 px-1 text-xs leading-5 text-white/55">{data.role.hint} · в играх выбранного периода: {data.games_in_scope}</p> : null}
+    {error ? <div role="alert" className="mt-3 space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
+      : loading || !data ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю таблицу…</div>
+      : data.rows.length ? <div className="mt-2 divide-y divide-white/[.07]">
         {data.rows.map((row, index) => <button key={row.player_id} type="button" data-testid={`role-row-${row.player_id}`} onClick={() => openCanonicalPlayerProfile(row.player_id)}
-          className={`w-full rounded-2xl px-3 py-2.5 text-left ${row.is_me ? 'bg-sky-200/[0.08]' : 'bg-black/20'}`}>
+          className={`ds-focus-ring min-h-11 w-full px-1 py-3 text-left ${row.is_me ? 'bg-sky-200/[0.08]' : 'hover:bg-white/[.035]'}`}>
           <div className="flex items-center gap-3">
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-xs font-semibold text-white/70">{index + 1}</span>
             {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : null}

@@ -24,7 +24,7 @@ describe('rankings by figure', () => {
     vi.stubGlobal('fetch', fetcher);
     render(<PlayerMetricRatings />);
     expect(await screen.findByTestId('metric-row-a')).toBeDefined();
-    expect(within(screen.getByTestId('metric-row-m')).getByText('вы')).toBeDefined();
+    expect(within(screen.getByTestId('metric-row-m')).getByText('я')).toBeDefined();
     expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('Всё время · Все форматы, игр в выборе: 12');
 
     fireEvent.change(screen.getByLabelText('Показатель'), { target: { value: 'elo_gain' } });

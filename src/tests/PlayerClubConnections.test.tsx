@@ -32,8 +32,8 @@ it('shows six distinct club stories and switches accessible tabs without losing 
   expect(within(stories).getByText('Чёрные тройки')).toBeTruthy();
   expect(within(stories).getByText('Дон и мафия')).toBeTruthy();
   expect(within(stories).getByText('Шериф и мирный')).toBeTruthy();
-  expect(within(stories).getAllByTestId('connection-graph').length).toBeGreaterThan(0);
-  expect(within(stories).getAllByRole('img').length).toBeGreaterThan(0);
+  expect(within(stories).getAllByRole('button', { name: 'Александра с длинным никнеймом' })).toHaveLength(3);
+  expect(stories.textContent).toContain('побед');
   fireEvent.click(within(stories).getByRole('button', { name: 'Соперники' }));
   expect(within(stories).getByText('Равные соперники')).toBeTruthy();
   expect(within(stories).getByText('Играют вместе и за красных, и за чёрных')).toBeTruthy();
@@ -55,11 +55,7 @@ it('shows each duo as two usable profile actions and three explicit game statist
     'Открыть профиль Анна',
     'Открыть профиль Борис',
   ]);
-  expect(within(card).getByText('4')).toBeTruthy();
-  expect(within(card).getByText('3')).toBeTruthy();
-  expect(within(card).getByText('75%')).toBeTruthy();
-  expect(within(card).getByText('игр вместе')).toBeTruthy();
-  expect(within(card).getByText('доля побед')).toBeTruthy();
+  expect(card.textContent).toContain('4 игр вместе · 3 побед · 75% побед');
   fireEvent.click(actions[1]);
   expect(open).toHaveBeenCalledWith('b');
 });

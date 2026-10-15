@@ -32,6 +32,8 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 ## UX priority switch — PLAYER CABINET FIRST (owner decision 2026-10-14)
 
+**Owner correction 2026-10-15 — active authorised scope:** review all mounted cabinet pages, remove graphics used solely as decoration and combine related blocks into compact page compositions. The graphics-first rollout is superseded by `PLAYER_CABINET_VISUAL_DESIGN_CONTRACT.md`. Preserve sport-Mafia roles, privacy, results, links and histories; no rule/accounting/monetisation change. One consolidation PR is being prepared from `86a51a7`; not yet merged, deployed or visually verified. Reconcile overlapping visual PRs with this direction before merge.
+
 **Owner direction:** After numerous CRM fixes, its current usability is acceptable enough to pause the deep screen-by-screen CRM audit. **The Player Cabinet (личный кабинет игрока) is now the main UX/product-quality priority**: players' everyday experience has fallen behind the organizer CRM. This is a shift in engineering priority, *not* a claim that CRM is complete. Do not resume broad CRM polish by inertia or treat older CRM audit queue wording as active approval; return to it when the owner asks or a confirmed production-critical regression needs repair.
 
 **Remaining CRM queue (parked, do not discard):**

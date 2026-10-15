@@ -1,5 +1,27 @@
 # Audit log
 
+## 2026-10-15 · Cabinet information density (owner correction)
+
+**Reproduction:** at 390px, open Evenings → My games, Connections or a past evening. A game poster reserves 230px; a known pair repeats a 172px diagram and 116px win-rate orbit; an evening shows separate score panels, VS artwork, a duplicate score bar and another orbit. Expected: scan results and reach the protocol without decorative scrolling. Owner: mounted presentation, not APIs/calculations.
+
+**Scope:** review all mounted cabinet pages by route/component. Latest owner direction supersedes the graphics-first rollout; see `PLAYER_CABINET_VISUAL_DESIGN_CONTRACT.md`. Keep awards artwork, learning interactions, poker gameplay, finance and game rules.
+
+Findings before implementation:
+- **fixed (implementation)** `PlayerHomeDashboard.tsx`: latest-game card repeats the career summary; related information should share a group.
+- **fixed (implementation)** `PlayerHistoryStatsView.tsx`: 230px posters and arbitrary binary-result bar heights obscure dates, roles and protocol access.
+- **fixed (implementation)** `PlayerEveningSummaries.tsx`: team score and personal totals fragmented across repeated artwork; protocol buttons are 128px posters.
+- **fixed (implementation)** `ClubConnectionStories.tsx`, `PlayerClubConnections.tsx`: two/three known people do not need a network canvas; percentages repeated as standalone circles inside nested cards.
+- **fixed (implementation)** `PlayerCommunityHub.tsx`: unrelated poker promotional banner precedes every community task and grows to 104px on desktop.
+- **fixed (implementation)** `PlayerProfileStatsHero.tsx`, `PlayerProfileCareerSections.tsx`, `PlayerGameNumbers.tsx`: inset cards/orbits/bars per statistic create unnecessary surfaces; zero streaks incorrectly become dashes.
+- **fixed (implementation)** `CanonicalPremiumPlayerProfile.tsx`: repeated learning/connections shortcuts compete with tabs; role posters and recent-game cards need grouping.
+- **fixed (implementation)** `PlayerGameDetail.tsx`, `PlayerVisualScenes.tsx`: full table repeats roster before story; every night gets a 155px landscape; ballots repeat counts as total, segment, percentage and dots.
+
+**Acceptance:** retain all real results, role/seat labels, profile/game links, privacy gates, filters and denominators. Inspect 360/390px screenshots, full-row actions >=44px, overflow and Back. Keep useful optional seating map, one ballot comparison, Elo trend and team/role comparisons. No server/DB mutation.
+
+**Integrated existing UX fixes:** retained filter options while ratings reload, removed stale rows during loading/error and added retry in indicator/role tables (functional scope of #940). Elo retains its chart, gains retry and real protocol access with 44px controls. No participation thresholds or calculations changed.
+
+**Local validation:** TypeScript, full ESLint, release data-safety audit, 42 rendered React checks and 19 smoke checks passed; isolated preview build passed. These are local results; exact-head GitHub CI and mobile screenshots are still required. Existing tests for removed orbits/posters now assert the actual labelled values and real navigation. Added a four-role history fixture and 360/390px whole-page density/action checks.
+
 ## 2026-10-14 · Owner-approved holistic player cabinet audit and implementation plan
 
 **Approved scope / design contract** (implementation required, not just mockups): Audit calculation sources, denominators, completeness and explanatory copy for player voting (red/black, Don/Sheriff, critical days, all eligible voting phases and exclusions), checks, reveals, night shots, exits, nominations, best move, form, records and seasons. Compare profile, club analytics and other views against one canonical definition; preserve uncertain/missing journal coverage explicitly rather than inventing values. Audit the latest #924 change against persisted voting protocols and avoid confusing count of games with count of ballots. Keep federation GoMafia career separate.

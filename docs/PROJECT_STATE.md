@@ -1094,3 +1094,11 @@ User reports unreadable/overloaded table visuals, lengthy wordy tasks, and insuf
 
 The owner prefers PR notifications in their existing Telegram conversation with the club bot, **without GitHub Actions secrets or any manual token exchange**. The notifier is the live Python bot task `github_pr_notifications.py` (merged #851, deployed in Amvera build `d1b6dcf`, 2026-10-12), using existing `ORGANIZER_NOTIFICATION_IDS` and public GitHub metadata. **Owner follow-up 2026-10-12:** notices must arrive at once on open/merge/close, not every 10 minutes, and progress («в проверке», «в работе») should be shown on request instead of as separate messages. Done in code: 30-second conditional polling, instant open/merged/closed notices, command `/prs` (open PRs with check progress + latest merges). Not deployed or verified in the live bot until this PR is merged and Amvera rebuilt. See `docs/RUNBOOK.md`.
 
+
+## Art and compendium — preserved owner direction
+
+PR cleanup, owner request 2026-10-15: the previously approved key-art criteria from #941 live in DESIGN_SYSTEM; the later 14 October concept decisions from #891 live in BUSINESS_RULES. The old six-rarity wardrobe/34-position quota is not the release plan. #891's rejected wardrobe prototype is archived with its branch/history retained; its runtime is not merged.
+
+The individually painted Dendi fire-sorceress study was accepted as a direction with feedback, not as an approved complete collection. A six-second motion study exists outside the app; remove the uncomfortable whole-image pulse and prefer local fire/leaves according to DESIGN_SYSTEM. Existing owner-supplied references are inputs, not an unfulfilled blanket request for more photos. Preserve likeness and use the real app/broadcast composition for integration previews.
+
+Pending before implementing collectible portraits: what a part means and whether parts toggle independently; parts per role; epic unlock; how the separate legendary animation upgrade is obtained; XP/duplicates without a new currency; new-player availability; surfaces/history; deck extent, reward phrase and title details. These decisions remain open. No new collection, runtime migration, inventory grant, price or probability is introduced in this reconciliation.

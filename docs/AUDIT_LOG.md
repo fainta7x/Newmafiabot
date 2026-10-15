@@ -1229,3 +1229,8 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerStoriesPanel.tsx`: a failed GET `/api/player/stories` replaced the entire history with a dead-end error; no in-place retry. **fixed:** show actionable retry, reset error on request, preserve cancellation guard.
 - `PlayerStoriesPanel.tsx` `MatchSpotlight`: failed `/api/player/games/:key` within the in-page game sheet offered only close, not reload. **fixed:** in-sheet retry for the same game, reset stale detail before retry, retain cancellation guard and current game navigation.
 - Entire match feed, voting panel, evening scores, game chronology, cards and score computations unchanged. Browser/CI evidence required before merging.
+
+## 2026-10-15 — art PR ownership reconciliation
+
+- #941: likeness/key-art criteria existed only in a standalone document and current queue omitted the work. Preserve them in DESIGN_SYSTEM, point the workflow document to that owner, and record current/pending work in PROJECT_STATE.
+- #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.

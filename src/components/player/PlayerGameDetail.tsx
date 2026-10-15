@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts';
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
-import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { GameTableScene, VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
@@ -112,8 +111,6 @@ type StoryEntry =
   | { key: string; order: number; kind: 'vote'; vote: PlayerGameDetailData['protocol']['votes'][number] }
   | { key: string; order: number; kind: 'night'; shot: PlayerGameDetailData['protocol']['shots'][number] };
 
-const roleLabel = (role: DetailPlayer['role']) => getPlayerGameRoleLabel(role) ?? 'Роль не указана';
-
 const winnerLabel = (winner: PlayerGameDetailData['game']['winner_team']) =>
   getPlayerGameWinnerLabel(winner) ?? 'Результат не указан';
 
@@ -164,12 +161,6 @@ export const formatEloDelta = (value: number | null | undefined) => {
   return `${rounded > 0 ? '+' : ''}${shortNumber(rounded)} Elo`;
 };
 
-const ROLE_CHIP: Record<string, string> = {
-  citizen: 'bg-rose-400/12 text-rose-100',
-  sheriff: 'bg-amber-300/15 text-amber-100',
-  mafia: 'bg-slate-300/15 text-slate-100',
-  don: 'bg-violet-300/15 text-violet-100',
-};
 const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 0 ? 'text-rose-300' : 'text-white/70');
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {

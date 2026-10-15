@@ -162,11 +162,56 @@ export default function PlayerEveningSummaries({
               </div>
             </section>
 
-            {selected.facts.length > 0 && <section className="rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35">Что запомнить</div><div className="mt-3 space-y-2">{selected.facts.map((fact) => <div key={fact} className="flex gap-2 text-xs leading-5 text-white/55"><span className="text-amber-200/55">✦</span><span>{fact}</span></div>)}</div></section>}
+            {(selected.facts.length > 0 || selected.awards.length > 0) && <section aria-label="Памятные моменты вечера" className="grid gap-3 lg:grid-cols-2">
+              {selected.facts.length > 0 && <div className="relative overflow-hidden rounded-[28px] border border-amber-200/15 bg-gradient-to-br from-[#332920] via-[#1f1a1a] to-[#111216] p-4 sm:p-5">
+                <span aria-hidden="true" className="pointer-events-none absolute -right-3 top-0 text-[130px] leading-none text-amber-100/[.06]">✦</span>
+                <div className="relative text-[10px] font-semibold uppercase tracking-[.17em] text-amber-200/60">После финального стола</div>
+                <h3 className="relative mt-1 text-lg font-semibold">Что запомнить</h3>
+                <div className="relative mt-4 grid gap-2">{selected.facts.map((fact, index) => <div key={fact} className="flex min-h-[64px] items-start gap-3 rounded-[19px] border border-amber-200/10 bg-black/25 p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-amber-200/25 bg-amber-200/10 text-base font-semibold tabular-nums text-amber-100">{index + 1}</span>
+                  <span className="pt-1 text-xs leading-5 text-white/75">{fact}</span>
+                </div>)}</div>
+              </div>}
+              {selected.awards.length > 0 && <div className="relative overflow-hidden rounded-[28px] border border-violet-200/15 bg-gradient-to-br from-[#2a2437] via-[#1a1721] to-[#111216] p-4 sm:p-5">
+                <span aria-hidden="true" className="pointer-events-none absolute -right-3 top-0 text-[135px] leading-none text-violet-100/[.055]">♛</span>
+                <div className="relative text-[10px] font-semibold uppercase tracking-[.17em] text-violet-200/60">Клубное голосование</div>
+                <h3 className="relative mt-1 text-lg font-semibold">Выбор игроков</h3>
+                <div className="relative mt-4 grid gap-2 sm:grid-cols-2">{selected.awards.map((award) => <div key={award.category + ':' + award.player_id}
+                  className="flex min-w-0 flex-col justify-between rounded-[20px] border border-white/10 bg-black/25 p-3">
+                  <div className="flex items-center gap-2"><Avatar src={award.avatar_url} name={award.nickname}/><div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold text-white/85">{award.nickname}</div>
+                    <div className="mt-1 text-[10px] leading-4 text-white/55">{award.label}</div>
+                  </div></div>
+                  <div className="mt-3 flex items-baseline gap-2 border-t border-white/10 pt-2">
+                    <span className="text-2xl font-semibold tabular-nums text-violet-100">{award.votes}</span>
+                    <span className="text-[10px] text-white/55">голосов</span>
+                  </div>
+                </div>)}</div>
+              </div>}
+            </section>}
 
-            {selected.awards.length > 0 && <section className="rounded-[24px] border border-amber-200/10 bg-amber-200/[0.025] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-100/40">Выбор игроков</div><div className="mt-3 grid grid-cols-2 gap-2">{selected.awards.map((award) => <div key={`${award.category}:${award.player_id}`} className="rounded-2xl bg-black/20 p-3"><div className="flex items-center gap-2"><Avatar src={award.avatar_url} name={award.nickname} /><div className="min-w-0"><div className="truncate text-[11px] font-semibold">{award.nickname}</div><div className="mt-0.5 text-[11px] text-white/25">{award.label}</div></div></div><div className="mt-2 text-[11px] text-white/25">{award.votes} голосов</div></div>)}</div></section>}
-
-            <section className="grid grid-cols-2 gap-2">{selected.best_elo_rise && <div className="rounded-2xl border border-emerald-200/10 bg-emerald-200/[0.03] p-3"><div className="text-[11px] text-emerald-100/40">📈 Рост вечера</div><div className="mt-2 flex items-center gap-2"><Avatar src={selected.best_elo_rise.avatar_url} name={selected.best_elo_rise.nickname} /><div className="min-w-0"><div className="truncate text-[11px] font-semibold">{selected.best_elo_rise.nickname}</div><div className="text-sm font-black text-emerald-300">{signed(selected.best_elo_rise.elo_delta)}</div></div></div></div>}{selected.most_games && <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] text-white/30">🎟 Больше всех игр</div><div className="mt-2 flex items-center gap-2"><Avatar src={selected.most_games.avatar_url} name={selected.most_games.nickname} /><div className="min-w-0"><div className="truncate text-[11px] font-semibold">{selected.most_games.nickname}</div><div className="text-sm font-black">{selected.most_games.games}</div></div></div></div>}</section>
+            {(selected.best_elo_rise || selected.most_games) && <section aria-label="Герои вечера" className="grid gap-3 sm:grid-cols-2">
+              {selected.best_elo_rise && <div className="relative overflow-hidden rounded-[24px] border border-emerald-200/15 bg-gradient-to-br from-[#1f3c34] to-[#131a1a] p-4">
+                <span aria-hidden="true" className="absolute -right-4 -top-5 text-[110px] leading-none text-emerald-100/[.07]">↗</span>
+                <div className="relative text-[10px] font-semibold uppercase tracking-[.12em] text-emerald-200/60">Рост вечера</div>
+                <div className="relative mt-4 flex items-center gap-3">
+                  <Avatar src={selected.best_elo_rise.avatar_url} name={selected.best_elo_rise.nickname}/>
+                  <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{selected.best_elo_rise.nickname}</div>
+                    <div className="mt-1 text-[26px] font-semibold tabular-nums text-emerald-200">{signed(selected.best_elo_rise.elo_delta)} <span className="text-xs text-emerald-100/55">Elo</span></div>
+                  </div>
+                </div>
+              </div>}
+              {selected.most_games && <div className="relative overflow-hidden rounded-[24px] border border-amber-200/15 bg-gradient-to-br from-[#342b21] to-[#191717] p-4">
+                <span aria-hidden="true" className="absolute -right-4 -top-3 text-[115px] leading-none text-amber-100/[.06]">♠</span>
+                <div className="relative text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/60">Больше всех игр</div>
+                <div className="relative mt-4 flex items-center gap-3">
+                  <Avatar src={selected.most_games.avatar_url} name={selected.most_games.nickname}/>
+                  <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{selected.most_games.nickname}</div>
+                    <div className="mt-1 text-[26px] font-semibold tabular-nums text-amber-100">{selected.most_games.games} <span className="text-xs text-amber-100/55">игр</span></div>
+                  </div>
+                </div>
+              </div>}
+            </section>}
 
             {selected.player.roles.length > 0 && <div className="flex flex-wrap gap-1.5 px-1">{selected.player.roles.map((role) => <span key={role} className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-white/35">{roleLabel(role)}</span>)}</div>}
 

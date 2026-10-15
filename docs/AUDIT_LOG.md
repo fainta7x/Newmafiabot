@@ -1177,3 +1177,10 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
 
 **Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.
+
+## 2026-10-15 · Player Cabinet «Сообщество → Рейтинг → Показатели / По ролям»
+
+- `PlayerMetricRatings.tsx`: changing metric/season/format keeps an old ranking and caption visible during a fresh GET; failed GET can leave stale figures next to an error, with no in-place retry. **fixed in PR:** clear previous response at request start and expose retry, keeping generation guard.
+- `PlayerRoleTables.tsx`: same stale table/error behaviour when role or shared scope changes. **fixed in PR:** clear and retry, retain guarded responses and role controls.
+- `PlayerMetricRatings.tsx`: visible explanatory copy exposes developer-like minimum-threshold wording rather than useful sample meaning. **fixed in PR:** show sample size and actual metric hint without an eligibility claim.
+- Backend `metricRatingService.ts`: reviewed no-minimum-observation behaviour, scoped denominators, server ranks, personal row outside top 30, and federation separation; no statistical formula changed. Follow-up visual screenshots at 360/390 CSS px and required CI pending.

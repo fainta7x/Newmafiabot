@@ -41,7 +41,6 @@ export default function PlayerMetricRatings() {
   useEffect(() => {
     const current = ++generation.current;
     setLoading(true);
-    setData(null);
     setError('');
     const query = new URLSearchParams({ metric });
     if (period !== 'all') query.set('period', period);
@@ -77,7 +76,7 @@ export default function PlayerMetricRatings() {
         <p className="mt-0.5 text-[11px] leading-4 text-white/40">{data.metric.hint}. У каждого игрока указан размер выборки. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
       </div> : null}
       {error ? <div role="alert" className="space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
-        : !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
+        : loading || !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
         : data.rows.length ? <div className={`space-y-1.5 ${loading ? 'opacity-60' : ''}`}>
           {data.rows.map((row) => <PlayerLine key={row.player_id} row={row} />)}
           {data.me ? <><div className="px-2 pt-1 text-center text-[11px] text-white/30">· · ·</div><PlayerLine row={data.me} /></> : null}

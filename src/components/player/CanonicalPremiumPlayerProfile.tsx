@@ -68,6 +68,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [profileRetry,setProfileRetry]=useState(0);
   const [brokenAvatarUrl,setBrokenAvatarUrl]=useState<string|null>(null);
   const [settings,setSettings]=useState(false);
   const [period,setPeriod]=useState<'all'|'season'|'custom'>('all');
@@ -114,7 +115,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       if(generation===playerRequestGeneration.current) setLoading(false);
     });
     return ()=>controller.abort();
-  },[playerId]);
+  },[playerId,profileRetry]);
   useEffect(()=>{
     const current=summary?.filters;
     if(!current||(current.period===statPeriod&&current.format===statFormat)) return;
@@ -195,7 +196,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     requestAnimationFrame(()=>{if(scrollRef.current) scrollRef.current.scrollTop=scrollByTab.current[next]||0;});
   };
 
-  if(error&&!summary) return <div className="p-5 text-sm text-red-300">{error}</div>;
+  if(error&&!summary) return <div role="alert" className="mx-auto max-w-md space-y-3 p-5 text-sm text-rose-200"><p>{error}</p><button type="button" onClick={()=>setProfileRetry((value)=>value+1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 font-semibold text-white">Повторить загрузку профиля</button></div>;
   const p=summary?.player||summary?.profile||{};
   const stats=summary?.stats||{};
   /* the player switched «Игровая статистика» off: the server sends no numbers, so say so instead of showing dashes */

@@ -31,19 +31,19 @@ export type MetricKey =
   | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs'
   | 'fed_avg_place' | 'fed_best_place' | 'fed_tournaments' | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers' | 'don_reveals' | 'don_handed_reveal';
 
-/** A figure from the move chronology (votes, checks…): its sample is not «games», so it has its own minimum and wording. */
-interface Sample { minimum: number; words: [string, string, string] }
-interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo' | 'decimal'; minGames?: number; sample?: Sample; hint: string; /** A place in a tournament: the smaller the better. */ lowerIsBetter?: boolean }
+/** The sample indicates the unit of observed events, never an eligibility cutoff. */
+interface Sample { words: [string, string, string] }
+interface MetricDef { key: MetricKey; label: string; group: Group; unit: 'count' | 'percent' | 'elo' | 'decimal'; sample?: Sample; hint: string; /** A place in a tournament: the smaller the better. */ lowerIsBetter?: boolean }
 
 export const METRICS: MetricDef[] = [
   { key: 'wins', label: 'Победы', group: 'Победы', unit: 'count', hint: 'Больше всех побед' },
-  { key: 'win_rate', label: 'Винрейт', group: 'Победы', unit: 'percent', minGames: 5, hint: 'Доля побед, от 5 игр' },
+  { key: 'win_rate', label: 'Винрейт', group: 'Победы', unit: 'percent', hint: 'Доля побед среди всех сыгранных игр' },
   { key: 'best_streak', label: 'Серия побед', group: 'Победы', unit: 'count', hint: 'Самая длинная серия побед подряд' },
   { key: 'games', label: 'Игры', group: 'Игры', unit: 'count', hint: 'Больше всех сыграно игр' },
   { key: 'red_wins', label: 'Победы за красных', group: 'Роли и команды', unit: 'count', hint: 'Победы мирным или шерифом' },
   { key: 'black_wins', label: 'Победы за чёрных', group: 'Роли и команды', unit: 'count', hint: 'Победы мафией или доном' },
-  { key: 'red_win_rate', label: 'Винрейт за красных', group: 'Роли и команды', unit: 'percent', minGames: 3, hint: 'От 3 игр за красных' },
-  { key: 'black_win_rate', label: 'Винрейт за чёрных', group: 'Роли и команды', unit: 'percent', minGames: 3, hint: 'От 3 игр за чёрных' },
+  { key: 'red_win_rate', label: 'Винрейт за красных', group: 'Роли и команды', unit: 'percent', hint: 'Доля побед среди игр за красных' },
+  { key: 'black_win_rate', label: 'Винрейт за чёрных', group: 'Роли и команды', unit: 'percent', hint: 'Доля побед среди игр за чёрных' },
   { key: 'citizen_wins', label: 'Победы мирным', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли мирного' },
   { key: 'sheriff_wins', label: 'Победы шерифом', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли шерифа' },
   { key: 'mafia_wins', label: 'Победы мафией', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли мафии' },
@@ -51,25 +51,25 @@ export const METRICS: MetricDef[] = [
   { key: 'best_moves', label: 'Лучший ход', group: 'Ход игры', unit: 'count', hint: 'Сколько раз делал лучший ход' },
   { key: 'first_killed', label: 'Первым убит', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
   { key: 'zero_round', label: 'Нулевой круг', group: 'Ход игры', unit: 'count', hint: 'Сколько раз выставлен на нулевом круге' },
-  { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { minimum: 10, words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
-  { key: 'nominations_accuracy', label: 'Меткость выставлений', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['выставление', 'выставления', 'выставлений'] }, hint: 'Какая доля выставленных красным оказалась чёрной' },
-  { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
-  { key: 'don_checks', label: 'Проверки дона', group: 'Меткость', unit: 'percent', sample: { minimum: 5, words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок дона нашла шерифа' },
-  { key: 'best_move_black', label: 'Лучший ход: чёрных в среднем', group: 'Меткость', unit: 'decimal', sample: { minimum: 3, words: ['ход', 'хода', 'ходов'] }, hint: 'Сколько чёрных в среднем в лучшем ходу (из 3)' },
-  { key: 'black_misses', label: 'Промахи, когда в чёрной команде', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Сколько ночей без жертвы было в играх, где игрок был в чёрной команде (мафией или доном)' },
-  { key: 'black_miss_rate', label: 'Доля промахов, когда в чёрной команде', group: 'Отстрелы', unit: 'percent', sample: { minimum: 10, words: ['ночь', 'ночи', 'ночей'] }, hint: 'Какая доля ночей прошла без жертвы, когда игрок был в чёрной команде' },
-  { key: 'times_shot', label: 'Чаще всех убивают ночью', group: 'Отстрелы', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока убили ночью, пока он играл за красных' },
-  { key: 'night_pairs', label: 'Пары: убит, когда в чёрных', group: 'Отстрелы', unit: 'count', hint: 'Игрок убит ночью, когда в чёрной команде был этот игрок (от 3 общих игр и 2 убийств)' },
-  { key: 'fed_avg_place', label: 'Среднее место на турнирах федерации', group: 'Федерация', unit: 'decimal', lowerIsBetter: true, sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Среднее место в итоговой таблице турниров GoMafia (меньше — лучше), от 2 турниров; считаются игроки с подтверждённой привязкой. Не зависит от выбранного периода и формата клуба' },
-  { key: 'fed_best_place', label: 'Лучшее место на турнире федерации', group: 'Федерация', unit: 'count', lowerIsBetter: true, sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Лучшее итоговое место на турнире GoMafia (1 — победа), от 2 турниров' },
-  { key: 'fed_tournaments', label: 'Турниров сыграно в федерации', group: 'Федерация', unit: 'count', sample: { minimum: 2, words: ['турнир', 'турнира', 'турниров'] }, hint: 'Сколько турниров GoMafia с опубликованным итогом сыграл игрок, от 2' },
-  { key: 'critical_exits', label: 'Заголосован на критике', group: 'Ход игры', unit: 'count', sample: { minimum: 5, words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока заголосовали на критическом круге (красных больше чёрных не более чем на 2)' },
-  { key: 'sheriff_reveals', label: 'Вскрылся шерифом', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько раз настоящий шериф открыто назвал себя шерифом' },
-  { key: 'sheriff_found_black', label: 'Нашёл чёрных, вскрывшись', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько чёрных (дон и мафия) шериф назвал в объявленных проверках' },
-  { key: 'black_reveals', label: 'Вскрылся за чёрных', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз мафия или дон открыто назвал себя шерифом' },
-  { key: 'black_covers', label: 'Накрыл своего чёрного', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз чёрный объявил красной проверку на своего напарника' },
-  { key: 'don_reveals', label: 'Вскрылся доном', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз дон сам открыто назвал себя шерифом' },
-  { key: 'don_handed_reveal', label: 'Отдал вскрытие обычному чёрному', group: 'Вскрытия', unit: 'count', sample: { minimum: 3, words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз вскрылся обычный чёрный, пока дон молчал' },
+  { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
+  { key: 'nominations_accuracy', label: 'Меткость выставлений', group: 'Меткость', unit: 'percent', sample: { words: ['выставление', 'выставления', 'выставлений'] }, hint: 'Какая доля выставленных красным оказалась чёрной' },
+  { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
+  { key: 'don_checks', label: 'Проверки дона', group: 'Меткость', unit: 'percent', sample: { words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок дона нашла шерифа' },
+  { key: 'best_move_black', label: 'Лучший ход: чёрных в среднем', group: 'Меткость', unit: 'decimal', sample: { words: ['ход', 'хода', 'ходов'] }, hint: 'Сколько чёрных в среднем в лучшем ходу (из 3)' },
+  { key: 'black_misses', label: 'Промахи, когда в чёрной команде', group: 'Отстрелы', unit: 'count', sample: { words: ['ночь', 'ночи', 'ночей'] }, hint: 'Сколько ночей без жертвы было в играх, где игрок был в чёрной команде (мафией или доном)' },
+  { key: 'black_miss_rate', label: 'Доля промахов, когда в чёрной команде', group: 'Отстрелы', unit: 'percent', sample: { words: ['ночь', 'ночи', 'ночей'] }, hint: 'Какая доля ночей прошла без жертвы, когда игрок был в чёрной команде' },
+  { key: 'times_shot', label: 'Чаще всех убивают ночью', group: 'Отстрелы', unit: 'count', sample: { words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока убили ночью, пока он играл за красных' },
+  { key: 'night_pairs', label: 'Пары: убит, когда в чёрных', group: 'Отстрелы', unit: 'count', hint: 'Сколько раз игрок был убит ночью, когда этот игрок находился в чёрной команде' },
+  { key: 'fed_avg_place', label: 'Среднее место на турнирах федерации', group: 'Федерация', unit: 'decimal', lowerIsBetter: true, sample: { words: ['турнир', 'турнира', 'турниров'] }, hint: 'Среднее место в итоговой таблице турниров GoMafia (меньше — лучше); считаются игроки с подтверждённой привязкой. Не зависит от выбранного периода и формата клуба' },
+  { key: 'fed_best_place', label: 'Лучшее место на турнире федерации', group: 'Федерация', unit: 'count', lowerIsBetter: true, sample: { words: ['турнир', 'турнира', 'турниров'] }, hint: 'Лучшее итоговое место на турнире GoMafia (1 — победа)' },
+  { key: 'fed_tournaments', label: 'Турниров сыграно в федерации', group: 'Федерация', unit: 'count', sample: { words: ['турнир', 'турнира', 'турниров'] }, hint: 'Сколько турниров GoMafia с опубликованным итогом сыграл игрок' },
+  { key: 'critical_exits', label: 'Заголосован на критике', group: 'Ход игры', unit: 'count', sample: { words: ['игра', 'игры', 'игр'] }, hint: 'Сколько раз игрока заголосовали на критическом круге (красных больше чёрных не более чем на 2)' },
+  { key: 'sheriff_reveals', label: 'Вскрылся шерифом', group: 'Вскрытия', unit: 'count', sample: { words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько раз настоящий шериф открыто назвал себя шерифом' },
+  { key: 'sheriff_found_black', label: 'Нашёл чёрных, вскрывшись', group: 'Вскрытия', unit: 'count', sample: { words: ['игра шерифом', 'игры шерифом', 'игр шерифом'] }, hint: 'Сколько чёрных (дон и мафия) шериф назвал в объявленных проверках' },
+  { key: 'black_reveals', label: 'Вскрылся за чёрных', group: 'Вскрытия', unit: 'count', sample: { words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз мафия или дон открыто назвал себя шерифом' },
+  { key: 'black_covers', label: 'Накрыл своего чёрного', group: 'Вскрытия', unit: 'count', sample: { words: ['игра за чёрных', 'игры за чёрных', 'игр за чёрных'] }, hint: 'Сколько раз чёрный объявил красной проверку на своего напарника' },
+  { key: 'don_reveals', label: 'Вскрылся доном', group: 'Вскрытия', unit: 'count', sample: { words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз дон сам открыто назвал себя шерифом' },
+  { key: 'don_handed_reveal', label: 'Отдал вскрытие обычному чёрному', group: 'Вскрытия', unit: 'count', sample: { words: ['игра доном', 'игры доном', 'игр доном'] }, hint: 'Сколько раз вскрылся обычный чёрный, пока дон молчал' },
   { key: 'elo_gain', label: 'Прирост Elo', group: 'Elo', unit: 'elo', hint: 'Сколько Elo набрал или потерял за период' },
 ];
 const METRIC_BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
@@ -359,7 +359,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   if (metric.key === 'night_pairs' && night) {
     const visible = new Map(playerRows.filter((player: any) => visibleStats(player.profile_visibility_json) || String(player.id) === viewerId).map((player: any) => [String(player.id), player]));
     const pairRows = [...night.pairs.values()]
-      .filter((pair) => pair.kills >= 2 && pair.together >= 3 && visible.has(pair.victim) && visible.has(pair.black))
+      .filter((pair) => pair.kills > 0 && pair.together > 0 && visible.has(pair.victim) && visible.has(pair.black))
       .sort((a, b) => b.kills - a.kills || b.kills / b.together - a.kills / a.together || a.together - b.together)
       .map((pair, index, all) => ({ pair, index, rank: 0, all }));
     let place = 0;
@@ -394,15 +394,16 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
     const found = metric.sample ? accuracy.get(id) : null;
     const value = metric.sample ? (found ? found.value : null) : metricValue(agg, metric.key);
     if (value === null) return [];
-    if (metric.sample && (found?.sample ?? 0) < metric.sample.minimum) return [];
-    if (metric.minGames && sampleGames(agg, metric.key) < metric.minGames) return [];
+    // Keep every real observation, including one game, vote, night or tournament.
+    // Metrics requiring a ratio still need a real denominator; missing observations stay absent.
+    if ((metric.key === 'red_win_rate' && agg.redGames === 0) || (metric.key === 'black_win_rate' && agg.blackGames === 0)) return [];
     const sample = metric.sample ? found!.sample : sampleGames(agg, metric.key);
     return [{ id, nickname: String(player.nickname || 'Игрок'), value, games: sample, agg, avatar: avatarUrl(id, player.has_db_avatar, player.avatar_suppressed) }];
   });
   const direction = metric.lowerIsBetter ? -1 : 1;
   rows.sort((a, b) => (b.value - a.value) * direction
     || winRatePercent(b.agg.wins, b.agg.games) - winRatePercent(a.agg.wins, a.agg.games)
-    || a.games - b.games
+    || b.games - a.games
     || a.nickname.localeCompare(b.nickname, 'ru'));
   // Equal values share a place (1, 2, 2, 4).
   const ranked = rows.map((row, index) => {
@@ -419,7 +420,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const mine = viewerIsPlayer ? ranked.find((row) => row.id === viewerId) : undefined;
 
   return {
-    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: metric.minGames ?? null, min_sample: metric.sample ? { minimum: metric.sample.minimum, word: metric.sample.words[2] } : null },
+    metric: { key: metric.key, label: metric.label, group: metric.group, unit: metric.unit, hint: metric.hint, min_games: null, min_sample: null },
     metrics: METRICS.map((item) => ({ key: item.key, label: item.label, group: item.group })),
     filters: {
       period: season ? season.key : 'all',

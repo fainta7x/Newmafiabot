@@ -225,7 +225,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
     <main className="profile-content mx-auto w-full max-w-5xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)] lg:px-8">
       {settings&&<>{ownerSettings}</>}
       {!settings&&tab==='overview'&&<div className="profile-overview space-y-4">
-        {isSelf&&<PlayerProfileCompletionCard/>}
+        {isSelf&&<PlayerProfileCompletionCard compact/>}
         {statsHidden?<section data-testid="profile-stats-hidden" className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/60">Игрок скрыл игровую статистику: игры, роли и Elo недоступны.</section>
         :<section data-testid="profile-club-summary" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
           {scopeSelector}

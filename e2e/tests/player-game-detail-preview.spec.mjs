@@ -16,7 +16,7 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   expect(heights.every((height) => height >= 44)).toBe(true);
   const seating = page.getByTestId('game-table-scene');
   await expect(seating).not.toBeVisible();
-  await page.getByText('Места за столом', { exact: true }).click();
+  await seating.locator('..').locator(':scope > summary').click();
   await expect(seating).toBeVisible();
   await expect(seating.getByRole('button')).toHaveCount(10);
   for (const button of await seating.getByRole('button').all()) {
@@ -26,6 +26,16 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.x).toBeGreaterThanOrEqual(frame.x);
     expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
+  }
+  for (const row of await page.locator('[data-testid^="game-player-"] > summary').all()) {
+    const rowBox = await row.boundingBox();
+    expect(rowBox.x).toBeGreaterThanOrEqual(0);
+    expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(width);
+    for (const child of await row.locator(':scope > *').all()) {
+      const box = await child.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(rowBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(rowBox.x + rowBox.width);
+    }
   }
   await page.getByTestId('game-player-3').locator('summary').click();
   await expect(page.getByTestId('game-player-3')).toContainText('Из чего баллы');

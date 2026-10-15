@@ -173,10 +173,10 @@ const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+    <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.045] p-4">
       <h2 className="text-sm font-semibold text-white/85">{title}</h2>
       {hint ? <p className="mt-1 text-xs leading-5 text-white/55">{hint}</p> : null}
-      <div className="mt-3">{children}</div>
+      <div className="mt-3 min-w-0">{children}</div>
     </section>
   );
 }
@@ -238,8 +238,8 @@ export default function PlayerGameDetail({
     ].filter(Boolean) as Array<{ label: string; value: number }>;
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
-      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
-        <summary className="flex min-h-[60px] cursor-pointer list-none items-center gap-2.5 px-2.5 py-2">
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
+        <summary className="grid min-h-[60px] min-w-0 cursor-pointer list-none grid-cols-[20px_40px_minmax(0,1fr)_auto_12px] items-center gap-2 px-2.5 py-2">
           <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
           <Avatar player={item} />
           <div className="min-w-0 flex-1">
@@ -348,15 +348,15 @@ export default function PlayerGameDetail({
 
           <Section title="Составы и баллы" hint="Участники, их роли, действия и начисления.">
             <details className="mb-3 border-b border-white/10 pb-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm text-white/70">Места за столом<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {sides.map((side) => (
-                <div key={side.team}>
+                <div key={side.team} className="min-w-0">
                   <div className="mb-2 flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
                     <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
                     {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
                   </div>
-                  <div className="grid gap-2">{side.players.map(renderPlayer)}</div>
+                  <div className="grid min-w-0 grid-cols-1 gap-2">{side.players.map(renderPlayer)}</div>
                 </div>
               ))}
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}

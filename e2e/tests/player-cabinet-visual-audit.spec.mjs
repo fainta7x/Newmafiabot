@@ -127,6 +127,7 @@ for (const width of [360, 390]) test(`compact cabinet groups retain context at $
   await page.screenshot({ path: info.outputPath(`compact-connections-${width}.png`), fullPage: true });
 
   await nav.getByRole('button', { name: 'Прогресс', exact: true }).click();
+  await expect(page.getByTestId('profile-completion-card')).toHaveCount(0);
   const stats = page.getByTestId('profile-club-summary');
   await expect(stats.getByTestId('profile-key-stats')).toContainText('1542');
   await expect(stats.getByTestId('profile-more-stats')).toHaveJSProperty('open', true);

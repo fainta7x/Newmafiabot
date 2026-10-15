@@ -1177,3 +1177,10 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
 
 **Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.
+
+## 2026-10-15 · Player Cabinet «Сообщество → Рейтинг»: error recovery and period freshness
+
+- `PlayerRatingPeriods.tsx`: period selection retains previous `detail` during the next request; an archived season can briefly appear under a newly selected period while fetching. **fixed in PR:** clear detail on request start, retain cancellation guard.
+- `PlayerRatingPeriods.tsx`: a failed period-list or period-detail GET ends in text-only dead ends. **fixed in PR:** scoped retry for each request without resetting selected season.
+- `PlayerTournamentResults.tsx`: failed `/api/player/tournaments` GET has no in-place retry. **fixed in PR:** retry and neutral loading/error reset, preserve tournament navigation.
+- Scope: UI fetch/recovery only; rating calculation, minimum participation rules, Elo, club points, GoMafia and production database untouched. Mobile/CI evidence required before merge.

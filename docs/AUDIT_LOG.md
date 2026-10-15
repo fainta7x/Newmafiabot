@@ -1184,3 +1184,9 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerRatingPeriods.tsx`: a failed period-list or period-detail GET ends in text-only dead ends. **fixed in PR:** scoped retry for each request without resetting selected season.
 - `PlayerTournamentResults.tsx`: failed `/api/player/tournaments` GET has no in-place retry. **fixed in PR:** retry and neutral loading/error reset, preserve tournament navigation.
 - Scope: UI fetch/recovery only; rating calculation, minimum participation rules, Elo, club points, GoMafia and production database untouched. Mobile/CI evidence required before merge.
+
+## 2026-10-15 · Player Cabinet «Сообщество → Активность → Матчи»
+
+- `PlayerStoriesPanel.tsx`: a failed GET `/api/player/stories` replaced the entire history with a dead-end error; no in-place retry. **fixed:** show actionable retry, reset error on request, preserve cancellation guard.
+- `PlayerStoriesPanel.tsx` `MatchSpotlight`: failed `/api/player/games/:key` within the in-page game sheet offered only close, not reload. **fixed:** in-sheet retry for the same game, reset stale detail before retry, retain cancellation guard and current game navigation.
+- Entire match feed, voting panel, evening scores, game chronology, cards and score computations unchanged. Browser/CI evidence required before merging.

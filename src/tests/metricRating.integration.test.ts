@@ -118,10 +118,10 @@ describe('rankings by one figure of the statistics', () => {
   });
 
   it('ranks chronology accuracy even for a single observed action', async () => {
-    // One game with a chronology: seat 1 (Анна, citizen) nominates the black seat 2 three times and the red seat 3 twice.
+    // One game, one confirmed nomination must enter the ranking without an arbitrary sample cutoff.
     const date = '2026-09-24T18:00:00.000Z';
     await db.run(`INSERT INTO game_evenings(id,title,starts_at,status,format,created_at,updated_at) VALUES ('evA','Журнал','${date}','completed','RATING','${date}','${date}')`);
-    const targets = [2, 2, 2, 3, 3];
+    const targets = [2];
     const events = [
       { seq: 1, at: date, round: 1, phase: 'setup', kind: 'game_start' },
       ...targets.map((target, i) => ({ seq: i + 2, at: date, round: i + 2, phase: 'day_voting', kind: 'nomination', seat: target, by: 1 })),
@@ -136,7 +136,7 @@ describe('rankings by one figure of the statistics', () => {
     const nominations = await get('?metric=nominations_accuracy');
     expect(nominations.metric).toMatchObject({ key: 'nominations_accuracy', unit: 'percent', group: 'Меткость', min_sample: null });
     expect(nominations.rows).toHaveLength(1);
-    expect(nominations.rows[0]).toMatchObject({ nickname: 'Анна', value: 60, value_text: '60%', games: 5, sample_text: '5 выставлений' });
+    expect(nominations.rows[0]).toMatchObject({ nickname: 'Анна', value: 100, value_text: '100%', games: 1, sample_text: '1 выставление' });
     // Not enough votes / checks anywhere: an empty ranking instead of a meaningless one.
     expect((await get('?metric=votes_accuracy')).rows).toEqual([]);
     expect((await get('?metric=sheriff_checks')).rows).toEqual([]);

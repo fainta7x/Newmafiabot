@@ -2,6 +2,8 @@
 
 Owner correction, 15 October 2026. Supersedes the 14 October graphics-first rollout. Durable visual rules belong to [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md); this file records the screen review and decisions.
 
+Owner follow-up, 15 October: the first consolidation became too text-heavy. Keep the page groups below, with compact shared-play portraits, original game-role icons, team-result graphics and one career win-rate graphic. The prohibition concerns oversized decoration and repetition, not game graphics as a whole.
+
 Design a player's task and the page composition, not each old block. Combine related information on one neutral surface with spacing/dividers. Keep primary actions visible, detail available and mobile targets at least 44px. Compactness must not come from tiny text, omitted records or hidden primary actions.
 
 ## Mounted screen review

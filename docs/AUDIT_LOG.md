@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-15 — restore compact game graphics after owner review
+
+- OPEN — owner screenshots show that #947 overcorrected toward text-only surfaces in `PlayerEveningSummaries`, `ClubConnectionStories`, game-history rows and `PlayerProfileStatsHero`. Preserve the grouped page composition while restoring factual team comparisons, linked role/identity graphics and a single overall win-rate visual. Reuse the real Live Game role icons; no giant posters, invented results or isolated chart per metric. Acceptance: unchanged values/actions and actual 360/390px before/after evidence.
+
 ## 2026-10-15 — before/after screenshot delivery
 
 - FIXED IN TEST, fresh browser evidence pending — `e2e/tests/desktop-workspaces.spec.mjs`: the role-tab screenshot can run before the role response renders. Final #947 evidence at 390/700/1024/1366px contains only an empty role-list border, whereas 1440px contains all four fixture roles. The no-loading-text check may pass before the effect starts, and iterating an empty row array passes vacuously. Now require all four role rows (or all three game rows) from the existing fixture before checking geometry and taking a screenshot. No product layout change.

@@ -4,6 +4,7 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { countGames } from '../../lib/russianPlural.ts';
+import { RoleMark } from './PlayerGameGraphics.tsx';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { type PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import { getJson } from '../../lib/requestJson.ts';
@@ -132,6 +133,7 @@ export default function PlayerGamesArchive({
               {personalGames.map((game) => <button key={game.id} type="button"
                 onClick={() => { openedInApp.current = true; void openGame(game.id); onGameChange?.(game.id); }}
                 className="ds-focus-ring flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[.035]">
+                <RoleMark role={game.role} />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className="text-sm font-semibold">{game.title || 'Игра'} · №{game.game_number || '—'}</span>

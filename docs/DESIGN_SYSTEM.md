@@ -212,6 +212,8 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 
 ## Visual verification rule
 
+**Owner clarification, 2026-10-15:** compact does not mean text-only. Keep a visible game identity through the existing Live Game role icons, small role/seat graphics, linked player identities and factual team/result comparisons. A single career win-rate graphic may anchor the unified summary. Use one compact visual composition per task/group rather than either a chart/poster for every metric or a wall of text. Do not revive oversized posters, decorative network canvases or duplicate data displays.
+
 For every visual PR:
 
 1. use focused browser evidence while iterating;

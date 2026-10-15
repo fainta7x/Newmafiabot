@@ -1184,3 +1184,10 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - `PlayerRatingPeriods.tsx`: a failed period-list or period-detail GET ends in text-only dead ends. **fixed in PR:** scoped retry for each request without resetting selected season.
 - `PlayerTournamentResults.tsx`: failed `/api/player/tournaments` GET has no in-place retry. **fixed in PR:** retry and neutral loading/error reset, preserve tournament navigation.
 - Scope: UI fetch/recovery only; rating calculation, minimum participation rules, Elo, club points, GoMafia and production database untouched. Mobile/CI evidence required before merge.
+
+## 2026-10-15 · Player «Прогресс»: career zero values, navigation and game filter paging
+
+- `PlayerProfileCareerSections.tsx`: `current_streak || '—'` and `best_streak || '—'` hide authentic zero results; PУ/ЛХ/нулевой-circle block also hides all three genuine zeros. **fixed:** retain known zeros, leave only absent/null values as unknown. Added `PlayerProfileCareerZeroStats.test.tsx`.
+- `CanonicalPremiumPlayerProfile.tsx`: game archive's current offset survives role/team/result/date filter changes, yielding a false empty list even if filtered matches exist on page one. **fixed:** reset pagination to the first page when selection changes.
+- `CanonicalPremiumPlayerProfile.tsx`: secondary career/awards tabs were 36px high below recommended Telegram finger target. **fixed:** 44px controls; route and grouping unchanged.
+- No backend statistics, Elo, badges, awards, game records or privacy calculations changed. CI/mobile visual checks remain necessary before merge.

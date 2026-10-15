@@ -1,3 +1,4 @@
+import { GAME_ROLE_LABELS, GAME_ROLE_KEYS, type GameRole } from '../../shared/gameRoles.ts';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { loadPlayerAchievementProfile } from './playerAchievementsService.ts';
@@ -16,10 +17,10 @@ import { EVENING_FORMATS, EVENING_FORMAT_LABELS, type EveningFormat } from '../.
 export type PremiumProfileRange = 'month' | 'season' | 'all';
 /** What the profile statistics are counted over: one rating season or all time, and one evening format or all of them. */
 export type ProfileStatFilter = { period?: string; format?: string };
-export type PremiumGameRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
+export type PremiumGameRole = GameRole;
 
-const ROLES: PremiumGameRole[] = ['citizen', 'sheriff', 'mafia', 'don'];
-const ROLE_LABELS: Record<PremiumGameRole, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
+const ROLES = GAME_ROLE_KEYS;
+const ROLE_LABELS: Record<PremiumGameRole, string> = GAME_ROLE_LABELS;
 
 /** The page of one game in the app (club and tournament games alike). */
 const gamePagePath = (gameKey: string) => `/player/games/${encodeURIComponent(String(gameKey))}`;

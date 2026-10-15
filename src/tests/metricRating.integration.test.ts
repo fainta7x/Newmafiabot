@@ -77,7 +77,7 @@ describe('rankings by one figure of the statistics', () => {
     const rate = await get('?metric=win_rate');
     expect(rate.metric).toMatchObject({ min_games: null, min_sample: null });
     expect(rate.rows.map((row: any) => [row.nickname, row.games, row.value])).toEqual([
-      ['Вера', 2, 100], ['Анна', 3, 67],
+      ['Вера', 2, 100], ['Анна', 3, 66.7],
     ]);
     const red = await get('?metric=red_win_rate');
     expect(red.rows.map((row: any) => [row.nickname, row.games])).toEqual([['Вера', 2], ['Анна', 3]]);
@@ -175,7 +175,7 @@ describe('rankings by one figure of the statistics', () => {
     expect(own.metric).toMatchObject({ key: 'black_misses', group: 'Отстрелы', min_sample: null });
     expect(own.rows[0]).toMatchObject({ nickname: 'Борис', value: 4, sample_text: '6 ночей', is_me: true });
     expect((await get('?metric=black_misses')).rows.map((row: any) => row.nickname)).not.toContain('Борис');
-    expect((await get('?metric=black_miss_rate', 'p2')).rows[0]).toMatchObject({ nickname: 'Борис', value: 67, sample_text: '6 ночей' });
+    expect((await get('?metric=black_miss_rate', 'p2')).rows[0]).toMatchObject({ nickname: 'Борис', value: 66.7, sample_text: '6 ночей' });
 
     const shot = await get('?metric=times_shot');
     expect(shot.rows.find((row: any) => row.nickname === 'Анна')).toMatchObject({ value: 2, games: 3, sample_text: '3 игры' });

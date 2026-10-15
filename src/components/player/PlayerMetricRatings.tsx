@@ -29,8 +29,8 @@ function PlayerLine({ row, scale, unit }: { row: Row; scale: number; unit: strin
         : <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-white/[0.07] text-sm font-semibold text-white/60">{row.nickname.slice(0, 1).toUpperCase()}</span>}
       <span className="min-w-0 flex-1">
         <span className="block line-clamp-2 break-words text-sm font-semibold leading-5">{row.nickname}</span>
-        <span className="block text-[11px] leading-4 text-white/45">{row.is_me ? 'Мой результат · ' : ''}{row.sample_text || countGames(row.games)}</span>
-        {row.partner_nickname ? <span className="block text-[11px] leading-4 text-white/45">Убит, когда в чёрных {row.partner_nickname}</span> : null}
+        <span className="block text-[11px] leading-4 text-white/45">{row.is_me ? <span className="font-semibold text-white/65">вы · </span> : null}{row.sample_text || countGames(row.games)}</span>
+        {row.partner_nickname ? <span className="block text-[11px] leading-4 text-white/45">убит, когда в чёрных {row.partner_nickname}</span> : null}
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-lg font-semibold tabular-nums leading-6 text-white">{row.value_text}</span>

@@ -10,10 +10,10 @@ import type { PlayerGameStatistics, Share } from '../../lib/gameStatistics';
 const percentText = (value: Share) => (value.percent === null ? '—' : `${value.percent}%`);
 
 function Tile({ title, value, hint, percent }: { title: string; value: string; hint: string; percent?: number | null }) {
-  return <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-black/15 p-3">
+  return <div className="min-w-0 rounded-[20px] border border-white/[0.08] bg-gradient-to-br from-white/[.065] to-black/20 p-4">
     <div className="min-h-[30px] text-[11px] font-semibold leading-tight text-white/55">{title}</div>
-    <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
-    {percent != null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`${title}: ${percent}%`}>
+    <div className="mt-2 text-3xl font-semibold tabular-nums">{value}</div>
+    {percent != null ? <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10" role="img" aria-label={`${title}: ${percent}%`}>
       <div className="h-full rounded-full bg-amber-200/75" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
     </div> : null}
     <div className="mt-1.5 text-[11px] leading-snug text-white/40">{hint}</div>

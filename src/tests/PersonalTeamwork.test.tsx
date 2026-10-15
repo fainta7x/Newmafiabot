@@ -19,8 +19,8 @@ it('shows the personal team views in plain words', async () => {
   const team = await screen.findByTestId('my-team');
   expect(within(team).getByText('Анна')).toBeTruthy();
   expect(within(team).getByText('Пока ни с кем.')).toBeTruthy();
-  expect(within(screen.getByTestId('role-pairs')).getByText(/Роль: дон/)).toBeTruthy();
-  expect(within(screen.getByTestId('role-pairs')).getByText(/Чаще всего мафия/)).toBeTruthy();
+  expect(within(screen.getByTestId('role-pairs')).getByText(/Роль: дон/i)).toBeTruthy();
+  expect(within(screen.getByTestId('role-pairs')).getByText(/Чаще всего мафия/i)).toBeTruthy();
   expect(within(screen.getByTestId('my-opponents')).getByText('Сложные соперники')).toBeTruthy();
   expect(within(screen.getByTestId('known-steps')).getByText(/Ещё 1 игра в одной команде до ступени «напарники»/)).toBeTruthy();
   expect(within(screen.getByTestId('never-played')).getByText('Дарья')).toBeTruthy();

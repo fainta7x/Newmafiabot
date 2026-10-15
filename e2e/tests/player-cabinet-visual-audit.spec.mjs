@@ -90,3 +90,47 @@ for (const width of [360, 390]) {
     await page.screenshot({ path: info.outputPath('community-activity.png'), fullPage: true });
   });
 }
+
+
+// Whole-page density, rather than an individual-card screenshot. All rows use genuine mounted components.
+for (const width of [360, 390]) test(`compact cabinet groups retain context at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 713 });
+  await page.goto('/e2e/player-cabinet.html?scenario=compact');
+  const nav = page.getByRole('navigation', { name: 'Основная навигация' });
+  await nav.getByRole('button', { name: 'Вечера', exact: true }).click();
+  await page.getByLabel('Разделы вечеров').getByRole('button', { name: 'Мои игры', exact: true }).click();
+  const games = page.getByTestId('player-my-games');
+  await expect(games.getByRole('button')).toHaveCount(4);
+  for (const button of await games.getByRole('button').all()) {
+    const height = (await button.boundingBox()).height;
+    expect(height).toBeGreaterThanOrEqual(44);
+    expect(height).toBeLessThan(150);
+  }
+  await expect(games).toContainText('Шериф');
+  await expect(games).toContainText('Место №2');
+  await page.screenshot({ path: info.outputPath(`compact-games-${width}.png`), fullPage: true });
+
+  await page.getByLabel('Разделы вечеров').getByRole('button', { name: 'Прошедшие', exact: true }).click();
+  const recap = page.getByTestId('evening-result-art');
+  await expect(recap).toContainText('Мой результат');
+  await expect(recap).toContainText('+22');
+  expect((await recap.boundingBox()).height).toBeLessThan(450);
+  await page.screenshot({ path: info.outputPath(`compact-recap-${width}.png`), fullPage: true });
+
+  await nav.getByRole('button', { name: 'Сообщество', exact: true }).click();
+  await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Связи', exact: true }).click();
+  const duo = page.getByTestId('club-duo-p1-p2');
+  await expect(duo).toContainText('12 игр вместе');
+  await expect(duo.getByRole('button')).toHaveCount(2);
+  expect((await duo.boundingBox()).height).toBeLessThan(180);
+  for (const button of await duo.getByRole('button').all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: info.outputPath(`compact-connections-${width}.png`), fullPage: true });
+
+  await nav.getByRole('button', { name: 'Прогресс', exact: true }).click();
+  await expect(page.getByTestId('profile-completion-card')).toHaveCount(0);
+  const stats = page.getByTestId('profile-club-summary');
+  await expect(stats.getByTestId('profile-key-stats')).toContainText('1542');
+  await expect(stats.getByTestId('profile-more-stats')).toHaveJSProperty('open', true);
+  await page.screenshot({ path: info.outputPath(`compact-progress-${width}.png`), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

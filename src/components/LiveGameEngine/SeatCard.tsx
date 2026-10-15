@@ -1,5 +1,6 @@
 import React from "react";
-import { Heart, ListPlus, Skull, Star } from "lucide-react";
+import { ListPlus, Skull, Star } from "lucide-react";
+import { GameRoleIcon } from '../ui/GameRole.tsx';
 import { ActivePlayerState, Phase } from "./types.js";
 import { MafiaHatIcon, PistolIcon } from "./Icons.js";
 import { canToggleVoteAssignment } from "../../lib/liveVoting.js";
@@ -348,10 +349,7 @@ export default function SeatCard(props: SeatCardProps) {
         </div>
         {showRolesOnTable ? (
           <div className="live-seat-role" title={player.role === "Мирный" ? "Красный" : player.role}>
-            {player.role === "Мирный" && <Heart className="fill-current text-rose-500" />}
-            {player.role === "Дон" && <MafiaHatIcon className="text-violet-300" />}
-            {player.role === "Мафия" && <PistolIcon className="text-slate-200" />}
-            {player.role === "Шериф" && <Star className="fill-current text-emerald-400" />}
+            <GameRoleIcon role={player.role} />
           </div>
         ) : (
           <div className="live-seat-role" title="Роль скрыта" />

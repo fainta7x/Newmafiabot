@@ -220,7 +220,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
     expect(screen.getByTestId('profile-key-stats').textContent).toContain('#2');
     expect(screen.getByTestId('profile-key-stats').textContent).toContain('57%');
     expect(screen.getAllByText('#2')).toHaveLength(2);
-    expect(screen.getByText('рекорд серии')).toBeDefined();
+    expect(screen.getByText('Рекорд серии')).toBeDefined();
     expect(screen.getByText('За красных')).toBeDefined();
     expect(screen.getByText(/По всем доступным журналам: 21 из 21 игр/)).toBeDefined();
   });

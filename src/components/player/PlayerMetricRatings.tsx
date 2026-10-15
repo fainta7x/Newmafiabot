@@ -18,10 +18,10 @@ type Rating = {
 const chip = (rank: number) => rank === 1 ? 'border-amber-200/15 bg-amber-300/[0.12] text-amber-100' : rank === 2 ? 'border-white/12 bg-white/[0.08] text-white/75' : rank === 3 ? 'border-orange-200/10 bg-orange-300/[0.09] text-orange-100/80' : 'border-white/[0.07] bg-black/20 text-white/38';
 
 function PlayerLine({ row }: { row: Row }) {
-  return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'bg-black/20'}`}>
+  return <button type="button" onClick={() => openCanonicalPlayerProfile(row.player_id)} data-testid={`metric-row-${row.player_id}`} className={`ds-focus-ring flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left ${row.is_me ? 'border border-sky-200/20 bg-sky-200/[0.07]' : 'hover:bg-white/[.035]'}`}>
     <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs font-semibold ${chip(row.rank)}`}>{row.rank}</div>
     {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-xs text-white/45">{row.nickname.slice(0, 1).toUpperCase()}</div>}
-    <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.nickname}{row.partner_nickname ? <span className="font-normal text-white/50"> · убит, когда в чёрных {row.partner_nickname}</span> : null}{row.is_me ? <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-100/60">вы</span> : null}</div><div className="text-[11px] text-white/35">{row.sample_text || countGames(row.games)}</div></div>
+    <div className="min-w-0 flex-1"><div className="break-words text-sm font-medium">{row.nickname}{row.partner_nickname ? <span className="font-normal text-white/50"> · убит, когда в чёрных {row.partner_nickname}</span> : null}{row.is_me ? <span className="ml-2 text-[11px] font-semibold text-sky-100/70">я</span> : null}</div><div className="text-xs leading-5 text-white/55">{row.sample_text || countGames(row.games)}</div></div>
     <div className="shrink-0 text-right text-base font-semibold tabular-nums">{row.value_text}</div>
   </button>;
 }
@@ -35,6 +35,7 @@ export default function PlayerMetricRatings() {
   const [data, setData] = useState<Rating | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const generation = useRef(0);
 
   useEffect(() => {
@@ -51,7 +52,8 @@ export default function PlayerMetricRatings() {
     }).catch((reason: any) => {
       if (current === generation.current) setError(reason?.message || 'Не удалось загрузить рейтинг по показателю');
     }).finally(() => { if (current === generation.current) setLoading(false); });
-  }, [metric, period, format]);
+    return () => { generation.current += 1; };
+  }, [metric, period, format, retry]);
 
   const groups = data ? Array.from(new Set(data.metrics.map((item) => item.group))) : [];
   return <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white"><div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
@@ -66,22 +68,22 @@ export default function PlayerMetricRatings() {
         <label className="text-[11px] text-white/45">Период<select aria-label="Период рейтинга" value={period} onChange={(event) => setPeriod(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{data?.filters.seasons.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
         <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера рейтинга" value={format} onChange={(event) => setFormat(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{data?.filters.formats.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
       </div>
-    </section>
 
     {view === 'roles' ? <PlayerRoleTables period={period} format={format} /> : <>
-    <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
-      {data ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
+    <div className="mt-4 border-t border-white/10 pt-3">
+      {data && !error && !loading ? <div className="mb-3 px-1" data-testid="metric-ratings-scope">
         <div className="text-sm font-semibold">{data.metric.label}</div>
-        <p className="mt-0.5 text-[11px] leading-4 text-white/40">{data.metric.hint}. Без минимального порога: достаточно одного подтверждённого наблюдения; размер выборки указан у каждого игрока. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
+        <p className="mt-0.5 text-xs leading-5 text-white/55">{data.metric.hint}. Рядом с результатом — число игр или действий. Считаем: {data.filters.period_label} · {data.filters.format_label}, игр в выборе: {data.games_in_scope}.{data.metric.unit === 'elo' ? ' Это изменение рейтинга за выбранные игры, а не сам Elo.' : ''}</p>
       </div> : null}
-      {error ? <div role="alert" className="rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4 text-sm text-rose-100/75">{error}</div>
-        : !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
-        : data.rows.length ? <div className={`space-y-1.5 ${loading ? 'opacity-60' : ''}`}>
+      {error ? <div role="alert" className="space-y-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4"><p className="text-sm text-rose-100/75">{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div>
+        : loading || !data ? <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">Загружаю рейтинг…</div>
+        : data.rows.length ? <div className="divide-y divide-white/[.07]">
           {data.rows.map((row) => <PlayerLine key={row.player_id} row={row} />)}
           {data.me ? <><div className="px-2 pt-1 text-center text-[11px] text-white/30">· · ·</div><PlayerLine row={data.me} /></> : null}
         </div>
         : <div className="rounded-2xl bg-black/20 px-3 py-6 text-center text-sm text-white/40">По этому показателю пока нет подтверждённых данных за выбранный период.</div>}
-    </section>
+    </div>
     </>}
+    </section>
   </div></main>;
 }

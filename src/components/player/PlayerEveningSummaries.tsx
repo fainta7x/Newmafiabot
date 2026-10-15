@@ -1,7 +1,7 @@
 import { countGames } from '../../lib/russianPlural';
+import { RoleMark, TeamResultGraphic } from './PlayerGameGraphics.tsx';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { WinOrbit } from './PlayerVisualScenes.tsx';
 
 type Award = {
   category: string;
@@ -108,114 +108,46 @@ export default function PlayerEveningSummaries({
         {!embedded && <div className="flex items-start gap-3 px-1 pt-1">{onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}<div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-100/40">История вечеров</div><h1 className="mt-1 text-2xl font-semibold">После финального стола</h1><p className="mt-1 text-xs leading-5 text-white/40">Счёт вечера, форма, Elo и клубные номинации — в одном финальном экране.</p></div></div>}
 
         {!summaries?.length ? <div className="rounded-3xl border border-white/[0.06] bg-white/[0.03] p-8 text-center"><div className="text-3xl">🎭</div><div className="mt-2 text-sm font-semibold">Итогов пока нет</div><p className="mt-1 text-xs text-white/30">Итоги появятся здесь после вечера, в котором было участие.</p></div> : <>
-          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => { setSelectedId(summary.id); onEveningChange?.(summary.id); }} className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
+          {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => { setSelectedId(summary.id); onEveningChange?.(summary.id); }} className={`min-h-11 shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
 
           {selected && <>
-            <section data-testid="evening-result-art" className="relative overflow-hidden rounded-[32px] border border-amber-200/15 bg-[#111015] p-4 shadow-[0_22px_75px_rgba(0,0,0,.38)] sm:p-6">
-              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[280px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(217,178,116,.17),transparent_70%)]"/>
-              <div aria-hidden="true" className="pointer-events-none absolute -right-8 top-0 text-[170px] leading-none text-amber-100/[.055]">♛</div>
-              <div className="relative">
-                <div className="text-[10px] font-semibold uppercase tracking-[.22em] text-amber-200/60">2LA NOIRE · Хроника вечера</div>
-                <div className="mt-2 text-xs text-white/55">{dateText(selected.starts_at)}{selected.venue ? ' · ' + selected.venue : ''}</div>
-                <h2 className="mt-1 max-w-2xl text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">{selected.title}</h2>
-                <div className="mt-6 grid items-center gap-4 md:grid-cols-[1fr_180px_1fr]">
-                  <div className="relative overflow-hidden rounded-[24px] border border-rose-200/15 bg-gradient-to-br from-[#492733] to-[#20161c] px-4 py-5 text-center">
-                    <div aria-hidden="true" className="absolute -right-2 top-0 text-[90px] leading-none text-white/[.06]">◆</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-rose-200/65">КРАСНЫЕ</div>
-                    <div className="mt-3 text-[64px] font-semibold tabular-nums leading-none text-rose-100">{selected.red_wins}</div>
-                    <div className="mt-3 text-[11px] text-rose-100/55">побед за вечер</div>
-                  </div>
-                  <div className="relative flex flex-col items-center justify-center">
-                    <svg aria-hidden="true" viewBox="0 0 180 85" className="w-full max-w-[180px]"><path d="M4 43 Q90 -8 176 43 Q90 94 4 43" stroke="#e8d2a2" strokeOpacity=".22" fill="none"/><path d="M18 43 H73 M107 43 H162" stroke="#e8d2a2" strokeOpacity=".4" strokeDasharray="3 5"/><text x="90" y="52" textAnchor="middle" fill="#d8bd7f" fontSize="25" fontWeight="600">VS</text></svg>
-                    <div className="text-center text-[11px] text-white/50">{countGames(selected.games)} завершено</div>
-                  </div>
-                  <div className="relative overflow-hidden rounded-[24px] border border-violet-200/15 bg-gradient-to-br from-[#322741] to-[#17141f] px-4 py-5 text-center">
-                    <div aria-hidden="true" className="absolute -right-2 top-0 text-[90px] leading-none text-white/[.06]">♠</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-violet-200/65">ЧЁРНЫЕ</div>
-                    <div className="mt-3 text-[64px] font-semibold tabular-nums leading-none text-violet-100">{selected.black_wins}</div>
-                    <div className="mt-3 text-[11px] text-violet-100/55">побед за вечер</div>
-                  </div>
-                </div>
-                <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-white/10" role="img" aria-label={'Победы команд: красные ' + selected.red_wins + ', чёрные ' + selected.black_wins}>
-                  <span className="bg-gradient-to-r from-rose-500 to-rose-200" style={{width: (selected.games ? selected.red_wins / selected.games * 100 : 0) + '%'}}/>
-                  <span className="bg-gradient-to-r from-violet-200 to-violet-500" style={{width: (selected.games ? selected.black_wins / selected.games * 100 : 0) + '%'}}/>
-                </div>
+            <section data-testid="evening-result-art" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
+              <header>
+                <p className="text-xs text-white/55">{dateText(selected.starts_at)}{selected.venue ? ' · ' + selected.venue : ''}</p>
+                <h2 className="mt-1 text-xl font-semibold">{selected.title}</h2>
+              </header>
+              <TeamResultGraphic red={selected.red_wins} black={selected.black_wins} />
+              <p className="text-center text-xs text-white/50">{countGames(selected.games)} завершено</p>
+              <div aria-label="Личные результаты за вечер" className="mt-4 border-t border-white/10 pt-4">
+                <h3 className="text-sm font-semibold">Мой результат</h3>
+                <dl className="mt-3 grid grid-cols-3 gap-3">
+                  <div><dt className="text-xs text-white/55">Игры</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{selected.player.games}</dd></div>
+                  <div><dt className="text-xs text-white/55">Победы</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{selected.player.wins}<span className="ml-1 text-xs font-normal text-white/55">{selected.player.games ? `${selected.player.win_rate}%` : '—'}</span></dd></div>
+                  <div><dt className="text-xs text-white/55">Изменение Elo</dt><dd className={'mt-1 text-xl font-semibold tabular-nums ' + (selected.player.elo_delta > 0 ? 'text-emerald-200' : selected.player.elo_delta < 0 ? 'text-rose-200' : 'text-white/70')}>{signed(selected.player.elo_delta)}</dd></div>
+                </dl>
+                {selected.player.elo_before != null && selected.player.elo_after != null && <p className="mt-3 text-xs text-white/55">Elo за вечер: {Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</p>}
+                {selected.player.roles.length > 0 && <div className="mt-3 flex flex-wrap gap-4">{selected.player.roles.map(role => <div key={role} className="flex items-center gap-2"><RoleMark role={role} /><span className="text-xs text-white/70">{roleLabel(role)}</span></div>)}</div>}
               </div>
+              {onOpenGame && selected.game_ids.length > 0 && <div className="mt-4 border-t border-white/10 pt-3">
+                <h3 className="text-sm font-semibold">Протоколы игр вечера</h3>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="ds-focus-ring flex min-h-11 items-center justify-between gap-2 rounded-xl bg-white/[.05] px-3 text-left text-sm text-white/85"><span>Игра №{index + 1}</span><span aria-hidden="true" className="text-white/45">›</span></button>)}</div>
+              </div>}
             </section>
 
-            <section aria-label="Личные результаты за вечер" className="grid gap-3 overflow-hidden rounded-[28px] border border-sky-200/10 bg-gradient-to-br from-[#1b2525] via-[#14191c] to-[#101116] p-4 sm:grid-cols-[160px_1fr] sm:p-5">
-              <div className="flex items-center justify-center">
-                <WinOrbit percent={selected.player.win_rate} value={selected.player.win_rate + '%'} caption="ваших побед" tone="emerald"/>
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-[.17em] text-sky-200/60">Личный итог</div>
-                <h3 className="mt-1 text-lg font-semibold text-white">Ваш вечер за столом</h3>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-black/25 p-2"><div className="text-xl font-semibold tabular-nums">{selected.player.games}</div><div className="mt-1 text-[10px] text-white/45">игр</div></div>
-                  <div className="rounded-xl bg-black/25 p-2"><div className="text-xl font-semibold tabular-nums text-emerald-200">{selected.player.wins}</div><div className="mt-1 text-[10px] text-white/45">побед</div></div>
-                  <div className="rounded-xl bg-black/25 p-2"><div className={'text-xl font-semibold tabular-nums ' + (selected.player.elo_delta > 0 ? 'text-emerald-200' : selected.player.elo_delta < 0 ? 'text-rose-200' : 'text-white/70')}>{signed(selected.player.elo_delta)}</div><div className="mt-1 text-[10px] text-white/45">Elo</div></div>
-                </div>
-                {selected.player.elo_before != null && selected.player.elo_after != null && <div className="mt-3 border-t border-white/10 pt-3">
-                  <div className="flex justify-between text-[11px] text-white/55"><span>Рейтинг за вечер</span><span className="tabular-nums">{Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</span></div>
-                  <div aria-hidden="true" className="mt-2 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-sky-300"/><span className="h-px flex-1 bg-gradient-to-r from-sky-300/60 to-emerald-300/60"/><span className="h-2 w-2 rounded-full bg-emerald-300"/></div>
-                </div>}
-              </div>
-            </section>
-
-            {(selected.facts.length > 0 || selected.awards.length > 0) && <section aria-label="Памятные моменты вечера" className="grid gap-3 lg:grid-cols-2">
-              {selected.facts.length > 0 && <div className="relative overflow-hidden rounded-[28px] border border-amber-200/15 bg-gradient-to-br from-[#332920] via-[#1f1a1a] to-[#111216] p-4 sm:p-5">
-                <span aria-hidden="true" className="pointer-events-none absolute -right-3 top-0 text-[130px] leading-none text-amber-100/[.06]">✦</span>
-                <div className="relative text-[10px] font-semibold uppercase tracking-[.17em] text-amber-200/60">После финального стола</div>
-                <h3 className="relative mt-1 text-lg font-semibold">Что запомнить</h3>
-                <div className="relative mt-4 grid gap-2">{selected.facts.map((fact, index) => <div key={fact} className="flex min-h-[64px] items-start gap-3 rounded-[19px] border border-amber-200/10 bg-black/25 p-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-amber-200/25 bg-amber-200/10 text-base font-semibold tabular-nums text-amber-100">{index + 1}</span>
-                  <span className="pt-1 text-xs leading-5 text-white/75">{fact}</span>
+            {(selected.facts.length > 0 || selected.awards.length > 0 || selected.best_elo_rise || selected.most_games) && <section aria-label="Памятные моменты вечера" className="divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[.035] px-4">
+              {selected.awards.length > 0 && <div className="py-4">
+                <h3 className="text-sm font-semibold">Выбор игроков</h3>
+                <div className="mt-2 divide-y divide-white/[.07]">{selected.awards.map((award) => <div key={award.category + ':' + award.player_id} className="flex min-w-0 items-center gap-3 py-2.5">
+                  <Avatar src={award.avatar_url} name={award.nickname}/><div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{award.nickname}</p><p className="mt-0.5 text-xs text-white/55">{award.label}</p></div><p className="shrink-0 text-xs text-white/65">{award.votes} голосов</p>
                 </div>)}</div>
               </div>}
-              {selected.awards.length > 0 && <div className="relative overflow-hidden rounded-[28px] border border-violet-200/15 bg-gradient-to-br from-[#2a2437] via-[#1a1721] to-[#111216] p-4 sm:p-5">
-                <span aria-hidden="true" className="pointer-events-none absolute -right-3 top-0 text-[135px] leading-none text-violet-100/[.055]">♛</span>
-                <div className="relative text-[10px] font-semibold uppercase tracking-[.17em] text-violet-200/60">Клубное голосование</div>
-                <h3 className="relative mt-1 text-lg font-semibold">Выбор игроков</h3>
-                <div className="relative mt-4 grid gap-2 sm:grid-cols-2">{selected.awards.map((award) => <div key={award.category + ':' + award.player_id}
-                  className="flex min-w-0 flex-col justify-between rounded-[20px] border border-white/10 bg-black/25 p-3">
-                  <div className="flex items-center gap-2"><Avatar src={award.avatar_url} name={award.nickname}/><div className="min-w-0">
-                    <div className="truncate text-[12px] font-semibold text-white/85">{award.nickname}</div>
-                    <div className="mt-1 text-[10px] leading-4 text-white/55">{award.label}</div>
-                  </div></div>
-                  <div className="mt-3 flex items-baseline gap-2 border-t border-white/10 pt-2">
-                    <span className="text-2xl font-semibold tabular-nums text-violet-100">{award.votes}</span>
-                    <span className="text-[10px] text-white/55">голосов</span>
-                  </div>
-                </div>)}</div>
+              {(selected.best_elo_rise || selected.most_games) && <div aria-label="Герои вечера" className="space-y-3 py-4">
+                {selected.best_elo_rise && <div className="flex items-center gap-3"><Avatar src={selected.best_elo_rise.avatar_url} name={selected.best_elo_rise.nickname}/><div className="min-w-0 flex-1"><p className="text-xs text-white/55">Рост вечера</p><p className="break-words text-sm font-semibold">{selected.best_elo_rise.nickname}</p></div><span className="shrink-0 text-sm font-semibold text-emerald-200">{signed(selected.best_elo_rise.elo_delta)} Elo</span></div>}
+                {selected.most_games && <div className="flex items-center gap-3"><Avatar src={selected.most_games.avatar_url} name={selected.most_games.nickname}/><div className="min-w-0 flex-1"><p className="text-xs text-white/55">Больше всех игр</p><p className="break-words text-sm font-semibold">{selected.most_games.nickname}</p></div><span className="shrink-0 text-sm font-semibold">{selected.most_games.games} игр</span></div>}
               </div>}
+              {selected.facts.length > 0 && <details className="py-1"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm font-semibold">Что запомнить<span className="text-white/45">{selected.facts.length} ▾</span></summary><ul className="list-disc space-y-2 pb-3 pl-4 text-sm leading-5 text-white/65">{selected.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></details>}
             </section>}
 
-            {(selected.best_elo_rise || selected.most_games) && <section aria-label="Герои вечера" className="grid gap-3 sm:grid-cols-2">
-              {selected.best_elo_rise && <div className="relative overflow-hidden rounded-[24px] border border-emerald-200/15 bg-gradient-to-br from-[#1f3c34] to-[#131a1a] p-4">
-                <span aria-hidden="true" className="absolute -right-4 -top-5 text-[110px] leading-none text-emerald-100/[.07]">↗</span>
-                <div className="relative text-[10px] font-semibold uppercase tracking-[.12em] text-emerald-200/60">Рост вечера</div>
-                <div className="relative mt-4 flex items-center gap-3">
-                  <Avatar src={selected.best_elo_rise.avatar_url} name={selected.best_elo_rise.nickname}/>
-                  <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{selected.best_elo_rise.nickname}</div>
-                    <div className="mt-1 text-[26px] font-semibold tabular-nums text-emerald-200">{signed(selected.best_elo_rise.elo_delta)} <span className="text-xs text-emerald-100/55">Elo</span></div>
-                  </div>
-                </div>
-              </div>}
-              {selected.most_games && <div className="relative overflow-hidden rounded-[24px] border border-amber-200/15 bg-gradient-to-br from-[#342b21] to-[#191717] p-4">
-                <span aria-hidden="true" className="absolute -right-4 -top-3 text-[115px] leading-none text-amber-100/[.06]">♠</span>
-                <div className="relative text-[10px] font-semibold uppercase tracking-[.12em] text-amber-200/60">Больше всех игр</div>
-                <div className="relative mt-4 flex items-center gap-3">
-                  <Avatar src={selected.most_games.avatar_url} name={selected.most_games.nickname}/>
-                  <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{selected.most_games.nickname}</div>
-                    <div className="mt-1 text-[26px] font-semibold tabular-nums text-amber-100">{selected.most_games.games} <span className="text-xs text-amber-100/55">игр</span></div>
-                  </div>
-                </div>
-              </div>}
-            </section>}
-
-            {selected.player.roles.length > 0 && <div className="flex flex-wrap gap-1.5 px-1">{selected.player.roles.map((role) => <span key={role} className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-white/35">{roleLabel(role)}</span>)}</div>}
-
-            {onOpenGame && selected.game_ids.length > 0 && <section className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Протоколы игр вечера</div><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="group relative flex min-h-[128px] flex-col justify-between overflow-hidden rounded-[20px] border border-violet-200/15 bg-gradient-to-br from-[#332542] via-[#17131f] to-[#101216] px-3 py-3 text-left text-xs font-semibold text-white/85 transition active:scale-[.98]"><span aria-hidden="true" className="pointer-events-none absolute -right-2 top-0 text-[86px] text-violet-100/[.075]">♠</span><span className="relative text-[10px] uppercase tracking-[.12em] text-white/55">Матч · {index+1}</span><span className="relative text-sm">Игра №{index + 1} ↗</span></button>)}</div></section>}
           </>}
         </>}
       </div>

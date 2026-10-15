@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, Info, Heart, Star } from "lucide-react";
+import { Shield, Info } from "lucide-react";
 import { Player } from "../../types.js";
 import PhysicalRoleDeal from "../game/PhysicalRoleDeal.tsx";
 import {
@@ -14,7 +14,8 @@ import {
   protocolRoleToLiveRole,
 } from "./setupRoles.js";
 import { ActivePlayerState } from "./types.js";
-import { PistolIcon, MafiaHatIcon } from "./Icons.js";
+import { GAME_ROLES, GAME_ROLE_KEYS } from '../../shared/gameRoles.ts';
+import { GameRoleIcon } from '../ui/GameRole.tsx';
 
 interface SetupPhaseProps {
   players: Player[];
@@ -149,10 +150,16 @@ export default function SetupPhase({
               <div className="space-y-1.5">
                 <label className="text-[10px] text-slate-500 font-bold uppercase block">Роль игрока</label>
                 <div className="grid grid-cols-4 gap-1">
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мирный")} className={roleButtonClass(s.role === "Мирный", "bg-rose-500/15 border-rose-500/50 text-rose-500 scale-105 shadow-md shadow-rose-500/5")} title="Красный (Мирный)"><Heart className={`w-4 h-4 ${s.role === "Мирный" ? "fill-current" : ""}`} /><span className="text-[10px] font-bold">Мир</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Шериф")} className={roleButtonClass(s.role === "Шериф", "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 scale-105 shadow-md shadow-emerald-500/5")} title="Шериф (Красный)"><Star className={`w-4 h-4 ${s.role === "Шериф" ? "fill-current" : ""}`} /><span className="text-[10px] font-bold">Шер</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мафия")} className={roleButtonClass(s.role === "Мафия", "bg-slate-200 border-slate-400 text-slate-950 scale-105 shadow-md shadow-slate-200/5")} title="Мафия (Чёрный)"><PistolIcon className="w-4 h-4" /><span className="text-[10px] font-bold">Маф</span></button>
-                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Дон")} className={roleButtonClass(s.role === "Дон", "bg-purple-500/15 border-purple-500/50 text-purple-400 scale-105 shadow-md shadow-purple-500/5")} title="Дон (Чёрный)"><MafiaHatIcon className="w-4 h-4" /><span className="text-[10px] font-bold">Дон</span></button>
+                  {GAME_ROLE_KEYS.map(key => {
+                    const role = GAME_ROLES[key];
+                    const selected = s.role === role.label;
+                    return <button key={key} disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, role.label)}
+                      className={roleButtonClass(selected, "scale-105 shadow-md")}
+                      style={selected ? { backgroundColor: role.accent + '18', borderColor: role.foreground + '80', color: role.foreground } : undefined}
+                      title={`${role.label} (${role.team === 'red' ? 'Красный' : 'Чёрный'})`}>
+                      <GameRoleIcon role={key} className="h-4 w-4" /><span className="text-[10px] font-bold">{role.shortLabel}</span>
+                    </button>;
+                  })}
                 </div>
               </div>
             </div>

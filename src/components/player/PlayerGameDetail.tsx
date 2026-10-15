@@ -173,10 +173,10 @@ const pointsTone = (value: number) => (value > 0 ? 'text-emerald-300' : value < 
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">{title}</h2>
-      {hint ? <p className="mt-1 text-[12px] leading-4 text-white/35">{hint}</p> : null}
-      <div className="mt-3">{children}</div>
+    <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+      <h2 className="text-sm font-semibold text-white/85">{title}</h2>
+      {hint ? <p className="mt-1 text-xs leading-5 text-white/55">{hint}</p> : null}
+      <div className="mt-3 min-w-0">{children}</div>
     </section>
   );
 }
@@ -238,8 +238,8 @@ export default function PlayerGameDetail({
     ].filter(Boolean) as Array<{ label: string; value: number }>;
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
-      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
-        <summary className="flex min-h-[60px] cursor-pointer list-none items-center gap-2.5 px-2.5 py-2">
+      <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full rounded-2xl border ${isSelf ? 'border-sky-200/25 bg-sky-200/[0.07]' : 'border-white/[0.06] bg-black/20'}`}>
+        <summary className="grid min-h-[60px] min-w-0 cursor-pointer list-none grid-cols-[20px_40px_minmax(0,1fr)_auto_12px] items-center gap-2 px-2.5 py-2">
           <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
           <Avatar player={item} />
           <div className="min-w-0 flex-1">
@@ -288,7 +288,7 @@ export default function PlayerGameDetail({
     );
   };
 
-  const winnerTone = detail?.game.winner_team === 'red' ? 'from-rose-500/20 via-rose-500/[0.07]' : detail?.game.winner_team === 'black' ? 'from-slate-300/20 via-slate-300/[0.06]' : 'from-white/10 via-white/[0.03]';
+
   const keyMoments: Array<{ label: string; value: string; extra?: string }> = [];
   if (detail) {
     const first = detail.protocol.first_killed;
@@ -308,7 +308,7 @@ export default function PlayerGameDetail({
 
   return (
     <>
-      <button type="button" onClick={onBack} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/65">
+      <button type="button" onClick={onBack} className="min-h-11 self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/65">
         ← Назад к играм
       </button>
 
@@ -317,77 +317,26 @@ export default function PlayerGameDetail({
 
       {detail && (
         <>
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <div className="flex min-w-0 flex-col gap-4">
-          <section data-testid="game-hero" className={`relative min-h-[180px] overflow-hidden rounded-[30px] border border-amber-200/15 bg-gradient-to-br ${winnerTone} to-[#101116] p-5 sm:p-6`}>
-            <div aria-hidden="true" className="pointer-events-none absolute -right-7 -bottom-8 text-[160px] leading-none text-amber-200/[.055]">♠</div>
-            <div className="relative flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">2LA Noire · Игра №{detail.game.game_number}</div>
-                <h1 className="mt-1 text-xl font-semibold leading-6 text-white">{detail.game.title}</h1>
-                <p className="mt-1 text-sm text-white/45">{formatDate(detail.game.date)}</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-white/[0.08] px-2.5 py-1 text-[11px] text-white/60">
-                {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}
-              </span>
-            </div>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="min-w-0">
-                <div className="text-lg font-semibold text-white">{winnerLabel(detail.game.winner_team)}</div>
-                <div className="text-sm text-white/50">{endReasonLabel(detail.protocol.end_reason)}</div>
-              </div>
-            </div>
-            {(detail.game.table_name || detail.game.judge_name) && (
-              <div className="mt-3 text-xs text-white/40">
-                {[detail.game.table_name, detail.game.judge_name ? `судья ${detail.game.judge_name}` : null].filter(Boolean).join(' · ')}
-              </div>
-            )}
-          </section>
-
-          {me && (
-            <section data-testid="game-mine" className="rounded-3xl border border-sky-200/20 bg-sky-200/[0.06] p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100/60">Ваша игра</div>
-              <div className="mt-2 flex items-center gap-3">
-                <Avatar player={me} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><RoleChip role={me.role} /><span className={`text-sm font-semibold ${me.won ? 'text-emerald-300' : 'text-rose-300'}`}>{me.won ? 'Победа' : 'Поражение'}</span></div>
-                  <div className="mt-1 text-xs text-white/45">Место за столом {me.seat_number}{exitLabel(me.exit_type) ? ` · ${exitLabel(me.exit_type)}` : ''}</div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className={`text-2xl font-semibold tabular-nums ${pointsTone(me.score.total_points)}`}>{signedScore(me.score.total_points)}</div>
-                  <div className="text-[11px] text-white/40">{detail.game.elo_affected && me.elo_delta != null ? formatEloDelta(me.elo_delta) : 'баллов за игру'}</div>
-                </div>
-              </div>
-            </section>
-          )}
-
-            </div>
-            <GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId} />
-          </div>
-
-          <section aria-label="Ход игры в цифрах" className="grid grid-cols-3 gap-2">
-            <div className="rounded-[20px] border border-white/10 bg-gradient-to-br from-white/[.08] to-black/25 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-white/45">Игроков</div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.players.length}</div>
-              <div className="mt-1 text-[10px] text-white/45">за столом</div>
-            </div>
-            <div className="rounded-[20px] border border-rose-200/15 bg-gradient-to-br from-rose-300/[.09] to-black/25 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-white/45">Голосования</div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.protocol.votes.length}</div>
-              <div className="mt-1 text-[10px] text-white/45">в протоколе</div>
-            </div>
-            <div className="rounded-[20px] border border-violet-200/15 bg-gradient-to-br from-violet-300/[.09] to-black/25 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-white/45">Ночи</div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums">{detail.protocol.shots.length}</div>
-              <div className="mt-1 text-[10px] text-white/45">выстрелов</div>
-            </div>
+          <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.035] p-4">
+            <header data-testid="game-hero">
+              <p className="text-xs text-white/55">Игра №{detail.game.game_number} · {formatDate(detail.game.date)} · {detail.game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizeEveningFormat(detail.game.format)]}</p>
+              <h1 className="mt-1 text-xl font-semibold">{detail.game.title}</h1>
+              <p className="mt-3 text-base font-semibold">{winnerLabel(detail.game.winner_team)}</p>
+              <p className="mt-1 text-xs text-white/55">{endReasonLabel(detail.protocol.end_reason)}</p>
+              {(detail.game.table_name || detail.game.judge_name) && <p className="mt-2 text-xs text-white/55">{[detail.game.table_name, detail.game.judge_name ? `судья ${detail.game.judge_name}` : null].filter(Boolean).join(' · ')}</p>}
+            </header>
+            {me && <div data-testid="game-mine" className="mt-4 border-t border-white/10 pt-3">
+              <h2 className="text-sm font-semibold">Мой результат</h2>
+              <div className="mt-2 flex items-center gap-3"><Avatar player={me}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><RoleChip role={me.role}/><span className={'text-sm font-semibold '+(me.won?'text-emerald-200':'text-rose-200')}>{me.won?'Победа':'Поражение'}</span></div><p className="mt-1 text-xs text-white/55">Место за столом {me.seat_number}{exitLabel(me.exit_type)?` · ${exitLabel(me.exit_type)}`:''}</p></div><div className="shrink-0 text-right"><p className={'text-xl font-semibold tabular-nums '+pointsTone(me.score.total_points)}>{signedScore(me.score.total_points)}</p><p className="text-xs text-white/55">{detail.game.elo_affected&&me.elo_delta!=null?formatEloDelta(me.elo_delta):'баллов за игру'}</p></div></div>
+            </div>}
+            <p aria-label="Ход игры в цифрах" className="mt-3 text-xs leading-5 text-white/55">Игроков: {detail.players.length} · голосований: {detail.protocol.votes.length} · ночных выстрелов: {detail.protocol.shots.length}</p>
           </section>
 
           {keyMoments.length > 0 && (
             <Section title="Главное в игре">
               <ul className="grid gap-2 sm:grid-cols-2">
                 {keyMoments.map((moment, index) => (
-                  <li key={`${moment.label}:${index}`} className="rounded-[20px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[.07] to-black/25 px-3 py-3">
+                  <li key={`${moment.label}:${index}`} className="border-b border-white/[.07] py-2">
                     <div className="text-[11px] text-white/40">{moment.label}</div>
                     <div className="mt-0.5 text-sm font-medium text-white/90">{moment.value}</div>
                     {moment.extra ? <div className="mt-0.5 text-[12px] text-white/50">{moment.extra}</div> : null}
@@ -397,16 +346,17 @@ export default function PlayerGameDetail({
             </Section>
           )}
 
-          <Section title="Составы и баллы" hint="На схеме выше — места за столом. Здесь откройте участника, чтобы увидеть его действия и начисления.">
-            <div className="grid gap-4 lg:grid-cols-2">
+          <Section title="Составы и баллы" hint="Участники, их роли, действия и начисления.">
+            <details className="mb-3 border-b border-white/10 pb-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm text-white/70">Места за столом<span aria-hidden="true">▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {sides.map((side) => (
-                <div key={side.team}>
+                <div key={side.team} className="min-w-0">
                   <div className="mb-2 flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
                     <h3 className="text-sm font-semibold text-white/80">{side.title}</h3>
                     {detail.game.winner_team === side.team ? <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200">победили</span> : null}
                   </div>
-                  <div className="grid gap-2">{side.players.map(renderPlayer)}</div>
+                  <div className="grid min-w-0 grid-cols-1 gap-2">{side.players.map(renderPlayer)}</div>
                 </div>
               ))}
               {unassigned.length ? <div className="space-y-2">{unassigned.map(renderPlayer)}</div> : null}
@@ -457,7 +407,7 @@ export default function PlayerGameDetail({
                     const shot = entry.shot;
                     const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
                     return (
-                      <li key={entry.key} className="relative rounded-[22px] border border-violet-200/15 bg-gradient-to-br from-violet-200/[.075] via-[#18141e] to-[#101216] p-4 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-violet-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                      <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-violet-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
@@ -475,10 +425,9 @@ export default function PlayerGameDetail({
                     : vote.outcome === 'eliminated' ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
                     : vote.outcome ? vote.outcome.replaceAll('_', ' ') : null;
                   return (
-                    <li key={entry.key} className="relative rounded-[22px] border border-rose-200/15 bg-gradient-to-br from-rose-200/[.055] via-[#171316] to-[#101216] p-4 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                    <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
-                        {vote.eligible_voters != null ? <span className="shrink-0 text-[11px] text-white/35">голосуют {vote.eligible_voters}</span> : null}
                       </div>
                       <VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} />
                       {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}

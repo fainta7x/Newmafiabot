@@ -65,23 +65,6 @@ export default function PlayerCommunityHub({
           <h1 className="text-2xl font-semibold">Сообщество</h1>
         </header>
 
-        {onOpenPoker ? (
-          <button
-            type="button"
-            data-testid="player-club-poker"
-            onClick={onOpenPoker}
-            className="ds-focus-ring relative flex min-h-[84px] w-full max-w-[430px] items-center overflow-hidden rounded-2xl border border-amber-200/15 bg-[url('/assets/poker/room-table-v1.webp')] bg-cover bg-[center_42%] text-left shadow-[0_14px_34px_rgba(0,0,0,.45)]"
-          >
-            <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,7,8,.94)_0%,rgba(6,7,8,.72)_58%,rgba(6,7,8,.25)_100%)]" aria-hidden="true" />
-            <span className="relative flex-1 px-4 py-3">
-              <span className="block text-[10px] uppercase tracking-[.22em] text-amber-200/60">Клубный досуг</span>
-              <span className="mt-0.5 block text-base font-semibold text-white">Покерный стол</span>
-              <span className="mt-0.5 block text-xs text-white/55">С людьми — на жетоны · с ботами — тренировка</span>
-            </span>
-            <span className="relative mr-3 rounded-xl bg-[linear-gradient(#e3c477,#b98637)] px-3 py-2 text-xs font-bold text-[#1a1106]">Играть</span>
-          </button>
-        ) : null}
-
         <SegmentedControl
           className="max-w-[430px]"
           ariaLabel="Разделы сообщества"
@@ -108,6 +91,8 @@ export default function PlayerCommunityHub({
           <PlayerRatingHub embedded data={data} section={section === 'club' || section === 'clubworld' ? 'rating' : section} onOpen={onOpen} onOpenProfileElo={onOpenProfileElo} />
         </div>
       ) : null}
+      {onOpenPoker && <div className="player-workspace mx-auto w-full max-w-[430px] px-3 pt-4"><button type="button" data-testid="player-club-poker" onClick={onOpenPoker} className="ds-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left"><span className="text-sm font-semibold">Покерный стол<span className="mt-0.5 block text-xs font-normal text-white/55">Клубный досуг · игра на жетоны или с ботами</span></span><span aria-hidden="true" className="text-white/45">›</span></button></div>}
+
     </main>
   );
 }

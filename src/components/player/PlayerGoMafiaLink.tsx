@@ -1,3 +1,4 @@
+import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { GOMAFIA_NOMINATIONS, classifyGoMafiaTournamentSize, type GoMafiaNominationKey } from '../../lib/gomafiaCareer.ts';
 import { useEffect, useState } from 'react';
 
@@ -174,7 +175,7 @@ export default function PlayerGoMafiaLink({ playerId, isSelf, organizer = false 
         {item.games?.length > 0 && <details className="mt-3 text-xs">
           <summary className="min-h-11 cursor-pointer py-3 text-white/70">Игры · {item.games.length}</summary>
           <div className="space-y-2">{item.games.map((game: any) => <div key={game.externalGameId} className="flex flex-wrap justify-between gap-2 border-t border-white/10 pt-2">
-            <span>№{game.gameNumber} · {({ citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' } as Record<string,string>)[game.role] || 'Роль неизвестна'} · Место {game.seat ?? '—'}</span>
+            <span>№{game.gameNumber} · {getPlayerGameRoleLabel(game.role) || 'Роль неизвестна'} · Место {game.seat ?? '—'}</span>
             <span className={game.result === 'win' ? 'text-emerald-200' : 'text-white/55'}>{game.result === 'win' ? 'Победа' : game.result === 'loss' ? 'Поражение' : 'Результат неизвестен'} · Elo {game.eloDelta == null ? '—' : (game.eloDelta > 0 ? '+' : '') + stat(game.eloDelta)}</span>
             <span className="text-white/65">Баллы: {stat(game.score)}</span>
           </div>)}</div>

@@ -1,5 +1,44 @@
 # Audit log
 
+## 2026-10-15 — restore compact game graphics after owner review
+
+- IMPLEMENTED, exact-head browser/CI pending — role presentation had several owners: `tournamentRoleValidation.ts` and `playerGameRoleLabels.ts` duplicate names; cabinet pages add local dictionaries; the table, broadcast and the new `RoleMark` choose icons/colours independently. The final search also found duplicate name maps in club result images/posts, the premium-profile service, GoMafia rows and betting CRM; these now read the same shared labels. Establish one shared role registry and reusable UI, retain existing validation exports as compatibility adapters, and migrate the actual player/table/broadcast consumers without changing role assignment or visibility.
+
+- IMPLEMENTED, exact-head browser/CI pending — owner screenshots show that #947 overcorrected toward text-only surfaces in `PlayerEveningSummaries`, `ClubConnectionStories`, game-history rows and `PlayerProfileStatsHero`. Preserve the grouped page composition while restoring factual team comparisons, linked role/identity graphics and a single overall win-rate visual. Reuse the real Live Game role icons; no giant posters, invented results or isolated chart per metric. Acceptance: unchanged values/actions and actual 360/390px before/after evidence.
+
+## 2026-10-15 — before/after screenshot delivery
+
+- FIXED IN TEST, fresh browser evidence pending — `e2e/tests/desktop-workspaces.spec.mjs`: the role-tab screenshot can run before the role response renders. Final #947 evidence at 390/700/1024/1366px contains only an empty role-list border, whereas 1440px contains all four fixture roles. The no-loading-text check may pass before the effect starts, and iterating an empty row array passes vacuously. Now require all four role rows (or all three game rows) from the existing fixture before checking geometry and taking a screenshot. No product layout change.
+
+
+## 2026-10-15 · Cabinet information density (owner correction)
+
+**Reproduction:** at 390px, open Evenings → My games, Connections or a past evening. A game poster reserves 230px; a known pair repeats a 172px diagram and 116px win-rate orbit; an evening shows separate score panels, VS artwork, a duplicate score bar and another orbit. Expected: scan results and reach the protocol without decorative scrolling. Owner: mounted presentation, not APIs/calculations.
+
+**Scope:** review all mounted cabinet pages by route/component. Latest owner direction supersedes the graphics-first rollout; see `PLAYER_CABINET_VISUAL_DESIGN_CONTRACT.md`. Keep awards artwork, learning interactions, poker gameplay, finance and game rules.
+
+Findings before implementation:
+- **fixed (implementation)** `PlayerHomeDashboard.tsx`: latest-game card repeats the career summary; related information should share a group.
+- **fixed (implementation)** `PlayerHistoryStatsView.tsx`: 230px posters and arbitrary binary-result bar heights obscure dates, roles and protocol access.
+- **fixed (implementation)** `PlayerEveningSummaries.tsx`: team score and personal totals fragmented across repeated artwork; protocol buttons are 128px posters.
+- **fixed (implementation)** `ClubConnectionStories.tsx`, `PlayerClubConnections.tsx`: two/three known people do not need a network canvas; percentages repeated as standalone circles inside nested cards.
+- **fixed (implementation)** `PlayerCommunityHub.tsx`: unrelated poker promotional banner precedes every community task and grows to 104px on desktop.
+- **fixed (implementation)** `PlayerProfileStatsHero.tsx`, `PlayerProfileCareerSections.tsx`, `PlayerGameNumbers.tsx`: inset cards/orbits/bars per statistic create unnecessary surfaces; zero streaks incorrectly become dashes.
+- **fixed (implementation)** `CanonicalPremiumPlayerProfile.tsx`: repeated learning/connections shortcuts compete with tabs; role posters and recent-game cards need grouping.
+- **fixed (implementation)** `PlayerGameDetail.tsx`, `PlayerVisualScenes.tsx`: full table repeats roster before story; every night gets a 155px landscape; ballots repeat counts as total, segment, percentage and dots.
+
+**Acceptance:** retain all real results, role/seat labels, profile/game links, privacy gates, filters and denominators. Inspect 360/390px screenshots, full-row actions >=44px, overflow and Back. Keep useful optional seating map, one ballot comparison, Elo trend and team/role comparisons. No server/DB mutation.
+
+**First CI result (853234d):** web/build, container, Python, CodeQL/Gitleaks and four test shards passed. Shard 1 exposed two obsolete `PlayerCareerVisualHierarchy` assertions requiring the now-removed graphic roles. Updated them to verify team percentages, true denominators, voting counts and unavailable empty-team rate; preserved every factual assertion. Mobile preview still running; no claim of visual approval.
+
+**6695e8d evidence review:** all non-browser CI passed; 82/84 browser checks passed. Both failures were a new test selector matching the seating disclosure label without its arrow, not a broken app action. The screenshots independently exposed pre-existing min-content roster overflow (long exit/identity labels push points outside the phone) and a completed-profile card consuming about 100px. Fix the actual grid bounds, target the actual summary, and hide finished reminders; keep incomplete profile guidance compact. Keep child-geometry checks so document-level overflow hiding cannot conceal clipping.
+
+**Follow-up source finding:** optional seating-map buttons inherited a 13% height (about 34px inside a 360px page) and overlapped the bottom legend. Give seats 44px minimum targets, reserve the legend outside the map and verify all ten real profile actions after disclosure. Status: fixed in implementation, browser evidence pending. Removed repeated eligible-voter text from the timeline header.
+
+**Integrated existing UX fixes:** retained filter options while ratings reload, removed stale rows during loading/error and added retry in indicator/role tables (functional scope of #940). Elo retains its chart, gains retry and real protocol access with 44px controls. No participation thresholds or calculations changed.
+
+**Local validation:** TypeScript, full ESLint, release data-safety audit, 42 rendered React checks and 19 smoke checks passed; isolated preview build passed. These are local results; exact-head GitHub CI and mobile screenshots are still required. Existing tests for removed orbits/posters now assert the actual labelled values and real navigation. Added a four-role history fixture and 360/390px whole-page density/action checks.
+
 ## 2026-10-14 · Owner-approved holistic player cabinet audit and implementation plan
 
 **Approved scope / design contract** (implementation required, not just mockups): Audit calculation sources, denominators, completeness and explanatory copy for player voting (red/black, Don/Sheriff, critical days, all eligible voting phases and exclusions), checks, reveals, night shots, exits, nominations, best move, form, records and seasons. Compare profile, club analytics and other views against one canonical definition; preserve uncertain/missing journal coverage explicitly rather than inventing values. Audit the latest #924 change against persisted voting protocols and avoid confusing count of games with count of ballots. Keep federation GoMafia career separate.
@@ -1177,3 +1216,21 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 - **P2 — UI interaction sizing and confirmation (verified, deferred):** several routine curator/task actions use 36–40 px targets and curator cancellation still uses \`window.confirm\`; a mobile-first cleanup should reuse the design-system confirmation/sheet primitives, after visual review at 390px.
 
 **Pass exit:** the two P1 regressions get focused test evidence; broader structural proposals are explicitly deferred. An open PR / green CI / merge / deployed runtime are separate states.
+
+## 2026-10-15 · Player Cabinet «Сообщество → Рейтинг»: error recovery and period freshness
+
+- `PlayerRatingPeriods.tsx`: period selection retains previous `detail` during the next request; an archived season can briefly appear under a newly selected period while fetching. **fixed in PR:** clear detail on request start, retain cancellation guard.
+- `PlayerRatingPeriods.tsx`: a failed period-list or period-detail GET ends in text-only dead ends. **fixed in PR:** scoped retry for each request without resetting selected season.
+- `PlayerTournamentResults.tsx`: failed `/api/player/tournaments` GET has no in-place retry. **fixed in PR:** retry and neutral loading/error reset, preserve tournament navigation.
+- Scope: UI fetch/recovery only; rating calculation, minimum participation rules, Elo, club points, GoMafia and production database untouched. Mobile/CI evidence required before merge.
+
+## 2026-10-15 · Player Cabinet «Сообщество → Активность → Матчи»
+
+- `PlayerStoriesPanel.tsx`: a failed GET `/api/player/stories` replaced the entire history with a dead-end error; no in-place retry. **fixed:** show actionable retry, reset error on request, preserve cancellation guard.
+- `PlayerStoriesPanel.tsx` `MatchSpotlight`: failed `/api/player/games/:key` within the in-page game sheet offered only close, not reload. **fixed:** in-sheet retry for the same game, reset stale detail before retry, retain cancellation guard and current game navigation.
+- Entire match feed, voting panel, evening scores, game chronology, cards and score computations unchanged. Browser/CI evidence required before merging.
+
+## 2026-10-15 — art PR ownership reconciliation
+
+- #941: likeness/key-art criteria existed only in a standalone document and current queue omitted the work. Preserve them in DESIGN_SYSTEM, point the workflow document to that owner, and record current/pending work in PROJECT_STATE.
+- #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.

@@ -1,3 +1,4 @@
+import { getGameRoleDefinition, normalizeGameRole } from '../../shared/gameRoles.ts';
 import { countGames, countWins } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getJson } from '../../lib/requestJson.ts';
@@ -83,14 +84,7 @@ const scoreNumber = (value: number) => {
 
 const signedScore = (value: number) => `${value > 0 ? '+' : ''}${scoreNumber(value)}`;
 
-const roleLabel = (role: string | null) => {
-  const normalized = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(normalized)) return 'Мирный';
-  if (['sheriff', 'шериф'].includes(normalized)) return 'Шериф';
-  if (['mafia', 'мафия', 'маф', 'black', 'черный'].includes(normalized)) return 'Мафия';
-  if (['don', 'дон'].includes(normalized)) return 'Дон';
-  return role || 'Роль не указана';
-};
+const roleLabel = (role: string | null) => getGameRoleDefinition(normalizeGameRole(role))?.label ?? role ?? 'Роль не указана';
 
 const periodTypeLabel = (type: string) => String(type).toUpperCase() === 'NOVICE' ? 'Новички' : 'Рейтинговый';
 
@@ -121,6 +115,8 @@ export default function PlayerRatingPeriods({
 }) {
   const [periods, setPeriods] = useState<PeriodListResponse | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [listRetry, setListRetry] = useState(0);
+  const [detailRetry, setDetailRetry] = useState(0);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RatingPeriodDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -129,6 +125,7 @@ export default function PlayerRatingPeriods({
 
   useEffect(() => {
     let cancelled = false;
+    setListError(null);
     void (async () => {
       try {
         const body = await getJson<any>('/api/player/rating-periods', 'Не удалось загрузить рейтинговые периоды');
@@ -145,7 +142,7 @@ export default function PlayerRatingPeriods({
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [listRetry]);
 
   useEffect(() => {
     if (!selectedPeriodId) {
@@ -154,6 +151,7 @@ export default function PlayerRatingPeriods({
     }
     let cancelled = false;
     setDetailLoading(true);
+    setDetail(null);
     setDetailError(null);
     setSelectedPlayerId(null);
     void (async () => {
@@ -170,7 +168,7 @@ export default function PlayerRatingPeriods({
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedPeriodId]);
+  }, [selectedPeriodId, detailRetry]);
 
   const selfStanding = useMemo(
     () => detail?.standings.find((item) => item.player_id === playerId) || null,
@@ -182,7 +180,7 @@ export default function PlayerRatingPeriods({
   );
 
   if (listError) {
-    return <Section title="Сезоны"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{listError}</p></Section>;
+    return <Section title="Сезоны"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{listError}</p><button type="button" onClick={() => setListRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>;
   }
 
   if (!periods) {
@@ -231,7 +229,7 @@ export default function PlayerRatingPeriods({
       )}
 
       {detailLoading && <Section title="Таблица сезона"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Считаем таблицу…</p></Section>}
-      {detailError && <Section title="Таблица сезона"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{detailError}</p></Section>}
+      {detailError && <Section title="Таблица сезона"><div role="alert" className="space-y-3 rounded-2xl bg-black/20 px-3 py-4"><p className="text-sm text-white/60">{detailError}</p><button type="button" onClick={() => setDetailRetry((value) => value + 1)} className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.07] px-3 text-sm font-semibold text-white">Повторить</button></div></Section>}
 
       {detail && !detailLoading && (
         <>

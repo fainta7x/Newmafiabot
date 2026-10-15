@@ -1,3 +1,4 @@
+import { GAME_ROLE_LABELS } from '../../shared/gameRoles.ts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { TokenIcon } from '../ui/TokenIcon.tsx';
@@ -62,7 +63,7 @@ const statusMeta: Record<Pool['status'], { label: string; className: string }> =
   settled: { label: 'Рассчитано', className: 'bg-surface-2 text-text-secondary' },
   refunded: { label: 'Возвращено', className: 'bg-danger-soft text-danger' },
 };
-const roleLabel: Record<string, string> = { citizen: 'Мирный', sheriff: 'Шериф', mafia: 'Мафия', don: 'Дон' };
+const roleLabel: Record<string, string> = GAME_ROLE_LABELS;
 const money = (value: number) => Number(value || 0).toLocaleString('ru-RU');
 const coef = (value: number | null | undefined) => `x${Number(value || 1).toFixed(2)}`;
 

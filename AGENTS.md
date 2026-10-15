@@ -114,6 +114,7 @@ Before merge:
 - never weaken TypeScript/tests to force green;
 - inspect the exact failing job before rerunning;
 - for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots when browser verification is explicitly requested.
+- **Before/after delivery (owner, 2026-10-15):** send actual before/after screenshots with visual changes, following `docs/DESIGN_SYSTEM.md` → Visual verification rule; do not leave the evidence only in CI artifacts.
 
 ## Amvera access and asynchronous deploy checks
 

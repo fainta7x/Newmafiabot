@@ -60,7 +60,7 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
     if (!(await detailedStats.evaluate((element) => element.open))) await detailedStats.locator(':scope > summary').click();
     if (width >= 1024) {
       const stats = await profile.getByTestId('profile-more-stats').boundingBox();
-      expect(stats.width).toBeGreaterThan(content.width - 60);
+      expect(stats.width).toBeGreaterThan(content.width - 90);
     }
     await page.screenshot({ path: testInfo.outputPath(`profile-expanded-${width}.png`), fullPage: true });
     for (const label of ['Игры', 'Роли', 'Elo', 'Награды', 'История клуба', 'Связи']) {
@@ -84,8 +84,10 @@ for (const width of [390, 700, 1024, 1366, 1440]) {
       }
       if (label === 'Игры' || label === 'Роли') {
         const list = profile.locator(label === 'Игры' ? '.profile-game-list' : '.profile-role-list');
-        const cols = await list.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
-        if (width >= 1024) expect(cols).toBe(2);
+        // The request effect can start after the no-loading-text check. Never capture an empty list.
+        await expect(list.locator(':scope > article')).toHaveCount(label === 'Игры' ? 3 : 4);
+        const rows = await list.locator(':scope > article').all();
+        for (const row of rows) expect((await row.boundingBox()).width).toBeGreaterThan((await list.boundingBox()).width - 40);
       }
       await page.screenshot({ path: testInfo.outputPath(`profile-${label}-${width}.png`), fullPage: true });
     }

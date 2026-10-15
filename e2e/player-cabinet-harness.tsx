@@ -13,6 +13,15 @@ const data: PlayerMeResponse = {
  games: { all: [], stats: { totalGames: 24, completedGames: 24, wins: 14, losses: 10, winRate: 58.3, clubGames: 24, tournamentGames: 0, redGames: 16, blackGames: 8, bestMoves: 2, firstKilled: 3, zeroRoundVoted: 0, lastGameAt: null, roleCounts: { citizen: 12, sheriff: 4, mafia: 5, don: 3, unknown: 0 } } },
  tournaments: { games: [], awards: [], award_stats: { firstPlaces: 0, secondPlaces: 0, thirdPlaces: 0, nominations: 0 }, completed_participations: [] },
 };
+// Dedicated density fixture: the real cabinet receives four complete, synthetic game rows.
+if (new URLSearchParams(location.search).get('scenario') === 'compact') {
+ data.games.all = ['citizen', 'sheriff', 'mafia', 'don'].map((role, index) => ({
+  id: `club:g${index + 1}`, source: 'club', title: 'Клубный вечер', date: '2026-10-14T18:00:00Z', game_number: index + 1,
+  role, status: 'completed', won: index % 2 === 0, seat_number: index + 1, judge_name: 'Кавасаки', table_name: 'Главный стол',
+  judge_bonus: 0, protocol_bonus: 0, ci_points: 0, penalty_points: 0, disciplinary_penalty_points: 0,
+  regular_fouls: 0, minor_technical_fouls: 0, major_technical_fouls: 0, best_move: index === 0, first_killed: index === 0, zero_round_voted: false,
+ }));
+}
 const next = new Date(Date.now() + 7 * 86400000).toISOString();
 const evening = { id: 'preview-evening', title: 'Пятничный вечер клуба 2LA Noire', starts_at: next, venue: 'Суп с котом', format: 'CASUAL', status: 'published', default_price: 400 };
 const eventSlots = [18, 19, 20, 21].map((hour, index) => ({ id: `slot-${index + 1}`, slot_number: index + 1, starts_at: new Date(new Date(next).setHours(hour, 0, 0, 0)).toISOString(), registered_count: [11, 9, 7, 4][index], selected: index < 2 }));

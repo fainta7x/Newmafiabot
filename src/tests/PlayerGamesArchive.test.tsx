@@ -38,8 +38,8 @@ describe('personal games, club archive and the page of one game', () => {
     expect(screen.getByTestId('player-my-games')).toBeDefined();
     expect(screen.getByText(/Моя последняя игра/)).toBeDefined();
     expect(screen.getByText(/Моя предыдущая игра/)).toBeDefined();
-    expect(screen.getAllByLabelText('Победа')).toHaveLength(1);
-    expect(screen.getAllByLabelText('Поражение')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Шериф.*Победа/ })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Мирный.*Поражение/ })).toHaveLength(1);
     expect(screen.queryByText('Чужая игра в клубе')).toBeNull();
     expect(fetch).not.toHaveBeenCalledWith('/api/player/games/all', expect.anything());
 
@@ -83,7 +83,7 @@ describe('personal games, club archive and the page of one game', () => {
     stubFetch();
     const fetch = vi.mocked(globalThis.fetch);
     render(<PlayerGamesArchive data={{ ...data, games: { all: [] } }} />);
-    expect(screen.getByText(/Ты ещё не играл/)).toBeDefined();
+    expect(screen.getByText(/После первой завершённой игры/)).toBeDefined();
     expect(fetch).not.toHaveBeenCalled();
   });
 });

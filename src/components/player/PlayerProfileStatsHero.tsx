@@ -21,39 +21,18 @@ export default function PlayerProfileStatsHero({ games, wins, winRate, elo, seas
     : knownWins ? Math.min(100, Math.max(0, won / played * 100)) : null;
   const percent = rate === null ? '—' : `${Math.round(rate)}%`;
 
-  return <section data-testid="profile-key-stats" aria-label="Игровые показатели" className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3.5">
-    <div className="flex items-center gap-3.5">
-      <div className="grid h-[108px] w-[108px] shrink-0 place-items-center rounded-full p-[8px]"
-        role="img" aria-label={`Процент побед: ${percent}`}
-        style={{ background: `conic-gradient(#ddac65 ${rate ?? 0}%, rgba(255,255,255,.10) 0)` }}>
-        <div className="grid h-full w-full place-content-center rounded-full bg-[#111216] text-center">
-          <strong className="text-[22px] font-semibold tabular-nums leading-none text-white">{percent}</strong>
-          <span className="mt-1 text-[10px] text-white/45">винрейт</span>
-        </div>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-white/35">Игровая карьера</div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="min-w-0 rounded-xl bg-black/20 px-2.5 py-2">
-            <div className="text-xl font-semibold tabular-nums text-white">{games ?? '—'}</div>
-            <div className="text-[11px] text-white/50">игр</div>
-          </div>
-          <div className="min-w-0 rounded-xl bg-black/20 px-2.5 py-2">
-            <div className="text-xl font-semibold tabular-nums text-white">{wins ?? '—'}</div>
-            <div className="text-[11px] text-white/50">побед</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/[0.07] pt-3">
-      <div className="min-w-0 rounded-xl bg-black/20 px-3 py-2.5">
-        <div className="text-[10px] text-white/45">Текущий Elo · всё время</div>
-        <div className="mt-1 text-[22px] font-semibold leading-none tabular-nums">{elo}</div>
-      </div>
-      <div className="min-w-0 rounded-xl bg-black/20 px-3 py-2.5">
-        <div className="text-[10px] text-white/45">Место в сезоне</div>
-        <div className="mt-1 text-[22px] font-semibold leading-none tabular-nums">{seasonPlace && seasonPlace > 0 ? `#${seasonPlace}` : '—'}</div>
-      </div>
-    </div>
+  return <section data-testid="profile-key-stats" aria-label="Игровые показатели" className="pt-3">
+    <h2 className="text-sm font-semibold">Игровая карьера</h2>
+    <dl className="mt-3 grid grid-cols-[88px_1fr_1fr] items-center gap-4">
+      <div className="flex flex-col items-center"><dt className="order-2 mt-1 text-center text-xs text-white/55">Процент побед</dt><dd className="relative grid h-20 w-20 place-items-center text-xl font-semibold tabular-nums">
+        <svg aria-hidden="true" className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth="6" /><circle cx="40" cy="40" r="34" fill="none" stroke="#d6b66d" strokeWidth="6" strokeLinecap="round" pathLength="100" strokeDasharray={`${rate ?? 0} 100`} /></svg>
+        <span>{percent}</span>
+      </dd></div>
+      {[['Игры', games ?? '—'], ['Победы', wins ?? '—']].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-white/55">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{value}</dd></div>)}
+    </dl>
+    <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-3">
+      <div><dt className="text-xs text-white/55">Текущий Elo · всё время</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{elo}</dd></div>
+      <div><dt className="text-xs text-white/55">Место в сезоне</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{seasonPlace && seasonPlace > 0 ? `#${seasonPlace}` : '—'}</dd></div>
+    </dl>
   </section>;
 }

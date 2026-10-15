@@ -408,3 +408,7 @@ After registration/preparation, continue through the existing tournament seating
 - Pictures in personal Telegram messages: `photoPng` on `enqueueTelegramMessage` / `telegramPhotoPng` on `queuePersonalNotification` (column `photo_png` in `telegram_message_outbox`, sent by `sendTelegramMessage` as a photo with the caption, cleared once delivered); cards from `mvpCardService.ts`.
 - «Связать Telegram» for a VK player: `POST /api/player/telegram-link` (`playerNotificationPreferenceRoutes.ts` → `createPlayerClaimLink`), button in `PlayerNotificationSettings.tsx`; the bot's VK-only nickname message in `handlers/registration.py` (`vk_only` from `isNicknameVkOnlyProfile`).
 - Telegram link requested from the bot (`telegramLinkRequestService.ts`, `/api/bot/telegram-link-request`, `/api/player/telegram-link/redeem`, `TelegramLinkRedeem.tsx` at `/player?tglink=`, hint in `VerifiedPlayerOnboarding.tsx`; bot buttons in `handlers/registration.py`).
+
+## Sporting role identity and UI
+
+Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inline badge: `src/components/ui/GameRole.tsx`. Compatibility adapters: `src/lib/tournamentRoleValidation.ts`, `src/lib/playerGameRoleLabels.ts`. Used by the player cabinet, physical deal, Live Game seats and OBS broadcast. Do not add another local role dictionary; see `ARCHITECTURE.md`.

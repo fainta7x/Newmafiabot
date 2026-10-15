@@ -94,6 +94,8 @@ Player and public screens speak in plain words and avoid addressing the reader d
 
 ## Player Cabinet: data as mobile-native stories (owner, 2026-10-14)
 
+**Owner correction, 2026-10-15:** compose the whole page around player tasks. One related group gets one surface with internal spacing/dividers, not a new card/chart for every existing block. Graphics must answer a concrete question better than text: Elo over time, actual seating, ballot distribution, comparable teams/roles, earned trophy identity. Remove percentage orbits, giant match posters, arbitrary quantitative heights for binary results, decorative night landscapes and network lines connecting only a known pair. Keep real numbers, sources, denominators and direct links. Prefer readable 12–14px supporting text and >=44px actions over shrinking everything. Detailed statistics remain open by default; compactness comes from grouping. Screen decision matrix: `PLAYER_CABINET_VISUAL_DESIGN_CONTRACT.md`.
+
 Screens are not administrative spreadsheets. When a player's existing data is mainly rows and numbers, first decide what the player needs to recognize or do: **my status → meaningful leaders/context → everyone else / deeper detail**. Use cards or concise list items with a clear name/avatar, one primary figure, its unit, and a distinct action to open the real profile/game. Keep secondary figures as small supporting details and long histories behind an intentional disclosure rather than a wide table or horizontal scrolling grid. Never discard players, tie places, verified statistics, time periods, filters or outgoing links just to obtain a clean screenshot.
 
 For Elo ratings, retain server ranks and values; first three *places* may use subtle amber/neutral/bronze emphasis, not an invented reward system or flashy podium art. The player's own standing may be a compact dedicated card at the top. Touch rows normally >=44px, preserve bottom safe areas, consistent Roboto typography, rounded 20–28px surfaces, subtle backgrounds and descriptive empty/loading/retry states. Use measured 360/390px evidence to reject cramped, clipped or overly ornamental results. Design system tokens and the current home/evenings chrome remain canonical: prefer gradual coherent improvements over replacing the entire cabinet with a new style.
@@ -210,6 +212,8 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 
 ## Visual verification rule
 
+**Owner clarification, 2026-10-15:** compact does not mean text-only. Keep a visible game identity through the existing Live Game role icons, small role/seat graphics, linked player identities and factual team/result comparisons. A single career win-rate graphic may anchor the unified summary. Use one compact visual composition per task/group rather than either a chart/poster for every metric or a wall of text. Do not revive oversized posters, decorative network canvases or duplicate data displays.
+
 For every visual PR:
 
 1. use focused browser evidence while iterating;
@@ -217,6 +221,7 @@ For every visual PR:
 3. inspect fresh screenshots after CI;
 4. explicitly check clipping, overlap, identity loss, hierarchy, phase colour, viewport overflow and action target geometry;
 5. fix visible bugs before starting the next stage.
+6. send the owner actual **before → after** screenshots with the visual-change handoff (owner request, 2026-10-15), with both sides labeled. Use the same route, fixture/data, viewport, scroll position and disclosure state where available; identify any unavoidable difference. Review the images before sending, retain their source revisions and provide accessible images/files rather than only CI links. Screenshots are evidence: never synthesize or retouch app content to make the change look better. Capture the baseline before future visual edits so the comparison is reproducible.
 
 **Green Playwright is execution evidence, not visual approval.**
 
@@ -236,3 +241,27 @@ Cabinet desktop contract: all major cabinet sections share the profile's 1152px 
 ## Broadcast: reveals and the two versions (owner, 2026-10-12)
 
 The claimant of a reveal is coloured by his real role (the Don purple, the Sheriff gold); every announced check is coloured by the side it names — red for the one given as red, black for the one given as black. Not a rainbow of real roles next to each other, and not colourless either (both were rejected by the owner). Label «Вскрылся с:» sits above the checks so a narrow card never wraps it.
+
+### Shared role presentation
+
+Use the canonical role registry and `GameRoleIcon` / `GameRoleMark` / `GameRoleBadge` documented in `ARCHITECTURE.md`. Names, team, icon and palette have one owner. Screens choose inline/card size and contrast surface, not another role meaning or local colour dictionary. Never reveal a hidden role to decorate a screen.
+
+## Player key art — canonical visual contract
+
+Owner-approved direction preserved from #941; this is art guidance, not a new feature or permission to mass-generate assets.
+
+### Likeness and composition
+- Premium, authored digital illustration / AAA game key art; not photorealistic photography.
+- A recognisable, coherent human likeness for each real player is mandatory across variations.
+- Faces must be **drawn in the same artistic language as the body and environment**. No pasted live-action faces, photo textures or uncanny mismatched heads.
+- Rich composition, art direction, lighting, environment and storytelling, not a plain portrait floating on a background.
+- Allow stylistic variation between collections (noir, dark fantasy, cyberpunk, art deco, etc.), while preserving the player's identifying facial structure.
+- Avoid generic AI gloss, plastic skin, over-beautification, unmotivated effects, template compositions, and low-effort stock-looking results.
+- Preserve agreed reference framing/composition when explicitly requested; never silently crop or change aspect ratio.
+- Generate multiple alternatives, review likeness and anatomy, then approve; do not mass-produce until a baseline identity and style are approved.
+- Key-art likeness/composition is shared across approved collections. Product scope and current seasonal qualities are owned by BUSINESS_RULES.md; the old wardrobe quotas are archived, not a current release plan.
+
+
+## Seasonal portrait motion
+
+Owner feedback, 2026-10-14: the individually painted Fiery Autumn Dendi portrait is a promising direction, but the animated light pulse causes motion discomfort. Future accepted motion must avoid rhythmic whole-image brightness pulses, zoom/sway and face/body distortion. Prefer localized continuous fire, drifting embers and moving autumn leaves without covering the face or information. Keep a still fallback and honor reduced motion. The sample has not yet been corrected for this feedback; this documentation change does not claim that it has. Quality names/colours and the boundary between epic still and legendary animated portraits are owned by [BUSINESS_RULES.md](BUSINESS_RULES.md#seasonal-compendium--cosmetics-owner-revision-2026-10-14). Rarity colours must remain distinguishable from the actual role/team indicators.

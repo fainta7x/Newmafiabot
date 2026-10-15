@@ -32,6 +32,15 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 ## UX priority switch — PLAYER CABINET FIRST (owner decision 2026-10-14)
 
+**Owner clarification 2026-10-15:** #947 went too far toward text-only blocks. Keep compact unified page groups and restore game-specific graphics that communicate roles, team results, shared play and overall career progress. Show actual before/after images early; keep the work focused and fast. Continue in existing PR #948 rather than opening another small PR. The graphic balance is owned by `DESIGN_SYSTEM.md`.
+
+**Owner architectural correction 2026-10-15:** role identity and presentation must have one source: key, Russian name, team, icon and palette, reused where a role is displayed. Existing common types alone did not eliminate local UI dictionaries. Consolidate the role registry and shared display components in this workstream; preserve hidden-role guards and assignment rules.
+
+**Owner correction 2026-10-15 — authorised cabinet consolidation:** review all mounted cabinet pages, remove graphics used solely as decoration and combine related blocks into compact page compositions. Implemented in [PR #947](https://github.com/fainta7x/Newmafiabot/pull/947); its GitHub checks/merge record identifies the exact reviewed revision. The graphics-first rollout is superseded by `PLAYER_CABINET_VISUAL_DESIGN_CONTRACT.md`. Preserve sport-Mafia roles, privacy, results, links and histories; no rule/accounting/monetisation change. Earlier graphics PRs #942/#945/#946 were returned to draft; reconcile any remaining functional fixes instead of merging their old presentation. Amvera deployment and production/device verification are separate, not performed in this workstream. See `AUDIT_LOG.md` for findings and verification evidence.
+
+**Owner request 2026-10-15 — visual evidence delivery:** provide before/after screenshots for the current cabinet changes and include them with future visual work. The durable comparison contract is in `DESIGN_SYSTEM.md` → Visual verification rule. PR #947 is merged as `1ff8812`; comparison evidence uses the tree-equivalent baseline `aa2233d` / `86a51a7` and final `4576b68` / `1ff8812`, from UI preview runs `38693217799` and `38698406409`. This is isolated preview evidence, not an Amvera deployment.
+
+
 **Owner direction:** After numerous CRM fixes, its current usability is acceptable enough to pause the deep screen-by-screen CRM audit. **The Player Cabinet (личный кабинет игрока) is now the main UX/product-quality priority**: players' everyday experience has fallen behind the organizer CRM. This is a shift in engineering priority, *not* a claim that CRM is complete. Do not resume broad CRM polish by inertia or treat older CRM audit queue wording as active approval; return to it when the owner asks or a confirmed production-critical regression needs repair.
 
 **Remaining CRM queue (parked, do not discard):**
@@ -839,6 +848,8 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- Личный кабинет стал компактнее: история игр, итоги вечера, связи и статистика собраны в общие блоки; убрана лишняя декоративная графика, сохранены роли, результаты и переходы в протоколы. _(слито в main, #947; ждёт деплоя и проверки владельца)_
+
 - Покер: после раздачи можно показать всем одну карту или обе; фишки летают по очереди, звуки за столом стали настоящими (щелчки фишек и карт), в покерном чате эмодзи и сообщения больше не закрывают стол, на компьютере у стола три колонки (ход раздачи, стол, чат). _(слито в main, #883; ждёт деплоя и проверки владельца на телефоне)_
 - Спортивная карьера: выигранные номинации GoMafia видны рядом с результатом турнира; вторые и третьи позиции не считаются победами.
 - Спортивная карьера: после подтверждения GoMafia ID автоматически появляются турниры, результаты, годы и история игр. Клубный рейтинг считается отдельно; будущие регистрации показываются только при наличии подтверждённого публичного источника (сейчас недоступны).
@@ -980,7 +991,8 @@ No final VIP/compendium bundle, subscription rules or price is selected. Earlier
 
 - **Poker sounds (owner reminder, 2026-10-12)** — done by ChatGPT in #868 (quiet synthesized sounds for cards, chips, turn and timer with an on/off switch, see `docs/game-audio-v1.md`); waits only for the owner's phone check. **Follow-up 2026-10-12 (Claude):** the owner heard nothing — sounds were opt-in (default off, small speaker icon) and a remembered «on» never restarted the audio engine after a reload. Now on by default (a saved «off» wins), audio unlocks on the first tap, cues are ~1.8× louder. Merged in #883; still waits for the owner's phone check after the Amvera build. **Second follow-up 2026-10-12:** the owner said the sounds were beeps, not poker — cues rebuilt as chip clacks / card snaps / knocks (`pokerSoundEngine.ts`), cues for check, fold, raise and pot sweep, real flying chips, desktop three-column layout (hand log and stacks | table | chat). Merged in #883 (`c8d93632`, 2026-10-12); needs the owner's ears and phone check after the Amvera build.
 
-- **Player cabinet: audit and redesign of the screens again (owner plan, 2026-10-12: «очень много текстовых блоков без графики и вырвиглазным расположением и логикой»).** Idea, NOT started; waits for the owner's «да» to begin. Proposed first step: a read-only audit of every player-cabinet screen at 390 px (text-heavy blocks without graphics, order and logic of the blocks, duplicated information), recorded in `docs/AUDIT_LOG.md` with screenshots, then the owner picks the order of the redesign. Question for the owner: which screens bother most.
+- **Player cabinet audit/redesign (owner, 2026-10-12):** moved to the active Player Cabinet priority above after the owner's 14 October approval. The 15 October correction supersedes graphics-first treatment: compact task groups, useful graphics only. No additional owner approval is pending for this existing-product audit.
+
 
 - **CRM «Проект» screen (owner request 2026-10-12; read-only, the PR tab is live data, «красиво» is the only requirement).** Built in a PR (merge/deploy/phone check pending): «Ещё → Проект» with tabs «Ждём вас» / «Дорожная карта» (by direction) / «PR». Known limits of the first version: the file is mostly English prose so the cards are too; the direction is a keyword guess; many old «waiting» entries are stale and should be cleaned up. Possible next steps, not built: a «Записать идею» button, explicit direction tags in the file.
 
@@ -1082,3 +1094,11 @@ User reports unreadable/overloaded table visuals, lengthy wordy tasks, and insuf
 
 The owner prefers PR notifications in their existing Telegram conversation with the club bot, **without GitHub Actions secrets or any manual token exchange**. The notifier is the live Python bot task `github_pr_notifications.py` (merged #851, deployed in Amvera build `d1b6dcf`, 2026-10-12), using existing `ORGANIZER_NOTIFICATION_IDS` and public GitHub metadata. **Owner follow-up 2026-10-12:** notices must arrive at once on open/merge/close, not every 10 minutes, and progress («в проверке», «в работе») should be shown on request instead of as separate messages. Done in code: 30-second conditional polling, instant open/merged/closed notices, command `/prs` (open PRs with check progress + latest merges). Not deployed or verified in the live bot until this PR is merged and Amvera rebuilt. See `docs/RUNBOOK.md`.
 
+
+## Art and compendium — preserved owner direction
+
+PR cleanup, owner request 2026-10-15: the previously approved key-art criteria from #941 live in DESIGN_SYSTEM; the later 14 October concept decisions from #891 live in BUSINESS_RULES. The old six-rarity wardrobe/34-position quota is not the release plan. #891's rejected wardrobe prototype is archived with its branch/history retained; its runtime is not merged.
+
+The individually painted Dendi fire-sorceress study was accepted as a direction with feedback, not as an approved complete collection. A six-second motion study exists outside the app; remove the uncomfortable whole-image pulse and prefer local fire/leaves according to DESIGN_SYSTEM. Existing owner-supplied references are inputs, not an unfulfilled blanket request for more photos. Preserve likeness and use the real app/broadcast composition for integration previews.
+
+Pending before implementing collectible portraits: what a part means and whether parts toggle independently; parts per role; epic unlock; how the separate legendary animation upgrade is obtained; XP/duplicates without a new currency; new-player availability; surfaces/history; deck extent, reward phrase and title details. These decisions remain open. No new collection, runtime migration, inventory grant, price or probability is introduced in this reconciliation.

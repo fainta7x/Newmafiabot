@@ -9,6 +9,8 @@ import './liveBroadcastOverlay.css';
 
 type LiveBroadcastOverlayProps = {
   token: string;
+  /** Historical mode: feed recorded states; no network polling, no global OBS body takeover. */
+  replayState?: LiveBroadcastState | null;
 };
 
 type RoleKind = GameRole | 'unknown';
@@ -88,20 +90,22 @@ const timerText = (state: LiveBroadcastState) => {
   return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : String(seconds).padStart(2, '0');
 };
 
-export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProps) {
+export default function LiveBroadcastOverlay({ token, replayState }: LiveBroadcastOverlayProps) {
   const [envelope, setEnvelope] = useState<LiveBroadcastEnvelope>({ connected: false, receivedAt: null, state: null });
   const [requestFailed, setRequestFailed] = useState(false);
 
   useEffect(() => {
+    if (replayState !== undefined) return;
     document.documentElement.classList.add('live-broadcast-document');
     document.body.classList.add('live-broadcast-document');
     return () => {
       document.documentElement.classList.remove('live-broadcast-document');
       document.body.classList.remove('live-broadcast-document');
     };
-  }, []);
+  }, [replayState !== undefined]);
 
   useEffect(() => {
+    if (replayState !== undefined) return;
     let disposed = false;
     let inFlight = false;
     const load = async () => {
@@ -131,9 +135,9 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
       disposed = true;
       window.clearInterval(intervalId);
     };
-  }, [token]);
+  }, [token, replayState !== undefined]);
 
-  const state = envelope.state;
+  const state = replayState !== undefined ? replayState : envelope.state;
   const layout = envelope.layout || DEFAULT_LIVE_BROADCAST_LAYOUT;
   const nominationOrder = useMemo(() => new Map(
     (state?.nominations || []).map((nomination) => [nomination.seat, nomination.order]),
@@ -160,7 +164,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
     );
   }
 
-  const connectionLost = requestFailed || !envelope.connected;
+  const connectionLost = replayState === undefined && (requestFailed || !envelope.connected);
   const voteGroups = state.vote?.published
     ? state.vote.candidates.map((candidate) => ({
         candidate,

@@ -201,6 +201,8 @@ router.get('/games/:gameKey/replay', async (req, res) => {
         role: player.role || null,
       })).sort((a: any, b: any) => a.seat_number - b.seat_number),
       events,
+      // Verified engine chronology, kept verbatim for the OBS-style read-only replay.
+      engine_events: sanitizeLiveGameEvents(protocol.events),
       analysis,
       meta: {
         source: 'События взяты из протокола игры. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',

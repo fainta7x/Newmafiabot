@@ -27,7 +27,8 @@ describe('rankings by figure', () => {
     expect(within(screen.getByTestId('metric-row-m')).getByText('я')).toBeDefined();
     expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('Всё время · Все форматы, игр в выборе: 12');
 
-    fireEvent.change(screen.getByLabelText('Показатель'), { target: { value: 'elo_gain' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Показатель' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Прирост Elo' }));
     await waitFor(() => expect(screen.getByText('+24')).toBeDefined());
     expect(screen.getByText('−12')).toBeDefined();
     expect(screen.getByTestId('metric-ratings-scope').textContent).toContain('а не сам Elo');

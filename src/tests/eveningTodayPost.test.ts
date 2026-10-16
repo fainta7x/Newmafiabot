@@ -64,7 +64,7 @@ describe('NOVICE gathering rules', () => {
       const id = `nv${i}`;
       await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [id,id,now,now]);
       await db.run("INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at) VALUES (?,?,?,'going','going','pending','unpaid',?,?)", [`ep-${id}`,'ev',id,now,now]);
-      for (const slot of firstTwo) await db.run('INSERT INTO evening_slot_registrations (id,slot_id,participant_id,created_at,updated_at) VALUES (?,?,?,?,?)', [`r-${id}-${slot.id}`,slot.id,`ep-${id}`,now,now]);
+      for (const slot of firstTwo) await db.run('INSERT OR IGNORE INTO evening_slot_registrations (id,slot_id,participant_id,created_at,updated_at) VALUES (?,?,?,?,?)', [`r-${id}-${slot.id}`,slot.id,`ep-${id}`,now,now]);
     }
     const ready = await loadEveningSlotPlan(db, 'ev');
     expect(ready.event.assembled).toBe(true);

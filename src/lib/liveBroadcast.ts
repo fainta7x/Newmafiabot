@@ -163,6 +163,22 @@ export const normalizeLiveBroadcastLayout = (input: unknown): LiveBroadcastLayou
   };
 };
 
+/** Persisted frames of the actual OBS presentation for faithful historical playback. */
+export type LiveBroadcastReplayFrame = { at: string; state: LiveBroadcastState };
+export const MAX_REPLAY_FRAMES = 360;
+export const sanitizeBroadcastReplayFrames = (value: unknown): LiveBroadcastReplayFrame[] => {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-MAX_REPLAY_FRAMES).flatMap((frame): LiveBroadcastReplayFrame[] => {
+    if (!frame || typeof frame !== 'object') return [];
+    const candidate = frame as { at?: unknown; state?: unknown };
+    if (typeof candidate.at !== 'string' || !candidate.state || typeof candidate.state !== 'object') return [];
+    const state = candidate.state as LiveBroadcastState;
+    if (state.version !== LIVE_BROADCAST_VERSION) return [];
+    if (!Array.isArray(state.players) || state.players.length > 10 || !Array.isArray(state.nominations)) return [];
+    return [{ at: candidate.at.slice(0, 40), state }];
+  });
+};
+
 export type LiveBroadcastEnvelope = {
   connected: boolean;
   receivedAt: string | null;

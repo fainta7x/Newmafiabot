@@ -562,6 +562,7 @@ export interface TournamentGameProtocolData {
   best_moves?: BestMoveData[];
   /** Chronology of the live game (shots, votes, checks, fouls, ...) — see `shared/liveGameEvents.ts`. */
   events?: import('../shared/liveGameEvents').LiveGameEvent[];
+  replay_frames?: import('./liveBroadcast').LiveBroadcastReplayFrame[];
   votes: VotingRound[];
   shots: ShotEntry[];
   replacement: ReplacementData | null;

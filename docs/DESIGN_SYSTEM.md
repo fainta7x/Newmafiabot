@@ -265,3 +265,7 @@ Owner-approved direction preserved from #941; this is art guidance, not a new fe
 ## Seasonal portrait motion
 
 Owner feedback, 2026-10-14: the individually painted Fiery Autumn Dendi portrait is a promising direction, but the animated light pulse causes motion discomfort. Future accepted motion must avoid rhythmic whole-image brightness pulses, zoom/sway and face/body distortion. Prefer localized continuous fire, drifting embers and moving autumn leaves without covering the face or information. Keep a still fallback and honor reduced motion. The sample has not yet been corrected for this feedback; this documentation change does not claim that it has. Quality names/colours and the boundary between epic still and legendary animated portraits are owned by [BUSINESS_RULES.md](BUSINESS_RULES.md#seasonal-compendium--cosmetics-owner-revision-2026-10-14). Rarity colours must remain distinguishable from the actual role/team indicators.
+
+## OBS game graphics source of truth
+
+Use the approved 2LA Noire OBS broadcast overlay for every game-related presentation, including live engine, protocol and replay; shared player/vote/shot components are preferred to competing designs.

@@ -1114,3 +1114,7 @@ PR cleanup, owner request 2026-10-15: the previously approved key-art criteria f
 The individually painted Dendi fire-sorceress study was accepted as a direction with feedback, not as an approved complete collection. A six-second motion study exists outside the app; remove the uncomfortable whole-image pulse and prefer local fire/leaves according to DESIGN_SYSTEM. Existing owner-supplied references are inputs, not an unfulfilled blanket request for more photos. Preserve likeness and use the real app/broadcast composition for integration previews.
 
 Pending before implementing collectible portraits: what a part means and whether parts toggle independently; parts per role; epic unlock; how the separate legendary animation upgrade is obtained; XP/duplicates without a new currency; new-player availability; surfaces/history; deck extent, reward phrase and title details. These decisions remain open. No new collection, runtime migration, inventory grant, price or probability is introduced in this reconciliation.
+
+## Replay workstream — 2026-10-16
+
+Replacement PR for conflicted #970 stores bounded actual OBS-state frames during a club game, serves them in replay and reuses the broadcast overlay. Legacy events remain a fallback. CI and live end-to-end replay validation are prerequisites for calling this fully complete.

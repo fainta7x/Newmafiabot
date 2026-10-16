@@ -419,14 +419,18 @@ export default function PlayerGameDetail({
                 {story.map((entry) => {
                   if (entry.kind === 'night') {
                     const shot = entry.shot;
-                    const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
+                    // The confirmed first-killed participant is the authoritative first-night outcome.
+                    // Do not display a contradictory draft 'miss' when the saved protocol confirms this same victim.
+                    const confirmedFirstNightKill = shot.night_number === 1 && detail.protocol.first_killed?.seat_number === shot.target_seat;
+                    const shotResult = confirmedFirstNightKill ? 'killed' : shot.result;
+                    const tone = shotResult === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
                     return (
                       <li key={entry.key} className="rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shotResult)}</span>
                         </div>
-                        <NightShotScene target={seatLabel(shot.target_seat)} seat={shot.target_seat} result={shot.result} />
+                        <NightShotScene target={seatLabel(shot.target_seat)} seat={shot.target_seat} result={shotResult} />
                       </li>
                     );
                   }
@@ -445,7 +449,7 @@ export default function PlayerGameDetail({
                       </div>
                       {(() => {
                         const ballots = analysis.circles.find(circle => circle.round === vote.day_number + 1)?.votings.find(round => round.number === vote.round_number)?.votes || [];
-                        return ballots.length ? <div aria-label="Кто в кого голосовал" className="mt-1.5 space-y-1">{ballots.map(ballot => <div key={ballot.candidate} className="flex flex-wrap items-center gap-1.5 rounded-lg bg-black/20 px-2 py-1.5 text-[11px]"><span className="flex flex-wrap gap-1">{ballot.voters.map(seat => <span key={seat} title={seatLabel(seat)} aria-label={seatLabel(seat)} className={seatPlayer(seat)?.team === "black" ? "rounded bg-violet-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-violet-200" : seatPlayer(seat)?.team === "red" ? "rounded bg-rose-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-rose-200" : "rounded bg-white/10 px-1.5 py-0.5 tabular-nums text-white/70"}>{seat}</span>)}</span><span aria-hidden="true" className="text-white/40">→</span><span className="flex min-w-0 items-center gap-1.5"><GameRoleBadge role={seatPlayer(ballot.candidate)?.role}/><span className="truncate" title={seatLabel(ballot.candidate)}>{seatLabel(ballot.candidate)}</span></span></div>)}</div> : <><p className="mt-2 text-[11px] text-white/45">Индивидуальные голоса не записаны. В протоколе сохранились только суммы.</p><VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} /></>;
+                        return ballots.length ? <div aria-label="Кто в кого голосовал" className="mt-1.5 space-y-1">{ballots.map(ballot => <div key={ballot.candidate} className="flex flex-wrap items-center gap-1.5 rounded-lg bg-black/20 px-2 py-1.5 text-[11px]"><span className="flex min-w-0 items-center gap-1.5"><GameRoleBadge role={seatPlayer(ballot.candidate)?.role}/><span className="truncate" title={seatLabel(ballot.candidate)}>{seatLabel(ballot.candidate)}</span></span><span aria-hidden="true" className="text-white/40">←</span><span className="flex flex-wrap gap-1">{ballot.voters.map(seat => <span key={seat} title={seatLabel(seat)} aria-label={seatLabel(seat)} className={seatPlayer(seat)?.team === "black" ? "rounded bg-violet-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-violet-200" : seatPlayer(seat)?.team === "red" ? "rounded bg-rose-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-rose-200" : "rounded bg-white/10 px-1.5 py-0.5 tabular-nums text-white/70"}>{seat}</span>)}</span></div>)}</div> : <><p className="mt-2 text-[11px] text-white/45">Индивидуальные голоса не записаны. В протоколе сохранились только суммы.</p><VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} /></>;
                       })()}
                       {result ? <div className="mt-1.5 text-[11px] font-semibold text-white/75">{result}</div> : null}
                     </li>

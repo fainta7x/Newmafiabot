@@ -50,6 +50,10 @@ Do not copy mutable facts into several documents.
 
 Other docs should link to the owner instead of restating mutable facts.
 
+## 3a. No guessing game rules or terminology (owner, 2026-10-16)
+
+Never invent, infer, or reinterpret sports-Mafia terms, player actions, statistics, or owner wording. If the precise meaning is unclear, ask the owner before writing code. Record the owner's exact definition in docs/BUSINESS_RULES.md. «Подняли в нуле» means a player was eliminated together with one other player after a double revote during the zero round; it does NOT mean players stayed at the table. Never fabricate missing historical events.
+
 ## 4. Working style
 
 - Perform one targeted discovery pass, then keep a compact file map.

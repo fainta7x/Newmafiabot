@@ -171,10 +171,10 @@ router.get('/judging', async (req, res) => {
           FROM games g
           JOIN game_evenings e ON e.id = g.evening_id
      LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-         WHERE g.judge_player_id = ? AND g.archived_at IS NULL
+         WHERE (g.judge_player_id = ? OR e.organizer_player_id = ?) AND g.archived_at IS NULL
          ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
          LIMIT 60
-      `, [playerId]),
+      `, [playerId, playerId]),
       db.all(`
         SELECT tg.*, t.title AS tournament_title, t.date AS tournament_date,
                t.status AS tournament_status, t.venue
@@ -189,7 +189,7 @@ router.get('/judging', async (req, res) => {
 
     const clubGames = clubRows.map((row: any) => {
       const game = normalizeClubGame(row);
-      return { ...game, can_conduct: canHostEveningFormat(player, row.evening_format) && game.status !== 'completed' };
+      return { ...game, can_conduct: String(row.judge_player_id || '') === playerId && canHostEveningFormat(player, row.evening_format) && game.status !== 'completed', can_view: true };
     });
     const tournamentGames = await Promise.all(tournamentRows.map((row: any) => loadTournamentGame(db, row)));
 

@@ -25,7 +25,7 @@ export default function PlayerGameActionJournal({ events, players }: { events: L
   };
   const ordered = [...events].sort((a, b) => a.seq - b.seq);
   return <details data-testid="game-action-journal" className="rounded-xl border border-white/10 p-2.5">
-    <summary className="cursor-pointer text-xs font-semibold text-white/85">Все действия · {ordered.length}</summary>
+    <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-white/85">Все действия · {ordered.length}</summary>
     <ol className="mt-2 max-h-[420px] space-y-1 overflow-auto">
       {ordered.map((event, index) => {
         const who = seat(event.seat);

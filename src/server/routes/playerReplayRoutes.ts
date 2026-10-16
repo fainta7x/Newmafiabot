@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
+import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
 
 const router = Router();
 
@@ -201,6 +202,9 @@ router.get('/games/:gameKey/replay', async (req, res) => {
         role: player.role || null,
       })).sort((a: any, b: any) => a.seat_number - b.seat_number),
       events,
+      // Verified engine chronology, kept verbatim for the OBS-style read-only replay.
+      engine_events: sanitizeLiveGameEvents(protocol.events),
+      replay_frames: sanitizeBroadcastReplayFrames(protocol.replay_frames),
       analysis,
       meta: {
         source: 'События взяты из протокола игры. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',

@@ -204,6 +204,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
       events,
       // Verified engine chronology, kept verbatim for the OBS-style read-only replay.
       engine_events: sanitizeLiveGameEvents(protocol.events),
+      replay_frames: sanitizeBroadcastReplayFrames(protocol.replay_frames),
       analysis,
       meta: {
         source: 'События взяты из протокола игры. Если старый протокол не содержал пошаговые раунды, Replay показывает только доступные ключевые события.',

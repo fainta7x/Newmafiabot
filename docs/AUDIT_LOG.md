@@ -1,5 +1,24 @@
 # Audit log
 
+### 2026-10-16 — PR951 late-game picker in group (fixed)
+
+Production symptom: clicking «Приду позже» on a shared announcement posted personal game-choice buttons into the group. handlers/crm_evening_response.py now sends that picker to the clicking user in private, preserving private-chat behavior and explaining when Start is required. Reviewed three transport-isolated regressions; original Python CI passed. Merge preserves the clock-frozen test from950 rather than substituting a future date. Original container failure is upstream ECR429; inherit950 CI-only configurable base fix. No real message sent during verification.
+
+
+
+### 2026-10-16 — owner spreadsheet block2 (implemented, CI/mobile pending; recorded before changes)
+
+- Row10: Telegram slot totals call the assigned judge a player; arrival/response lists repeat them among players. Owner is telegram_evening_copy + staff identity on telegram-plan + slot projection. Show one named host separately, exclude that identity from player lists/counts, keep gathering total unchanged.
+- Row11: PlayerGameDetail repeats metadata counters and independent containers; full chronology only shows aggregates despite recorded vote events. Build one score-sheet composition, preserve expandable full player facts, expose recorded voter→target and personal evidence-based accuracy. Missing historic votes stay unavailable, never inferred from counts. Don label inherits white despite purple registry icon.
+- Row12: PR951 private late-picker fix passes all source checks; container blocked by ECR429, audit record missing. Finish existing PR with950 CI fix and required audit; no new replacement PR.
+- Row13: PlayerEveningSummaries splits result and highlights into different cards; combine as one evening result sheet, retain game links/awards/empty/error behavior.
+- Row14: production read-only performance snapshot09:13UTC confirms8–10s periodic event-loop stalls, /player/me3113ms and profile summary1966ms. Found repeated full-history SQL/JSON work in loadStatGames, used during bootstrap achievements/profile reads: add relevant-input versioned/in-flight cache, verify unrelated token writes preserve it and corrected protocols/cancelled evenings invalidate it. Defer CRM/OBS/replay route code. Actual production build static JS drops2,971,164→1,980,298bytes (gzip721,296→513,081;29%less compressed). Runtime8–10s stalls require post-deploy measurement; these local results are not proof they disappeared.
+- Turnaround: earlier43min mixed oldPR completion, repeated broadCI, fixture regressions, browser download and registry failures. Connected local tests precede a coherent CI submission; use external wait for independent requested work, not polling.
+
+### 2026-10-16 — #950 minimal-schema service compatibility (fixed)
+
+Full CI fails in eveningRoutePostsPending, novicePromoAnnouncement, organizerEveningSlots and weeklyEveningAutomation: loadEveningPeople queries evening_staff_assignments before the optional club-operations schema exists. The existing eveningJudgeId reader already handles absent/older staff schema without creating or migrating it. Reuse that owner, then load the player only for a real assigned ID. Verified: all five affected service/assigned-judge suites pass (20 tests) unchanged; no new schema migration is introduced.
+
 ### 2026-10-16 — #950 review: assigned judge identity
 
 Review PRRT_kwDOTau29M6tIOO_ correctly identifies that a separately assigned judge may not have an RSVP row. Preserve owner's11/9 total while explicitly counting the assigned judge once, with player-ID deduplication. Keep raw registration/shortfall player counts separate; expose gathering_count in weekly summaries and add only a nonregistered assigned judge to each slot's gathering list. A judge who already answered thinking/declined is not silently converted to going. Regression:8/10 signups plus separate judge assembled; judge already among signups no duplicate; raw counters and responses unchanged.
@@ -1276,3 +1295,5 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 
 - #941: likeness/key-art criteria existed only in a standalone document and current queue omitted the work. Preserve them in DESIGN_SYSTEM, point the workflow document to that owner, and record current/pending work in PROJECT_STATE.
 - #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.
+
+Second-block connected checks:41 tests across8 suites,14 isolated Python-copy cases, TypeScript, changed-file ESLint and isolated UI/production builds passed. Baseline components frozen from mainbdc59 for same-fixture360/390 game+recap comparisons. No protocol/game score/finance writer changed.

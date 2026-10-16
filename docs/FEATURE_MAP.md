@@ -80,6 +80,12 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 - API: `ratingRoutes.ts` (`GET /api/rating/metrics` → `metricRatingService.ts`), `ratingPeriodRoutes.ts`, `ratingPeriodStandingsRoutes.ts`, `playerTournamentResultsRoutes.ts`, `eloSeedAdminRoutes.ts`.
 - Formula work: `npm run project:find -- "elo expected rating"` before changing output.
 
+## Finished-game score sheets and startup reads
+
+- Game result sheet, personal vote/check accuracy and individual ballots: PlayerGameDetail.tsx; finished-only source events: playerGameDetailRoutes.ts; folding/metric owners: liveGameAnalysis.ts and gameActionFacts.ts. Historical aggregate counts never imply voter identities.
+- Evening result sheet including personal result, nominations and protocol links: PlayerEveningSummaries.tsx.
+- Reused completed-protocol reads: gameStatisticsService.ts with analyticsInputsVersion.ts; inputs include protocol corrections and cancelled evenings, not token/notification writes. Route bundle boundaries: App.tsx.
+
 ## Rules, glossary and novice guide
 
 - Approved two-page teaching cards and publication copy: `docs/SPORTS_MAFIA_BEGINNER_CARDS.md`; PNGs in `public/assets/guide/sports-mafia-game-flow.png` and `sports-mafia-table-rules.png`. Full rule owner: BUSINESS_RULES; guide text owner: clubGuide.ts.

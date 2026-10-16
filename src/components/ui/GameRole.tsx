@@ -26,5 +26,5 @@ export function GameRoleMark({ role }: { role?: string | null }) {
 /** Inline role label for read-only game rows; visibility is controlled by the caller. */
 export function GameRoleBadge({ role }: { role?: string | null }) {
   const key = normalizeGameRole(role);
-  return <span className="inline-flex items-center gap-1.5 text-xs font-semibold"><GameRoleIcon role={role} className="h-4 w-4" />{key ? GAME_ROLES[key].label : UNKNOWN_GAME_ROLE_LABEL}</span>;
+  return <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: key ? GAME_ROLES[key].foreground : '#94a3b8' }}><GameRoleIcon role={role} className="h-4 w-4" />{key ? GAME_ROLES[key].label : UNKNOWN_GAME_ROLE_LABEL}</span>;
 }

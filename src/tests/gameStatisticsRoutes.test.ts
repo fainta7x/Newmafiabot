@@ -58,6 +58,25 @@ describe('statistics across games', () => {
     expect(tournamentGame?.events).toHaveLength(events.length);
   });
 
+  it('reuses completed protocols across profiles, ignores unrelated writes and invalidates corrected games', async () => {
+    const {db}=await setup();
+    const all=vi.spyOn(db,'all');
+    const first=await loadStatGames(db);
+    all.mockClear();
+    expect(await loadStatGames(db)).toBe(first);
+    expect(all).not.toHaveBeenCalled();
+    await db.run("UPDATE players SET tokens=tokens+1 WHERE id='p1'");
+    expect(await loadStatGames(db)).toBe(first);
+    expect(all).not.toHaveBeenCalled();
+    await db.run("UPDATE games SET protocol_text=replace(protocol_text,'citizen','don') WHERE global_game_number=1");
+    const corrected=await loadStatGames(db);
+    expect(corrected).not.toBe(first);
+    expect(all).toHaveBeenCalledTimes(2);
+    expect(corrected.find(game=>game.id===first[0].id)?.seats).not.toEqual(first[0].seats);
+    await db.run("UPDATE game_evenings SET status='cancelled'");
+    expect(await loadStatGames(db)).toEqual([]);
+  });
+
   it('gives the organizer the club overview and nobody else', async () => {
     const { app } = await setup();
     const overview = await request(app).get('/api/analytics/game-stats?period=all').set('Cookie', `organizer_token=${generateOrganizerToken()}`);

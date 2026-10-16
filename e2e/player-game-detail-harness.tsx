@@ -1,5 +1,8 @@
 import ReactDOM from 'react-dom/client';
 import PlayerGameDetail, { type PlayerGameDetailData } from '../src/components/player/PlayerGameDetail.tsx';
+import PlayerEveningSummaries from '../src/components/player/PlayerEveningSummaries.tsx';
+import BeforeEveningSummaries from './fixtures/PlayerEveningSummaries.before.tsx';
+import BeforeGameDetail from './fixtures/PlayerGameDetail.before.tsx';
 import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
@@ -25,6 +28,14 @@ const players = names.map((nickname, index) => {
 const detail: PlayerGameDetailData = {
   game: { id: 'club:11', source: 'club', title: 'Игровой вечер — 9 октября', date: '2026-10-09T18:00:00.000Z', game_number: 11, format: 'CASUAL', winner_team: 'red', judge_name: 'Точка', table_name: 'Основной стол', elo_affected: true },
   protocol: {
+    events: [
+      {seq:1,at:'',round:1,phase:'zero_night',kind:'game_start'},
+      {seq:2,at:'',round:2,phase:'day_voting',kind:'vote',seat:10,target:2,value:3},
+      {seq:3,at:'',round:2,phase:'day_voting',kind:'vote',seat:3,target:2,value:3},
+      {seq:4,at:'',round:2,phase:'day_voting',kind:'vote_round_result',value:'3:single_eliminated'},
+      {seq:5,at:'',round:2,phase:'day_voting',kind:'exit',seat:2,value:'voted_day'},
+      {seq:6,at:'',round:2,phase:'finished',kind:'game_end',value:'red'},
+    ],
     end_reason: 'normal',
     votes: [
       { round_number: 1, day_number: 0, is_revote: false, parent_round_number: null, eligible_voters: 10, nominated_seats: [1, 2, 4], vote_counts: { '1': 4, '2': 2, '4': 4 }, outcome: 'tie_revote' },
@@ -38,8 +49,18 @@ const detail: PlayerGameDetailData = {
   players,
 };
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const GameDetail = new URLSearchParams(location.search).has('before') ? BeforeGameDetail : PlayerGameDetail;
+
+const isRecap = new URLSearchParams(location.search).get('screen') === 'recap';
+const EveningSummaries = new URLSearchParams(location.search).has('before') ? BeforeEveningSummaries : PlayerEveningSummaries;
+if (isRecap) window.fetch = async () => new Response(JSON.stringify({summaries:[{
+  id:'past-1', title:'Пятничный клубный вечер', starts_at:'2026-10-09T18:00:00Z',settled_at:'2026-10-10T00:00:00Z',venue:'Суп с Котом',
+  games:4, red_wins:3, black_wins:1,score:'3:1',player:{games:3,wins:2,losses:1,win_rate:67,elo_before:1500,elo_after:1522,elo_delta:22,roles:['citizen','sheriff']},
+  best_elo_rise:{player_id:'p3',nickname:'Дина',avatar_url:'',elo_delta:31}, most_games:{player_id:'p4',nickname:'Богдан',avatar_url:'',games:4},
+  awards:[{category:'mvp',label:'Игрок вечера',player_id:'p3',nickname:'Дина',avatar_url:'',votes:7}],facts:['Красные выиграли три партии из четырёх'],game_ids:['club:11','club:12','club:13','club:14'],
+}]}),{headers:{'Content-Type':'application/json'}});
+ReactDOM.createRoot(document.getElementById('root')!).render(isRecap ? <EveningSummaries onOpenGame={(key)=>{document.body.dataset.openedGame=key;}} /> :
   <main className="mx-auto flex max-w-[430px] flex-col gap-3 p-3 pb-24 text-white">
-    <PlayerGameDetail detail={detail} loading={false} error={null} selfId="p4" onBack={() => undefined} />
+    <GameDetail detail={detail} loading={false} error={null} selfId="p3" onBack={() => undefined} />
   </main>,
 );

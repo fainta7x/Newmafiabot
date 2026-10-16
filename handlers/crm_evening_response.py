@@ -226,13 +226,23 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
         if not rows:
             await callback.answer("Для вечера пока нет доступных игр.", show_alert=True)
             return
+        picker_text = "⏳ <b>С какой игры тебя ждать?</b>\nЗапишем на неё и все следующие."
+        picker_markup = InlineKeyboardMarkup(inline_keyboard=rows)
+        if callback.message and callback.message.chat.type != ChatType.PRIVATE:
+            # The announcement lives in a group: the game picker is for this one player and must never be posted to the chat
+            # (owner, 2026-10-16: it appeared in the announcements chat). It goes to their private chat with the bot.
+            try:
+                await bot.send_message(callback.from_user.id, picker_text, parse_mode="HTML", reply_markup=picker_markup)
+                await callback.answer("Выбери игру в личном чате с ботом ⏳", show_alert=False)
+            except Exception:
+                await callback.answer(
+                    "Чтобы выбрать игру, открой личный чат с ботом, нажми «Старт» и повтори ответ.",
+                    show_alert=True,
+                )
+            return
         await callback.answer()
         if callback.message:
-            await callback.message.answer(
-                "⏳ <b>С какой игры тебя ждать?</b>\nЗапишем на неё и все следующие.",
-                parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-            )
+            await callback.message.answer(picker_text, parse_mode="HTML", reply_markup=picker_markup)
         return
 
     result = await submit_evening_response(

@@ -172,3 +172,24 @@ def test_full_evening_rsvp_is_explicit_and_partial_games_are_optional():
     evening = {"format": "CASUAL", "starts_at": "2026-10-16T18:00:00Z"}
     assert "запишем на все игры" in private_event_text(evening)
     assert "укажи игру, с которой начнёшь" in recruitment_private_text(evening, [])
+
+
+def test_assigned_host_is_separate_from_players_even_when_registered():
+    from handlers.telegram_evening_copy import thematic_event_text
+    evening = {"format": "CASUAL", "title": "Пятница", "starts_at": "2030-10-16T18:00:00Z", "judge_player_id": "host", "judge_nickname": "Спящий"}
+    players = [{"id": str(i), "nickname": f"Игрок{i}"} for i in range(10)]
+    slots = [{"slot_number": 1, "starts_at": evening["starts_at"], "target_players": 11, "registered_count": 11, "participants": players + [{"id": "host", "nickname": "Спящий"}]}]
+    people = [{"player_id": "host", "nickname": "Спящий", "response_status": "going", "selected_games": 0}]
+    text = thematic_event_text(evening, slots, people)
+    assert "<b>10</b> игроков + 1 ведущий ✅" in text
+    assert "Записались на игры: 10" in text
+    assert text.count("Спящий") == 1
+    assert "Идут на весь вечер, игры не выбрали" not in text
+
+
+def test_slot_marked_host_is_not_in_arrival_list_without_evening_identity():
+    from handlers.telegram_evening_copy import thematic_event_text
+    text = thematic_event_text({"format": "NOVICE", "judge_nickname": "Спящий", "starts_at": "2030-10-16T18:00:00Z"}, [{"slot_number": 1, "registered_count": 9, "target_players": 9, "participants": [{"id": "j", "nickname": "Спящий", "is_judge": True}] + [{"id": str(i), "nickname": f"Новичок{i}"} for i in range(8)]}], [])
+    assert "<b>8</b> игроков + 1 ведущий ✅" in text
+    assert "Записались на игры: 8" in text
+    assert text.count("Спящий") == 1

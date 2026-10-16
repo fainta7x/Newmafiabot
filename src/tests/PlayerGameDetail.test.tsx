@@ -142,3 +142,27 @@ describe('player game page', () => {
     expect(screen.getByText('Составы и баллы')).toBeDefined();
   });
 });
+
+
+describe('owner score-sheet detail', () => {
+  it('shows recorded voters and personal accuracy without deriving identities from totals', () => {
+    view({selfId:'p1',detail:{...detail,protocol:{...detail.protocol,events:[
+      {seq:1,at:'',round:1,phase:'zero_night',kind:'game_start'},
+      {seq:2,at:'',round:2,phase:'day_voting',kind:'vote',seat:1,target:2,value:3},
+      {seq:3,at:'',round:2,phase:'day_voting',kind:'vote_round_result',value:'3:single_eliminated'},
+      {seq:4,at:'',round:2,phase:'day_voting',kind:'exit',seat:2,value:'voted_day'},
+      {seq:5,at:'',round:2,phase:'finished',kind:'game_end',value:'red'},
+    ]}}});
+    expect(screen.getByTestId('game-score-sheet').textContent).not.toContain('5 игроков');
+    expect(screen.getByTestId('game-personal-stats').textContent).toContain('100%');
+    expect(screen.getByTestId('game-personal-stats').textContent).toContain('1 из 1 в чёрных');
+    expect(screen.getByLabelText('Кто в кого голосовал').textContent).toContain('#2 Алоэ');
+    const don=screen.getByTestId('game-player-5').querySelector('summary [style]');
+    expect(don?.getAttribute('style')).toContain('rgb(167, 139, 250)');
+  });
+  it('keeps accuracy unavailable for historical aggregate-only protocols', () => {
+    view();
+    expect(screen.getByTestId('game-personal-stats').textContent).toContain('Нет подходящих записанных голосов');
+    expect(screen.queryByLabelText('Кто в кого голосовал')).toBeNull();
+  });
+});

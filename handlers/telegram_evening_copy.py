@@ -267,9 +267,12 @@ def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZON
     lines = ["🎲 <b>По играм</b>"]
     for slot in sorted(slots, key=lambda item: int(item.get("slot_number") or 0)):
         count = int(slot.get("registered_count") or len(slot.get("participants") or []))
+        hosts = {str(person.get("id") or person.get("player_id")) for person in slot.get("participants") or [] if person.get("is_judge")}
         target = int(slot.get("target_players") or 11)
         ready = " ✅" if count >= target else ""
-        lines.append(f"{_format_time(slot.get('starts_at'), timezone_name)} · игра {int(slot.get('slot_number') or 0)} — <b>{count}</b> {_players_word(count)}{ready}")
+        players_count = max(0, count - len(hosts))
+        host_text = " + 1 ведущий" if hosts else ""
+        lines.append(f"{_format_time(slot.get('starts_at'), timezone_name)} · игра {int(slot.get('slot_number') or 0)} — <b>{players_count}</b> {_players_word(players_count)}{host_text}{ready}")
     return lines
 
 
@@ -286,7 +289,7 @@ def _arrival_lines(
         starts_at = slot.get("starts_at")
         for participant in slot.get("participants") or []:
             player_id = str(participant.get("id") or participant.get("player_id") or participant.get("nickname") or "")
-            if not player_id or player_id in skip:
+            if not player_id or player_id in skip or participant.get("is_judge"):
                 continue
             item = players.setdefault(player_id, {
                 "nickname": str(participant.get("nickname") or "Игрок"),
@@ -517,7 +520,9 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None, particip
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
-    people = participants or []
+    judge_id = str(evening.get("judge_player_id") or "")
+    slot_rows = [{**slot, "participants": [{**person, "is_judge": bool(person.get("is_judge") or (judge_id and str(person.get("id") or person.get("player_id") or "") == judge_id))} for person in slot.get("participants") or []]} for slot in slot_rows]
+    people = [person for person in participants or [] if not judge_id or str(person.get("player_id") or "") != judge_id]
     skip = _without_games(people)
 
     def compose(max_players: int, names: bool) -> str:

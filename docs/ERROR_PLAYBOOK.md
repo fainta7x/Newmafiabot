@@ -217,6 +217,12 @@ Trace announcement finalization/edit path through:
 
 Closed evening history should remain useful in chat.
 
+## A button message appeared in the group chat instead of the player's private chat
+
+Symptom (2026-10-16): «⏳ С какой игры тебя ждать?» with game buttons was posted into the announcements chat after someone tapped «Приду позже» under the announcement.
+
+Cause: a handler answered with `callback.message.answer(...)`, and for a button pressed in a group `callback.message` is the group post, so the reply lands in the group. Rule: a reply meant for one person goes to them by `bot.send_message(callback.from_user.id, ...)` (and `callback.answer(...)` for the short notice); only edit a keyboard when `callback.message.chat.type == ChatType.PRIVATE` (a group post is shared). Fixed in `handlers/crm_evening_response.py` (`evr:` late branch); test `tests/test_late_picker_private.py`. A stray message already in the chat is deleted by hand (the bot does not keep message ids).
+
 ## Telegram announcement did not arrive
 
 Separate stages:

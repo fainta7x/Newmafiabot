@@ -1,6 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { listGuestPlaceholdersForEvening } from './guestPlayerService.ts';
 import { serializeEveningParticipant } from './eveningParticipantState.ts';
+import { eveningJudgeId } from './eveningStaffService.ts';
 
 /** The organizer roster: club players plus guests/companions, without migrated legacy duplicates. */
 export async function loadEveningPeople(db: DatabaseWrapper, eveningId: string, includeAssignedJudge = false) {
@@ -13,8 +14,8 @@ export async function loadEveningPeople(db: DatabaseWrapper, eveningId: string, 
      ) ORDER BY ep.created_at ASC`, [eveningId]);
   const people = [...registered.map(serializeEveningParticipant), ...guests];
   if (includeAssignedJudge) {
-    const judge = await db.get<any>(`SELECT p.id, p.nickname FROM evening_staff_assignments s
-      JOIN players p ON p.id = s.judge_player_id WHERE s.evening_id = ?`, [eveningId]);
+    const judgeId = await eveningJudgeId(db, eveningId);
+    const judge = judgeId ? await db.get<any>('SELECT id, nickname FROM players WHERE id = ?', [judgeId]) : null;
     const existing = judge && people.find((person) => String(person.player_id || '') === String(judge.id));
     if (existing && ['going', 'late'].includes(existing.response_status)) existing.is_assigned_judge = true;
     if (judge && !existing) {

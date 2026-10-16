@@ -375,7 +375,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       </div>
       <label className="relative mt-3 block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока по имени" aria-label="Найти игрока" className="mobile-field w-full pl-9" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока по имени" aria-label="Найти игрока" className="mobile-field w-full !pl-12" style={{ paddingLeft: 48 }} data-testid="responses-player-search" />
       </label>
 
       {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}

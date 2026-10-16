@@ -2,9 +2,15 @@
 
 This file owns the **durable visual contract only**. It does not own rollout status, release history or current work queue; those belong in `docs/PROJECT_STATE.md` and Git history.
 
+## OBS overlay: canonical game graphics (owner, 2026-10-16)
+
+**The approved 2LA Noire OBS broadcast overlay is the visual source of truth for all representations of a game.** Reuse its actual player cards, table geometry, voting graphics, shots, role colours, typography and transitions in Live Game, game protocol and Replay. Do not draw an unrelated visual player or create another aesthetics system. Inspect the existing overlay code/assets and compare UI previews before changing game graphics. The Player Cabinet design system below continues to guide non-game chrome/navigation.
+
+**Replay must reproduce the recorded live-game experience** from the shared engine presentation and verified chronology, in read-only playback mode. A separate list-of-text-events with autoplay is not a substitute. It must never fabricate missing votes, shot outcomes, phases, timers or player actions when older games lack full engine recordings.
+
 ## Canonical visual source
 
-The established Player Cabinet is the visual source of truth for the entire product: Player, Organizer CRM and Live Game.
+The established Player Cabinet is the visual source of truth for surrounding application chrome, navigation and non-game interfaces; game graphics specifically use the approved OBS broadcast overlay.
 
 Primary references:
 

@@ -26,21 +26,10 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // Every row is a touch target; opening one shows where the points came from.
   const heights = await page.locator('summary:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
-  expect(heights.length).toBeGreaterThanOrEqual(13);
+  expect(heights.length).toBeGreaterThanOrEqual(12);
   expect(heights.every((height) => height >= 44)).toBe(true);
-  const seating = page.getByTestId('game-table-scene');
-  await expect(seating).not.toBeVisible();
-  await seating.locator('..').locator(':scope > summary').click();
-  await expect(seating).toBeVisible();
-  await expect(seating.getByRole('button')).toHaveCount(10);
-  for (const button of await seating.getByRole('button').all()) {
-    const box = await button.boundingBox();
-    const frame = await seating.boundingBox();
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.x).toBeGreaterThanOrEqual(frame.x);
-    expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
-  }
+  await expect(page.getByTestId('game-table-scene')).toHaveCount(0);
+  await expect(page.getByTestId('game-action-journal')).toBeVisible();
   for (const row of await page.locator('[data-testid^="game-player-"] > summary').all()) {
     const rowBox = await row.boundingBox();
     expect(rowBox.x).toBeGreaterThanOrEqual(0);

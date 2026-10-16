@@ -4,6 +4,13 @@ This file contains user-approved product and sports-Mafia rules that must not be
 
 If implementation/tests conflict with this document, stop and investigate the conflict. Do not “simplify” the rule to make code easier.
 
+### Показатели нулевого круга (владелец, 16.10.2026)
+
+- **«Заголосован в нуле»** — игрок, окончательно выведенный голосованием в нулевой день.
+- **«Сломал в нуле»** — виновник сломанного попила, явно отмеченный ведущим. По итоговым суммам голосов не вычислять; не угадывать участников старых игр.
+- **«Подняли в нуле»** — участник попила, оставшийся за столом после подтверждённого решения не выводить никого (no_elimination). Простая ничья без решения не считается; не удваивать счётчик по переголосованиям.
+- Это отдельные факты, не замены «Первым убит» или «Лучший ход».
+
 ## Authority
 
 ### Seasonal compendium / cosmetics (owner revision, 2026-10-14)

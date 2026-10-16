@@ -64,7 +64,9 @@ for (const width of [360,390]) test(`evening recap is one result sheet at ${widt
   await page.setViewportSize({width,height:713});
   await page.goto('/e2e/player-game-detail.html?screen=recap&before=1');
   await expect(page.getByTestId('evening-result-art')).toBeVisible();
+  await page.setViewportSize({width,height:1600});
   await page.screenshot({path:testInfo.outputPath(`recap-before-${width}.png`),fullPage:true});
+  await page.setViewportSize({width,height:713});
   await page.goto('/e2e/player-game-detail.html?screen=recap');
   const sheet=page.getByTestId('evening-result-art');
   await expect(sheet.getByText('Пятничный клубный вечер')).toBeVisible();
@@ -73,6 +75,7 @@ for (const width of [360,390]) test(`evening recap is one result sheet at ${widt
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const targets=await sheet.locator('button,summary').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().height));
   expect(targets.every(height=>height>=44)).toBe(true);
+  await page.setViewportSize({width,height:1600});
   await page.screenshot({path:testInfo.outputPath(`recap-after-${width}.png`),fullPage:true});
   await sheet.getByRole('button',{name:'Игра №1'}).click();
   expect(await page.locator('body').getAttribute('data-opened-game')).toBe('club:11');

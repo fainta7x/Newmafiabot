@@ -1,5 +1,9 @@
 # Audit log
 
+### 2026-10-16 — #949 final mobile gate (open, before correction)
+
+Head7e41f819: required CI/CodeQL/Gitleaks passed, UI86/88 passed. Both compact-cabinet cases show the unified evening sheet at479px against the established450px limit. Actual360px screenshot confirms the newly included facts disclosure plus repeated16px section gaps consume the extra space. Tighten only sheet padding/gaps by32px; preserve all content, shared role art, font sizes and44px controls. Keep the450px assertion. Also capture the full recap content by growing the screenshot viewport after mobile interaction/geometry checks; current fullPage evidence is clipped by Telegram's scroll root.
+
 ### 2026-10-16 — PR951 late-game picker in group (fixed)
 
 Production symptom: clicking «Приду позже» on a shared announcement posted personal game-choice buttons into the group. handlers/crm_evening_response.py now sends that picker to the clicking user in private, preserving private-chat behavior and explaining when Start is required. Reviewed three transport-isolated regressions; original Python CI passed. Merge preserves the clock-frozen test from950 rather than substituting a future date. Original container failure is upstream ECR429; inherit950 CI-only configurable base fix. No real message sent during verification.

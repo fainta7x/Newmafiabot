@@ -10,6 +10,7 @@ import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import { VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
+import PlayerGameActionJournal from './PlayerGameActionJournal.tsx';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -454,6 +455,8 @@ export default function PlayerGameDetail({
               {detail.protocol.replacement ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">В протоколе зафиксирована замена игрока.</div> : null}
             </Section>
           )}
+
+          <PlayerGameActionJournal events={detail.protocol.events || []} players={detail.players} />
 
           {detail.protocol.judge_notes && (
             <Section title="Заметка судьи">

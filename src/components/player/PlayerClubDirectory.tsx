@@ -56,7 +56,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
       <div className="relative mt-4">
         <label htmlFor="club-search" className="sr-only">Найти игрока</label>
         <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-white/45" />
-        <Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="pl-10" />
+        <Input id="club-search" data-testid="club-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="!pl-12" />
       </div>
 
       {error ? (

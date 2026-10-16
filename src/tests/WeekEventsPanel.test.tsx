@@ -36,7 +36,7 @@ describe('«На этой неделе» on «Сегодня»', () => {
     await waitFor(() => expect(screen.getAllByTestId('crm-week-event')).toHaveLength(6));
     const titles = screen.getAllByTestId('crm-week-event').map((row) => row.querySelector('strong')?.textContent);
     // Running events stay even when they started more than six hours ago.
-    expect(titles).toEqual(['Вечер late-night', 'Вечер novice', 'Вечер club', 'Идущий турнир', 'Турнир Богдана', 'Вечер draft']);
+    expect(titles).toEqual(['Вечер late-night', 'Вечер club', 'Идущий турнир', 'Вечер novice', 'Турнир Богдана', 'Вечер draft']);
     expect(screen.getByText(/черновик/)).toBeTruthy();
     fireEvent.click(screen.getByText('Турнир Богдана'));
     expect(openTournament).toHaveBeenCalledWith('t1');

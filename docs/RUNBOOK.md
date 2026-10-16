@@ -132,6 +132,9 @@ In Mafia training specifically, distinguish `LiveGameEngine` canonical productio
 
 ### B. Cheap feedback before costly CI
 
+Owner turnaround correction (2026-10-16): keep one requested block as one candidate. Do not mix completing an old PR with a new small fix unless it is a dependency. Before pushing, run all *connected* fixtures (including direct-service/minimal-schema readers after shared-service changes), then submit one coherent CI candidate. During external checks do the next independently authorized block; give a concrete result or blocker within60 seconds, rather than narrating waiting. Separate infrastructure failures from source defects. Do not add unrequested refinements after a candidate is green. Keep before/after capture in the same focused visual harness, using frozen baseline components and identical fixtures.
+
+
 1. Read the exact source and the *first failing assertion*, along with screenshot/error context when interaction or layout is involved.
 2. Make **one cause-based minimal fix**; where useful, add or update a focused regression.
 3. Run the smallest relevant check: `npx vitest run src/tests/<relevant>.test.ts`, a targeted `--testNamePattern`, `npm run project:affected -- <changed files>`, or the single Playwright spec. On screenshots, inspect 360/390 px output.

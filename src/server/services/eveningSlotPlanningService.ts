@@ -436,7 +436,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   const judge = eveningPeople.find((person) => person.is_assigned_judge);
   if (judge) for (const slot of rows) {
     const group = peopleBySlot.get(String(slot.id)) || [];
-    if (group.some((person) => !person.is_guest && person.id === String(judge.player_id))) continue;
+    const existing = group.find((person) => !person.is_guest && person.id === String(judge.player_id));
+    if (existing) { existing.is_judge = true; continue; }
     group.push({ id: String(judge.player_id), nickname: String(judge.nickname), whole_evening: true, is_judge: true });
     peopleBySlot.set(String(slot.id), group);
     slot.registered_count = Number(slot.registered_count || 0) + 1;

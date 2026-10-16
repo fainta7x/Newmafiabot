@@ -2,11 +2,11 @@
 
 ## Owner request — 2026-10-16 second spreadsheet block
 
-Rows10–14 are now authorized: Telegram announcement separates assigned host from players; unify game results into a compact designed score sheet with useful personal stats, voting source→target and purple Don; finish PR951 after fixing its failures; unify evening recap presentation; investigate slow application/database startup. Read the actual mounted implementation and exact PR head before changing it. No production DB edits or real messages. Owner also requests shorter turnaround: focused connected tests first, one coherent CI candidate and parallel useful work while external checks run.
+Rows10–14 are now authorized: Telegram announcement separates assigned host from players; unify game results into a compact designed score sheet with useful personal stats, voting source→target and purple Don; finish PR951 after fixing its failures; unify evening recap presentation; investigate slow application/database startup. Implemented in existing PR949 workstream: one game/evening score sheet, shared role-label colour, source vote log and canonical action accuracy; Telegram host is separate from player totals; completed-protocol caching uses relevant-data invalidation; CRM/OBS/replay route bundles load on demand. Owner merge-check request2026-10-16: required CI on7e41f819 passed; mobile86/88 passed, with recap479px exceeding450px. Preserve the limit and all content; reduce only sheet gaps/padding32px and verify the corrected head before merge. PR951 merged as2d2bca9f95f56a236a11b9fe1254ad4f9447567d after full required CI, CodeQL and Gitleaks on head d5622500. Its equivalent source tree also passed UI preview before ancestry-only reconciliation. No production DB edits or real messages. Owner also requests shorter turnaround: focused connected tests first, one coherent CI candidate and parallel useful work while external checks run.
 
 ## Owner request — 2026-10-16 teaching cards and seven CRM findings
 
-Save final approved two-page sports-Mafia cards and their wording in Git; keep no-penalty/no-best-move beginner scope separate from the full rules. Correct Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, Баг-трекер rows 2–8: weekly event registration detail, timing preparation status, event priority, guests in totals, 11/9 people including judge, clear answer filters and response picker. This explicitly authorizes these CRM fixes despite the parked broad CRM audit. Implementation and focused local checks are complete in the owner-sheet workstream; required Actions, mobile evidence and merge pending. Main/deployment remain separate; see AUDIT_LOG for evidence.
+Save final approved two-page sports-Mafia cards and their wording in Git; keep no-penalty/no-best-move beginner scope separate from the full rules. Correct Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, Баг-трекер rows 2–8: weekly event registration detail, timing preparation status, event priority, guests in totals, 11/9 people including judge, clear answer filters and response picker. This explicitly authorizes these CRM fixes despite the parked broad CRM audit. Merged in PR950 as0c92bd080868605363c2bb30ff99dd712af0ff9b. Exact headb0ff3af3 passed all required CI and mobile preview; before/after360/390 inspected. Cards and agreed text are stored in Git. Main/deployment remain separate; see AUDIT_LOG for evidence.
 
 ## GoMafia nominations — verification and correction (owner request, 2026-10-12)
 
@@ -37,6 +37,10 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 **Single planning document:** maintain the current development queue in this file. Other documentation describes rules, architecture, or operating procedures; Git history preserves completed and superseded plans. Before treating a queue item as unfinished, compare it with the latest `main` implementation.
 
 **Status date:** 2026-10-14
+
+## Open PR reconciliation — owner request, 2026-10-15
+
+Finish current PR #949 with readable compact mobile rows, accessible disclosures, updated regression/visual checks and the unmerged showcase retry from #945. #940 loading/retry and #946 Elo recovery/protocol links are already in main; superseded cabinet layouts #942/#945/#946 are closed after preserving functional work. #941 consolidates the accepted art/compendium documentation; #891's obsolete wardrobe runtime is archived, not released. Merge/check status belongs to GitHub; Amvera is unchanged by this reconciliation.
 
 ## UX priority switch — PLAYER CABINET FIRST (owner decision 2026-10-14)
 

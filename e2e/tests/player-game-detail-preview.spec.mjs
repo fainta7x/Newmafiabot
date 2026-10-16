@@ -2,17 +2,31 @@ import { test, expect } from '@playwright/test';
 
 // The page of one finished game: result first, the viewer's own game, what mattered, rosters by team, then the story.
 for (const width of [360, 390]) test(`game page reads top to bottom at ${width}px`, async ({ page }, testInfo) => {
-  await page.setViewportSize({ width, height: 800 });
+  await page.setViewportSize({ width, height: 713 });
+  await page.goto('/e2e/player-game-detail.html?before=1');
+  await expect(page.getByTestId('game-hero')).toContainText('Победа красных');
+  await page.screenshot({path:testInfo.outputPath(`game-before-${width}.png`),fullPage:true});
   await page.goto('/e2e/player-game-detail.html');
   await expect(page.getByTestId('game-hero')).toContainText('Победа красных');
-  await expect(page.getByTestId('game-mine')).toContainText('Мой результат');
+  await expect(page.getByTestId('game-mine')).toContainText('Моя игра');
   await expect(page.getByText('Главное в игре')).toBeVisible();
   await expect(page.getByText('Составы и баллы')).toBeVisible();
+  const roster = page.getByRole('region', { name: 'Составы и баллы', exact: true });
+  await expect(page.locator('[data-testid^="game-player-"]')).toHaveCount(10);
+  expect((await roster.boundingBox()).y + (await roster.boundingBox()).height).toBeLessThanOrEqual(713);
+  await page.screenshot({ path: testInfo.outputPath(`game-overview-${width}.png`) });
+  await page.getByTestId('game-key-moments').locator(':scope > summary').click();
+  await expect(page.getByText('Знак с очень длинным ником игрока', { exact: false }).first()).toBeVisible();
+  await page.getByTestId('game-full-protocol').locator(':scope > summary').click();
   await expect(page.getByText('Ход игры')).toBeVisible();
+  await expect(page.getByLabel('Кто в кого голосовал')).toContainText('#2 Алоэ');
+  await page.getByTestId('game-personal-stats').locator(':scope > summary').click();
+  await expect(page.getByTestId('game-personal-stats')).toContainText('100%');
+  await page.getByTestId('game-score-sheet').screenshot({path:testInfo.outputPath(`game-analysis-${width}.png`)});
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // Every row is a touch target; opening one shows where the points came from.
   const heights = await page.locator('summary:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
-  expect(heights.length).toBe(11);
+  expect(heights.length).toBeGreaterThanOrEqual(13);
   expect(heights.every((height) => height >= 44)).toBe(true);
   const seating = page.getByTestId('game-table-scene');
   await expect(seating).not.toBeVisible();
@@ -44,4 +58,25 @@ for (const width of [360, 390]) test(`game page reads top to bottom at ${width}p
   const full = await page.evaluate(() => Math.ceil(document.querySelector('main').getBoundingClientRect().height) + 40);
   await page.setViewportSize({ width, height: Math.min(full, 6000) });
   await page.screenshot({ path: testInfo.outputPath(`game-page-${width}.png`) });
+});
+
+for (const width of [360,390]) test(`evening recap is one result sheet at ${width}px`, async ({page},testInfo) => {
+  await page.setViewportSize({width,height:713});
+  await page.goto('/e2e/player-game-detail.html?screen=recap&before=1');
+  await expect(page.getByTestId('evening-result-art')).toBeVisible();
+  await page.setViewportSize({width,height:1600});
+  await page.screenshot({path:testInfo.outputPath(`recap-before-${width}.png`),fullPage:true});
+  await page.setViewportSize({width,height:713});
+  await page.goto('/e2e/player-game-detail.html?screen=recap');
+  const sheet=page.getByTestId('evening-result-art');
+  await expect(sheet.getByText('Пятничный клубный вечер')).toBeVisible();
+  await expect(sheet.getByText('Игрок вечера',{exact:true})).toBeVisible();
+  await expect(sheet.getByRole('button',{name:'Игра №1'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const targets=await sheet.locator('button,summary').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().height));
+  expect(targets.every(height=>height>=44)).toBe(true);
+  await page.setViewportSize({width,height:1600});
+  await page.screenshot({path:testInfo.outputPath(`recap-after-${width}.png`),fullPage:true});
+  await sheet.getByRole('button',{name:'Игра №1'}).click();
+  expect(await page.locator('body').getAttribute('data-opened-game')).toBe('club:11');
 });

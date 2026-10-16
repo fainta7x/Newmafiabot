@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
-import OrganizerCRM from "./components/OrganizerCRM.tsx";
-import BigScreenLive from "./components/public/BigScreenLive.tsx";
-import LiveBroadcastOverlay from "./components/public/LiveBroadcastOverlay.tsx";
-import BroadcastCommentatorFrame from "./components/public/BroadcastCommentatorFrame.tsx";
-import BroadcastLobbyScreen from "./components/public/BroadcastLobbyScreen.tsx";
-import ObsBridgePage from "./components/public/ObsBridgePage.tsx";
+const OrganizerCRM = lazy(() => import("./components/OrganizerCRM.tsx"));
+const BigScreenLive = lazy(() => import("./components/public/BigScreenLive.tsx"));
+const LiveBroadcastOverlay = lazy(() => import("./components/public/LiveBroadcastOverlay.tsx"));
+const BroadcastCommentatorFrame = lazy(() => import("./components/public/BroadcastCommentatorFrame.tsx"));
+const BroadcastLobbyScreen = lazy(() => import("./components/public/BroadcastLobbyScreen.tsx"));
+const ObsBridgePage = lazy(() => import("./components/public/ObsBridgePage.tsx"));
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import { PublicOffer } from "./components/public/PublicOffer.tsx";
 import TelegramLinkRedeem from "./components/player/TelegramLinkRedeem.tsx";
 import { PublicGuide, guideTabFromSearch } from "./components/public/PublicGuide.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
-import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
+const PlayerReplayScreen = lazy(() => import("./components/player/PlayerReplayScreen.tsx"));
 import VerifiedPlayerOnboarding from "./components/player/VerifiedPlayerOnboarding.tsx";
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
@@ -92,6 +92,10 @@ function RootMessage({
 }
 
 export default function App() {
+  return <Suspense fallback={<RootMessage title="Загружаем раздел…" kind="loading" text="" />}><AppContent /></Suspense>;
+}
+
+function AppContent() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
   const [loadingSlow, setLoadingSlow] = useState(false);

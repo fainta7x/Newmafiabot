@@ -348,6 +348,7 @@ router.get('/games/:gameKey', async (req, res) => {
           elo_affected: Boolean(eloEvent),
         },
         protocol: {
+          events: sanitizeLiveGameEvents(protocol.events),
           end_reason: protocol.end_reason || 'normal',
           votes: normalizeVotes(protocol.votes),
           shots: normalizeShots(protocol.shots),
@@ -483,6 +484,7 @@ router.get('/games/:gameKey', async (req, res) => {
         elo_affected: Boolean(eloEvent),
       },
       protocol: {
+        events: sanitizeLiveGameEvents(safeJsonParse<any>(game.events_json, [])),
         end_reason: game.end_reason || 'normal',
         votes: normalizeVotes(safeJsonParse<any[]>(game.votes_json, []) || []),
         shots: normalizeShots(safeJsonParse<any[]>(game.shots_json, []) || []),

@@ -1,3 +1,4 @@
+import { analyticsInputsVersion, CLUB_SNAPSHOT_INPUTS } from './analyticsInputsVersion.ts';
 import type { StatGame, StatRole } from '../../lib/gameStatistics.ts';
 import { normalizeRole, normalizeWinner } from './clubGameAnalyticsService.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
@@ -14,7 +15,29 @@ const parse = (value: unknown): any => {
   try { return JSON.parse(value); } catch { return null; }
 };
 
-export async function loadStatGames(db: any, options: { sinceMs?: number | null; untilMs?: number | null; limit?: number } = {}): Promise<StatGame[]> {
+type StatOptions = { sinceMs?: number | null; untilMs?: number | null; limit?: number };
+// Every profile/achievement read used to scan and parse all completed protocols again.
+const statCache = new WeakMap<object, { version: string; ranges: Map<string, Promise<StatGame[]>> }>();
+const STAT_INPUTS = [...CLUB_SNAPSHOT_INPUTS.filter(input => input.table !== 'game_evenings'),
+  { table: 'game_evenings', insert: true, delete: true, update: ['starts_at', 'status'] },
+  { table: 'tournament_game_protocols', insert: true, delete: true, update: true as const }];
+
+export async function loadStatGames(db: any, options: StatOptions = {}): Promise<StatGame[]> {
+  const version = analyticsInputsVersion(db, 'stat_games_v1', STAT_INPUTS);
+  if (version === null) return loadStatGamesUncached(db, options);
+  let cache = statCache.get(db);
+  if (cache?.version !== version) { cache = { version, ranges: new Map() }; statCache.set(db, cache); }
+  const key = JSON.stringify([options.sinceMs ?? null, options.untilMs ?? null, options.limit ?? null]);
+  const existing = cache.ranges.get(key);
+  if (existing) return existing;
+  const promise = loadStatGamesUncached(db, options);
+  if (cache.ranges.size >= 16) cache.ranges.delete(cache.ranges.keys().next().value!);
+  cache.ranges.set(key, promise);
+  void promise.catch(() => { if (cache.ranges.get(key) === promise) cache.ranges.delete(key); });
+  return promise;
+}
+
+async function loadStatGamesUncached(db: any, options: StatOptions): Promise<StatGame[]> {
   const games: StatGame[] = [];
   const since = new Date(options.sinceMs ?? 0).toISOString();
   const until = new Date(options.untilMs ?? Date.parse('9999-12-31')).toISOString();

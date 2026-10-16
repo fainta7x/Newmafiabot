@@ -111,30 +111,30 @@ export default function PlayerEveningSummaries({
           {summaries.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{summaries.map((summary) => <button key={summary.id} type="button" onClick={() => { setSelectedId(summary.id); onEveningChange?.(summary.id); }} className={`min-h-11 shrink-0 rounded-2xl border px-3 py-2 text-left ${selectedId === summary.id ? 'border-amber-200/35 bg-amber-200/15 text-amber-100' : 'border-white/[0.06] bg-white/[0.035] text-white/55'}`}><div className="text-[11px] font-semibold">{dateText(summary.starts_at)}</div><div className="mt-0.5 text-[11px] opacity-60">{countGames(summary.games)} · {summary.red_wins}:{summary.black_wins}</div></button>)}</div>}
 
           {selected && <>
-            <section data-testid="evening-result-art" className="rounded-3xl border border-white/10 bg-white/[.035] p-4">
+            <section data-testid="evening-result-art" className="overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(145deg,rgba(244,63,94,.09),transparent_40%,rgba(139,92,246,.08))] p-3">
               <header>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-white/40">2LA Noire · Итоговый бланк вечера</p>
                 <p className="text-xs text-white/55">{dateText(selected.starts_at)}{selected.venue ? ' · ' + selected.venue : ''}</p>
                 <h2 className="mt-1 text-xl font-semibold">{selected.title}</h2>
               </header>
               <TeamResultGraphic red={selected.red_wins} black={selected.black_wins} />
               <p className="text-center text-xs text-white/50">{countGames(selected.games)} завершено</p>
-              <div aria-label="Личные результаты за вечер" className="mt-4 border-t border-white/10 pt-4">
+              <div aria-label="Личные результаты за вечер" className="mt-3 border-t border-white/10 pt-3">
                 <h3 className="text-sm font-semibold">Мой результат</h3>
-                <dl className="mt-3 grid grid-cols-3 gap-3">
+                <dl className="mt-2 grid grid-cols-3 gap-3">
                   <div><dt className="text-xs text-white/55">Игры</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{selected.player.games}</dd></div>
                   <div><dt className="text-xs text-white/55">Победы</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{selected.player.wins}<span className="ml-1 text-xs font-normal text-white/55">{selected.player.games ? `${selected.player.win_rate}%` : '—'}</span></dd></div>
                   <div><dt className="text-xs text-white/55">Изменение Elo</dt><dd className={'mt-1 text-xl font-semibold tabular-nums ' + (selected.player.elo_delta > 0 ? 'text-emerald-200' : selected.player.elo_delta < 0 ? 'text-rose-200' : 'text-white/70')}>{signed(selected.player.elo_delta)}</dd></div>
                 </dl>
-                {selected.player.elo_before != null && selected.player.elo_after != null && <p className="mt-3 text-xs text-white/55">Elo за вечер: {Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</p>}
-                {selected.player.roles.length > 0 && <div className="mt-3 flex flex-wrap gap-4">{selected.player.roles.map(role => <div key={role} className="flex items-center gap-2"><RoleMark role={role} /><span className="text-xs text-white/70">{roleLabel(role)}</span></div>)}</div>}
+                {selected.player.elo_before != null && selected.player.elo_after != null && <p className="mt-2 text-xs text-white/55">Elo за вечер: {Math.round(selected.player.elo_before)} → {Math.round(selected.player.elo_after)}</p>}
+                {selected.player.roles.length > 0 && <div className="mt-2 flex flex-wrap gap-4">{selected.player.roles.map(role => <div key={role} className="flex items-center gap-2"><RoleMark role={role} /><span className="text-xs text-white/70">{roleLabel(role)}</span></div>)}</div>}
               </div>
               {onOpenGame && selected.game_ids.length > 0 && <div className="mt-4 border-t border-white/10 pt-3">
                 <h3 className="text-sm font-semibold">Протоколы игр вечера</h3>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{selected.game_ids.map((gameId, index) => <button key={gameId} type="button" onClick={() => onOpenGame(gameId, selected.id)} className="ds-focus-ring flex min-h-11 items-center justify-between gap-2 rounded-xl bg-white/[.05] px-3 text-left text-sm text-white/85"><span>Игра №{index + 1}</span><span aria-hidden="true" className="text-white/45">›</span></button>)}</div>
               </div>}
-            </section>
 
-            {(selected.facts.length > 0 || selected.awards.length > 0 || selected.best_elo_rise || selected.most_games) && <section aria-label="Памятные моменты вечера" className="divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[.035] px-4">
+            {(selected.facts.length > 0 || selected.awards.length > 0 || selected.best_elo_rise || selected.most_games) && <section aria-label="Памятные моменты вечера" className="mt-3 divide-y divide-white/10 border-t border-white/10">
               {selected.awards.length > 0 && <div className="py-4">
                 <h3 className="text-sm font-semibold">Выбор игроков</h3>
                 <div className="mt-2 divide-y divide-white/[.07]">{selected.awards.map((award) => <div key={award.category + ':' + award.player_id} className="flex min-w-0 items-center gap-3 py-2.5">
@@ -147,7 +147,7 @@ export default function PlayerEveningSummaries({
               </div>}
               {selected.facts.length > 0 && <details className="py-1"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm font-semibold">Что запомнить<span className="text-white/45">{selected.facts.length} ▾</span></summary><ul className="list-disc space-y-2 pb-3 pl-4 text-sm leading-5 text-white/65">{selected.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></details>}
             </section>}
-
+            </section>
           </>}
         </>}
       </div>

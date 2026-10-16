@@ -1,9 +1,23 @@
 # Audit log
 
+### 2026-10-16 — #949 final mobile gate (open, before correction)
+
+Head7e41f819: required CI/CodeQL/Gitleaks passed, UI86/88 passed. Both compact-cabinet cases show the unified evening sheet at479px against the established450px limit. Actual360px screenshot confirms the newly included facts disclosure plus repeated16px section gaps consume the extra space. Tighten only sheet padding/gaps by32px; preserve all content, shared role art, font sizes and44px controls. Keep the450px assertion. Also capture the full recap content by growing the screenshot viewport after mobile interaction/geometry checks; current fullPage evidence is clipped by Telegram's scroll root.
+
 ### 2026-10-16 — PR951 late-game picker in group (fixed)
 
 Production symptom: clicking «Приду позже» on a shared announcement posted personal game-choice buttons into the group. handlers/crm_evening_response.py now sends that picker to the clicking user in private, preserving private-chat behavior and explaining when Start is required. Reviewed three transport-isolated regressions; original Python CI passed. Merge preserves the clock-frozen test from950 rather than substituting a future date. Original container failure is upstream ECR429; inherit950 CI-only configurable base fix. No real message sent during verification.
 
+
+
+### 2026-10-16 — owner spreadsheet block2 (implemented, CI/mobile pending; recorded before changes)
+
+- Row10: Telegram slot totals call the assigned judge a player; arrival/response lists repeat them among players. Owner is telegram_evening_copy + staff identity on telegram-plan + slot projection. Show one named host separately, exclude that identity from player lists/counts, keep gathering total unchanged.
+- Row11: PlayerGameDetail repeats metadata counters and independent containers; full chronology only shows aggregates despite recorded vote events. Build one score-sheet composition, preserve expandable full player facts, expose recorded voter→target and personal evidence-based accuracy. Missing historic votes stay unavailable, never inferred from counts. Don label inherits white despite purple registry icon.
+- Row12: PR951 private late-picker fix passes all source checks; container blocked by ECR429, audit record missing. Finish existing PR with950 CI fix and required audit; no new replacement PR.
+- Row13: PlayerEveningSummaries splits result and highlights into different cards; combine as one evening result sheet, retain game links/awards/empty/error behavior.
+- Row14: production read-only performance snapshot09:13UTC confirms8–10s periodic event-loop stalls, /player/me3113ms and profile summary1966ms. Found repeated full-history SQL/JSON work in loadStatGames, used during bootstrap achievements/profile reads: add relevant-input versioned/in-flight cache, verify unrelated token writes preserve it and corrected protocols/cancelled evenings invalidate it. Defer CRM/OBS/replay route code. Actual production build static JS drops2,971,164→1,980,298bytes (gzip721,296→513,081;29%less compressed). Runtime8–10s stalls require post-deploy measurement; these local results are not proof they disappeared.
+- Turnaround: earlier43min mixed oldPR completion, repeated broadCI, fixture regressions, browser download and registry failures. Connected local tests precede a coherent CI submission; use external wait for independent requested work, not polling.
 
 ### 2026-10-16 — #950 minimal-schema service compatibility (fixed)
 
@@ -35,6 +49,21 @@ Source: Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, tab Баг-
 - Teaching copy: card selection by finger number; thumbs-up fist on table; no general discussion; Don hunts/kills or plays Sheriff. Final card1 = exec-79fca779, card2 = exec-ae6f3551. Omission of best move/penalties is only for these beginner cards, not removal of game mechanics.
 
 Status: all seven findings have implementation and focused regressions in this workstream. First focused batch: 33 tests; follow-up route/shortfall/response batch: 26 tests; smoke: 19 tests. TypeScript, changed-file ESLint, isolated preview build and release data-safety audit passed locally. Mobile screenshots/required Actions and merge are pending. Baseline preview components are frozen under e2e/fixtures at bdc59bfe solely for same-fixture before/after capture. Local browser installation returned a truncated archive; no local visual approval claimed. Existing automatic cancellation playing-seat minimum remains unchanged; gathering thresholds include the judge.
+
+### #949 second narrow-screen diagnosis — 2026-10-16
+
+After fixing inherited line boxes, 390px passes the entire interaction spec. At360 the roster ends722px: inspected fresh screenshot from run38876107284 and found the red team header wraps «баллы / Elo» onto a second line because of winner mark/gaps; player rows are now44px. New cause is the team header, not row height. Reduce header gaps and use «баллы/Elo»; keep names, winner, units, 44px targets and unchanged713px acceptance.
+
+## 2026-10-16 — #949 mobile acceptance follow-up
+
+UI preview 38746228226: 82/84 passed; game overview roster ended at 835px rather than 713px. Inspected exact-head failure screenshot (SHA256 artifact 9f87018f…). Confirmed product issue: collapsed player rows expand to about 64px because stacked inline role/name lines inherit body line boxes. Fix scoped to explicit 44px summary with two 16px flex lines and controlled leading, no lost disclosure content. Acceptance remains roster bottom <=713 at 360/390, all summary targets >=44; no relaxed assertions.
+
+## 2026-10-15 — reconcile and finish open PRs
+
+- OPEN #949, `PlayerGameDetail.tsx`: a two-column phone roster keeps the old five-column row contents, so role/name/score compete for ~156px; 40px summaries miss the 44px target. Compact the row itself, keep full identity/exit/marks in its disclosure and verify child bounds at 360/390px.
+- OPEN #949: key moments are truncated behind hover-only titles; disclose full wrapping facts on touch. Main overview should show result and both team rosters, with history available on demand. Update stale test labels without removing value/action coverage.
+- OPEN #945, `PremiumProfileShowcase.tsx`: failed showcase GET has no retry; section changes do not invalidate the light pinned response. Port only this functional remainder into #949. Zero-value stats/filter reset from #945 and Elo retry/protocol links from #946 already exist in main; their older graphic layouts are superseded.
+- REVIEWED #940/#942: functional loading/retry changes are already in main; old rating presentation is superseded. Close both. #941 owns valid art direction but needs canonical DESIGN_SYSTEM/PROJECT_STATE ownership. Preserve #891's later approved concept in those owners/BUSINESS_RULES before archiving its rejected wardrobe prototype; do not merge the prototype runtime.
 
 ## 2026-10-15 — restore compact game graphics after owner review
 
@@ -1270,3 +1299,5 @@ How it was proven: a script loaded the real router order of `main.py`, replaced 
 
 - #941: likeness/key-art criteria existed only in a standalone document and current queue omitted the work. Preserve them in DESIGN_SYSTEM, point the workflow document to that owner, and record current/pending work in PROJECT_STATE.
 - #891: the latest approved four-quality/collectible-portrait direction and separate legendary animation upgrade were stranded on the rejected wardrobe branch. Preserve that exact product scope in BUSINESS_RULES and motion feedback in DESIGN_SYSTEM; archive runtime/prototype without deleting the branch, items or snapshots. No new product decisions or art generation.
+
+Second-block connected checks:41 tests across8 suites,14 isolated Python-copy cases, TypeScript, changed-file ESLint and isolated UI/production builds passed. Baseline components frozen from mainbdc59 for same-fixture360/390 game+recap comparisons. No protocol/game score/finance writer changed.

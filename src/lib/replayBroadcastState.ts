@@ -46,7 +46,7 @@ export const buildReplayBroadcastState = (
     if (e.kind === 'sheriff_check' && e.target) sheriffCheck = { seat: e.target, isBlack: e.value === 'black' ? true : e.value === 'red' ? false : null };
     if (e.kind === 'exit' && e.seat) {
       const reason = String(e.value || 'out');
-      const kind = reason === 'killed' || reason === 'night_kill' ? 'killed' : reason.startsWith('voted') ? 'voted' : reason === 'ppk' ? 'ppk' : reason === 'removed' ? 'removed' : 'out';
+      const kind: LiveBroadcastPlayer['statusKind'] = reason === 'killed' || reason === 'night_kill' ? 'killed' : reason.startsWith('voted') ? 'voted' : reason === 'ppk' ? 'ppk' : reason === 'removed' ? 'removed' : 'out';
       removed.set(e.seat, { label: reason, kind });
     }
     if (e.kind === 'restored' && e.seat) removed.delete(e.seat);

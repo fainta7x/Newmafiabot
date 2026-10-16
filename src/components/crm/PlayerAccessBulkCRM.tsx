@@ -121,7 +121,7 @@ const Mark = ({ label, ariaLabel, value, current, onChange }: {
 
 // Small coloured tags on a player row instead of one long line of text.
 const ACTIVITY_TAG: Record<PlayerActivity, string> = {
-  regular: 'bg-success-soft text-success', sometimes: 'bg-sky-400/10 text-sky-200', other_city: 'bg-violet-400/10 text-violet-200', stopped: 'bg-white/[0.05] text-text-muted',
+  regular: 'border border-emerald-400/25 bg-emerald-400/10 text-emerald-200', sometimes: 'border border-sky-400/15 bg-sky-400/[0.06] text-sky-200/70', other_city: 'border border-slate-400/15 bg-slate-400/[0.06] text-slate-300/65', stopped: 'border border-white/[0.06] bg-white/[0.025] text-white/35',
 };
 const Tag = ({ className = 'bg-white/[0.06] text-white/65', children }: { className?: string; children: ReactNode }) => (
   <span className={`inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${className}`}>{children}</span>
@@ -357,13 +357,13 @@ export function PlayerAccessBulkCRM() {
                   {Number(row.attendance_count || 0) ? <span className="shrink-0 text-[11px] tabular-nums text-white/40">{Number(row.attendance_count)} веч.</span> : null}
                 </span>
                 <span className="mt-1 flex flex-wrap gap-1">
-                  <Tag>{accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))}</Tag>
+                  <Tag className="border border-white/[0.07] bg-white/[0.035] text-white/55">{accessLabel(GAME_LEVELS, normalizeGameLevel(row.game_level))}</Tag>
                   <Tag className={ACTIVITY_TAG[rowActivity]}>{accessLabel(PLAYER_ACTIVITY, rowActivity)}</Tag>
-                  {organization !== 'none' ? <Tag className="bg-accent-soft text-accent">{accessLabel(CLUB_ORGANIZATION, organization)}</Tag> : null}
-                  {hosts.length ? <Tag className="bg-amber-300/10 text-amber-100">{hostFormatsSummary(hosts)}</Tag> : null}
-                  {organizes.length ? <Tag className="bg-amber-300/10 text-amber-100">{organizeFormatsSummary(organizes)}</Tag> : null}
-                  {curates.length ? <Tag className="bg-emerald-300/10 text-emerald-100">Куратор: {curatorAreasSummary(curates)}</Tag> : null}
-                  {row.contact_status === 'blocked' ? <Tag className="bg-danger-soft text-danger">Заблокирован</Tag> : pausedOther(row) ? <Tag>{`Рассылка на паузе${row.pause_reason ? `: ${row.pause_reason}` : ''}`}</Tag> : null}
+                  {organization !== 'none' ? <Tag className="border border-rose-400/20 bg-rose-400/[0.08] text-rose-200/80">{accessLabel(CLUB_ORGANIZATION, organization)}</Tag> : null}
+                  {hosts.length ? <Tag className="border border-amber-300/20 bg-amber-300/[0.08] text-amber-100/85">{hostFormatsSummary(hosts)}</Tag> : null}
+                  {organizes.length ? <Tag className="border border-orange-300/20 bg-orange-300/[0.08] text-orange-100/85">{organizeFormatsSummary(organizes)}</Tag> : null}
+                  {curates.length ? <Tag className="border border-teal-300/20 bg-teal-300/[0.08] text-teal-100/85">Куратор: {curatorAreasSummary(curates)}</Tag> : null}
+                  {row.contact_status === 'blocked' ? <Tag className="bg-danger-soft text-danger">Заблокирован</Tag> : pausedOther(row) ? <Tag className="border border-white/[0.08] bg-white/[0.035] text-white/45">{`Рассылка на паузе${row.pause_reason ? `: ${row.pause_reason}` : ''}`}</Tag> : null}
                 </span>
               </span>
             </button>

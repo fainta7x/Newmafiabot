@@ -22,7 +22,7 @@ const evening = (id: string, format: string, days: number, status = 'published')
 describe('«На этой неделе» on «Сегодня»', () => {
   afterEach(cleanup);
 
-  it('lists every evening and tournament of the next 7 days in time order and opens each', async () => {
+  it('lists every evening and tournament of the next 7 days by format priority, then time and opens each', async () => {
     const openEvening = vi.fn();
     const openTournament = vi.fn();
     render(<WeekEventsPanel now={NOW} onOpenEvening={openEvening} onOpenTournament={openTournament} evenings={[
@@ -36,7 +36,7 @@ describe('«На этой неделе» on «Сегодня»', () => {
     await waitFor(() => expect(screen.getAllByTestId('crm-week-event')).toHaveLength(6));
     const titles = screen.getAllByTestId('crm-week-event').map((row) => row.querySelector('strong')?.textContent);
     // Running events stay even when they started more than six hours ago.
-    expect(titles).toEqual(['Идущий турнир', 'Вечер late-night', 'Вечер novice', 'Вечер club', 'Турнир Богдана', 'Вечер draft']);
+    expect(titles).toEqual(['Вечер late-night', 'Вечер novice', 'Вечер club', 'Идущий турнир', 'Турнир Богдана', 'Вечер draft']);
     expect(screen.getByText(/черновик/)).toBeTruthy();
     fireEvent.click(screen.getByText('Турнир Богдана'));
     expect(openTournament).toHaveBeenCalledWith('t1');
@@ -55,4 +55,13 @@ describe('«На этой неделе» on «Сегодня»', () => {
     expect(rowOf('Вечер rating')).toContain('border-l-amber-300');
     expect(rowOf('Турнир Богдана')).toContain('border-l-violet-300');
   });
+  it.each(['rows', 'cards'] as const)('shows total people, guests and the judge-inclusive novice target in %s', async (variant) => {
+    render(<WeekEventsPanel now={NOW} variant={variant} includeTournaments={false} onOpenEvening={vi.fn()} onOpenTournament={vi.fn()} evenings={[
+      { ...evening('novice', 'NOVICE', 1), registered_count: 8, guests_count: 3, late_count: 1, thinking_count: 2 },
+    ]} />);
+    expect(await screen.findByText('Идут 8 из 9')).toBeTruthy();
+    expect(screen.getByText(/ещё 1 до сбора/).textContent).toContain('с судьёй');
+    expect(screen.getByText(/в том числе гостей: 3/).textContent).toContain('думают: 2');
+  });
+
 });

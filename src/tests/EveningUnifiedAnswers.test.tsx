@@ -54,6 +54,7 @@ describe('one organizer response and delivery worklist', () => {
     expect(within(unsent).getByText('Анонс ещё не отправлен')).toBeDefined();
     expect(within(unsent).getByRole('link', { name: 'Написать Ещё не отправлено Ольга' }).getAttribute('href')).toBe('tg://user?id=456');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Любая' }));
     fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
     expect(screen.getByTestId('evening-answer-row-p-going')).toBeDefined();
     expect(screen.getByTestId('evening-answer-row-p-thinking')).toBeDefined();
@@ -131,6 +132,7 @@ describe('one organizer response and delivery worklist', () => {
     const { update } = setup();
     render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
     await screen.findByTestId('evening-answer-row-p-failed');
+    fireEvent.click(screen.getByRole('button', { name: 'Любая' }));
     fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
     const row = await screen.findByTestId('evening-answer-row-p-going');
     fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
@@ -144,4 +146,24 @@ describe('one organizer response and delivery worklist', () => {
     expect(await screen.findByText(/Не удалось загрузить статус доставки/)).toBeDefined();
     expect(await screen.findByTestId('evening-answer-row-p-failed')).toBeDefined();
   });
+  it('keeps response buckets separate from delivery and closes the picker without saving', async () => {
+    const { update } = setup();
+    render(<EveningParticipantsView eveningId="evening-1" onBack={vi.fn()} />);
+    await screen.findByTestId('evening-answer-row-p-failed');
+    expect(screen.queryByRole('button', { name: /Нужен ответ/ })).toBeNull();
+    expect(screen.queryByTestId('evening-answer-row-p-thinking')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Думают$/ }));
+    expect(screen.getByTestId('evening-answer-row-p-thinking')).toBeTruthy();
+    expect(screen.queryByTestId('evening-answer-row-p-failed')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Все$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Не доставлено/ }));
+    expect(screen.queryByTestId('evening-answer-row-p-thinking')).toBeNull();
+    const row = screen.getByTestId('evening-answer-row-p-failed');
+    fireEvent.click(within(row).getByRole('button', { name: /^Ответ/ }));
+    expect(within(row).getByRole('button', { name: 'Нет ответа' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(row).getByRole('button', { name: 'Закрыть без изменения' }));
+    expect(within(row).queryByRole('group', { name: 'Ответ Не доставлено Ирина' })).toBeNull();
+    expect(update).not.toHaveBeenCalled();
+  });
+
 });

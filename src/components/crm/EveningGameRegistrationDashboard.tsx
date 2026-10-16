@@ -1,13 +1,14 @@
 import { countGames } from '../../lib/russianPlural';
 import { useEffect, useMemo, useState } from 'react';
 import { weeklyAnnouncementDueMs } from '../../lib/weeklyAnnouncementDue.ts';
-import { MessageCircle, RefreshCw, Search } from 'lucide-react';
+import { Check, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 import { guestContactHref } from '../../lib/guestContact.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type RegistrationState = 'games' | 'thinking' | 'declined' | 'unknown';
-type Filter = 'attention' | 'delivery' | 'not_sent' | 'all' | RegistrationState;
+type Filter = 'all' | RegistrationState;
+type DeliveryFilter = 'all' | 'delivery' | 'not_sent';
 type AudiencePlayer = {
   id: string;
   nickname: string;
@@ -54,12 +55,12 @@ const STATE_LABELS: Record<RegistrationState, string> = {
 
 // The answer decides the bucket; chosen games only split «идут» in two. A player
 // switched to «Думает» keeps their games but must not be counted as coming.
-const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
+const stateFor = (responseStatus: string): RegistrationState => {
   if (responseStatus === 'declined') return 'declined';
   if (responseStatus === 'thinking') return 'thinking';
   // «Иду» always means every game unless the player picked exact ones (owner, 2026-10-02): no «без игр» bucket.
   // «Приду позже» without games still counts as coming; its games stay empty until chosen.
-  if (slots.length || responseStatus === 'going' || responseStatus === 'late') return 'games';
+  if (responseStatus === 'going' || responseStatus === 'late') return 'games';
   return 'unknown';
 };
 
@@ -81,7 +82,8 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
   const [deliveryWarning, setDeliveryWarning] = useState('');
-  const [filter, setFilter] = useState<Filter>('attention');
+  const [filter, setFilter] = useState<Filter>('unknown');
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('all');
   const [search, setSearch] = useState('');
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
           participant,
           responseStatus,
           slots: playerSlots,
-          state: stateFor(responseStatus, playerSlots),
+          state: stateFor(responseStatus),
           telegramUserId: audience?.telegram_user_id ? String(audience.telegram_user_id) : null,
           telegramUsername: audience?.telegram_username ? String(audience.telegram_username) : null,
           firstSentAt: audience?.first_sent_at || null,
@@ -184,20 +186,17 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     unknown: rows.filter((row) => row.state === 'unknown').length,
   }), [rows]);
 
-  const needsReply = (row: Row) => row.state === 'unknown' || row.state === 'thinking';
   const deliveryFailed = (row: Row) => row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus === 'failed';
-  const attentionCount = rows.filter(needsReply).length;
   const failedCount = rows.filter(deliveryFailed).length;
   const sentCount = rows.filter((row) => row.eligibleNow && Boolean(row.firstSentAt)).length;
   const notSentCount = rows.filter((row) => row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus !== 'failed').length;
   const visibleRows = useMemo(() => rows.filter((row) => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
     if (query && !row.nickname.toLocaleLowerCase('ru-RU').includes(query)) return false;
-    if (filter === 'attention') return needsReply(row);
-    if (filter === 'delivery') return deliveryFailed(row);
-    if (filter === 'not_sent') return row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus !== 'failed';
+    if (deliveryFilter === 'delivery' && !deliveryFailed(row)) return false;
+    if (deliveryFilter === 'not_sent' && !(row.eligibleNow && row.state === 'unknown' && !row.firstSentAt && row.deliveryStatus !== 'failed')) return false;
     return filter === 'all' || row.state === filter;
-  }), [filter, rows, search]);
+  }), [filter, deliveryFilter, rows, search]);
 
   const chatUrlFor = (row: Row) => {
     if (row.isGuest) return guestContactHref((row.participant as any)?.contact_kind, (row.participant as any)?.contact_value);
@@ -232,7 +231,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
     const previousResponseStatus = row.responseStatus;
     const previousState = row.state;
     const previousParticipant = row.participant;
-    const optimisticState = stateFor(status, row.slots);
+    const optimisticState = stateFor(status);
 
     setError('');
     setSavingStatusIds((current) => {
@@ -334,10 +333,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const editTotal = maxEveningPrice > 0 ? Math.min(editRawTotal, maxEveningPrice) : editRawTotal;
 
   const filterItems: Array<{ id: Filter; label: string; count: number }> = [
-    { id: 'attention', label: 'Нужен ответ', count: attentionCount },
     { id: 'unknown', label: 'Нет ответа', count: counts.unknown },
-    { id: 'delivery', label: 'Не доставлено', count: failedCount },
-    { id: 'not_sent', label: 'Не отправлено', count: notSentCount },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
     { id: 'games', label: 'Идут', count: counts.games },
     { id: 'declined', label: 'Не будут', count: counts.declined },
@@ -365,8 +361,17 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Фильтр ответов и доставки">
-        {filterItems.map((item) => <button key={item.id} type="button" aria-label={`${item.count} ${item.label}`} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'delivery' && item.count ? 'bg-danger-soft text-danger' : item.id === 'attention' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[11px] ${filter === item.id ? 'text-white/90' : 'text-text-muted'}`}>{item.label}</span></button>)}
+      <div className="mt-3" role="group" aria-label="Фильтр по ответу">
+        <p className="mb-2 text-[12px] font-semibold text-text-secondary">Ответ игрока</p>
+        <div className="flex flex-wrap gap-1.5">
+          {filterItems.map((item) => <button key={item.id} type="button" aria-label={`${item.count} ${item.label}`} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`min-h-11 rounded-[10px] px-3 text-[12px] font-semibold ${filter === item.id ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary'}`}>{item.label} <span className="ml-1 opacity-70">{item.count}</span></button>)}
+        </div>
+      </div>
+      <div className="mt-3" role="group" aria-label="Фильтр доставки анонса">
+        <p className="mb-1 text-[12px] text-text-muted">Доставка анонса</p>
+        <div className="flex flex-wrap gap-1.5">
+          {([{ id: 'all', label: 'Любая' }, { id: 'delivery', label: `Не доставлено · ${failedCount}` }, { id: 'not_sent', label: `Не отправлено · ${notSentCount}` }] as const).map((item) => <button key={item.id} type="button" aria-pressed={deliveryFilter === item.id} onClick={() => setDeliveryFilter(item.id)} className={`min-h-11 rounded-lg border px-2.5 text-[12px] ${deliveryFilter === item.id ? 'border-accent text-accent' : 'border-border-soft text-text-muted'}`}>{item.label}</button>)}
+        </div>
       </div>
       <label className="relative mt-3 block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
@@ -401,11 +406,21 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
               {!row.isGuest ? <button type="button" aria-expanded={editing} disabled={busy || readonly} onClick={() => { setEditingResponseId(null); openSlotEditor(row); }} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-primary'}`}>Игры {editing ? '▴' : '▾'}</button> : null}
               {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${row.nickname}`} className="flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-surface-1 px-2 text-[12px] font-semibold text-accent"><MessageCircle className="h-4 w-4" />Написать</a> : <span className="flex min-h-11 items-center justify-center rounded-[10px] bg-surface-1 px-2 text-center text-[11px] text-text-muted">Нет контакта</span>}
             </div>
-            {responseOpen ? <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border-soft pt-3 sm:grid-cols-4" aria-label={`Ответ ${row.nickname}`}>
-              {([
-                ['going', 'Иду'], ['late', 'Приду позже'], ['thinking', 'Пока думаю'], ['declined', 'Не иду'], ['unanswered', 'Нет ответа'],
-              ] as const).map(([status, label]) => <button key={status} type="button" aria-pressed={row.responseStatus === status} disabled={busy || readonly} onClick={() => void setStatus(row, status)} className={`min-h-11 rounded-[10px] px-2 text-[12px] font-semibold disabled:opacity-40 ${row.responseStatus === status ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>{label}</button>)}
-            </div> : null}
+            {responseOpen ? <fieldset className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2" aria-label={`Ответ ${row.nickname}`}>
+              <legend className="px-1 text-[12px] font-semibold text-text-primary">Ответ {row.nickname}</legend>
+              <p className="px-2 pb-2 text-[12px] text-text-muted">Выбери ответ — он сохранится сразу.</p>
+              <div className="space-y-1">
+                {([
+                  ['going', 'Иду', 'На весь вечер'], ['late', 'Приду позже', 'Точные игры можно выбрать отдельно'],
+                  ['thinking', 'Пока думаю', 'Решение ещё не принято'], ['declined', 'Не иду', 'Не учитывать в сборе'],
+                  ['unanswered', 'Нет ответа', 'Сбросить записанный ответ'],
+                ] as const).map(([status, label, hint]) => <button key={status} type="button" aria-label={label} aria-pressed={row.responseStatus === status} disabled={busy || readonly} onClick={() => void setStatus(row, status)} className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left disabled:opacity-40 ${row.responseStatus === status ? 'bg-accent/10 text-accent' : 'text-text-secondary hover:bg-surface-2'}`}>
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${row.responseStatus === status ? 'border-accent bg-accent text-white' : 'border-border-soft'}`}>{row.responseStatus === status && <Check className="h-3.5 w-3.5" />}</span>
+                  <span className="min-w-0"><strong className="block text-[13px] font-semibold">{label}</strong><span className="block text-[11px] text-text-muted">{hint}</span></span>
+                </button>)}
+              </div>
+              <button type="button" disabled={busy} onClick={() => setEditingResponseId(null)} className="mt-2 min-h-11 w-full rounded-lg bg-surface-2 text-[12px] font-semibold text-text-secondary">Закрыть без изменения</button>
+            </fieldset> : null}
             {editing ? <div className="mt-3 border-t border-border-soft pt-3">
               <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
                 <span>Точные игры</span>
@@ -433,7 +448,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
             </div> : null}
           </div>;
         })}
-        {!visibleRows.length ? <p className="py-5 text-center text-[12px] text-text-muted">{search.trim() ? 'По запросу никого не найдено.' : filter === 'attention' ? 'Сейчас нет игроков, которым нужен ответ.' : 'В этой группе пока никого.'}</p> : null}
+        {!visibleRows.length ? <p className="py-5 text-center text-[12px] text-text-muted">{search.trim() ? 'По запросу никого не найдено.' : 'В этой группе пока никого.'}</p> : null}
       </div> : null}
     </section>
   );

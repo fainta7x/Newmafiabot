@@ -138,8 +138,19 @@ def test_novice_group_link_is_a_join_link():
     assert novice_telegram_group_url("https://t.me/+other") == "https://t.me/+other"
 
 
-def test_recruitment_reminders_put_when_where_and_action_first():
+def test_recruitment_reminders_put_when_where_and_action_first(monkeypatch):
+    from datetime import datetime
+    import handlers.telegram_evening_copy as copy
     from handlers.telegram_evening_copy import recruitment_private_text, recruitment_group_text
+
+    class Clock(datetime):
+        current_day = 15
+
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, cls.current_day, 12, tzinfo=tz)
+
+    monkeypatch.setattr(copy, "datetime", Clock)
 
     evening = {"venue": "Суп с Котом", "starts_at": "2026-10-16T18:00:00Z"}
     slots = [{"slot_number": 2, "starts_at": "2026-10-16T19:00:00Z",
@@ -151,6 +162,9 @@ def test_recruitment_reminders_put_when_where_and_action_first():
         assert "📍 Суп с Котом, Пушкинский проезд, 4А" in message
         assert "игра 2: нужно ещё 3 игрока (7/10)" in message
         assert "👇" in message
+    Clock.current_day = 16
+    for render in (recruitment_private_text, recruitment_group_text):
+        assert "📅 сегодня" in render(evening, slots)
 
 
 def test_full_evening_rsvp_is_explicit_and_partial_games_are_optional():

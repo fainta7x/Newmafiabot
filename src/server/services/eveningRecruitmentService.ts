@@ -1,3 +1,4 @@
+import { loadEveningPeople } from './eveningPeopleService.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
@@ -30,31 +31,7 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
   // Slot initialization may write for a legacy evening. Complete it before the read-only
   // recruitment aggregation so SQLite and Turso follow the same deterministic path.
   const slotPlan = await loadEveningSlotPlan(db, eveningId);
-  const participants = await db.all<any>(
-    `SELECT ep.player_id, ep.response_status, ep.registration_status, p.nickname
-       FROM evening_participants ep
-       JOIN players p ON p.id = ep.player_id
-      WHERE ep.evening_id = ?`,
-    [eveningId],
-  );
-  const confirmedSlotRows = await db.all<any>(
-    `SELECT r.slot_id, r.participant_id, ep.response_status, ep.registration_status, ep.arrival_status
-       FROM evening_slot_registrations r
-       JOIN evening_game_slots s ON s.id = r.slot_id
-       JOIN evening_participants ep ON ep.id = r.participant_id
-      WHERE s.evening_id = ?
-      `,
-    [eveningId],
-  );
-  const confirmedBySlot = new Map<string, Set<string>>();
-  for (const row of confirmedSlotRows) {
-    if (!RESPONSE_GOING.has(getEveningResponse(row))) continue;
-    const slotId = String(row.slot_id);
-    const registered = confirmedBySlot.get(slotId) || new Set<string>();
-    registered.add(String(row.participant_id));
-    confirmedBySlot.set(slotId, registered);
-  }
-
+  const participants = await loadEveningPeople(db, eveningId);
   const confirmed = participants.filter((row: any) => {
     const status = getEveningResponse(row);
     return RESPONSE_GOING.has(status);
@@ -70,7 +47,7 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
     // A stale selection must not occupy a recruitment seat after the player switches
     // to "thinking" or "declined". Exact registrations stay in history, while the
     // current RSVP status decides whether that registration counts toward readiness.
-    const registered = confirmedBySlot.get(String(slot.id))?.size || 0;
+    const registered = new Set((slot.participants || []).map((person: any) => `${person.is_guest ? 'guest' : 'player'}:${person.id}`)).size;
     const needed = Math.max(0, target - registered);
     return {
       id: String(slot.id),
@@ -86,7 +63,7 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
 
   const activeSlots = slots.filter((slot) => isRecruitableSlot(slot.status));
   const underfilledSlots = activeSlots.filter((slot) => slot.needed_players > 0);
-  const confirmedCount = new Set(confirmed.map((row: any) => String(row.player_id))).size;
+  const confirmedCount = new Set(confirmed.map((row: any) => row.is_guest ? `guest:${row.id}` : String(row.player_id))).size;
   const maxSlotShortfall = underfilledSlots.reduce((max, slot) => Math.max(max, slot.needed_players), 0);
 
   return {

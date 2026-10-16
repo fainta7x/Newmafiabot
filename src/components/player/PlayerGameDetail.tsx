@@ -340,11 +340,11 @@ export default function PlayerGameDetail({
             <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
               {sides.map((side) => (
                 <div key={side.team} className="min-w-0">
-                  <div className="mb-1 flex min-h-6 flex-wrap items-center gap-1.5">
+                  <div className="mb-1 flex min-h-6 flex-wrap items-center gap-1">
                     <span className={`h-2.5 w-2.5 rounded-full ${side.team === 'red' ? 'bg-rose-500' : 'bg-slate-200'}`} aria-hidden="true" />
                     <h3 className="text-xs font-semibold text-white/80">{side.title}</h3>
                     {detail.game.winner_team === side.team ? <span className="text-xs text-emerald-200"><span aria-hidden="true">✓</span><span className="sr-only">победили</span></span> : null}
-                    <span className="ml-auto text-right text-[10px] text-white/45">баллы{detail.game.elo_affected ? ' / Elo' : ''}</span>
+                    <span className="ml-auto text-right text-[10px] text-white/45">баллы{detail.game.elo_affected ? '/Elo' : ''}</span>
                   </div>
                   <div className="min-w-0">{side.players.map(renderPlayer)}</div>
                 </div>

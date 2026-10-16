@@ -22,6 +22,9 @@ export type JudgeStartEvening = {
   format: string;
   status: 'published' | 'active';
   games_count: number;
+  can_create?: boolean;
+  access_label?: string;
+  is_organizer?: boolean;
   tables: Array<{ id: string; name: string; host_name?: string | null }>;
   participants: JudgeStartParticipant[];
 };
@@ -52,7 +55,7 @@ const attendanceLabel = (participant: JudgeStartParticipant) => {
 
 export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props) {
   const [open, setOpen] = useState(false);
-  const [eveningId, setEveningId] = useState(evenings[0]?.id || '');
+  const [eveningId, setEveningId] = useState(evenings.find((item) => item.can_create)?.id || evenings[0]?.id || '');
   const [tableId, setTableId] = useState('');
   const [lineup, setLineup] = useState<string[]>([]);
   const [query, setQuery] = useState('');
@@ -60,6 +63,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
   const [error, setError] = useState<string | null>(null);
 
   const evening = evenings.find((item) => item.id === eveningId) || evenings[0] || null;
+  const canCreateHere = Boolean(evening?.can_create);
   const byId = useMemo(() => new Map((evening?.participants || []).map((item) => [item.id, item])), [evening]);
   const selected = useMemo(() => lineup.map((id) => byId.get(id)).filter(Boolean) as JudgeStartParticipant[], [byId, lineup]);
   // Table size (user-approved 2026-09-24): 10 players; a novice evening may seat 8 or 9.
@@ -73,7 +77,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
 
   useEffect(() => {
     if (eveningId && evenings.some((item) => item.id === eveningId)) return;
-    setEveningId(evenings[0]?.id || '');
+    setEveningId(evenings.find((item) => item.can_create)?.id || evenings[0]?.id || '');
   }, [eveningId, evenings]);
 
   useEffect(() => {
@@ -103,7 +107,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
   };
 
   const create = async () => {
-    if (!evening || !tableSizes.includes(lineup.length) || creating) return;
+    if (!evening || !canCreateHere || !tableSizes.includes(lineup.length) || creating) return;
     setCreating(true);
     setError(null);
     try {
@@ -140,7 +144,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
           onClick={() => setOpen(true)}
           className="mt-4 min-h-12 w-full rounded-2xl bg-white px-3 text-xs font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/25"
         >
-          {evenings.length ? 'Клубная игра' : 'Нет вечера'}
+          {evenings.some((item) => item.can_create) ? 'Начать клубную игру' : 'Посмотреть вечера'}
         </button>
         <p className="mt-3 text-center text-xs leading-5 text-white/35">
           Потренироваться без записи в клуб можно в <a href="/guide?from=conduct&tab=judge-conduct" data-testid="conduct-training-link" className="font-semibold text-amber-100/80 underline">«Обучении»</a>: учебная партия с подсказками и свободная тестовая игра.
@@ -167,7 +171,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
           <label className="block">
             <span className="mb-1.5 block text-xs text-white/40">Игровой вечер</span>
             <select value={evening?.id || ''} onChange={(event) => setEveningId(event.target.value)} className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#15161b] px-3 text-sm text-white">
-              {evenings.map((item) => <option key={item.id} value={item.id}>{item.title} · {formatWhen(item.starts_at)}</option>)}
+              {evenings.map((item) => <option key={item.id} value={item.id}>{item.title} · {formatWhen(item.starts_at)}{item.can_create ? ' · доступно' : ' · только просмотр'}</option>)}
             </select>
           </label>
           {evening && (
@@ -175,6 +179,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
               <span className="rounded-full bg-black/25 px-2.5 py-1">{EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)]}</span>
               <span className="rounded-full bg-black/25 px-2.5 py-1">{evening.status === 'active' ? 'Идёт сейчас' : 'Запись открыта'}</span>
               <span className="rounded-full bg-black/25 px-2.5 py-1">Игр: {evening.games_count}</span>
+              <span className={`rounded-full px-2.5 py-1 ${canCreateHere ? 'bg-emerald-300/10 text-emerald-100' : 'bg-amber-300/10 text-amber-100'}`}>{evening.access_label || 'Нет назначения'}</span>
               {evening.venue && <span className="rounded-full bg-black/25 px-2.5 py-1">📍 {evening.venue}</span>}
             </div>
           )}
@@ -226,8 +231,8 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
           Создание игры подтверждает фактическое присутствие выбранных игроков. Если игрок ответил «приду позже», он будет отмечен как пришедший позже; остальные — как пришедшие вовремя.
         </div>
 
-        <button type="button" disabled={!tableSizes.includes(lineup.length) || creating} onClick={() => void create()} className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black disabled:bg-white/[0.07] disabled:text-white/25">
-          {creating ? 'Создаём игру…' : tableSizes.includes(lineup.length) ? 'Создать игру и открыть ведение' : `Нужно выбрать ещё ${minTable - lineup.length}`}
+        <button type="button" disabled={!canCreateHere || !tableSizes.includes(lineup.length) || creating} onClick={() => void create()} className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black disabled:bg-white/[0.07] disabled:text-white/25">
+          {creating ? 'Создаём игру…' : !canCreateHere ? 'Нет доступа к ведению этого вечера' : tableSizes.includes(lineup.length) ? 'Создать игру и открыть ведение' : `Нужно выбрать ещё ${minTable - lineup.length}`}
         </button>
       </div>
     </div>

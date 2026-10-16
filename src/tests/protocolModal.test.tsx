@@ -820,7 +820,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       const votesTab = screen.getByRole('button', { name: /Голоса/i });
       fireEvent.click(votesTab);
 
-      const votersSelect = screen.getByLabelText('Количество голосующих') as HTMLSelectElement;
+      const votersSelect = screen.getByTestId('round-card-0').querySelectorAll('select')[1] as HTMLSelectElement;
       expect(votersSelect.value).toBe('10');
       expect(votersSelect.disabled).toBe(true);
     });

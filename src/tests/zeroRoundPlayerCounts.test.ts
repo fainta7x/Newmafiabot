@@ -9,13 +9,12 @@ const game = (events: StatGame['events'], votingRounds?: StatGame['votingRounds'
 });
 
 describe('zero round player indicators', () => {
-  it('counts candidates raised on a confirmed leave-at-table result once per game', () => {
-    const events: StatGame['events'] = [
-      { seq: 1, at: '', round: 1, phase: 'day', kind: 'vote', seat: 3, target: 1, value: 1 },
-      { seq: 2, at: '', round: 1, phase: 'day', kind: 'vote', seat: 4, target: 2, value: 1 },
-      { seq: 3, at: '', round: 1, phase: 'day', kind: 'vote_round_result', value: '1:no_elimination' },
-    ];
-    const counts = buildZeroRoundPlayerCounts([game(events)]);
+  it('counts two players eliminated after double revote', () => {
+    const counts = buildZeroRoundPlayerCounts([game([], [
+      { round_number: 1, day_number: 0, nominated_seats: [1,2], vote_counts: {1:5,2:5}, outcome: 'tie_revote' },
+      { round_number: 2, day_number: 0, parent_round_number: 1, is_revote: true, nominated_seats: [1,2], vote_counts: {1:5,2:5}, outcome: 'tie_revote' },
+      { round_number: 3, day_number: 0, parent_round_number: 2, is_revote: true, nominated_seats: [1,2], vote_counts: {1:5,2:5}, outcome: 'all_tied_eliminated', eliminated_seats: [1,2] },
+    ])]);
     expect(counts.get('p1')?.raised).toBe(1);
     expect(counts.get('p2')?.raised).toBe(1);
     expect(counts.has('p3')).toBe(false);
@@ -33,13 +32,13 @@ describe('zero round player indicators', () => {
     expect(counts.has('p4')).toBe(false);
   });
 
-  it('uses a completed zero-day tie from historical voting rounds and does not double-count', () => {
-    const counts = buildZeroRoundPlayerCounts([game([], [{
-      round_number: 1, day_number: 0, nominated_seats: [1,2,3], vote_counts: {1: 4, 2: 4, 3: 2},
-      outcome: 'no_elimination',
-    }])]);
-    expect(counts.get('p1')?.raised).toBe(1);
-    expect(counts.get('p2')?.raised).toBe(1);
-    expect(counts.has('p3')).toBe(false);
+  it('does not count a no-elimination or a mere tie as raised', () => {
+    const counts = buildZeroRoundPlayerCounts([game([], [
+      { round_number: 1, day_number: 0, nominated_seats: [1,2], vote_counts: {1:5,2:5}, outcome: 'tie_revote' },
+      { round_number: 2, day_number: 0, parent_round_number: 1, is_revote: true, nominated_seats: [1,2], vote_counts: {1:5,2:5}, outcome: 'no_elimination' },
+    ])]);
+    expect(counts.has('p1')).toBe(false);
+    expect(counts.has('p2')).toBe(false);
   });
+
 });

@@ -232,11 +232,11 @@ export default function PlayerGameDetail({
     const marks = [item.first_killed ? 'ПУ' : null, item.best_move ? 'ЛХ' : null, item.zero_round_voted ? '0 круг' : null].filter(Boolean) as string[];
     return (
       <details key={`${item.seat_number}:${item.player_id || item.nickname}`} data-testid={`game-player-${item.seat_number}`} className={`group min-w-0 max-w-full border-b border-white/[0.07] ${isSelf ? 'bg-sky-200/[0.07]' : ''}`}>
-        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}, ${signedScore(item.score.total_points)} балла`} className="grid min-h-11 min-w-0 cursor-pointer list-none grid-cols-[14px_minmax(0,1fr)_34px] items-center gap-1 px-1 py-1.5">
+        <summary aria-label={`Место ${item.seat_number}: ${item.nickname}, ${(getGameRoleDefinition(item.role)?.label ?? UNKNOWN_GAME_ROLE_LABEL)}, ${signedScore(item.score.total_points)} балла`} className="grid h-11 min-h-11 min-w-0 cursor-pointer list-none grid-cols-[14px_minmax(0,1fr)_34px] items-center gap-1 px-1 py-1 leading-4">
           <span className="text-center text-xs font-semibold text-white/45">{item.seat_number}</span>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1"><span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{item.nickname}</span><span aria-hidden="true" className="text-white/35 transition group-open:rotate-180">⌄</span></div>
-            <div className="mt-0.5"><RoleChip role={item.role} /></div>
+          <div className="grid min-w-0 content-center gap-0.5 text-xs leading-4">
+            <div className="flex h-4 min-w-0 items-center gap-1"><span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{item.nickname}</span><span aria-hidden="true" className="text-white/35 transition group-open:rotate-180">⌄</span></div>
+            <div className="flex h-4 items-center"><RoleChip role={item.role} /></div>
           </div>
           <div className="min-w-0 text-right">
             <div className={`text-xs font-semibold tabular-nums ${pointsTone(item.score.total_points)}`}>{signedScore(item.score.total_points)}</div>

@@ -1,5 +1,9 @@
 # Audit log
 
+## 2026-10-16 — #949 mobile acceptance follow-up
+
+UI preview 38746228226: 82/84 passed; game overview roster ended at 835px rather than 713px. Inspected exact-head failure screenshot (SHA256 artifact 9f87018f…). Confirmed product issue: collapsed player rows expand to about 64px because stacked inline role/name lines inherit body line boxes. Fix scoped to explicit 44px summary with two 16px flex lines and controlled leading, no lost disclosure content. Acceptance remains roster bottom <=713 at 360/390, all summary targets >=44; no relaxed assertions.
+
 ## 2026-10-15 — reconcile and finish open PRs
 
 - OPEN #949, `PlayerGameDetail.tsx`: a two-column phone roster keeps the old five-column row contents, so role/name/score compete for ~156px; 40px summaries miss the 44px target. Compact the row itself, keep full identity/exit/marks in its disclosure and verify child bounds at 360/390px.

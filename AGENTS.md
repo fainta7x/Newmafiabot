@@ -50,6 +50,10 @@ Do not copy mutable facts into several documents.
 
 Other docs should link to the owner instead of restating mutable facts.
 
+## 3b. One broadcast visual language and faithful replay (owner, 2026-10-16)
+
+All game graphics must use the already-approved OBS broadcast overlay as the canonical implementation and visual reference. Reuse existing game visual components; do not invent alternate table/player/voting/shot designs. The completed-game Replay must follow the actual Live Game engine states as faithfully as the recorded source permits. Never claim a text timeline is a complete Replay. Read docs/DESIGN_SYSTEM.md before game-visual changes.
+
 ## 4. Working style
 
 - Perform one targeted discovery pass, then keep a compact file map.

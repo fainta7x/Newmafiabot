@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { loadEveningPeople } from './eveningPeopleService.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { isUnfinishedEveningGame } from './eveningCloseoutService.ts';
@@ -71,7 +72,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const has = await tables(db);
   const format = normalizeEveningFormat(evening.format);
 
-  const participants = await db.all<any>('SELECT * FROM evening_participants WHERE evening_id = ?', [eveningId]);
+  const participants = await loadEveningPeople(db, eveningId);
   const answers = { going: 0, late: 0, thinking: 0, declined: 0, unanswered: 0 };
   for (const participant of participants) {
     const answer = getEveningResponse(participant) as keyof typeof answers;
@@ -129,7 +130,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     ? new Date(announcementDueMs).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
     : 'понедельник, 19:00 МСК';
   steps.prepare.push(
-    { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК)${['draft', 'published'].includes(String(evening.status)) ? ' · нажми, чтобы перенести' : ''}`, status: 'info' },
+    { id: 'timing', title: 'Дата и время вечера', detail: `${startLabel} (МСК)${['draft', 'published'].includes(String(evening.status)) ? ' · нажми, чтобы перенести' : ''}`, status: Number.isFinite(startMs) ? 'done' : 'attention' },
     { id: 'staff', title: 'Организатор вечера назначен', detail: staff?.organizer_player_id ? 'Назначен' : 'Не назначен', status: staff?.organizer_player_id ? 'done' : 'attention', target: 'management' },
     { id: 'tables', title: 'Столы и судьи', detail: eveningTables ? `Столов: ${eveningTables}` : 'Столы не созданы', status: eveningTables ? 'done' : 'todo', target: 'tables' },
     { id: 'games', title: 'Игры настроены', detail: slots.length ? `${slots.length} ${plural(slots.length, 'игра', 'игры', 'игр')}` : 'Игры ещё не настроены', status: slots.length ? 'done' : 'todo', target: 'games' },
@@ -153,7 +154,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
     {
       id: 'shortfall',
       title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,
-      detail: slots.length ? `Стол — ${players(perSlot)}. ${gameList}` : 'Игры не настроены',
+      detail: slots.length ? `Сбор — ${perSlot} человек с судьёй. ${gameList}` : 'Игры не настроены',
       status: slots.length && (assembled || decidedToPlay) ? 'done' : 'attention',
       target: 'participants',
     },

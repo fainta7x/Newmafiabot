@@ -1,3 +1,5 @@
+import { eveningGatheringSize } from '../../lib/eveningGathering.ts';
+import { listGuestPlaceholdersForEvening } from './guestPlayerService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
@@ -200,11 +202,17 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   let settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   if (!settings) {
     await db.run(
-      'INSERT OR IGNORE INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, 4, 11, ?, ?)',
-      [eveningId, plannedCount(evening), now, now],
+      'INSERT OR IGNORE INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, 4, ?, ?, ?)',
+      [eveningId, plannedCount(evening), eveningGatheringSize(evening.format), now, now],
     );
     settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   }
+  const gatheringSize = eveningGatheringSize(evening.format);
+  if (Number(settings.ready_players_per_slot) !== gatheringSize) {
+    await db.run('UPDATE evening_slot_settings SET ready_players_per_slot = ?, updated_at = ? WHERE evening_id = ?', [gatheringSize, now, eveningId]);
+    settings = { ...settings, ready_players_per_slot: gatheringSize };
+  }
+  await db.run('UPDATE evening_game_slots SET target_players = ? WHERE evening_id = ? AND target_players != ?', [gatheringSize, eveningId, gatheringSize]);
   if (isCasual && Number(settings?.price_per_game || 0) !== SLOT_PRICE) {
     await db.run('UPDATE evening_slot_settings SET price_per_game = ?, updated_at = ? WHERE evening_id = ?', [SLOT_PRICE, now, eveningId]);
     settings = { ...settings, price_per_game: SLOT_PRICE };
@@ -338,6 +346,7 @@ export async function updateEveningSlotSettings(
 
 export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
+  const guests = await listGuestPlaceholdersForEvening(db, eveningId);
   const own = playerId
     ? await db.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId])
     : null;
@@ -359,7 +368,8 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
        JOIN evening_game_slots s ON s.id = r.slot_id
        JOIN evening_participants ep ON ep.id = r.participant_id
        JOIN players p ON p.id = ep.player_id
-      WHERE s.evening_id = ?
+      WHERE s.evening_id = ? AND ep.response_status IN ('going', 'late')
+        AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id = ep.id)
       ORDER BY s.slot_number, p.nickname COLLATE NOCASE`,
     [eveningId],
   );
@@ -374,6 +384,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
        JOIN players p ON p.id = ep.player_id
       WHERE ep.evening_id = ?
         AND ep.response_status IN ('going', 'late')
+        AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id = ep.id)
         AND NOT EXISTS (
           SELECT 1
             FROM evening_slot_registrations existing
@@ -391,6 +402,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок') });
     peopleBySlot.set(slotId, group);
   }
+  for (const slot of rows) slot.registered_count = (peopleBySlot.get(String(slot.id)) || []).length;
   if (legacyWholeEveningRows.length) {
     for (const slot of rows) {
       const slotId = String(slot.id);
@@ -406,12 +418,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
 
   // Guests (leads) and the people they bring are signed up by the organizer for «Иду»: every game, like the players'
   // «Иду» (owner, 2026-10-14: guests must show in the sign-ups and in the posts after the announcement, not only in the roster).
-  const guestRows = await db.all<any>(
-    `SELECT id, display_name FROM guest_player_placeholders
-      WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late')
-      ORDER BY created_at ASC, id ASC`,
-    [eveningId],
-  ).catch(() => [] as any[]);
+  const guestRows = guests.filter((guest) => ['going', 'late'].includes(guest.response_status));
   if (guestRows.length) {
     for (const slot of rows) {
       const slotId = String(slot.id);

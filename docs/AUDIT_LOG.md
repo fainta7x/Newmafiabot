@@ -1,5 +1,20 @@
 # Audit log
 
+## 2026-10-16 — owner spreadsheet / approved teaching cards (open)
+
+Source: Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, tab Баг-трекер, rows 2–8, read 2026-10-16. Scope is seven requested CRM corrections plus saving the two final approved teaching images/copy; no production data edits or messaging.
+
+- Row 2, `WeekEventsPanel.tsx`: Today rows omit registration totals; show actual coming people and shortage, guests included. Acceptance: same totals in rows/cards.
+- Row 3, `eveningRouteService.ts`: valid timing always has status info, so a complete preparation remains 6/7. Acceptance: valid date is done, invalid date attention.
+- Row 4, `WeekEventsPanel.tsx` / `EveningsList.tsx`: chronological sorting ignores owner's priority regular evenings → ratings/tournaments → other. Acceptance: priority first, date within group.
+- Row 5, `eveningRouteService.ts` / `eveningRecruitmentService.ts`: route answers count only evening_participants, recruitment drops guests/whole-evening signups. Acceptance: guest plus companions counted once, declined/thinking excluded from coming.
+- Row 6, `eveningSlotPlanningService.ts`: novice gathering inherits 11 instead of 9 people. Acceptance: 10 players + judge = 11 regular, 8 + judge = 9 novice; preserve game-seat and money rules.
+- Row 7, `EveningGameRegistrationDashboard.tsx`: «Нужен ответ» overlaps «Нет ответа» without explaining subset. Acceptance: response filters are disjoint; delivery tracked separately.
+- Row 8, same component: five inconsistent inline buttons give no clear current/destination state. Acceptance: compact labelled response picker, selected status and Cancel, 44px targets; same response writer.
+- Teaching copy: card selection by finger number; thumbs-up fist on table; no general discussion; Don hunts/kills or plays Sheriff. Final card1 = exec-79fca779, card2 = exec-ae6f3551. Omission of best move/penalties is only for these beginner cards, not removal of game mechanics.
+
+Status: all seven findings have implementation and focused regressions in this workstream. First focused batch: 33 tests; follow-up route/shortfall/response batch: 26 tests; smoke: 19 tests. TypeScript, changed-file ESLint, isolated preview build and release data-safety audit passed locally. Mobile screenshots/required Actions and merge are pending. Baseline preview components are frozen under e2e/fixtures at bdc59bfe solely for same-fixture before/after capture. Local browser installation returned a truncated archive; no local visual approval claimed. Existing automatic cancellation playing-seat minimum remains unchanged; gathering thresholds include the judge.
+
 ## 2026-10-15 — restore compact game graphics after owner review
 
 - IMPLEMENTED, exact-head browser/CI pending — role presentation had several owners: `tournamentRoleValidation.ts` and `playerGameRoleLabels.ts` duplicate names; cabinet pages add local dictionaries; the table, broadcast and the new `RoleMark` choose icons/colours independently. The final search also found duplicate name maps in club result images/posts, the premium-profile service, GoMafia rows and betting CRM; these now read the same shared labels. Establish one shared role registry and reusable UI, retain existing validation exports as compatibility adapters, and migrate the actual player/table/broadcast consumers without changing role assignment or visibility.

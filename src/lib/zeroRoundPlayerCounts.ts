@@ -1,5 +1,4 @@
 import type { StatGame } from './gameStatistics.ts';
-import { buildGameAnalysis } from './liveGameAnalysis.ts';
 
 export interface ZeroRoundPlayerCounts { broke: number; raised: number }
 
@@ -22,19 +21,15 @@ export function buildZeroRoundPlayerCounts(games: StatGame[]): Map<string, ZeroR
       if (playerId) add(playerId, 'broke');
     }
 
+    // "Raised in zero" = two players eliminated together after a double revote.
     const raised = new Set<number>();
-    const zero = buildGameAnalysis(game.events || []).circles.find(circle => circle.round === 1);
-    // Only a recorded final 'leave everyone at the table' decision means they were raised.
-    const initial = zero?.votings.find(vote => vote.outcome === 'no_elimination' && vote.votes.length >= 2);
-    if (initial) {
-      const max = Math.max(...initial.votes.map(vote => vote.voters.length));
-      if (max > 0) for (const vote of initial.votes) if (vote.voters.length === max) raised.add(vote.candidate);
-    }
-    // Completed tournament protocols may include only voting snapshots, not a live event log.
-    const first = game.votingRounds?.find(vote => vote.day_number === 0 && vote.outcome === 'no_elimination' && vote.nominated_seats.length >= 2);
-    if (first) {
-      const max = Math.max(0, ...first.nominated_seats.map(seat => Number(first.vote_counts?.[seat] || 0)));
-      if (max > 0) for (const seat of first.nominated_seats) if (Number(first.vote_counts?.[seat] || 0) === max) raised.add(seat);
+    for (const round of game.votingRounds || []) {
+      if (round.day_number !== 0 || !round.is_revote || round.outcome !== 'all_tied_eliminated') continue;
+      const eliminated = [...new Set(round.eliminated_seats || [])];
+      if (eliminated.length !== 2) continue;
+      const parent = game.votingRounds?.find(item => item.round_number === round.parent_round_number);
+      if (!parent?.is_revote || parent.day_number !== 0) continue;
+      for (const seat of eliminated) raised.add(seat);
     }
     for (const seat of raised) {
       const playerId = seatToPlayer.get(seat);

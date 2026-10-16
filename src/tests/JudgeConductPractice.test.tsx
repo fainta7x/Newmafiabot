@@ -29,7 +29,7 @@ describe('judge practice lives in «Обучение», real conducting in the c
   it('keeps the cabinet launcher for the real club game only and points to «Обучение» for practice', () => {
     render(<JudgeGameLauncher judge={{ id: 'j1', nickname: 'Судья' }} evenings={[]} onCreated={() => undefined} />);
     expect(screen.queryByRole('button', { name: 'Тестовая игра' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Посмотреть вечера' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Посмотреть вечера' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByTestId('conduct-training-link').getAttribute('href')).toBe('/guide?from=conduct&tab=judge-conduct');
   });
 });

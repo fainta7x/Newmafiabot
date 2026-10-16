@@ -169,10 +169,13 @@ export const MAX_REPLAY_FRAMES = 1200;
 export const sanitizeBroadcastReplayFrames = (value: unknown): LiveBroadcastReplayFrame[] => {
   if (!Array.isArray(value)) return [];
   return value.slice(-MAX_REPLAY_FRAMES).flatMap((frame): LiveBroadcastReplayFrame[] => {
-    if (!frame || typeof frame !== 'object' || typeof frame.at !== 'string' || typeof frame.state !== 'object' || frame.state?.version !== LIVE_BROADCAST_VERSION) return [];
-    const state = frame.state as LiveBroadcastState;
+    if (!frame || typeof frame !== 'object') return [];
+    const candidate = frame as { at?: unknown; state?: unknown };
+    if (typeof candidate.at !== 'string' || !candidate.state || typeof candidate.state !== 'object') return [];
+    const state = candidate.state as LiveBroadcastState;
+    if (state.version !== LIVE_BROADCAST_VERSION) return [];
     if (!Array.isArray(state.players) || state.players.length > 10 || !Array.isArray(state.nominations)) return [];
-    return [{ at: frame.at.slice(0, 40), state }];
+    return [{ at: candidate.at.slice(0, 40), state }];
   });
 };
 

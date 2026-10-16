@@ -1,3 +1,4 @@
+import { countGames } from '../../lib/russianPlural';
 import { getPlayerGameRoleLabel } from '../../lib/playerGameRoleLabels.ts';
 import { GAME_ROLES, type GameRole } from '../../shared/gameRoles.ts';
 import { useEffect, useRef, useState } from 'react';
@@ -54,10 +55,10 @@ export default function PlayerRoleTables({ period, format }: { period: string; f
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-xs font-semibold text-white/70">{index + 1}</span>
             {row.avatar_url ? <img src={row.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : null}
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.nickname}</span>
-            <span className="shrink-0 text-right text-[12px] tabular-nums text-white/60">{row.games} игр · <b className="text-white">{row.win_rate}%</b></span>
+            <span className="shrink-0 text-right text-[12px] tabular-nums text-white/60">{countGames(row.games)} · <b className="text-white">{row.win_rate}%</b></span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5 pl-10">
-            <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-white/60">побед {row.wins}</span>
+            <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-white/60">победы {row.wins}</span>
             {data.role.columns.map((column) => <span key={column.key} className="rounded-full bg-amber-200/10 px-2 py-0.5 text-[11px] text-amber-100/80">{column.label}: <b>{row.figures[column.key] ?? 0}</b></span>)}
           </div>
         </button>)}

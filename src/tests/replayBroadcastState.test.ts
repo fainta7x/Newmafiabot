@@ -17,7 +17,9 @@ describe('read-only OBS game replay', () => {
   it('progresses from nomination to recorded vote and confirmed exit without leaking future facts', () => {
     const first = buildReplayBroadcastState(people, events, 0, 12);
     expect(first.nominations.map(item => item.seat)).toEqual([1]);
-    expect(first.vote).toBeNull();
+    expect(first.vote?.candidates).toEqual([1]);
+    expect(first.vote?.assignments).toEqual({});
+    expect(first.vote?.published).toBe(false);
     expect(first.players[0].alive).toBe(true);
     const vote = buildReplayBroadcastState(people, events, 2, 12);
     expect(vote.vote?.assignments[2]).toBe(1);

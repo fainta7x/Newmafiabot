@@ -1,3 +1,6 @@
+import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
+import LiveBroadcastOverlay from '../public/LiveBroadcastOverlay.tsx';
+import { buildReplayBroadcastState } from '../../lib/replayBroadcastState.ts';
 import { GameRoleIcon } from '../ui/GameRole.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import AsyncState from '../ui/AsyncState.tsx';
@@ -20,6 +23,7 @@ type ReplayData = {
   game?: { id: string; number: number; title: string; created_at: string | null; winner_team: 'red' | 'black' | null };
   players?: Array<{ participant_id: string; player_id: string | null; nickname: string; seat_number: number; role: string | null }>;
   events: ReplayEvent[];
+  engine_events?: LiveGameEvent[];
   analysis: string[];
   meta?: { source?: string };
 };
@@ -106,17 +110,22 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
     return () => { cancelled = true; };
   }, [data?.replay_available, data?.game?.id]);
 
+  const replayLength = data?.engine_events?.length || data?.events.length || 0;
   useEffect(() => {
-    if (!playing || !data?.events.length) return;
-    if (step >= data.events.length - 1) {
+    if (!playing || !replayLength) return;
+    if (step >= replayLength - 1) {
       setPlaying(false);
       return;
     }
-    const timer = window.setTimeout(() => setStep((value) => Math.min(data.events.length - 1, value + 1)), 1800);
+    const timer = window.setTimeout(() => setStep((value) => Math.min(replayLength - 1, value + 1)), 1800);
     return () => window.clearTimeout(timer);
-  }, [playing, step, data]);
+  }, [playing, step, replayLength]);
 
   const visibleEvents = useMemo(() => data?.events.slice(0, step + 1) || [], [data, step]);
+  const recordedReplay = Boolean(data?.engine_events?.length);
+  const broadcastState = useMemo(() => data?.engine_events?.length && data.players?.length
+    ? buildReplayBroadcastState(data.players, data.engine_events, step, data.game?.number || 0)
+    : null, [data, step]);
   const current = data?.events[step] || null;
   const orderedClips = useMemo(() => [...clips].sort((left, right) => {
     const leftTime = Date.parse(left.started_at);
@@ -153,14 +162,25 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
       {data.players?.length ? <section className="mt-3 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">Раскрытый состав</div><div className="mt-2 grid grid-cols-2 gap-1.5">{data.players.map((player) => <div key={`${player.seat_number}:${player.nickname}`} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-[11px] font-black">{player.seat_number}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{player.nickname}</div><div className="flex items-center gap-1 text-[11px] text-white/65"><GameRoleIcon role={player.role} className="h-3.5 w-3.5" /> {roleLabel(player.role)}</div></div></div>)}</div></section> : null}
 
-      <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4">
-        <div className="flex items-center justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/25">Хронология</div><div className="mt-1 text-xs text-white/35">Шаг {Math.min(step + 1, data.events.length)} из {data.events.length}</div></div><button type="button" disabled={data.events.length < 2} onClick={() => setPlaying((value) => !value)} className="min-h-10 rounded-xl bg-white px-3 text-[11px] font-bold text-black disabled:opacity-40">{playing ? 'Пауза' : step >= data.events.length - 1 ? 'С начала ▶' : 'Авто ▶'}</button></div>
-
-        {current && <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center"><div className="text-3xl">{eventIcon(current.type)}</div><div className="mt-2 text-base font-black">{current.title}</div><div className="mt-1 text-xs leading-5 text-white/40">{current.text}</div></div>}
-
-        <input type="range" min={0} max={Math.max(0, data.events.length - 1)} value={step} onChange={(event) => { setPlaying(false); setStep(Number(event.target.value)); }} className="mt-4 w-full accent-white" />
-        <div className="mt-4 space-y-1.5">{visibleEvents.map((event, index) => <button key={event.id} type="button" onClick={() => { setPlaying(false); setStep(index); }} className={`flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left ${index === step ? 'bg-white/[0.09]' : 'bg-black/10'}`}><div className="mt-0.5 text-sm">{eventIcon(event.type)}</div><div className="min-w-0 flex-1"><div className="text-[11px] font-semibold">{event.title}</div><div className="mt-0.5 text-[11px] leading-3 text-white/28">{event.text}</div></div>{event.round != null && <div className="text-[11px] text-white/18">круг {event.round}</div>}</button>)}</div>
-      </section>
+      {recordedReplay && broadcastState ? (
+        <section data-testid="replay-obs-presentation" className="mt-3 overflow-hidden rounded-[20px] border border-white/10">
+          <div className="bg-black/40 px-3 py-2 text-[11px] text-white/65">Повтор игры · оригинальная графика OBS. Показываются только записанные действия; несохранённые таймеры и события не восстанавливаются.</div>
+          <div className="max-h-[75vh] overflow-auto"><LiveBroadcastOverlay token="" replayState={broadcastState} /></div>
+          <div className="flex items-center justify-between gap-3 bg-[#15151a] p-3">
+            <span className="text-xs text-white/70">Событие {step + 1} из {replayLength}</span>
+            <button type="button" onClick={() => { if (step >= replayLength - 1) setStep(0); setPlaying(value => !value); }} className="min-h-11 rounded-xl bg-white px-4 text-xs font-semibold text-black">{playing ? 'Пауза' : 'Воспроизвести ▶'}</button>
+          </div>
+          <input aria-label="Шаг повтора игры" type="range" min={0} max={Math.max(0,replayLength - 1)} value={step} onChange={event => { setPlaying(false); setStep(Number(event.target.value)); }} className="mx-3 mb-3 w-[calc(100%-1.5rem)] accent-white" />
+        </section>
+      ) : (
+        <section className="mt-3 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4">
+          <div className="mb-2 text-xs text-white/45">В старом протоколе нет событий движка: доступна только сохранённая хронология, без реконструкции действий.</div>
+          <div className="text-xs font-semibold text-white/70">Хронология · шаг {Math.min(step + 1,data.events.length)} из {data.events.length}</div>
+          {current && <div className="mt-2 rounded-xl bg-black/20 p-3 text-sm"><strong>{current.title}</strong><p className="mt-1 text-white/60">{current.text}</p></div>}
+          <input aria-label="Шаг старой хронологии" type="range" min={0} max={Math.max(0,data.events.length - 1)} value={step} onChange={event => setStep(Number(event.target.value))} className="mt-3 w-full" />
+          <div className="mt-3 space-y-1">{visibleEvents.map((event,index) => <button type="button" key={event.id} onClick={() => setStep(index)} className="block min-h-10 w-full rounded-lg bg-white/5 px-2 py-2 text-left text-xs">{eventIcon(event.type)} {event.title}</button>)}</div>
+        </section>
+      )}
 
       <section className="mt-3 rounded-[24px] border border-violet-200/10 bg-violet-200/[0.035] p-4">
         <div className="flex items-start justify-between gap-3"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[11px] leading-4 text-white/25">Слушай всю игру подряд или быстро переходи к нужному кругу.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/30">{clips.length}</div> : null}</div>

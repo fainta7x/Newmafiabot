@@ -451,13 +451,13 @@ export type RoleKey = 'don' | 'mafia' | 'sheriff' | 'citizen';
 export const ROLE_TABLES: Record<RoleKey, { label: string; hint: string; columns: Array<{ key: string; label: string }> }> = {
   don: { label: 'Дон', hint: 'Игроки, игравшие доном', columns: [{ key: 'reveals', label: 'Вскрылся сам' }, { key: 'handed', label: 'Отдал вскрытие' }, { key: 'named_red', label: 'Назвал чёрными красных' }] },
   mafia: { label: 'Мафия', hint: 'Игроки, игравшие мафией', columns: [{ key: 'reveals', label: 'Вскрылся' }] },
-  sheriff: { label: 'Шериф', hint: 'Игроки, игравшие шерифом', columns: [{ key: 'reveals', label: 'Вскрылся' }, { key: 'found_black', label: 'Нашёл чёрных' }] },
-  citizen: { label: 'Мирный', hint: 'Игроки, игравшие мирным', columns: [{ key: 'votes_revealed', label: 'Голосов за вскрывшихся (все красные роли)' }] },
+  sheriff: { label: 'Шериф', hint: 'Игроки, игравшие шерифом', columns: [{ key: 'found_black', label: 'Нашёл чёрных' }] },
+  citizen: { label: 'Мирный', hint: 'Игроки, игравшие мирным', columns: [] },
 };
 
 export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, query: { role?: string; period?: string; format?: string }) {
   const role: RoleKey = (['don', 'mafia', 'sheriff', 'citizen'] as const).find((item) => item === query.role) || 'don';
-  const { seasons, season, formatKey, scoped, scopedIds, playerRows } = await loadScope(db, query);
+  const { season, availablePeriods, formatKey, scoped, scopedIds, playerRows } = await loadScope(db, query);
   const statSource = await loadStatGamesCached(db);
   const reveal = buildRevealStats(statSource.games.filter((game) => scopedIds.has(game.id)), statSource.memo.facts);
 

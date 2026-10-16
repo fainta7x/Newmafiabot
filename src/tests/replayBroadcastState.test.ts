@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildReplayBroadcastState } from '../lib/replayBroadcastState.ts';
+import { sanitizeBroadcastReplayFrames, MAX_REPLAY_FRAMES } from '../lib/liveBroadcast.ts';
 import type { LiveGameEvent } from '../shared/liveGameEvents.ts';
 
 const people = [
@@ -26,5 +27,23 @@ describe('read-only OBS game replay', () => {
     expect(result.players[0].alive).toBe(false);
     expect(result.players[0].statusKind).toBe('voted');
     expect(result.timerSeconds).toBeNull();
+  });
+});
+
+describe('persisted OBS replay frames', () => {
+  it('preserves actual captured countdown and limits storage to newest frames', () => {
+    const source = buildReplayBroadcastState(people, events, 0, 12);
+    const frames = Array.from({ length: MAX_REPLAY_FRAMES + 4 }, (_, index) => ({
+      at: new Date(Date.UTC(2026, 9, 16, 0, 0, index)).toISOString(),
+      state: { ...source, timerSeconds: index },
+    }));
+    const saved = sanitizeBroadcastReplayFrames(frames);
+    expect(saved).toHaveLength(MAX_REPLAY_FRAMES);
+    expect(saved[0].state.timerSeconds).toBe(4);
+    expect(saved.at(-1)?.state.timerSeconds).toBe(MAX_REPLAY_FRAMES + 3);
+  });
+
+  it('rejects invalid or foreign versions rather than inventing frames', () => {
+    expect(sanitizeBroadcastReplayFrames([{ at: 'today', state: { version: 999, players: [], nominations: [] } }, null])).toEqual([]);
   });
 });

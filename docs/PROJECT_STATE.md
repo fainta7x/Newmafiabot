@@ -1,5 +1,12 @@
 # 2LA Noire — Current Project State
 
+## Replay fidelity and OBS baseline — owner request 2026-10-16
+
+- Approved OBS broadcast overlay is the canonical visual baseline for game-related graphics, including protocols and replays; see `docs/DESIGN_SYSTEM.md`.
+- Player game detail: show voting as candidate ← voter seats, and reconcile first-night shot label with a confirmed first-killed identity for that same target.
+- Replay request: replay the actual Live Game engine visual states, not a separate text player. PR970 starts reusing OBS overlay with replayed verified engine events. **Still not full fidelity:** old games may lack chronology; the protocol does not persist all intermediate engine snapshots, real timer countdown ticks, or all presentation transitions. Implement recording/retrieval of canonical OBS/engine snapshots for future games, with read-only timeline seeking, tests and safe legacy fallback. Never synthesize unavailable moments.
+- Do not mark the owner's “full replay identical to live engine” request done until persisted complete snapshots and interactive playback have been verified end-to-end on mobile.
+
 ## Owner request — 2026-10-16 second spreadsheet block
 
 Rows10–14 are now authorized: Telegram announcement separates assigned host from players; unify game results into a compact designed score sheet with useful personal stats, voting source→target and purple Don; finish PR951 after fixing its failures; unify evening recap presentation; investigate slow application/database startup. Implemented in existing PR949 workstream: one game/evening score sheet, shared role-label colour, source vote log and canonical action accuracy; Telegram host is separate from player totals; completed-protocol caching uses relevant-data invalidation; CRM/OBS/replay route bundles load on demand. Owner merge-check request2026-10-16: required CI on7e41f819 passed; mobile86/88 passed, with recap479px exceeding450px. Preserve the limit and all content; reduce only sheet gaps/padding32px and verify the corrected head before merge. PR951 merged as2d2bca9f95f56a236a11b9fe1254ad4f9447567d after full required CI, CodeQL and Gitleaks on head d5622500. Its equivalent source tree also passed UI preview before ancestry-only reconciliation. No production DB edits or real messages. Owner also requests shorter turnaround: focused connected tests first, one coherent CI candidate and parallel useful work while external checks run.

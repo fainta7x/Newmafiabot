@@ -1,6 +1,7 @@
 # Node comes from the public ECR copy of the official Docker Hub image: on 2026-10-01 the Amvera
 # Warsaw mirror of Docker Hub (harbor.waw.amverum.com) failed every build while pulling node.
-FROM public.ecr.aws/docker/library/node:24-bookworm-slim AS web-build
+ARG NODE_BASE_IMAGE=public.ecr.aws/docker/library/node:24-bookworm-slim
+FROM ${NODE_BASE_IMAGE} AS web-build
 
 WORKDIR /app
 
@@ -14,7 +15,7 @@ RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 
-FROM public.ecr.aws/docker/library/node:24-bookworm-slim AS runtime
+FROM ${NODE_BASE_IMAGE} AS runtime
 
 ENV NODE_ENV=production \
     PYTHONDONTWRITEBYTECODE=1 \

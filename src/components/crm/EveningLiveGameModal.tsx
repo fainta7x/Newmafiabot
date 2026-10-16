@@ -11,7 +11,7 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
-import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote } from '../../lib/liveBroadcast';
+import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote, type LiveBroadcastReplayFrame, sanitizeBroadcastReplayFrames, MAX_REPLAY_FRAMES } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
@@ -370,6 +370,23 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           .map(([seat, protocol]) => ({ seat: Number(seat), ...protocol }))
           .filter((protocol) => deadSeats.has(protocol.seat) && (protocol.red.length || protocol.black.length || protocol.sheriff.length));
         const state = { ...built, protocols, dayVotes };
+        // Capture the same published OBS presentation for replay, rather than reimagining
+        // the game from text events. Bound the log and only sample changed frames.
+        const framesKey = `mafia_live_broadcast_frames:${game.id}`;
+        try {
+          const existing = sanitizeBroadcastReplayFrames(JSON.parse(localStorage.getItem(framesKey) || '[]'));
+          const previous = existing.at(-1);
+          const nowMs = Date.now();
+          const lastMs = previous ? Date.parse(previous.at) : 0;
+          const meaningfulChange = !previous || JSON.stringify({
+            ...previous.state, timerSeconds: null, updatedAt: '',
+          }) !== JSON.stringify({ ...state, timerSeconds: null, updatedAt: '' });
+          if (meaningfulChange || nowMs - lastMs >= 10_000) {
+            const frame: LiveBroadcastReplayFrame = { at: new Date(nowMs).toISOString(), state };
+            const updated = [...existing, frame].slice(-MAX_REPLAY_FRAMES);
+            localStorage.setItem(framesKey, JSON.stringify(updated));
+          }
+        } catch { /* Do not interrupt live judging if device storage is exhausted. */ }
         const signature = JSON.stringify(state);
         const now = Date.now();
         if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;
@@ -835,6 +852,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                 at: new Date().toISOString(),
               });
               const next = mapEngineResultToProtocol(game, { ...gameData, votes: evidence.votes, shots: evidence.shots, events });
+              try {
+                next.protocol.replay_frames = sanitizeBroadcastReplayFrames(JSON.parse(localStorage.getItem(`mafia_live_broadcast_frames:${game.id}`) || '[]'));
+              } catch { /* A missing frame record means replay falls back to verified events. */ }
               const updated = await clubGamesApi.saveProtocol(game.id, next);
               finishConfirmedSave(updated);
             } catch (err: any) {

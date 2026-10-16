@@ -48,6 +48,7 @@ export const METRICS: MetricDef[] = [
   { key: 'sheriff_wins', label: 'Победы шерифом', group: 'Роли', unit: 'count', hint: 'Победы в роли шерифа' },
   { key: 'mafia_wins', label: 'Победы мафией', group: 'Роли', unit: 'count', hint: 'Победы в роли мафии' },
   { key: 'don_wins', label: 'Победы доном', group: 'Роли', unit: 'count', hint: 'Победы в роли дона' },
+  { key: 'best_moves', label: 'Лучший ход', group: 'Ход игры', unit: 'count', hint: 'Сколько раз игрок сделал лучший ход по протоколу' },
   { key: 'first_killed', label: 'ПУ', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
   { key: 'zero_round', label: 'Заголосован в нуле', group: 'Ход игры', unit: 'count', hint: 'Сколько раз игрока заголосовали в нулевом круге' },
   { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
@@ -290,7 +291,7 @@ async function loadScope(db: DatabaseWrapper, query: { period?: string; format?:
 
 export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery) {
   const metric = METRIC_BY_KEY.get(query.metric as MetricKey) || METRICS[0];
-  const { seasons, season, availablePeriods, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
+  const { season, availablePeriods, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
 
   const aggs = new Map<string, Agg>();
   const aggOf = (id: string) => { let value = aggs.get(id); if (!value) { value = emptyAgg(); aggs.set(id, value); } return value; };

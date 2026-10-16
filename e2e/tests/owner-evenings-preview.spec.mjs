@@ -22,7 +22,7 @@ for (const width of [360, 390]) {
             await expect(page.getByText('Идут 8 из 9')).toBeVisible();
             await expect(page.getByText('Идут 11 из 11')).toBeVisible();
             const titles = await page.getByTestId('crm-week-event').locator('strong').first().textContent();
-            expect(titles).toBe('Вечер для новичков');
+            expect(titles).toBe('Пятничный клубный вечер');
           }
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -189,7 +189,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
         ? { id: 'today-post', title: 'Играем сегодня? Реши про пост', detail: 'В 17:00 набралось меньше нужных игр — пост сам не ушёл. Опубликуй или реши, что не публикуем', status: 'attention', action: canPostToday ? 'today_post' : undefined }
       : todayPost.state === 'partial'
         ? { id: 'today-post', title: 'Пост «Сегодня играем» дошёл не везде', detail: `${todayLegs} — можно повторить`, status: 'attention', action: 'today_post' }
-        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: 'Уйдёт сам в 17:00, если набрано 4 игры. Можно выложить раньше', status: 'info', action: canPostToday ? 'today_post' : undefined },
+        : { id: 'today-post', title: 'Пост «Сегодня играем»', detail: `Уйдёт сам в 17:00, если набрано ${neededSlots} ${plural(neededSlots, 'игра', 'игры', 'игр')}. Можно выложить раньше`, status: 'info', action: canPostToday ? 'today_post' : undefined },
   );
   steps.gather.push(
     evening.status === 'active' || evening.status === 'completed' || Boolean(evening.settled_at)

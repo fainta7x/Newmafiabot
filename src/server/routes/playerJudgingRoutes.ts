@@ -89,7 +89,7 @@ const requirePlayer = (req: Request, res: Response): string | null => {
 
 const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: string) => {
   const evenings = await db.all(`
-    SELECT e.*,
+    SELECT e.*, staff.judge_player_id AS assigned_judge_player_id,
            (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
       FROM game_evenings e
  LEFT JOIN evening_staff_assignments staff ON staff.evening_id = e.id
@@ -100,7 +100,7 @@ const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: s
 
   const allowed = evenings;
   return Promise.all(allowed.map(async (evening: any) => {
-    const assignedJudge = String(evening.judge_player_id || '') === playerId;
+    const assignedJudge = String(evening.assigned_judge_player_id || '') === playerId;
     const organizer = String(evening.organizer_player_id || '') === playerId;
     const canCreate = assignedJudge && canHostEveningFormat({ host_formats: formats.join(',') }, evening.format);
     const canViewRoster = assignedJudge || organizer;

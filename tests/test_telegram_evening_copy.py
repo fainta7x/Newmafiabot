@@ -141,8 +141,9 @@ def test_novice_group_link_is_a_join_link():
 def test_recruitment_reminders_put_when_where_and_action_first():
     from handlers.telegram_evening_copy import recruitment_private_text, recruitment_group_text
 
-    evening = {"venue": "Суп с Котом", "starts_at": "2026-10-16T18:00:00Z"}
-    slots = [{"slot_number": 2, "starts_at": "2026-10-16T19:00:00Z",
+    # A date far in the future: on the day itself the copy says «сегодня» and the test would fail on that one day.
+    evening = {"venue": "Суп с Котом", "starts_at": "2030-10-16T18:00:00Z"}
+    slots = [{"slot_number": 2, "starts_at": "2030-10-16T19:00:00Z",
               "needed_players": 3, "registered_players": 7, "target_players": 10}]
     for render in (recruitment_private_text, recruitment_group_text):
         message = render(evening, slots)

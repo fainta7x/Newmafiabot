@@ -185,6 +185,6 @@ export const canonicalizeClubGameSave = (
   const events = Array.isArray(incomingProtocol?.events) ? sanitizeLiveGameEvents(incomingProtocol.events) : sanitizeLiveGameEvents(previousPayload?.protocol?.events);
   const replay_frames = sanitizeBroadcastReplayFrames(incomingProtocol?.replay_frames ?? previousPayload?.protocol?.replay_frames);
   const blackIds = blackParticipantIds(playerResults);
-  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
+  const protocol = withoutBlackLegacyBestMove({ ...incomingProtocol, best_moves: withoutBlackBestMoves(incomingProtocol?.best_moves, blackIds), events, replay_frames, winner_team: winnerTeam, end_reason: incomingProtocol?.end_reason === 'ppk' ? 'ppk' : 'normal', ppk_culprit_participant_id: incomingProtocol?.end_reason === 'ppk' ? ppkCulpritId : null }, blackIds);
   return { protocol, playerResults };
 };

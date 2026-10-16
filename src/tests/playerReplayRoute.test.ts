@@ -43,6 +43,8 @@ describe('player replay route', () => {
       const response = await request(app).get('/api/player/games/club%3A1/replay').set('Cookie', cookie(id));
       expect(response.status, JSON.stringify(response.body)).toBe(200);
       expect(response.body.replay_available).toBe(true);
+      expect(response.body.engine_events.map((event: any) => event.kind)).toContain('vote_round_result');
+      expect(response.body.engine_events.map((event: any) => event.kind)).toContain('exit');
       expect(response.body.events.at(-1).type).toBe('finish');
       const texts = response.body.events.map((event: any) => `${event.title}: ${event.text}`);
       expect(texts).toContain('Вскрытие: Два вскрылся шерифом: Один — чёрный');

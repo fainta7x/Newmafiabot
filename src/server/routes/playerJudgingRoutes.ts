@@ -172,7 +172,8 @@ router.get('/judging', async (req, res) => {
           FROM games g
           JOIN game_evenings e ON e.id = g.evening_id
      LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-         WHERE (g.judge_player_id = ? OR e.organizer_player_id = ?) AND g.archived_at IS NULL
+     LEFT JOIN evening_staff_assignments staff ON staff.evening_id = e.id
+         WHERE (g.judge_player_id = ? OR staff.organizer_player_id = ?) AND g.archived_at IS NULL
          ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
          LIMIT 60
       `, [playerId, playerId]),

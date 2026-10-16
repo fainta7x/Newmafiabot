@@ -165,7 +165,7 @@ export const normalizeLiveBroadcastLayout = (input: unknown): LiveBroadcastLayou
 
 /** Persisted frames of the actual OBS presentation for faithful historical playback. */
 export type LiveBroadcastReplayFrame = { at: string; state: LiveBroadcastState };
-export const MAX_REPLAY_FRAMES = 1200;
+export const MAX_REPLAY_FRAMES = 360;
 export const sanitizeBroadcastReplayFrames = (value: unknown): LiveBroadcastReplayFrame[] => {
   if (!Array.isArray(value)) return [];
   return value.slice(-MAX_REPLAY_FRAMES).flatMap((frame): LiveBroadcastReplayFrame[] => {

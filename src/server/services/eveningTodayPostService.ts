@@ -83,11 +83,14 @@ export async function buildTodayPostDraft(db: DatabaseWrapper, eveningId: string
     "SELECT id, display_name AS nickname, response_status FROM guest_player_placeholders WHERE evening_id = ? AND replaced_at IS NULL AND response_status IN ('going', 'late') ORDER BY created_at",
     [eveningId],
   );
-  const guestLines = guests.map((guest: any) => `${String(guest.nickname || 'Гость')}${guest.response_status === 'late' ? ' (подойдёт позже)' : ''}`);
+  // A legacy RSVP `late` alone does not establish arrival after the announced game time.
+  const guestLines = guests.map((guest: any) => String(guest.nickname || 'Гость'));
   const comingTotal = coming.length + guests.length;
   const roster = coming.map((item: any, index: number) => {
     const from = firstGame.get(String(item.player_id));
-    const note = getEveningResponse(item) === 'late' ? ' (подойдёт позже)' : from && chosen && from > chosen.slot_number ? ` (с ${from}-й игры)` : '';
+    // Show an arrival qualifier only when the slot plan proves a later first game.
+    // Stale `late` response flags must not contradict the 21:00 attendance schedule.
+    const note = from && chosen && from > chosen.slot_number ? ` (с ${from}-й игры)` : '';
     return `${index + 1}. ${String(item.nickname || 'Игрок')}${note}`;
   });
 

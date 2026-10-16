@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## Owner request — 2026-10-16 second spreadsheet block
+
+Rows10–14 are now authorized: Telegram announcement separates assigned host from players; unify game results into a compact designed score sheet with useful personal stats, voting source→target and purple Don; finish PR951 after fixing its failures; unify evening recap presentation; investigate slow application/database startup. Read the actual mounted implementation and exact PR head before changing it. No production DB edits or real messages. Owner also requests shorter turnaround: focused connected tests first, one coherent CI candidate and parallel useful work while external checks run.
+
 ## Owner request — 2026-10-16 teaching cards and seven CRM findings
 
 Save final approved two-page sports-Mafia cards and their wording in Git; keep no-penalty/no-best-move beginner scope separate from the full rules. Correct Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, Баг-трекер rows 2–8: weekly event registration detail, timing preparation status, event priority, guests in totals, 11/9 people including judge, clear answer filters and response picker. This explicitly authorizes these CRM fixes despite the parked broad CRM audit. Implementation and focused local checks are complete in the owner-sheet workstream; required Actions, mobile evidence and merge pending. Main/deployment remain separate; see AUDIT_LOG for evidence.

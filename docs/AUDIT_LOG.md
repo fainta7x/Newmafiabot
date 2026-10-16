@@ -1,5 +1,9 @@
 # Audit log
 
+### 2026-10-16 — #950 minimal-schema service compatibility (fixed)
+
+Full CI fails in eveningRoutePostsPending, novicePromoAnnouncement, organizerEveningSlots and weeklyEveningAutomation: loadEveningPeople queries evening_staff_assignments before the optional club-operations schema exists. The existing eveningJudgeId reader already handles absent/older staff schema without creating or migrating it. Reuse that owner, then load the player only for a real assigned ID. Verified: all five affected service/assigned-judge suites pass (20 tests) unchanged; no new schema migration is introduced.
+
 ### 2026-10-16 — #950 review: assigned judge identity
 
 Review PRRT_kwDOTau29M6tIOO_ correctly identifies that a separately assigned judge may not have an RSVP row. Preserve owner's11/9 total while explicitly counting the assigned judge once, with player-ID deduplication. Keep raw registration/shortfall player counts separate; expose gathering_count in weekly summaries and add only a nonregistered assigned judge to each slot's gathering list. A judge who already answered thinking/declined is not silently converted to going. Regression:8/10 signups plus separate judge assembled; judge already among signups no duplicate; raw counters and responses unchanged.

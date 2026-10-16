@@ -75,7 +75,7 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, onBack
 
         {pane === 'games' ? (
           <>
-            {canJudgeClubGame ? (
+            {canJudgeClubGame || isOrganizer ? (
               <JudgeGameLauncher
                 judge={{ id: judging?.player.id || data.player.id, nickname: judging?.player.nickname || data.player.nickname }}
                 evenings={judging?.available_evenings || []}

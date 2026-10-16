@@ -9,11 +9,11 @@ const game = (events: StatGame['events'], votingRounds?: StatGame['votingRounds'
 });
 
 describe('zero round player indicators', () => {
-  it('counts candidates raised on a confirmed first-round tie once per game', () => {
+  it('counts candidates raised on a confirmed leave-at-table result once per game', () => {
     const events: StatGame['events'] = [
       { seq: 1, at: '', round: 1, phase: 'day', kind: 'vote', seat: 3, target: 1, value: 1 },
       { seq: 2, at: '', round: 1, phase: 'day', kind: 'vote', seat: 4, target: 2, value: 1 },
-      { seq: 3, at: '', round: 1, phase: 'day', kind: 'vote_round_result', value: '1:tie_revote' },
+      { seq: 3, at: '', round: 1, phase: 'day', kind: 'vote_round_result', value: '1:no_elimination' },
     ];
     const counts = buildZeroRoundPlayerCounts([game(events)]);
     expect(counts.get('p1')?.raised).toBe(1);
@@ -36,7 +36,7 @@ describe('zero round player indicators', () => {
   it('uses a completed zero-day tie from historical voting rounds and does not double-count', () => {
     const counts = buildZeroRoundPlayerCounts([game([], [{
       round_number: 1, day_number: 0, nominated_seats: [1,2,3], vote_counts: {1: 4, 2: 4, 3: 2},
-      outcome: 'tie_revote',
+      outcome: 'no_elimination',
     }])]);
     expect(counts.get('p1')?.raised).toBe(1);
     expect(counts.get('p2')?.raised).toBe(1);

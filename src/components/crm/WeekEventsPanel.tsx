@@ -63,7 +63,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       result.push({
         key: `evening-${evening.id}`, id: evening.id, title: evening.title, startsAt: evening.starts_at,
         label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false, kind: kindOfFormat(evening.format),
-        venue: evening.venue ? String(evening.venue) : null, going: typeof evening.registered_count === 'number' ? evening.registered_count : null,
+        venue: evening.venue ? String(evening.venue) : null, going: typeof evening.gathering_count === 'number' ? evening.gathering_count : typeof evening.registered_count === 'number' ? evening.registered_count : null,
         guests: typeof evening.guests_count === 'number' ? evening.guests_count : null, late: Number(evening.late_count || 0), thinking: Number(evening.thinking_count || 0), required: eveningGatheringSize(evening.format), priority: eventPriority(evening.format),
       });
     }

@@ -1,5 +1,5 @@
+import { loadEveningPeople } from './eveningPeopleService.ts';
 import { eveningGatheringSize } from '../../lib/eveningGathering.ts';
-import { listGuestPlaceholdersForEvening } from './guestPlayerService.ts';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
@@ -349,7 +349,8 @@ export async function updateEveningSlotSettings(
 
 export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
-  const guests = await listGuestPlaceholdersForEvening(db, eveningId);
+  const eveningPeople = await loadEveningPeople(db, eveningId, true);
+  const guests = eveningPeople.filter((person) => person.is_guest);
   const own = playerId
     ? await db.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId])
     : null;
@@ -398,7 +399,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       ORDER BY p.nickname COLLATE NOCASE`,
     [eveningId, eveningId],
   );
-  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string; whole_evening?: boolean; is_guest?: boolean }>>();
+  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string; whole_evening?: boolean; is_guest?: boolean; is_judge?: boolean }>>();
   for (const person of peopleRows) {
     const slotId = String(person.slot_id);
     const group = peopleBySlot.get(slotId) || [];
@@ -430,6 +431,15 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       peopleBySlot.set(slotId, group);
       slot.registered_count = Number(slot.registered_count || 0) + guestRows.length;
     }
+  }
+
+  const judge = eveningPeople.find((person) => person.is_assigned_judge);
+  if (judge) for (const slot of rows) {
+    const group = peopleBySlot.get(String(slot.id)) || [];
+    if (group.some((person) => !person.is_guest && person.id === String(judge.player_id))) continue;
+    group.push({ id: String(judge.player_id), nickname: String(judge.nickname), whole_evening: true, is_judge: true });
+    peopleBySlot.set(String(slot.id), group);
+    slot.registered_count = Number(slot.registered_count || 0) + 1;
   }
 
   const selectedSlotIds = new Set<string>();

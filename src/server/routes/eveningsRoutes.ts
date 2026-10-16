@@ -304,6 +304,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ${pricePerGame} AS price_per_game,
       (${regularCount} + ${guestCount}) AS registered_count,
       ${guestCount} AS guests_count,
+      (CASE WHEN EXISTS (SELECT 1 FROM evening_staff_assignments s JOIN players j ON j.id=s.judge_player_id
+        WHERE s.evening_id=e.id AND NOT EXISTS (SELECT 1 FROM evening_participants ep WHERE ep.evening_id=e.id AND ep.player_id=j.id)) THEN 1 ELSE 0 END) AS assigned_judge_extra_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.response_status='late' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.response_status='late' AND gp.replaced_at IS NULL)) AS late_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.response_status='thinking' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.response_status='thinking' AND gp.replaced_at IS NULL)) AS thinking_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.response_status='going' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.response_status='going' AND gp.replaced_at IS NULL)) AS confirmed_count,
@@ -314,7 +316,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ,(SELECT p.nickname FROM evening_staff_assignments s JOIN players p ON p.id=s.organizer_player_id WHERE s.evening_id=e.id) AS organizer_nickname
       FROM game_evenings e ORDER BY e.starts_at DESC`);
     return res.json(rows.map((row) => {
-      const evening = withCanonicalFormat(row);
+      const evening = { ...withCanonicalFormat(row), gathering_count: Number(row.registered_count || 0) + Number(row.assigned_judge_extra_count || 0) };
       if (eventHost) delete (evening as any).total_revenue;
       return evening;
     }));

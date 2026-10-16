@@ -32,6 +32,22 @@ describe('owner evening tracker rows 3, 5 and 6', () => {
     expect(short.event.assembled).toBe(false);
     expect(short.slots.every((slot) => slot.registered_count === minimum - 1 && slot.target_players === minimum)).toBe(true);
 
+    // A judge already among these people must not add another human.
+    await db.run('INSERT INTO evening_staff_assignments (evening_id,judge_player_id,assigned_at,updated_at) VALUES (?,?,?,?)', ['ev', 'p0', now, now]);
+    expect((await loadEveningSlotPlan(db, 'ev')).event.assembled).toBe(false);
+    // A separately assigned judge completes the8/10-player table without an extra RSVP.
+    await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', ['judge', 'Судья', now, now]);
+    await db.run("UPDATE evening_staff_assignments SET judge_player_id='judge' WHERE evening_id='ev'");
+    const withJudge = await loadEveningSlotPlan(db, 'ev');
+    expect(withJudge.event.assembled).toBe(true);
+    expect(withJudge.slots.every((slot) => slot.registered_count === minimum)).toBe(true);
+    expect((await loadEveningRecruitmentState(db, 'ev'))?.all_slots_ready).toBe(true);
+    const listedWithJudge = await request(app).get('/api/evenings').set('Cookie', organizerCookie());
+    expect(listedWithJudge.body.find((evening: any) => evening.id === 'ev')).toMatchObject({ registered_count: minimum - 1, gathering_count: minimum });
+    const routeWithJudge = await loadEveningRoute(db, 'ev');
+    expect(routeWithJudge.stages.find((stage) => stage.id === 'gather')?.steps.find((step) => step.id === 'answers')?.detail).toContain(`Идут: ${minimum}`);
+    expect(routeWithJudge.stages.find((stage) => stage.id === 'closeout')?.steps.find((step) => step.id === 'close')?.detail).toContain(`нет отметки у ${minimum - 1}`);
+    await db.run("DELETE FROM evening_staff_assignments WHERE evening_id='ev'");
     await createGuestPlaceholder(db, { eveningId: 'ev', displayName: 'Ещё гость', responseStatus: 'going' });
     const full = await loadEveningSlotPlan(db, 'ev');
     expect(full.event.assembled).toBe(true);

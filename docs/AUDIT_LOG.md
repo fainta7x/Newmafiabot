@@ -1,5 +1,9 @@
 # Audit log
 
+### 2026-10-16 — #950 review: assigned judge identity
+
+Review PRRT_kwDOTau29M6tIOO_ correctly identifies that a separately assigned judge may not have an RSVP row. Preserve owner's11/9 total while explicitly counting the assigned judge once, with player-ID deduplication. Keep raw registration/shortfall player counts separate; expose gathering_count in weekly summaries and add only a nonregistered assigned judge to each slot's gathering list. A judge who already answered thinking/declined is not silently converted to going. Regression:8/10 signups plus separate judge assembled; judge already among signups no duplicate; raw counters and responses unchanged.
+
 ### 2026-10-16 — #950 container registry blocker
 
 Second candidate: all five TS shards, web checks/build, Python tests passed. Container job116892647392 still fails before source build with public ECR HTTP429 Data limit exceeded. Cause is registry access from hosted runner. Add configurable official Node base image; default remains ECR for Amvera, CI explicitly selects docker.io/library/node:24-bookworm-slim. Both build stages use the same configured image; runtime startup verification remains mandatory.

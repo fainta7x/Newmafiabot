@@ -72,15 +72,16 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const has = await tables(db);
   const format = normalizeEveningFormat(evening.format);
 
-  const participants = await loadEveningPeople(db, eveningId);
+  const participants = await loadEveningPeople(db, eveningId, true);
   const answers = { going: 0, late: 0, thinking: 0, declined: 0, unanswered: 0 };
   for (const participant of participants) {
     const answer = getEveningResponse(participant) as keyof typeof answers;
     if (answer in answers) answers[answer] += 1; else answers.unanswered += 1;
   }
-  const attended = participants.filter((item: any) => item.attendance_status === 'attended').length;
-  const pendingExpected = participants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item)) && item.attendance_status === 'pending').length;
-  const debtors = participants.filter((item: any) => item.attendance_status === 'attended' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
+  const rosterParticipants = participants.filter((person) => !person.is_staff_only);
+  const attended = rosterParticipants.filter((item: any) => item.attendance_status === 'attended').length;
+  const pendingExpected = rosterParticipants.filter((item: any) => ['going', 'late'].includes(getEveningResponse(item)) && item.attendance_status === 'pending').length;
+  const debtors = rosterParticipants.filter((item: any) => item.attendance_status === 'attended' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
 
   // The same counts the roster and the public announcement use (owner, 2026-10-02): the evening is
   // gathered once `required_slots` games (4 by default) have a full table, not only when every game does.

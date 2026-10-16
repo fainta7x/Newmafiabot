@@ -26,7 +26,9 @@ for (const width of [360, 390]) {
           }
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        await page.screenshot({ path: info.outputPath(`${screen}-${before ? 'before' : 'after'}-${width}.png`), fullPage: true });
+        const screenshotPath = info.outputPath(`${screen}-${before ? 'before' : 'after'}-${width}.png`);
+        if (screen === 'answers') await page.getByTestId('evening-answer-row-p1').screenshot({ path: screenshotPath });
+        else await page.screenshot({ path: screenshotPath, fullPage: true });
       }
     }
     // Exercise the real response writer, not only the look of the expanded form.

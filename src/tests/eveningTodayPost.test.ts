@@ -60,7 +60,7 @@ describe('NOVICE gathering rules', () => {
     expect(plan.event.required_slots).toBe(2);
     expect(plan.event.required_players_per_slot).toBe(9);
     const firstTwo = plan.slots.slice(0, 2);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       const id = `nv${i}`;
       await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [id,id,now,now]);
       await db.run("INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at) VALUES (?,?,?,'going','going','pending','unpaid',?,?)", [`ep-${id}`,'ev',id,now,now]);

@@ -33,10 +33,10 @@ jobs:
             if [[ -n "$files" ]]; then
               mode=fast
               while IFS= read -r file; do
-                # Fail closed: TS/TSX and any non-style code retain full regression
+                # Fail closed: only five reviewed presentational primitives join styles/docs.\n                # All other TS/TSX, game, payments, CRM, bot, API, DB and config require full CI.
                 # runs the entire regression suite and container smoke test.
                 case "$file" in
-                  docs/*|*.md|*.css|*.scss) ;;
+                  docs/*|*.md|*.css|*.scss|src/components/ui/Badge.tsx|src/components/ui/Button.tsx|src/components/ui/Card.tsx|src/components/ui/Input.tsx|src/components/ui/TokenIcon.tsx) ;;
                   *) mode=full; break ;;
                 esac
               done <<< "$files"
@@ -53,6 +53,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js 24 LTS
         uses: actions/setup-node@v7
@@ -90,6 +92,17 @@ jobs:
       - name: Focused fast smoke tests
         if: needs.scope.outputs.mode == 'fast'
         run: npm run test:smoke
+
+      - name: Related component tests
+        if: needs.scope.outputs.mode == 'fast'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" HEAD -- 'src/components/ui/*.tsx')
+          if (( ${#changed[@]} > 0 )); then
+            npx vitest related "${changed[@]}" --run --passWithNoTests
+          fi
 
       - name: Production build
         run: npm run build

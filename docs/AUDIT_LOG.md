@@ -1,5 +1,9 @@
 # Audit log
 
+### 2026-10-16 — #950 first CI diagnosis (before follow-up fix)
+
+Web checks + four shards passed. Fifth shard exposed an over-broad readiness normalization resetting an explicitly configured one-place novice reservation to 9; preserve custom capacities and migrate only the legacy default11→9. UI preview 84/86 passed: new comparison selector «Иду» also matched «Не иду»/«Приду позже»; use exact accessible name, no product workaround. Python has an independent calendar-dependent fixture: its 16 October event is now «сегодня»; freeze the test clock and cover both date/today branches. Container failed before building source: public ECR HTTP429 Data limit exceeded; no Dockerfile/mirror change.
+
 ## 2026-10-16 — owner spreadsheet / approved teaching cards (open)
 
 Source: Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, tab Баг-трекер, rows 2–8, read 2026-10-16. Scope is seven requested CRM corrections plus saving the two final approved teaching images/copy; no production data edits or messaging.

@@ -10,7 +10,7 @@ for (const width of [360, 390]) {
           await page.getByRole('button', { name: /Все$/ }).click();
           const row = page.getByTestId('evening-answer-row-p1');
           await row.getByRole('button', { name: /^Ответ/ }).click();
-          await expect(row.getByRole('button', { name: 'Иду' })).toBeVisible();
+          await expect(row.getByRole('button', { name: 'Иду', exact: true })).toBeVisible();
           if (!before) {
             await expect(page.getByRole('button', { name: /Нужен ответ/ })).toHaveCount(0);
             const targets = await row.getByRole('button').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
@@ -30,8 +30,8 @@ for (const width of [360, 390]) {
       }
     }
     // Exercise the real response writer, not only the look of the expanded form.
-    await page.getByTestId('evening-answer-row-p1').getByRole('button', { name: 'Иду' }).click();
+    await page.getByTestId('evening-answer-row-p1').getByRole('button', { name: 'Иду', exact: true }).click();
     await expect(page.locator('body')).toHaveAttribute('data-saved-response', 'going');
-    await expect(page.getByTestId('evening-answer-row-p1').getByRole('button', { name: 'Иду' })).toHaveCount(0);
+    await expect(page.getByTestId('evening-answer-row-p1').getByRole('button', { name: 'Иду', exact: true })).toHaveCount(0);
   });
 }

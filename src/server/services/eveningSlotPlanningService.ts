@@ -208,11 +208,14 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
     settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   }
   const gatheringSize = eveningGatheringSize(evening.format);
-  if (Number(settings.ready_players_per_slot) !== gatheringSize) {
+  const currentTarget = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
+  // Repair only the historical format defaults; explicit reservation capacities are not defaults.
+  const defaultChanged = (currentTarget === 11 && gatheringSize === 9) || (currentTarget === 9 && gatheringSize === 11);
+  if (defaultChanged) {
     await db.run('UPDATE evening_slot_settings SET ready_players_per_slot = ?, updated_at = ? WHERE evening_id = ?', [gatheringSize, now, eveningId]);
+    await db.run('UPDATE evening_game_slots SET target_players = ? WHERE evening_id = ? AND target_players = ?', [gatheringSize, eveningId, currentTarget]);
     settings = { ...settings, ready_players_per_slot: gatheringSize };
   }
-  await db.run('UPDATE evening_game_slots SET target_players = ? WHERE evening_id = ? AND target_players != ?', [gatheringSize, eveningId, gatheringSize]);
   if (isCasual && Number(settings?.price_per_game || 0) !== SLOT_PRICE) {
     await db.run('UPDATE evening_slot_settings SET price_per_game = ?, updated_at = ? WHERE evening_id = ?', [SLOT_PRICE, now, eveningId]);
     settings = { ...settings, price_per_game: SLOT_PRICE };

@@ -29,6 +29,7 @@ function PlayerLine({ row }: { row: Row }) {
 /** Club rankings by one figure of the statistics: who collected the most, over a season or all time and an evening format. */
 export default function PlayerMetricRatings() {
   const [view, setView] = useState<'metrics' | 'roles'>('metrics');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [metric, setMetric] = useState('wins');
   const [period, setPeriod] = useState('all');
   const [format, setFormat] = useState('all');
@@ -56,14 +57,19 @@ export default function PlayerMetricRatings() {
   }, [metric, period, format, retry]);
 
   const groups = data ? Array.from(new Set(data.metrics.map((item) => item.group))) : [];
+  const currentMetricLabel = data?.metrics.find((item) => item.key === metric)?.label || 'Выбрать показатель';
   return <main className="player-workspace-page min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white"><div className="player-workspace mx-auto w-full max-w-[430px] space-y-3">
     <SegmentedControl ariaLabel="Вид рейтинга" value={view} items={[{ value: 'metrics', label: 'По показателям' }, { value: 'roles', label: 'По ролям' }]} onValueChange={setView} itemClassName="px-1 text-[12px]" />
     <section data-testid="metric-ratings-controls" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
-      {view === 'metrics' ? <label className="block text-[11px] text-white/45">Показатель
-        <select aria-label="Показатель" value={metric} onChange={(event) => setMetric(event.target.value)} className="mobile-field mt-1 w-full text-sm">
-          {data ? groups.map((group) => <optgroup key={group} label={group}>{data.metrics.filter((item) => item.group === group).map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</optgroup>) : <option value={metric}>{metric}</option>}
-        </select>
-      </label> : null}
+      {view === 'metrics' ? <div className="relative">
+        <span className="block text-[11px] text-white/45">Показатель</span>
+        <button type="button" aria-label="Показатель" aria-expanded={pickerOpen} onClick={() => setPickerOpen((value) => !value)} className="mt-1 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/15 bg-black/25 px-3 text-left text-sm font-semibold text-white">
+          {currentMetricLabel}<span aria-hidden="true" className="text-white/50">{pickerOpen ? '⌃' : '⌄'}</span>
+        </button>
+        {pickerOpen ? <div role="listbox" aria-label="Выбрать показатель" className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/15 bg-[#17171d] p-2">
+          {groups.map((group) => <div key={group}><div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/40">{group}</div><div className="grid grid-cols-1 gap-1">{data?.metrics.filter((item) => item.group === group).map((item) => <button role="option" aria-selected={metric === item.key} key={item.key} type="button" onClick={() => { setMetric(item.key); setPickerOpen(false); }} className={`min-h-10 rounded-lg px-3 text-left text-[12px] ${metric === item.key ? 'bg-white text-black' : 'bg-white/5 text-white/80 hover:bg-white/10'}`}>{item.label}</button>)}</div></div>)}
+        </div> : null}
+      </div> : null}
       <div className={`${view === 'metrics' ? 'mt-2 ' : ''}grid grid-cols-2 gap-2`}>
         <label className="text-[11px] text-white/45">Период<select aria-label="Период рейтинга" value={period} onChange={(event) => setPeriod(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Всё время</option>{data?.filters.seasons.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
         <label className="text-[11px] text-white/45">Формат вечера<select aria-label="Формат вечера рейтинга" value={format} onChange={(event) => setFormat(event.target.value)} className="mobile-field mt-1 w-full text-sm"><option value="all">Все форматы</option>{data?.filters.formats.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>

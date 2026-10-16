@@ -57,8 +57,11 @@ describe('«Сегодня играем» post', () => {
     expect(draft.text).toContain('📍 Суп с Котом');
     expect(draft.text).toContain('Состав (3)');
     expect(draft.text).toContain('Аня');
-    expect(draft.text).toContain('Борис (подойдёт позже)');
+    expect(draft.text).toContain('Борис');
+    expect(draft.text).not.toContain('Борис (подойдёт позже)');
     expect(draft.text).toContain('Вера (с 3-й игры)');
+    // A legacy late RSVP with a normal first-game slot is not a confirmed later arrival.
+    expect(draft.text).not.toContain('подойдёт позже');
     expect(draft.text).not.toContain('Гоша');
     expect(draft.text).toMatch(/не хватает \d+ человек/);
   });

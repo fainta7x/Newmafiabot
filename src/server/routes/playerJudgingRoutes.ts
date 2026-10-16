@@ -88,20 +88,22 @@ const requirePlayer = (req: Request, res: Response): string | null => {
 };
 
 const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: string) => {
-  if (!formats.length) return [];
   const evenings = await db.all(`
     SELECT e.*,
            (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
       FROM game_evenings e
-      JOIN evening_staff_assignments staff ON staff.evening_id = e.id
-     WHERE staff.judge_player_id = ?
-       AND e.status IN ('published', 'active')
+ LEFT JOIN evening_staff_assignments staff ON staff.evening_id = e.id
+     WHERE e.status IN ('published', 'active')
      ORDER BY CASE WHEN e.status = 'active' THEN 0 ELSE 1 END, e.starts_at ASC
-     LIMIT 20
-  `, [playerId]);
+     LIMIT 60
+  `);
 
-  const allowed = evenings.filter((evening: any) => canHostEveningFormat({ host_formats: formats.join(',') }, evening.format));
+  const allowed = evenings;
   return Promise.all(allowed.map(async (evening: any) => {
+    const assignedJudge = String(evening.judge_player_id || '') === playerId;
+    const organizer = String(evening.organizer_player_id || '') === playerId;
+    const canCreate = assignedJudge && canHostEveningFormat({ host_formats: formats.join(',') }, evening.format);
+    const canViewRoster = assignedJudge || organizer;
     const [participants, tables] = await Promise.all([
       db.all(`
         SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status,
@@ -124,6 +126,10 @@ const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: s
 
     return {
       id: String(evening.id),
+      can_create: canCreate,
+      is_organizer: organizer,
+      assigned_judge: assignedJudge,
+      access_label: canCreate ? 'Назначен ведущим' : organizer ? 'Вы организатор · ведущий назначен отдельно' : assignedJudge ? 'Формат недоступен по уровню ведущего' : 'Ведущим назначен другой игрок',
       title: evening.title,
       starts_at: evening.starts_at,
       venue: evening.venue ?? null,
@@ -135,7 +141,7 @@ const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: s
         name: String(table.name || 'Стол'),
         host_name: table.host_name ?? null,
       })),
-      participants: participants.map((participant: any) => ({
+      participants: (canViewRoster ? participants : []).map((participant: any) => ({
         id: String(participant.id),
         player_id: String(participant.player_id),
         nickname: String(participant.nickname || 'Игрок'),

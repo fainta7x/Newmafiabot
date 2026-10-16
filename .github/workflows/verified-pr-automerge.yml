@@ -36,8 +36,18 @@ jobs:
             exit 0
           fi
 
+          changed=$(gh api --paginate "repos/$REPO/pulls/$pr/files?per_page=100" --jq '.[].filename')
+          need_preview=false
+          while IFS= read -r file; do
+            case "$file" in
+              src/*|e2e/*|preview/*|scripts/buildUiPreview.mjs|vite.config.ts|package*.json|.github/workflows/ui-preview.yml) need_preview=true; break ;;
+            esac
+          done <<< "$changed"
+
           runs=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100")
-          for workflow in "CI" "CodeQL" "Gitleaks" "UI preview"; do
+          workflows=("CI" "CodeQL" "Gitleaks")
+          if [[ "$need_preview" == true ]]; then workflows+=("UI preview"); fi
+          for workflow in "${workflows[@]}"; do
             status=$(jq -r --arg name "$workflow" '[.workflow_runs[] | select(.name == $name)] | sort_by(.run_number, .run_attempt) | last | if . == null then "missing" else (.status + ":" + (.conclusion // "pending")) end' <<< "$runs")
             echo "$workflow: $status"
             if [[ "$status" != "completed:success" ]]; then

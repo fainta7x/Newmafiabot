@@ -80,6 +80,22 @@ This is a **workflow contract**, not a promise that external CI or deployments w
 
 **Important:** don't confuse `main` merged, Amvera deployed, and runtime-verified. An isolated screenshot or green build proves neither all interactions nor deployment. Documentation-only changes should be verified by reading the committed diff rather than repeatedly running the entire gameplay E2E suite.
 
+## 4b. Owner-facing completion and status reporting — mandatory (owner, 2026-10-16)
+
+The owner expects the assistant to **implement and finish the requested work**, not hand back patches, code instructions, or a list of actions for the owner to perform when repository access is available.
+
+- **Never confuse progress with completion.** Every handoff or status reply must begin with exactly one plain-language verdict: **Готово**, **Готово в коде, ожидают проверки**, **Проверки прошли, ожидает слияния**, **Смержено, не задеплоено**, **Задеплоено, не проверено в работе**, **Полностью готово и проверено**, or **Заблокировано**. Use the truthful phase, not the most optimistic one. “Готово” alone is permitted only when the user's explicitly requested deliverable is complete; if they requested release/deploy, a PR alone is not complete.
+- **Use evidence-based gates:** a local edit or pushed branch is not a PR; an open PR is not a merge; green CI is not a merge; a merged commit is not a deployment; a deployment is not a runtime confirmation. Link the exact PR and SHA when known, with relevant test outcomes and any failure.
+- **Report the entire request**, not just the latest commit. Distinguish (1) completed subrequests, (2) unfinished subrequests and blockers, and (3) what remains before the owner can use the feature. Never claim “все пять пунктов сделаны” when only two or three were implemented.
+- **End with one explicit next step and its owner.** Say “Я: исправить упавший тест и смержить” instead of an ambiguous “осталось проверить”. State clearly whether anything is required from the owner. Do not suggest a manual patch or redeploy by the owner if configured access enables doing it yourself.
+- **Do not stop at PR creation by habit.** Unless checks fail, access prevents the action, or the owner explicitly prohibited merging, drive the already-approved changes through checks and merge in the same working turn when possible. Do not merge red or unverified changes. If CI is still running after the bounded status check described in §4a, honestly hand off a pending result; never imply ongoing background work.
+- **Progress messages are for substantive findings**, not repetitive “проверяю/жду”. Prefer one coherent, larger delivery per requested block rather than one trivial PR or one status message per changed file.
+- **For UI changes:** distinguish code implementation, automated preview, inspection of actual before/after screenshots, merge, and live verification. Report which happened and which did not; don't invent a screenshot or visual approval.
+- **When asked “всё готово?”**, verify current GitHub state first, and answer **yes or no in the first sentence**. Name unfinished items precisely and, if authorized, complete them rather than merely proposing the next action.
+- **When changing these instructions**, record the change in this canonical `AGENTS.md`. Avoid scattering competing behavior rules into separate docs; reference the existing §4a anti-stall and §6 CI rules rather than weakening them.
+
+**Compact completion template (Russian):** “**Статус: …**. Сделано: … . Проверки: … . GitHub: PR #… — открыт/смёржен (SHA …). Деплой: выполнен/не выполнен/не требуется. Осталось: … . Следующее действие — я/владелец: … .” Skip fields only if they genuinely do not apply.
+
 ## 5. PR budget — hard rule (GPT/Codex only)
 
 **Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.

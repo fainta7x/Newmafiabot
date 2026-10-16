@@ -27,6 +27,7 @@ export type LiveGameEventKind =
   | 'restored'
   | 'first_killed'
   | 'zero_round_voted'
+  | 'zero_round_break'
   | 'best_move'
   | 'reveal'
   | 'reveal_removed'

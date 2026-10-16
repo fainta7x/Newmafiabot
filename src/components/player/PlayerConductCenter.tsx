@@ -3,7 +3,7 @@ import type { PlayerMeResponse } from '../../types/player.ts';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
-import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
+import type { JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
 import PlayerJudging, { loadPlayerJudgingDashboard, type PlayerJudgingDashboard } from './PlayerJudging.tsx';
 
@@ -75,14 +75,13 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, onBack
 
         {pane === 'games' ? (
           <>
-            {canJudgeClubGame || isOrganizer ? (
-              <JudgeGameLauncher
-                judge={{ id: judging?.player.id || data.player.id, nickname: judging?.player.nickname || data.player.nickname }}
-                evenings={judging?.available_evenings || []}
-                onCreated={setLaunchedGame}
-              />
-            ) : null}
-            <PlayerJudging />
+            <PlayerJudging
+              evenings={canJudgeClubGame || isOrganizer ? judging?.available_evenings || [] : []}
+              onCreated={setLaunchedGame}
+            />
+            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-xs leading-5 text-white/50">
+              Потренироваться без записи в клуб можно в <a href="/guide?from=conduct&tab=judge-conduct" data-testid="conduct-training-link" className="font-semibold text-amber-100/80 underline">«Обучении»</a>: учебная партия с подсказками и свободная тестовая игра.
+            </p>
           </>
         ) : null}
       </div>

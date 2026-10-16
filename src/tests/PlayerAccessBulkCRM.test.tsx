@@ -23,6 +23,7 @@ describe('«Уровни и роли»', () => {
     expect(names()).toEqual(['Аня', 'Гость', 'Стаут', 'Точка']);
     fireEvent.change(screen.getByLabelText('Порядок'), { target: { value: 'visits' } });
     expect(names()).toEqual(['Точка', 'Стаут', 'Гость', 'Аня']);
+    fireEvent.click(screen.getByRole('button', { name: /Ещё фильтры/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
     expect(names()).toEqual(['Точка']);
     fireEvent.click(screen.getByRole('button', { name: 'Проводят вечера · 1' }));
@@ -67,11 +68,12 @@ describe('«Уровни и роли»', () => {
     expect(screen.getByTestId('crm-access-bulk-panel').textContent).toContain('по-разному');
   });
 
-  it('puts «Все» last and combines «Как ходят» with «Роль в клубе»', async () => {
+  it('puts «Все» first and combines «Как ходят» with «Роль в клубе»', async () => {
     render(<PlayerAccessBulkCRM />);
     await screen.findByText('Стаут');
     const levelChips = screen.getByLabelText('Уровень игры').querySelectorAll('button');
-    expect(levelChips[levelChips.length - 1].textContent).toContain('Все');
+    expect(levelChips[0].textContent).toContain('Все');
+    fireEvent.click(screen.getByRole('button', { name: /Ещё фильтры/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Ходят постоянно · 3' }));
     expect(names()).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Помогают клубу · 1' }));

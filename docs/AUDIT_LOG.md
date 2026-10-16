@@ -1,5 +1,10 @@
 # Audit log
 
+### 2026-10-16 — PR951 late-game picker in group (fixed)
+
+Production symptom: clicking «Приду позже» on a shared announcement posted personal game-choice buttons into the group. handlers/crm_evening_response.py now sends that picker to the clicking user in private, preserving private-chat behavior and explaining when Start is required. Reviewed three transport-isolated regressions; original Python CI passed. Merge preserves the clock-frozen test from950 rather than substituting a future date. Original container failure is upstream ECR429; inherit950 CI-only configurable base fix. No real message sent during verification.
+
+
 ### 2026-10-16 — #950 minimal-schema service compatibility (fixed)
 
 Full CI fails in eveningRoutePostsPending, novicePromoAnnouncement, organizerEveningSlots and weeklyEveningAutomation: loadEveningPeople queries evening_staff_assignments before the optional club-operations schema exists. The existing eveningJudgeId reader already handles absent/older staff schema without creating or migrating it. Reuse that owner, then load the player only for a real assigned ID. Verified: all five affected service/assigned-judge suites pass (20 tests) unchanged; no new schema migration is introduced.

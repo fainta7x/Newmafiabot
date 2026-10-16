@@ -151,7 +151,7 @@ export async function loadEveningRoute(db: DatabaseWrapper, eveningId: string, n
   const decidedToPlay = Boolean((todayPost as any).telegram_status === 'published' || (todayPost as any).vk_status === 'published' || todayPost.skipped_at);
   steps.gather.push(
     // «Думаю» is an answer too: the step is done once nobody is silent (owner, 2026-10-02).
-    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
+    { id: 'answers', title: 'Ответы игроков', detail: `Идут: ${coming} · думают: ${answers.thinking} · не идут: ${answers.declined} · молчат: ${silent}`, status: (assembled || decidedToPlay || (slots.length > 0 && fullSlots.length >= neededSlots)) ? 'done' : silent ? 'attention' : coming + answers.thinking + answers.declined ? 'done' : 'todo', target: 'participants' },
     {
       id: 'shortfall',
       title: !slots.length ? 'Набор на игры' : assembled ? `Вечер собран: ${fullSlots.length} из ${slots.length} ${plural(slots.length, 'игры', 'игр', 'игр')} набраны` : decidedToPlay ? `Играем: набрано ${fullSlots.length} из ${neededSlots} игр, решение организатора` : `Недобор: набрано ${fullSlots.length} из ${neededSlots} нужных игр`,

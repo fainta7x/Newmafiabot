@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { buildGameAnalysis } from '../../lib/liveGameAnalysis.ts';
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
+import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
 
 const router = Router();
 

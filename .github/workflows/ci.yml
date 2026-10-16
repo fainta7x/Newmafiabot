@@ -11,8 +11,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Classify change scope
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Select safe PR checks
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mode=full
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            files=$(git diff --name-only "$BASE_SHA" HEAD)
+            if [[ -n "$files" ]]; then
+              mode=fast
+              while IFS= read -r file; do
+                # Fail closed: TS/TSX and any non-style code retain full regression
+                # runs the entire regression suite and container smoke test.
+                case "$file" in
+                  docs/*|*.md|*.css|*.scss) ;;
+                  *) mode=full; break ;;
+                esac
+              done <<< "$files"
+            fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Selected $mode verification"
+
   web:
     name: Web checks and build
+    needs: scope
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +87,10 @@ jobs:
             npx tsx src/scripts/runTestGroup.ts "$group" --list-only
           done
 
+      - name: Focused fast smoke tests
+        if: needs.scope.outputs.mode == 'fast'
+        run: npm run test:smoke
+
       - name: Production build
         run: npm run build
 
@@ -59,7 +98,8 @@ jobs:
     # The full suite stays single-worker per shard (isolated forks) but runs as
     # five parallel jobs; together the shards cover every test file.
     name: Tests (shard ${{ matrix.shard }}/5)
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs: scope
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -83,7 +123,8 @@ jobs:
 
   bot-syntax:
     name: Python bot syntax
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs: scope
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -104,7 +145,8 @@ jobs:
 
   combined-container:
     name: Combined web and bot container
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs: scope
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -147,6 +189,7 @@ jobs:
     name: Release gate
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     needs:
+      - scope
       - web
       - tests
       - bot-syntax
@@ -159,12 +202,19 @@ jobs:
           TESTS_RESULT: ${{ needs.tests.result }}
           BOT_RESULT: ${{ needs.bot-syntax.result }}
           CONTAINER_RESULT: ${{ needs.combined-container.result }}
+          MODE: ${{ needs.scope.outputs.mode }}
         run: |
           echo "web=$WEB_RESULT"
           echo "tests=$TESTS_RESULT"
           echo "bot-syntax=$BOT_RESULT"
           echo "combined-container=$CONTAINER_RESULT"
           test "$WEB_RESULT" = "success"
-          test "$TESTS_RESULT" = "success"
-          test "$BOT_RESULT" = "success"
-          test "$CONTAINER_RESULT" = "success"
+          if [[ "$MODE" == "full" ]]; then
+            test "$TESTS_RESULT" = "success"
+            test "$BOT_RESULT" = "success"
+            test "$CONTAINER_RESULT" = "success"
+          else
+            test "$TESTS_RESULT" = "skipped"
+            test "$BOT_RESULT" = "skipped"
+            test "$CONTAINER_RESULT" = "skipped"
+          fi

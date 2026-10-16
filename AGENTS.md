@@ -96,6 +96,17 @@ The owner expects the assistant to **implement and finish the requested work**, 
 
 **Compact completion template (Russian):** “**Статус: …**. Сделано: … . Проверки: … . GitHub: PR #… — открыт/смёржен (SHA …). Деплой: выполнен/не выполнен/не требуется. Осталось: … . Следующее действие — я/владелец: … .” Skip fields only if they genuinely do not apply.
 
+## 4c. Portfolio PR status digest in every repository-work reply (owner, 2026-10-16)
+
+Whenever replying about repository changes, including work in progress, finished patches and follow-up requests, include a compact **“Состояние PR”** digest covering **6–10 relevant recent pull requests when that many exist**. Keep it proportionate: if fewer are relevant, show all relevant ones; do not invent entries or pad with unrelated old PRs. Always prioritize **every open, blocked, failing, green-but-unmerged, or stalled PR**, then recently merged PRs to fill the digest. An active old PR must never disappear merely because newer PRs were created.
+
+- Query live GitHub state before the digest, not memory alone. For each include PR number/link, very short purpose, truthful status (open/CI running/CI failed/green awaiting merge/merged/closed), and one blocker or next action for anything not finished. Summarize active blockers separately when helpful.
+- **Act on pending PRs, don't merely list them.** For any green mergeable PR that the owner has already authorized to merge, merge it when safe. For failures, inspect the failing check; for merge conflicts, reconcile the branch. Respect the anti-stall limits in §4a and don't bypass required checks.
+- Distinguish PR status from deployment and actual runtime verification. PR merged means code is in `main`, not that the user sees it in Amvera.
+- **Never misreport a merged PR as open.** Example: PR #960 must be checked live; once GitHub reports it merged, it belongs in the merged category. If its features still look absent, investigate deployment or runtime instead of reopening a completed merge task.
+- After the digest, state a single actionable next step and its owner. If no open PRs remain, say so rather than inventing “pending” work.
+- Keep this digest short and scannable (typically one Markdown table) so it does not overwhelm the answer or replace actually implementing the user's requested changes. Do not continually repeat the entire historical PR backlog.
+
 ## 5. PR budget — hard rule (GPT/Codex only)
 
 **Scope (owner decision 2026-10-04):** this budget applies to the GPT/Codex assistant only. It does **not** apply to Claude — the owner lifted it for Claude. Claude still keeps PRs coherent, runs each to green CI and does not loop on screenshot/fix/CI cycles.

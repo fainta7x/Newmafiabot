@@ -460,6 +460,15 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
                 onRoundChange={handleRoundChange}
                 onConfirmOutcome={handleConfirmOutcome}
                 onResetOutcome={handleResetOutcome}
+                onSetZeroBreakSeat={(seat) => setProtocol(prev => {
+                  const retained = (prev.events || []).filter(event => !(event.kind === 'zero_round_break' && event.round === 1));
+                  if (seat === null) return { ...prev, events: retained };
+                  return { ...prev, events: [...retained, {
+                    seq: retained.reduce((max, event) => Math.max(max, event.seq), 0) + 1,
+                    at: new Date().toISOString(), round: 1, phase: 'day_voting', kind: 'zero_round_break', seat,
+                  }] };
+                })}
+
               />
             )}
 

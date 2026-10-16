@@ -88,20 +88,23 @@ const requirePlayer = (req: Request, res: Response): string | null => {
 };
 
 const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: string) => {
-  if (!formats.length) return [];
   const evenings = await db.all(`
-    SELECT e.*,
+    SELECT e.*, staff.judge_player_id AS assigned_judge_player_id,
+           staff.organizer_player_id AS assigned_organizer_player_id,
            (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
       FROM game_evenings e
-      JOIN evening_staff_assignments staff ON staff.evening_id = e.id
-     WHERE staff.judge_player_id = ?
-       AND e.status IN ('published', 'active')
+ LEFT JOIN evening_staff_assignments staff ON staff.evening_id = e.id
+     WHERE e.status IN ('published', 'active')
      ORDER BY CASE WHEN e.status = 'active' THEN 0 ELSE 1 END, e.starts_at ASC
-     LIMIT 20
-  `, [playerId]);
+     LIMIT 60
+  `);
 
-  const allowed = evenings.filter((evening: any) => canHostEveningFormat({ host_formats: formats.join(',') }, evening.format));
+  const allowed = evenings;
   return Promise.all(allowed.map(async (evening: any) => {
+    const assignedJudge = String(evening.assigned_judge_player_id || '') === playerId;
+    const organizer = String(evening.assigned_organizer_player_id || '') === playerId;
+    const canCreate = assignedJudge && canHostEveningFormat({ host_formats: formats.join(',') }, evening.format);
+    const canViewRoster = assignedJudge || organizer;
     const [participants, tables] = await Promise.all([
       db.all(`
         SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status,
@@ -124,6 +127,10 @@ const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: s
 
     return {
       id: String(evening.id),
+      can_create: canCreate,
+      is_organizer: organizer,
+      assigned_judge: assignedJudge,
+      access_label: canCreate ? 'Назначен ведущим' : organizer ? 'Вы организатор · ведущий назначен отдельно' : assignedJudge ? 'Формат недоступен по уровню ведущего' : 'Ведущим назначен другой игрок',
       title: evening.title,
       starts_at: evening.starts_at,
       venue: evening.venue ?? null,
@@ -135,7 +142,7 @@ const loadAvailableEvenings = async (db: any, formats: HostFormat[], playerId: s
         name: String(table.name || 'Стол'),
         host_name: table.host_name ?? null,
       })),
-      participants: participants.map((participant: any) => ({
+      participants: (canViewRoster ? participants : []).map((participant: any) => ({
         id: String(participant.id),
         player_id: String(participant.player_id),
         nickname: String(participant.nickname || 'Игрок'),
@@ -165,10 +172,11 @@ router.get('/judging', async (req, res) => {
           FROM games g
           JOIN game_evenings e ON e.id = g.evening_id
      LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-         WHERE g.judge_player_id = ? AND g.archived_at IS NULL
+     LEFT JOIN evening_staff_assignments staff ON staff.evening_id = e.id
+         WHERE (g.judge_player_id = ? OR staff.organizer_player_id = ?) AND g.archived_at IS NULL
          ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
          LIMIT 60
-      `, [playerId]),
+      `, [playerId, playerId]),
       db.all(`
         SELECT tg.*, t.title AS tournament_title, t.date AS tournament_date,
                t.status AS tournament_status, t.venue
@@ -183,7 +191,7 @@ router.get('/judging', async (req, res) => {
 
     const clubGames = clubRows.map((row: any) => {
       const game = normalizeClubGame(row);
-      return { ...game, can_conduct: canHostEveningFormat(player, row.evening_format) && game.status !== 'completed' };
+      return { ...game, can_conduct: String(row.judge_player_id || '') === playerId && canHostEveningFormat(player, row.evening_format) && game.status !== 'completed', can_view: true };
     });
     const tournamentGames = await Promise.all(tournamentRows.map((row: any) => loadTournamentGame(db, row)));
 

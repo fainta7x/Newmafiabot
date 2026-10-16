@@ -78,7 +78,7 @@ describe('«Судья вечера» and publishing', () => {
     expect(await staff(db, id)).toEqual({ organizer_player_id: null, judge_player_id: 'rating-judge' });
   });
 
-  it('a qualified judge sees and creates games only for evenings assigned to them', async () => {
+  it('a qualified judge sees all published evenings but may create only in assigned evenings', async () => {
     const { db, app } = await setup();
     const now = new Date().toISOString();
     const startsAt = later();
@@ -95,7 +95,10 @@ describe('«Судья вечера» and publishing', () => {
     const dashboard = await request(app).get('/api/player/judging').set('Cookie', judge);
     expect(dashboard.status, JSON.stringify(dashboard.body)).toBe(200);
     expect(dashboard.body.permissions.casual).toBe(true);
-    expect(dashboard.body.available_evenings.map((evening: any) => evening.id)).toEqual(['assigned-club']);
+    expect(dashboard.body.available_evenings.map((evening: any) => evening.id)).toEqual(['assigned-club', 'other-club']);
+    expect(dashboard.body.available_evenings.find((evening: any) => evening.id === 'assigned-club').can_create).toBe(true);
+    expect(dashboard.body.available_evenings.find((evening: any) => evening.id === 'other-club').can_create).toBe(false);
+    expect(dashboard.body.available_evenings.find((evening: any) => evening.id === 'other-club').participants).toEqual([]);
 
     const unassignedCreate = await request(app).post('/api/games/evening/other-club').set('Cookie', judge)
       .send({ judge_player_id: 'club-judge', seats: [] });

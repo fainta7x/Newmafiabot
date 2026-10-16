@@ -33,10 +33,10 @@ jobs:
             if [[ -n "$files" ]]; then
               mode=fast
               while IFS= read -r file; do
-                # Fail closed: anything outside documentation and purely visual UI
+                # Fail closed: TS/TSX and any non-style code retain full regression
                 # runs the entire regression suite and container smoke test.
                 case "$file" in
-                  docs/*|*.md|src/components/*|src/pages/*|src/styles/*|src/index.css|src/App.css) ;;
+                  docs/*|*.md|*.css|*.scss) ;;
                   *) mode=full; break ;;
                 esac
               done <<< "$files"
@@ -86,6 +86,10 @@ jobs:
           for group in smoke crm live-game telegram vk regression; do
             npx tsx src/scripts/runTestGroup.ts "$group" --list-only
           done
+
+      - name: Focused fast smoke tests
+        if: needs.scope.outputs.mode == 'fast'
+        run: npm run test:smoke
 
       - name: Production build
         run: npm run build

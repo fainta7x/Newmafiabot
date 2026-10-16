@@ -1,5 +1,41 @@
 # Audit log
 
+### 2026-10-16 — PR951 late-game picker in group (fixed)
+
+Production symptom: clicking «Приду позже» on a shared announcement posted personal game-choice buttons into the group. handlers/crm_evening_response.py now sends that picker to the clicking user in private, preserving private-chat behavior and explaining when Start is required. Reviewed three transport-isolated regressions; original Python CI passed. Merge preserves the clock-frozen test from950 rather than substituting a future date. Original container failure is upstream ECR429; inherit950 CI-only configurable base fix. No real message sent during verification.
+
+
+### 2026-10-16 — #950 minimal-schema service compatibility (fixed)
+
+Full CI fails in eveningRoutePostsPending, novicePromoAnnouncement, organizerEveningSlots and weeklyEveningAutomation: loadEveningPeople queries evening_staff_assignments before the optional club-operations schema exists. The existing eveningJudgeId reader already handles absent/older staff schema without creating or migrating it. Reuse that owner, then load the player only for a real assigned ID. Verified: all five affected service/assigned-judge suites pass (20 tests) unchanged; no new schema migration is introduced.
+
+### 2026-10-16 — #950 review: assigned judge identity
+
+Review PRRT_kwDOTau29M6tIOO_ correctly identifies that a separately assigned judge may not have an RSVP row. Preserve owner's11/9 total while explicitly counting the assigned judge once, with player-ID deduplication. Keep raw registration/shortfall player counts separate; expose gathering_count in weekly summaries and add only a nonregistered assigned judge to each slot's gathering list. A judge who already answered thinking/declined is not silently converted to going. Regression:8/10 signups plus separate judge assembled; judge already among signups no duplicate; raw counters and responses unchanged.
+
+### 2026-10-16 — #950 container registry blocker
+
+Second candidate: all five TS shards, web checks/build, Python tests passed. Container job116892647392 still fails before source build with public ECR HTTP429 Data limit exceeded. Cause is registry access from hosted runner. Add configurable official Node base image; default remains ECR for Amvera, CI explicitly selects docker.io/library/node:24-bookworm-slim. Both build stages use the same configured image; runtime startup verification remains mandatory.
+
+### 2026-10-16 — #950 first CI diagnosis (before follow-up fix)
+
+Web checks + four shards passed. Fifth shard exposed an over-broad readiness normalization resetting an explicitly configured one-place novice reservation to 9; preserve custom capacities and migrate only the legacy default11→9. UI preview 84/86 passed: new comparison selector «Иду» also matched «Не иду»/«Приду позже»; use exact accessible name, no product workaround. Python has an independent calendar-dependent fixture: its 16 October event is now «сегодня»; freeze the test clock and cover both date/today branches. Container failed before building source: public ECR HTTP429 Data limit exceeded; no Dockerfile/mirror change.
+
+## 2026-10-16 — owner spreadsheet / approved teaching cards (open)
+
+Source: Google Sheet `1pxtdwQrYfuFrK-ogWK9DFt50HMS4beYfK88lQHNbw_g`, tab Баг-трекер, rows 2–8, read 2026-10-16. Scope is seven requested CRM corrections plus saving the two final approved teaching images/copy; no production data edits or messaging.
+
+- Row 2, `WeekEventsPanel.tsx`: Today rows omit registration totals; show actual coming people and shortage, guests included. Acceptance: same totals in rows/cards.
+- Row 3, `eveningRouteService.ts`: valid timing always has status info, so a complete preparation remains 6/7. Acceptance: valid date is done, invalid date attention.
+- Row 4, `WeekEventsPanel.tsx` / `EveningsList.tsx`: chronological sorting ignores owner's priority regular evenings → ratings/tournaments → other. Acceptance: priority first, date within group.
+- Row 5, `eveningRouteService.ts` / `eveningRecruitmentService.ts`: route answers count only evening_participants, recruitment drops guests/whole-evening signups. Acceptance: guest plus companions counted once, declined/thinking excluded from coming.
+- Row 6, `eveningSlotPlanningService.ts`: novice gathering inherits 11 instead of 9 people. Acceptance: 10 players + judge = 11 regular, 8 + judge = 9 novice; preserve game-seat and money rules.
+- Row 7, `EveningGameRegistrationDashboard.tsx`: «Нужен ответ» overlaps «Нет ответа» without explaining subset. Acceptance: response filters are disjoint; delivery tracked separately.
+- Row 8, same component: five inconsistent inline buttons give no clear current/destination state. Acceptance: compact labelled response picker, selected status and Cancel, 44px targets; same response writer.
+- Teaching copy: card selection by finger number; thumbs-up fist on table; no general discussion; Don hunts/kills or plays Sheriff. Final card1 = exec-79fca779, card2 = exec-ae6f3551. Omission of best move/penalties is only for these beginner cards, not removal of game mechanics.
+
+Status: all seven findings have implementation and focused regressions in this workstream. First focused batch: 33 tests; follow-up route/shortfall/response batch: 26 tests; smoke: 19 tests. TypeScript, changed-file ESLint, isolated preview build and release data-safety audit passed locally. Mobile screenshots/required Actions and merge are pending. Baseline preview components are frozen under e2e/fixtures at bdc59bfe solely for same-fixture before/after capture. Local browser installation returned a truncated archive; no local visual approval claimed. Existing automatic cancellation playing-seat minimum remains unchanged; gathering thresholds include the judge.
+
 ## 2026-10-15 — restore compact game graphics after owner review
 
 - IMPLEMENTED, exact-head browser/CI pending — role presentation had several owners: `tournamentRoleValidation.ts` and `playerGameRoleLabels.ts` duplicate names; cabinet pages add local dictionaries; the table, broadcast and the new `RoleMark` choose icons/colours independently. The final search also found duplicate name maps in club result images/posts, the premium-profile service, GoMafia rows and betting CRM; these now read the same shared labels. Establish one shared role registry and reusable UI, retain existing validation exports as compatibility adapters, and migrate the actual player/table/broadcast consumers without changing role assignment or visibility.

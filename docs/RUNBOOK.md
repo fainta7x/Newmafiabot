@@ -165,6 +165,9 @@ main merged?: yes/no     Amvera deployed?: confirmed/unconfirmed
 
 ## 5. CI failure handling
 
+The Dockerfile's `NODE_BASE_IMAGE` defaults to the public ECR mirror for Amvera. GitHub CI selects the same official Node 24 Bookworm slim image from Docker Hub with a build argument, avoiding ECR's public data-limit429. Both build stages share that argument. Keep the container startup check; a successful web build alone is insufficient.
+
+
 When a required job fails:
 
 1. inspect the exact failed job/log;

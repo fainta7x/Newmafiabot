@@ -334,6 +334,10 @@ export interface GameEvening {
   created_at: string;
   updated_at: string;
   registered_count?: number;
+  gathering_count?: number;
+  guests_count?: number;
+  late_count?: number;
+  thinking_count?: number;
   confirmed_count?: number;
   attended_count?: number;
   no_show_count?: number;

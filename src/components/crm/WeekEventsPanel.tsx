@@ -1,3 +1,4 @@
+import { eveningGatheringSize, eventPriority } from '../../lib/eveningGathering.ts';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, Trophy } from 'lucide-react';
 import { api, type GameEvening, type Tournament } from '../../lib/api.ts';
@@ -8,7 +9,7 @@ const DAY = 86_400_000;
 // An evening that started a few hours ago is still «this week's» work (it may be running now).
 const STARTED_GRACE = 6 * 3_600_000;
 
-type Item = { key: string; id: string; title: string; startsAt: string; label: string; draft: boolean; tournament: boolean; kind: EventKind; venue: string | null; going: number | null };
+type Item = { key: string; id: string; title: string; startsAt: string; label: string; draft: boolean; tournament: boolean; kind: EventKind; venue: string | null; going: number | null; guests: number | null; late: number; thinking: number; required: number; priority: number };
 
 const dayParts = (value: string) => {
   const date = new Date(value);
@@ -62,7 +63,8 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       result.push({
         key: `evening-${evening.id}`, id: evening.id, title: evening.title, startsAt: evening.starts_at,
         label: EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)], draft: evening.status === 'draft', tournament: false, kind: kindOfFormat(evening.format),
-        venue: evening.venue ? String(evening.venue) : null, going: typeof evening.registered_count === 'number' ? evening.registered_count : null,
+        venue: evening.venue ? String(evening.venue) : null, going: typeof evening.gathering_count === 'number' ? evening.gathering_count : typeof evening.registered_count === 'number' ? evening.registered_count : null,
+        guests: typeof evening.guests_count === 'number' ? evening.guests_count : null, late: Number(evening.late_count || 0), thinking: Number(evening.thinking_count || 0), required: eveningGatheringSize(evening.format), priority: eventPriority(evening.format),
       });
     }
     for (const tournament of includeTournaments ? tournaments : []) {
@@ -71,10 +73,10 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       if (status !== 'active' && !inWeek(tournament.date)) continue;
       result.push({
         key: `tournament-${tournament.id}`, id: tournament.id, title: tournament.title, startsAt: tournament.date,
-        label: 'Турнир', draft: false, tournament: true, kind: 'TOURNAMENT', venue: null, going: null,
+        label: 'Турнир', draft: false, tournament: true, kind: 'TOURNAMENT', venue: null, going: null, guests: null, late: 0, thinking: 0, required: 0, priority: 1,
       });
     }
-    return result.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    return result.sort((a, b) => a.priority - b.priority || new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }, [evenings, tournaments, now, excludeIds, includeTournaments]);
 
   if (!items.length) return null;
@@ -97,7 +99,8 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
                   <span className={`rounded-md border px-1.5 py-0.5 text-[12px] font-semibold ${kindTone(item.kind)}`}>{item.label}</span>
                   {item.draft ? <span className="rounded-md bg-surface-1 px-1.5 py-0.5 text-[12px]">черновик</span> : null}
                 </span>
-                {item.venue || item.going !== null ? <span className="mt-1 block truncate text-[12px] text-text-muted">{[item.venue, item.going !== null ? `записано: ${item.going}` : null].filter(Boolean).join(' · ')}</span> : null}
+                {item.venue ? <span className="mt-1 block text-[12px] text-text-muted">{item.venue}</span> : null}
+                <RegistrationSummary item={item} />
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
             </button>
@@ -109,6 +112,7 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[14px] text-text-primary">{item.title}</strong>
               <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-text-muted"><span>{when(item.startsAt)}</span><span className={`rounded-md border px-1.5 py-0.5 font-semibold ${kindTone(item.kind)}`}>{item.label}</span>{item.draft ? <span>черновик</span> : null}</span>
+              <RegistrationSummary item={item} />
             </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
           </button>
@@ -116,4 +120,20 @@ export default function WeekEventsPanel({ evenings, onOpenEvening, onOpenTournam
       </div>
     </section>
   );
+}
+
+function RegistrationSummary({ item }: { item: Item }) {
+  if (item.going === null) return null;
+  const missing = Math.max(0, item.required - item.going);
+  return <span className="mt-2 block space-y-1 text-[12px] leading-4" data-testid="week-registration">
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <strong className={missing ? 'text-text-primary' : 'text-success'}>Идут {item.going} из {item.required}</strong>
+      <span className="text-text-muted">{missing ? `ещё ${missing} до сбора` : 'минимум набран'} · с судьёй</span>
+    </span>
+    <span className="block text-text-muted">{[
+      item.guests !== null ? `в том числе гостей: ${item.guests}` : null,
+      item.late ? `позже: ${item.late}` : null,
+      item.thinking ? `думают: ${item.thinking}` : null,
+    ].filter(Boolean).join(' · ')}</span>
+  </span>;
 }

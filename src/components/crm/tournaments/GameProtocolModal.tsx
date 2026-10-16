@@ -1695,6 +1695,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   onRoundChange={handleRoundChange}
                   onConfirmOutcome={handleConfirmOutcome}
                   onResetOutcome={handleResetOutcome}
+                  onSetZeroBreakSeat={(seat) => setProtocol(prev => {
+                    const retained = (prev.events || []).filter(event => !(event.kind === 'zero_round_break' && event.round === 1));
+                    if (seat === null) return { ...prev, events: retained };
+                    const nextSeq = retained.reduce((max, event) => Math.max(max, event.seq), 0) + 1;
+                    return { ...prev, events: [...retained, { seq: nextSeq, at: new Date().toISOString(), round: 1, phase: 'day_voting', kind: 'zero_round_break', seat }] };
+                  })}
+
                   onRegisterRoundRef={(rIdx, el) => {
                     roundRefs.current[rIdx] = el;
                   }}

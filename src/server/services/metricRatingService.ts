@@ -12,6 +12,7 @@ import { russianPlural } from '../../lib/russianPlural.ts';
 import { buildNightShotStats } from '../../lib/nightShots.ts';
 import { buildRevealStats, emptyRevealStats } from '../../lib/revealStats.ts';
 import { buildCircleExits } from '../../lib/circleExits.ts';
+import { buildZeroRoundPlayerCounts } from '../../lib/zeroRoundPlayerCounts.ts';
 
 /**
  * Club rankings by one figure of the player statistics (owner request 2026-10-12): «who collected the most» wins, games,
@@ -26,7 +27,7 @@ export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
   | 'citizen_wins' | 'sheriff_wins' | 'mafia_wins' | 'don_wins'
-  | 'best_moves' | 'first_killed' | 'zero_round' | 'elo_gain'
+  | 'best_moves' | 'first_killed' | 'zero_round' | 'zero_round_broke' | 'zero_round_raised' | 'elo_gain'
   | 'votes_accuracy' | 'nominations_accuracy' | 'sheriff_checks' | 'don_checks' | 'best_move_black'
   | 'black_misses' | 'black_miss_rate' | 'times_shot' | 'night_pairs'
   | 'fed_avg_place' | 'fed_best_place' | 'fed_tournaments' | 'critical_exits' | 'sheriff_reveals' | 'sheriff_found_black' | 'black_reveals' | 'black_covers' | 'don_reveals' | 'don_handed_reveal';
@@ -51,6 +52,8 @@ export const METRICS: MetricDef[] = [
   { key: 'best_moves', label: 'Лучший ход', group: 'Ход игры', unit: 'count', hint: 'Сколько раз игрок сделал лучший ход по протоколу' },
   { key: 'first_killed', label: 'ПУ', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
   { key: 'zero_round', label: 'Заголосован в нуле', group: 'Ход игры', unit: 'count', hint: 'Сколько раз игрока заголосовали в нулевом круге' },
+  { key: 'zero_round_broke', label: 'Сломал в нуле', group: 'Ход игры', unit: 'count', sample: { words: ['случай', 'случая', 'случаев'] }, hint: 'Сколько раз игрок прямо отмечен судьёй как сломавший попил нулевого круга; по одним итоговым голосам не угадываем' },
+  { key: 'zero_round_raised', label: 'Подняли в нуле', group: 'Ход игры', unit: 'count', sample: { words: ['случай', 'случая', 'случаев'] }, hint: 'Сколько раз игрок оказался в подтверждённом попиле на первом голосовании нулевого круга' },
   { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
   { key: 'nominations_accuracy', label: 'Меткость выставлений', group: 'Меткость', unit: 'percent', sample: { words: ['выставление', 'выставления', 'выставлений'] }, hint: 'Какая доля выставленных красным оказалась чёрной' },
   { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
@@ -329,6 +332,13 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
   const statSource = (metric.sample && metric.group !== 'Федерация') || metric.key === 'night_pairs' ? await loadStatGamesCached(db) : { games: [] as StatGame[], memo: createStatMemo() };
   const scopedStat = statSource.games.filter((game) => scopedIds.has(game.id));
   const night = nightMetrics.has(metric.key) ? buildNightShotStats(scopedStat) : null;
+  if (metric.key === 'zero_round_broke' || metric.key === 'zero_round_raised') {
+    const results = buildZeroRoundPlayerCounts(scopedStat);
+    for (const [id, result] of results) {
+      const count = metric.key === 'zero_round_broke' ? result.broke : result.raised;
+      if (count) accuracy.set(id, { value: count, sample: count });
+    }
+  }
   if (metric.group === 'Федерация') {
     for (const [id, places] of await loadFederationPlaces(db)) {
       const value = metric.key === 'fed_avg_place' ? places.reduce((sum, place) => sum + place, 0) / places.length
@@ -348,7 +358,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
       if (metric.key === 'don_handed_reveal' && stats.donGames) accuracy.set(id, { value: stats.donHandedReveal, sample: stats.donGames });
       if (metric.key === 'black_covers' && stats.blackGames) accuracy.set(id, { value: stats.blackCovers, sample: stats.blackGames });
     }
-  } else if (metric.key === 'critical_exits' || metric.group === 'Федерация') {
+  } else if (metric.key === 'critical_exits' || metric.group === 'Федерация' || metric.key === 'zero_round_broke' || metric.key === 'zero_round_raised') {
     // filled above
   } else if (metric.sample && night) {
     for (const [id, stats] of night.players) {

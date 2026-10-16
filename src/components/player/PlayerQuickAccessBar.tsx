@@ -13,6 +13,7 @@ export default function PlayerQuickAccessBar({
   onOpenConduct,
   onOpenWallet,
   onOpenSettings,
+  onOpenHome,
 }: {
   player: PlayerMeResponse['player'];
   tokenBalance: number;
@@ -24,6 +25,7 @@ export default function PlayerQuickAccessBar({
   onOpenWallet: () => void;
   /** The gear: my details, notifications, privacy, music (owner decision 2026-10-06). */
   onOpenSettings: () => void;
+  onOpenHome: () => void;
 }) {
   return (
     <header
@@ -31,10 +33,10 @@ export default function PlayerQuickAccessBar({
       className="ds-chrome-top fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b"
     >
       <div className="player-cabinet-toolbar mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-2 px-3 pr-[58px]">
-        <div className="min-w-0 flex-1">
+        <button type="button" onClick={onOpenHome} aria-label="На главную" className="ds-focus-ring min-w-0 flex-1 rounded-lg text-left">
           <div className="truncate text-sm font-semibold tracking-[0.08em] text-white/78">2LA Noire</div>
           <div className="mt-0.5 truncate text-[12px] text-white/50">{player.nickname}</div>
-        </div>
+        </button>
 
         <div className="flex shrink-0 items-center gap-1.5">
           {canOpenAdmin && onOpenAdmin ? (

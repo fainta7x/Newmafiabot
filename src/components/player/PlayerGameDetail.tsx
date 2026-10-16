@@ -8,8 +8,9 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
-import { GameTableScene, VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
+import { VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
+import PlayerGameActionJournal from './PlayerGameActionJournal.tsx';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -376,7 +377,6 @@ export default function PlayerGameDetail({
             </div>
           </details>}
           <details data-testid="game-full-protocol" className="group border-t border-white/10 px-3"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
-            <details className="mb-2 border-b border-white/10"><summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-xs text-white/70"><span className="font-semibold">Рассадка и роли</span><span>Схема стола ▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
               <ul data-testid="game-reveals" className="grid gap-3 lg:grid-cols-2">
@@ -415,13 +415,13 @@ export default function PlayerGameDetail({
 
           {(story.length > 0 || detail.protocol.replacement) && (
             <Section title="Ход игры" hint="Голоса игроков по кругам и ночные выстрелы. Номера соответствуют местам за столом.">
-              <ol data-testid="game-story-timeline" className="relative space-y-3 border-l-2 border-amber-200/20 pl-4 sm:pl-6">
+              <ol data-testid="game-story-timeline" className="space-y-1.5">
                 {story.map((entry) => {
                   if (entry.kind === 'night') {
                     const shot = entry.shot;
                     const tone = shot.result === 'killed' ? 'bg-rose-400/12 text-rose-100' : 'bg-white/[0.07] text-white/65';
                     return (
-                      <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-violet-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                      <li key={entry.key} className="rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg">☾</span> Ночь {shot.night_number}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] ${tone}`}>{shotResultLabel(shot.result)}</span>
@@ -439,15 +439,15 @@ export default function PlayerGameDetail({
                     : ['eliminated', 'single_eliminated'].includes(vote.outcome || '') ? (leaders.length === 1 ? `Заголосован ${seatLabel(leaders[0].seat)}` : 'Игрок заголосован')
                     : vote.outcome ? vote.outcome.replaceAll('_', ' ') : null;
                   return (
-                    <li key={entry.key} className="relative border-b border-white/10 py-3 before:absolute before:-left-[22px] before:top-5 before:h-2.5 before:w-2.5 before:rounded-full before:border-2 before:border-rose-200/70 before:bg-[#090a0d] sm:before:-left-[30px]">
+                    <li key={entry.key} className="rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-sm font-semibold text-white/90"><span aria-hidden="true" className="text-lg text-rose-200/70">◉</span>{vote.day_number === 0 ? 'Нулевой круг' : `День ${vote.day_number}`}{vote.is_revote ? ' · переголосование' : ''}</span>
                       </div>
                       {(() => {
                         const ballots = analysis.circles.find(circle => circle.round === vote.day_number + 1)?.votings.find(round => round.number === vote.round_number)?.votes || [];
-                        return ballots.length ? <div aria-label="Кто в кого голосовал" className="mt-2 divide-y divide-white/10">{ballots.map(ballot => <div key={ballot.candidate} className="grid grid-cols-[1fr_20px_1fr] items-center gap-2 py-2 text-xs"><span className="flex flex-wrap gap-1">{ballot.voters.map(seat => <span key={seat} title={seatLabel(seat)} aria-label={seatLabel(seat)} className="rounded bg-white/[.08] px-1.5 py-1 tabular-nums">{seat}</span>)}</span><span aria-hidden="true" className="text-white/40">→</span><span className="flex min-w-0 items-center gap-1.5"><GameRoleBadge role={seatPlayer(ballot.candidate)?.role}/><span className="truncate" title={seatLabel(ballot.candidate)}>{seatLabel(ballot.candidate)}</span></span></div>)}</div> : <><p className="mt-2 text-[11px] text-white/45">Индивидуальные голоса не записаны. В протоколе сохранились только суммы.</p><VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} /></>;
+                        return ballots.length ? <div aria-label="Кто в кого голосовал" className="mt-1.5 space-y-1">{ballots.map(ballot => <div key={ballot.candidate} className="flex flex-wrap items-center gap-1.5 rounded-lg bg-black/20 px-2 py-1.5 text-[11px]"><span className="flex flex-wrap gap-1">{ballot.voters.map(seat => <span key={seat} title={seatLabel(seat)} aria-label={seatLabel(seat)} className={seatPlayer(seat)?.team === "black" ? "rounded bg-violet-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-violet-200" : seatPlayer(seat)?.team === "red" ? "rounded bg-rose-400/20 px-1.5 py-0.5 font-semibold tabular-nums text-rose-200" : "rounded bg-white/10 px-1.5 py-0.5 tabular-nums text-white/70"}>{seat}</span>)}</span><span aria-hidden="true" className="text-white/40">→</span><span className="flex min-w-0 items-center gap-1.5"><GameRoleBadge role={seatPlayer(ballot.candidate)?.role}/><span className="truncate" title={seatLabel(ballot.candidate)}>{seatLabel(ballot.candidate)}</span></span></div>)}</div> : <><p className="mt-2 text-[11px] text-white/45">Индивидуальные голоса не записаны. В протоколе сохранились только суммы.</p><VoteSplitScene eligible={vote.eligible_voters} candidates={counts.map((item) => ({ seat: item.seat, nickname: seatPlayer(item.seat)?.nickname || "Неизвестный игрок", votes: item.votes, team: seatPlayer(item.seat)?.team }))} /></>;
                       })()}
-                      {result ? <div className="mt-3 rounded-xl border border-white/[.08] bg-black/25 px-3 py-2 text-[12px] font-medium text-white/75">{result}</div> : null}
+                      {result ? <div className="mt-1.5 text-[11px] font-semibold text-white/75">{result}</div> : null}
                     </li>
                   );
                 })}
@@ -455,6 +455,8 @@ export default function PlayerGameDetail({
               {detail.protocol.replacement ? <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">В протоколе зафиксирована замена игрока.</div> : null}
             </Section>
           )}
+
+          <PlayerGameActionJournal events={detail.protocol.events || []} players={detail.players} />
 
           {detail.protocol.judge_notes && (
             <Section title="Заметка судьи">

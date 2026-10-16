@@ -78,7 +78,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'settings' ? 'settings' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} canOpenConduct={canOpenConduct} onOpenAdmin={onOpenAdmin} onOpenConduct={() => open('conduct')} onOpenWallet={() => open('wallet')} onOpenSettings={() => open('settings')} />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'settings' ? 'settings' : null} canOpenAdmin={canOpenAdmin || canOpenEventHost} canOpenConduct={canOpenConduct} onOpenAdmin={onOpenAdmin} onOpenConduct={() => open('conduct')} onOpenWallet={() => open('wallet')} onOpenSettings={() => open('settings')} onOpenHome={() => open('home')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
       {/* Only on «Главная»: on every section it pushed the content down (owner, 2026-10-06). */}

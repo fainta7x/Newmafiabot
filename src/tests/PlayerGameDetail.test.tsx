@@ -82,6 +82,28 @@ describe('visual game timeline', () => {
   });
 });
 
+describe('verified voting and night facts', () => {
+  it('shows the candidate on the left of the voters, not the inverse', () => {
+    view({ detail: { ...detail, protocol: { ...detail.protocol, events: [
+      { seq: 1, at: '', round: 1, phase: 'day_voting', kind: 'vote', seat: 2, target: 1, value: 1 },
+      { seq: 2, at: '', round: 1, phase: 'day_voting', kind: 'vote', seat: 3, target: 1, value: 1 },
+      { seq: 3, at: '', round: 1, phase: 'day_voting', kind: 'vote_round_result', value: '1:tie_revote' },
+    ] } } });
+    fireEvent.click(screen.getByTestId('game-full-protocol').querySelector('summary')!);
+    const timeline = screen.getByTestId('game-story-timeline');
+    expect(timeline.textContent).toContain('←');
+    expect(timeline.textContent).toContain('#1 Богданчик');
+  });
+
+  it('does not describe a confirmed first-night victim as a miss', () => {
+    view({ detail: { ...detail, protocol: { ...detail.protocol, shots: [{ night_number: 1, target_seat: 9, result: 'miss' }] } } });
+    fireEvent.click(screen.getByTestId('game-full-protocol').querySelector('summary')!);
+    const timeline = screen.getByTestId('game-story-timeline');
+    expect(timeline.textContent).toContain('убит');
+    expect(timeline.textContent).not.toContain('Промах');
+  });
+});
+
 describe('player game page', () => {
   it('opens with the result, the viewer’s own game and what mattered', () => {
     view();

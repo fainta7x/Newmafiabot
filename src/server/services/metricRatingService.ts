@@ -21,7 +21,7 @@ import { buildCircleExits } from '../../lib/circleExits.ts';
 
 export const TOP_SIZE = 30;
 
-type Group = 'Победы' | 'Игры' | 'Роли и команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Вскрытия' | 'Федерация' | 'Elo';
+type Group = 'Победы' | 'Игры' | 'Роли' | 'Команды' | 'Ход игры' | 'Меткость' | 'Отстрелы' | 'Вскрытия' | 'Федерация' | 'Elo';
 export type MetricKey =
   | 'wins' | 'win_rate' | 'games' | 'best_streak'
   | 'red_wins' | 'black_wins' | 'red_win_rate' | 'black_win_rate'
@@ -40,17 +40,17 @@ export const METRICS: MetricDef[] = [
   { key: 'win_rate', label: 'Винрейт', group: 'Победы', unit: 'percent', hint: 'Доля побед среди всех сыгранных игр' },
   { key: 'best_streak', label: 'Серия побед', group: 'Победы', unit: 'count', hint: 'Самая длинная серия побед подряд' },
   { key: 'games', label: 'Игры', group: 'Игры', unit: 'count', hint: 'Больше всех сыграно игр' },
-  { key: 'red_wins', label: 'Победы за красных', group: 'Роли и команды', unit: 'count', hint: 'Победы мирным или шерифом' },
-  { key: 'black_wins', label: 'Победы за чёрных', group: 'Роли и команды', unit: 'count', hint: 'Победы мафией или доном' },
-  { key: 'red_win_rate', label: 'Винрейт за красных', group: 'Роли и команды', unit: 'percent', hint: 'Доля побед среди игр за красных' },
-  { key: 'black_win_rate', label: 'Винрейт за чёрных', group: 'Роли и команды', unit: 'percent', hint: 'Доля побед среди игр за чёрных' },
-  { key: 'citizen_wins', label: 'Победы мирным', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли мирного' },
-  { key: 'sheriff_wins', label: 'Победы шерифом', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли шерифа' },
-  { key: 'mafia_wins', label: 'Победы мафией', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли мафии' },
-  { key: 'don_wins', label: 'Победы доном', group: 'Роли и команды', unit: 'count', hint: 'Победы в роли дона' },
-  { key: 'best_moves', label: 'Лучший ход', group: 'Ход игры', unit: 'count', hint: 'Сколько раз делал лучший ход' },
-  { key: 'first_killed', label: 'Первым убит', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
-  { key: 'zero_round', label: 'Нулевой круг', group: 'Ход игры', unit: 'count', hint: 'Сколько раз выставлен на нулевом круге' },
+  { key: 'red_wins', label: 'Победы за красных', group: 'Команды', unit: 'count', hint: 'Победы мирным или шерифом' },
+  { key: 'black_wins', label: 'Победы за чёрных', group: 'Команды', unit: 'count', hint: 'Победы мафией или доном' },
+  { key: 'red_win_rate', label: 'Винрейт за красных', group: 'Команды', unit: 'percent', hint: 'Доля побед среди игр за красных' },
+  { key: 'black_win_rate', label: 'Винрейт за чёрных', group: 'Команды', unit: 'percent', hint: 'Доля побед среди игр за чёрных' },
+  { key: 'citizen_wins', label: 'Победы мирным', group: 'Роли', unit: 'count', hint: 'Победы в роли мирного' },
+  { key: 'sheriff_wins', label: 'Победы шерифом', group: 'Роли', unit: 'count', hint: 'Победы в роли шерифа' },
+  { key: 'mafia_wins', label: 'Победы мафией', group: 'Роли', unit: 'count', hint: 'Победы в роли мафии' },
+  { key: 'don_wins', label: 'Победы доном', group: 'Роли', unit: 'count', hint: 'Победы в роли дона' },
+  { key: 'best_moves', label: 'ПУ', group: 'Ход игры', unit: 'count', hint: 'Сколько раз делал лучший ход' },
+  { key: 'first_killed', label: 'Первым убит (ПУ)', group: 'Ход игры', unit: 'count', hint: 'Сколько раз был убит первым (ПУ)' },
+  { key: 'zero_round', label: 'Заголосован в нуле', group: 'Ход игры', unit: 'count', hint: 'Сколько раз игрока заголосовали в нулевом круге' },
   { key: 'votes_accuracy', label: 'Меткость голосов', group: 'Меткость', unit: 'percent', sample: { words: ['голос', 'голоса', 'голосов'] }, hint: 'Какая доля голосов красного ушла в чёрных' },
   { key: 'nominations_accuracy', label: 'Меткость выставлений', group: 'Меткость', unit: 'percent', sample: { words: ['выставление', 'выставления', 'выставлений'] }, hint: 'Какая доля выставленных красным оказалась чёрной' },
   { key: 'sheriff_checks', label: 'Чёрные проверки шерифа', group: 'Меткость', unit: 'percent', sample: { words: ['проверка', 'проверки', 'проверок'] }, hint: 'Какая доля проверок шерифа нашла чёрного' },
@@ -252,7 +252,7 @@ export interface MetricRatingQuery { metric?: string; period?: string; format?: 
 /** The games of the chosen season and evening format (oldest first) with everything the club tables need around them. */
 async function loadScope(db: DatabaseWrapper, query: { period?: string; format?: string }) {
   const seasons = await loadRatingSeasons(db);
-  const season = seasons.find((item) => item.key === query.period) || null;
+  let season = seasons.find((item) => item.key === query.period) || null;
   const formatKey: EveningFormat | 'all' = (EVENING_FORMATS as readonly string[]).includes(String(query.format)) ? query.format as EveningFormat : 'all';
 
   const [snapshots, highlights, timeline, formatRows, playerRows] = await Promise.all([
@@ -273,18 +273,25 @@ async function loadScope(db: DatabaseWrapper, query: { period?: string; format?:
   const eveningFormat = new Map<string, EveningFormat>(formatRows.map((row: any) => [String(row.id), normalizeEveningFormat(row.format)]));
   const formatOf = (snapshot: CompletedGameSnapshot): EveningFormat => snapshot.source === 'tournament' ? 'TOURNAMENT' : eveningFormat.get(snapshot.event_id) || 'CASUAL';
 
+  const years = [...new Set(snapshots.map((item) => new Date(item.dateMs).getUTCFullYear()).filter((year) => Number.isInteger(year)))].sort((a, b) => b - a);
+  if (!season && /^year:\\d{4}$/.test(String(query.period || ''))) {
+    const year = Number(String(query.period).slice(5));
+    if (years.includes(year)) season = { key: `year:${year}`, label: `${year} год`, start: Date.UTC(year, 0, 1), end: Date.UTC(year + 1, 0, 1) };
+  }
+  const availableSeasons = [...seasons].reverse().map((item) => ({ key: item.key, label: item.label }));
+  const availableYears = years.map((year) => ({ key: `year:${year}`, label: `${year} год` }));
   const inPeriod = (snapshot: CompletedGameSnapshot) => !season || (snapshot.dateMs >= season.start && snapshot.dateMs < season.end);
   const periodSnapshots = snapshots.filter(inPeriod);
   const scoped = (formatKey === 'all' ? periodSnapshots : periodSnapshots.filter((snapshot) => formatOf(snapshot) === formatKey))
     .sort((a, b) => a.dateMs - b.dateMs || a.game_number - b.game_number || a.id.localeCompare(b.id));
   const scopedIds = new Set(scoped.map((snapshot) => snapshot.id));
 
-  return { seasons, season, formatKey, scoped, scopedIds, highlights, timeline, playerRows };
+  return { seasons, season, availablePeriods: [...availableSeasons, ...availableYears], formatKey, scoped, scopedIds, highlights, timeline, playerRows };
 }
 
 export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, query: MetricRatingQuery) {
   const metric = METRIC_BY_KEY.get(query.metric as MetricKey) || METRICS[0];
-  const { seasons, season, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
+  const { seasons, season, availablePeriods, formatKey, scoped, scopedIds, highlights, timeline, playerRows } = await loadScope(db, query);
 
   const aggs = new Map<string, Agg>();
   const aggOf = (id: string) => { let value = aggs.get(id); if (!value) { value = emptyAgg(); aggs.set(id, value); } return value; };
@@ -378,7 +385,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
       filters: {
         period: season ? season.key : 'all', format: formatKey,
         period_label: season ? season.label : 'Всё время', format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
-        seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label })),
+        seasons: availablePeriods,
         formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
       },
       games_in_scope: scoped.length, total: pairRows.length, rows: pairRows.slice(0, TOP_SIZE).map(toPair), me: null,
@@ -427,7 +434,7 @@ export async function loadMetricRating(db: DatabaseWrapper, viewerId: string, qu
       format: formatKey,
       period_label: season ? season.label : 'Всё время',
       format_label: formatKey === 'all' ? 'Все форматы' : EVENING_FORMAT_LABELS[formatKey],
-      seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label })),
+      seasons: availablePeriods,
       formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
     },
     games_in_scope: scoped.length,
@@ -485,7 +492,7 @@ export async function loadRoleRating(db: DatabaseWrapper, viewerId: string, quer
     roles: (Object.keys(ROLE_TABLES) as RoleKey[]).map((key) => ({ key, label: ROLE_TABLES[key].label })),
     filters: {
       period: season ? season.key : 'all', format: formatKey,
-      seasons: [...seasons].reverse().map((item) => ({ key: item.key, label: item.label })),
+      seasons: availablePeriods,
       formats: EVENING_FORMATS.map((key) => ({ key, label: EVENING_FORMAT_LABELS[key] })),
     },
     games_in_scope: scoped.length,

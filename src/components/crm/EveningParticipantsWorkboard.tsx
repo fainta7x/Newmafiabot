@@ -110,7 +110,7 @@ const buildParticipantView = (participant: EveningParticipant, canMarkFacts: boo
     return { participant, action: 'attend', needsAction: true, subtitle: 'Явка не отмечена' };
   }
 
-  return { participant, action: null, needsAction: false, subtitle: EVENING_RESPONSE_LABELS[response] };
+  return { participant, action: null, needsAction: false, subtitle: response === 'thinking' && participant.notes?.trim() ? `Ждём ответ: ${participant.notes.trim()}` : EVENING_RESPONSE_LABELS[response] };
 };
 
 interface EveningParticipantsWorkboardProps {
@@ -288,6 +288,15 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           <div className="mt-2 text-[13px] font-semibold text-text-primary">{factSummary(activeParticipant)}</div>
           <div className="mt-1 text-[10px] text-text-muted">Ответ: {EVENING_RESPONSE_LABELS[getEveningResponse(activeParticipant)]}{Number(activeParticipant.amount_due || 0) > 0 ? ` · к оплате ${money(activeParticipant.amount_due)}` : ''}</div>
         </div>
+
+        {getEveningResponse(activeParticipant) === 'thinking' ? <div className="rounded-[14px] border border-warning/20 bg-warning-soft p-3">
+          <label htmlFor="thinking-response-note" className="block text-[12px] font-semibold text-text-primary">Когда игрок обещал ответить?</label>
+          <p className="mt-1 text-[11px] text-text-secondary">Например: «Скажет в 16:00». Пометка видна в списке игроков.</p>
+          <input key={activeParticipant.id} id="thinking-response-note" data-testid="thinking-response-note" type="text" defaultValue={activeParticipant.notes || ''} placeholder="Скажет в 16:00" disabled={readonly || busyIds.has(activeParticipant.id)}
+            onBlur={(event) => { const value = event.currentTarget.value.trim(); if (value !== (activeParticipant.notes || '').trim()) void patch(activeParticipant, { notes: value }); }}
+            onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+            className="mt-2 min-h-11 w-full rounded-xl border border-border-soft bg-surface-1 px-3 text-[12px] text-text-primary" />
+        </div> : null}
 
         {!readonly && canMarkFacts && activeParticipant.attendance_status === 'pending' ? <div className="grid grid-cols-2 gap-2"><button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markAttended(activeParticipant)} className="min-h-[48px] rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] disabled:opacity-40">Пришёл</button><button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markNoShow(activeParticipant)} className="min-h-[48px] rounded-[13px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger disabled:opacity-40">Не пришёл</button></div> : null}
 

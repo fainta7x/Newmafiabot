@@ -1,14 +1,19 @@
+/** Shared compact revolver silhouette for Mafia roles throughout the application. */
 export const PistolIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-    className={className}
-  >
-    <path d="M2.5 7.25h14.72c.62 0 1.22.22 1.68.62L21.5 10.1v2.15c0 .55-.45 1-1 1h-8.14l-.67 1.55h1.66c.43 0 .78.35.78.78v.44c0 .43-.35.78-.78.78h-2.52l-.95 3.34c-.14.5-.6.86-1.12.86H6.18c-.74 0-1.3-.69-1.13-1.41l1.43-6.34H4.75A2.25 2.25 0 0 1 2.5 11V7.25Z" />
-    <path d="M4.2 8.85h13.35v1.35H4.2V8.85Z" opacity=".42" />
-    <path d="M14.95 13.25h3.25v.62c0 1.57-1.27 2.83-2.83 2.83h-1.7l.7-1.65h1c.58 0 1.06-.4 1.18-.95h-1.95l.35-.85Z" opacity=".78" />
-    <path d="M18.2 9.15h2.2l1.1.95v.55h-3.3v-1.5Z" opacity=".68" />
+  <svg viewBox="0 0 32 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true" className={className}>
+    {/* Barrel, sight and muzzle */}
+    <path d="M13.2 7.2H27.7V10.9H13.2Z" fill="currentColor" stroke="none" />
+    <path d="M25.6 5.8h1.7v1.4h-1.7zM27.6 8.1h2.1v2h-2.1z" fill="currentColor" stroke="none" />
+    {/* Frame and visible cylinder: characteristic revolver profile */}
+    <path d="M7.4 7.5 12.1 5.8 17.6 6.5 18.6 12.3 14.8 15 9.6 13.6 7 10.9Z" fill="currentColor" stroke="none" />
+    <circle cx="12.9" cy="10.5" r="3.1" fill="none" stroke="rgba(0,0,0,.6)" strokeWidth="1.1" />
+    <circle cx="12.9" cy="10.5" r=".9" fill="rgba(0,0,0,.55)" stroke="none" />
+    {/* Hammer and trigger guard */}
+    <path d="M7.1 7.5 5 5.2 6.7 4.1 9.6 6.8M14.5 14.1c1.1 3.9-2 5.6-5.8 4.4l-.1-2.2" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M8.8 13.1c.8 1.7.7 3.1-.4 4.4" stroke="rgba(0,0,0,.65)" />
+    {/* Angled grip with a distinct heel */}
+    <path d="m7.7 12.1 5.3 2.2-3.6 8-6.4-2.1 2.8-7.2z" fill="currentColor" stroke="none" />
+    <path d="m6.3 14.8 4 1.4-1.5 4.1-4.2-1.4" stroke="rgba(0,0,0,.45)" strokeWidth="1" />
   </svg>
 );
 

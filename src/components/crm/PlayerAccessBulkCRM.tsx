@@ -147,6 +147,7 @@ export function PlayerAccessBulkCRM() {
   const [activityFilter, setActivityFilter] = useState<RoleFilter>('all');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [showQuickDetails, setShowQuickDetails] = useState(false);
   // «Может проводить» (owner only): per kind — add, remove, or leave as is.
   const [organizing, setOrganizing] = useState<Record<OrganizeFormat, HostChoice>>({ NOVICE: '', CASUAL: '', RATING: '', TOURNAMENT: '', CUSTOM: '' });
   const [curating, setCurating] = useState<Record<CuratorArea, HostChoice>>({ NOVICES: '', LEARNING: '', EVENTS: '', TOURNAMENTS: '', DISCIPLINE: '', SMM: '' });
@@ -302,29 +303,36 @@ export function PlayerAccessBulkCRM() {
           className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-3 text-[15px] text-white outline-none placeholder:text-white/30" />
       </label>
 
-      <div className="space-y-2 rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-2.5">
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1" aria-label="Уровень игры">
-          {GAME_LEVELS.map((item) => <Chip key={item.value} active={level === item.value} onClick={() => setLevel(item.value)}>{item.label} · {counts[item.value] ?? 0}</Chip>)}
-          {/* «Все» last: the levels of the active base come first (owner, 2026-09-30). */}
-          <Chip active={level === 'all'} onClick={() => setLevel('all')}>Все · {rows.length}</Chip>
-        </div>
-        {/* Quick filters as chips with counts (owner, 2026-09-29). Tap again to clear. */}
-        {([
-          ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
-          ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
-        ] as const).map(([title, filters, value, setValue]) => (
-          <div key={title} className="space-y-1">
-            <span className="block px-0.5 text-[11px] font-semibold uppercase leading-3 tracking-[0.08em] text-white/70">{title}</span>
-            <div className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1" aria-label={title}>
-              {filters.map((item) => (
-                <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => (current === item.value ? 'all' : item.value))}>
-                  {item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}
-                </Chip>
-              ))}
-            </div>
+      <section data-testid="crm-access-quick-filters" className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-2.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <strong className="text-[12px] font-semibold text-white/85">Быстрые фильтры</strong>
+          <div className="flex items-center gap-2">
+            {(level !== 'all' || activityFilter !== 'all' || roleFilter !== 'all') && <button type="button" data-testid="crm-access-clear-filters" onClick={() => { setLevel('all'); setActivityFilter('all'); setRoleFilter('all'); }} className="min-h-9 rounded-lg px-2 text-[11px] font-semibold text-white/70 underline underline-offset-2">Сбросить</button>}
+            <button type="button" aria-expanded={showQuickDetails} aria-controls="crm-access-extra-filters" onClick={() => setShowQuickDetails((open) => !open)} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.05] px-2 text-[11px] font-semibold text-white/80">{showQuickDetails ? 'Свернуть' : 'Ещё фильтры'} {showQuickDetails ? '⌃' : '⌄'}</button>
           </div>
-        ))}
-      </div>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" aria-label="Уровень игры">
+          <button type="button" aria-pressed={level === 'all'} onClick={() => setLevel('all')} className={`min-h-10 rounded-xl px-2 text-left text-[11px] font-semibold ${level === 'all' ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.045] text-white/70'}`}>Все <span className="opacity-60">· {rows.length}</span></button>
+          {GAME_LEVELS.map((item) => <button type="button" key={item.value} aria-pressed={level === item.value} onClick={() => setLevel(level === item.value ? 'all' : item.value)} className={`min-h-10 rounded-xl px-2 text-left text-[11px] font-semibold ${level === item.value ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.045] text-white/70'}`}>{item.label} <span className="opacity-60">· {counts[item.value] ?? 0}</span></button>)}
+        </div>
+        {(activityFilter !== 'all' || roleFilter !== 'all') && !showQuickDetails ? <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Применённые фильтры">
+          {activityFilter !== 'all' && <button type="button" onClick={() => setActivityFilter('all')} className="min-h-9 rounded-full border border-sky-300/20 bg-sky-300/[0.08] px-3 text-[11px] text-sky-100">Ходят: {ACTIVITY_FILTERS.find((item) => item.value === activityFilter)?.label} ×</button>}
+          {roleFilter !== 'all' && <button type="button" onClick={() => setRoleFilter('all')} className="min-h-9 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[11px] text-amber-100">Роль: {ROLE_FILTERS.find((item) => item.value === roleFilter)?.label} ×</button>}
+        </div> : null}
+        <div id="crm-access-extra-filters" hidden={!showQuickDetails} className="mt-3 space-y-3 border-t border-white/[0.08] pt-3">
+          {([
+            ['Как ходят', ACTIVITY_FILTERS, activityFilter, setActivityFilter],
+            ['Роль в клубе', ROLE_FILTERS, roleFilter, setRoleFilter],
+          ] as const).map(([title, filters, value, setValue]) => (
+            <div key={title}>
+              <strong className="block pb-1.5 text-[11px] font-semibold text-white/60">{title}</strong>
+              <div className="flex flex-wrap gap-1.5" aria-label={title}>
+                {filters.map((item) => <Chip key={item.value} active={value === item.value} onClick={() => setValue((current: RoleFilter) => current === item.value ? 'all' : item.value)}>{item.label} · {rows.filter((row) => matchesRoleFilter(row, item.value)).length}</Chip>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {error && !selected.size ? <div className="rounded-2xl bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">{error}</div> : null}
 

@@ -1,5 +1,9 @@
 # Audit log
 
+### 2026-10-16 — #950 container registry blocker
+
+Second candidate: all five TS shards, web checks/build, Python tests passed. Container job116892647392 still fails before source build with public ECR HTTP429 Data limit exceeded. Cause is registry access from hosted runner. Add configurable official Node base image; default remains ECR for Amvera, CI explicitly selects docker.io/library/node:24-bookworm-slim. Both build stages use the same configured image; runtime startup verification remains mandatory.
+
 ### 2026-10-16 — #950 first CI diagnosis (before follow-up fix)
 
 Web checks + four shards passed. Fifth shard exposed an over-broad readiness normalization resetting an explicitly configured one-place novice reservation to 9; preserve custom capacities and migrate only the legacy default11→9. UI preview 84/86 passed: new comparison selector «Иду» also matched «Не иду»/«Приду позже»; use exact accessible name, no product workaround. Python has an independent calendar-dependent fixture: its 16 October event is now «сегодня»; freeze the test clock and cover both date/today branches. Container failed before building source: public ECR HTTP429 Data limit exceeded; no Dockerfile/mirror change.

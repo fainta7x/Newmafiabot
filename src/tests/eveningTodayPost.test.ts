@@ -47,6 +47,34 @@ async function fillGames(db: DatabaseWrapper, games: number) {
   }
 }
 
+describe('NOVICE gathering rules', () => {
+  it('repairs old 4-game readiness to 2 games of 9 including judge, and enables post', async () => {
+    const db = await setup();
+    const now = new Date().toISOString();
+    await db.run("UPDATE game_evenings SET format = 'NOVICE' WHERE id = 'ev'");
+    // Legacy settings previously created under CASUAL with 4 required games.
+    await loadEveningSlotPlan(db, 'ev');
+    await db.run("UPDATE evening_slot_settings SET ready_slots_required = 4, ready_players_per_slot = 11 WHERE evening_id = 'ev'");
+    // First two games now have nine participants, including existing confirmed arrivals.
+    const plan = await loadEveningSlotPlan(db, 'ev');
+    expect(plan.event.required_slots).toBe(2);
+    expect(plan.event.required_players_per_slot).toBe(9);
+    const firstTwo = plan.slots.slice(0, 2);
+    for (let i = 0; i < 7; i++) {
+      const id = `nv${i}`;
+      await db.run('INSERT INTO players (id,nickname,created_at,updated_at) VALUES (?,?,?,?)', [id,id,now,now]);
+      await db.run("INSERT INTO evening_participants (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at) VALUES (?,?,?,'going','going','pending','unpaid',?,?)", [`ep-${id}`,'ev',id,now,now]);
+      for (const slot of firstTwo) await db.run('INSERT OR IGNORE INTO evening_slot_registrations (id,slot_id,participant_id,created_at,updated_at) VALUES (?,?,?,?,?)', [`r-${id}-${slot.id}`,slot.id,`ep-${id}`,now,now]);
+    }
+    const ready = await loadEveningSlotPlan(db, 'ev');
+    expect(ready.event.assembled).toBe(true);
+    expect(ready.event.assembled_slots).toBeGreaterThanOrEqual(2);
+    const route = await loadEveningRoute(db, 'ev', Date.parse('2026-10-02T14:00:00Z'));
+    const gather = route.stages.find(stage => stage.id === 'gather');
+    expect(gather?.steps.find(item => item.id === 'shortfall')?.title).not.toContain('Недобор');
+  });
+});
+
 describe('«Сегодня играем» post', () => {
   it('builds a bright text with the chosen game, the roster and a call to join', async () => {
     const db = await setup();

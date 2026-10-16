@@ -14,6 +14,7 @@ export const SLOT_PRICE = 100;
 export const CLUB_EVENING_MAX_PRICE = 400;
 export const TABLE_MIN_PLAYERS = 11;
 export const TABLE_MIN_READY_SLOTS = 4;
+export const NOVICE_READY_SLOTS = 2;
 export const NOVICE_PAID_GAME_PRICE = 200;
 export const NOVICE_FREE_VISITS = 2;
 
@@ -175,7 +176,7 @@ const plannedCount = (evening: any) => {
   const a = new Date(evening.starts_at).getTime();
   const b = evening.ends_at ? new Date(evening.ends_at).getTime() : 0;
   const hours = b > a ? Math.round((b - a) / 3600000) : 0;
-  return hours >= 1 && hours <= 12 ? hours : 6;
+  return hours >= 1 && hours <= 12 ? hours : normalizeEveningFormat(evening.format) === 'NOVICE' ? NOVICE_READY_SLOTS : 6;
 };
 
 const normalizeStartsAt = (value: unknown, fallback: string) => {
@@ -193,6 +194,7 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
 
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
+  const isNovice = normalizeEveningFormat(evening.format) === 'NOVICE';
   const now = new Date().toISOString();
   if (isCasual && Number(evening.default_price || 0) !== SLOT_PRICE) {
     await db.run('UPDATE game_evenings SET default_price = ?, updated_at = ? WHERE id = ?', [SLOT_PRICE, now, eveningId]);
@@ -200,12 +202,18 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   }
 
   let settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
+  const noviceRequired = isNovice ? NOVICE_READY_SLOTS : TABLE_MIN_READY_SLOTS;
   if (!settings) {
     await db.run(
-      'INSERT OR IGNORE INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, 4, ?, ?, ?)',
-      [eveningId, plannedCount(evening), eveningGatheringSize(evening.format), now, now],
+      'INSERT OR IGNORE INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, ?, ?, ?, ?)',
+      [eveningId, plannedCount(evening), noviceRequired, eveningGatheringSize(evening.format), now, now],
     );
     settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
+  }
+  // Repair historical NOVICE default of four required games; do not change the actual timetable.
+  if (isNovice && Number(settings.ready_slots_required) === TABLE_MIN_READY_SLOTS) {
+    await db.run('UPDATE evening_slot_settings SET ready_slots_required = ?, updated_at = ? WHERE evening_id = ?', [NOVICE_READY_SLOTS, now, eveningId]);
+    settings = { ...settings, ready_slots_required: NOVICE_READY_SLOTS };
   }
   const gatheringSize = eveningGatheringSize(evening.format);
   const currentTarget = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);

@@ -1,4 +1,5 @@
 import { sanitizeLiveGameEvents } from '../../shared/liveGameEvents.ts';
+import { sanitizeBroadcastReplayFrames } from '../../lib/liveBroadcast.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { blackParticipantIds, withoutBlackBestMoves, withoutBlackLegacyBestMove } from './blackBestMoves.ts';
 import { isSupportedTableSize, roleCountsMatchTable, tableRolesLabel } from '../../lib/tableComposition.ts';

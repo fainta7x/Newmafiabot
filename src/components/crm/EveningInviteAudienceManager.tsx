@@ -98,7 +98,7 @@ export default function EveningInviteAudienceManager({ onChanged }: Props) {
           {!loading ? <>
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-9" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field !pl-11" />
             </label>
 
             <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">

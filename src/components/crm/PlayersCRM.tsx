@@ -575,7 +575,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       </div>
 
       <div className="flex gap-2">
-        <label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label>
+        <label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field !pl-12" /></label>
         <button type="button" onClick={() => setShowFilters(true)} className={`grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${contactStatusFilter || lifecycleStatus || advancedSegment ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" /></button>
       </div>
 

@@ -304,7 +304,7 @@ export default function EveningActiveRosterView({
           <button type="button" onClick={() => setAddMode('guest')} className={`min-h-11 rounded-[10px] text-[14px] font-bold ${addMode === 'guest' ? 'bg-surface-1 text-text-primary' : 'text-text-secondary'}`}>Гость</button>
         </div>
         {addMode === 'players' ? <>
-          <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={addSearch} onChange={(event) => setAddSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-10" /></div>
+          <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={addSearch} onChange={(event) => setAddSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field !pl-12" /></div>
           <div className="max-h-[48dvh] overflow-y-auto rounded-[14px] border border-border-soft bg-surface-1">
             {availablePlayers.map((player, index) => {
               const selected = selectedPlayerIds.includes(player.id);

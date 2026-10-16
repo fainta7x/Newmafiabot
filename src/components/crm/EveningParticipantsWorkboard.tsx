@@ -256,7 +256,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     </div>
 
     <div className="flex gap-2">
-      <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-10" /></div>
+      <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field !pl-12" /></div>
       <button data-testid="evening-roster-add-player" type="button" onClick={onAddPlayer} aria-label="Добавить игрока или изменить состав" className="grid h-[44px] w-[48px] shrink-0 place-items-center rounded-[12px] bg-white text-[#090a0d]"><UserPlus className="h-4 w-4" /></button>
     </div>
 

@@ -37,3 +37,27 @@ for (const width of [360, 390]) {
     await expect(page.getByTestId('evening-answer-row-p1').getByRole('button', { name: 'Иду', exact: true })).toHaveCount(0);
   });
 }
+
+for (const width of [390, 1280]) {
+  test(`answers search field does not overlap the icon at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/e2e/owner-evenings.html?screen=answers${width > 600 ? '&wide=1' : ''}`);
+    await page.evaluate(() => document.fonts.ready);
+    const input = page.getByTestId('responses-player-search');
+    await expect(input).toBeVisible();
+    const positions = await input.evaluate((field) => {
+      const icon = field.parentElement.querySelector('svg');
+      const box = field.getBoundingClientRect();
+      const iconBox = icon.getBoundingClientRect();
+      return { textStart: box.left + parseFloat(getComputedStyle(field).paddingLeft), iconRight: iconBox.right,
+        viewportWidth: document.documentElement.clientWidth, contentWidth: document.documentElement.scrollWidth };
+    });
+    expect(positions.textStart - positions.iconRight).toBeGreaterThanOrEqual(8);
+    expect(positions.contentWidth).toBeLessThanOrEqual(positions.viewportWidth + 1);
+    await input.fill('Пристань');
+    await expect(input).toHaveValue('Пристань');
+    const screenshotPath = info.outputPath(`responses-search-${width}.png`);
+    await input.locator('xpath=..').screenshot({ path: screenshotPath });
+    await info.attach(`responses-search-${width}`, { path: screenshotPath, contentType: 'image/png' });
+  });
+}

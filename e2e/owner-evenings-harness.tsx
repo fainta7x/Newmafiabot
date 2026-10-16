@@ -37,11 +37,12 @@ globalThis.fetch = async (input) => {
 };
 const query = new URLSearchParams(location.search);
 const before = query.has('before');
+const wide = query.has('wide');
 const screen = query.get('screen');
 const Week = before ? BeforeWeek : WeekEventsPanel;
 const ResponseList = before ? BeforeAnswers : Answers;
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <main className="crm-premium mx-auto min-h-screen w-full max-w-[430px] bg-[#090a0d] px-3 py-4 text-white">
+  <main className={`crm-premium mx-auto min-h-screen w-full ${wide ? "max-w-[1120px]" : "max-w-[430px]"} bg-[#090a0d] px-3 py-4 text-white`}>
     {screen === 'answers' ? <ResponseList eveningId="novice" /> : <Week now={now} evenings={evenings} variant={screen === 'events' ? 'cards' : 'rows'} onOpenEvening={() => {}} onOpenTournament={() => {}} />}
   </main>,
 );

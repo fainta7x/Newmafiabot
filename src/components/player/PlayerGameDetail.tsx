@@ -8,7 +8,7 @@ import { formatPlayerGameDate as formatDate } from '../../lib/playerGameDate.ts'
 import { getPlayerGameWinnerLabel } from '../../lib/playerGameResultLabels.ts';
 import { GameRoleBadge } from '../ui/GameRole.tsx';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
-import { GameTableScene, VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
+import { VoteSplitScene, NightShotScene } from './PlayerVisualScenes.tsx';
 import { RevealStatementScene, VersionDuelScene } from './PlayerGameRevealsScene.tsx';
 
 export type PlayerGameEloChange = {
@@ -376,7 +376,6 @@ export default function PlayerGameDetail({
             </div>
           </details>}
           <details data-testid="game-full-protocol" className="group border-t border-white/10 px-3"><summary className="flex min-h-11 cursor-pointer items-center justify-between text-xs font-semibold text-white/75">Подробный протокол <span className="text-white/40 transition group-open:rotate-180">⌄</span></summary><div className="space-y-3 pb-3">
-            <details className="mb-2 border-b border-white/10"><summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-xs text-white/70"><span className="font-semibold">Рассадка и роли</span><span>Схема стола ▾</span></summary><GameTableScene players={detail.players} winner={detail.game.winner_team} selfId={selfId}/></details>
           {detail.protocol.reveals?.length ? (
             <Section title="Вскрытия" hint="Кто назвал себя шерифом и какие проверки объявил. Это слова за столом, а не ночные проверки.">
               <ul data-testid="game-reveals" className="grid gap-3 lg:grid-cols-2">

@@ -1,3 +1,4 @@
+import type { LiveBroadcastReplayFrame } from '../../lib/liveBroadcast.ts';
 import type { LiveGameEvent } from '../../shared/liveGameEvents.ts';
 import LiveBroadcastOverlay from '../public/LiveBroadcastOverlay.tsx';
 import { buildReplayBroadcastState } from '../../lib/replayBroadcastState.ts';
@@ -24,6 +25,7 @@ type ReplayData = {
   players?: Array<{ participant_id: string; player_id: string | null; nickname: string; seat_number: number; role: string | null }>;
   events: ReplayEvent[];
   engine_events?: LiveGameEvent[];
+  replay_frames?: LiveBroadcastReplayFrame[];
   analysis: string[];
   meta?: { source?: string };
 };
@@ -110,7 +112,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
     return () => { cancelled = true; };
   }, [data?.replay_available, data?.game?.id]);
 
-  const replayLength = data?.engine_events?.length || data?.events.length || 0;
+  const replayLength = data?.replay_frames?.length || data?.engine_events?.length || data?.events.length || 0;
   useEffect(() => {
     if (!playing || !replayLength) return;
     if (step >= replayLength - 1) {
@@ -122,10 +124,12 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   }, [playing, step, replayLength]);
 
   const visibleEvents = useMemo(() => data?.events.slice(0, step + 1) || [], [data, step]);
-  const recordedReplay = Boolean(data?.engine_events?.length);
-  const broadcastState = useMemo(() => data?.engine_events?.length && data.players?.length
-    ? buildReplayBroadcastState(data.players, data.engine_events, step, data.game?.number || 0)
-    : null, [data, step]);
+  const recordedReplay = Boolean(data?.replay_frames?.length || data?.engine_events?.length);
+  const broadcastState = useMemo(() => data?.replay_frames?.length
+    ? data.replay_frames[Math.min(step, data.replay_frames.length - 1)].state
+    : data?.engine_events?.length && data.players?.length
+      ? buildReplayBroadcastState(data.players, data.engine_events, step, data.game?.number || 0)
+      : null, [data, step]);
   const current = data?.events[step] || null;
   const orderedClips = useMemo(() => [...clips].sort((left, right) => {
     const leftTime = Date.parse(left.started_at);
@@ -164,7 +168,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
       {recordedReplay && broadcastState ? (
         <section data-testid="replay-obs-presentation" className="mt-3 overflow-hidden rounded-[20px] border border-white/10">
-          <div className="bg-black/40 px-3 py-2 text-[11px] text-white/65">Повтор игры · оригинальная графика OBS. Показываются только записанные действия; несохранённые таймеры и события не восстанавливаются.</div>
+          <div className="bg-black/40 px-3 py-2 text-[11px] text-white/65">Повтор игры · оригинальная графика OBS. {data.replay_frames?.length ? 'Записанные кадры трансляции.' : 'Восстановление по событиям: таймеры и промежуточные состояния могли не сохраниться.'}</div>
           <div className="max-h-[75vh] overflow-auto"><LiveBroadcastOverlay token="" replayState={broadcastState} /></div>
           <div className="flex items-center justify-between gap-3 bg-[#15151a] p-3">
             <span className="text-xs text-white/70">Событие {step + 1} из {replayLength}</span>

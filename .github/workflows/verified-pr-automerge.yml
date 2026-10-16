@@ -1,0 +1,60 @@
+name: Merge verified PRs
+
+# Runs from the trusted default branch; never checks out or executes PR code.
+on:
+  workflow_run:
+    workflows: ["CI", "CodeQL", "Gitleaks", "UI preview"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: verified-pr-merge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: Merge only after all four green checks
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm exact head SHA and all required workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prs=$(gh api "repos/$REPO/pulls?state=open&per_page=100")
+          pr=$(jq -r --arg sha "$HEAD_SHA" '[.[] | select(.head.sha == $sha and .base.ref == "main" and .draft == false and .head.repo.full_name == .base.repo.full_name)] | first | .number // empty' <<< "$prs")
+          if [[ -z "$pr" ]]; then
+            echo "No eligible, current, non-draft same-repo PR for $HEAD_SHA"
+            exit 0
+          fi
+
+          changed=$(gh api --paginate "repos/$REPO/pulls/$pr/files?per_page=100" --jq '.[].filename')
+          need_preview=false
+          while IFS= read -r file; do
+            case "$file" in
+              src/*|e2e/*|preview/*|scripts/buildUiPreview.mjs|vite.config.ts|package*.json|.github/workflows/ui-preview.yml) need_preview=true; break ;;
+            esac
+          done <<< "$changed"
+
+          runs=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100")
+          workflows=("CI" "CodeQL" "Gitleaks")
+          if [[ "$need_preview" == true ]]; then workflows+=("UI preview"); fi
+          for workflow in "${workflows[@]}"; do
+            status=$(jq -r --arg name "$workflow" '[.workflow_runs[] | select(.name == $name)] | sort_by(.run_number, .run_attempt) | last | if . == null then "missing" else (.status + ":" + (.conclusion // "pending")) end' <<< "$runs")
+            echo "$workflow: $status"
+            if [[ "$status" != "completed:success" ]]; then
+              echo "Waiting for all gates on the exact PR SHA; no merge"
+              exit 0
+            fi
+          done
+
+          # Server rejects a stale head SHA and independently checks repo merge rules.
+          gh api -X PUT "repos/$REPO/pulls/$pr/merge" -f sha="$HEAD_SHA" -f merge_method=squash -f commit_title="Merge PR #$pr after verified checks"

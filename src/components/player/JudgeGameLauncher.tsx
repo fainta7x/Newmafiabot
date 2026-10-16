@@ -33,6 +33,9 @@ type Props = {
   judge: { id: string; nickname: string };
   evenings: JudgeStartEvening[];
   onCreated: (game: ClubGameRecord) => void;
+  selectedEveningId?: string | null;
+  openRequest?: number;
+  embedded?: boolean;
 };
 
 const formatWhen = (value: string) => {
@@ -53,7 +56,7 @@ const attendanceLabel = (participant: JudgeStartParticipant) => {
   return 'Не отмечен';
 };
 
-export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props) {
+export default function JudgeGameLauncher({ judge, evenings, onCreated, selectedEveningId, openRequest, embedded = false }: Props) {
   const [open, setOpen] = useState(false);
   const [eveningId, setEveningId] = useState(evenings.find((item) => item.can_create)?.id || evenings[0]?.id || '');
   const [tableId, setTableId] = useState('');
@@ -64,6 +67,12 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
 
   const evening = evenings.find((item) => item.id === eveningId) || evenings[0] || null;
   const canCreateHere = Boolean(evening?.can_create);
+
+  useEffect(() => {
+    if (!openRequest || !selectedEveningId || !evenings.some((item) => item.id === selectedEveningId)) return;
+    setEveningId(selectedEveningId);
+    setOpen(true);
+  }, [openRequest, selectedEveningId, evenings]);
   const byId = useMemo(() => new Map((evening?.participants || []).map((item) => [item.id, item])), [evening]);
   const selected = useMemo(() => lineup.map((id) => byId.get(id)).filter(Boolean) as JudgeStartParticipant[], [byId, lineup]);
   // Table size (user-approved 2026-09-24): 10 players; a novice evening may seat 8 or 9.
@@ -128,6 +137,7 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
   };
 
   if (!open) {
+    if (embedded) return null;
     return (
       <section className="rounded-3xl border border-emerald-300/15 bg-gradient-to-b from-emerald-300/[0.07] to-white/[0.025] p-4">
         <div className="flex items-start justify-between gap-3">

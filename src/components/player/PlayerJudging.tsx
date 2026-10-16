@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { Tournament, TournamentGame } from '../../lib/api.ts';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
@@ -68,8 +69,11 @@ export async function loadPlayerJudgingDashboard(): Promise<PlayerJudgingDashboa
   return body as PlayerJudgingDashboard;
 }
 
-export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
+export default function PlayerJudging({ onBack, evenings = [], onCreated }: { onBack?: () => void; evenings?: JudgeStartEvening[]; onCreated?: (game: ClubGameRecord) => void }) {
   const [dashboard, setDashboard] = useState<PlayerJudgingDashboard | null>(null);
+  const [selectedEveningId, setSelectedEveningId] = useState<string | null>(null);
+  const [openRequest, setOpenRequest] = useState(0);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clubLiveGame, setClubLiveGame] = useState<JudgingClubGame | null>(null);
@@ -284,29 +288,41 @@ export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
             <div className="flex items-end justify-between gap-3">
-              <div><div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Назначенные игры</div><div className="mt-1 text-sm text-white/35">Доступ появляется только после назначения организатором</div></div>
-              <div className="text-2xl font-semibold text-white">{activeAssignments.length}</div>
+              <div><div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Вечера и игры</div><div className="mt-1 text-sm text-white/40">Единый список клубных и турнирных игр. Действия зависят от назначения.</div></div>
+              <div className="text-2xl font-semibold text-white">{evenings.length + activeAssignments.length}</div>
             </div>
             <div className="mt-4 space-y-2">
-              {activeAssignments.length ? activeAssignments.map((assignment) => {
-                if (assignment.kind === 'club') {
-                  const game = assignment.game as JudgingClubGame;
-                  const format = normalizeEveningFormat(game.evening_format);
-                  return <article key={`club:${game.id}`} className="rounded-2xl bg-black/20 p-3">
-                    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.evening_title}</div><div className="mt-1 text-xs text-white/35">Игра #{game.global_game_number} · {formatDate(game.evening_starts_at)}</div></div><span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-1 text-[11px] text-white/50">{EVENING_FORMAT_LABELS[format]}</span></div>
-                    {game.table_name && <div className="mt-1 text-xs text-white/30">Стол: {game.table_name}</div>}
-                    {game.can_conduct ? <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setClubLiveGame(game)} className="min-h-11 rounded-xl bg-white px-2 text-xs font-semibold text-black">Вести игру</button><button type="button" onClick={() => setClubProtocolGame(game)} className="min-h-11 rounded-xl border border-white/15 bg-white/[0.05] px-2 text-xs font-semibold text-white">Заполнить протокол</button></div> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Игра доступна для просмотра организатору. Вести её может назначенный ведущий.</div>}
+              {[
+                ...evenings.map((evening) => ({ kind: 'evening' as const, evening, sortAt: evening.starts_at, key: `evening:${evening.id}` })),
+                ...activeAssignments.map((assignment) => ({ ...assignment, sortAt: assignment.kind === 'club' ? (assignment.game as JudgingClubGame).evening_starts_at : (assignment.game as JudgingTournamentGame).tournament_date, key: `${assignment.kind}:${assignment.game.id}` })),
+              ].sort((a, b) => (Date.parse(a.sortAt) || 0) - (Date.parse(b.sortAt) || 0)).map((item) => {
+                if (item.kind === 'evening') {
+                  const evening = item.evening;
+                  return <article key={item.key} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-medium text-white">{evening.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(evening.starts_at)} · {evening.games_count} игр</div></div><span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-1 text-[11px] text-white/60">{EVENING_FORMAT_LABELS[normalizeEveningFormat(evening.format)]}</span></div>
+                    <p className="mt-2 text-xs text-white/45">{evening.access_label}</p>
+                    <button type="button" onClick={() => { setSelectedEveningId(evening.id); setOpenRequest((current) => current + 1); }} className="mt-3 min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 text-sm font-semibold text-white">{evening.can_create ? 'Открыть · новая игра' : 'Просмотр вечера'}</button>
                   </article>;
                 }
-                const game = assignment.game as JudgingTournamentGame;
-                return <article key={`tournament:${game.id}`} className="rounded-2xl bg-black/20 p-3">
-                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.tournament_title}</div><div className="mt-1 text-xs text-white/35">Игра №{game.game_number} · {formatDate(game.tournament_date)}</div></div><span className="shrink-0 rounded-full bg-amber-300/[0.08] px-2 py-1 text-[11px] text-amber-100/65">Турнир</span></div>
-                  {game.can_conduct ? <button type="button" disabled={tournamentLoading} onClick={() => void openTournament(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{tournamentLoading ? 'Открываем…' : game.status === 'active' ? 'Открыть игру' : 'Подготовить игру'}</button> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Проведение станет доступно после запуска турнира организатором.</div>}
+                if (item.kind === 'club') {
+                  const game = item.game as JudgingClubGame;
+                  const key = item.key;
+                  return <article key={key} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-medium text-white">{game.evening_title}</div><div className="mt-1 text-xs text-white/40">Игра #{game.global_game_number} · {formatDate(game.evening_starts_at)}</div></div><span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-1 text-[11px] text-white/60">{EVENING_FORMAT_LABELS[normalizeEveningFormat(game.evening_format)]}</span></div>
+                    {game.table_name && <div className="mt-1 text-xs text-white/40">Стол: {game.table_name}</div>}
+                    {game.can_conduct ? <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setClubLiveGame(game)} className="min-h-11 rounded-xl bg-white px-2 text-xs font-semibold text-black">Вести</button><button type="button" onClick={() => setClubProtocolGame(game)} className="min-h-11 rounded-xl border border-white/15 bg-white/[0.05] px-2 text-xs font-semibold text-white">Протокол</button></div> : <><button type="button" onClick={() => setPreviewKey(previewKey === key ? null : key)} className="mt-3 min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.05] px-3 text-sm text-white">Просмотр</button>{previewKey === key && <p className="mt-2 text-xs text-white/50">Игра доступна организатору для просмотра. Проведение и редактирование доступны только назначенному ведущему.</p>}</>}
+                  </article>;
+                }
+                const game = item.game as JudgingTournamentGame;
+                return <article key={item.key} className="rounded-2xl bg-black/20 p-3">
+                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-medium text-white">{game.tournament_title}</div><div className="mt-1 text-xs text-white/40">Турнир · игра №{game.game_number} · {formatDate(game.tournament_date)}</div></div><span className="shrink-0 rounded-full bg-amber-300/[0.08] px-2 py-1 text-[11px] text-amber-100/65">Турнир</span></div>
+                  {game.can_conduct ? <button type="button" disabled={tournamentLoading} onClick={() => void openTournament(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{tournamentLoading ? 'Открываем…' : game.status === 'active' ? 'Вести / открыть' : 'Открыть подготовку'}</button> : <><button type="button" onClick={() => setPreviewKey(previewKey === item.key ? null : item.key)} className="mt-3 min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.05] px-3 text-sm text-white">Просмотр</button>{previewKey === item.key && <p className="mt-2 text-xs text-white/50">Проведение доступно назначенному судье после запуска турнира.</p>}</>}
                 </article>;
-              }) : <div className="rounded-2xl bg-black/20 px-3 py-8 text-center text-sm text-white/35">Назначенных активных игр сейчас нет.</div>}
+              })}
+              {evenings.length + activeAssignments.length === 0 && <div className="rounded-2xl bg-black/20 px-3 py-8 text-center text-sm text-white/40">Открытых вечеров и доступных игр пока нет.</div>}
             </div>
           </section>
-
+          {onCreated && <JudgeGameLauncher embedded judge={{ id: dashboard.player.id, nickname: dashboard.player.nickname }} evenings={evenings} selectedEveningId={selectedEveningId} openRequest={openRequest} onCreated={onCreated} />}
           {completedAssignments.length > 0 && (
             <details className="rounded-3xl border border-white/10 bg-white/[0.035]">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-medium text-white/55"><span>Проведённые игры</span><span>{completedAssignments.length}</span></summary>

@@ -234,3 +234,7 @@ Before claiming the project is ready to deploy, distinguish:
 - `runtime verified`.
 
 These are three different states.
+
+## OBS replay fidelity (owner, 2026-10-16)
+
+The approved OBS broadcast overlay is the canonical game visual language, including game protocol and replay. Replay must reuse live broadcast components and confirmed engine states, not an unrelated text player. Never fabricate missing historical snapshots or timers.

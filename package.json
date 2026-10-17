@@ -45,7 +45,7 @@
     "db:legacy-player-link-dry-run": "tsx src/scripts/legacyPlayerLinkDryRun.ts"
   },
   "dependencies": {
-    "@base-ui/react": "1.8.0",
+    "@base-ui/react": "1.9.0",
     "@google/genai": "^2.27.0",
     "@resvg/resvg-js": "^2.6.2",
     "bcryptjs": "^3.0.3",
@@ -54,7 +54,7 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.3",
-    "express": "^5.2.1",
+    "express": "^5.3.0",
     "express-rate-limit": "^7.5.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
@@ -82,7 +82,7 @@
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^8.71.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "esbuild": "^0.28.1",
     "eslint": "^10.12.0",
     "jsdom": "^30.1.1",

@@ -169,6 +169,10 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 
 - The zero round happens **after the agreement** with **10 alive players**.
 
+### Announcement before a voting (owner, 2026-10-17)
+
+Before **every** voting and revote the judge announces it: the app shows a step with the phrase («Переходим к голосованию» / «…к переголосованию») and the order of the exposed candidates, and only «Начать голосование» opens «Кто против #N?». A seat tap does not vote during this step. A zero round with a single exposed candidate shows the same step, says that one candidate is exposed and that no voting follows, and leads to the night («К ночи»).
+
 ### Revotes
 
 - Revotes are **phases of one voting process**, not separate unrelated votes.

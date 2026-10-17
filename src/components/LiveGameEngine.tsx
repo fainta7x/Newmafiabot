@@ -925,6 +925,30 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
   };
 
+  function finishZeroRoundWithSingleNominee(onlyNominee: number) {
+    setNightLogs((previous) => [...previous, {
+      round: roundNumber,
+      log: `Д1: в нулевом круге выставлена только одна кандидатура #${onlyNominee}; голосование не проводится, наступает ночь.`,
+    }]);
+    showToast(`Нулевой круг: одна кандидатура #${onlyNominee} — сразу ночь`, "info");
+    startNightPhase();
+  }
+
+  /** «К ночи» on the announcement step of a zero round with a single nominee. */
+  const handleZeroRoundSingleToNight = () => {
+    const onlyNominee = nominations.find((slot) => activePlayers.some((player) => player.slot_num === slot && player.alive));
+    if (onlyNominee === undefined) return;
+    saveSnapshot();
+    finishZeroRoundWithSingleNominee(onlyNominee);
+  };
+
+  /** «Начать голосование» on the announcement step that precedes every voting and revote. */
+  const handleStartVoting = () => {
+    if (phase !== 'day_voting' || votingStage !== 'setup') return;
+    saveSnapshot();
+    setVotingStage('collecting');
+  };
+
   const handleTransitionToVoting = () => {
     saveSnapshot();
     if (discipline.isNextVotingCancelled) {
@@ -938,13 +962,16 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const liveNominations = nominations.filter((slot) => activePlayers.some((player) => player.slot_num === slot && player.alive));
     if (liveNominations.length === 0) return startNightPhase();
     if (roundNumber === 1 && liveNominations.length === 1) {
-      const onlyNominee = liveNominations[0];
-      setNightLogs((previous) => [...previous, {
-        round: roundNumber,
-        log: `Д1: в нулевом круге выставлена только одна кандидатура #${onlyNominee}; голосование не проводится, наступает ночь.`,
-      }]);
-      showToast(`Нулевой круг: одна кандидатура #${onlyNominee} — сразу ночь`, "info");
-      startNightPhase();
+      if (trainingRoles) return finishZeroRoundWithSingleNominee(liveNominations[0]);
+      // No voting happens, but the judge still announces it: the announcement step says so and leads to the night.
+      setVotingRounds([]);
+      setActiveVotingRoundIndex(0);
+      setVotes({});
+      setVotesByPlayer({});
+      setCurrentVotingNomineeIndex(0);
+      setTableLeaveVotesInput(null);
+      setVotingStage('setup');
+      setPhase('day_voting');
       return;
     }
     const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
@@ -967,7 +994,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotes(explicit);
     setVotesByPlayer({});
     setCurrentVotingNomineeIndex(0);
-    setVotingStage('collecting');
+    setVotingStage(trainingRoles ? 'collecting' : 'setup');
     setTableLeaveVotesInput(null);
     setPhase('day_voting');
   };
@@ -1075,7 +1102,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setCurrentVotingNomineeIndex(0);
     setRevoteSpeakerIndex(0);
     setTableLeaveVotesInput(null);
-    setVotingStage('collecting');
+    setVotingStage(trainingRoles ? 'collecting' : 'setup');
     setActiveSpeakerSlot(null);
     setIsTimerRunning(false);
   };
@@ -1636,6 +1663,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleBackWithinRevoteSpeeches,
       handleBackFromRevoteSpeeches,
       onBackToDaySpeeches: handleBackToDaySpeeches,
+      onStartVoting: handleStartVoting,
+      onZeroRoundSingleToNight: handleZeroRoundSingleToNight,
       handleLaunchNextRevote,
       handleConfirmAutoNoElimination,
       handleConfirmTableDecision,

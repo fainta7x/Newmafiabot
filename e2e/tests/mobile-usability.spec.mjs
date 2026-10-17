@@ -37,6 +37,7 @@ for (const width of [360, 390]) {
     await page.goto('/e2e/live-game.html?mode=audit');
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #3');
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
     const voteCount = page.locator('.live-judge-vote-summary .live-judge-stat').filter({ hasText: 'Голосов' }).locator('.live-judge-stat__value');
@@ -64,6 +65,7 @@ for (const width of [360, 390]) {
     await page.screenshot({ path: info.outputPath('revote-speech.png') });
     await next.click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     await expect(page.getByText('Переголосование 1', { exact: true })).toBeVisible();
   });
 }

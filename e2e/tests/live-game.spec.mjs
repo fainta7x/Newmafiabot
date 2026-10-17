@@ -195,6 +195,7 @@ const nominateTwoPlayersAndFinishDay = async (page) => {
     await finishSpeech(page, slot);
   }
   await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+  await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
 };
 
 const castFiveFiveVote = async (page) => {
@@ -236,6 +237,7 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(centerPanel(page).getByText('Все речи завершены', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     const votingHud = centerPanel(page);
     await expect(votingHud.getByText(/Кто против/)).toBeVisible();
     await expect(votingHud.getByRole('button', { name: '+1' })).toHaveCount(0);
@@ -391,6 +393,7 @@ test.describe('Live Game browser stabilization', () => {
     }
 
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     await expect(page.getByText('Ближайшее голосование отменено из-за удаления', { exact: true })).toBeVisible();
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'discipline cancellation night');
@@ -419,6 +422,7 @@ test.describe('Live Game browser stabilization', () => {
 
     await page.getByRole('button', { name: 'Следующий игрок', exact: true }).click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
     await expect(centerPanel(page).getByText(/Кто против/)).toBeVisible();
 
     await castFiveFiveVote(page);

@@ -1,8 +1,13 @@
 # 2LA Noire — Current Project State
 
-## Owner idea — 2026-10-17, interstitial before each voting (proposed, not built)
+## Owner request — 2026-10-17, announcement step before each voting (coded, see PR)
 
-After the last speech the judge lands straight on the vote tally, which is awkward: the judge first announces the voting aloud. Proposal: before **every** voting and revote show a short announcement step («Переходим к голосованию») with the order of the candidates, and only then start «Кто против #N?». Waiting for the owner's «да» on the exact scope (see the chat of 2026-10-17); do not build before it. Related fixes of the same day: «Попил» no longer hidden, long press on a seat opens fouls (`AUDIT_LOG.md`).
+Approved by the owner (answers of 2026-10-17): **before every voting and every revote** the judge sees a step «Переходим к голосованию» (revote: «…к переголосованию») with only the phrase and the order of the exposed candidates, then «Начать голосование». A zero round with one exposed candidate shows the same step («Выставлена одна кандидатура … Голосования не будет. Следующий шаг — ночь», button «К ночи»); a later day with one candidate says «Следующий шаг — голосование». Implemented through the existing `votingStage === 'setup'` (`CenterPanel.tsx` `renderVotingAnnouncement`, handlers in `LiveGameEngine.tsx`). The guided judge training keeps its old flow (its step gate expects voting at once). Not merged / deployed / verified on a phone yet.
+
+## Owner ideas — 2026-10-17, waiting for the owner's «да» (not built)
+
+- **Auto mode switch:** a toggle so the next phase starts by itself when the timer ends, to avoid constant tapping. Open questions: which transitions may auto-advance (speech end → next speech yes; voting, night, protocols?), what the judge sees (countdown, a way to stop), and whether it is saved per game.
+- **Desktop hotkeys / keyboard control** of the live game (next step, timer, fouls, vote seats). Open: which keys, and which actions.
 
 ## Owner request — 2026-10-16 second spreadsheet block
 

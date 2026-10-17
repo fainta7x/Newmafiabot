@@ -1664,6 +1664,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleBackFromRevoteSpeeches,
       onBackToDaySpeeches: handleBackToDaySpeeches,
       onStartVoting: handleStartVoting,
+      postNightStage,
       onZeroRoundSingleToNight: handleZeroRoundSingleToNight,
       handleLaunchNextRevote,
       handleConfirmAutoNoElimination,

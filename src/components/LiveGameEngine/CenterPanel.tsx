@@ -88,6 +88,8 @@ interface CenterPanelProps {
   handleBackWithinRevoteSpeeches?: (previousSlot: number, previousIndex: number) => void;
   handleBackFromRevoteSpeeches?: () => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
+  onStartVoting?: () => void;
+  onZeroRoundSingleToNight?: () => void;
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
   handleTransitionToVoting?: () => void;
@@ -182,6 +184,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleBackWithinRevoteSpeeches,
     handleBackFromRevoteSpeeches,
     handleLaunchNextRevote,
+    onStartVoting,
+    onZeroRoundSingleToNight,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
     onBackToDaySpeeches,
@@ -361,7 +365,8 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const votingPhaseLabel = (() => {
     if (phase !== 'day_voting') return null;
-    if (votingStage === 'collecting' || votingStage === 'setup') {
+    if (votingStage === 'setup') return 'Переход к голосованию';
+    if (votingStage === 'collecting') {
       const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
       return nominee ? `Голосование · кандидат #${nominee}` : 'Голосование';
     }
@@ -494,13 +499,42 @@ export default function CenterPanel(props: CenterPanelProps) {
     </div>
   );
 
+  const renderVotingAnnouncement = () => {
+    const seats = (currentRound?.nominated_seats ?? nominations).filter((slot) => activePlayers.some((player) => player.slot_num === slot && player.alive));
+    const isRevote = Boolean(currentRound?.is_revote);
+    const zeroRoundSingle = !currentRound && roundNumber === 1 && seats.length === 1;
+    const title = zeroRoundSingle ? 'Выставлена одна кандидатура' : isRevote ? 'Переходим к переголосованию' : 'Переходим к голосованию';
+    const hint = zeroRoundSingle
+      ? `Выставлена одна кандидатура: #${seats[0]}. Голосования не будет. Следующий шаг — ночь.`
+      : seats.length === 1
+        ? `Выставлена одна кандидатура: #${seats[0]}. Следующий шаг — голосование.`
+        : null;
+    return (
+      <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll" data-testid="live-voting-announcement">
+        <div className="live-judge-hud__eyebrow">{isRevote ? 'Переголосование' : 'Голосование'}</div>
+        <div className="live-judge-hud__title">{title}</div>
+        {seats.length > 1 && renderVotingOrder(seats)}
+        {seats.length === 1 && <div className="live-judge-hud__meta"><span className="live-judge-chip">Выставлена <strong>#{seats[0]}</strong></span></div>}
+        {hint && <div className="live-judge-hud__hint">{hint}</div>}
+        <div className="live-judge-vote-actions">
+          {zeroRoundSingle ? (
+            <button type="button" data-testid="live-zero-single-to-night" onClick={() => onZeroRoundSingleToNight?.()} className="live-judge-action live-judge-action--primary">К ночи</button>
+          ) : (
+            <button type="button" data-testid="live-voting-start" onClick={() => onStartVoting?.()} className="live-judge-action live-judge-action--primary">Начать голосование</button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderVoting = () => {
+    if (votingStage === 'setup') return renderVotingAnnouncement();
     if (!currentRound) return <div className="live-judge-hud__hint">Подготовка голосования…</div>;
 
     const result = determineVotingResult(currentRound);
     const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
 
-    if (votingStage === 'collecting' || votingStage === 'setup') {
+    if (votingStage === 'collecting') {
       const { nominee, eligible, remaining, currentVotes, isLast } = buildCollectingVotingPresentation({
         eligibleVoterSeats,
         eligibleVoters: currentRound.eligible_voters,

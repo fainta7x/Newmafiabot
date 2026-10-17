@@ -1,5 +1,14 @@
 # Audit log
 
+### 2026-10-17 — Live engine feature audit after the ChatGPT period (owner report: functions missing at the evening)
+
+Scope: documented Live Game features (FEATURE_MAP / BUSINESS_RULES) checked against `main` 5de3f32: mounts, tests, typecheck, deployed bundle, 390 px browser run.
+- Code audit: no feature removed; all live components mounted; ~12 old live CSS files unmounted since 2026-08-18 (intentional, not a regression). Typecheck clean; 282 live tests pass. (wontfix)
+- «Попил» (zero round): button present but at 390 px the sticky «Назад / Следующий» bar covered it (`CenterPanel.tsx`, `liveGameEveningBugfixes.css`). Fixed: one row «← Попил Следующий →». Shown only for a full table of 10 alive seats 1–10 by design (`quickSplitAssignments`); a table of 8–9 has no quick split — open, needs the owner's scheme.
+- Fouls outside the day speeches: `liveGameTelegram.css` hides the on-card «+Ф» on phones, and in voting a card tap casts a vote, so the only path was a 30 px selector in the HUD header. Fixed: long press (0.55 s) on any seat opens the player action sheet (fouls, removal, PPK) in every started phase (`SeatCard.tsx`).
+- «Протокол убитого» window not shown at the last evening: not reproduced (engine + bridge integration passes; mount depends on `.evening-live-engine-shell` and the 250 ms `mafia_live_session` poll). Open, waiting for the owner's details.
+- Old browser suite `e2e/tests/live-game.spec.mjs`: 4 of 5 fail at the setup step («Начать раздачу ролей» no longer exists); stale fixture, open.
+
 ### 2026-10-16 — #949 final mobile gate (open, before correction)
 
 Head7e41f819: required CI/CodeQL/Gitleaks passed, UI86/88 passed. Both compact-cabinet cases show the unified evening sheet at479px against the established450px limit. Actual360px screenshot confirms the newly included facts disclosure plus repeated16px section gaps consume the extra space. Tighten only sheet padding/gaps by32px; preserve all content, shared role art, font sizes and44px controls. Keep the450px assertion. Also capture the full recap content by growing the screenshot viewport after mobile interaction/geometry checks; current fullPage evidence is clipped by Telegram's scroll root.

@@ -1550,6 +1550,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           handleStartTimer={handleStartTimer}
           handleNominateCandidate={handleNominateCandidate}
           handleSeatClick={handleSeatClick}
+          onOpenPlayerActions={setActionPlayerSlot}
           handleFoulChange={handleFoulChange}
           onRequestDirectRemoval={directRemoveFromMenu}
           markPlayerSpoken={markPlayerSpoken}

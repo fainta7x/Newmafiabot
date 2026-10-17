@@ -89,6 +89,7 @@ interface CenterPanelProps {
   handleBackFromRevoteSpeeches?: () => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
   onStartVoting?: () => void;
+  postNightStage?: 'none' | 'farewell' | 'death_protocol';
   onZeroRoundSingleToNight?: () => void;
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
@@ -116,6 +117,10 @@ interface CenterPanelProps {
   /** The current speaker has already bought +30 s for two fouls: a revote speech then lasts 30 + 30 s, not 30. */
   speechExtended?: boolean;
 }
+
+/** Auto mode (owner, 2026-10-17): the switch is remembered on this device; the countdown leaves time to press «Стоп». */
+const AUTO_ADVANCE_STORAGE_KEY = 'mafia_live_auto_advance';
+const AUTO_COUNTDOWN_SECONDS = 3;
 
 const normalizeJudgeCopy = (value: string): string => value
   .replace(/^Посадка/, 'Свободная посадка')
@@ -185,6 +190,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleBackFromRevoteSpeeches,
     handleLaunchNextRevote,
     onStartVoting,
+    postNightStage = 'none',
     onZeroRoundSingleToNight,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
@@ -197,6 +203,11 @@ export default function CenterPanel(props: CenterPanelProps) {
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const [splitPicking, setSplitPicking] = React.useState<number[] | null>(null);
+  const [autoAdvance, setAutoAdvance] = React.useState<boolean>(() => {
+    try { return localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === '1'; } catch { return false; }
+  });
+  const [autoCountdown, setAutoCountdown] = React.useState<number | null>(null);
+  const autoChainRef = React.useRef(false);
   const timerDeadlineRef = React.useRef<number | null>(null);
   const timerIdentityRef = React.useRef('');
   const bestMoveDeadlineRef = React.useRef<number | null>(null);
@@ -443,6 +454,20 @@ export default function CenterPanel(props: CenterPanelProps) {
     </div>
   );
 
+  const toggleAutoAdvance = () => {
+    const next = !autoAdvance;
+    setAutoAdvance(next);
+    setAutoCountdown(null);
+    autoChainRef.current = false;
+    try { localStorage.setItem(AUTO_ADVANCE_STORAGE_KEY, next ? '1' : '0'); } catch { /* the choice is only a convenience */ }
+  };
+
+  /** «Стоп» cancels the pending automatic step only; the mode itself stays on. */
+  const stopAutoAdvance = () => {
+    setAutoCountdown(null);
+    autoChainRef.current = false;
+  };
+
   const renderTimer = () => {
     const timerLabel = normalizeJudgeCopy(customTimerLabel || (activeSpeakerSlot ? `Речь #${activeSpeakerSlot}` : 'Таймер'));
     const timerName = activeSpeaker?.nickname || (nightActionStatus ?? '');
@@ -525,6 +550,24 @@ export default function CenterPanel(props: CenterPanelProps) {
         </div>
       </div>
     );
+  };
+
+  const advanceRevoteSpeech = () => {
+    if (!currentRound) return;
+    const participants = determineVotingResult(currentRound).winners;
+    const isLastSpeaker = revoteSpeakerIndex >= participants.length - 1;
+    setIsTimerRunning(false);
+    if (isLastSpeaker) {
+      setActiveSpeakerSlot(null);
+      handleLaunchNextRevote?.(participants);
+      return;
+    }
+    const next = participants[revoteSpeakerIndex + 1];
+    if (handleAdvanceRevoteSpeaker) handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);
+    else {
+      setRevoteSpeakerIndex?.(revoteSpeakerIndex + 1);
+      handleStartTimer(next, 30);
+    }
   };
 
   const renderVoting = () => {
@@ -619,20 +662,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (votingStage === 'revote_speeches') {
       const participants = result.winners;
       const isLastSpeaker = revoteSpeakerIndex >= participants.length - 1;
-      const advanceSpeech = () => {
-        setIsTimerRunning(false);
-        if (isLastSpeaker) {
-          setActiveSpeakerSlot(null);
-          handleLaunchNextRevote?.(participants);
-          return;
-        }
-        const next = participants[revoteSpeakerIndex + 1];
-        if (handleAdvanceRevoteSpeaker) handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);
-        else {
-          setRevoteSpeakerIndex?.(revoteSpeakerIndex + 1);
-          handleStartTimer(next, 30);
-        }
-      };
+      const advanceSpeech = advanceRevoteSpeech;
 
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--revote-speech">
@@ -814,6 +844,61 @@ export default function CenterPanel(props: CenterPanelProps) {
     return baseNextStep ? { ...baseNextStep, label: normalizeJudgeCopy(baseNextStep.label) } : null;
   })();
 
+  // Auto mode: when a timer has run out, the phase's own next step is pressed after a short countdown. Only steps that need
+  // no judge input follow a timer: ending a speech, the next revote or last speech, the zero-night timers. Music, the
+  // death protocol, best move and every voting stay manual.
+  const timerEnded = !isTimerRunning && timeLeft === 0;
+  const nextIsPlainStep = Boolean(baseNextStep) && Boolean(nextStep) && !nextStep!.label.startsWith('♫');
+  const autoStep: (() => void) | null = (() => {
+    if (!autoAdvance || !timerEnded) return null;
+    if (phase === 'day_speeches' && activeSpeakerSlot !== null && nextIsPlainStep) {
+      return () => { autoChainRef.current = true; baseNextStep!.onClick(); };
+    }
+    if (phase === 'zero_night' && (zeroNightSubPhase === 'agreement' || zeroNightSubPhase === 'sheriff') && nextIsPlainStep) {
+      return () => baseNextStep!.onClick();
+    }
+    if (phase === 'night' && postNightStage === 'farewell' && activeSpeakerSlot !== null && nextIsPlainStep) {
+      return () => baseNextStep!.onClick();
+    }
+    if (phase === 'day_voting' && votingStage === 'resolved' && activeSpeakerSlot !== null && nextIsPlainStep) {
+      return () => baseNextStep!.onClick();
+    }
+    if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null) {
+      return () => advanceRevoteSpeech();
+    }
+    return null;
+  })();
+  const autoStepRef = React.useRef(autoStep);
+  autoStepRef.current = autoStep;
+  const hasAutoStep = autoStep !== null;
+  const autoContext = `${phase}|${votingStage}|${activeSpeakerSlot}|${zeroNightSubPhase}|${postNightStage}|${revoteSpeakerIndex}`;
+  React.useEffect(() => {
+    if (!hasAutoStep) {
+      setAutoCountdown(null);
+      return;
+    }
+    setAutoCountdown(AUTO_COUNTDOWN_SECONDS);
+    const id = window.setInterval(() => setAutoCountdown((value) => (value === null ? null : value - 1)), 1000);
+    return () => window.clearInterval(id);
+  }, [hasAutoStep, autoContext]);
+  React.useEffect(() => {
+    if (autoCountdown === null || autoCountdown > 0) return;
+    setAutoCountdown(null);
+    autoStepRef.current?.();
+  }, [autoCountdown]);
+
+  // After an automatic end of a speech the next speech starts by itself (the countdown above already gave the pause).
+  const baseNextStepRef = React.useRef(baseNextStep);
+  baseNextStepRef.current = baseNextStep;
+  React.useEffect(() => {
+    if (!autoChainRef.current || phase !== 'day_speeches' || activeSpeakerSlot !== null) return;
+    autoChainRef.current = false;
+    const step = baseNextStepRef.current;
+    if (!autoAdvance || !nextSpeaker || !step || !step.label.startsWith('Речь #')) return;
+    const id = window.setTimeout(() => baseNextStepRef.current?.onClick(), 500);
+    return () => window.clearTimeout(id);
+  }, [phase, activeSpeakerSlot, autoAdvance, nextSpeaker]);
+
   const prevStep = getPrevStepAction();
   const showFooterAction = phase !== 'day_voting' || votingStage === 'resolved';
   const showFooterSummary = phase !== 'day_voting';
@@ -849,6 +934,15 @@ export default function CenterPanel(props: CenterPanelProps) {
                 ))}
               </select>
             )}
+            {phase !== 'setup' && (autoCountdown !== null ? (
+              <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
+                <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>
+              </button>
+            ) : (
+              <button type="button" data-testid="live-auto-toggle" onClick={toggleAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active={autoAdvance ? 'true' : 'false'} aria-pressed={autoAdvance} title="Авторежим: после таймера следующий шаг наступает сам">
+                <span>Авто</span>
+              </button>
+            ))}
             {canUseVotingBack && (
               <button type="button" data-testid={canReturnToSpeeches ? "live-voting-back-to-speeches" : undefined} onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>{canReturnToSpeeches ? "К речам" : "Назад"}</span></button>
             )}

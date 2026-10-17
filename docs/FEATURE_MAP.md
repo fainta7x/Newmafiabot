@@ -243,6 +243,7 @@ Closed evenings must not have their old useful Telegram announcement replaced wh
 - Two-fouls-for-+30 rule: `speechExtensionModel.ts`.
 - Timer calculations: `timerModel.ts`.
 - Voting presentation: `votingPresentationModel.ts`.
+- Auto mode («Авто», next step after a timer): `CenterPanel.tsx` (`autoStep`, `toggleAutoAdvance`), key `mafia_live_auto_advance`.
 - Announcement step before each voting/revote: `CenterPanel.tsx` (`renderVotingAnnouncement`) + `handleStartVoting` / `handleZeroRoundSingleToNight` in `LiveGameEngine.tsx`, stage `votingStage === 'setup'`.
 - Seat presentation: `seatPresentationModel.ts`.
 - Snapshot schema/restore: `engineStateModel.ts`.

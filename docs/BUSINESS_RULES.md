@@ -169,6 +169,10 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 
 - The zero round happens **after the agreement** with **10 alive players**.
 
+### Auto mode (owner, 2026-10-17)
+
+An optional switch «Авто» in the Live Game centre panel (off by default, remembered on the device). When on, after a **timer** runs out the app presses the phase's next step by itself after a 3-second countdown that can be cancelled with «Стоп»: end of a speech and the start of the next one, revote speeches, last speeches, zero-night timers. It never decides for the judge: the night music steps, the death protocol, best move, the voting announcement and every voting (which has no timer) stay manual.
+
 ### Announcement before a voting (owner, 2026-10-17)
 
 Before **every** voting and revote the judge announces it: the app shows a step with the phrase («Переходим к голосованию» / «…к переголосованию») and the order of the exposed candidates, and only «Начать голосование» opens «Кто против #N?». A seat tap does not vote during this step. A zero round with a single exposed candidate shows the same step, says that one candidate is exposed and that no voting follows, and leads to the night («К ночи»).

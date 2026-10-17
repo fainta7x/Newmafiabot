@@ -43,6 +43,8 @@ interface SeatCardProps {
   handleStartTimer: (slotNum: number, duration: number) => void;
   handleNominateCandidate: (slotNum: number) => void;
   handleSeatClick: (slotNum: number) => void;
+  /** Long press on the card: the player action sheet (fouls, removal, PPK) in any phase, even while a tap casts a vote. */
+  onOpenPlayerActions?: (slotNum: number) => void;
   handleFoulChange: (slotNum: number, dir: "up" | "down") => void;
   onRequestDirectRemoval: (slotNum: number) => void;
   markPlayerSpoken: (slotNum: number) => void;
@@ -83,6 +85,7 @@ export default function SeatCard(props: SeatCardProps) {
     timeLeft,
     handleNominateCandidate,
     handleSeatClick,
+    onOpenPlayerActions,
     handleFoulChange,
     nightSubPhase,
     roundNumber,
@@ -156,7 +159,37 @@ export default function SeatCard(props: SeatCardProps) {
     handleFoulChange(slotNum, direction);
   };
 
+  const longPressTimer = React.useRef<number | null>(null);
+  const longPressOrigin = React.useRef<{ x: number; y: number } | null>(null);
+  const longPressFired = React.useRef(false);
+  const cancelLongPress = () => {
+    if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+    longPressOrigin.current = null;
+  };
+  React.useEffect(() => cancelLongPress, []);
+  const startLongPress = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!onOpenPlayerActions || phase === "setup" || event.button > 0) return;
+    if ((event.target as HTMLElement).closest("button, select, a, input")) return;
+    cancelLongPress();
+    longPressFired.current = false;
+    longPressOrigin.current = { x: event.clientX, y: event.clientY };
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTimer.current = null;
+      longPressFired.current = true;
+      onOpenPlayerActions(slotNum);
+    }, 550);
+  };
+  const moveLongPress = (event: React.PointerEvent<HTMLDivElement>) => {
+    const origin = longPressOrigin.current;
+    if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 10) cancelLongPress();
+  };
+
   const handleCardClick = () => {
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
     if (tableDecisionActive) {
       if (!player.alive) return;
       toggleTableDecisionVoter(slotNum);
@@ -273,6 +306,12 @@ export default function SeatCard(props: SeatCardProps) {
   return (
     <div
       onClick={handleCardClick}
+      onPointerDown={startLongPress}
+      onPointerMove={moveLongPress}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
+      onContextMenu={onOpenPlayerActions ? (event) => event.preventDefault() : undefined}
       data-seat={slotNum}
       data-nominated={isNominated && (phase === 'day_speeches' || phase === 'day_voting') ? 'true' : undefined}
       data-table-decision={tableDecisionActive ? 'true' : undefined}

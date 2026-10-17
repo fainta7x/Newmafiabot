@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## Owner idea — 2026-10-17, interstitial before each voting (proposed, not built)
+
+After the last speech the judge lands straight on the vote tally, which is awkward: the judge first announces the voting aloud. Proposal: before **every** voting and revote show a short announcement step («Переходим к голосованию») with the order of the candidates, and only then start «Кто против #N?». Waiting for the owner's «да» on the exact scope (see the chat of 2026-10-17); do not build before it. Related fixes of the same day: «Попил» no longer hidden, long press on a seat opens fouls (`AUDIT_LOG.md`).
+
 ## Owner request — 2026-10-16 second spreadsheet block
 
 Rows10–14 are now authorized: Telegram announcement separates assigned host from players; unify game results into a compact designed score sheet with useful personal stats, voting source→target and purple Don; finish PR951 after fixing its failures; unify evening recap presentation; investigate slow application/database startup. Implemented in existing PR949 workstream: one game/evening score sheet, shared role-label colour, source vote log and canonical action accuracy; Telegram host is separate from player totals; completed-protocol caching uses relevant-data invalidation; CRM/OBS/replay route bundles load on demand. Owner merge-check request2026-10-16: required CI on7e41f819 passed; mobile86/88 passed, with recap479px exceeding450px. Preserve the limit and all content; reduce only sheet gaps/padding32px and verify the corrected head before merge. PR951 merged as2d2bca9f95f56a236a11b9fe1254ad4f9447567d after full required CI, CodeQL and Gitleaks on head d5622500. Its equivalent source tree also passed UI preview before ancestry-only reconciliation. No production DB edits or real messages. Owner also requests shorter turnaround: focused connected tests first, one coherent CI candidate and parallel useful work while external checks run.

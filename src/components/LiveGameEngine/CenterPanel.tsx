@@ -544,34 +544,34 @@ export default function CenterPanel(props: CenterPanelProps) {
               ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
               : `Нажмите игроков, голосующих против #${nominee}.`}
           </div>
-          {quickSplitAvailable && handleQuickSplit ? (
-            splitPicking ? (
-              <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
-                <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
-                <div className="live-judge-quick-split__seats">
-                  {currentRound.nominated_seats.map((seat) => (
-                    <button
-                      key={seat}
-                      type="button"
-                      aria-pressed={splitPicking.includes(seat)}
-                      disabled={splitPicking.includes(seat)}
-                      onClick={() => {
-                        if (!splitPicking.length) return setSplitPicking([seat]);
-                        handleQuickSplit([splitPicking[0], seat]);
-                        setSplitPicking(null);
-                      }}
-                      className="live-judge-quick-split__seat"
-                    >#{seat}</button>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
-              </div>
-            ) : (
-              <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
-            )
-          ) : null}
           <div className="live-judge-vote-actions">
-            <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
+            {quickSplitAvailable && handleQuickSplit ? (
+              splitPicking ? (
+                <div className="live-judge-quick-split" data-testid="live-quick-split-picker">
+                  <div className="live-judge-hud__hint">Между кем попил? Выберите двоих{splitPicking.length ? `: #${splitPicking[0]} и…` : ''}</div>
+                  <div className="live-judge-quick-split__seats">
+                    {currentRound.nominated_seats.map((seat) => (
+                      <button
+                        key={seat}
+                        type="button"
+                        aria-pressed={splitPicking.includes(seat)}
+                        disabled={splitPicking.includes(seat)}
+                        onClick={() => {
+                          if (!splitPicking.length) return setSplitPicking([seat]);
+                          handleQuickSplit([splitPicking[0], seat]);
+                          setSplitPicking(null);
+                        }}
+                        className="live-judge-quick-split__seat"
+                      >#{seat}</button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={() => setSplitPicking(null)} className="live-judge-action">Отмена</button>
+                </div>
+              ) : (
+                <button type="button" data-testid="live-quick-split" disabled={pendingVotingResolution} onClick={() => setSplitPicking([])} className="live-judge-action">Попил</button>
+              )
+            ) : null}
+            <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action" aria-label="Назад">←</button>
             {isLast ? (
               <button type="button" data-testid="live-voting-finalize" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
             ) : (

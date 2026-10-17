@@ -442,3 +442,38 @@ html body .live-judge-quick-split__seat:disabled {
 html body .live-judge-quick-split .live-judge-action {
   min-height: 44px;
 }
+
+/* «Попил» lives in the sticky action bar next to «Назад» and «Следующий»: as a sibling above the bar the sticky bar covered
+   it on a phone-sized HUD. The picker that follows a tap takes its own full-width row above the three buttons. */
+.evening-live-engine-shell .live-judge-vote-actions {
+  flex-wrap: wrap;
+}
+
+.evening-live-engine-shell .live-judge-vote-actions > .live-judge-quick-split {
+  order: 0;
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.evening-live-engine-shell .live-judge-vote-actions > .live-judge-action[aria-label="Назад"] { order: 1; flex: 0 0 44px; padding-inline: 0; }
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-quick-split"] { order: 2; }
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-voting-next"],
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-voting-finalize"] { order: 3; }
+
+.evening-live-engine-shell .live-judge-hud__stack--voting-scroll > .live-judge-vote-actions {
+  background: #12141a;
+}
+
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-voting-next"],
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-voting-finalize"],
+.evening-live-engine-shell .live-judge-vote-actions > [data-testid="live-quick-split"] {
+  padding-inline: 6px;
+  white-space: nowrap;
+}
+
+/* While the pair is being picked the picker covers the counters under it, so it must be opaque. */
+html body .evening-live-engine-shell .live-judge-vote-actions > .live-judge-quick-split {
+  background: #12141a !important;
+  border-radius: 12px;
+  padding: 4px 0;
+}

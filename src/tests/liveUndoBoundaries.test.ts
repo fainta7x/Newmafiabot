@@ -104,8 +104,9 @@ describe('live-game undo boundaries', () => {
     const start = centerSource.indexOf('const handleVotingBack = () => {');
     const end = centerSource.indexOf('const renderNominationChips', start);
     const backBlock = centerSource.slice(start, end);
-    const votingStart = centerSource.indexOf("if (votingStage === 'revote_speeches')", end);
-    const votingEnd = centerSource.indexOf("if (votingStage === 'table_decision')", votingStart);
+    // The revote speech «next» handler is shared with auto mode, so it lives in one hoisted function.
+    const votingStart = centerSource.indexOf('const advanceRevoteSpeech = () => {', end);
+    const votingEnd = centerSource.indexOf('const renderVoting = () => {', votingStart);
     const revoteBlock = centerSource.slice(votingStart, votingEnd);
 
     expect(backBlock).toContain('handleBackWithinRevoteSpeeches(previousSpeaker, previousIndex);');

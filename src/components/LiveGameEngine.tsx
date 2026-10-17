@@ -37,6 +37,8 @@ import LiveGameJudgeToolbar from "./LiveGameEngine/LiveGameJudgeToolbar.js";
 import RevealPanel from "./LiveGameEngine/RevealPanel.tsx";
 import { addReveal, removeAnnouncedCheck, removeReveal, setAnnouncedCheck, type LiveReveal, type RevealColor } from "../lib/liveReveals.ts";
 import LiveGamePlayerList from "./LiveGameEngine/LiveGamePlayerList.js";
+import LiveGameHotkeyLayer from "./LiveGameEngine/LiveGameHotkeyLayer.tsx";
+import { useLiveGameHotkeys } from "./LiveGameEngine/useLiveGameHotkeys.ts";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
   BestMoveProtocolOverlay,
@@ -1674,6 +1676,29 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
   }
 
+  // Desktop keyboard control (owner, 2026-10-17). Off in the guided training, whose steps are gated one by one.
+  const nightTapPhase = phase === 'night' && postNightStage === 'none'
+    && (nightSubPhase === 'shooting' || nightSubPhase === 'don' || nightSubPhase === 'sheriff');
+  const hotkeys = useLiveGameHotkeys({
+    enabled: !trainingRoles && phase !== 'setup',
+    blocked: actionPlayerSlot !== null || pendingDisciplineConfirmation !== null || pendingWinner !== null
+      || activeBestMoveSource !== null || postNightStage === 'death_protocol',
+    seats: activePlayers.map((player) => player.slot_num),
+    aliveSeats: activePlayers.filter((player) => player.alive).map((player) => player.slot_num),
+    tapPhase: (phase === 'day_voting' && votingStage === 'collecting') || nightTapPhase,
+    quickSplitAvailable,
+  }, {
+    tapSeat: handleSeatClick,
+    openPanel: setActionPlayerSlot,
+    expose: handleNominateCandidate,
+    foul: addRegularFoulFromMenu,
+    removeFoul: removeRegularFoul,
+    techFoul: addTechFoulFromMenu,
+    undo: handleUndoAction,
+    quickSplit: handleQuickSplit,
+    toast: (message) => showToast(message, 'info'),
+  });
+
   const actionPlayer = actionPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === actionPlayerSlot) || null;
   const farewellActionOpen = isFarewellSpeechActive() && actionPlayerSlot !== null;
   const actionDiscipline = actionPlayerSlot === null ? null : discipline.players[String(actionPlayerSlot)] || null;
@@ -1696,6 +1721,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
+      <LiveGameHotkeyLayer
+        cursor={hotkeys.cursor}
+        cursorName={hotkeys.cursor === null ? '' : activePlayers.find((player) => player.slot_num === hotkeys.cursor)?.nickname || ''}
+        split={hotkeys.split}
+        helpOpen={hotkeys.helpOpen}
+        onCloseHelp={hotkeys.closeHelp}
+      />
       <WinnerConfirmationOverlay
         winner={pendingWinner}
         canUndo={historyStack.length > 0}

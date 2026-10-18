@@ -44,6 +44,8 @@ import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
 import pokerRoutes from './server/routes/pokerRoutes.ts';
+import clocktowerRoutes from './server/routes/clocktowerRoutes.ts';
+import { ensureClocktowerSchema } from './db/ensureClocktowerSchema.ts';
 import pokerTournamentRoutes from './server/routes/pokerTournamentRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerLiveRoutes from './server/routes/playerLiveRoutes.ts';
@@ -203,6 +205,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureObsRemoteSchema(db);
   await ensurePokerRuntimeSchema(db);
   await ensurePokerInviteSchema(db);
+  await ensureClocktowerSchema(db);
   await ensurePokerTournamentSchema(db);
   await ensurePokerChatSchema(db);
   await ensurePlayerProfileMergeSchema(db);
@@ -280,6 +283,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerJudgeMusicRoutes);
   app.use('/api/player', musicLibraryRoutes);
   app.use('/api/player', pokerRoutes);
+  app.use('/api/player', clocktowerRoutes);
   app.use('/api/player', pokerTournamentRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/player', playerLiveRoutes);

@@ -17,7 +17,8 @@ export type PlayerCabinetSection =
   | 'settings'
   | 'conduct'
   | 'more'
-  | 'poker';
+  | 'poker'
+  | 'clocktower';
 
 /*
  * The bottom menu (owner decision 2026-10-06): four places.

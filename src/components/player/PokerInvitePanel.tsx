@@ -45,16 +45,17 @@ const cooldownLabel = (seconds: number) => {
   return `${min}:${String(sec).padStart(2, '0')}`;
 };
 
-export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
+/** Also used by the «Кровь на часовой башне» rooms: they pass their own addresses and the text for a direct message. */
+export default function PokerInvitePanel({ lobbyId, candidatesUrl = '/api/player/poker/invite-candidates', inviteUrl, contactText }: { lobbyId: string; candidatesUrl?: string; inviteUrl?: string; contactText?: string }) {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const load = useCallback(async () => {
-    const response = await fetch('/api/player/poker/invite-candidates', { credentials: 'include' });
+    const response = await fetch(candidatesUrl, { credentials: 'include' });
     const body = await response.json().catch(() => null);
     if (!response.ok || !body) throw new Error(body?.error || 'Не удалось загрузить игроков.');
     setCandidates(Array.isArray(body.candidates) ? body.candidates : []);
-  }, []);
+  }, [candidatesUrl]);
 
   useEffect(() => {
     void load().catch(() => undefined);
@@ -77,7 +78,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
     setBusy(candidate.player_id);
     setNotice(null);
     try {
-      const response = await fetch(`/api/player/poker/lobbies/${encodeURIComponent(lobbyId)}/invite`, {
+      const response = await fetch(inviteUrl || `/api/player/poker/lobbies/${encodeURIComponent(lobbyId)}/invite`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -146,7 +147,7 @@ export default function PokerInvitePanel({ lobbyId }: { lobbyId: string }) {
                 {buttonLabel}
               </button>
             </div>
-            <DirectContactButtons className="mt-1 pb-1" contact={candidate.direct_contact} text={`Зову тебя сыграть в покер: ${typeof window !== 'undefined' ? window.location.origin : ''}/player/poker/${encodeURIComponent(lobbyId)}`} />
+            <DirectContactButtons className="mt-1 pb-1" contact={candidate.direct_contact} text={contactText || `Зову тебя сыграть в покер: ${typeof window !== 'undefined' ? window.location.origin : ''}/player/poker/${encodeURIComponent(lobbyId)}`} />
             </div>
           );
         }) : <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-white/35">Пока некого звать</div>}

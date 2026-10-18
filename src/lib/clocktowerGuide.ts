@@ -1,27 +1,14 @@
 /**
  * «Кровь на часовой башне» (Blood on the Clocktower, The Pandemonium Institute): a stub for the club app (owner, 2026-10-18).
- * The app does NOT run the game. It has a page of rules in the guide and a ready template of an invitation event
- * («Свои ивенты»). The texts below are a short retelling in our own words, not the rulebook; the Russian role names are a
+ * The app does NOT run the game. It has a page of rules in the guide and, in the player cabinet next to the poker table, rooms with invitations
+ * (`PlayerClocktower.tsx`). The texts below are a short retelling in our own words, not the rulebook; the Russian role names are a
  * working translation. The owner has not reviewed them yet (docs/PROJECT_STATE.md).
  */
 import type { GuideBlock } from './clubGuide.ts';
 
 export const CLOCKTOWER_TITLE = 'Кровь на часовой башне';
-/** Address of the page that explains the game; the invitation template links to it. */
+/** Address of the page that explains the game; the «Башня» section of the player cabinet links to it. */
 export const CLOCKTOWER_GUIDE_PATH = '/guide?tab=clocktower';
-export const CLOCKTOWER_LINK_MARK = 'tab=clocktower';
-
-export const CLOCKTOWER_EVENT_TEMPLATE = {
-  title: CLOCKTOWER_TITLE,
-  participantLimit: 12,
-  visibility: 'invite',
-  description: (origin: string) => [
-    'Вечер игры «Кровь на часовой башне» — социальная игра на дедукцию: добрые ищут Демона, злые прячутся и лгут.',
-    'Нужен Рассказчик (ведущий) и от 5 до 15 игроков. Опыт не нужен: правила объясним за столом.',
-    `Правила и роли простыми словами: ${origin}${CLOCKTOWER_GUIDE_PATH}`,
-    'Это отдельный вечер: он не влияет на рейтинг и статистику мафии клуба.',
-  ].join('\n\n'),
-};
 
 /** [players, townsfolk, outsiders, minions]; the Demon is always one. */
 export const CLOCKTOWER_COMPOSITION: ReadonlyArray<readonly [number, number, number, number]> = [
@@ -54,8 +41,8 @@ export const CLOCKTOWER_OVERVIEW: GuideBlock[] = [
     title: 'Как это будет у нас',
     lead: 'В приложении пока нет самой игры — только страница с правилами и приглашения.',
     points: [
-      'Организатор создаёт вечер «Кровь на часовой башне» в разделе «Свои ивенты» (там есть готовый шаблон) и приглашает людей.',
-      'Приглашённые видят ивент в событиях, читают правила и записываются.',
+      'Любой игрок создаёт комнату в разделе «Сообщество» → «Кровь на часовой башне» и зовёт людей: приглашение приходит личным сообщением.',
+      'Приглашённые заходят в комнату по ссылке, читают правила и присоединяются; Рассказчика выбирают в комнате.',
       'Играем за столом руками: нужен набор игры и Рассказчик. Вечер не влияет на рейтинг и статистику мафии клуба.',
       'Это краткий пересказ для знакомства, а не замена официальным правилам. В спорных случаях решает Рассказчик. Игра принадлежит издателю The Pandemonium Institute.',
     ],

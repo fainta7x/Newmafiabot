@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CLOCKTOWER_COMPOSITION, CLOCKTOWER_EVENT_TEMPLATE, CLOCKTOWER_GUIDE_PATH, CLOCKTOWER_RULES } from '../lib/clocktowerGuide';
+import { CLOCKTOWER_COMPOSITION, CLOCKTOWER_GUIDE_PATH, CLOCKTOWER_RULES } from '../lib/clocktowerGuide';
 import { GUIDE_ENTRIES, GUIDE_SHELVES, findGuideEntry } from '../lib/guideCatalog';
 import { PublicGuide } from '../components/public/PublicGuide';
-import CustomEventsPanel from '../components/crm/CustomEventsPanel';
-import PlayerCustomEventDetail from '../components/player/PlayerCustomEventDetail';
+import PlayerClocktower from '../components/player/PlayerClocktower';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-describe('«Кровь на часовой башне»: the rules page and the invitation', () => {
+describe('«Кровь на часовой башне»: the rules page', () => {
   it('the table composition adds up for every number of players, with exactly one Demon', () => {
     for (const [players, townsfolk, outsiders, minions] of CLOCKTOWER_COMPOSITION) {
       expect(townsfolk + outsiders + minions + 1).toBe(players);
@@ -31,33 +30,34 @@ describe('«Кровь на часовой башне»: the rules page and the 
     render(<PublicGuide initialTab="clocktower" />);
     expect(screen.getByTestId('guide-article').textContent).toContain('В приложении пока нет самой игры');
   });
+});
 
-  it('the invitation template fills a ready event and the player sees a link to the rules', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [] })));
-    render(<CustomEventsPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /Создать ивент/ }));
-    fireEvent.click(await screen.findByTestId('custom-event-template-clocktower'));
-    expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Кровь на часовой башне');
-    const description = (screen.getByLabelText('Описание') as HTMLTextAreaElement).value;
-    expect(description).toContain(CLOCKTOWER_GUIDE_PATH);
-    expect(description).toContain(window.location.origin);
-    expect(CLOCKTOWER_EVENT_TEMPLATE.participantLimit).toBe(12);
-    expect(CLOCKTOWER_EVENT_TEMPLATE.visibility).toBe('invite');
+describe('«Кровь на часовой башне»: the section of the player cabinet', () => {
+  const room = { id: 'r1', title: 'Башня у Миши', note: 'Есть набор', starts_at: null, host_nickname: 'Миша', members: [{ player_id: 'p1', nickname: 'Миша', is_storyteller: false }], joined: false, is_host: false, has_storyteller: false, i_am_storyteller: false };
+
+  it('lists rooms, joins one and creates a new one', async () => {
+    const calls: Array<{ url: string; method: string; body: any }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method || 'GET', body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (url.endsWith('/rooms') && (init?.method || 'GET') === 'POST') return new Response(JSON.stringify({ id: 'r2' }), { status: 201 });
+      if (url.endsWith('/rooms')) return new Response(JSON.stringify({ rooms: [room] }), { status: 200 });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }));
+    const opened: Array<string | null> = [];
+    render(<PlayerClocktower onOpenRoom={(id) => opened.push(id)} />);
+    expect((await screen.findByTestId('clocktower-room')).textContent).toContain('Башня у Миши');
+    fireEvent.click(screen.getByTestId('clocktower-join'));
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith('/rooms/r1/join') && call.method === 'POST')).toBe(true));
+    fireEvent.click(screen.getByTestId('clocktower-create'));
+    fireEvent.change(screen.getByTestId('clocktower-title'), { target: { value: 'Вечер башни' } });
+    fireEvent.click(screen.getByTestId('clocktower-create-submit'));
+    await waitFor(() => expect(opened).toEqual(['r2']));
+    expect(calls.find((call) => call.url.endsWith('/rooms') && call.method === 'POST')?.body.title).toBe('Вечер башни');
   });
 
-  it('an invited player sees «Правила игры» on the event page, other events have no such link', async () => {
-    const event = (description: string) => ({
-      id: 'e1', title: 'Вечер', description, starts_at: '2026-11-01T15:00:00Z', ends_at: '2026-11-01T18:00:00Z', price_rub: 0,
-      participant_limit: 12, participant_count: 3, registration_open: 1, allow_guest: 0,
-    });
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => event(CLOCKTOWER_EVENT_TEMPLATE.description('https://club.example')) })));
-    const { unmount } = render(<PlayerCustomEventDetail eventId="e1" onBack={() => undefined} onSaved={() => undefined} />);
-    const link = await screen.findByTestId('custom-event-rules-link');
-    expect(link.getAttribute('href')).toBe(CLOCKTOWER_GUIDE_PATH);
-    unmount();
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => event('Квиз в пятницу') })));
-    render(<PlayerCustomEventDetail eventId="e2" onBack={() => undefined} onSaved={() => undefined} />);
-    await waitFor(() => expect(screen.getByText('Квиз в пятницу')).toBeTruthy());
-    expect(screen.queryByTestId('custom-event-rules-link')).toBeNull();
+  it('says so when a shared room is already closed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ rooms: [room] }), { status: 200 })));
+    render(<PlayerClocktower initialRoomId="gone" />);
+    expect(await screen.findByText(/закрыта или её уже нет/)).toBeTruthy();
   });
 });

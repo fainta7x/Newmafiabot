@@ -2,7 +2,7 @@
 
 ## Owner request — 2026-10-18, stub for «Кровь на часовой башне» (coded, see PR)
 
-Owner asked for a joke-level stub: rules of the board game inside the app and a way to invite people; the game itself is NOT built. Done: rules/roles pages in the guide shelf «Другие игры» (`src/lib/clocktowerGuide.ts`, `/guide?tab=clocktower`), a template button in «Свои ивенты» (invite-only, 12 seats), a rules link in the player's event card. The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation. Only the «Неприятности назревают» roles are listed.
+Owner asked for a joke-level stub of the board game, placed in the app like the poker table (a separate section, not «Свои ивенты»); the game itself is NOT built and may later be deleted or turned into a real game. Done: rules/roles pages in the guide shelf «Другие игры» (`/guide?tab=clocktower`); a player-cabinet section `/player/clocktower[/roomId]` («Сообщество» → «Кровь на часовой башне») with rooms (create, join, leave, close, «Я — Рассказчик») and personal invitations (Telegram, else VK; own switch «Кровь на часовой башне» in «Приглашения»). The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation; only the «Неприятности назревают» roles are listed. Not verified in a real browser session (needs player login).
 
 ## Owner request — 2026-10-17, announcement step before each voting (coded, see PR)
 

@@ -270,6 +270,17 @@ describe('Live Game keyboard control', () => {
     expect(screen.queryByTestId('live-hotkey-help')).toBeNull();
   });
 
+  it('«Вскрытие»: V opens the panel, and 6 after a seat marks that player as revealed and opens the sheet', async () => {
+    await restore(baseSnapshot());
+    press('KeyV');
+    expect(await screen.findByTestId('live-reveal-panel')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await waitFor(() => expect(screen.queryByTestId('live-reveal-panel')).toBeNull());
+    press('Digit9'); // a black player may reveal as the Sheriff too
+    press('Digit6');
+    expect(await screen.findByTestId('live-player-reveal-remove')).toBeTruthy();
+  });
+
   it('an open player sheet owns the keyboard', async () => {
     await restore(baseSnapshot());
     press('Digit3');

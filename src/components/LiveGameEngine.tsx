@@ -404,6 +404,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleSetAnnouncedCheck = (seat: number, target: number, color: RevealColor) => { saveSnapshot(); setReveals((previous) => setAnnouncedCheck(previous, seat, target, color, tableSize)); };
   const handleRemoveAnnouncedCheck = (seat: number, target: number) => { saveSnapshot(); setReveals((previous) => removeAnnouncedCheck(previous, seat, target)); };
 
+  /** The hotkey «Вскрытие» for a seat: marks the reveal (once) and opens that player's sheet with the announced checks. */
+  const handleRevealFromMenu = (seat: number) => {
+    if (!reveals.some((item) => item.seat === seat)) handleAddReveal(seat);
+    setActionPlayerSlot(seat);
+  };
+
   const handleRestoreSession = () => {
     if (!restorableSession) return;
     const restored = normalizeLiveSnapshotForRestore(restorableSession);
@@ -1682,7 +1688,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const hotkeys = useLiveGameHotkeys({
     enabled: !trainingRoles && phase !== 'setup',
     blocked: actionPlayerSlot !== null || pendingDisciplineConfirmation !== null || pendingWinner !== null
-      || activeBestMoveSource !== null || postNightStage === 'death_protocol',
+      || activeBestMoveSource !== null || postNightStage === 'death_protocol' || revealPanelOpen,
     seats: activePlayers.map((player) => player.slot_num),
     aliveSeats: activePlayers.filter((player) => player.alive).map((player) => player.slot_num),
     tapPhase: (phase === 'day_voting' && votingStage === 'collecting') || nightTapPhase,
@@ -1694,6 +1700,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     foul: addRegularFoulFromMenu,
     removeFoul: removeRegularFoul,
     techFoul: addTechFoulFromMenu,
+    reveal: handleRevealFromMenu,
+    openReveals: () => setRevealPanelOpen(true),
     undo: handleUndoAction,
     quickSplit: handleQuickSplit,
     toast: (message) => showToast(message, 'info'),
@@ -1756,6 +1764,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onPpk={handlePpkFromMenu}
         onEditNote={handleEditPlayerNote}
         onRestorePlayer={restorePlayer}
+        reveal={actionPlayerSlot === null ? null : reveals.find((item) => item.seat === actionPlayerSlot) ?? null}
+        seats={activePlayers.map((player) => player.slot_num)}
+        onReveal={handleAddReveal}
+        onRemoveReveal={handleRemoveReveal}
+        onSetAnnouncedCheck={handleSetAnnouncedCheck}
+        onRemoveAnnouncedCheck={handleRemoveAnnouncedCheck}
       />
       <BestMoveProtocolOverlay
         source={activeBestMoveSource}

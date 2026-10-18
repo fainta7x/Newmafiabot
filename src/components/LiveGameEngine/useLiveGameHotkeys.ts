@@ -20,6 +20,9 @@ export type HotkeyHandlers = {
   foul: (slot: number) => void;
   removeFoul: (slot: number) => void;
   techFoul: (slot: number, kind: 'minor' | 'major') => void;
+  /** «Вскрытие» of a seat: mark it and open the panel for the announced checks. */
+  reveal: (slot: number) => void;
+  openReveals: () => void;
   undo: () => void;
   quickSplit: (pair: [number, number]) => void;
   toast: (message: string) => void;
@@ -115,6 +118,7 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
       const alive = contextRef.current.aliveSeats.includes(slot);
       if (action === 'panel') return h.openPanel(slot);
       if (!alive) return h.toast(`#${slot} уже не за столом: действия — в панели игрока`);
+      if (action === 'reveal') return h.reveal(slot);
       if (action === 'expose') return h.expose(slot);
       if (action === 'foul') { h.foul(slot); return h.toast(`Фол #${slot}`); }
       if (action === 'removeFoul') { h.removeFoul(slot); return h.toast(`Фол #${slot} снят`); }
@@ -217,6 +221,10 @@ export function useLiveGameHotkeys(context: HotkeyContext, handlers: HotkeyHandl
           splitRef.current = null;
           return handled();
         }
+        case 'reveals':
+          handlersRef.current.openReveals();
+          clearAll();
+          return handled();
         case 'primary':
           if (click(PRIMARY)) return handled();
           return;

@@ -29,8 +29,7 @@ describe('live engine native wiring', () => {
 
   it('hides roles by default when the engine is rendered without controlled role visibility', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
-    expect(engine).toContain('const [showRolesOnTable, setShowRolesOnTable] = useState(false);');
-    expect(engine).toContain('rolesHidden === undefined ? showRolesOnTable : !rolesHidden');
+    expect(engine).toContain('const rolesAreVisible = rolesHidden === undefined ? false : !rolesHidden;');
   });
 
   it('does not keep retired best-move setter shims on seat cards', () => {
@@ -81,13 +80,11 @@ describe('live engine native wiring', () => {
     expect(voting).toMatch(/canToggleVoteAssignment\([\s\S]*?\): boolean \{\s*return true;\s*\}/);
   });
 
-  it('keeps the selectable table visible while seat cards are the voting input', () => {
+  it('always shows the selectable table: the list mode is gone (owner, 2026-10-18)', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
-    const toolbar = read('src/components/LiveGameEngine/LiveGameJudgeToolbar.tsx');
-    expect(engine).toContain("votingStage === 'collecting' || votingStage === 'table_decision'");
-    expect(engine).toContain("const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode");
-    expect(engine).toContain('requiresTableSeatVoting={requiresTableSeatVoting}');
-    expect(toolbar).toContain('disabled={requiresTableSeatVoting}');
-    expect(engine).toContain("effectiveViewMode === 'table' ? renderTable()");
+    expect(engine).toContain('{renderTable()}');
+    expect(engine).not.toContain('viewMode');
+    expect(engine).not.toContain('LiveGamePlayerList');
+    expect(engine).not.toContain('LiveGameJudgeToolbar');
   });
 });

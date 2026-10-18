@@ -1,3 +1,4 @@
+import { useResumeLiveGame } from '../../lib/useResumeLiveGame.ts';
 import { useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
@@ -32,6 +33,9 @@ export default function PlayerConductCenter({ data, canOpenAdmin = false, onBack
       .catch(() => { if (!cancelled) setJudging(null); });
     return () => { cancelled = true; };
   }, []);
+
+  // A reload returns to the game window that was open.
+  useResumeLiveGame('club', judging ? (judging.club_games as unknown as ClubGameRecord[]).filter((game) => (game as { can_conduct?: boolean }).can_conduct) : null, launchedGame !== null, setLaunchedGame);
 
   const isOrganizer = canOpenAdmin || data.player.club_role === 'organizer';
   const judgeLevel = judging?.player.judge_level || data.player.judge_level || 'none';

@@ -2,15 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync('src/components/LiveGameEngine.tsx', 'utf8');
-const toolbar = readFileSync('src/components/LiveGameEngine/LiveGameJudgeToolbar.tsx', 'utf8');
 
 describe('live speech extension UI wiring', () => {
   it('exposes one judge action for +30 seconds at the cost of two fouls', () => {
-    expect(source).toContain('speechExtensionAvailability={speechExtensionAvailability}');
-    expect(source).toContain('onSpeechExtension={handleExchangeFoulsForSpeech}');
-    expect(toolbar).toContain('data-testid="live-speech-extension"');
-    expect(toolbar).toContain('+30с за 2 фола');
-    expect(toolbar).toContain('disabled={!speechExtensionAvailability.allowed}');
+    expect(source).toContain('onSpeechExtension: handleExchangeFoulsForSpeech');
+    expect(source).toContain('speechExtensionAvailability: getCurrentSpeechExtensionAvailability()');
   });
 
   it('updates discipline and both current/max timer values atomically', () => {
@@ -20,7 +16,7 @@ describe('live speech extension UI wiring', () => {
     expect(source).toContain('setIsTimerRunning(true)');
   });
 
-  it('also offers the extension in the centre panel next to the timer, because the judge toolbar is hidden by the engine CSS', () => {
+  it('offers the extension in the centre panel next to the timer (the old judge toolbar is gone)', () => {
     const centerPanel = readFileSync('src/components/LiveGameEngine/CenterPanel.tsx', 'utf8');
     expect(source).toContain('onSpeechExtension: handleExchangeFoulsForSpeech');
     expect(centerPanel).toContain('data-testid="live-hud-speech-extension"');

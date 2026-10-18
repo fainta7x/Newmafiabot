@@ -7,7 +7,6 @@ import { addReveal, normalizeReveals, removeAnnouncedCheck, removeReveal, setAnn
 import { cloneLiveSnapshot, normalizeLiveSnapshotForRestore, createEmptyActivePlayer, createInitialLiveDiscipline, type LiveSnapshot } from '../components/LiveGameEngine/engineStateModel';
 import { createEmptyLiveProtocolMarkers } from '../lib/gameProtocolCore';
 import RevealPanel from '../components/LiveGameEngine/RevealPanel';
-import LiveGameJudgeToolbar from '../components/LiveGameEngine/LiveGameJudgeToolbar';
 
 afterEach(cleanup);
 
@@ -106,18 +105,5 @@ describe('judge panel «Вскрытие»', () => {
     expect(h.onRemoveCheck).toHaveBeenCalledWith(5, 8);
     fireEvent.click(screen.getByText('Снять вскрытие'));
     expect(h.onRemoveReveal).toHaveBeenCalledWith(5);
-  });
-
-  it('opens from the judge toolbar and shows how many have revealed', () => {
-    const onOpen = vi.fn();
-    const props = { activePlayers: players, onSelectPlayer: vi.fn(), speechExtensionAvailability: { allowed: false, reason: '' } as any, onSpeechExtension: vi.fn(), historyLength: 0, onUndo: vi.fn(), rolesAreVisible: false, onToggleRoles: vi.fn(), viewMode: 'table' as const, onToggleView: vi.fn(), requiresTableSeatVoting: false };
-    render(<LiveGameJudgeToolbar {...props} revealCount={2} onOpenReveals={onOpen} />);
-    const button = screen.getByTestId('live-reveal-open');
-    expect(button.textContent).toBe('Вскрытие (2)');
-    fireEvent.click(button);
-    expect(onOpen).toHaveBeenCalled();
-    cleanup();
-    render(<LiveGameJudgeToolbar {...props} />);
-    expect(screen.queryByTestId('live-reveal-open')).toBeNull();
   });
 });

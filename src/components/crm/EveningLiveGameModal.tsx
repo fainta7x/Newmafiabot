@@ -14,6 +14,7 @@ import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type
 import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote, type LiveBroadcastReplayFrame, sanitizeBroadcastReplayFrames, MAX_REPLAY_FRAMES } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { evictReplayFrames, replayFramesKey, setItemFreeingSpace } from '../../lib/liveStorageBudget';
+import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { buildFinalChronology } from '../../lib/liveGameEventLog';
@@ -171,7 +172,11 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated, obsRemote = false, trainingMode = false }) => {
+export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose: onCloseProp, onUpdated, obsRemote = false, trainingMode = false }) => {
+  // A reload returns to this window: the record says it is open until the judge closes it or the game ends.
+  const resumable = !trainingMode && Number(game.id) > 0;
+  useEffect(() => { if (resumable) rememberOpenLiveGame('club', game.id); }, [resumable, game.id]);
+  const onClose = () => { if (resumable) forgetOpenLiveGame('club', game.id); onCloseProp(); };
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
     getPendingClubGameProtocolSave(game.id)
@@ -449,6 +454,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   };
 
   const finishConfirmedSave = (updated: ClubGameRecord) => {
+    if (resumable) forgetOpenLiveGame('club', game.id);
     liveRecorder.finish();
     // The frames went to the server with the protocol; they must not fill the device for the next games.
     try { localStorage.removeItem(replayFramesKey(game.id)); } catch { /* ignore */ }

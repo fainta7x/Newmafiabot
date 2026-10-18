@@ -1,3 +1,4 @@
+import { useResumeLiveGame } from '../../lib/useResumeLiveGame.ts';
 import { useEffect, useMemo, useState } from 'react';
 import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
@@ -102,6 +103,11 @@ export default function PlayerJudging({ onBack, evenings = [], onCreated }: { on
   };
 
   useEffect(() => { void reload(); }, []);
+
+  // A reload returns to the game window that was open.
+  useResumeLiveGame('club', dashboard ? dashboard.club_games.filter((game) => game.can_conduct) : null, clubLiveGame !== null, setClubLiveGame);
+  useResumeLiveGame('tournament', dashboard ? dashboard.tournament_games.filter((game) => game.can_conduct) : null, tournamentGame !== null,
+    (game) => { void openTournament(game).then(() => setTournamentLiveOpen(true)); }, (game) => game.status === 'active');
 
   const activeAssignments = useMemo(() => {
     if (!dashboard) return [] as Array<{ kind: 'club' | 'tournament'; game: JudgingClubGame | JudgingTournamentGame }>;

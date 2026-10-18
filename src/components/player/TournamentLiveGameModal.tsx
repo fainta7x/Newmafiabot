@@ -1,3 +1,4 @@
+import { forgetOpenLiveGame, rememberOpenLiveGame } from '../../lib/liveGameResume.ts';
 import { confirmedBestMoves } from '../../lib/gameProtocolCore.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, MonitorUp, X } from 'lucide-react';
@@ -136,7 +137,7 @@ export default function TournamentLiveGameModal({
   gameId,
   judgeName,
   obsRemote = false,
-  onClose,
+  onClose: onCloseProp,
   onCompleted,
 }: {
   tournamentId: string;
@@ -147,6 +148,9 @@ export default function TournamentLiveGameModal({
   onClose: () => void;
   onCompleted: () => void;
 }) {
+  // A reload returns to this window until the judge closes it or the game ends (liveGameResume).
+  useEffect(() => { rememberOpenLiveGame('tournament', gameId); }, [gameId]);
+  const onClose = () => { forgetOpenLiveGame('tournament', gameId); onCloseProp(); };
   const [payload, setPayload] = useState<TournamentLivePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

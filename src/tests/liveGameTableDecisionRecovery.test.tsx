@@ -193,7 +193,8 @@ describe('Live Game table-decision recovery', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
     await waitFor(() => expect(screen.getByText('3/10')).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: /Отмена \(1\)/ }));
+    // The judge toolbar with «Отмена» is gone: generic Undo is the keyboard shortcut (and the steps' own «Назад»).
+    fireEvent.keyDown(document.body, { code: 'KeyZ', ctrlKey: true });
 
     await waitFor(() => {
       expect(seat(1)?.getAttribute('data-table-vote-selected')).toBe('true');

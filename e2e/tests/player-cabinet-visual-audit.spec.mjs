@@ -68,10 +68,16 @@ for (const width of [360, 390]) {
     await page.screenshot({ path: info.outputPath('settings.png') });
 
     await nav.getByRole('button', { name: 'Сообщество', exact: true }).click();
-    await expect(page.getByLabel('Разделы сообщества').getByRole('button')).toHaveCount(4);
-    await expect(page.getByTestId('player-club-poker')).toBeVisible();
+    await expect(page.getByLabel('Разделы сообщества').getByRole('button')).toHaveCount(5);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('community.png'), fullPage: true });
+
+    // «Мини-игры» is the last tab: the poker table and «Кровь на часовой башне» are one tap away, not buried under the lists.
+    await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Мини-игры' }).click();
+    await expect(page.getByTestId('player-club-poker')).toBeVisible();
+    await expect(page.getByTestId('player-club-clocktower')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath('community-minigames.png'), fullPage: true });
 
     // «Активность» shows one part at a time: Форма · Матчи · Сезон · Архив.
     await page.getByLabel('Разделы сообщества').getByRole('button', { name: 'Активность' }).click();

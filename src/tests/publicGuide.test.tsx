@@ -146,10 +146,13 @@ describe('public guide for novices', () => {
     window.localStorage.clear();
     render(<PublicGuide />);
     const sections = screen.getByTestId('guide-sections');
-    for (const id of ['lessons', ...GUIDE_SHELVES.map((shelf) => shelf.id)]) expect(sections.querySelector(`[data-testid="guide-section-${id}"]`)).toBeTruthy();
+    // «Другие игры» (not mafia training) is a slim link below the novice path, so the first phone screen stays as it was.
+    for (const id of ['lessons', ...GUIDE_SHELVES.map((shelf) => shelf.id).filter((id) => id !== 'games')]) expect(sections.querySelector(`[data-testid="guide-section-${id}"]`)).toBeTruthy();
     // The sections come before the novice path, so a returning player does not scroll past the lessons.
     expect(sections.compareDocumentPosition(screen.getByTestId('guide-continue')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId('guide-section-trainers').textContent).toContain('Попил');
+    expect(sections.querySelector('[data-testid="guide-section-games"]')).toBeNull();
+    expect(screen.getByTestId('guide-section-games').textContent).toContain('Кровь на часовой башне');
 
     fireEvent.click(screen.getByTestId('guide-section-trainers'));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Тренажёры');

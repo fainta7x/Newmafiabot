@@ -116,6 +116,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
   const started = doneCount > 0;
   const recent = progress.recent ? findGuideEntry(progress.recent) : null;
   const RecentIcon = recent ? ICONS[recent.icon] : null;
+  const gamesShelf = findGuideShelf('games');
   return (
     <div className="space-y-5">
       <section className="grid grid-cols-2 gap-2" data-testid="guide-sections" aria-label="Разделы">
@@ -125,7 +126,7 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
             {Array.from({ length: total }, (_, index) => <span key={index} className={`h-1 flex-1 rounded-full ${index < doneCount ? 'bg-white' : 'bg-white/15'}`} />)}
           </span>
         </SectionCard>
-        {GUIDE_SHELVES.map((shelf) => {
+        {GUIDE_SHELVES.filter((shelf) => shelf.id !== 'games').map((shelf) => {
           const entries = shelfEntries(shelf);
           if (!entries.length) return null;
           return <SectionCard key={shelf.id} id={shelf.id} icon={ICONS[shelf.icon]} title={shelf.title} detail={shelf.summary} onOpen={() => go({ tab: shelf.id })} />;
@@ -152,6 +153,13 @@ const HomeScreen = ({ progress, go }: { progress: GuideProgress; go: (screen: Gu
             {nextLesson >= 0 ? (started ? `Продолжить: «${GUIDE_LESSONS[nextLesson].title}»` : 'Начать первый урок') : 'Тренировать мышление'}<ChevronRight className="h-4 w-4" />
           </button>
         </section>
+      ) : null}
+
+      {/* Other board games are not mafia training: a slim link below the novice path keeps the first phone screen as it was. */}
+      {gamesShelf && shelfEntries(gamesShelf).length ? (
+        <button type="button" data-testid="guide-section-games" onClick={() => go({ tab: gamesShelf.id })} className="flex min-h-12 w-full items-center justify-between gap-2 rounded-2xl border border-white/10 px-4 text-left text-[14px] text-white/75 active:bg-white/[.08]">
+          <span>{gamesShelf.title} <span className="text-white/40">· {gamesShelf.summary}</span></span><ChevronRight className="h-4 w-4 shrink-0 text-white/35" aria-hidden="true" />
+        </button>
       ) : null}
     </div>
   );

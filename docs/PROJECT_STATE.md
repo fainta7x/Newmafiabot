@@ -2,7 +2,7 @@
 
 ## Owner request — 2026-10-18, stub for «Кровь на часовой башне» (coded, see PR)
 
-Owner asked for a joke-level stub of the board game, placed in the app like the poker table (a separate section, not «Свои ивенты»); the game itself is NOT built and may later be deleted or turned into a real game. Done: rules/roles pages in the guide shelf «Другие игры» (`/guide?tab=clocktower`); a player-cabinet section `/player/clocktower[/roomId]` («Сообщество» → «Кровь на часовой башне») with rooms (create, join, leave, close, «Я — Рассказчик») and personal invitations (Telegram, else VK; own switch «Кровь на часовой башне» in «Приглашения»). The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation; only the «Неприятности назревают» roles are listed. Not verified in a real browser session (needs player login).
+Owner asked for a joke-level stub of the board game, placed in the app like the poker table (a separate section, not «Свои ивенты»); the game itself is NOT built and may later be deleted or turned into a real game. Done: rules/roles pages in the guide shelf «Другие игры» (`/guide?tab=clocktower`); a player-cabinet section `/player/clocktower[/roomId]` opened from the «Сообщество» → «Мини-игры» tab (owner, 2026-10-18: the poker table moved there too, next to «Кровь на часовой башне», because the old buttons under the lists were hard to find) with rooms (create, join, leave, close, «Я — Рассказчик») and personal invitations (Telegram, else VK; own switch «Кровь на часовой башне» in «Приглашения»). The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation; only the «Неприятности назревают» roles are listed. Not verified in a real browser session (needs player login).
 
 ## Owner request — 2026-10-17, announcement step before each voting (coded, see PR)
 
@@ -884,6 +884,7 @@ Audit findings (open and fixed) live in `docs/AUDIT_LOG.md`.
 
 ### Player-facing changes not yet announced
 
+- «Сообщество» → «Мини-игры»: сюда переехал покер, а рядом появилась шуточная «Кровь на часовой башне» — комнаты, приглашения друзей и правила (самой игры в приложении нет).
 - Личный кабинет стал компактнее: история игр, итоги вечера, связи и статистика собраны в общие блоки; убрана лишняя декоративная графика, сохранены роли, результаты и переходы в протоколы. _(слито в main, #947; ждёт деплоя и проверки владельца)_
 
 - Покер: после раздачи можно показать всем одну карту или обе; фишки летают по очереди, звуки за столом стали настоящими (щелчки фишек и карт), в покерном чате эмодзи и сообщения больше не закрывают стол, на компьютере у стола три колонки (ход раздачи, стол, чат). _(слито в main, #883; ждёт деплоя и проверки владельца на телефоне)_

@@ -1,3 +1,4 @@
+import { REVEAL_COLOR_LABELS, type LiveReveal, type RevealColor } from '../../lib/liveReveals.ts';
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PendingActionType, PlayerDiscipline } from "../../lib/gameDiscipline.js";
@@ -106,6 +107,13 @@ interface PlayerActionOverlayProps {
   onPpk: (slot: number) => void;
   onEditNote: (player: ActivePlayerState) => void;
   onRestorePlayer: (slot: number) => void;
+  /** «Вскрытие»: the player openly claims to be the Sheriff; the judge records the announced checks right in the sheet. */
+  reveal?: LiveReveal | null;
+  seats?: number[];
+  onReveal?: (slot: number) => void;
+  onRemoveReveal?: (slot: number) => void;
+  onSetAnnouncedCheck?: (slot: number, target: number, color: RevealColor) => void;
+  onRemoveAnnouncedCheck?: (slot: number, target: number) => void;
 }
 
 export function PlayerActionOverlay({
@@ -124,6 +132,12 @@ export function PlayerActionOverlay({
   onPpk,
   onEditNote,
   onRestorePlayer,
+  reveal = null,
+  seats = [],
+  onReveal,
+  onRemoveReveal,
+  onSetAnnouncedCheck,
+  onRemoveAnnouncedCheck,
 }: PlayerActionOverlayProps) {
   if (!player) return null;
   const isNominated = nominations.includes(player.slot_num);
@@ -190,6 +204,45 @@ export function PlayerActionOverlay({
             <button type="button" onClick={() => onRestorePlayer(player.slot_num)} className="col-span-2 min-h-12 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-200 text-xs font-black">Вернуть за стол</button>
           )}
         </div>
+
+        {mode === 'standard' && onReveal && (
+          <div data-testid="live-player-reveal-section" className="space-y-2 rounded-2xl border border-amber-700/40 bg-amber-950/25 p-3">
+            {reveal ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-black text-amber-200">Вскрылся шерифом</div>
+                  <button type="button" data-testid="live-player-reveal-remove" onClick={() => onRemoveReveal?.(player.slot_num)} className="min-h-9 rounded-lg border border-white/10 bg-black/20 px-3 text-[11px] font-bold text-white/60">Снять вскрытие</button>
+                </div>
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Объявленные проверки — один тап по номеру</div>
+                {(['red', 'black'] as const).map((color) => (
+                  <div key={color} className="space-y-1">
+                    <div className={`text-[11px] font-bold ${color === 'red' ? 'text-rose-200' : 'text-slate-200'}`}>{REVEAL_COLOR_LABELS[color] === 'красный' ? 'Назвал красным' : 'Назвал чёрным'}</div>
+                    <div className="grid grid-cols-9 gap-1">
+                      {seats.filter((seat) => seat !== player.slot_num).map((seat) => {
+                        const current = reveal.checks.find((check) => check.target === seat);
+                        const active = current?.color === color;
+                        return (
+                          <button
+                            key={seat}
+                            type="button"
+                            data-testid={`live-player-reveal-${color}-${seat}`}
+                            aria-pressed={active}
+                            onClick={() => (active ? onRemoveAnnouncedCheck?.(player.slot_num, seat) : onSetAnnouncedCheck?.(player.slot_num, seat, color))}
+                            className={`min-h-10 rounded-lg border text-xs font-black ${active
+                              ? color === 'red' ? 'border-rose-300 bg-rose-500/35 text-white' : 'border-slate-100 bg-slate-100 text-slate-900'
+                              : current ? 'border-white/5 bg-black/30 text-white/25' : 'border-white/10 bg-black/25 text-white/75'}`}
+                          >{seat}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <button type="button" data-testid="live-player-reveal" onClick={() => onReveal(player.slot_num)} className="min-h-12 w-full rounded-xl bg-amber-950/60 border border-amber-700 text-amber-200 text-xs font-black">Вскрылся шерифом (и объявил проверки)</button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -219,14 +272,14 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
       <div data-testid="live-best-move-sheet" className="w-full max-w-2xl space-y-5 rounded-[24px] border border-white/10 bg-[#121318] p-6 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
         <div className="space-y-1.5 text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">{source === 'first_killed' ? 'Первый убитый' : 'Заголосован на нулевом круге'}</div>
-          <h2 className="text-xl font-semibold text-white">Протокол ЛХ</h2>
+          <h2 className="text-xl font-semibold text-white">Лучший ход</h2>
           <p className="text-sm font-semibold text-white/60">Игрок #{slot} · {nickname || 'Игрок'}</p>
           <p className="text-xs text-white/30">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
           {training && (
             <div data-testid="judge-training-best-move-task" role="status" className="mt-3 rounded-xl border border-emerald-300/35 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-100">
               {target !== null
                 ? `Задание ЛХ: первый убитый #${slot} назвал три номера. Нажми #${target} (${pendingSeats.length + 1} из 3). Порядок: #3 → #5 → #9.`
-                : 'Верно: ЛХ #3 → #5 → #9. Нажми «Подтвердить протокол».'}
+                : 'Верно: ЛХ #3 → #5 → #9. Нажми «Подтвердить лучший ход».'}
             </div>
           )}
         </div>
@@ -244,7 +297,7 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/[0.10] bg-black/30 px-3 text-xs font-semibold text-white/72">← Назад</button>
           <button type="button" onClick={onReset} className="min-h-11 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/46">Сбросить</button>
-          <button type="button" disabled={training && !trainingComplete} onClick={onConfirm} data-testid="live-best-move-confirm" className="col-span-2 min-h-12 rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d] disabled:opacity-35">Подтвердить протокол</button>
+          <button type="button" disabled={training && !trainingComplete} onClick={onConfirm} data-testid="live-best-move-confirm" className="col-span-2 min-h-12 rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d] disabled:opacity-35">Подтвердить лучший ход</button>
         </div>
       </div>
     </div>

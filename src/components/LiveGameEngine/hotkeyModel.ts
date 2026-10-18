@@ -1,7 +1,7 @@
 // Desktop keyboard control of the Live Game (owner, 2026-10-17). Pure mapping from a key event to a command, so the
 // layout-independent rules (physical keys, mirrored action keys, digits as seats) are covered by unit tests.
 
-export type SeatAction = 'expose' | 'foul' | 'minorTech' | 'majorTech' | 'removeFoul' | 'panel';
+export type SeatAction = 'expose' | 'foul' | 'minorTech' | 'majorTech' | 'removeFoul' | 'reveal' | 'panel';
 export type ArrowDirection = 'left' | 'right' | 'up' | 'down';
 
 export type HotkeyCommand =
@@ -17,6 +17,7 @@ export type HotkeyCommand =
   | { type: 'timerMinus' }
   | { type: 'extension' }
   | { type: 'mute' }
+  | { type: 'reveals' }
   | { type: 'help' };
 
 export type HotkeyEventLike = {
@@ -38,11 +39,12 @@ export const SEAT_ACTION_CODES: Record<string, SeatAction> = {
   KeyS: 'minorTech', KeyL: 'minorTech',
   KeyA: 'majorTech', Semicolon: 'majorTech',
   KeyG: 'removeFoul', KeyH: 'removeFoul',
+  KeyE: 'reveal', KeyI: 'reveal',
 };
 
-/** The second digit does the same: 1 expose, 2 foul, 3 small tech, 4 big tech, 5 take a foul back, 0 the player panel. */
+/** The second digit does the same: 1 expose, 2 foul, 3 small tech, 4 big tech, 5 take a foul back, 6 «Вскрытие», 0 the player panel. */
 export const SEAT_ACTION_DIGITS: Record<number, SeatAction> = {
-  1: 'expose', 2: 'foul', 3: 'minorTech', 4: 'majorTech', 5: 'removeFoul', 0: 'panel',
+  1: 'expose', 2: 'foul', 3: 'minorTech', 4: 'majorTech', 5: 'removeFoul', 6: 'reveal', 0: 'panel',
 };
 
 export const SEAT_ACTION_LABELS: Array<{ action: SeatAction; label: string; digit: number; keys: string }> = [
@@ -51,6 +53,7 @@ export const SEAT_ACTION_LABELS: Array<{ action: SeatAction; label: string; digi
   { action: 'minorTech', label: 'Малый тех', digit: 3, keys: 'Ы / Д' },
   { action: 'majorTech', label: 'Большой тех', digit: 4, keys: 'Ф / Ж' },
   { action: 'removeFoul', label: 'Снять фол', digit: 5, keys: 'П / Р' },
+  { action: 'reveal', label: 'Вскрытие', digit: 6, keys: 'У / Ш' },
   { action: 'panel', label: 'Панель', digit: 0, keys: 'Пробел' },
 ];
 
@@ -92,6 +95,7 @@ export function parseHotkey(event: HotkeyEventLike): HotkeyCommand | null {
     case 'Backspace': return { type: 'back' };
     case 'Escape': return { type: 'escape' };
     case 'KeyQ': return { type: 'split' };
+    case 'KeyV': return { type: 'reveals' };
     case 'BracketLeft': return { type: 'timerMinus' };
     case 'Equal':
     case 'NumpadAdd': return { type: 'extension' };

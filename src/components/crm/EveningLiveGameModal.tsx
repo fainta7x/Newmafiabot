@@ -13,6 +13,7 @@ import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
 import { buildLiveBroadcastState, mergeBroadcastDayVotes, type LiveBroadcastDayVote, type LiveBroadcastReplayFrame, sanitizeBroadcastReplayFrames, MAX_REPLAY_FRAMES } from '../../lib/liveBroadcast';
 import { readStoredDeathProtocols } from '../../lib/liveDeathProtocol';
+import { evictReplayFrames, replayFramesKey, setItemFreeingSpace } from '../../lib/liveStorageBudget';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { buildFinalChronology } from '../../lib/liveGameEventLog';
@@ -189,6 +190,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const [broadcastConfigError, setBroadcastConfigError] = useState<string | null>(null);
   const [broadcastCopied, setBroadcastCopied] = useState(false);
   const [broadcastConnection, setBroadcastConnection] = useState<'idle' | 'connecting' | 'live' | 'offline'>('idle');
+  const replayFramesRef = useRef<LiveBroadcastReplayFrame[] | null>(null);
   const broadcastConnectionRef = useRef(broadcastConnection);
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
@@ -196,6 +198,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     [game],
   );
   const liveRecorder = useMemo(() => new ClubLiveSessionRecorder(game.id), [game.id]);
+  // Replay frames of earlier games of this device (finished or abandoned) are dead weight: they once filled the storage.
+  useEffect(() => { evictReplayFrames(game.id); }, [game.id]);
 
   useEffect(() => {
     broadcastConnectionRef.current = broadcastConnection;
@@ -372,9 +376,11 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         const state = { ...built, protocols, dayVotes };
         // Capture the same published OBS presentation for replay, rather than reimagining
         // the game from text events. Bound the log and only sample changed frames.
-        const framesKey = `mafia_live_broadcast_frames:${game.id}`;
+        const framesKey = replayFramesKey(game.id);
         try {
-          const existing = sanitizeBroadcastReplayFrames(JSON.parse(localStorage.getItem(framesKey) || '[]'));
+          // The frames live in memory while the game runs and are written to the device only when they changed.
+          if (replayFramesRef.current === null) replayFramesRef.current = sanitizeBroadcastReplayFrames(JSON.parse(localStorage.getItem(framesKey) || '[]'));
+          const existing = replayFramesRef.current;
           const previous = existing.at(-1);
           const nowMs = Date.now();
           const lastMs = previous ? Date.parse(previous.at) : 0;
@@ -383,8 +389,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           }) !== JSON.stringify({ ...state, timerSeconds: null, updatedAt: '' });
           if (meaningfulChange || nowMs - lastMs >= 10_000) {
             const frame: LiveBroadcastReplayFrame = { at: new Date(nowMs).toISOString(), state };
-            const updated = [...existing, frame].slice(-MAX_REPLAY_FRAMES);
-            localStorage.setItem(framesKey, JSON.stringify(updated));
+            replayFramesRef.current = [...existing, frame].slice(-MAX_REPLAY_FRAMES);
+            // Full storage must never cost the live session: the frames of other games go first, then these frames stop.
+            setItemFreeingSpace(framesKey, JSON.stringify(replayFramesRef.current), game.id);
           }
         } catch { /* Do not interrupt live judging if device storage is exhausted. */ }
         const signature = JSON.stringify(state);
@@ -443,6 +450,9 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   const finishConfirmedSave = (updated: ClubGameRecord) => {
     liveRecorder.finish();
+    // The frames went to the server with the protocol; they must not fill the device for the next games.
+    try { localStorage.removeItem(replayFramesKey(game.id)); } catch { /* ignore */ }
+    replayFramesRef.current = null;
     clearStoredDeathProtocols();
     setSaveError(null);
     onUpdated(updated);

@@ -1,3 +1,5 @@
+import { setItemFreeingSpace } from './liveStorageBudget.ts';
+import { getActiveClubLiveGameId } from './liveClubSession.ts';
 import type { PlayerResultData } from './api';
 import { calculateDisciplinaryPenalty } from './gameDiscipline';
 
@@ -55,7 +57,7 @@ export const storeDeathProtocol = (slot: number, value: DeathProtocolSelection) 
   if (!Number.isInteger(slot) || slot < 1 || slot > 10) return;
   const current = readStoredDeathProtocols();
   current[slot] = normalizeDeathProtocolSelection(value);
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch {}
+  try { setItemFreeingSpace(STORAGE_KEY, JSON.stringify(current), getActiveClubLiveGameId()); } catch {}
 };
 
 export const clearStoredDeathProtocols = () => {

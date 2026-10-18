@@ -1,3 +1,4 @@
+import { setItemFreeingSpace } from './liveStorageBudget.ts';
 import { determineVotingResult, type VotingRound } from '../shared/tournamentVoting';
 import type { ShotEntry } from './api';
 import type { LiveGameEvent } from '../shared/liveGameEvents';
@@ -227,13 +228,13 @@ export class ClubLiveSessionRecorder {
     activeClubLiveGameId = this.gameId;
     this.evidence = parseJson<LiveProtocolEvidence>(localStorage.getItem(this.evidenceKey), { votes: [], shots: [] });
     const scoped = localStorage.getItem(this.sessionKey);
-    if (scoped) localStorage.setItem(LEGACY_LIVE_SESSION_KEY, scoped);
+    if (scoped) setItemFreeingSpace(LEGACY_LIVE_SESSION_KEY, scoped, this.gameId);
     else localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     const scopedDeathProtocol = localStorage.getItem(this.deathProtocolKey);
-    if (scopedDeathProtocol) localStorage.setItem(LEGACY_DEATH_PROTOCOL_KEY, scopedDeathProtocol);
+    if (scopedDeathProtocol) setItemFreeingSpace(LEGACY_DEATH_PROTOCOL_KEY, scopedDeathProtocol, this.gameId);
     else localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     const scopedProtocolNotes = localStorage.getItem(this.protocolNotesKey);
-    if (scopedProtocolNotes !== null) localStorage.setItem(LEGACY_PROTOCOL_NOTES_KEY, scopedProtocolNotes);
+    if (scopedProtocolNotes !== null) setItemFreeingSpace(LEGACY_PROTOCOL_NOTES_KEY, scopedProtocolNotes, this.gameId);
     else localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);
     this.sync();
     window.addEventListener('pagehide', this.flushOnPageHide);
@@ -244,21 +245,21 @@ export class ClubLiveSessionRecorder {
   sync() {
     if (typeof window === 'undefined') return;
     const rawDeathProtocol = localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY);
-    if (rawDeathProtocol) localStorage.setItem(this.deathProtocolKey, rawDeathProtocol);
+    if (rawDeathProtocol) setItemFreeingSpace(this.deathProtocolKey, rawDeathProtocol, this.gameId);
     const rawProtocolNotes = localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY);
-    if (rawProtocolNotes !== null) localStorage.setItem(this.protocolNotesKey, rawProtocolNotes);
+    if (rawProtocolNotes !== null) setItemFreeingSpace(this.protocolNotesKey, rawProtocolNotes, this.gameId);
 
     const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
     if (!raw) return;
     const snapshot = parseJson<LiveSessionSnapshot | null>(raw, null);
     if (!snapshot) return;
-    localStorage.setItem(this.sessionKey, raw);
+    setItemFreeingSpace(this.sessionKey, raw, this.gameId);
     this.evidence = updateLiveProtocolEvidence(this.evidence, snapshot, this.previousSnapshot);
     this.previousSnapshot = snapshot;
     const signature = liveEvidenceSignature(this.evidence);
     if (signature !== this.lastEvidenceSignature) {
       this.lastEvidenceSignature = signature;
-      localStorage.setItem(this.evidenceKey, JSON.stringify(this.evidence));
+      setItemFreeingSpace(this.evidenceKey, JSON.stringify(this.evidence), this.gameId);
     }
   }
 

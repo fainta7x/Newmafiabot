@@ -1,5 +1,12 @@
 # Audit log
 
+### 2026-10-18 — owner reports: protocol window missing at the evening, «Вскрытие» not in the game (fixed in code, not deployed)
+
+- **Death-protocol window stopped opening** (`EveningDeathProtocolOverlay.tsx` reads `mafia_live_session` from `localStorage`). Root cause found: #974 (2026-10-16) stores replay frames of the OBS presentation in `mafia_live_broadcast_frames:<game>` (up to 360 frames ≈ 2.4 KB each ≈ 0.85 M characters per game) and nothing ever removed them; after a few games of one evening the browser storage was full, `writeLiveSession` swallowed the quota error and the window (and recovery) kept reading a stale session. The engine→window transition itself works (new test `liveGameDeathProtocolStep`). Fixed: `src/lib/liveStorageBudget.ts` (frames give way to the live session; frames removed after the save and of other games on opening; frames kept in memory instead of re-parsing ≈1 MB on every publish tick), used by the engine session, the club recorder and the death protocol store. Status: fixed in code, not verified on a real evening.
+- **«Вскрытие» unreachable in the game**: its button lived in the judge toolbar, which `liveGameDesktopParity.css` and the phone layout hide (`display:none`) on every screen, so the owner never saw it (since #858, 2026-10-12). Fixed: the record is now in the player panel (tap or long press on the player): «Вскрылся шерифом», then one tap on a number in the «красным» / «чёрным» rows; hotkey V (overview), 6 (for a seat). Any player may reveal (the black side too). The broadcast graphics already show revealed players and announced checks (checked on the preview fixture); the abbreviations «кр» / «ч» on the card are still terse — open.
+- **Wording**: the window after the first killed player's death was titled «Протокол ЛХ»; owner: it is «Лучший ход» (ЛХ). Renamed; «Протокол убитого» stays for the colour protocol after the farewell speech.
+- Judge toolbar items hidden on every screen: «Показать роли» is in the modal header, undo is the footer «Назад», +30 s is in the centre panel; nothing else is lost (reveal was the one).
+
 ### 2026-10-17 — Live engine feature audit after the ChatGPT period (owner report: functions missing at the evening)
 
 Scope: documented Live Game features (FEATURE_MAP / BUSINESS_RULES) checked against `main` 5de3f32: mounts, tests, typecheck, deployed bundle, 390 px browser run.

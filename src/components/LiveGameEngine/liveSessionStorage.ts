@@ -1,5 +1,7 @@
 import type { LiveSnapshot } from './engineStateModel.js';
 import { isSupportedTableSize } from '../../lib/tableComposition.ts';
+import { getActiveClubLiveGameId } from '../../lib/liveClubSession.ts';
+import { setItemFreeingSpace } from '../../lib/liveStorageBudget.ts';
 
 export const LIVE_GAME_SESSION_STORAGE_KEY = 'mafia_live_session';
 
@@ -51,7 +53,13 @@ export function writeLiveSession(
   storage: StorageLike = browserStorage(),
 ): void {
   try {
-    storage.setItem(LIVE_GAME_SESSION_STORAGE_KEY, JSON.stringify(session));
+    const value = JSON.stringify(session);
+    try {
+      storage.setItem(LIVE_GAME_SESSION_STORAGE_KEY, value);
+    } catch {
+      // Storage is full: the death-protocol window and recovery read this key, so the replay frames give way to it.
+      if (storage === browserStorage()) setItemFreeingSpace(LIVE_GAME_SESSION_STORAGE_KEY, value, getActiveClubLiveGameId());
+    }
   } catch {
     // Recovery persistence is best-effort and must never interrupt the live game.
   }

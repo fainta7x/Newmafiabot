@@ -106,16 +106,13 @@ const expectCanonicalJudgeBaseline = async (page) => {
 
 const prepareGame = async (page, testInfo) => {
   await page.goto('/e2e/live-game.html');
-  await expect(page.getByText('Раздача ролей', { exact: true })).toBeVisible();
+  // The roster is confirmed first, then the physical role deal starts with its music choice.
+  await page.getByRole('button', { name: 'Подтвердить состав' }).click();
   await expectNoHorizontalOverflow(page, 'setup');
   await attachViewport(page, testInfo, '01-setup.png');
 
   await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-  const dealIntro = page.getByText('Подготовьте 10 карт');
-  await expect(dealIntro).toBeVisible();
-  const dealPanel = dealIntro.locator('xpath=ancestor::section[1]');
-  await expectHorizontallyInsideViewport(page, dealPanel, 'role-deal intro');
-  await dealPanel.getByRole('button', { name: 'Начать раздачу', exact: true }).click();
+  await page.getByRole('button', { name: /Включить музыку и начать раздачу/ }).click();
 
   for (const role of ROLE_SEQUENCE) {
     await page.getByRole('button', { name: new RegExp(role) }).click();
@@ -168,7 +165,7 @@ const nominate = async (page, slot) => {
 
 const bestMoveOverlay = (page) => page
   .locator('div[class*="z-[120]"]')
-  .filter({ hasText: 'Протокол ЛХ' })
+  .filter({ hasText: 'Лучший ход' })
   .first();
 
 const fillBestMove = async (page, seats) => {
@@ -178,7 +175,7 @@ const fillBestMove = async (page, seats) => {
   for (const seat of seats) {
     await overlay.getByRole('button', { name: String(seat), exact: true }).click();
   }
-  await overlay.getByRole('button', { name: 'Подтвердить протокол', exact: true }).click();
+  await overlay.getByRole('button', { name: 'Подтвердить лучший ход', exact: true }).click();
 };
 
 const nominateTwoPlayersAndFinishDay = async (page) => {

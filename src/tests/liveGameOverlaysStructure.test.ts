@@ -18,11 +18,11 @@ describe('Live Game overlay boundary', () => {
 
     expect(engine).not.toContain('Требуется подтверждение');
     expect(engine).not.toContain('Первое нажатие ничего не меняет');
-    expect(engine).not.toContain('Протокол ЛХ</h2>');
+    expect(engine).not.toContain('Лучший ход</h2>');
     expect(engine).not.toContain('Найдена незавершённая игра');
 
     expect(overlays).toContain('Требуется подтверждение');
-    expect(overlays).toContain('Протокол ЛХ');
+    expect(overlays).toContain('Лучший ход');
     expect(overlays).toContain('Найдена незавершённая игра');
   });
 });

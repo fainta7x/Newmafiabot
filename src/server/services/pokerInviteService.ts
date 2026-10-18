@@ -4,7 +4,7 @@ import { ensurePokerInviteSchema } from '../../db/ensurePokerInviteSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensurePlayerProfileMergeSchema } from '../../db/ensurePlayerProfileMergeSchema.ts';
-import { loadDirectContacts, loadInvitePreferencesMap, isInviteBlocked } from './playerInvitePreferencesService.ts';
+import { loadDirectContacts, loadInvitePreferencesMap, isInviteBlocked, type InviteKind } from './playerInvitePreferencesService.ts';
 import { loadPresence } from './presenceService.ts';
 import { loadPersonalNotificationPreference, queuePersonalNotification, resolvePersonalNotificationRouting } from './personalNotificationRouterService.ts';
 import { vkCommunityApi } from './vkCommunityApiService.ts';
@@ -86,7 +86,7 @@ async function loadVkPresence(
 export async function loadPokerInviteCandidates(
   db: DatabaseWrapper,
   senderPlayerId: string,
-  options: { now?: number; vkLoader?: (ids: string[]) => Promise<VkUserStatus[]> } = {},
+  options: { now?: number; vkLoader?: (ids: string[]) => Promise<VkUserStatus[]>; kind?: InviteKind } = {},
 ) {
   await ensurePokerInviteSchema(db);
   await ensureVkIntegrationSchema(db);
@@ -113,7 +113,7 @@ export async function loadPokerInviteCandidates(
   // Players who switched off poker invitations in «Приглашения» are not offered at all; those who allowed direct contact
   // get their VK / Telegram link so the sender can write from their own account.
   const invitePrefs = await loadInvitePreferencesMap(db, players.map((row: any) => String(row.id)));
-  const invitable = players.filter((row: any) => !(invitePrefs.get(String(row.id))?.blocked_kinds || []).includes('POKER'));
+  const invitable = players.filter((row: any) => !(invitePrefs.get(String(row.id))?.blocked_kinds || []).includes(options.kind || 'POKER'));
 
   const directContacts = await loadDirectContacts(db, invitable.map((row: any) => String(row.id)));
   const onlineInApp = new Set((await loadPresence(db, now)).map((item) => String(item.player_id)));
@@ -167,6 +167,8 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   lobbyId: string;
   lobbyTitle: string;
   now?: number;
+  /** Another game reuses the same invitation pipe (the «Кровь на часовой башне» rooms); poker is the default. */
+  other?: { kind: InviteKind; eventType: string; actionPath: string; buttonText: string; text: string; blockedMessage: string };
 }) {
   await ensurePokerInviteSchema(db);
   await ensurePlayerProfileMergeSchema(db);
@@ -181,7 +183,7 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   );
   if (!target) throw new PokerInviteError('player_not_found', 'Игрок не найден.');
   if (!inviteTargetAvailable(target)) throw new PokerInviteError('player_not_found', 'Игрок недоступен для приглашения.');
-  if (await isInviteBlocked(db, input.targetPlayerId, 'POKER')) throw new PokerInviteError('invites_off', 'Игрок не принимает приглашения в покер.');
+  if (await isInviteBlocked(db, input.targetPlayerId, input.other?.kind || 'POKER')) throw new PokerInviteError('invites_off', input.other?.blockedMessage || 'Игрок не принимает приглашения в покер.');
   // Telegram first; a player who only has VK gets the invite from the club's VK community (owner, 2026-10-13).
   const routing = await resolvePersonalNotificationRouting(db, input.targetPlayerId);
   if (!routing.available_channels.length) throw new PokerInviteError('no_channel', 'У игрока не подключены ни Telegram, ни ВКонтакте.');
@@ -193,12 +195,12 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
 
   const id = crypto.randomUUID();
   const createdAt = new Date(now).toISOString();
-  const actionPath = `/player/poker/${encodeURIComponent(input.lobbyId)}`;
+  const actionPath = input.other?.actionPath || `/player/poker/${encodeURIComponent(input.lobbyId)}`;
   const base = appBaseUrl();
   const replyMarkup = base ? {
-    inline_keyboard: [[{ text: '🃏 Сесть за стол', web_app: { url: `${base}${actionPath}` } }]],
+    inline_keyboard: [[{ text: input.other?.buttonText || '🃏 Сесть за стол', web_app: { url: `${base}${actionPath}` } }]],
   } : null;
-  const rawText = `🃏 ${input.senderNickname} зовёт тебя сыграть в покер\n${input.lobbyTitle} · игра на клубные жетоны · вход от 200 🪙 (10 ББ), сумму выбираешь сам`;
+  const rawText = input.other?.text || `🃏 ${input.senderNickname} зовёт тебя сыграть в покер\n${input.lobbyTitle} · игра на клубные жетоны · вход от 200 🪙 (10 ББ), сумму выбираешь сам`;
 
   // Cooldown check and insert are ONE statement, so two simultaneous invites cannot both pass.
   const cutoff = new Date(now - POKER_INVITE_COOLDOWN_MS).toISOString();
@@ -219,7 +221,7 @@ export async function queuePokerInvite(db: DatabaseWrapper, input: {
   const { delivery } = await queuePersonalNotification(db, {
     notificationKey: `poker-invite:${id}`,
     playerId: input.targetPlayerId,
-    eventType: 'poker_invite',
+    eventType: input.other?.eventType || 'poker_invite',
     entityId: input.lobbyId,
     text: rawText,
     actionPath,

@@ -40,12 +40,14 @@ export default function PlayerCommunityHub({
   section,
   onOpen,
   onOpenPoker,
+  onOpenClocktower,
   onOpenProfileElo,
 }: {
   data: PlayerMeResponse;
   section: CommunitySection;
   onOpen: (section: CommunitySection) => void;
   onOpenPoker?: () => void;
+  onOpenClocktower?: () => void;
   onOpenProfileElo?: () => void;
 }) {
   // «Связи» has no address of its own, so it lives in local state over /player/club.
@@ -92,6 +94,7 @@ export default function PlayerCommunityHub({
         </div>
       ) : null}
       {onOpenPoker && <div className="player-workspace mx-auto w-full max-w-[430px] px-3 pt-4"><button type="button" data-testid="player-club-poker" onClick={onOpenPoker} className="ds-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left"><span className="text-sm font-semibold">Покерный стол<span className="mt-0.5 block text-xs font-normal text-white/55">Клубный досуг · игра на жетоны или с ботами</span></span><span aria-hidden="true" className="text-white/45">›</span></button></div>}
+      {onOpenClocktower && <div className="player-workspace mx-auto w-full max-w-[430px] px-3 pt-3"><button type="button" data-testid="player-club-clocktower" onClick={onOpenClocktower} className="ds-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left"><span className="text-sm font-semibold">Кровь на часовой башне<span className="mt-0.5 block text-xs font-normal text-white/55">Настольная игра · комнаты и приглашения, правила внутри</span></span><span aria-hidden="true" className="text-white/45">›</span></button></div>}
 
     </main>
   );

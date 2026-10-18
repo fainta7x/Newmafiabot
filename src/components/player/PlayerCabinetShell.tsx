@@ -14,6 +14,7 @@ import PlayerSettingsHub from './PlayerSettingsHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
 import PlayerPoker from './PlayerPoker.tsx';
+import PlayerClocktower from './PlayerClocktower.tsx';
 import {
   PLAYER_NAV_SECTION,
   isPlayerCommunitySection,
@@ -74,6 +75,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
   // The button is for everybody who can conduct: a judge with a mark, and an organizer (the screen holds the music too).
   const canOpenConduct = player.judge_level !== 'none' || canOpenAdmin || player.club_role === 'organizer';
 
+  if (section === 'clocktower') return <PlayerClocktower initialRoomId={initialTarget} onExit={() => open('club')} onOpenRules={() => { window.location.assign('/guide?tab=clocktower'); }} onOpenRoom={(roomId) => open('clocktower', roomId)} />;
   if (section === 'poker') return <PlayerPoker initialLobbyId={initialTarget} onExit={() => open('club')} onTokenBalanceChange={setTokenBalance} />;
 
   return (
@@ -90,7 +92,7 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, canOpen
       ) : isPlayerEveningSection(section) ? (
         <PlayerEveningsHub data={currentData} section={section as PlayerEveningsSection} target={initialTarget} onOpen={(next, target) => open(next, target || null)} onOpenPoker={(tableId) => open('poker', tableId || null)} />
       ) : isPlayerCommunitySection(section) ? (
-        <PlayerCommunityHub data={currentData} section={section as CommunitySection} onOpen={(next) => open(next)} onOpenPoker={() => open('poker')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
+        <PlayerCommunityHub data={currentData} section={section as CommunitySection} onOpen={(next) => open(next)} onOpenPoker={() => open('poker')} onOpenClocktower={() => open('clocktower')} onOpenProfileElo={() => open('profile', 'tab:elo')} />
       ) : section === 'wallet' ? (
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (

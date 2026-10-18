@@ -17,7 +17,8 @@ export type PlayerRouteSection =
   | 'recaps'
   | 'career'
   | 'clubworld'
-  | 'poker';
+  | 'poker'
+  | 'clocktower';
 
 export type ParsedPlayerRoute = {
   section: PlayerRouteSection;
@@ -54,6 +55,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     career: '/player/career',
     clubworld: '/player/seasons',
     poker: target ? `/player/poker/${encodeURIComponent(target)}` : '/player/poker',
+    clocktower: target ? `/player/clocktower/${encodeURIComponent(target)}` : '/player/clocktower',
   };
   return paths[section];
 };
@@ -95,6 +97,10 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'poker', target, replayGameKey: null, canonicalPath: playerPathForSection('poker', target) };
   }
+  if (parts[1] === 'clocktower') {
+    const target = parts[2] ? safeDecode(parts[2]) : null;
+    return { section: 'clocktower', target, replayGameKey: null, canonicalPath: playerPathForSection('clocktower', target) };
+  }
   if (parts[1] === 'recaps') {
     const target = parts[2] ? safeDecode(parts[2]) : null;
     return { section: 'recaps', target, replayGameKey: null, canonicalPath: playerPathForSection('recaps', target) };
@@ -105,7 +111,7 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   if (parts[1] === 'payments') return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };
 
   const sectionBySegment: Record<string, PlayerRouteSection> = {
-    events: 'events', games: 'games', rating: 'rating', stats: 'profile', club: 'club', wallet: 'wallet', profile: 'profile', progress: 'profile', settings: 'settings', elo: 'elo', career: 'profile', seasons: 'clubworld', poker: 'poker',
+    events: 'events', games: 'games', rating: 'rating', stats: 'profile', club: 'club', wallet: 'wallet', profile: 'profile', progress: 'profile', settings: 'settings', elo: 'elo', career: 'profile', seasons: 'clubworld', poker: 'poker', clocktower: 'clocktower',
   };
   const section = sectionBySegment[parts[1] || ''] || 'home';
   return { section, target: null, replayGameKey: null, canonicalPath: playerPathForSection(section) };
@@ -132,6 +138,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'poker' && parts.length > 2) return '/player/poker';
+    if (parts[1] === 'clocktower') return parts.length > 2 ? '/player/clocktower' : '/player/club';
     if (parts[1] === 'games' && parts.length > 2) {
       const state = typeof window !== 'undefined' ? window.history.state : null;
       return typeof state?.gameReturn === 'string' && state.gameReturn.startsWith('/player') ? state.gameReturn : '/player/games';

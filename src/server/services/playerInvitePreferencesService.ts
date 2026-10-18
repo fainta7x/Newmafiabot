@@ -3,10 +3,10 @@ import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonal
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 /** What a player can switch off: invitations to each kind of evening and to the poker table (owner, 2026-10-13). */
-export const INVITE_KINDS = ['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT', 'POKER'] as const;
+export const INVITE_KINDS = ['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT', 'POKER', 'CLOCKTOWER'] as const;
 export type InviteKind = (typeof INVITE_KINDS)[number];
 export const INVITE_KIND_LABELS: Record<InviteKind, string> = {
-  NOVICE: 'Вечера для новичков', CASUAL: 'Клубные вечера', RATING: 'Рейтинговые вечера', TOURNAMENT: 'Турниры', POKER: 'Покер за столом',
+  NOVICE: 'Вечера для новичков', CASUAL: 'Клубные вечера', RATING: 'Рейтинговые вечера', TOURNAMENT: 'Турниры', POKER: 'Покер за столом', CLOCKTOWER: 'Кровь на часовой башне',
 };
 
 export type InvitePreferences = { blocked_kinds: InviteKind[]; allow_direct_contact: boolean };

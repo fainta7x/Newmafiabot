@@ -39,13 +39,26 @@ export const readOpenLiveGame = (kind: ResumeKind): string | null => {
 };
 
 let claimed = false;
+let autoRestore = false;
 /** Only one launcher reopens the game after a reload, even when two of them are mounted on the same screen. */
 export const claimOpenLiveGame = (kind: ResumeKind): string | null => {
   const id = readOpenLiveGame(kind);
   if (!id || claimed) return null;
   claimed = true;
+  // The window comes back because of a reload: the engine must pick its saved game up by itself, not ask «Восстановить».
+  autoRestore = true;
   return id;
 };
 
+/** The engine mounted by a resumed window takes its saved session without asking (read once). */
+export const consumeAutoRestore = (): boolean => {
+  const value = autoRestore;
+  autoRestore = false;
+  return value;
+};
+
+/** For tests: the reload case without a launcher. */
+export const markAutoRestore = (): void => { autoRestore = true; };
+
 /** For tests. */
-export const resetLiveGameResumeClaim = (): void => { claimed = false; };
+export const resetLiveGameResumeClaim = (): void => { claimed = false; autoRestore = false; };

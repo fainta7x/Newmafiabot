@@ -1,5 +1,9 @@
 # 2LA Noire — Current Project State
 
+## Owner request — 2026-10-18, stub for «Кровь на часовой башне» (coded, see PR)
+
+Owner asked for a joke-level stub: rules of the board game inside the app and a way to invite people; the game itself is NOT built. Done: rules/roles pages in the guide shelf «Другие игры» (`src/lib/clocktowerGuide.ts`, `/guide?tab=clocktower`), a template button in «Свои ивенты» (invite-only, 12 seats), a rules link in the player's event card. The rules text is my own-words retelling and is **not reviewed by the owner**; Russian role names are a working translation. Only the «Неприятности назревают» roles are listed.
+
 ## Owner request — 2026-10-17, announcement step before each voting (coded, see PR)
 
 Approved by the owner (answers of 2026-10-17): **before every voting and every revote** the judge sees a step «Переходим к голосованию» (revote: «…к переголосованию») with only the phrase and the order of the exposed candidates, then «Начать голосование». A zero round with one exposed candidate shows the same step («Выставлена одна кандидатура … Голосования не будет. Следующий шаг — ночь», button «К ночи»); a later day with one candidate says «Следующий шаг — голосование». Implemented through the existing `votingStage === 'setup'` (`CenterPanel.tsx` `renderVotingAnnouncement`, handlers in `LiveGameEngine.tsx`). The guided judge training keeps its old flow (its step gate expects voting at once). Not merged / deployed / verified on a phone yet.

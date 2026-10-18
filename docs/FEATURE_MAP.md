@@ -424,3 +424,4 @@ After registration/preparation, continue through the existing tournament seating
 ## Sporting role identity and UI
 
 Role metadata/types: `src/shared/gameRoles.ts`. Shared icon, card mark and inline badge: `src/components/ui/GameRole.tsx`. Compatibility adapters: `src/lib/tournamentRoleValidation.ts`, `src/lib/playerGameRoleLabels.ts`. Used by the player cabinet, physical deal, Live Game seats and OBS broadcast. Do not add another local role dictionary; see `ARCHITECTURE.md`.
+- «Кровь на часовой башне» (stub: rules + invitation template, no game): texts `src/lib/clocktowerGuide.ts`, guide shelf in `src/lib/guideCatalog.ts`, template button in `CustomEventsPanel.tsx`, rules link in `PlayerCustomEventDetail.tsx`.

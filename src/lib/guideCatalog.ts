@@ -10,6 +10,7 @@
  * Texts about the game come only from the organizer's explanations (see docs/BUSINESS_RULES.md).
  */
 import { GLOSSARY, ROLES, SCENARIO, SIMPLE_RULES, type GuideBlock } from './clubGuide.ts';
+import { CLOCKTOWER_OVERVIEW, CLOCKTOWER_ROLES, CLOCKTOWER_RULES, CLOCKTOWER_TITLE } from './clocktowerGuide.ts';
 
 /** «1 часть», «3 части», «6 частей». */
 export const pluralRu = (count: number, one: string, few: string, many: string) => {
@@ -20,7 +21,7 @@ export const pluralRu = (count: number, one: string, few: string, many: string) 
   return many;
 };
 
-export type GuideShelfId = 'reference' | 'articles' | 'trainers';
+export type GuideShelfId = 'reference' | 'articles' | 'trainers' | 'games';
 export type GuideIcon = 'moon' | 'users' | 'scale' | 'book' | 'vote' | 'article' | 'list';
 export type GuideView = 'evening' | 'roles' | 'rules' | 'glossary' | 'quiz' | 'split' | 'split-three' | 'judge-conduct' | 'article';
 
@@ -55,6 +56,7 @@ export type GuideShelf = {
 export const GUIDE_SHELVES: GuideShelf[] = [
   { id: 'trainers', title: 'Тренажёры', summary: 'Попил, судейство, игровая логика', lead: 'Игровая логика, попил и судейство: практика с разбором ошибок. У попилов отдельные экзамены.', icon: 'vote', layout: 'rows' },
   { id: 'reference', title: 'Справочник', summary: 'Вечер, роли, правила, словарь', lead: 'Роли, правила и слова клуба — когда нужно быстро найти ответ.', icon: 'book', layout: 'tiles' },
+  { id: 'games', title: 'Другие игры', summary: CLOCKTOWER_TITLE, lead: 'Настольные игры не про мафию клуба: правила и приглашения на вечера.', icon: 'book', layout: 'rows' },
   { id: 'articles', title: 'Статьи', summary: 'Попил в первый день, договорка', lead: 'Разборы игровых ситуаций.', icon: 'article', layout: 'rows' },
 ];
 
@@ -70,6 +72,9 @@ export const GUIDE_ENTRIES: GuideEntry[] = [
   { id: 'glossary', shelf: 'reference', view: 'glossary', icon: 'book', title: 'Словарь', detail: `${GLOSSARY.length} слов клуба` },
   { id: 'split-article', shelf: 'articles', view: 'article', icon: 'article', title: 'Попил в первый день', detail: 'Зачем город никого не заголосовывает в первый день', blocks: blocksOfGroup('Попил в первый день') },
   { id: 'agreement', shelf: 'articles', view: 'article', icon: 'article', title: 'Договорка', detail: 'Как мафия решает, кого убивать', blocks: blocksTitled('Договорка — как мафия решает, кого убивать') },
+  { id: 'clocktower', shelf: 'games', view: 'article', icon: 'book', group: CLOCKTOWER_TITLE, title: 'Что это за игра', detail: 'Коротко о «Крови на часовой башне» и как мы играем', blocks: CLOCKTOWER_OVERVIEW },
+  { id: 'clocktower-rules', shelf: 'games', view: 'article', icon: 'scale', group: CLOCKTOWER_TITLE, title: 'Правила: ночь, день, казнь', detail: 'Состав стола, выдвижения, голосование, победа', blocks: CLOCKTOWER_RULES },
+  { id: 'clocktower-roles', shelf: 'games', view: 'article', icon: 'users', group: CLOCKTOWER_TITLE, title: 'Роли и сценарии', detail: 'Горожане, изгои, приспешники и Демон', blocks: CLOCKTOWER_ROLES },
   { id: 'split', shelf: 'trainers', view: 'split', icon: 'vote', group: 'Голосование и попил', title: 'Попил в нулевом круге', detail: 'За столом 10 человек · уровни и экзамены' },
   { id: 'split-three', shelf: 'trainers', view: 'split-three', icon: 'vote', group: 'Голосование и попил', title: 'Попил на троих', detail: 'За столом 9 человек · пять уровней и экзамены' },
   { id: 'judge-conduct', shelf: 'trainers', view: 'judge-conduct', icon: 'scale', group: 'Ведение игр', title: 'Тренажёр судьи', detail: 'Рассадка, роли и задания на настоящем Live Game' },

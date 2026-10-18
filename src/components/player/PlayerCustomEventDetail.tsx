@@ -1,3 +1,4 @@
+import { CLOCKTOWER_GUIDE_PATH, CLOCKTOWER_LINK_MARK } from '../../lib/clocktowerGuide.ts';
 import { useEffect, useState } from 'react';
 import VenueAddress from '../public/VenueAddress.tsx';
 import { getJson } from '../../lib/requestJson.ts';
@@ -35,6 +36,7 @@ export default function PlayerCustomEventDetail({ eventId, onBack, onSaved }: { 
     {event ? <>
       {event.cover_image_data_url ? <img src={event.cover_image_data_url} alt="" className="mt-3 aspect-[16/9] w-full rounded-[24px] object-cover" /> : null}
       <header className="mt-3 px-1"><div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-violet-200/60">Ивент</div><h1 className="mt-1 text-2xl font-semibold">{event.title}</h1><p className="mt-2 text-sm text-white/55">{date(event.starts_at)} — {date(event.ends_at)}</p>{event.venue ? <VenueAddress venue={event.venue} className="mt-1 block text-sm text-white/55" /> : null}</header>
+      {event.description?.includes(CLOCKTOWER_LINK_MARK) ? <a href={CLOCKTOWER_GUIDE_PATH} data-testid="custom-event-rules-link" className="mt-3 flex min-h-12 items-center justify-between rounded-2xl border border-violet-200/20 bg-violet-300/[0.08] px-3.5 text-sm font-semibold text-violet-100">Правила игры «Кровь на часовой башне»<span aria-hidden="true">→</span></a> : null}
       {event.description ? <section className="mt-3 whitespace-pre-wrap rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5 text-sm leading-6 text-white/75">{event.description}</section> : null}
       <section className="mt-3 rounded-[20px] border border-white/[0.07] bg-white/[0.035] p-3.5 text-sm">
         <div className="flex justify-between gap-3"><span className="text-white/45">Участники</span><b>{event.participant_count}/{event.participant_limit}</b></div>

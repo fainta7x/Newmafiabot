@@ -12,10 +12,9 @@ describe('live player action availability', () => {
     expect(toolbarSource).toContain('aria-label="Действия игрока"');
     expect(toolbarSource).toContain('if (slot) onSelectPlayer(slot);');
     expect(source).toContain('onSelectPlayer={setActionPlayerSlot}');
-    expect(source).toContain('onOpenPlayerActions: setActionPlayerSlot');
-    expect(centerSource).toContain('data-testid="live-player-actions-center-selector"');
-    expect(centerSource).toContain("const showPlayerActions = phase !== 'setup' && Boolean(onOpenPlayerActions);");
-    expect(centerSource).toContain('onOpenPlayerActions?.(slot)');
+    // The header selector is gone (owner, 2026-10-18): a tap, a long press on the card and the keys open the same sheet.
+    expect(centerSource).not.toContain('live-player-actions-center-selector');
+    expect(source).toContain('onOpenPlayerActions={setActionPlayerSlot}');
   });
 
   it('does not phase-gate the player action sheet to ordinary day speeches', () => {

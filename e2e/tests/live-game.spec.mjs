@@ -407,9 +407,7 @@ test.describe('Live Game browser stabilization', () => {
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
     await expect(centerPanel(page).getByText(/Речи перед переголосованием · 30 сек/)).toBeVisible();
     await expectHudLocked(page, 'revote speeches');
-    const centerPlayerActions = centerPanel(page).getByTestId('live-player-actions-center-selector');
-    await expect(centerPlayerActions).toBeVisible();
-    await centerPlayerActions.selectOption('4');
+    await seatCard(page, 4).click();
     const revotePlayerAction = page.locator('.live-player-action-sheet');
     await expect(revotePlayerAction).toBeVisible();
     await expect(revotePlayerAction.getByRole('button', { name: '+ Обычный фол', exact: true })).toBeVisible();
@@ -429,7 +427,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(hud.locator('.live-judge-table-voter')).toHaveCount(0);
     await expect(hud.getByText(/Нажимайте карточки игроков/)).toBeVisible();
     await expectHudLocked(page, 'raise-leave decision');
-    await hud.getByTestId('live-player-actions-center-selector').selectOption('7');
+    await seatCard(page, 7).click({ delay: 700 }); // a tap raises a hand here: a long press opens the player sheet
     const tableDecisionPlayerAction = page.locator('.live-player-action-sheet');
     await expect(tableDecisionPlayerAction).toBeVisible();
     await expect(tableDecisionPlayerAction.getByRole('button', { name: 'Малый тех', exact: true })).toBeVisible();
@@ -451,7 +449,6 @@ test.describe('Live Game browser stabilization', () => {
     await expect(centerPanel(page).getByText('Последняя речь #3', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
-    await expect(centerPanel(page).getByTestId('live-player-actions-center-selector')).toHaveCount(0);
   });
 
   test('restores a saved Day 1 browser session into a usable next action', async ({ page }, testInfo) => {

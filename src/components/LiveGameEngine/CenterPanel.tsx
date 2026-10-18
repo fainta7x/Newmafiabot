@@ -110,7 +110,6 @@ interface CenterPanelProps {
   setBothLeaveVotes?: React.Dispatch<React.SetStateAction<number[]>>;
   bestMoveGuesses?: number[];
   getSeatColor?: (player: ActivePlayerState) => string;
-  onOpenPlayerActions?: (slot: number) => void;
   /** «+30 с за 2 фола» during a speech — also in the centre panel, because the judge toolbar is hidden by the engine CSS. */
   speechExtensionAvailability?: { allowed: boolean; reason: string };
   onSpeechExtension?: () => void;
@@ -195,7 +194,6 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
     onBackToDaySpeeches,
-    onOpenPlayerActions,
   } = props;
 
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
@@ -903,9 +901,6 @@ export default function CenterPanel(props: CenterPanelProps) {
   const showFooterAction = phase !== 'day_voting' || votingStage === 'resolved';
   const showFooterSummary = phase !== 'day_voting';
   const showFooter = showFooterSummary || (showFooterAction && Boolean(prevStep || nextStep));
-  // Fouls and the other player actions have to be reachable in every phase of a started game (at night the cards are
-  // busy with the shot and the checks, so the selector is the way in).
-  const showPlayerActions = phase !== 'setup' && Boolean(onOpenPlayerActions);
   const footerSingle = !(prevStep && nextStep);
 
   return (
@@ -914,26 +909,6 @@ export default function CenterPanel(props: CenterPanelProps) {
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
-            {showPlayerActions && (
-              <select
-                data-testid="live-player-actions-center-selector"
-                aria-label="Быстрые действия игрока"
-                title="Действия игрока"
-                value=""
-                onChange={(event) => {
-                  const slot = Number(event.target.value);
-                  if (slot) onOpenPlayerActions?.(slot);
-                }}
-                className="live-judge-hud__player-actions"
-              >
-                <option value="">Игрок</option>
-                {activePlayers.map((player) => (
-                  <option key={player.slot_num} value={player.slot_num}>
-                    #{player.slot_num} {player.nickname || `Игрок ${player.slot_num}`}
-                  </option>
-                ))}
-              </select>
-            )}
             {phase !== 'setup' && (autoCountdown !== null ? (
               <button type="button" data-testid="live-auto-stop" onClick={stopAutoAdvance} className="live-judge-hud__header-button live-judge-hud__auto" data-active="true" aria-label="Отменить автоматический переход">
                 <span>Стоп <span data-testid="live-auto-countdown">{autoCountdown}</span></span>

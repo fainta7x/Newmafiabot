@@ -24,17 +24,6 @@
   overflow: hidden;
 }
 
-.live-judge-hud__player-actions {
-  width: 72px;
-  min-height: 28px;
-  padding: 0 18px 0 7px;
-  border: 1px solid var(--live-stage-line);
-  border-radius: 8px;
-  background: var(--ds-inset);
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 8px;
-  font-weight: 700;
-}
 
 .live-judge-voting-order {
   display: grid;
@@ -147,13 +136,6 @@
     font-size: 8px;
   }
 
-  .live-judge-hud__player-actions {
-    width: 54px;
-    min-height: 24px;
-    padding-left: 5px;
-    padding-right: 14px;
-    border-radius: 7px;
-  }
 
   /* Collecting votes has to live inside one fixed table cell. Compress only
      this state and reserve the last row for the phase CTA instead of making

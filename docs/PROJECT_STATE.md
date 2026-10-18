@@ -10,7 +10,7 @@ Owner answers 2026-10-17: auto mode covers **every phase that has a timer** (not
 
 ## Owner report — 2026-10-18, protocol window and «Вскрытие» (coded, see PR)
 
-Protocol window: root cause is full device storage (replay frames of #974 never removed) — fixed in code (`liveStorageBudget.ts`), **not verified on a real evening**. «Вскрытие»: the record is now in the player panel (tap / long press, one tap per announced check; any player incl. the black side), the toolbar button that nobody could see stays hidden; ЛХ window renamed «Лучший ход». Open from the owner: whether the extra header selector «Игрок» (people icon) should go now that tap, long press and keys open the same panel; the broadcast card abbreviations «кр» / «ч» for announced checks.
+Protocol window: root cause is full device storage (replay frames of #974 never removed) — fixed in code (`liveStorageBudget.ts`), **not verified on a real evening**. «Вскрытие»: the record is now in the player panel (tap / long press, one tap per announced check; any player incl. the black side), the toolbar button that nobody could see stays hidden; ЛХ window renamed «Лучший ход». The header selector «Игрок» (people icon) was removed at the owner's word (never used); the broadcast abbreviations «кр» / «ч» for announced checks stay (owner, compactness). Hidden-control audit: see `AUDIT_LOG.md` (open: the unreachable player-list mode «Список»).
 
 ## Owner request — 2026-10-17, desktop keyboard control (coded, see PR)
 

@@ -202,9 +202,9 @@ const requireFoul = (s: PersistedLiveSession, slot: number, amount: number, reas
   const count = regularFouls(s, slot);
   if (count >= amount) return null;
   const selector = '[data-testid="live-player-add-regular-foul"][data-seat="' + slot + '"]';
-  const allowed = [seatTarget(slot), '[data-testid="live-player-actions-center-selector"]', selector];
+  const allowed = [seatTarget(slot), selector];
   return { ...gate('Обычный фол игроку #' + slot,
-    reason + ' Открой действия игрока #' + slot + ' и нажми «+ Обычный фол». Сейчас ' + count + ' из ' + amount + '.',
+    reason + ' Нажми на игрока #' + slot + ' и выбери «+ Обычный фол». Сейчас ' + count + ' из ' + amount + '.',
     allowed, 'foul', [seatTarget(slot), selector]), foulSeat: slot };
 };
 

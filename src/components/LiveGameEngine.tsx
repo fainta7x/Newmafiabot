@@ -1678,7 +1678,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleConfirmAutoNoElimination,
       handleConfirmTableDecision,
       handleStartNextSpeaker,
-      onOpenPlayerActions: setActionPlayerSlot,
     };
   }
 

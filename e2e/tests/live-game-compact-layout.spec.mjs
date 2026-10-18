@@ -130,3 +130,26 @@ test('Tournament Live Game mounts the killed-player protocol overlay on desktop'
 
   await page.screenshot({ path: info.outputPath('tournament-live-game-death-protocol-1440x900.png'), fullPage: false });
 });
+
+// Nothing a judge needs during a voting may sit under another element: the counters, «Отменить последний голос» and the
+// action bar all have to be reachable by a real click on a laptop screen (owner, 2026-10-18).
+for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900 }]) {
+  test(`Live Game voting controls are not covered at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/e2e/live-game.html?mode=audit');
+    await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+    await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await page.getByRole('button', { name: 'Начать голосование', exact: true }).click();
+    await expect(page.getByText(/Кто против/)).toBeVisible();
+    for (const label of ['Отменить последний голос', 'Следующий →']) {
+      const target = page.getByRole('button', { name: label, exact: true });
+      await expect(target).toBeVisible();
+      const reachable = await target.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return top === element || element.contains(top);
+      });
+      expect(reachable, `${label} must not be covered`).toBe(true);
+    }
+  });
+}

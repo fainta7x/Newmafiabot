@@ -165,7 +165,7 @@ for (const width of [1366, 1600]) {
     // The +30 action is not available in the zero circle.
     await page.getByRole('button', { name: /^Речь #4$/ }).click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Обычный фол игроку #3/);
-    await page.getByTestId('live-player-actions-center-selector').selectOption('3');
+    await page.locator('.live-seat-card[data-seat="3"]').click();
     await page.locator('[data-testid="live-player-add-regular-foul"][data-seat="3"]').click();
     await expect(page.getByTestId('judge-training-task-trigger')).toHaveAttribute('aria-label', /Заверши речь #4/);
     await expect(page.getByTestId('live-hud-speech-extension')).toHaveCount(0);

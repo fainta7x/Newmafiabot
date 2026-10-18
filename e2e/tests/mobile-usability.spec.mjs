@@ -57,7 +57,7 @@ for (const width of [360, 390]) {
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #4');
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Быстрые действия игрока' }).selectOption({ label: '#2 Игрок 2' });
+    await page.locator('.live-seat-card[data-seat="2"]').click();
     await page.getByRole('button', { name: '+ Обычный фол', exact: true }).click();
     await expect(page.getByLabel('Фолы 1, малые техфолы 0, большие техфолы 0')).toBeVisible();
     const next = page.getByRole('button', { name: 'Следующий игрок', exact: true });

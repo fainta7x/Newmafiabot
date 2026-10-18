@@ -5,7 +5,7 @@ import { getTrainingPrompt, getJudgeTrainingGate, type TrainingPrompt } from '..
 
 const TOUR: TrainingPrompt[] = [
   { title: 'Центральная панель', detail: 'Здесь показаны этап игры, таймер и кнопки перехода. Ведущий начинает и завершает речи именно здесь.', focus: 'live-judge-hud' },
-  { title: 'Действия игрока', detail: 'Чтобы выставить кандидата, открой действия нужного игрока на столе или в панели судейства.', focus: 'live-player-actions-center-selector' },
+  { title: 'Действия игрока', detail: 'Чтобы выставить кандидата или поставить фол, нажми на нужного игрока на столе — откроются его действия.', focus: 'live-judge-hud' },
   { title: 'Назад и исправления', detail: 'Ошибся с действием? Используй кнопку «Назад» в интерфейсе. Теперь потренируемся на обычной партии.', focus: 'live-judge-hud' },
 ];
 

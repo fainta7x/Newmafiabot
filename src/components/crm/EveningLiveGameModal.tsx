@@ -502,15 +502,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     // Best move is a real modal outside the seat grid: its training variant
     // enforces the exact LH order and owns its own Confirm button.
     if (source.closest('[data-testid="live-best-move-sheet"]')) return;
-    // Only the nominated trainee may receive a lesson foul, including through
-    // the real HUD player selector. Unrelated discipline/game actions stay gated.
-    if (gate.foulSeat && source instanceof HTMLSelectElement &&
-        source.matches('[data-testid="live-player-actions-center-selector"]') &&
-        Number(source.value) !== gate.foulSeat) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
+    // Only the nominated trainee may receive a lesson foul; unrelated discipline/game actions stay gated.
     if (gate.foulSeat && source.closest('.live-seat-card button')) {
       event.preventDefault();
       event.stopPropagation();

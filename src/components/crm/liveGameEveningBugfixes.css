@@ -24,17 +24,6 @@
   overflow: hidden;
 }
 
-.live-judge-hud__player-actions {
-  width: 72px;
-  min-height: 28px;
-  padding: 0 18px 0 7px;
-  border: 1px solid var(--live-stage-line);
-  border-radius: 8px;
-  background: var(--ds-inset);
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 8px;
-  font-weight: 700;
-}
 
 .live-judge-voting-order {
   display: grid;
@@ -147,13 +136,6 @@
     font-size: 8px;
   }
 
-  .live-judge-hud__player-actions {
-    width: 54px;
-    min-height: 24px;
-    padding-left: 5px;
-    padding-right: 14px;
-    border-radius: 7px;
-  }
 
   /* Collecting votes has to live inside one fixed table cell. Compress only
      this state and reserve the last row for the phase CTA instead of making
@@ -498,4 +480,14 @@ html body .evening-live-engine-shell .live-judge-hud__auto span {
   border-color: rgba(242, 183, 92, 0.7);
   background: rgba(242, 183, 92, 0.18);
   color: #ffdf8f;
+}
+
+/* Desktop voting: the centre panel is wide but short, so the stacked order label and the hint pushed the counters under the
+   sticky «Назад / Попил / Следующий» bar and covered «Отменить последний голос». The order chips keep their own caption
+   «Очередь»; the hint is obvious on a table. */
+@media (min-width: 768px) {
+  .evening-live-engine-shell .live-judge-voting-order__label,
+  .evening-live-engine-shell .live-judge-hud__stack--voting-scroll > .live-judge-hud__hint {
+    display: none !important;
+  }
 }

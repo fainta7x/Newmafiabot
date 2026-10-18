@@ -169,6 +169,10 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 
 - The zero round happens **after the agreement** with **10 alive players**.
 
+### Keyboard control on a desktop (owner, 2026-10-17)
+
+The judge may run the Live Game from the keyboard: a digit picks the seat (0 is the tenth), one key of either hand gives a foul, technical foul, exposure or takes a foul back, arrows move the highlight, Enter is the main step. The keyboard only calls the same actions as the buttons, so every game rule (fouls, removal confirmation, exposure limits, voting) stays in the engine. Removal and PPK have no quick key: they stay in the player panel with their confirmation. Keys are off in the guided training, in input fields and while a window (player panel, confirmation, best move, death protocol) is open.
+
 ### Auto mode (owner, 2026-10-17)
 
 An optional switch «Авто» in the Live Game centre panel (off by default, remembered on the device). When on, after a **timer** runs out the app presses the phase's next step by itself after a 3-second countdown that can be cancelled with «Стоп»: end of a speech and the start of the next one, revote speeches, last speeches, zero-night timers. It never decides for the judge: the night music steps, the death protocol, best move, the voting announcement and every voting (which has no timer) stay manual.

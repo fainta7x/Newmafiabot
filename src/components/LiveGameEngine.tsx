@@ -1,3 +1,4 @@
+import { consumeAutoRestore } from "../lib/liveGameResume.ts";
 import { useEffect, useRef, useState } from "react";
 import { GameSlot } from "../types.js";
 import {
@@ -176,6 +177,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const [historyStack, setHistoryStack] = useState<LiveSnapshot[]>([]);
   const [restorableSession, setRestorableSession] = useState<PersistedLiveSession | null>(null);
+  // After a page reload the resumed game window picks its saved game up by itself (liveGameResume).
+  const autoRestoreRef = useRef(false);
+  useEffect(() => { if (consumeAutoRestore()) autoRestoreRef.current = true; }, []);
   // The roles switch lives in the game window header (the owner of `rolesHidden`); without one the roles stay hidden.
   const rolesAreVisible = rolesHidden === undefined ? false : !rolesHidden;
 
@@ -401,6 +405,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (!reveals.some((item) => item.seat === seat)) handleAddReveal(seat);
     setActionPlayerSlot(seat);
   };
+
+  useEffect(() => {
+    if (restorableSession && autoRestoreRef.current) {
+      autoRestoreRef.current = false;
+      handleRestoreSession();
+    }
+  }, [restorableSession]);
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
